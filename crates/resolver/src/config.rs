@@ -288,69 +288,6 @@ impl Default for ResolverConfig {
     }
 }
 
-/// Configuration for the NameServer
-#[derive(Clone, Debug)]
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(deny_unknown_fields)
-)]
-pub struct NameServerConfig {
-    /// The address which the DNS NameServer is registered at.
-    pub socket_addr: SocketAddr,
-    /// The protocol to use when communicating with the NameServer.
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub protocol: Protocol,
-    /// SPKI name, only relevant for TLS connections
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub tls_dns_name: Option<String>,
-    /// The HTTP endpoint where the DNS NameServer provides service. Only
-    /// relevant to DNS-over-HTTPS. Defaults to `/dns-query` if unspecified.
-    pub http_endpoint: Option<String>,
-    /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
-    ///
-    /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
-    /// with an empty answers set is received, the
-    /// query will not be retried against other configured name servers if
-    /// the response has the Authoritative flag set.
-    ///
-    /// (On a response with any other error
-    /// response code, the query will still be retried regardless of this
-    /// configuration setting.)
-    ///
-    /// Defaults to false.
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub trust_negative_responses: bool,
-    /// The client address (IP and port) to use for connecting to the server.
-    pub bind_addr: Option<SocketAddr>,
-}
-
-impl NameServerConfig {
-    /// Constructs a Nameserver configuration with some basic defaults
-    pub fn new(socket_addr: SocketAddr, protocol: Protocol) -> Self {
-        Self {
-            socket_addr,
-            protocol,
-            trust_negative_responses: true,
-            tls_dns_name: None,
-            http_endpoint: None,
-            bind_addr: None,
-        }
-    }
-}
-
-impl fmt::Display for NameServerConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:", self.protocol)?;
-
-        if let Some(tls_dns_name) = &self.tls_dns_name {
-            write!(f, "{tls_dns_name}@")?;
-        }
-
-        write!(f, "{}", self.socket_addr)
-    }
-}
-
 /// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug)]
 pub struct NameServerConfigGroup {
@@ -693,6 +630,69 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
 impl Default for NameServerConfigGroup {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Configuration for the NameServer
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(deny_unknown_fields)
+)]
+pub struct NameServerConfig {
+    /// The address which the DNS NameServer is registered at.
+    pub socket_addr: SocketAddr,
+    /// The protocol to use when communicating with the NameServer.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub protocol: Protocol,
+    /// SPKI name, only relevant for TLS connections
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tls_dns_name: Option<String>,
+    /// The HTTP endpoint where the DNS NameServer provides service. Only
+    /// relevant to DNS-over-HTTPS. Defaults to `/dns-query` if unspecified.
+    pub http_endpoint: Option<String>,
+    /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
+    ///
+    /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
+    /// with an empty answers set is received, the
+    /// query will not be retried against other configured name servers if
+    /// the response has the Authoritative flag set.
+    ///
+    /// (On a response with any other error
+    /// response code, the query will still be retried regardless of this
+    /// configuration setting.)
+    ///
+    /// Defaults to false.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub trust_negative_responses: bool,
+    /// The client address (IP and port) to use for connecting to the server.
+    pub bind_addr: Option<SocketAddr>,
+}
+
+impl NameServerConfig {
+    /// Constructs a Nameserver configuration with some basic defaults
+    pub fn new(socket_addr: SocketAddr, protocol: Protocol) -> Self {
+        Self {
+            socket_addr,
+            protocol,
+            trust_negative_responses: true,
+            tls_dns_name: None,
+            http_endpoint: None,
+            bind_addr: None,
+        }
+    }
+}
+
+impl fmt::Display for NameServerConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:", self.protocol)?;
+
+        if let Some(tls_dns_name) = &self.tls_dns_name {
+            write!(f, "{tls_dns_name}@")?;
+        }
+
+        write!(f, "{}", self.socket_addr)
     }
 }
 
