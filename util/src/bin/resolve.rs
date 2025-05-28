@@ -328,7 +328,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let name_servers = config
         .name_servers()
         .iter()
-        .map(|ns| format!("{ns}"))
+        .map(|ns| format!("{ns:#?}"))
         .collect::<Vec<String>>()
         .join(", ");
 

@@ -9,7 +9,6 @@
 #![allow(clippy::use_self)]
 
 use std::collections::HashSet;
-use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
@@ -651,18 +650,6 @@ impl NameServerConfig {
             http_endpoint: None,
             bind_addr: None,
         }
-    }
-}
-
-impl fmt::Display for NameServerConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:", self.protocol)?;
-
-        if let Some(tls_dns_name) = &self.tls_dns_name {
-            write!(f, "{tls_dns_name}@")?;
-        }
-
-        write!(f, "{}", self.socket_addr)
     }
 }
 
