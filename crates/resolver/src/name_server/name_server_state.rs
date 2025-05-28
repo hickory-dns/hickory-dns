@@ -17,40 +17,6 @@ pub(crate) struct NameServerState {
     remote_edns: Mutex<Arc<Option<Edns>>>,
 }
 
-/// State of a connection with a remote NameServer.
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-#[repr(u8)]
-enum NameServerStateInner {
-    /// For some reason the connection failed. For UDP this would generally be a timeout
-    ///  for TCP this could be either Connection could never be established, or it
-    ///  failed at some point after. The Failed state should *not* be entered due to an
-    ///  error contained in a Message received from the server. In All cases to reestablish
-    ///  a new connection will need to be created.
-    Failed = 0,
-    /// Initial state, if Edns is not none, then Edns will be requested
-    Init = 1,
-    /// There has been successful communication with the remote.
-    ///  if no Edns is associated, then the remote does not support Edns
-    Established = 2,
-}
-
-impl From<NameServerStateInner> for u8 {
-    /// used for ordering purposes. The highest priority is placed on open connections
-    fn from(val: NameServerStateInner) -> Self {
-        val as Self
-    }
-}
-
-impl From<u8> for NameServerStateInner {
-    fn from(val: u8) -> Self {
-        match val {
-            2 => Self::Established,
-            1 => Self::Init,
-            _ => Self::Failed,
-        }
-    }
-}
-
 impl NameServerState {
     fn store(&self, conn_state: NameServerStateInner) {
         self.conn_state
@@ -109,5 +75,39 @@ impl NameServerState {
     /// True if this is in the Failed state
     pub(crate) fn is_failed(&self) -> bool {
         NameServerStateInner::Failed == self.load()
+    }
+}
+
+/// State of a connection with a remote NameServer.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u8)]
+enum NameServerStateInner {
+    /// For some reason the connection failed. For UDP this would generally be a timeout
+    ///  for TCP this could be either Connection could never be established, or it
+    ///  failed at some point after. The Failed state should *not* be entered due to an
+    ///  error contained in a Message received from the server. In All cases to reestablish
+    ///  a new connection will need to be created.
+    Failed = 0,
+    /// Initial state, if Edns is not none, then Edns will be requested
+    Init = 1,
+    /// There has been successful communication with the remote.
+    ///  if no Edns is associated, then the remote does not support Edns
+    Established = 2,
+}
+
+impl From<NameServerStateInner> for u8 {
+    /// used for ordering purposes. The highest priority is placed on open connections
+    fn from(val: NameServerStateInner) -> Self {
+        val as Self
+    }
+}
+
+impl From<u8> for NameServerStateInner {
+    fn from(val: u8) -> Self {
+        match val {
+            2 => Self::Established,
+            1 => Self::Init,
+            _ => Self::Failed,
+        }
     }
 }
