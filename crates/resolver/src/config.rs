@@ -357,26 +357,6 @@ pub struct NameServerConfigGroup {
     servers: Vec<NameServerConfig>,
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for NameServerConfigGroup {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.servers.serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for NameServerConfigGroup {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Vec::deserialize(deserializer).map(|servers| Self { servers })
-    }
-}
-
 impl NameServerConfigGroup {
     /// Creates a new `NameServerConfigGroup` with a default size of 2
     pub fn new() -> Self {
@@ -671,9 +651,23 @@ impl NameServerConfigGroup {
     }
 }
 
-impl Default for NameServerConfigGroup {
-    fn default() -> Self {
-        Self::new()
+#[cfg(feature = "serde")]
+impl Serialize for NameServerConfigGroup {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.servers.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for NameServerConfigGroup {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Vec::deserialize(deserializer).map(|servers| Self { servers })
     }
 }
 
@@ -693,6 +687,12 @@ impl DerefMut for NameServerConfigGroup {
 impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
     fn from(servers: Vec<NameServerConfig>) -> Self {
         Self { servers }
+    }
+}
+
+impl Default for NameServerConfigGroup {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
