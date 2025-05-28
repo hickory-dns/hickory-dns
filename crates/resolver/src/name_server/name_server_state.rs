@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::sync::Arc;
-use std::sync::atomic::{self, AtomicU8};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::proto::op::Edns;
 use futures_util::lock::Mutex;
@@ -18,12 +18,11 @@ pub(crate) struct NameServerState {
 
 impl NameServerState {
     fn store(&self, conn_state: ConnectionState) {
-        self.conn_state
-            .store(conn_state.into(), atomic::Ordering::Release);
+        self.conn_state.store(conn_state.into(), Ordering::Release);
     }
 
     fn load(&self) -> ConnectionState {
-        ConnectionState::from(self.conn_state.load(atomic::Ordering::Acquire))
+        ConnectionState::from(self.conn_state.load(Ordering::Acquire))
     }
 
     /// Set at the new Init state
