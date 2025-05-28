@@ -355,25 +355,6 @@ pub enum Protocol {
     H3,
 }
 
-impl fmt::Display for Protocol {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let protocol = match self {
-            Self::Udp => "udp",
-            Self::Tcp => "tcp",
-            #[cfg(feature = "__tls")]
-            Self::Tls => "tls",
-            #[cfg(feature = "__https")]
-            Self::Https => "https",
-            #[cfg(feature = "__quic")]
-            Self::Quic => "quic",
-            #[cfg(feature = "__h3")]
-            Self::H3 => "h3",
-        };
-
-        f.write_str(protocol)
-    }
-}
-
 impl Protocol {
     /// Returns true if this is a datagram oriented protocol, e.g. UDP
     pub fn is_datagram(self) -> bool {
@@ -399,6 +380,23 @@ impl Protocol {
             #[cfg(feature = "__h3")]
             Self::H3 => true,
         }
+    }
+}
+
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Udp => "udp",
+            Self::Tcp => "tcp",
+            #[cfg(feature = "__tls")]
+            Self::Tls => "tls",
+            #[cfg(feature = "__https")]
+            Self::Https => "https",
+            #[cfg(feature = "__quic")]
+            Self::Quic => "quic",
+            #[cfg(feature = "__h3")]
+            Self::H3 => "h3",
+        })
     }
 }
 
