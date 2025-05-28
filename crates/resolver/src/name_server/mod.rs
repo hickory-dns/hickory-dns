@@ -11,13 +11,11 @@ mod connection_provider;
 #[allow(clippy::module_inception)]
 mod name_server;
 mod name_server_pool;
-mod name_server_state;
 mod name_server_stats;
 
 pub use self::connection_provider::{ConnectionProvider, GenericConnection, GenericConnector};
 pub use self::name_server::{GenericNameServer, NameServer};
 pub use self::name_server_pool::{GenericNameServerPool, NameServerPool};
-use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
 
 #[cfg(feature = "tokio")]
