@@ -7,7 +7,7 @@
 
 #![allow(clippy::print_stdout)] // this is a test module
 
-use alloc::{borrow::ToOwned, string::ToString, sync::Arc, vec::Vec};
+use alloc::{borrow::ToOwned, sync::Arc, vec::Vec};
 use core::str::FromStr;
 use std::{env, net::SocketAddr, path::Path, println};
 
@@ -58,8 +58,6 @@ async fn server_responder(mut server: QuicServer) {
 async fn test_quic_stream() {
     subscribe();
 
-    let dns_name = "ns.example.com";
-
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     println!("using server src path: {server_path}");
 
@@ -104,7 +102,7 @@ async fn test_quic_stream() {
 
     println!("starting quic connect");
     let mut client_stream = builder
-        .build(server_addr, dns_name.to_string())
+        .build(server_addr, Arc::from("ns.example.com"))
         .await
         .expect("failed to connect");
 

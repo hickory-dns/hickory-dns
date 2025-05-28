@@ -55,7 +55,7 @@ fn test_example_quic_toml_startup() {
         let mut quic_builder = QuicClientStream::builder();
         quic_builder.crypto_config(client_config);
 
-        let mp = quic_builder.build(addr, "ns.example.com".to_string());
+        let mp = quic_builder.build(addr, Arc::from("ns.example.com"));
         let client = Client::connect(mp);
 
         // ipv4 should succeed
