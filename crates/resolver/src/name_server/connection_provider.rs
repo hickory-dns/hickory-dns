@@ -244,7 +244,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let timeout = options.timeout;
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
-                let Ok(server_name) = ServerName::try_from(server_name.as_str()) else {
+                let Ok(server_name) = ServerName::try_from(&**server_name) else {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         format!("invalid server name: {server_name}"),
@@ -270,7 +270,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = crate::h2::new_https_stream_with_future(
                     tcp_future,
                     socket_addr,
-                    Arc::from(server_name.as_str()),
+                    server_name.clone(),
                     path.clone(),
                     Arc::new(options.tls_config.clone()),
                 );
@@ -289,7 +289,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = crate::quic::new_quic_stream_with_future(
                     socket,
                     socket_addr,
-                    Arc::from(server_name.as_str()),
+                    server_name.clone(),
                     client_config,
                 );
                 ConnectionConnect::Quic(exchange)
@@ -307,7 +307,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = crate::h3::new_h3_stream_with_future(
                     socket,
                     socket_addr,
-                    Arc::from(server_name.as_str()),
+                    server_name.clone(),
                     path.clone(),
                     client_config,
                 );

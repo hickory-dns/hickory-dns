@@ -342,7 +342,7 @@ impl NameServerConfigGroup {
     pub fn from_ips_tls(
         ips: &[IpAddr],
         port: u16,
-        server_name: String,
+        server_name: Arc<str>,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
@@ -360,7 +360,7 @@ impl NameServerConfigGroup {
     pub fn from_ips_https(
         ips: &[IpAddr],
         port: u16,
-        server_name: String,
+        server_name: Arc<str>,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
@@ -381,7 +381,7 @@ impl NameServerConfigGroup {
     pub fn from_ips_quic(
         ips: &[IpAddr],
         port: u16,
-        server_name: String,
+        server_name: Arc<str>,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
@@ -399,7 +399,7 @@ impl NameServerConfigGroup {
     pub fn from_ips_h3(
         ips: &[IpAddr],
         port: u16,
-        server_name: String,
+        server_name: Arc<str>,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
@@ -434,7 +434,7 @@ impl NameServerConfigGroup {
     /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "__tls")]
     pub fn google_tls() -> Self {
-        Self::from_ips_tls(GOOGLE_IPS, 853, "dns.google".to_string(), true)
+        Self::from_ips_tls(GOOGLE_IPS, 853, Arc::from("dns.google"), true)
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
@@ -447,7 +447,7 @@ impl NameServerConfigGroup {
     /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "__https")]
     pub fn google_https() -> Self {
-        Self::from_ips_https(GOOGLE_IPS, 443, "dns.google".to_string(), true)
+        Self::from_ips_https(GOOGLE_IPS, 443, Arc::from("dns.google"), true)
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
@@ -460,7 +460,7 @@ impl NameServerConfigGroup {
     /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "__h3")]
     pub fn google_h3() -> Self {
-        Self::from_ips_h3(GOOGLE_IPS, 443, "dns.google".to_string(), true)
+        Self::from_ips_h3(GOOGLE_IPS, 443, Arc::from("dns.google"), true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
@@ -475,7 +475,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "__tls")]
     pub fn cloudflare_tls() -> Self {
-        Self::from_ips_tls(CLOUDFLARE_IPS, 853, "cloudflare-dns.com".to_string(), true)
+        Self::from_ips_tls(CLOUDFLARE_IPS, 853, Arc::from("cloudflare-dns.com"), true)
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
@@ -483,7 +483,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "__https")]
     pub fn cloudflare_https() -> Self {
-        Self::from_ips_https(CLOUDFLARE_IPS, 443, "cloudflare-dns.com".to_string(), true)
+        Self::from_ips_https(CLOUDFLARE_IPS, 443, Arc::from("cloudflare-dns.com"), true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
@@ -498,7 +498,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "__tls")]
     pub fn quad9_tls() -> Self {
-        Self::from_ips_tls(QUAD9_IPS, 853, "dns.quad9.net".to_string(), true)
+        Self::from_ips_tls(QUAD9_IPS, 853, Arc::from("dns.quad9.net"), true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
@@ -506,7 +506,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "__https")]
     pub fn quad9_https() -> Self {
-        Self::from_ips_https(QUAD9_IPS, 443, "dns.quad9.net".to_string(), true)
+        Self::from_ips_https(QUAD9_IPS, 443, Arc::from("dns.quad9.net"), true)
     }
 
     /// Merges this set of [`NameServerConfig`]s with the other
@@ -653,24 +653,24 @@ pub enum ProtocolConfig {
     #[cfg(feature = "__tls")]
     Tls {
         /// The server name to use in the TLS handshake.
-        server_name: String,
+        server_name: Arc<str>,
     },
     #[cfg(feature = "__https")]
     Https {
         /// The server name to use in the TLS handshake.
-        server_name: String,
+        server_name: Arc<str>,
         /// The path (or endpoint) to use for the DNS query.
         path: String,
     },
     #[cfg(feature = "__quic")]
     Quic {
         /// The server name to use in the TLS handshake.
-        server_name: String,
+        server_name: Arc<str>,
     },
     #[cfg(feature = "__h3")]
     H3 {
         /// The server name to use in the TLS handshake.
-        server_name: String,
+        server_name: Arc<str>,
         /// The path (or endpoint) to use for the DNS query.
         path: String,
     },

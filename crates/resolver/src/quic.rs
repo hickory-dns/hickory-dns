@@ -30,9 +30,9 @@ pub(crate) fn new_quic_stream_with_future(
 ))]
 mod tests {
     use std::net::IpAddr;
+    use std::sync::Arc;
 
     use hickory_proto::rustls::client_config;
-
     use test_support::subscribe;
 
     use crate::TokioResolver;
@@ -77,7 +77,7 @@ mod tests {
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x2, 0xff]),
             ],
             853,
-            String::from("unfiltered.adguard-dns.com"),
+            Arc::from("unfiltered.adguard-dns.com"),
             true,
         );
         quic_test(
