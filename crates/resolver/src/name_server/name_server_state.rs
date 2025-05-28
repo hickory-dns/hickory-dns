@@ -29,17 +29,6 @@ impl NameServerState {
     /// Set at the new Init state
     ///
     /// If send_dns is some, this will be sent on the first request when it is established
-    pub(crate) fn init(_send_edns: Option<Edns>) -> Self {
-        // TODO: need to track send_edns
-        Self {
-            conn_state: AtomicU8::new(ConnectionState::Init.into()),
-            remote_edns: Mutex::new(Arc::new(None)),
-        }
-    }
-
-    /// Set at the new Init state
-    ///
-    /// If send_dns is some, this will be sent on the first request when it is established
     pub(crate) fn reinit(&self, _send_edns: Option<Edns>) {
         // eventually do this
         // self.send_edns.lock() = send_edns;
@@ -72,6 +61,15 @@ impl NameServerState {
     /// True if this is in the Failed state
     pub(crate) fn is_failed(&self) -> bool {
         ConnectionState::Failed == self.load()
+    }
+}
+
+impl Default for NameServerState {
+    fn default() -> Self {
+        Self {
+            conn_state: AtomicU8::new(ConnectionState::Init.into()),
+            remote_edns: Mutex::new(Arc::new(None)),
+        }
     }
 }
 
