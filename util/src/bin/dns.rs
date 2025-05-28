@@ -365,7 +365,8 @@ async fn https(
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
     let (client, bg) =
-        Client::connect(https_builder.build(nameserver, dns_name, http_endpoint)).await?;
+        Client::connect(https_builder.build(nameserver, Arc::from(dns_name), http_endpoint))
+            .await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.zone, opts.command, client).await?;
