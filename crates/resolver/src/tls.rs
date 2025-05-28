@@ -11,6 +11,8 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use rustls::pki_types::ServerName;
+
 use crate::proto::BufDnsStreamHandle;
 use crate::proto::ProtoError;
 use crate::proto::rustls::TlsClientStream;
@@ -21,7 +23,7 @@ use crate::proto::tcp::DnsTcpStream;
 pub(crate) fn new_tls_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
-    dns_name: String,
+    server_name: ServerName<'static>,
     mut tls_config: rustls::ClientConfig,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
@@ -35,7 +37,7 @@ where
     tls_config.enable_sni = false;
 
     let (stream, handle) =
-        tls_client_connect_with_future(future, socket_addr, dns_name, Arc::new(tls_config));
+        tls_client_connect_with_future(future, socket_addr, server_name, Arc::new(tls_config));
     (Box::pin(stream), handle)
 }
 

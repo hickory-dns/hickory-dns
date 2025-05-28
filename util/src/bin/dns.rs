@@ -316,7 +316,9 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     }
 
     let config = Arc::new(config);
-    let (stream, sender) = tls_client_connect(nameserver, dns_name, config, provider);
+    let server_name =
+        ServerName::try_from(dns_name).expect("failed to parse tls_dns_name as ServerName");
+    let (stream, sender) = tls_client_connect(nameserver, server_name, config, provider);
     let (client, bg) = Client::new(stream, sender, None).await?;
 
     let handle = tokio::spawn(bg);

@@ -24,6 +24,8 @@ use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "__tls")]
+use rustls::pki_types::ServerName;
+#[cfg(feature = "__tls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
@@ -242,10 +244,17 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let timeout = options.timeout;
                 let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
 
+                let Ok(server_name) = ServerName::try_from(server_name.as_str()) else {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("invalid server name: {server_name}"),
+                    ));
+                };
+
                 let (stream, handle) = crate::tls::new_tls_stream_with_future(
                     tcp_future,
                     socket_addr,
-                    server_name.clone(),
+                    server_name.to_owned(),
                     options.tls_config.clone(),
                 );
 

@@ -14,7 +14,7 @@ use std::io::*;
 use std::net::*;
 use std::sync::Arc;
 
-use rustls::pki_types::CertificateDer;
+use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, RootCertStore};
 use test_support::subscribe;
 use tokio::runtime::Runtime;
@@ -62,7 +62,7 @@ fn test_example_tls_toml_startup() {
             let provider = TokioRuntimeProvider::new();
             let (stream, sender) = tls_client_connect(
                 addr,
-                "ns.example.com".to_string(),
+                ServerName::try_from("ns.example.com").unwrap(),
                 config.clone(),
                 provider.clone(),
             );
@@ -75,8 +75,12 @@ fn test_example_tls_toml_startup() {
             query_a(&mut io_loop, &mut client);
 
             let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tls_port.expect("no tls_port")));
-            let (stream, sender) =
-                tls_client_connect(addr, "ns.example.com".to_string(), config, provider);
+            let (stream, sender) = tls_client_connect(
+                addr,
+                ServerName::try_from("ns.example.com").unwrap(),
+                config,
+                provider,
+            );
             let client = Client::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

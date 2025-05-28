@@ -8,7 +8,6 @@
 //! DNS over TLS client implementation for Rustls
 
 use alloc::boxed::Box;
-use alloc::string::String;
 use alloc::sync::Arc;
 use core::future::Future;
 use core::pin::Pin;
@@ -16,7 +15,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use futures_util::TryFutureExt;
-use rustls::ClientConfig;
+use rustls::{ClientConfig, pki_types::ServerName};
 
 use crate::error::ProtoError;
 use crate::runtime::RuntimeProvider;
@@ -39,14 +38,14 @@ pub type TlsClientStream<S> =
 #[allow(clippy::type_complexity)]
 pub fn tls_client_connect<P: RuntimeProvider>(
     name_server: SocketAddr,
-    dns_name: String,
+    server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send + Unpin>>,
     BufDnsStreamHandle,
 ) {
-    tls_client_connect_with_bind_addr(name_server, None, dns_name, client_config, provider)
+    tls_client_connect_with_bind_addr(name_server, None, server_name, client_config, provider)
 }
 
 /// Creates a new TlsStream to the specified name_server connecting from a specific address.
@@ -60,7 +59,7 @@ pub fn tls_client_connect<P: RuntimeProvider>(
 pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
-    dns_name: String,
+    server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
@@ -68,7 +67,7 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) =
-        tls_connect_with_bind_addr(name_server, bind_addr, dns_name, client_config, provider);
+        tls_connect_with_bind_addr(name_server, bind_addr, server_name, client_config, provider);
 
     let new_future = Box::pin(
         stream_future
@@ -89,7 +88,7 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
 pub fn tls_client_connect_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
-    dns_name: String,
+    server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send + Unpin>>,
@@ -100,7 +99,7 @@ where
     F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
 {
     let (stream_future, sender) =
-        tls_connect_with_future(future, socket_addr, dns_name, client_config);
+        tls_connect_with_future(future, socket_addr, server_name, client_config);
 
     let new_future = Box::pin(
         stream_future
