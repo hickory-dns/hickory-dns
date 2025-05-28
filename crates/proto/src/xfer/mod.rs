@@ -377,19 +377,7 @@ impl fmt::Display for Protocol {
 impl Protocol {
     /// Returns true if this is a datagram oriented protocol, e.g. UDP
     pub fn is_datagram(self) -> bool {
-        match self {
-            Self::Udp => true,
-            Self::Tcp => false,
-            #[cfg(feature = "__tls")]
-            Self::Tls => false,
-            #[cfg(feature = "__https")]
-            Self::Https => false,
-            // TODO: if you squint, this is true...
-            #[cfg(feature = "__quic")]
-            Self::Quic => true,
-            #[cfg(feature = "__h3")]
-            Self::H3 => true,
-        }
+        matches!(self, Self::Udp)
     }
 
     /// Returns true if this is a stream oriented protocol, e.g. TCP
