@@ -18,13 +18,13 @@ pub(crate) struct NameServerState {
 }
 
 impl NameServerState {
-    fn store(&self, conn_state: NameServerStateInner) {
+    fn store(&self, conn_state: ConnectionState) {
         self.conn_state
             .store(conn_state.into(), atomic::Ordering::Release);
     }
 
-    fn load(&self) -> NameServerStateInner {
-        NameServerStateInner::from(self.conn_state.load(atomic::Ordering::Acquire))
+    fn load(&self) -> ConnectionState {
+        ConnectionState::from(self.conn_state.load(atomic::Ordering::Acquire))
     }
 
     /// Set at the new Init state
@@ -33,7 +33,7 @@ impl NameServerState {
     pub(crate) fn init(_send_edns: Option<Edns>) -> Self {
         // TODO: need to track send_edns
         Self {
-            conn_state: AtomicU8::new(NameServerStateInner::Init.into()),
+            conn_state: AtomicU8::new(ConnectionState::Init.into()),
             remote_edns: Mutex::new(Arc::new(None)),
         }
     }
@@ -45,7 +45,7 @@ impl NameServerState {
         // eventually do this
         // self.send_edns.lock() = send_edns;
 
-        self.store(NameServerStateInner::Init);
+        self.store(ConnectionState::Init);
     }
 
     /// Transition to the Established state
@@ -60,7 +60,7 @@ impl NameServerState {
             }
         }
 
-        self.store(NameServerStateInner::Established);
+        self.store(ConnectionState::Established);
     }
 
     /// transition to the Failed state
@@ -69,19 +69,19 @@ impl NameServerState {
     ///
     /// * when - deprecated
     pub(crate) fn fail(&self, _when: /* FIXME: remove in 0.20 */ Instant) {
-        self.store(NameServerStateInner::Failed);
+        self.store(ConnectionState::Failed);
     }
 
     /// True if this is in the Failed state
     pub(crate) fn is_failed(&self) -> bool {
-        NameServerStateInner::Failed == self.load()
+        ConnectionState::Failed == self.load()
     }
 }
 
 /// State of a connection with a remote NameServer.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
-enum NameServerStateInner {
+enum ConnectionState {
     /// For some reason the connection failed. For UDP this would generally be a timeout
     ///  for TCP this could be either Connection could never be established, or it
     ///  failed at some point after. The Failed state should *not* be entered due to an
@@ -95,14 +95,14 @@ enum NameServerStateInner {
     Established = 2,
 }
 
-impl From<NameServerStateInner> for u8 {
+impl From<ConnectionState> for u8 {
     /// used for ordering purposes. The highest priority is placed on open connections
-    fn from(val: NameServerStateInner) -> Self {
+    fn from(val: ConnectionState) -> Self {
         val as Self
     }
 }
 
-impl From<u8> for NameServerStateInner {
+impl From<u8> for ConnectionState {
     fn from(val: u8) -> Self {
         match val {
             2 => Self::Established,
