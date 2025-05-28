@@ -55,7 +55,7 @@ where
             config,
             options,
             client: Arc::new(Mutex::new(None)),
-            state: Arc::new(NameServerState::init(None)),
+            state: Arc::new(NameServerState::default()),
             stats: Arc::new(NameServerStats::default()),
             connection_provider,
         }
@@ -72,7 +72,7 @@ where
             config,
             options,
             client: Arc::new(Mutex::new(Some(client))),
-            state: Arc::new(NameServerState::init(None)),
+            state: Arc::new(NameServerState::default()),
             stats: Arc::new(NameServerStats::default()),
             connection_provider,
         }
