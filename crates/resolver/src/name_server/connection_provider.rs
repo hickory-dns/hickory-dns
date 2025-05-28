@@ -270,7 +270,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 let exchange = crate::h2::new_https_stream_with_future(
                     tcp_future,
                     socket_addr,
-                    server_name.clone(),
+                    Arc::from(server_name.as_str()),
                     path.clone(),
                     Arc::new(options.tls_config.clone()),
                 );

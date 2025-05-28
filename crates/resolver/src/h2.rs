@@ -17,7 +17,7 @@ use crate::proto::xfer::{DnsExchange, DnsExchangeConnect};
 pub(crate) fn new_https_stream_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
-    dns_name: String,
+    server_name: Arc<str>,
     http_endpoint: String,
     tls_config: Arc<rustls::ClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<S>, HttpsClientStream, TokioTime>
@@ -29,7 +29,7 @@ where
         future,
         tls_config,
         socket_addr,
-        dns_name,
+        server_name,
         http_endpoint,
     ))
 }

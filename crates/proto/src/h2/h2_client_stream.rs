@@ -322,7 +322,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     pub fn build(
         mut self,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
         http_endpoint: String,
     ) -> HttpsClientConnect<P::Tcp> {
         // ensure the ALPN protocol is set correctly
@@ -335,7 +335,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
 
         let tls = TlsConfig {
             client_config: self.client_config,
-            dns_name: Arc::from(dns_name),
+            server_name,
             http_endpoint: Arc::from(http_endpoint),
         };
 
@@ -359,7 +359,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         future: F,
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
-        dns_name: String,
+        server_name: Arc<str>,
         http_endpoint: String,
     ) -> Self
     where
@@ -376,7 +376,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
 
         let tls = TlsConfig {
             client_config,
-            dns_name: Arc::from(dns_name),
+            server_name,
             http_endpoint: Arc::from(http_endpoint),
         };
 
@@ -401,7 +401,7 @@ where
 
 struct TlsConfig {
     client_config: Arc<ClientConfig>,
-    dns_name: Arc<str>,
+    server_name: Arc<str>,
     http_endpoint: Arc<str>,
 }
 
@@ -473,10 +473,10 @@ where
                     let tls = tls
                         .take()
                         .expect("programming error, tls should not be None here");
-                    let name_server_name = Arc::clone(&tls.dns_name);
+                    let name_server_name = Arc::clone(&tls.server_name);
                     let query_path = Arc::clone(&tls.http_endpoint);
 
-                    match ServerName::try_from(&*tls.dns_name) {
+                    match ServerName::try_from(&*tls.server_name) {
                         Ok(dns_name) => Self::TlsConnecting {
                             name_server_name,
                             name_server: *name_server,
@@ -489,7 +489,7 @@ where
                         },
                         Err(_) => Self::Errored(Some(ProtoError::from(format!(
                             "bad dns_name: {}",
-                            &tls.dns_name
+                            &tls.server_name
                         )))),
                     }
                 }
@@ -612,7 +612,7 @@ mod tests {
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
         let connect =
-            https_builder.build(google, "dns.google".to_string(), "/dns-query".to_string());
+            https_builder.build(google, Arc::from("dns.google"), "/dns-query".to_string());
 
         let mut https = connect.await.expect("https connect failed");
 
@@ -681,8 +681,11 @@ mod tests {
         let provider = TokioRuntimeProvider::new();
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
-        let connect =
-            https_builder.build(google, google.ip().to_string(), "/dns-query".to_string());
+        let connect = https_builder.build(
+            google,
+            Arc::from(google.ip().to_string()),
+            "/dns-query".to_string(),
+        );
 
         let mut https = connect.await.expect("https connect failed");
 
@@ -752,7 +755,7 @@ mod tests {
             HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
         let connect = https_builder.build(
             cloudflare,
-            "cloudflare-dns.com".to_string(),
+            Arc::from("cloudflare-dns.com"),
             "/dns-query".to_string(),
         );
 
