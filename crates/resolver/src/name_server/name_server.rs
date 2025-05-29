@@ -33,7 +33,7 @@ pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: Arc<AsyncMutex<Option<P::Conn>>>,
-    state: Arc<NameServerState>,
+    conn_state: Arc<AtomicU8>,
     pub(super) stats: Arc<NameServerStats>,
     connection_provider: P,
 }
@@ -64,7 +64,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             config,
             options,
             client: Arc::new(AsyncMutex::new(client)),
-            state: Arc::new(NameServerState::default()),
+            conn_state: Arc::new(AtomicU8::new(ConnectionState::Init.into())),
             stats: Arc::new(NameServerStats::default()),
             connection_provider,
         }
@@ -74,7 +74,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
         use ConnectionState::*;
-        match (self.state.load(), self.client.try_lock()) {
+        match (self.state(), self.client.try_lock()) {
             (Established | Init, Some(client)) => client.is_some(),
             (Failed, _) => false,
             // assuming that if someone has it locked it will be or is connected
@@ -89,10 +89,10 @@ impl<P: ConnectionProvider> NameServer<P> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
-        if self.state.load() == ConnectionState::Failed || client.is_none() {
+        if self.state() == ConnectionState::Failed || client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
-            self.state.store(ConnectionState::Init);
+            self.set_state(ConnectionState::Init);
 
             let new_client = Box::pin(
                 self.connection_provider
@@ -129,7 +129,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 let response = result?;
 
                 // take the remote edns options and store them
-                self.state.store(ConnectionState::Established);
+                self.set_state(ConnectionState::Established);
 
                 Ok(response)
             }
@@ -137,7 +137,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 debug!(config = ?self.config, "name_server connection failure: {}", error);
 
                 // this transitions the state to failure
-                self.state.store(ConnectionState::Failed);
+                self.set_state(ConnectionState::Failed);
 
                 // record the failure
                 self.stats.record_connection_failure();
@@ -146,6 +146,14 @@ impl<P: ConnectionProvider> NameServer<P> {
                 Err(error)
             }
         }
+    }
+
+    fn set_state(&self, conn_state: ConnectionState) {
+        self.conn_state.store(conn_state.into(), Ordering::Release);
+    }
+
+    fn state(&self) -> ConnectionState {
+        ConnectionState::from(self.conn_state.load(Ordering::Acquire))
     }
 
     /// Specifies that this NameServer will treat negative responses as permanent failures and will not retry
@@ -361,28 +369,6 @@ impl Default for NameServerStats {
 fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
     let exponent = (-last_update.elapsed().as_secs_f64().max(1.0)) / f64::from(weight);
     exponent.exp()
-}
-
-struct NameServerState {
-    conn_state: AtomicU8,
-}
-
-impl NameServerState {
-    fn store(&self, conn_state: ConnectionState) {
-        self.conn_state.store(conn_state.into(), Ordering::Release);
-    }
-
-    fn load(&self) -> ConnectionState {
-        ConnectionState::from(self.conn_state.load(Ordering::Acquire))
-    }
-}
-
-impl Default for NameServerState {
-    fn default() -> Self {
-        Self {
-            conn_state: AtomicU8::new(ConnectionState::Init.into()),
-        }
-    }
 }
 
 /// State of a connection with a remote NameServer.
