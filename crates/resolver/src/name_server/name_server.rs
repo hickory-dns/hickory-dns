@@ -78,11 +78,6 @@ impl<P: ConnectionProvider> NameServer<P> {
     pub(super) fn decayed_srtt(&self) -> f64 {
         self.inner.stats.decayed_srtt()
     }
-
-    /// Specifies that this NameServer will treat negative responses as permanent failures and will not retry
-    pub fn trust_nx_responses(&self) -> bool {
-        self.inner.config.trust_negative_responses
-    }
 }
 
 impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
