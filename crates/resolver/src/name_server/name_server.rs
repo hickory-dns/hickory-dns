@@ -20,7 +20,7 @@ use tokio::time::{Duration, Instant};
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts};
-use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
+use crate::name_server::connection_provider::ConnectionProvider;
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
     op::{Edns, ResponseCode},
@@ -37,9 +37,6 @@ pub struct NameServer<P: ConnectionProvider> {
     pub(super) stats: Arc<NameServerStats>,
     connection_provider: P,
 }
-
-/// Specifies the details of a remote NameServer used for lookups
-pub type GenericNameServer<R> = NameServer<GenericConnector<R>>;
 
 impl<P: ConnectionProvider> Debug for NameServer<P> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
@@ -478,6 +475,7 @@ mod tests {
 
     use super::*;
     use crate::config::ProtocolConfig;
+    use crate::name_server::GenericNameServer;
     use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::proto::op::{Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
