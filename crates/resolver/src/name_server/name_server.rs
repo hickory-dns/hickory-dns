@@ -369,7 +369,7 @@ fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
 
 struct NameServerState {
     conn_state: AtomicU8,
-    remote_edns: AsyncMutex<Arc<Option<Edns>>>,
+    remote_edns: SyncMutex<Arc<Option<Edns>>>,
 }
 
 impl NameServerState {
@@ -423,7 +423,7 @@ impl Default for NameServerState {
     fn default() -> Self {
         Self {
             conn_state: AtomicU8::new(ConnectionState::Init.into()),
-            remote_edns: AsyncMutex::new(Arc::new(None)),
+            remote_edns: SyncMutex::new(Arc::new(None)),
         }
     }
 }
