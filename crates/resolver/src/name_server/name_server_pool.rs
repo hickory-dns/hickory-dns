@@ -32,7 +32,7 @@ pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
-pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
+pub struct NameServerPool<P: ConnectionProvider> {
     // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
     datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
     stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
@@ -41,7 +41,7 @@ pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
     stream_index: Arc<AtomicUsize>,
 }
 
-impl<P: ConnectionProvider + 'static> NameServerPool<P> {
+impl<P: ConnectionProvider> NameServerPool<P> {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: ResolverOpts,
@@ -171,7 +171,7 @@ impl<P: ConnectionProvider + 'static> NameServerPool<P> {
     }
 }
 
-impl<P: ConnectionProvider + 'static> DnsHandle for NameServerPool<P> {
+impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
@@ -220,7 +220,7 @@ impl<P: ConnectionProvider + 'static> DnsHandle for NameServerPool<P> {
 
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
 /// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<P: ConnectionProvider + 'static>(
+async fn parallel_conn_loop<P: ConnectionProvider>(
     mut conns: Vec<NameServer<P>>,
     request: DnsRequest,
     opts: ResolverOpts,
