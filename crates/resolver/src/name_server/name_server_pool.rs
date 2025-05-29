@@ -229,8 +229,6 @@ async fn try_send<P: ConnectionProvider>(
     let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
 
     loop {
-        let request_cont = request.clone();
-
         // construct the parallel requests, 2 is the default
         let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
@@ -255,8 +253,8 @@ async fn try_send<P: ConnectionProvider>(
 
         let mut requests = par_conns
             .into_iter()
-            .map(move |conn| {
-                conn.send(request_cont.clone())
+            .map(|conn| {
+                conn.send(request.clone())
                     .first_answer()
                     .map(|result| result.map_err(|e| (conn, e)))
             })
