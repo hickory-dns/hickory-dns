@@ -33,12 +33,7 @@ pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
 pub struct NameServerPool<P: ConnectionProvider> {
-    // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
-    datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
-    stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
-    options: Arc<ResolverOpts>,
-    datagram_index: Arc<AtomicUsize>,
-    stream_index: Arc<AtomicUsize>,
+    state: Arc<PoolState<P>>,
 }
 
 impl<P: ConnectionProvider> NameServerPool<P> {
@@ -65,13 +60,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
             })
             .collect();
 
-        Self {
-            datagram_conns,
-            stream_conns,
-            options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
-        }
+        Self::from_nameservers(options, datagram_conns, stream_conns)
     }
 
     /// Construct a NameServerPool from a set of name server configs
@@ -90,14 +79,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
         let datagram_conns: Vec<_> = datagram.into_iter().map(map_config_to_ns).collect();
         let stream_conns: Vec<_> = stream.into_iter().map(map_config_to_ns).collect();
-
-        Self {
-            datagram_conns: Arc::from(datagram_conns),
-            stream_conns: Arc::from(stream_conns),
-            options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
-        }
+        Self::from_nameservers(options, datagram_conns, stream_conns)
     }
 
     #[doc(hidden)]
@@ -107,33 +89,13 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         stream_conns: Vec<NameServer<P>>,
     ) -> Self {
         Self {
-            datagram_conns: Arc::from(datagram_conns),
-            stream_conns: Arc::from(stream_conns),
-            options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
+            state: Arc::new(PoolState::new(datagram_conns, stream_conns, options)),
         }
     }
 
     /// Returns the pool's options.
     pub fn options(&self) -> &ResolverOpts {
-        &self.options
-    }
-
-    #[cfg(test)]
-    #[allow(dead_code)]
-    fn from_nameservers_test(
-        options: Arc<ResolverOpts>,
-        datagram_conns: Arc<[NameServer<P>]>,
-        stream_conns: Arc<[NameServer<P>]>,
-    ) -> Self {
-        Self {
-            datagram_conns,
-            stream_conns,
-            options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
-        }
+        &self.state.options
     }
 }
 
@@ -141,28 +103,28 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let opts = self.options.clone();
+        let state = self.state.clone();
         let request = request.into();
-        let datagram_conns = Arc::clone(&self.datagram_conns);
-        let stream_conns = Arc::clone(&self.stream_conns);
-        let datagram_index = Arc::clone(&self.datagram_index);
-        let stream_index = Arc::clone(&self.stream_index);
-        // TODO: remove this clone, return the Message in the error?
-        // TODO: remove this clone, return the Message in the error?
         let tcp_message = request.clone();
 
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let future = try_send(opts.clone(), datagram_conns, request, &datagram_index);
+            let future = try_send(
+                &state.options,
+                &state.datagram_conns,
+                request,
+                &state.datagram_index,
+            );
+
             let udp_res = match future.await {
                 Ok(response) if response.truncated() => {
                     debug!("truncated response received, retrying over TCP");
                     Err(ProtoError::from("received truncated response"))
                 }
                 Err(e)
-                    if (opts.try_tcp_on_error && e.is_io())
+                    if (state.options.try_tcp_on_error && e.is_io())
                         || e.is_no_connections()
                         || matches!(&*e.kind, ProtoErrorKind::QueryCaseMismatch) =>
                 {
@@ -172,23 +134,53 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                 result => return result,
             };
 
-            if stream_conns.is_empty() {
+            if state.stream_conns.is_empty() {
                 debug!("no TCP connections available");
                 return udp_res;
             }
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
             // error.
-            try_send(opts, stream_conns, tcp_message, &stream_index).await
+            try_send(
+                &state.options,
+                &state.stream_conns,
+                tcp_message,
+                &state.stream_index,
+            )
+            .await
         }))
     }
 }
 
+struct PoolState<P: ConnectionProvider> {
+    datagram_conns: Vec<NameServer<P>>,
+    stream_conns: Vec<NameServer<P>>,
+    options: Arc<ResolverOpts>,
+    datagram_index: AtomicUsize,
+    stream_index: AtomicUsize,
+}
+
+impl<P: ConnectionProvider> PoolState<P> {
+    fn new(
+        datagram_conns: Vec<NameServer<P>>,
+        stream_conns: Vec<NameServer<P>>,
+        options: Arc<ResolverOpts>,
+    ) -> Self {
+        Self {
+            datagram_conns,
+            stream_conns,
+            options,
+            datagram_index: AtomicUsize::new(0),
+            stream_index: AtomicUsize::new(0),
+        }
+    }
+}
+
 async fn try_send<P: ConnectionProvider>(
-    opts: Arc<ResolverOpts>,
-    conns: Arc<[NameServer<P>]>,
+    opts: &ResolverOpts,
+    conns: &[NameServer<P>],
     request: DnsRequest,
-    next_index: &Arc<AtomicUsize>,
+    next_index: &AtomicUsize,
 ) -> Result<DnsResponse, ProtoError> {
     let mut conns: Vec<NameServer<P>> = conns.to_vec();
 
@@ -395,13 +387,8 @@ mod tests {
         });
         let ns_config = { tcp };
         let name_server = GenericNameServer::new(ns_config, opts.clone(), conn_provider);
-        let name_servers: Arc<[_]> = Arc::from([name_server]);
-
-        let pool = GenericNameServerPool::from_nameservers_test(
-            opts,
-            Arc::from([]),
-            Arc::clone(&name_servers),
-        );
+        let name_servers = vec![name_server];
+        let pool = GenericNameServerPool::from_nameservers(opts, vec![], name_servers.clone());
 
         let name = Name::from_str("www.example.com.").unwrap();
 
