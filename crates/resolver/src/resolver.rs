@@ -49,10 +49,7 @@ pub struct ResolverBuilder<P> {
     nsec3_hard_iteration_limit: Option<u16>,
 }
 
-impl<P> ResolverBuilder<P>
-where
-    P: ConnectionProvider,
-{
+impl<P: ConnectionProvider> ResolverBuilder<P> {
     /// Sets the [`ResolverOpts`] to be used by the resolver.
     ///
     /// NB: A [`ResolverBuilder<P>`] will use the system configuration e.g., `resolv.conf`, by

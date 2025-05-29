@@ -41,10 +41,7 @@ pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
     stream_index: Arc<AtomicUsize>,
 }
 
-impl<P> NameServerPool<P>
-where
-    P: ConnectionProvider + 'static,
-{
+impl<P: ConnectionProvider + 'static> NameServerPool<P> {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: ResolverOpts,
@@ -174,10 +171,7 @@ where
     }
 }
 
-impl<P> DnsHandle for NameServerPool<P>
-where
-    P: ConnectionProvider + 'static,
-{
+impl<P: ConnectionProvider + 'static> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
@@ -226,14 +220,11 @@ where
 
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
 /// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<P>(
+async fn parallel_conn_loop<P: ConnectionProvider + 'static>(
     mut conns: Vec<NameServer<P>>,
     request: DnsRequest,
     opts: ResolverOpts,
-) -> Result<DnsResponse, ProtoError>
-where
-    P: ConnectionProvider + 'static,
-{
+) -> Result<DnsResponse, ProtoError> {
     let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
 
     // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
