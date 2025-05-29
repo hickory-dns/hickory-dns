@@ -115,7 +115,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             // First try the UDP connections
             let future = try_send(
                 &state.options,
-                &state.datagram_conns,
+                state.datagram_conns.clone(),
                 request,
                 &state.datagram_index,
             );
@@ -145,7 +145,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             // error.
             try_send(
                 &state.options,
-                &state.stream_conns,
+                state.stream_conns.clone(),
                 tcp_message,
                 &state.stream_index,
             )
@@ -180,12 +180,10 @@ impl<P: ConnectionProvider> PoolState<P> {
 
 async fn try_send<P: ConnectionProvider>(
     opts: &ResolverOpts,
-    conns: &[NameServer<P>],
+    mut conns: Vec<NameServer<P>>,
     request: DnsRequest,
     next_index: &AtomicUsize,
 ) -> Result<DnsResponse, ProtoError> {
-    let mut conns: Vec<NameServer<P>> = conns.to_vec();
-
     match opts.server_ordering_strategy {
         // select the highest priority connection
         //   reorder the connections based on current view...
