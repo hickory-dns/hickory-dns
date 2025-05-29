@@ -38,12 +38,6 @@ pub struct NameServer<P: ConnectionProvider> {
     connection_provider: P,
 }
 
-impl<P: ConnectionProvider> Debug for NameServer<P> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "config: {:?}, options: {:?}", self.config, self.options)
-    }
-}
-
 impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new(config: NameServerConfig, options: ResolverOpts, connection_provider: P) -> Self {
@@ -176,6 +170,12 @@ impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
         Box::pin(once(this.inner_send(request)))
+    }
+}
+
+impl<P: ConnectionProvider> Debug for NameServer<P> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
 }
 
