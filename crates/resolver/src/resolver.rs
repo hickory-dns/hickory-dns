@@ -106,15 +106,14 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             nsec3_hard_iteration_limit,
         } = self;
 
-        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
-        let client = RetryDnsHandle::new(pool, options.attempts);
-        let either;
-
         #[cfg(feature = "__dnssec")]
         if trust_anchor.is_some() || options.trust_anchor.is_some() {
             options.validate = true;
         }
 
+        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
+        let client = RetryDnsHandle::new(pool, options.attempts);
+        let either;
         if options.validate {
             #[cfg(feature = "__dnssec")]
             {
