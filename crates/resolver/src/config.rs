@@ -23,6 +23,7 @@ use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
 use crate::proto::rr::Name;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::client_config;
+use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
 #[derive(Clone, Debug, Default)]
@@ -677,8 +678,19 @@ pub enum ProtocolConfig {
 }
 
 impl ProtocolConfig {
-    pub(crate) fn is_datagram(&self) -> bool {
-        matches!(self, ProtocolConfig::Udp)
+    pub(crate) fn to_protocol(&self) -> Protocol {
+        match self {
+            ProtocolConfig::Udp => Protocol::Udp,
+            ProtocolConfig::Tcp => Protocol::Tcp,
+            #[cfg(feature = "__tls")]
+            ProtocolConfig::Tls { .. } => Protocol::Tls,
+            #[cfg(feature = "__https")]
+            ProtocolConfig::Https { .. } => Protocol::Https,
+            #[cfg(feature = "__quic")]
+            ProtocolConfig::Quic { .. } => Protocol::Quic,
+            #[cfg(feature = "__h3")]
+            ProtocolConfig::H3 { .. } => Protocol::H3,
+        }
     }
 }
 
