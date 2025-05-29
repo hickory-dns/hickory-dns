@@ -8,13 +8,14 @@
 //! A module with associated items for working with nameservers
 
 mod connection_provider;
+#[cfg(feature = "tokio")]
+pub use connection_provider::TokioConnectionProvider;
+pub use connection_provider::{ConnectionProvider, GenericConnection, GenericConnector};
 #[allow(clippy::module_inception)]
 mod name_server;
+pub use name_server::NameServer;
 mod name_server_pool;
+pub use name_server_pool::{GenericNameServerPool, NameServerPool};
 
-pub use self::connection_provider::{ConnectionProvider, GenericConnection, GenericConnector};
-pub use self::name_server::{GenericNameServer, NameServer};
-pub use self::name_server_pool::{GenericNameServerPool, NameServerPool};
-
-#[cfg(feature = "tokio")]
-pub use self::connection_provider::TokioConnectionProvider;
+/// Specifies the details of a remote NameServer used for lookups
+pub type GenericNameServer<R> = NameServer<GenericConnector<R>>;
