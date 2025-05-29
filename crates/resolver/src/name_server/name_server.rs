@@ -73,13 +73,13 @@ impl<P: ConnectionProvider> NameServer<P> {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
-        !self.state.is_failed()
-            && if let Some(client) = self.client.try_lock() {
-                client.is_some()
-            } else {
-                // assuming that if someone has it locked it will be or is connected
-                true
-            }
+        use ConnectionState::*;
+        match (self.state.load(), self.client.try_lock()) {
+            (Established | Init, Some(client)) => client.is_some(),
+            (Failed, _) => false,
+            // assuming that if someone has it locked it will be or is connected
+            (_, None) => true,
+        }
     }
 
     /// This will return a mutable client to allows for sending messages.
@@ -89,10 +89,10 @@ impl<P: ConnectionProvider> NameServer<P> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
-        if self.state.is_failed() || client.is_none() {
+        if self.state.load() == ConnectionState::Failed || client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
-            self.state.reinit();
+            self.state.store(ConnectionState::Init);
 
             let new_client = Box::pin(
                 self.connection_provider
@@ -129,7 +129,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 let response = result?;
 
                 // take the remote edns options and store them
-                self.state.establish();
+                self.state.store(ConnectionState::Established);
 
                 Ok(response)
             }
@@ -137,7 +137,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 debug!(config = ?self.config, "name_server connection failure: {}", error);
 
                 // this transitions the state to failure
-                self.state.fail();
+                self.state.store(ConnectionState::Failed);
 
                 // record the failure
                 self.stats.record_connection_failure();
@@ -374,28 +374,6 @@ impl NameServerState {
 
     fn load(&self) -> ConnectionState {
         ConnectionState::from(self.conn_state.load(Ordering::Acquire))
-    }
-
-    /// Set at the new Init state
-    fn reinit(&self) {
-        self.store(ConnectionState::Init);
-    }
-
-    /// Transition to the Established state
-    fn establish(&self) {
-        self.store(ConnectionState::Established);
-    }
-
-    /// transition to the Failed state
-    ///
-    /// when is the time of the failure
-    fn fail(&self) {
-        self.store(ConnectionState::Failed);
-    }
-
-    /// True if this is in the Failed state
-    fn is_failed(&self) -> bool {
-        ConnectionState::Failed == self.load()
     }
 }
 
