@@ -50,14 +50,7 @@ impl<P: ConnectionProvider> Debug for NameServer<P> {
 impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new(config: NameServerConfig, options: ResolverOpts, connection_provider: P) -> Self {
-        Self {
-            config,
-            options,
-            client: Arc::new(AsyncMutex::new(None)),
-            state: Arc::new(NameServerState::default()),
-            stats: Arc::new(NameServerStats::default()),
-            connection_provider,
-        }
+        Self::new_inner(config, options, None, connection_provider)
     }
 
     #[doc(hidden)]
@@ -67,10 +60,19 @@ impl<P: ConnectionProvider> NameServer<P> {
         client: P::Conn,
         connection_provider: P,
     ) -> Self {
+        Self::new_inner(config, options, Some(client), connection_provider)
+    }
+
+    fn new_inner(
+        config: NameServerConfig,
+        options: ResolverOpts,
+        client: Option<P::Conn>,
+        connection_provider: P,
+    ) -> Self {
         Self {
             config,
             options,
-            client: Arc::new(AsyncMutex::new(Some(client))),
+            client: Arc::new(AsyncMutex::new(client)),
             state: Arc::new(NameServerState::default()),
             stats: Arc::new(NameServerStats::default()),
             connection_provider,
