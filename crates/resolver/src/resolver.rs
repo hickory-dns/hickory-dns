@@ -111,6 +111,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             options.validate = true;
         }
 
+        let options = Arc::new(options);
         let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
         let client = RetryDnsHandle::new(pool, options.attempts);
         let either;
@@ -171,7 +172,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
 #[derive(Clone)]
 pub struct Resolver<P: ConnectionProvider> {
     config: ResolverConfig,
-    options: ResolverOpts,
+    options: Arc<ResolverOpts>,
     client_cache: CachingClient<LookupEither<P>>,
     hosts: Arc<Hosts>,
 }

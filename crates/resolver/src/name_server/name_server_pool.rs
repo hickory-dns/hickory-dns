@@ -36,7 +36,7 @@ pub struct NameServerPool<P: ConnectionProvider> {
     // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
     datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
     stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
-    options: ResolverOpts,
+    options: Arc<ResolverOpts>,
     datagram_index: Arc<AtomicUsize>,
     stream_index: Arc<AtomicUsize>,
 }
@@ -44,7 +44,7 @@ pub struct NameServerPool<P: ConnectionProvider> {
 impl<P: ConnectionProvider> NameServerPool<P> {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
         let datagram_conns = config
@@ -77,7 +77,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         name_servers: NameServerConfigGroup,
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
         let map_config_to_ns =
@@ -102,7 +102,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
     #[doc(hidden)]
     pub fn from_nameservers(
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         datagram_conns: Vec<NameServer<P>>,
         stream_conns: Vec<NameServer<P>>,
     ) -> Self {
@@ -123,7 +123,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     #[cfg(test)]
     #[allow(dead_code)]
     fn from_nameservers_test(
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         datagram_conns: Arc<[NameServer<P>]>,
         stream_conns: Arc<[NameServer<P>]>,
     ) -> Self {
@@ -185,7 +185,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 }
 
 async fn try_send<P: ConnectionProvider>(
-    opts: ResolverOpts,
+    opts: Arc<ResolverOpts>,
     conns: Arc<[NameServer<P>]>,
     request: DnsRequest,
     next_index: &Arc<AtomicUsize>,
@@ -336,7 +336,7 @@ mod tests {
         let io_loop = Runtime::new().unwrap();
         let pool = GenericNameServerPool::tokio_from_config(
             &resolver_config,
-            ResolverOpts::default(),
+            Arc::new(ResolverOpts::default()),
             TokioRuntimeProvider::new(),
         );
 
@@ -389,10 +389,10 @@ mod tests {
             bind_addr: None,
         };
 
-        let opts = ResolverOpts {
+        let opts = Arc::new(ResolverOpts {
             try_tcp_on_error: true,
             ..ResolverOpts::default()
-        };
+        });
         let ns_config = { tcp };
         let name_server = GenericNameServer::new(ns_config, opts.clone(), conn_provider);
         let name_servers: Arc<[_]> = Arc::from([name_server]);
@@ -443,7 +443,7 @@ mod tests {
     impl GenericNameServerPool<TokioRuntimeProvider> {
         pub(crate) fn tokio_from_config(
             config: &ResolverConfig,
-            options: ResolverOpts,
+            options: Arc<ResolverOpts>,
             runtime: TokioRuntimeProvider,
         ) -> Self {
             Self::from_config_with_provider(config, options, GenericConnector::new(runtime))
