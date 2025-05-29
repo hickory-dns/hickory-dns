@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Instant;
 
-use futures_util::lock::Mutex;
+use futures_util::lock::Mutex as AsyncMutex;
 use futures_util::stream::{Stream, once};
 use tracing::debug;
 
@@ -29,7 +29,7 @@ use crate::proto::{
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     options: ResolverOpts,
-    client: Arc<Mutex<Option<P::Conn>>>,
+    client: Arc<AsyncMutex<Option<P::Conn>>>,
     state: Arc<NameServerState>,
     pub(crate) stats: Arc<NameServerStats>,
     connection_provider: P,
@@ -50,7 +50,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         Self {
             config,
             options,
-            client: Arc::new(Mutex::new(None)),
+            client: Arc::new(AsyncMutex::new(None)),
             state: Arc::new(NameServerState::default()),
             stats: Arc::new(NameServerStats::default()),
             connection_provider,
@@ -67,7 +67,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         Self {
             config,
             options,
-            client: Arc::new(Mutex::new(Some(client))),
+            client: Arc::new(AsyncMutex::new(Some(client))),
             state: Arc::new(NameServerState::default()),
             stats: Arc::new(NameServerStats::default()),
             connection_provider,
@@ -179,7 +179,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
 
 struct NameServerState {
     conn_state: AtomicU8,
-    remote_edns: Mutex<Arc<Option<Edns>>>,
+    remote_edns: AsyncMutex<Arc<Option<Edns>>>,
 }
 
 impl NameServerState {
@@ -233,7 +233,7 @@ impl Default for NameServerState {
     fn default() -> Self {
         Self {
             conn_state: AtomicU8::new(ConnectionState::Init.into()),
-            remote_edns: Mutex::new(Arc::new(None)),
+            remote_edns: AsyncMutex::new(Arc::new(None)),
         }
     }
 }
