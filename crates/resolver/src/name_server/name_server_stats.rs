@@ -7,7 +7,7 @@
 
 use std::sync::{
     Arc,
-    atomic::{self, AtomicU32},
+    atomic::{AtomicU32, Ordering},
 };
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
@@ -130,9 +130,7 @@ impl NameServerStats {
     /// Prefer to use `decayed_srtt` when ordering name servers.
     #[cfg(test)]
     fn srtt(&self) -> Duration {
-        Duration::from_micros(u64::from(
-            self.srtt_microseconds.load(atomic::Ordering::Acquire),
-        ))
+        Duration::from_micros(u64::from(self.srtt_microseconds.load(Ordering::Acquire)))
     }
 
     /// Returns the SRTT value after applying a time based decay.
@@ -144,7 +142,7 @@ impl NameServerStats {
     /// 2. It helps detect positive network changes. For example, decreases in
     ///    latency or a server that has recovered from a failure.
     pub(crate) fn decayed_srtt(&self) -> f64 {
-        let srtt = f64::from(self.srtt_microseconds.load(atomic::Ordering::Acquire));
+        let srtt = f64::from(self.srtt_microseconds.load(Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
             // In general, if the time between queries is relatively short, then
             // the server ordering algorithm will approximate a spike
@@ -168,8 +166,8 @@ impl NameServerStats {
     fn update_srtt(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
         let last_update = self.last_update.lock().replace(Instant::now());
         let _ = self.srtt_microseconds.fetch_update(
-            atomic::Ordering::SeqCst,
-            atomic::Ordering::SeqCst,
+            Ordering::SeqCst,
+            Ordering::SeqCst,
             move |cur_srtt_microseconds| {
                 Some(
                     last_update
