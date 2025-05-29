@@ -53,9 +53,6 @@ pub(crate) struct NameServerStats {
 }
 
 impl NameServerStats {
-    const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
-    const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
-
     pub(crate) fn new(initial_srtt: Duration) -> Self {
         Self {
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
@@ -184,6 +181,9 @@ impl NameServerStats {
             },
         );
     }
+
+    const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
+    const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
 }
 
 impl Default for NameServerStats {
