@@ -149,7 +149,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
             //   reorder the connections based on current view...
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => {
-                conns.sort_by(|a, b| a.stats.decayed_srtt().total_cmp(&b.stats.decayed_srtt()));
+                conns.sort_by(|a, b| a.decayed_srtt().total_cmp(&b.decayed_srtt()));
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {

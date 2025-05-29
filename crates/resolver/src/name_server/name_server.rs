@@ -30,18 +30,20 @@ use crate::proto::{
 /// This struct is used to create `DnsHandle` with the help of `P`.
 #[derive(Clone)]
 pub struct NameServer<P: ConnectionProvider> {
-    config: NameServerConfig,
-    options: ResolverOpts,
-    client: Arc<AsyncMutex<Option<P::Conn>>>,
-    conn_state: Arc<AtomicU8>,
-    pub(super) stats: Arc<NameServerStats>,
-    connection_provider: P,
+    inner: Arc<NameServerState<P>>,
 }
 
 impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new(config: NameServerConfig, options: ResolverOpts, connection_provider: P) -> Self {
-        Self::new_inner(config, options, None, connection_provider)
+        Self {
+            inner: Arc::new(NameServerState::new(
+                config,
+                options,
+                None,
+                connection_provider,
+            )),
+        }
     }
 
     #[doc(hidden)]
@@ -51,10 +53,74 @@ impl<P: ConnectionProvider> NameServer<P> {
         client: P::Conn,
         connection_provider: P,
     ) -> Self {
-        Self::new_inner(config, options, Some(client), connection_provider)
+        Self {
+            inner: Arc::new(NameServerState::new(
+                config,
+                options,
+                Some(client),
+                connection_provider,
+            )),
+        }
     }
 
-    fn new_inner(
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn is_connected(&self) -> bool {
+        use ConnectionState::*;
+        match (self.inner.state(), self.inner.client.try_lock()) {
+            (Established | Init, Some(client)) => client.is_some(),
+            (Failed, _) => false,
+            // assuming that if someone has it locked it will be or is connected
+            (_, None) => true,
+        }
+    }
+
+    pub(super) fn decayed_srtt(&self) -> f64 {
+        self.inner.stats.decayed_srtt()
+    }
+
+    /// Specifies that this NameServer will treat negative responses as permanent failures and will not retry
+    pub fn trust_nx_responses(&self) -> bool {
+        self.inner.config.trust_negative_responses
+    }
+}
+
+impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+
+    fn is_verifying_dnssec(&self) -> bool {
+        self.inner.options.validate
+    }
+
+    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+        let this = self.clone();
+        // if state is failed, return future::err(), unless retry delay expired..
+        Box::pin(once(this.inner.send(request)))
+    }
+}
+
+impl<P: ConnectionProvider> Debug for NameServer<P> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "config: {:?}, options: {:?}",
+            self.inner.config, self.inner.options
+        )
+    }
+}
+
+struct NameServerState<P: ConnectionProvider> {
+    config: NameServerConfig,
+    options: ResolverOpts,
+    client: AsyncMutex<Option<P::Conn>>,
+    conn_state: AtomicU8,
+    stats: NameServerStats,
+    connection_provider: P,
+}
+
+impl<P: ConnectionProvider> NameServerState<P> {
+    fn new(
         config: NameServerConfig,
         options: ResolverOpts,
         client: Option<P::Conn>,
@@ -63,56 +129,15 @@ impl<P: ConnectionProvider> NameServer<P> {
         Self {
             config,
             options,
-            client: Arc::new(AsyncMutex::new(client)),
-            conn_state: Arc::new(AtomicU8::new(ConnectionState::Init.into())),
-            stats: Arc::new(NameServerStats::default()),
+            client: AsyncMutex::new(client),
+            conn_state: AtomicU8::new(ConnectionState::Init.into()),
+            stats: NameServerStats::default(),
             connection_provider,
         }
     }
 
-    #[cfg(test)]
-    #[allow(dead_code)]
-    pub(crate) fn is_connected(&self) -> bool {
-        use ConnectionState::*;
-        match (self.state(), self.client.try_lock()) {
-            (Established | Init, Some(client)) => client.is_some(),
-            (Failed, _) => false,
-            // assuming that if someone has it locked it will be or is connected
-            (_, None) => true,
-        }
-    }
-
-    /// This will return a mutable client to allows for sending messages.
-    ///
-    /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&mut self) -> Result<P::Conn, ProtoError> {
-        let mut client = self.client.lock().await;
-
-        // if this is in a failure state
-        if self.state() == ConnectionState::Failed || client.is_none() {
-            debug!("reconnecting: {:?}", self.config);
-
-            self.set_state(ConnectionState::Init);
-
-            let new_client = Box::pin(
-                self.connection_provider
-                    .new_connection(&self.config, &self.options)?,
-            )
-            .await?;
-
-            // establish a new connection
-            *client = Some(new_client);
-        } else {
-            debug!("existing connection: {:?}", self.config);
-        }
-
-        Ok((*client)
-            .clone()
-            .expect("bad state, client should be connected"))
-    }
-
-    async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
-        mut self,
+    async fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        self: Arc<Self>,
         request: R,
     ) -> Result<DnsResponse, ProtoError> {
         let client = self.connected_mut_client().await?;
@@ -148,6 +173,35 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
     }
 
+    /// This will return a mutable client to allows for sending messages.
+    ///
+    /// If the connection is in a failed state, then this will establish a new connection
+    async fn connected_mut_client(&self) -> Result<P::Conn, ProtoError> {
+        let mut client = self.client.lock().await;
+
+        // if this is in a failure state
+        if self.state() == ConnectionState::Failed || client.is_none() {
+            debug!("reconnecting: {:?}", self.config);
+
+            self.set_state(ConnectionState::Init);
+
+            let new_client = Box::pin(
+                self.connection_provider
+                    .new_connection(&self.config, &self.options)?,
+            )
+            .await?;
+
+            // establish a new connection
+            *client = Some(new_client);
+        } else {
+            debug!("existing connection: {:?}", self.config);
+        }
+
+        Ok((*client)
+            .clone()
+            .expect("bad state, client should be connected"))
+    }
+
     fn set_state(&self, conn_state: ConnectionState) {
         self.conn_state.store(conn_state.into(), Ordering::Release);
     }
@@ -155,35 +209,9 @@ impl<P: ConnectionProvider> NameServer<P> {
     fn state(&self) -> ConnectionState {
         ConnectionState::from(self.conn_state.load(Ordering::Acquire))
     }
-
-    /// Specifies that this NameServer will treat negative responses as permanent failures and will not retry
-    pub fn trust_nx_responses(&self) -> bool {
-        self.config.trust_negative_responses
-    }
 }
 
-impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
-
-    fn is_verifying_dnssec(&self) -> bool {
-        self.options.validate
-    }
-
-    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
-        let this = self.clone();
-        // if state is failed, return future::err(), unless retry delay expired..
-        Box::pin(once(this.inner_send(request)))
-    }
-}
-
-impl<P: ConnectionProvider> Debug for NameServer<P> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "config: {:?}, options: {:?}", self.config, self.options)
-    }
-}
-
-pub(super) struct NameServerStats {
+struct NameServerStats {
     /// The smoothed round-trip time (SRTT).
     ///
     /// This value represents an exponentially weighted moving average (EWMA) of
@@ -306,7 +334,7 @@ impl NameServerStats {
     /// 1. It helps distribute query load.
     /// 2. It helps detect positive network changes. For example, decreases in
     ///    latency or a server that has recovered from a failure.
-    pub(super) fn decayed_srtt(&self) -> f64 {
+    fn decayed_srtt(&self) -> f64 {
         let srtt = f64::from(self.srtt_microseconds.load(Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
             // In general, if the time between queries is relatively short, then
