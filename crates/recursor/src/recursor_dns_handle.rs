@@ -80,7 +80,8 @@ impl<P: RuntimeProvider> RecursorDnsHandle<P> {
 
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots = GenericNameServerPool::from_config(roots, opts, conn_provider.clone());
+        let roots =
+            GenericNameServerPool::from_config(roots, Arc::new(opts), conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, ttl_config);
@@ -486,7 +487,7 @@ impl<P: RuntimeProvider> RecursorDnsHandle<P> {
         // now construct a namesever pool based off the NS and glue records
         let ns = GenericNameServerPool::from_config(
             config_group,
-            self.recursor_opts(),
+            Arc::new(self.recursor_opts()),
             self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);

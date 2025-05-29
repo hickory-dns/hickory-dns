@@ -87,7 +87,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
             trust_negative_responses,
             bind_addr: None,
         },
-        options,
+        Arc::new(options),
         client,
         conn_provider,
     )
@@ -110,7 +110,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     _mdns: Option<MockedNameServer<O>>,
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
-    NameServerPool::from_nameservers(options, udp, tcp)
+    NameServerPool::from_nameservers(Arc::new(options), udp, tcp)
 }
 
 #[test]

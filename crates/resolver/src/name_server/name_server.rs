@@ -35,7 +35,11 @@ pub struct NameServer<P: ConnectionProvider> {
 
 impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
-    pub fn new(config: NameServerConfig, options: ResolverOpts, connection_provider: P) -> Self {
+    pub fn new(
+        config: NameServerConfig,
+        options: Arc<ResolverOpts>,
+        connection_provider: P,
+    ) -> Self {
         Self {
             inner: Arc::new(NameServerState::new(
                 config,
@@ -49,7 +53,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     #[doc(hidden)]
     pub fn from_conn(
         config: NameServerConfig,
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         client: P::Conn,
         connection_provider: P,
     ) -> Self {
@@ -107,7 +111,7 @@ impl<P: ConnectionProvider> Debug for NameServer<P> {
 
 struct NameServerState<P: ConnectionProvider> {
     config: NameServerConfig,
-    options: ResolverOpts,
+    options: Arc<ResolverOpts>,
     client: AsyncMutex<Option<P::Conn>>,
     conn_state: AtomicU8,
     stats: NameServerStats,
@@ -117,7 +121,7 @@ struct NameServerState<P: ConnectionProvider> {
 impl<P: ConnectionProvider> NameServerState<P> {
     fn new(
         config: NameServerConfig,
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         client: Option<P::Conn>,
         connection_provider: P,
     ) -> Self {
@@ -460,7 +464,7 @@ mod tests {
         };
         let name_server = GenericNameServer::new(
             config,
-            ResolverOpts::default(),
+            Arc::new(ResolverOpts::default()),
             TokioConnectionProvider::default(),
         );
 
@@ -490,8 +494,11 @@ mod tests {
             trust_negative_responses: false,
             bind_addr: None,
         };
-        let name_server =
-            GenericNameServer::new(config, options, TokioConnectionProvider::default());
+        let name_server = GenericNameServer::new(
+            config,
+            Arc::new(options),
+            TokioConnectionProvider::default(),
+        );
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
@@ -541,7 +548,7 @@ mod tests {
         };
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let ns = NameServer::new(config, resolver_opts, provider);
+        let ns = NameServer::new(config, Arc::new(resolver_opts), provider);
 
         let stream = ns.lookup(
             Query::query(name.clone(), RecordType::NULL),
