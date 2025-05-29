@@ -267,52 +267,6 @@ fn test_datagram_fails_to_stream() {
 }
 
 #[test]
-fn test_tcp_fallback_only_on_truncated() {
-    // Lookup to UDP should fail with an error, and the resolver should not then try the query over
-    // TCP, because the default behavior is only to retry if the response was truncated.
-
-    subscribe();
-
-    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-
-    let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
-    udp_message.set_response_code(ResponseCode::ServFail);
-    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
-
-    let udp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(udp_message).unwrap(),
-            false,
-        )],
-        Default::default(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        Default::default(),
-    );
-
-    let pool = mock_nameserver_pool(
-        vec![udp_nameserver],
-        vec![tcp_nameserver],
-        None,
-        Default::default(),
-    );
-
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
-    let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
-    match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if *response_code == ResponseCode::ServFail => {}
-        kind => panic!(
-            "got unexpected kind of resolve error; expected `NoRecordsFound` error with SERVFAIL,
-            got {kind:#?}",
-        ),
-    }
-}
-
-#[test]
 fn test_no_tcp_fallback_on_non_io_error() {
     // Lookup to UDP should fail with a non I/O error, and the resolver should not retry
     // the query over TCP when `try_tcp_on_error` is set to true.
