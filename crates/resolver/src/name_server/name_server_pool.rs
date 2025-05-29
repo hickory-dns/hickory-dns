@@ -213,19 +213,6 @@ async fn try_send<P: ConnectionProvider>(
             }
         }
     }
-    let request_loop = request.clone();
-
-    parallel_conn_loop(conns, request_loop, opts).await
-}
-
-// TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
-/// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<P: ConnectionProvider>(
-    mut conns: Vec<NameServer<P>>,
-    request: DnsRequest,
-    opts: ResolverOpts,
-) -> Result<DnsResponse, ProtoError> {
-    let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
 
     // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
     // we will first try the other name servers (as for other error types). However, if the other
@@ -239,6 +226,7 @@ async fn parallel_conn_loop<P: ConnectionProvider>(
     // to fire than the timeout configured in `ResolverOpts`.
     let mut backoff = Duration::from_millis(20);
     let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+    let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
 
     loop {
         let request_cont = request.clone();
