@@ -52,28 +52,6 @@ pub(crate) struct NameServerStats {
     last_update: Arc<Mutex<Option<Instant>>>,
 }
 
-impl Default for NameServerStats {
-    fn default() -> Self {
-        // Initialize the SRTT to a randomly generated value that represents a
-        // very low RTT. Such a value helps ensure that each server is attempted
-        // early.
-        Self::new(Duration::from_micros(rand::random_range(1..32)))
-    }
-}
-
-/// Returns an exponentially weighted value in the range of 0.0 < x < 1.0
-///
-/// Computes the value using the following formula:
-///
-/// e<sup>(-t<sub>now</sub> - t<sub>last</sub>) / weight</sup>
-///
-/// As the duration since the `last_update` approaches the provided `weight`,
-/// the returned value decreases.
-fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
-    let exponent = (-last_update.elapsed().as_secs_f64().max(1.0)) / f64::from(weight);
-    exponent.exp()
-}
-
 impl NameServerStats {
     const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
     const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
@@ -206,6 +184,28 @@ impl NameServerStats {
             },
         );
     }
+}
+
+impl Default for NameServerStats {
+    fn default() -> Self {
+        // Initialize the SRTT to a randomly generated value that represents a
+        // very low RTT. Such a value helps ensure that each server is attempted
+        // early.
+        Self::new(Duration::from_micros(rand::random_range(1..32)))
+    }
+}
+
+/// Returns an exponentially weighted value in the range of 0.0 < x < 1.0
+///
+/// Computes the value using the following formula:
+///
+/// e<sup>(-t<sub>now</sub> - t<sub>last</sub>) / weight</sup>
+///
+/// As the duration since the `last_update` approaches the provided `weight`,
+/// the returned value decreases.
+fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
+    let exponent = (-last_update.elapsed().as_secs_f64().max(1.0)) / f64::from(weight);
+    exponent.exp()
 }
 
 #[cfg(test)]
