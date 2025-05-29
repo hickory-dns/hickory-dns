@@ -23,7 +23,7 @@ use crate::config::{NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::ConnectionProvider;
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
-    op::{Edns, ResponseCode},
+    op::ResponseCode,
     xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
 };
 
@@ -92,8 +92,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         if self.state.is_failed() || client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
-            // TODO: we need the local EDNS options
-            self.state.reinit(None);
+            self.state.reinit();
 
             let new_client = Box::pin(
                 self.connection_provider
@@ -129,11 +128,8 @@ impl<P: ConnectionProvider> NameServer<P> {
                 self.stats.record(rtt, &result);
                 let response = result?;
 
-                // TODO: consider making message::take_edns...
-                let remote_edns = response.extensions().clone();
-
                 // take the remote edns options and store them
-                self.state.establish(remote_edns);
+                self.state.establish();
 
                 Ok(response)
             }
@@ -369,7 +365,6 @@ fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
 
 struct NameServerState {
     conn_state: AtomicU8,
-    remote_edns: SyncMutex<Arc<Option<Edns>>>,
 }
 
 impl NameServerState {
@@ -382,27 +377,12 @@ impl NameServerState {
     }
 
     /// Set at the new Init state
-    ///
-    /// If send_dns is some, this will be sent on the first request when it is established
-    fn reinit(&self, _send_edns: Option<Edns>) {
-        // eventually do this
-        // self.send_edns.lock() = send_edns;
-
+    fn reinit(&self) {
         self.store(ConnectionState::Init);
     }
 
     /// Transition to the Established state
-    ///
-    /// If remote_edns is Some, then it will be used to effect things like buffer sizes based on
-    ///   the remote's support.
-    fn establish(&self, remote_edns: Option<Edns>) {
-        if remote_edns.is_some() {
-            // best effort locking, we'll assume a different user of this connection is storing the same thing...
-            if let Some(mut current_edns) = self.remote_edns.try_lock() {
-                *current_edns = Arc::new(remote_edns)
-            }
-        }
-
+    fn establish(&self) {
         self.store(ConnectionState::Established);
     }
 
@@ -423,7 +403,6 @@ impl Default for NameServerState {
     fn default() -> Self {
         Self {
             conn_state: AtomicU8::new(ConnectionState::Init.into()),
-            remote_edns: SyncMutex::new(Arc::new(None)),
         }
     }
 }
