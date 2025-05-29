@@ -135,40 +135,6 @@ impl<P: ConnectionProvider> NameServerPool<P> {
             stream_index: Arc::from(AtomicUsize::new(0)),
         }
     }
-
-    async fn try_send(
-        opts: ResolverOpts,
-        conns: Arc<[NameServer<P>]>,
-        request: DnsRequest,
-        next_index: &Arc<AtomicUsize>,
-    ) -> Result<DnsResponse, ProtoError> {
-        let mut conns: Vec<NameServer<P>> = conns.to_vec();
-
-        match opts.server_ordering_strategy {
-            // select the highest priority connection
-            //   reorder the connections based on current view...
-            //   this reorders the inner set
-            ServerOrderingStrategy::QueryStatistics => {
-                conns.sort_by(|a, b| a.decayed_srtt().total_cmp(&b.decayed_srtt()));
-            }
-            ServerOrderingStrategy::UserProvidedOrder => {}
-            ServerOrderingStrategy::RoundRobin => {
-                let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
-                    opts.num_concurrent_reqs
-                } else {
-                    1
-                };
-                if num_concurrent_reqs < conns.len() {
-                    let index = next_index.fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
-                        % conns.len();
-                    conns.rotate_left(index);
-                }
-            }
-        }
-        let request_loop = request.clone();
-
-        parallel_conn_loop(conns, request_loop, opts).await
-    }
 }
 
 impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
@@ -189,7 +155,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let future = Self::try_send(opts.clone(), datagram_conns, request, &datagram_index);
+            let future = try_send(opts.clone(), datagram_conns, request, &datagram_index);
             let udp_res = match future.await {
                 Ok(response) if response.truncated() => {
                     debug!("truncated response received, retrying over TCP");
@@ -213,9 +179,43 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
             // Try query over TCP, as response to query over UDP was either truncated or was an
             // error.
-            Self::try_send(opts, stream_conns, tcp_message, &stream_index).await
+            try_send(opts, stream_conns, tcp_message, &stream_index).await
         }))
     }
+}
+
+async fn try_send<P: ConnectionProvider>(
+    opts: ResolverOpts,
+    conns: Arc<[NameServer<P>]>,
+    request: DnsRequest,
+    next_index: &Arc<AtomicUsize>,
+) -> Result<DnsResponse, ProtoError> {
+    let mut conns: Vec<NameServer<P>> = conns.to_vec();
+
+    match opts.server_ordering_strategy {
+        // select the highest priority connection
+        //   reorder the connections based on current view...
+        //   this reorders the inner set
+        ServerOrderingStrategy::QueryStatistics => {
+            conns.sort_by(|a, b| a.decayed_srtt().total_cmp(&b.decayed_srtt()));
+        }
+        ServerOrderingStrategy::UserProvidedOrder => {}
+        ServerOrderingStrategy::RoundRobin => {
+            let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
+                opts.num_concurrent_reqs
+            } else {
+                1
+            };
+            if num_concurrent_reqs < conns.len() {
+                let index =
+                    next_index.fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst) % conns.len();
+                conns.rotate_left(index);
+            }
+        }
+    }
+    let request_loop = request.clone();
+
+    parallel_conn_loop(conns, request_loop, opts).await
 }
 
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
