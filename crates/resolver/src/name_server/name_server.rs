@@ -38,13 +38,13 @@ pub struct NameServer<P: ConnectionProvider> {
 /// Specifies the details of a remote NameServer used for lookups
 pub type GenericNameServer<R> = NameServer<GenericConnector<R>>;
 
-impl<P: ConnectionProvider + Send> Debug for NameServer<P> {
+impl<P: ConnectionProvider> Debug for NameServer<P> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
 }
 
-impl<P: ConnectionProvider + Send> NameServer<P> {
+impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new(config: NameServerConfig, options: ResolverOpts, connection_provider: P) -> Self {
         Self {
@@ -162,7 +162,7 @@ impl<P: ConnectionProvider + Send> NameServer<P> {
     }
 }
 
-impl<P: ConnectionProvider + Clone> DnsHandle for NameServer<P> {
+impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
