@@ -12,7 +12,7 @@ use std::sync::{
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
 
-use parking_lot::Mutex;
+use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
 
@@ -49,14 +49,14 @@ pub(crate) struct NameServerStats {
     srtt_microseconds: AtomicU32,
 
     /// The last time the `srtt_microseconds` value was updated.
-    last_update: Arc<Mutex<Option<Instant>>>,
+    last_update: Arc<SyncMutex<Option<Instant>>>,
 }
 
 impl NameServerStats {
     pub(crate) fn new(initial_srtt: Duration) -> Self {
         Self {
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
-            last_update: Arc::new(Mutex::new(None)),
+            last_update: Arc::new(SyncMutex::new(None)),
         }
     }
 
