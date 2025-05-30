@@ -176,7 +176,7 @@ async fn test_mock_lookup() {
         Name::from_str("www.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 215, 14),
     );
-    let message = message(resp_query, vec![v4_record], vec![], vec![]);
+    let message = resp_message(resp_query, vec![v4_record], vec![], vec![]);
     let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
 
@@ -207,7 +207,7 @@ async fn test_cname_lookup() {
         Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 215, 14),
     );
-    let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
+    let message = resp_message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
     let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
 
@@ -238,7 +238,7 @@ async fn test_cname_lookup_preserve() {
         Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 215, 14),
     );
-    let message = message(
+    let message = resp_message(
         resp_query,
         vec![cname_record.clone(), v4_record],
         vec![],
@@ -275,8 +275,8 @@ async fn test_chained_cname_lookup() {
     );
 
     // The first response should be a cname, the second will be the actual record
-    let message1 = message(resp_query.clone(), vec![cname_record], vec![], vec![]);
-    let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
+    let message1 = resp_message(resp_query.clone(), vec![cname_record], vec![], vec![]);
+    let message2 = resp_message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
     let client: MockClientHandle<_> = MockClientHandle::mock(vec![
@@ -313,13 +313,13 @@ async fn test_chained_cname_lookup_preserve() {
     );
 
     // The first response should be a cname, the second will be the actual record
-    let message1 = message(
+    let message1 = resp_message(
         resp_query.clone(),
         vec![cname_record.clone()],
         vec![],
         vec![],
     );
-    let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
+    let message2 = resp_message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
     let client: MockClientHandle<_> = MockClientHandle::mock(vec![
@@ -387,16 +387,16 @@ async fn test_max_chained_lookup_depth() {
     );
 
     // The first response should be a cname, the second will be the actual record
-    let message1 = message(resp_query.clone(), vec![cname_record1], vec![], vec![]);
-    let message2 = message(resp_query.clone(), vec![cname_record2], vec![], vec![]);
-    let message3 = message(resp_query.clone(), vec![cname_record3], vec![], vec![]);
-    let message4 = message(resp_query.clone(), vec![cname_record4], vec![], vec![]);
-    let message5 = message(resp_query.clone(), vec![cname_record5], vec![], vec![]);
-    let message6 = message(resp_query.clone(), vec![cname_record6], vec![], vec![]);
-    let message7 = message(resp_query.clone(), vec![cname_record7], vec![], vec![]);
-    let message8 = message(resp_query.clone(), vec![cname_record8], vec![], vec![]);
-    let message9 = message(resp_query.clone(), vec![cname_record9], vec![], vec![]);
-    let message10 = message(resp_query, vec![v4_record], vec![], vec![]);
+    let message1 = resp_message(resp_query.clone(), vec![cname_record1], vec![], vec![]);
+    let message2 = resp_message(resp_query.clone(), vec![cname_record2], vec![], vec![]);
+    let message3 = resp_message(resp_query.clone(), vec![cname_record3], vec![], vec![]);
+    let message4 = resp_message(resp_query.clone(), vec![cname_record4], vec![], vec![]);
+    let message5 = resp_message(resp_query.clone(), vec![cname_record5], vec![], vec![]);
+    let message6 = resp_message(resp_query.clone(), vec![cname_record6], vec![], vec![]);
+    let message7 = resp_message(resp_query.clone(), vec![cname_record7], vec![], vec![]);
+    let message8 = resp_message(resp_query.clone(), vec![cname_record8], vec![], vec![]);
+    let message9 = resp_message(resp_query.clone(), vec![cname_record9], vec![], vec![]);
+    let message10 = resp_message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
     let client: MockClientHandle<_> = MockClientHandle::mock(vec![
@@ -453,7 +453,7 @@ async fn test_forward_soa() {
         Name::from_str("www.example.com").unwrap(),
         Name::from_str("ns1.example.com").unwrap(),
     );
-    let message = message(resp_query.clone(), vec![], vec![soa_record], vec![]);
+    let message = resp_message(resp_query.clone(), vec![], vec![soa_record], vec![]);
 
     let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);
@@ -492,7 +492,7 @@ async fn test_forward_ns() {
         Default::default(),
         Name::from_str("ns1.example.com").unwrap(),
     );
-    let message = message(resp_query.clone(), vec![], vec![ns1], vec![]);
+    let message = resp_message(resp_query.clone(), vec![], vec![ns1], vec![]);
 
     let client: MockClientHandle<_> =
         MockClientHandle::mock(vec![Ok(DnsResponse::from_message(message).unwrap())]);

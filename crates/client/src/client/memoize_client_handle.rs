@@ -131,7 +131,7 @@ mod test {
 
                 *i += 1;
 
-                Ok(DnsResponse::from_message(message).unwrap())
+                Ok(DnsResponse::from_message(message.to_response()).unwrap())
             }))
         }
     }

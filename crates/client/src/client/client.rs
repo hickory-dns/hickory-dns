@@ -869,7 +869,7 @@ mod tests {
     ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static {
         let stream = records.into_iter().map(|r| {
             Ok({
-                let mut m = Message::query();
+                let mut m = Message::query().to_response();
                 m.insert_answers(r);
                 DnsResponse::from_message(m).unwrap()
             })

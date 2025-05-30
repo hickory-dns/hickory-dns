@@ -206,13 +206,13 @@ pub fn soa_record(name: Name, mname: Name) -> Record {
     Record::from_rdata(name, 86400, RData::SOA(soa))
 }
 
-pub fn message(
+pub fn resp_message(
     query: Query,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
 ) -> Message {
-    let mut message = Message::query();
+    let mut message = Message::query().to_response();
     message.add_query(query);
     message.insert_answers(answers);
     message.insert_name_servers(name_servers);
