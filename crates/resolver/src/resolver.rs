@@ -49,10 +49,7 @@ pub struct ResolverBuilder<P> {
     nsec3_hard_iteration_limit: Option<u16>,
 }
 
-impl<P> ResolverBuilder<P>
-where
-    P: ConnectionProvider,
-{
+impl<P: ConnectionProvider> ResolverBuilder<P> {
     /// Sets the [`ResolverOpts`] to be used by the resolver.
     ///
     /// NB: A [`ResolverBuilder<P>`] will use the system configuration e.g., `resolv.conf`, by
@@ -109,15 +106,15 @@ where
             nsec3_hard_iteration_limit,
         } = self;
 
-        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
-        let client = RetryDnsHandle::new(pool, options.attempts);
-        let either;
-
         #[cfg(feature = "__dnssec")]
         if trust_anchor.is_some() || options.trust_anchor.is_some() {
             options.validate = true;
         }
 
+        let options = Arc::new(options);
+        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
+        let client = RetryDnsHandle::new(pool, options.attempts);
+        let either;
         if options.validate {
             #[cfg(feature = "__dnssec")]
             {
@@ -175,7 +172,7 @@ where
 #[derive(Clone)]
 pub struct Resolver<P: ConnectionProvider> {
     config: ResolverConfig,
-    options: ResolverOpts,
+    options: Arc<ResolverOpts>,
     client_cache: CachingClient<LookupEither<P>>,
     hosts: Arc<Hosts>,
 }

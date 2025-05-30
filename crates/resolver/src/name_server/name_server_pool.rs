@@ -22,7 +22,7 @@ use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerO
 use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
 use crate::name_server::name_server::NameServer;
 use crate::proto::runtime::{RuntimeProvider, Time};
-use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer, Protocol};
 use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 
 /// A pool of NameServers
@@ -32,282 +32,216 @@ pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
-pub struct NameServerPool<P: ConnectionProvider + Send + 'static> {
-    // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
-    datagram_conns: Arc<[NameServer<P>]>, /* All NameServers must be the same type */
-    stream_conns: Arc<[NameServer<P>]>,   /* All NameServers must be the same type */
-    options: ResolverOpts,
-    datagram_index: Arc<AtomicUsize>,
-    stream_index: Arc<AtomicUsize>,
+pub struct NameServerPool<P: ConnectionProvider> {
+    state: Arc<PoolState<P>>,
 }
 
-impl<P> NameServerPool<P>
-where
-    P: ConnectionProvider + 'static,
-{
+impl<P: ConnectionProvider> NameServerPool<P> {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
-        let datagram_conns = config
+        let servers = config
             .name_servers()
             .iter()
-            .filter(|ns_config| ns_config.protocol.is_datagram())
             .map(|ns_config| {
                 NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
             })
             .collect();
 
-        let stream_conns = config
-            .name_servers()
-            .iter()
-            .filter(|ns_config| !ns_config.protocol.is_datagram())
-            .map(|ns_config| {
-                NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
-            })
-            .collect();
-
-        Self {
-            datagram_conns,
-            stream_conns,
-            options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
-        }
+        Self::from_nameservers(servers, options)
     }
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         name_servers: NameServerConfigGroup,
-        options: ResolverOpts,
+        options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
-        let map_config_to_ns =
-            |ns_config| NameServer::new(ns_config, options.clone(), conn_provider.clone());
-
-        let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
-            .into_inner()
-            .into_iter()
-            .partition(|ns| ns.protocol.is_datagram());
-
-        let datagram_conns: Vec<_> = datagram.into_iter().map(map_config_to_ns).collect();
-        let stream_conns: Vec<_> = stream.into_iter().map(map_config_to_ns).collect();
-
-        Self {
-            datagram_conns: Arc::from(datagram_conns),
-            stream_conns: Arc::from(stream_conns),
+        Self::from_nameservers(
+            name_servers
+                .into_inner()
+                .into_iter()
+                .map(|ns_config| NameServer::new(ns_config, options.clone(), conn_provider.clone()))
+                .collect(),
             options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
-        }
+        )
     }
 
     #[doc(hidden)]
-    pub fn from_nameservers(
-        options: ResolverOpts,
-        datagram_conns: Vec<NameServer<P>>,
-        stream_conns: Vec<NameServer<P>>,
-    ) -> Self {
+    pub fn from_nameservers(servers: Vec<NameServer<P>>, options: Arc<ResolverOpts>) -> Self {
         Self {
-            datagram_conns: Arc::from(datagram_conns),
-            stream_conns: Arc::from(stream_conns),
-            options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
+            state: Arc::new(PoolState::new(servers, options)),
         }
     }
 
     /// Returns the pool's options.
     pub fn options(&self) -> &ResolverOpts {
-        &self.options
+        &self.state.options
     }
+}
 
-    #[cfg(test)]
-    #[allow(dead_code)]
-    fn from_nameservers_test(
-        options: ResolverOpts,
-        datagram_conns: Arc<[NameServer<P>]>,
-        stream_conns: Arc<[NameServer<P>]>,
-    ) -> Self {
+impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+
+    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
+        let state = self.state.clone();
+        let request = request.into();
+        debug!("sending request: {:?}", request.queries());
+        Box::pin(once(async move { state.try_send(request).await }))
+    }
+}
+
+struct PoolState<P: ConnectionProvider> {
+    servers: Vec<NameServer<P>>,
+    options: Arc<ResolverOpts>,
+    next: AtomicUsize,
+}
+
+impl<P: ConnectionProvider> PoolState<P> {
+    fn new(mut servers: Vec<NameServer<P>>, options: Arc<ResolverOpts>) -> Self {
+        // Unless the user specified that we should follow the configured order,
+        // re-order the servers to prioritize UDP.
+        if options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder {
+            servers.sort_by_key(|ns| (ns.protocol() != Protocol::Udp) as u8);
+        }
+
         Self {
-            datagram_conns,
-            stream_conns,
+            servers,
             options,
-            datagram_index: Arc::from(AtomicUsize::new(0)),
-            stream_index: Arc::from(AtomicUsize::new(0)),
+            next: AtomicUsize::new(0),
         }
     }
 
-    async fn try_send(
-        opts: ResolverOpts,
-        conns: Arc<[NameServer<P>]>,
-        request: DnsRequest,
-        next_index: &Arc<AtomicUsize>,
-    ) -> Result<DnsResponse, ProtoError> {
-        let mut conns: Vec<NameServer<P>> = conns.to_vec();
-
-        match opts.server_ordering_strategy {
+    async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
+        let mut conns = self.servers.clone();
+        match self.options.server_ordering_strategy {
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => {
-                conns.sort_by(|a, b| a.stats.decayed_srtt().total_cmp(&b.stats.decayed_srtt()));
+                conns.sort_by(|a, b| match (a.protocol(), b.protocol()) {
+                    (ap, bp) if ap == bp => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
+                    (Protocol::Udp, _) => Ordering::Less,
+                    (_, Protocol::Udp) => Ordering::Greater,
+                    (_, _) => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
+                });
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
-                let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
-                    opts.num_concurrent_reqs
+                let num_concurrent_reqs = if self.options.num_concurrent_reqs > 1 {
+                    self.options.num_concurrent_reqs
                 } else {
                     1
                 };
                 if num_concurrent_reqs < conns.len() {
-                    let index = next_index.fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
+                    let index = self
+                        .next
+                        .fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
                         % conns.len();
                     conns.rotate_left(index);
                 }
             }
         }
-        let request_loop = request.clone();
 
-        parallel_conn_loop(conns, request_loop, opts).await
-    }
-}
+        // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
+        // we will first try the other name servers (as for other error types). However, if the other
+        // servers are also busy, we're going to wait for a little while and then retry each server that
+        // returned Busy in the previous round. If the server is still Busy, this continues, while
+        // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
+        // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
+        //
+        // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
+        // close to the connection, which means the top level resolution might take substantially longer
+        // to fire than the timeout configured in `ResolverOpts`.
+        let mut backoff = Duration::from_millis(20);
+        let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
+        let mut skip_udp = false;
 
-impl<P> DnsHandle for NameServerPool<P>
-where
-    P: ConnectionProvider + 'static,
-{
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+        loop {
+            // construct the parallel requests, 2 is the default
+            let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
+            let count = conns.len().min(self.options.num_concurrent_reqs.max(1));
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let opts = self.options.clone();
-        let request = request.into();
-        let datagram_conns = Arc::clone(&self.datagram_conns);
-        let stream_conns = Arc::clone(&self.stream_conns);
-        let datagram_index = Arc::clone(&self.datagram_index);
-        let stream_index = Arc::clone(&self.stream_index);
-        // TODO: remove this clone, return the Message in the error?
-        // TODO: remove this clone, return the Message in the error?
-        let tcp_message = request.clone();
-
-        Box::pin(once(async move {
-            debug!("sending request: {:?}", request.queries());
-
-            // First try the UDP connections
-            let future = Self::try_send(opts.clone(), datagram_conns, request, &datagram_index);
-            let udp_res = match future.await {
-                Ok(response) if response.truncated() => {
-                    debug!("truncated response received, retrying over TCP");
-                    Err(ProtoError::from("received truncated response"))
-                }
-                Err(e)
-                    if (opts.try_tcp_on_error && e.is_io())
-                        || e.is_no_connections()
-                        || matches!(&*e.kind, ProtoErrorKind::QueryCaseMismatch) =>
-                {
-                    debug!("error from UDP, retrying over TCP: {}", e);
-                    Err(e)
-                }
-                result => return result,
-            };
-
-            if stream_conns.is_empty() {
-                debug!("no TCP connections available");
-                return udp_res;
+            // Shuffe DNS NameServers to avoid overloads to the first configured ones
+            for conn in conns.drain(..count) {
+                par_conns.push(conn);
             }
 
-            // Try query over TCP, as response to query over UDP was either truncated or was an
-            // error.
-            Self::try_send(opts, stream_conns, tcp_message, &stream_index).await
-        }))
-    }
-}
-
-// TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
-/// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<P>(
-    mut conns: Vec<NameServer<P>>,
-    request: DnsRequest,
-    opts: ResolverOpts,
-) -> Result<DnsResponse, ProtoError>
-where
-    P: ConnectionProvider + 'static,
-{
-    let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
-
-    // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
-    // we will first try the other name servers (as for other error types). However, if the other
-    // servers are also busy, we're going to wait for a little while and then retry each server that
-    // returned Busy in the previous round. If the server is still Busy, this continues, while
-    // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
-    // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
-    //
-    // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
-    // close to the connection, which means the top level resolution might take substantially longer
-    // to fire than the timeout configured in `ResolverOpts`.
-    let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
-
-    loop {
-        let request_cont = request.clone();
-
-        // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
-        let count = conns.len().min(opts.num_concurrent_reqs.max(1));
-
-        // Shuffe DNS NameServers to avoid overloads to the first configured ones
-        for conn in conns.drain(..count) {
-            par_conns.push(conn);
-        }
-
-        if par_conns.is_empty() {
-            if !busy.is_empty() && backoff < Duration::from_millis(300) {
-                <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
+            if par_conns.is_empty() {
+                if !busy.is_empty() && backoff < Duration::from_millis(300) {
+                    <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
                     backoff,
                 )
                 .await;
-                conns.extend(busy.drain(..));
-                backoff *= 2;
-                continue;
+                    conns.extend(busy.drain(..));
+                    backoff *= 2;
+                    continue;
+                }
+                return Err(err);
             }
-            return Err(err);
-        }
 
-        let mut requests = par_conns
-            .into_iter()
-            .map(move |conn| {
-                conn.send(request_cont.clone())
-                    .first_answer()
-                    .map(|result| result.map_err(|e| (conn, e)))
-            })
-            .collect::<FuturesUnordered<_>>();
+            let mut requests = par_conns
+                .into_iter()
+                .filter_map(|conn| {
+                    if skip_udp && conn.protocol() == Protocol::Udp {
+                        // If we got a truncated response, we retry over TCP
+                        return None;
+                    }
 
-        while let Some(result) = requests.next().await {
-            let (conn, e) = match result {
-                Ok(sent) => return Ok(sent),
-                Err((conn, e)) => (conn, e),
-            };
+                    Some(
+                        conn.send(request.clone())
+                            .first_answer()
+                            .map(|result| result.map_err(|e| (conn, e))),
+                    )
+                })
+                .collect::<FuturesUnordered<_>>();
 
-            match e.kind() {
-                ProtoErrorKind::NoRecordsFound(NoRecords {
-                    trusted, soa, ns, ..
-                }) if *trusted || soa.is_some() || ns.is_some() => {
-                    return Err(e);
+            while let Some(result) = requests.next().await {
+                let (conn, e) = match result {
+                    Ok(response) if response.truncated() => {
+                        debug!("truncated response received, retrying over TCP");
+                        skip_udp = false;
+                        err = ProtoError::from("received truncated response");
+                        continue;
+                    }
+                    Ok(response) => return Ok(response),
+                    Err((conn, e)) => (conn, e),
+                };
+
+                match e.kind() {
+                    ProtoErrorKind::NoRecordsFound(NoRecords {
+                        trusted, soa, ns, ..
+                    }) if *trusted || soa.is_some() || ns.is_some() => {
+                        return Err(e);
+                    }
+                    ProtoErrorKind::QueryCaseMismatch => {
+                        skip_udp = true;
+                        continue;
+                    }
+                    ProtoErrorKind::Io(_)
+                        if conn.protocol() == Protocol::Udp && self.options.try_tcp_on_error =>
+                    {
+                        // If we got an IO error on UDP, we retry over TCP
+                        skip_udp = true;
+                        continue;
+                    }
+                    ProtoErrorKind::Busy => {
+                        busy.push(conn);
+                    }
+                    // If our current error is the default err we start with, replace it with the
+                    // new error under consideration. It was produced trying to make a connection
+                    // and is more specific than the default.
+                    _ if matches!(err.kind(), ProtoErrorKind::NoConnections) => {
+                        err = e;
+                    }
+                    _ if err.cmp_specificity(&e) == Ordering::Less => {
+                        err = e;
+                    }
+                    _ => {}
                 }
-                _ if e.is_busy() => {
-                    busy.push(conn);
-                }
-                // If our current error is the default err we start with, replace it with the
-                // new error under consideration. It was produced trying to make a connection
-                // and is more specific than the default.
-                _ if matches!(err.kind(), ProtoErrorKind::NoConnections) => {
-                    err = e;
-                }
-                _ if err.cmp_specificity(&e) == Ordering::Less => {
-                    err = e;
-                }
-                _ => {}
             }
         }
     }
@@ -359,7 +293,7 @@ mod tests {
         let io_loop = Runtime::new().unwrap();
         let pool = GenericNameServerPool::tokio_from_config(
             &resolver_config,
-            ResolverOpts::default(),
+            Arc::new(ResolverOpts::default()),
             TokioRuntimeProvider::new(),
         );
 
@@ -412,19 +346,14 @@ mod tests {
             bind_addr: None,
         };
 
-        let opts = ResolverOpts {
+        let opts = Arc::new(ResolverOpts {
             try_tcp_on_error: true,
             ..ResolverOpts::default()
-        };
+        });
         let ns_config = { tcp };
         let name_server = GenericNameServer::new(ns_config, opts.clone(), conn_provider);
-        let name_servers: Arc<[_]> = Arc::from([name_server]);
-
-        let pool = GenericNameServerPool::from_nameservers_test(
-            opts,
-            Arc::from([]),
-            Arc::clone(&name_servers),
-        );
+        let name_servers = vec![name_server];
+        let pool = GenericNameServerPool::from_nameservers(name_servers.clone(), opts);
 
         let name = Name::from_str("www.example.com.").unwrap();
 
@@ -466,7 +395,7 @@ mod tests {
     impl GenericNameServerPool<TokioRuntimeProvider> {
         pub(crate) fn tokio_from_config(
             config: &ResolverConfig,
-            options: ResolverOpts,
+            options: Arc<ResolverOpts>,
             runtime: TokioRuntimeProvider,
         ) -> Self {
             Self::from_config_with_provider(config, options, GenericConnector::new(runtime))

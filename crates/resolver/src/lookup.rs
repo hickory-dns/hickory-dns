@@ -225,7 +225,7 @@ impl Iterator for LookupIntoIter {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<P: ConnectionProvider + Send> {
+pub enum LookupEither<P: ConnectionProvider> {
     Retry(RetryDnsHandle<NameServerPool<P>>),
     #[cfg(feature = "__dnssec")]
     Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
