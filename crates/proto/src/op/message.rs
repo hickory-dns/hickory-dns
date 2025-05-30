@@ -400,17 +400,9 @@ impl Message {
 
     /// Returns a clone of the `Message` with the message type set to `Response`.
     pub fn to_response(&self) -> Self {
-        let mut header = self.header;
-        header.set_message_type(MessageType::Response);
-        Self {
-            header,
-            queries: self.queries.clone(),
-            answers: self.answers.clone(),
-            name_servers: self.name_servers.clone(),
-            additionals: self.additionals.clone(),
-            signature: self.signature.clone(),
-            edns: self.edns.clone(),
-        }
+        let mut resp = self.clone();
+        resp.header.set_message_type(MessageType::Response);
+        resp
     }
 
     /// Gets the header of the Message
