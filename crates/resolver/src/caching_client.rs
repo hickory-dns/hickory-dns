@@ -533,7 +533,7 @@ mod tests {
 
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn cname_message() -> Result<DnsResponse, ProtoError> {
-        let mut message = Message::query();
+        let mut message = Message::query().to_response();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::A,
@@ -548,7 +548,7 @@ mod tests {
 
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn srv_message() -> Result<DnsResponse, ProtoError> {
-        let mut message = Message::query();
+        let mut message = Message::query().to_response();
         message.add_query(Query::query(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),
             RecordType::SRV,
@@ -568,7 +568,7 @@ mod tests {
 
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn ns_message() -> Result<DnsResponse, ProtoError> {
-        let mut message = Message::query();
+        let mut message = Message::query().to_response();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::NS,
@@ -812,7 +812,7 @@ mod tests {
         // expecting no queries to be performed
         let mut client = CachingClient::with_cache(lru, mock(vec![error()]), false);
 
-        let mut message = Message::query();
+        let mut message = Message::query().to_response();
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("ttl.example.com.").unwrap(),
             first,

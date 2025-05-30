@@ -550,8 +550,8 @@ mod test {
             .clone(),
         );
         (
-            DnsRequest::new(response, DnsRequestOptions::default()),
-            vec![msg],
+            DnsRequest::new(msg, DnsRequestOptions::default()),
+            vec![response],
         )
     }
 
