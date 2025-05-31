@@ -24,7 +24,7 @@ use hickory_proto::{
     runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
     udp::UdpClientStream,
-    xfer::FirstAnswer,
+    xfer::{DnsRequest, FirstAnswer},
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::{
@@ -190,7 +190,7 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
     .map(|edns| edns.set_max_payload(1232).set_version(0));
 
     client
-        .send(msg)
+        .send(DnsRequest::from(msg))
         .first_answer()
         .map_ok(move |response| {
             println!("response records: {response:?}");

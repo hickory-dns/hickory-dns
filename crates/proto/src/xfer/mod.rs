@@ -187,8 +187,7 @@ macro_rules! try_oneshot {
 impl DnsHandle for BufDnsRequestStreamHandle {
     type Response = DnsResponseReceiver;
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let request: DnsRequest = request.into();
+    fn send(&self, request: DnsRequest) -> Self::Response {
         debug!(
             "enqueueing message:{}:{:?}",
             request.op_code(),

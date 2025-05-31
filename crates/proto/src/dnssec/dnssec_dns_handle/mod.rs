@@ -783,9 +783,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         true
     }
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let mut request = request.into();
-
+    fn send(&self, mut request: DnsRequest) -> Self::Response {
         // backstop
         if self.request_depth > request.options().max_request_depth {
             error!("exceeded max validation depth");
