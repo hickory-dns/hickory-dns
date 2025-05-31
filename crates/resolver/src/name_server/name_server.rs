@@ -92,7 +92,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
         Box::pin(once(this.inner.send(request)))
@@ -135,10 +135,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
         }
     }
 
-    async fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
-        self: Arc<Self>,
-        request: R,
-    ) -> Result<DnsResponse, ProtoError> {
+    async fn send(self: Arc<Self>, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
         let client = self.connected_mut_client().await?;
         let now = Instant::now();
         let response = client.send(request).first_answer().await;

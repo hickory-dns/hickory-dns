@@ -141,7 +141,7 @@ fn test_datagram() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
+    let request = build_request(query);
     let future = pool.send(request).first_answer();
 
     let response = block_on(future).unwrap();
@@ -181,8 +181,7 @@ fn test_datagram_stream_upgrades_on_truncation() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
 
     let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
@@ -228,8 +227,7 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
 
     let response = block_on(future).unwrap();
     assert_eq!(response.answers(), &[tcp_record1, tcp_record2]);
@@ -260,8 +258,7 @@ fn test_datagram_fails_to_stream() {
     options.try_tcp_on_error = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
 }
@@ -299,8 +296,7 @@ fn test_tcp_fallback_only_on_truncated() {
         Default::default(),
     );
 
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
@@ -347,8 +343,7 @@ fn test_no_tcp_fallback_on_non_io_error() {
     options.try_tcp_on_error = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
     match error.kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
@@ -389,8 +384,7 @@ fn test_tcp_fallback_on_io_error() {
     options.try_tcp_on_error = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
@@ -430,8 +424,7 @@ fn test_tcp_fallback_on_no_connections() {
     options.try_tcp_on_error = true;
     let pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
@@ -487,8 +480,7 @@ fn test_trust_nx_responses_fails() {
 
     // Lookup on UDP should fail, since we trust nx responses.
     // (If we retried the query with the second name server, we'd see a successful response.)
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
     match response.kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
@@ -542,9 +534,7 @@ fn test_noerror_doesnt_leak() {
     );
 
     // lookup should only hit the first server
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
-
+    let future = pool.send(build_request(query)).first_answer();
     match block_on(future).unwrap_err().kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords {
             soa,
@@ -608,8 +598,7 @@ fn test_distrust_nx_responses() {
         ResolverOpts::default(),
     );
     for response_code in RETRYABLE_ERRORS.iter() {
-        let request = message(query.clone(), vec![], vec![], vec![]);
-        let fut = pool.send(request).first_answer();
+        let fut = pool.send(build_request(query.clone())).first_answer();
         let response = block_on(fut).expect("query did not eventually succeed");
         assert_eq!(
             response.answers(),
@@ -681,9 +670,7 @@ fn test_user_provided_server_order() {
         .into_iter()
         .chain(secondary_server_records)
         .for_each(|expected_record| {
-            let request = message(query.clone(), vec![], vec![], vec![]);
-            let future = pool.send(request).first_answer();
-
+            let future = pool.send(build_request(query.clone())).first_answer();
             let response = block_on(future).unwrap();
             assert_eq!(response.answers()[0], expected_record);
         });
@@ -717,8 +704,7 @@ fn test_return_error_from_highest_priority_nameserver() {
     opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(name_servers, vec![], None, opts);
 
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err(
         "DNS query should result in a `ResolveError` since all name servers return error responses",
     );
@@ -822,8 +808,7 @@ fn test_concurrent_requests_2_conns() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timeout doesn't work, not clear why...
@@ -868,8 +853,7 @@ fn test_concurrent_requests_more_than_conns() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timeout doesn't work, not clear why...
@@ -913,8 +897,7 @@ fn test_concurrent_requests_1_conn() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timeout doesn't work, not clear why...
@@ -958,8 +941,7 @@ fn test_concurrent_requests_0_conn() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let future = pool.send(build_request(query)).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timeout doesn't work, not clear why...

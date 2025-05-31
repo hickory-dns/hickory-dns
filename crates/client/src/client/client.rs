@@ -124,7 +124,7 @@ impl Client {
 impl DnsHandle for Client {
     type Response = DnsExchangeSend;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         self.exchange.send(request)
     }
 
@@ -265,7 +265,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
             message.add_answers(rrset.into());
         }
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -311,8 +311,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     {
         let rrset = rrset.into();
         let message = update_message::create(rrset, zone_origin, self.is_using_edns());
-
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -360,8 +359,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     {
         let rrset = rrset.into();
         let message = update_message::append(rrset, zone_origin, must_exist, self.is_using_edns());
-
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -420,7 +418,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         let message =
             update_message::compare_and_swap(current, new, zone_origin, self.is_using_edns());
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -469,8 +467,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     {
         let rrset = rrset.into();
         let message = update_message::delete_by_rdata(rrset, zone_origin, self.is_using_edns());
-
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -514,8 +511,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         assert!(zone_origin.zone_of(record.name()));
         let message = update_message::delete_rrset(record, zone_origin, self.is_using_edns());
-
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Deletes all records at the specified name
@@ -555,8 +551,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
             dns_class,
             self.is_using_edns(),
         );
-
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(DnsRequest::from(message)))
     }
 
     /// Download all records from a zone, or all records modified since given SOA was observed.
@@ -573,8 +568,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
         let ixfr = last_soa.is_some();
         let message = update_message::zone_transfer(zone_origin, last_soa);
-
-        ClientStreamXfr::new(self.send(message), ixfr)
+        ClientStreamXfr::new(self.send(DnsRequest::from(message)), ixfr)
     }
 }
 

@@ -242,7 +242,7 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
         }
     }
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         match self {
             Self::Retry(c) => c.send(request),
             #[cfg(feature = "__dnssec")]

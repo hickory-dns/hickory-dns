@@ -179,7 +179,7 @@ impl<O: OnSend> MockClientHandle<O> {
 impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
-    fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
+    fn send(&self, _: DnsRequest) -> Self::Response {
         let mut messages = self.messages.lock().expect("failed to lock at messages");
         println!("MockClientHandle::send message count: {}", messages.len());
 
@@ -204,6 +204,12 @@ pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
 pub fn soa_record(name: Name, mname: Name) -> Record {
     let soa = SOA::new(mname, Default::default(), 1, 3600, 60, 86400, 3600);
     Record::from_rdata(name, 86400, RData::SOA(soa))
+}
+
+pub fn build_request(query: Query) -> DnsRequest {
+    let mut message = Message::query();
+    message.add_query(query);
+    DnsRequest::from(message)
 }
 
 pub fn message(

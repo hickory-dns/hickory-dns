@@ -5,7 +5,7 @@ use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::udp::UdpClientStream;
-use hickory_proto::xfer::FirstAnswer;
+use hickory_proto::xfer::{DnsRequest, FirstAnswer};
 use hickory_server::ServerFuture;
 use hickory_server::authority::{Catalog, ZoneType};
 #[cfg(feature = "__dnssec")]
@@ -54,7 +54,11 @@ async fn test_truncation() {
         edns
     });
 
-    let result = client.send(msg).first_answer().await.expect("query failed");
+    let result = client
+        .send(DnsRequest::from(msg))
+        .first_answer()
+        .await
+        .expect("query failed");
 
     assert!(result.truncated());
     assert_eq!(max_payload, result.max_payload());

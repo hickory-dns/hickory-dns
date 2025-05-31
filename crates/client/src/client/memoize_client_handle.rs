@@ -70,15 +70,10 @@ where
     }
 }
 
-impl<H> DnsHandle for MemoizeClientHandle<H>
-where
-    H: ClientHandle,
-{
+impl<H: ClientHandle> DnsHandle for MemoizeClientHandle<H> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let request = request.into();
-
+    fn send(&self, request: DnsRequest) -> Self::Response {
         Box::pin(
             Self::inner_send(
                 request,
@@ -118,7 +113,7 @@ mod test {
     impl DnsHandle for TestClient {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
-        fn send<R: Into<DnsRequest> + Send + 'static>(&self, request: R) -> Self::Response {
+        fn send(&self, request: DnsRequest) -> Self::Response {
             let i = Arc::clone(&self.i);
             Box::pin(stream::once(async move {
                 let mut i = i.lock().await;
@@ -126,7 +121,7 @@ mod test {
                 println!(
                     "sending {}: {}",
                     *i,
-                    request.into().queries().first().expect("no query!").clone()
+                    request.queries().first().expect("no query!").clone()
                 );
 
                 *i += 1;
@@ -152,21 +147,17 @@ mod test {
         let mut test2 = Message::query();
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
-        let result = block_on(client.send(test1.clone()).first_answer())
-            .ok()
-            .unwrap();
+        let result = block_on(client.send(DnsRequest::from(test1.clone())).first_answer()).unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2.clone()).first_answer())
-            .ok()
-            .unwrap();
+        let result = block_on(client.send(DnsRequest::from(test2.clone())).first_answer()).unwrap();
         assert_eq!(result.id(), 1);
 
         // should get the same result for each...
-        let result = block_on(client.send(test1).first_answer()).ok().unwrap();
+        let result = block_on(client.send(DnsRequest::from(test1)).first_answer()).unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2).first_answer()).ok().unwrap();
+        let result = block_on(client.send(DnsRequest::from(test2)).first_answer()).unwrap();
         assert_eq!(result.id(), 1);
     }
 }
