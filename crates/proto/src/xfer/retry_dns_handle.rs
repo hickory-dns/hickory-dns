@@ -57,15 +57,10 @@ where
 }
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
-impl<H> DnsHandle for RetryDnsHandle<H>
-where
-    H: DnsHandle + Send + Unpin + 'static,
-{
+impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
-        let request = request.into();
-
+    fn send(&self, request: DnsRequest) -> Self::Response {
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
         let stream = self.handle.send(request.clone());
@@ -164,7 +159,7 @@ mod test {
     impl DnsHandle for TestClient {
         type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
 
-        fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
+        fn send(&self, _: DnsRequest) -> Self::Response {
             let i = self.attempts.load(Ordering::SeqCst);
 
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
@@ -189,7 +184,7 @@ mod test {
             },
             2,
         );
-        let test1 = Message::query();
+        let test1 = DnsRequest::from(Message::query());
         let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
     }
@@ -205,7 +200,7 @@ mod test {
             },
             2,
         );
-        let test1 = Message::query();
+        let test1 = DnsRequest::from(Message::query());
         assert!(block_on(client.send(test1).first_answer()).is_err());
     }
 }

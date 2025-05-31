@@ -111,7 +111,7 @@ impl Clone for DnsExchange {
 impl DnsHandle for DnsExchange {
     type Response = DnsExchangeSend;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         DnsExchangeSend {
             result: self.sender.send(request),
             _sender: self.sender.clone(), // TODO: this shouldn't be necessary, currently the presence of Senders is what allows the background to track current users, it generally is dropped right after send, this makes sure that there is at least one active after send

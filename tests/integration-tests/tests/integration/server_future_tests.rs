@@ -32,7 +32,7 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::rustls::{default_provider, tls_client_connect_with_bind_addr};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
-use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
+use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 use hickory_server::ServerFuture;
 use hickory_server::authority::{Authority, Catalog};
 use test_support::subscribe;
@@ -154,7 +154,7 @@ async fn test_server_form_error_on_multiple_queries() {
         .set_recursion_desired(true);
 
     let mut client_result = client
-        .send(message)
+        .send(DnsRequest::from(message))
         .try_collect::<Vec<_>>()
         .await
         .expect("query failed");
@@ -188,7 +188,11 @@ async fn test_server_no_response_on_response() {
     let mut message = Message::response(10, OpCode::Query);
     message.add_query(query_a);
 
-    let client_result = client.send(message).try_collect::<Vec<_>>().await.unwrap();
+    let client_result = client
+        .send(DnsRequest::from(message))
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
     assert_eq!(client_result.len(), 0);
 
     server_continue.store(false, Ordering::Relaxed);

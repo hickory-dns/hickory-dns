@@ -547,20 +547,14 @@ mod for_dnssec {
         ProtoError,
         op::{Message, OpCode},
         runtime::RuntimeProvider,
-        xfer::DnsHandle,
-        xfer::DnsResponse,
+        xfer::{DnsHandle, DnsRequest, DnsResponse},
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
 
     impl<P: RuntimeProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
 
-        fn send<R: Into<hickory_proto::xfer::DnsRequest> + Unpin + Send + 'static>(
-            &self,
-            request: R,
-        ) -> Self::Response {
-            let request = request.into();
-
+        fn send(&self, request: DnsRequest) -> Self::Response {
             let query = if let OpCode::Query = request.op_code() {
                 if let Some(query) = request.queries().first().cloned() {
                     query

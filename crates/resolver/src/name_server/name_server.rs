@@ -120,10 +120,7 @@ where
             .expect("bad state, client should be connected"))
     }
 
-    async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
-        mut self,
-        request: R,
-    ) -> Result<DnsResponse, ProtoError> {
+    async fn inner_send(mut self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
         let client = self.connected_mut_client().await?;
         let now = Instant::now();
         let response = client.send(request).first_answer().await;
@@ -177,7 +174,7 @@ where
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
         Box::pin(once(this.inner_send(request)))

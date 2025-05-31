@@ -180,9 +180,8 @@ where
 {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         let opts = self.options.clone();
-        let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
         let stream_conns = Arc::clone(&self.stream_conns);
         let datagram_index = Arc::clone(&self.datagram_index);
