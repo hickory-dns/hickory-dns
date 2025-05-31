@@ -102,9 +102,8 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
-    fn send<R: Into<DnsRequest>>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         let state = self.state.clone();
-        let request = request.into();
         let tcp_message = request.clone();
 
         Box::pin(once(async move {

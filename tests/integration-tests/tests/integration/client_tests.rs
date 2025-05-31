@@ -41,7 +41,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::xfer::DnsMultiplexerConnect;
-use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
+use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::authority::{Authority, Catalog};
 use test_support::subscribe;
@@ -184,7 +184,7 @@ async fn test_query_edns(client: Client) {
     .map(|edns| edns.set_max_payload(1232).set_version(0));
 
     let response = client
-        .send(msg)
+        .send(DnsRequest::from(msg))
         .try_collect::<Vec<_>>()
         .await
         .expect("Query failed")

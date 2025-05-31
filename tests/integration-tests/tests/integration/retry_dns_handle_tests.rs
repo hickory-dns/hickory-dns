@@ -22,7 +22,7 @@ struct TestClient {
 impl DnsHandle for TestClient {
     type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
 
-    fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
+    fn send(&self, _: DnsRequest) -> Self::Response {
         let i = self.attempts.load(Ordering::SeqCst);
 
         if i > self.retries || self.retries - i == 0 {
@@ -48,7 +48,7 @@ fn retry_on_retryable_error() {
         },
         2,
     );
-    let test1 = Message::query();
+    let test1 = DnsRequest::from(Message::query());
     let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
     assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
 }
@@ -70,6 +70,6 @@ fn dont_retry_on_negative_response() {
         },
         2,
     );
-    let test1 = Message::query();
+    let test1 = DnsRequest::from(Message::query());
     assert!(block_on(client.send(test1).first_answer()).is_err());
 }

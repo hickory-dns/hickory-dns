@@ -1412,7 +1412,7 @@ mod tests {
     impl DnsHandle for MockDnsHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
-        fn send<R: Into<DnsRequest>>(&self, _: R) -> Self::Response {
+        fn send(&self, _: DnsRequest) -> Self::Response {
             Box::pin(once(
                 future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed(),
             ))

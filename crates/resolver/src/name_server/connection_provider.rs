@@ -173,7 +173,7 @@ pub struct GenericConnection(DnsExchange);
 impl DnsHandle for GenericConnection {
     type Response = ConnectionResponse;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         ConnectionResponse(self.0.send(request))
     }
 }
