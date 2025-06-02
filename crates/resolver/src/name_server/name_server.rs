@@ -24,7 +24,7 @@ use crate::name_server::connection_provider::ConnectionProvider;
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
     op::ResponseCode,
-    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
+    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer, Protocol},
 };
 
 /// This struct is used to create `DnsHandle` with the help of `P`.
@@ -81,6 +81,10 @@ impl<P: ConnectionProvider> NameServer<P> {
 
     pub(super) fn decayed_srtt(&self) -> f64 {
         self.inner.stats.decayed_srtt()
+    }
+
+    pub(super) fn protocol(&self) -> Protocol {
+        self.inner.config.protocol.to_protocol()
     }
 
     pub(super) fn trust_negative_responses(&self) -> bool {
