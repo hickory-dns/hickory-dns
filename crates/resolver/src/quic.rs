@@ -72,7 +72,7 @@ mod tests {
         let name_servers = NameServerConfigGroup::from_ips_quic(
             &[
                 IpAddr::from([94, 140, 14, 140]),
-                IpAddr::from([94, 140, 15, 141]),
+                IpAddr::from([94, 140, 14, 141]),
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x1, 0xff]),
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x2, 0xff]),
             ],
