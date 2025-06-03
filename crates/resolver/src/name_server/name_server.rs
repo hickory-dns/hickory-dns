@@ -82,6 +82,10 @@ impl<P: ConnectionProvider> NameServer<P> {
     pub(super) fn decayed_srtt(&self) -> f64 {
         self.inner.stats.decayed_srtt()
     }
+
+    pub(super) fn trust_negative_responses(&self) -> bool {
+        self.inner.config.trust_negative_responses
+    }
 }
 
 impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
@@ -144,8 +148,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
         match response {
             Ok(response) => {
                 // First evaluate if the message succeeded.
-                let result =
-                    ProtoError::from_response(response, self.config.trust_negative_responses);
+                let result = ProtoError::from_response(response);
                 self.stats.record(rtt, &result);
                 let response = result?;
 

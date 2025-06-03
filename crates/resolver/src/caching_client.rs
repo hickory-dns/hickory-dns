@@ -167,7 +167,7 @@ where
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
         let response_message = if let Ok(response) = response_message {
-            ProtoError::from_response(response, false)
+            ProtoError::from_response(response)
         } else {
             response_message
         };
@@ -182,7 +182,6 @@ where
                     if is_dnssec {
                         new.negative_ttl = None;
                     }
-                    new.trusted = !is_dnssec || no_records.trusted;
                     Err(new.into())
                 }
                 _ => return Err(e),
@@ -371,7 +370,6 @@ where
             let mut new = NoRecords::new(query.clone(), response_code);
             new.soa = soa.map(Box::new);
             new.negative_ttl = negative_ttl;
-            new.trusted = true;
             Err(new.into())
         }
     }
