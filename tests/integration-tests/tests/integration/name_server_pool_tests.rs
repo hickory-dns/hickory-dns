@@ -1,5 +1,6 @@
 use std::future::{Future, poll_fn};
-use std::net::*;
+use std::io;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{
@@ -636,8 +637,16 @@ fn test_user_provided_server_order() {
 
     // Specify different IP addresses for each name server to ensure that they
     // are considered separately.
+    let mut preferred_server_responses = to_dns_response(preferred_server_records.clone());
+    preferred_server_responses.insert(
+        0,
+        Err(ProtoError::from(io::Error::new(
+            io::ErrorKind::Other,
+            "fail",
+        ))),
+    );
     let preferred_nameserver = mock_nameserver_with_addr(
-        to_dns_response(preferred_server_records.clone()),
+        preferred_server_responses,
         Ipv4Addr::new(128, 0, 0, 1).into(),
         Default::default(),
     );
@@ -659,7 +668,7 @@ fn test_user_provided_server_order() {
     // secondary server should be used.
     preferred_server_records
         .into_iter()
-        .chain(secondary_server_records)
+        .chain(secondary_server_records.into_iter().take(1))
         .for_each(|expected_record| {
             let future = pool.send(build_request(query.clone())).first_answer();
             let response = block_on(future).unwrap();
