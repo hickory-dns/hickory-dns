@@ -361,8 +361,6 @@ pub struct NoRecords {
     /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
     ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
     pub response_code: ResponseCode,
-    /// If we trust `NXDOMAIN` errors from this server
-    pub trusted: bool,
     /// Authority records from the query. These are important to preserve for DNSSEC validation.
     pub authorities: Option<Arc<[Record]>>,
 }
@@ -376,7 +374,6 @@ impl NoRecords {
             ns: None,
             negative_ttl: None,
             response_code,
-            trusted: false,
             authorities: None,
         }
     }
@@ -395,7 +392,6 @@ impl From<AuthorityData> for NoRecords {
             ns: None,
             negative_ttl: None,
             response_code,
-            trusted: true,
             authorities: value.authorities,
         }
     }
@@ -524,7 +520,7 @@ impl ProtoError {
     }
 
     /// A conversion to determine if the response is an error
-    pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
+    pub fn from_response(response: DnsResponse) -> Result<DnsResponse, Self> {
         use ResponseCode::*;
         debug!("response: {}", *response);
 
@@ -555,9 +551,6 @@ impl ProtoError {
                         soa: soa.map(Box::new),
                         negative_ttl: None,
                         response_code: code,
-                        // This is marked as false as these are all potentially temporary error Response codes about
-                        //   the client and server interaction, and do not pertain to record existence.
-                        trusted: false,
                         authorities: None,
                     });
 
@@ -605,11 +598,6 @@ impl ProtoError {
                     };
 
                     let negative_ttl = response.negative_ttl();
-                    // Note: improperly configured servers may do recursive lookups and return bad SOA
-                    // records here via AS112 (blackhole-1.iana.org. etc)
-                    // Such servers should be marked not trusted, as they may break reverse lookups
-                    // for local hosts.
-                    let trusted = trust_nx && soa.is_some();
                     let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
 
                     let error_kind = ProtoErrorKind::NoRecordsFound(NoRecords {
@@ -618,7 +606,6 @@ impl ProtoError {
                         ns: option_ns,
                         negative_ttl,
                         response_code: code,
-                        trusted,
                         authorities,
                     });
 

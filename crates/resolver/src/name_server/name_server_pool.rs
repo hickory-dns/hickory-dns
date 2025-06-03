@@ -258,9 +258,9 @@ async fn try_send<P: ConnectionProvider>(
             };
 
             match e.kind() {
-                ProtoErrorKind::NoRecordsFound(NoRecords {
-                    trusted, soa, ns, ..
-                }) if *trusted || soa.is_some() || ns.is_some() => {
+                ProtoErrorKind::NoRecordsFound(NoRecords { soa, ns, .. })
+                    if conn.trust_negative_responses() || soa.is_some() || ns.is_some() =>
+                {
                     return Err(e);
                 }
                 _ if e.is_busy() => {

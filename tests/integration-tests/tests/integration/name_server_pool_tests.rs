@@ -280,7 +280,6 @@ fn test_tcp_fallback_only_on_truncated() {
     let udp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(udp_message).unwrap(),
-            false,
         )],
         Default::default(),
     );
@@ -326,7 +325,6 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let udp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(udp_message).unwrap(),
-            false,
         )],
         Default::default(),
     );
@@ -334,7 +332,6 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let tcp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(tcp_message).unwrap(),
-            false,
         )],
         Default::default(),
     );
@@ -375,7 +372,6 @@ fn test_tcp_fallback_on_io_error() {
     let tcp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(tcp_message).unwrap(),
-            false,
         )],
         Default::default(),
     );
@@ -415,7 +411,6 @@ fn test_tcp_fallback_on_no_connections() {
     let tcp_nameserver = mock_nameserver(
         vec![ProtoError::from_response(
             DnsResponse::from_message(tcp_message).unwrap(),
-            false,
         )],
         Default::default(),
     );
@@ -537,14 +532,10 @@ fn test_noerror_doesnt_leak() {
     let future = pool.send(build_request(query)).first_answer();
     match block_on(future).unwrap_err().kind() {
         ProtoErrorKind::NoRecordsFound(NoRecords {
-            soa,
-            response_code,
-            trusted,
-            ..
+            soa, response_code, ..
         }) => {
             assert_eq!(response_code, &ResponseCode::NoError);
             assert!(soa.is_some());
-            assert!(trusted);
         }
         x => panic!("Expected NoRecordsFound, got {x:?}"),
     }
@@ -694,7 +685,7 @@ fn test_return_error_from_highest_priority_nameserver() {
             let mut error_message = message(query.clone(), vec![], vec![], vec![]);
             error_message.set_response_code(*response_code);
             let response =
-                ProtoError::from_response(DnsResponse::from_message(error_message).unwrap(), true)
+                ProtoError::from_response(DnsResponse::from_message(error_message).unwrap())
                     .expect_err("error code should result in resolve error");
             mock_nameserver(vec![Err(response)], ResolverOpts::default())
         })

@@ -463,7 +463,7 @@ impl<P: RuntimeProvider> Recursor<P> {
                 // to preserve SOA and DNSSEC records, and to keep those records in the authorities
                 // section of the response.
                 if response.response_code() == ResponseCode::NXDomain {
-                    let Err(proto_err) = ProtoError::from_response(response, true) else {
+                    let Err(proto_err) = ProtoError::from_response(response) else {
                         return Err(Error::from(
                             "unable to build ProtoError from response {response:?}",
                         ));
@@ -493,7 +493,6 @@ impl<P: RuntimeProvider> Recursor<P> {
                             })
                             .collect(),
                     );
-                    no_records.trusted = true;
 
                     Err(Error::from(ProtoError::from(no_records)))
                 } else {
