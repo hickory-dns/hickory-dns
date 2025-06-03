@@ -15,7 +15,7 @@ use core::task::{Context, Poll};
 use futures_util::stream::{Stream, StreamExt};
 
 use crate::DnsHandle;
-use crate::error::{ProtoError, ProtoErrorKind};
+use crate::error::ProtoError;
 use crate::xfer::{DnsRequest, DnsResponse};
 
 /// Can be used to reattempt queries if they fail
@@ -27,7 +27,7 @@ use crate::xfer::{DnsRequest, DnsResponse};
 /// errors.
 ///
 /// Whether an error is retryable by the [`RetryDnsHandle`] is determined by the
-/// [`RetryableError`] trait.
+/// [`ProtoError::should_retry()`] method.
 ///
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
@@ -110,27 +110,6 @@ impl<H: DnsHandle + Unpin> Stream for RetrySendStream<H> {
                 poll => return poll,
             }
         }
-    }
-}
-
-/// What errors should be retried
-pub trait RetryableError {
-    /// Whether the query should be retried after this error
-    fn should_retry(&self) -> bool;
-    /// Whether this error should count as an attempt
-    fn attempted(&self) -> bool;
-}
-
-impl RetryableError for ProtoError {
-    fn should_retry(&self) -> bool {
-        !matches!(
-            self.kind(),
-            ProtoErrorKind::NoConnections | ProtoErrorKind::NoRecordsFound { .. }
-        )
-    }
-
-    fn attempted(&self) -> bool {
-        !matches!(self.kind(), ProtoErrorKind::Busy)
     }
 }
 
