@@ -583,11 +583,14 @@ fn test_distrust_nx_responses() {
         false,
     );
 
+    let mut opts = ResolverOpts::default();
+    opts.num_concurrent_reqs = 1;
+    opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(
         vec![error_nameserver, fallback_nameserver],
         vec![],
         None,
-        ResolverOpts::default(),
+        opts,
     );
     for response_code in RETRYABLE_ERRORS.iter() {
         let fut = pool.send(build_request(query.clone())).first_answer();
