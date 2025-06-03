@@ -549,17 +549,7 @@ fn test_distrust_nx_responses() {
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
-    const RETRYABLE_ERRORS: [ResponseCode; 9] = [
-        ResponseCode::FormErr,
-        ResponseCode::ServFail,
-        ResponseCode::NotImp,
-        ResponseCode::Refused,
-        ResponseCode::YXDomain,
-        ResponseCode::YXRRSet,
-        ResponseCode::NXRRSet,
-        ResponseCode::NotAuth,
-        ResponseCode::NotZone,
-    ];
+    const RETRYABLE_ERRORS: &[ResponseCode] = &[ResponseCode::NXDomain];
     // Return an error response code, but have the client not trust that response.
     let error_nameserver = mock_nameserver_trust_nx(
         RETRYABLE_ERRORS
