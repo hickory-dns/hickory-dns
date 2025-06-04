@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    net::IpAddr,
+    net::{IpAddr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicU8, Ordering},
@@ -31,7 +31,7 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache, TtlConfig,
-        config::{NameServerConfigGroup, ResolverOpts},
+        config::{NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverOpts},
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -70,16 +70,29 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         conn_provider: P,
     ) -> Self {
         // configure the hickory-resolver
-        let roots = NameServerConfigGroup::from_ips_clear(roots, 53, true);
-
         assert!(!roots.is_empty(), "roots must not be empty");
+        let mut servers = Vec::with_capacity(roots.len() * 2);
+        for &root in roots {
+            for protocol in [ProtocolConfig::Udp, ProtocolConfig::Tcp] {
+                servers.push(NameServerConfig {
+                    socket_addr: SocketAddr::from((root, 53)),
+                    protocol,
+                    trust_negative_responses: true,
+                    bind_addr: None,
+                });
+            }
+        }
 
         debug!(
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots = NameServerPool::from_config(roots, Arc::new(opts), conn_provider.clone());
+        let roots = NameServerPool::from_config(
+            NameServerConfigGroup::from(servers),
+            Arc::new(opts),
+            conn_provider.clone(),
+        );
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config);
