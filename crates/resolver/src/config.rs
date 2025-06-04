@@ -17,6 +17,8 @@ use std::time::Duration;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(any(feature = "__https", feature = "__h3"))]
+use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
 use crate::proto::rr::Name;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::client_config;
@@ -107,7 +109,7 @@ impl ResolverConfig {
     ///
     /// * `domain` - domain of the entity querying results. If the `Name` being looked up is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in the `ResolverOption` does take precedence over this.
     /// * `search` - additional search domains that are attempted if the `Name` is not found in `domain`, defaults to `vec![]`
-    /// * `name_servers` - set of name servers to use for lookups, defaults are Google: `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844`
+    /// * `name_servers` - set of name servers to use for lookups
     pub fn from_parts(
         domain: Option<Name>,
         search: Vec<Name>,
@@ -169,11 +171,10 @@ impl ResolverConfig {
     derive(Serialize, Deserialize),
     serde(deny_unknown_fields)
 )]
+#[non_exhaustive]
 pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
-    pub socket_addr: SocketAddr,
-    /// The protocol to use when communicating with the NameServer.
-    pub protocol: ProtocolConfig,
+    pub ip: IpAddr,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
     /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
@@ -188,19 +189,176 @@ pub struct NameServerConfig {
     /// Defaults to false.
     #[cfg_attr(feature = "serde", serde(default))]
     pub trust_negative_responses: bool,
-    /// The client address (IP and port) to use for connecting to the server.
-    pub bind_addr: Option<SocketAddr>,
+    /// Connection protocols configured for this server.
+    pub connections: Vec<ConnectionConfig>,
 }
 
 impl NameServerConfig {
-    /// Constructs a Nameserver configuration with some basic defaults
-    pub fn new(socket_addr: SocketAddr, protocol: ProtocolConfig) -> Self {
+    /// Constructs a nameserver configuration with a UDP and TCP connections
+    pub fn udp_and_tcp(ip: IpAddr) -> Self {
         Self {
-            socket_addr,
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::udp(), ConnectionConfig::tcp()],
+        }
+    }
+
+    /// Constructs a nameserver configuration with a single UDP connection
+    pub fn udp(ip: IpAddr) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::udp()],
+        }
+    }
+
+    /// Constructs a nameserver configuration with a single TCP connection
+    pub fn tcp(ip: IpAddr) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::tcp()],
+        }
+    }
+
+    /// Constructs a nameserver configuration with a single TLS connection
+    #[cfg(feature = "__tls")]
+    pub fn tls(ip: IpAddr, server_name: Arc<str>) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::tls(server_name)],
+        }
+    }
+
+    /// Constructs a nameserver configuration with a single HTTP/2 connection
+    #[cfg(feature = "__https")]
+    pub fn https(ip: IpAddr, server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::https(server_name, path)],
+        }
+    }
+
+    /// Constructs a nameserver configuration with a single QUIC connection
+    #[cfg(feature = "__quic")]
+    pub fn quic(ip: IpAddr, server_name: Arc<str>) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::quic(server_name)],
+        }
+    }
+
+    /// Constructs a nameserver configuration with a single HTTP/3 connection
+    #[cfg(feature = "__h3")]
+    pub fn h3(ip: IpAddr, server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: false,
+            connections: vec![ConnectionConfig::h3(server_name, path)],
+        }
+    }
+
+    /// Create a new [`NameServerConfig`] from its constituent parts.
+    pub fn new(
+        ip: IpAddr,
+        trust_negative_responses: bool,
+        connections: Vec<ConnectionConfig>,
+    ) -> Self {
+        Self {
+            ip,
+            trust_negative_responses,
+            connections,
+        }
+    }
+}
+
+/// Configuration for a connection to a nameserver
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[non_exhaustive]
+pub struct ConnectionConfig {
+    /// The remote port to connect to
+    pub port: u16,
+    /// The protocol to use for the connection
+    pub protocol: ProtocolConfig,
+    /// The client address (IP and port) to use for connecting to the server
+    pub bind_addr: Option<SocketAddr>,
+}
+
+impl ConnectionConfig {
+    /// Constructs a new ConnectionConfig for UDP
+    pub fn udp() -> Self {
+        Self::new(ProtocolConfig::Udp)
+    }
+
+    /// Constructs a new ConnectionConfig for TCP
+    pub fn tcp() -> Self {
+        Self::new(ProtocolConfig::Tcp)
+    }
+
+    /// Constructs a new ConnectionConfig for TLS
+    #[cfg(feature = "__tls")]
+    pub fn tls(server_name: Arc<str>) -> Self {
+        Self::new(ProtocolConfig::Tls { server_name })
+    }
+
+    /// Constructs a new ConnectionConfig for HTTPS (HTTP/2)
+    #[cfg(feature = "__https")]
+    pub fn https(server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
+        Self::new(ProtocolConfig::Https {
+            server_name,
+            path: path.unwrap_or_else(|| Arc::from(DEFAULT_DNS_QUERY_PATH)),
+        })
+    }
+
+    /// Constructs a new ConnectionConfig for QUIC
+    #[cfg(feature = "__quic")]
+    pub fn quic(server_name: Arc<str>) -> Self {
+        Self::new(ProtocolConfig::Quic { server_name })
+    }
+
+    /// Constructs a new ConnectionConfig for HTTP/3
+    #[cfg(feature = "__h3")]
+    pub fn h3(server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
+        Self::new(ProtocolConfig::H3 {
+            server_name,
+            path: path.unwrap_or_else(|| Arc::from(DEFAULT_DNS_QUERY_PATH)),
+            disable_grease: false,
+        })
+    }
+
+    /// Constructs a new ConnectionConfig with the specified [`ProtocolConfig`].
+    pub fn new(protocol: ProtocolConfig) -> Self {
+        Self {
+            port: protocol.default_port(),
             protocol,
-            trust_negative_responses: true,
             bind_addr: None,
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ConnectionConfig {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct OptionalParts {
+            #[serde(default)]
+            port: Option<u16>,
+            protocol: ProtocolConfig,
+            #[serde(default)]
+            bind_addr: Option<SocketAddr>,
+        }
+
+        let parts = OptionalParts::deserialize(deserializer)?;
+        Ok(Self {
+            port: parts.port.unwrap_or_else(|| parts.protocol.default_port()),
+            protocol: parts.protocol,
+            bind_addr: parts.bind_addr,
+        })
     }
 }
 
@@ -246,7 +404,8 @@ pub enum ProtocolConfig {
 }
 
 impl ProtocolConfig {
-    pub(crate) fn to_protocol(&self) -> Protocol {
+    /// Get the [`Protocol`] for this [`ProtocolConfig`].
+    pub fn to_protocol(&self) -> Protocol {
         match self {
             ProtocolConfig::Udp => Protocol::Udp,
             ProtocolConfig::Tcp => Protocol::Tcp,
@@ -258,6 +417,22 @@ impl ProtocolConfig {
             ProtocolConfig::Quic { .. } => Protocol::Quic,
             #[cfg(feature = "__h3")]
             ProtocolConfig::H3 { .. } => Protocol::H3,
+        }
+    }
+
+    /// Default port for the protocol.
+    pub fn default_port(&self) -> u16 {
+        match self {
+            ProtocolConfig::Udp => 53,
+            ProtocolConfig::Tcp => 53,
+            #[cfg(feature = "__tls")]
+            ProtocolConfig::Tls { .. } => 853,
+            #[cfg(feature = "__https")]
+            ProtocolConfig::Https { .. } => 443,
+            #[cfg(feature = "__quic")]
+            ProtocolConfig::Quic { .. } => 853,
+            #[cfg(feature = "__h3")]
+            ProtocolConfig::H3 { .. } => 443,
         }
     }
 }
@@ -562,55 +737,39 @@ pub struct ServerGroup<'a> {
 impl<'a> ServerGroup<'a> {
     /// Create an iterator with `NameServerConfig` for each IP address in the group.
     pub fn udp_and_tcp(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
-        self.ips.iter().flat_map(|&ip| {
-            [
-                NameServerConfig {
-                    socket_addr: SocketAddr::new(ip, 53),
-                    protocol: ProtocolConfig::Udp,
-                    trust_negative_responses: true,
-                    bind_addr: None,
-                },
-                NameServerConfig {
-                    socket_addr: SocketAddr::new(ip, 53),
-                    protocol: ProtocolConfig::Tcp,
-                    trust_negative_responses: true,
-                    bind_addr: None,
-                },
-            ]
+        self.ips.iter().map(|&ip| {
+            NameServerConfig::new(
+                ip,
+                true,
+                vec![ConnectionConfig::udp(), ConnectionConfig::tcp()],
+            )
         })
     }
 
     /// Create an iterator with `NameServerConfig` for each IP address in the group.
     pub fn udp(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
-        self.ips.iter().map(|&ip| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 53),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: true,
-            bind_addr: None,
-        })
+        self.ips
+            .iter()
+            .map(|&ip| NameServerConfig::new(ip, true, vec![ConnectionConfig::udp()]))
     }
 
     /// Create an iterator with `NameServerConfig` for each IP address in the group.
     pub fn tcp(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
-        self.ips.iter().map(|&ip| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 53),
-            protocol: ProtocolConfig::Tcp,
-            trust_negative_responses: true,
-            bind_addr: None,
-        })
+        self.ips
+            .iter()
+            .map(|&ip| NameServerConfig::new(ip, true, vec![ConnectionConfig::tcp()]))
     }
 
     /// Create an iterator with `NameServerConfig` for each IP address in the group.
     #[cfg(feature = "__tls")]
     pub fn tls(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
         let this = *self;
-        self.ips.iter().map(move |&ip| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 853),
-            protocol: ProtocolConfig::Tls {
-                server_name: Arc::from(this.server_name),
-            },
-            trust_negative_responses: true,
-            bind_addr: None,
+        self.ips.iter().map(move |&ip| {
+            NameServerConfig::new(
+                ip,
+                true,
+                vec![ConnectionConfig::tls(Arc::from(this.server_name))],
+            )
         })
     }
 
@@ -618,14 +777,15 @@ impl<'a> ServerGroup<'a> {
     #[cfg(feature = "__https")]
     pub fn https(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
         let this = *self;
-        self.ips.iter().map(move |&ip| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 443),
-            protocol: ProtocolConfig::Https {
-                server_name: Arc::from(this.server_name),
-                path: Arc::from(this.path),
-            },
-            trust_negative_responses: true,
-            bind_addr: None,
+        self.ips.iter().map(move |&ip| {
+            NameServerConfig::new(
+                ip,
+                true,
+                vec![ConnectionConfig::https(
+                    Arc::from(this.server_name),
+                    Some(Arc::from(this.path)),
+                )],
+            )
         })
     }
 
@@ -633,13 +793,12 @@ impl<'a> ServerGroup<'a> {
     #[cfg(feature = "__quic")]
     pub fn quic(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
         let this = *self;
-        self.ips.iter().map(move |&ip| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 853),
-            protocol: ProtocolConfig::Quic {
-                server_name: Arc::from(this.server_name),
-            },
-            trust_negative_responses: true,
-            bind_addr: None,
+        self.ips.iter().map(move |&ip| {
+            NameServerConfig::new(
+                ip,
+                true,
+                vec![ConnectionConfig::quic(Arc::from(this.server_name))],
+            )
         })
     }
 
@@ -647,15 +806,15 @@ impl<'a> ServerGroup<'a> {
     #[cfg(feature = "__h3")]
     pub fn h3(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
         let this = *self;
-        self.ips.iter().map(move |&ip| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 443),
-            protocol: ProtocolConfig::H3 {
-                server_name: Arc::from(this.server_name),
-                path: Arc::from(this.path),
-                disable_grease: false,
-            },
-            trust_negative_responses: true,
-            bind_addr: None,
+        self.ips.iter().map(move |&ip| {
+            NameServerConfig::new(
+                ip,
+                true,
+                vec![ConnectionConfig::h3(
+                    Arc::from(this.server_name),
+                    Some(Arc::from(this.path)),
+                )],
+            )
         })
     }
 }

@@ -41,11 +41,9 @@ zone_type = "External"
 type = "forward"
 
 [[zones.stores.name_servers]]
-socket_addr = "8.8.8.8:53"
-protocol = { type = "udp" }
+ip = "8.8.8.8"
 trust_negative_responses = false
-
-[[zones.stores.name_servers]]
-socket_addr = "8.8.8.8:53"
-protocol = { type = "tcp" }
-trust_negative_responses = false
+connections = [
+    { protocol = { type = "udp" } },
+    { protocol = { type = "tcp" } },
+]

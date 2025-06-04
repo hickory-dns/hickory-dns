@@ -768,17 +768,21 @@ mod tests {
                type = "forward"
 
                [[zones.stores.name_servers]]
-               socket_addr = "8.8.8.8:53"
-               protocol = { type = "udp" }
+               ip = "8.8.8.8"
                trust_negative_responses = false
+               connections = [
+                   { protocol = { type = "udp" } },
+               ]
 
                [[zones.stores]]
                type = "forward"
 
                [[zones.stores.name_servers]]
-               socket_addr = "1.1.1.1:53"
-               rotocol = { type = "udp" }
-               trust_negative_responses = false"#,
+               ip = "1.1.1.1"
+               trust_negative_responses = false
+               connections = [
+                   { rotocol = { type = "udp" } },
+               ]"#,
         ) {
             Ok(val) => panic!("expected error value; got ok: {val:?}"),
             Err(e) => assert!(dbg!(e).to_string().contains("unknown field `rotocol`")),
