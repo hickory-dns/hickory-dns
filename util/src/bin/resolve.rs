@@ -293,16 +293,16 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if opts.google {
-        name_servers.merge(NameServerConfigGroup::udp_and_tcp(&GOOGLE));
+        name_servers.extend(GOOGLE.udp_and_tcp());
     }
     if opts.cloudflare {
-        name_servers.merge(NameServerConfigGroup::udp_and_tcp(&CLOUDFLARE));
+        name_servers.extend(CLOUDFLARE.udp_and_tcp());
     }
     if opts.quad9 {
-        name_servers.merge(NameServerConfigGroup::udp_and_tcp(&QUAD9));
+        name_servers.extend(QUAD9.udp_and_tcp());
     }
     if name_servers.is_empty() && sys_config.is_none() {
-        name_servers.merge(NameServerConfigGroup::udp_and_tcp(&GOOGLE));
+        name_servers.extend(GOOGLE.udp_and_tcp());
     }
 
     let ipv4 = opts.ipv4 || !opts.ipv6;

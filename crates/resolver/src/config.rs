@@ -49,7 +49,9 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::udp_and_tcp(config),
+            name_servers: NameServerConfigGroup {
+                servers: config.udp_and_tcp().collect(),
+            },
         }
     }
 
@@ -65,7 +67,9 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::tls(config),
+            name_servers: NameServerConfigGroup {
+                servers: config.tls().collect(),
+            },
         }
     }
 
@@ -81,7 +85,9 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::https(config),
+            name_servers: NameServerConfigGroup {
+                servers: config.https().collect(),
+            },
         }
     }
 
@@ -97,12 +103,9 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::from_ips_quic(
-                config.ips,
-                853,
-                Arc::from(config.server_name),
-                true,
-            ),
+            name_servers: NameServerConfigGroup {
+                servers: config.quic().collect(),
+            },
         }
     }
 
@@ -118,7 +121,9 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::h3(config),
+            name_servers: NameServerConfigGroup {
+                servers: config.h3().collect(),
+            },
         }
     }
 
@@ -197,181 +202,15 @@ impl NameServerConfigGroup {
         self.servers
     }
 
-    /// Configure a NameServer address and port
-    ///
-    /// This will create UDP and TCP connections, using the same port.
-    pub fn from_ips_clear(ips: &[IpAddr], port: u16, trust_negative_responses: bool) -> Self {
-        let mut name_servers = Self::with_capacity(2 * ips.len());
-
-        for ip in ips {
-            let socket_addr = SocketAddr::new(*ip, port);
-            let udp = NameServerConfig {
-                socket_addr,
-                protocol: ProtocolConfig::Udp,
-                trust_negative_responses,
-                bind_addr: None,
-            };
-            let tcp = NameServerConfig {
-                socket_addr,
-                protocol: ProtocolConfig::Tcp,
-                trust_negative_responses,
-                bind_addr: None,
-            };
-
-            name_servers.push(udp);
-            name_servers.push(tcp);
-        }
-
-        name_servers
-    }
-
-    #[cfg(any(feature = "__tls", feature = "__https"))]
-    fn from_ips_encrypted(
-        ips: &[IpAddr],
-        port: u16,
-        protocol: ProtocolConfig,
-        trust_negative_responses: bool,
-    ) -> Self {
-        let mut name_servers = Self::with_capacity(ips.len());
-
-        for ip in ips {
-            let config = NameServerConfig {
-                socket_addr: SocketAddr::new(*ip, port),
-                protocol: protocol.clone(),
-                trust_negative_responses,
-                bind_addr: None,
-            };
-
-            name_servers.push(config);
-        }
-
-        name_servers
-    }
-
-    /// Configure a NameServer address and port for DNS-over-TLS
-    ///
-    /// This will create a TLS connections.
-    #[cfg(feature = "__tls")]
-    pub fn from_ips_tls(
-        ips: &[IpAddr],
-        port: u16,
-        server_name: Arc<str>,
-        trust_negative_responses: bool,
-    ) -> Self {
-        Self::from_ips_encrypted(
-            ips,
-            port,
-            ProtocolConfig::Tls { server_name },
-            trust_negative_responses,
-        )
-    }
-
-    /// Configure a NameServer address and port for DNS-over-HTTPS
-    ///
-    /// This will create a HTTPS connections.
-    #[cfg(feature = "__https")]
-    pub fn from_ips_https(
-        ips: &[IpAddr],
-        port: u16,
-        server_name: Arc<str>,
-        path: Arc<str>,
-        trust_negative_responses: bool,
-    ) -> Self {
-        Self::from_ips_encrypted(
-            ips,
-            port,
-            ProtocolConfig::Https { server_name, path },
-            trust_negative_responses,
-        )
-    }
-
-    /// Configure a NameServer address and port for DNS-over-QUIC
-    ///
-    /// This will create a QUIC connections.
-    #[cfg(feature = "__quic")]
-    pub fn from_ips_quic(
-        ips: &[IpAddr],
-        port: u16,
-        server_name: Arc<str>,
-        trust_negative_responses: bool,
-    ) -> Self {
-        Self::from_ips_encrypted(
-            ips,
-            port,
-            ProtocolConfig::Quic { server_name },
-            trust_negative_responses,
-        )
-    }
-
-    /// Configure a NameServer address and port for DNS-over-HTTP/3
-    ///
-    /// This will create a HTTP/3 connection.
-    #[cfg(feature = "__h3")]
-    pub fn from_ips_h3(
-        ips: &[IpAddr],
-        port: u16,
-        server_name: Arc<str>,
-        path: Arc<str>,
-        trust_negative_responses: bool,
-    ) -> Self {
-        Self::from_ips_encrypted(
-            ips,
-            port,
-            ProtocolConfig::H3 {
-                server_name,
-                path,
-                disable_grease: false,
-            },
-            trust_negative_responses,
-        )
-    }
-
-    /// Creates a configuration connecting via UDP and TCP.
-    pub fn udp_and_tcp(config: &ServerGroup<'_>) -> Self {
-        Self::from_ips_clear(config.ips, 53, true)
-    }
-
-    /// Creates a configuration only connecting via TLS.
-    #[cfg(feature = "__tls")]
-    pub fn tls(config: &ServerGroup<'_>) -> Self {
-        Self::from_ips_tls(config.ips, 853, Arc::from(config.server_name), true)
-    }
-
-    /// Creates a configuration only connecting via HTTPS (HTTP/2).
-    #[cfg(feature = "__https")]
-    pub fn https(config: &ServerGroup<'_>) -> Self {
-        Self::from_ips_https(
-            config.ips,
-            443,
-            Arc::from(config.server_name),
-            Arc::from(config.path),
-            true,
-        )
-    }
-
-    /// Creates a configuration only connecting via HTTP/3.
-    ///
-    /// Note that not all public DNS providers support HTTP/3.
-    #[cfg(feature = "__h3")]
-    pub fn h3(config: &ServerGroup<'_>) -> Self {
-        Self::from_ips_h3(
-            config.ips,
-            443,
-            Arc::from(config.server_name),
-            Arc::from(config.path),
-            true,
-        )
-    }
-
     /// Merges this set of [`NameServerConfig`]s with the other
     ///
     /// ```
     /// use std::net::{SocketAddr, Ipv4Addr};
     /// use hickory_resolver::config::{NameServerConfigGroup, GOOGLE, CLOUDFLARE, QUAD9};
     ///
-    /// let mut group = NameServerConfigGroup::udp_and_tcp(&GOOGLE);
-    /// group.merge(NameServerConfigGroup::udp_and_tcp(&CLOUDFLARE));
-    /// group.merge(NameServerConfigGroup::udp_and_tcp(&QUAD9));
+    /// let mut group = NameServerConfigGroup::from(GOOGLE.udp_and_tcp().collect::<Vec<_>>());
+    /// group.merge(NameServerConfigGroup::from(CLOUDFLARE.udp_and_tcp().collect::<Vec<_>>()));
+    /// group.merge(NameServerConfigGroup::from(QUAD9.udp_and_tcp().collect::<Vec<_>>()));
     ///
     /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(8, 8, 8, 8).into(), 53)));
     /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(1, 1, 1, 1).into(), 53)));
@@ -845,6 +684,107 @@ pub struct ServerGroup<'a> {
     pub server_name: &'a str,
     /// The query path to use for HTTP queries.
     pub path: &'a str,
+}
+
+impl<'a> ServerGroup<'a> {
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    pub fn udp_and_tcp(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        self.ips.iter().flat_map(|&ip| {
+            [
+                NameServerConfig {
+                    socket_addr: SocketAddr::new(ip, 53),
+                    protocol: ProtocolConfig::Udp,
+                    trust_negative_responses: true,
+                    bind_addr: None,
+                },
+                NameServerConfig {
+                    socket_addr: SocketAddr::new(ip, 53),
+                    protocol: ProtocolConfig::Tcp,
+                    trust_negative_responses: true,
+                    bind_addr: None,
+                },
+            ]
+        })
+    }
+
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    pub fn udp(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        self.ips.iter().map(|&ip| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 53),
+            protocol: ProtocolConfig::Udp,
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
+    }
+
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    pub fn tcp(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        self.ips.iter().map(|&ip| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 53),
+            protocol: ProtocolConfig::Tcp,
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
+    }
+
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    #[cfg(feature = "__tls")]
+    pub fn tls(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        let this = *self;
+        self.ips.iter().map(move |&ip| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 853),
+            protocol: ProtocolConfig::Tls {
+                server_name: Arc::from(this.server_name),
+            },
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
+    }
+
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    #[cfg(feature = "__https")]
+    pub fn https(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        let this = *self;
+        self.ips.iter().map(move |&ip| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 443),
+            protocol: ProtocolConfig::Https {
+                server_name: Arc::from(this.server_name),
+                path: Arc::from(this.path),
+            },
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
+    }
+
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    #[cfg(feature = "__quic")]
+    pub fn quic(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        let this = *self;
+        self.ips.iter().map(move |&ip| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 853),
+            protocol: ProtocolConfig::Quic {
+                server_name: Arc::from(this.server_name),
+            },
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
+    }
+
+    /// Create an iterator with `NameServerConfig` for each IP address in the group.
+    #[cfg(feature = "__h3")]
+    pub fn h3(&self) -> impl Iterator<Item = NameServerConfig> + 'a {
+        let this = *self;
+        self.ips.iter().map(move |&ip| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 443),
+            protocol: ProtocolConfig::H3 {
+                server_name: Arc::from(this.server_name),
+                path: Arc::from(this.path),
+                disable_grease: false,
+            },
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
+    }
 }
 
 #[cfg(all(test, feature = "serde"))]
