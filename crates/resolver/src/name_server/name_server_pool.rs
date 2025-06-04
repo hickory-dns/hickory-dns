@@ -40,30 +40,28 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
-        let servers = config
-            .name_servers()
-            .iter()
-            .map(|ns_config| {
-                NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
-            })
-            .collect();
-
-        Self::from_nameservers(servers, options)
+        Self::from_config(config.name_servers(), options, conn_provider)
     }
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
-        name_servers: Vec<NameServerConfig>,
+        name_servers: &[NameServerConfig],
         options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
-        Self::from_nameservers(
-            name_servers
-                .into_iter()
-                .map(|ns_config| NameServer::new(ns_config, options.clone(), conn_provider.clone()))
-                .collect(),
-            options,
-        )
+        let mut servers = Vec::with_capacity(name_servers.len());
+        for server in name_servers {
+            for conn in &server.connections {
+                servers.push(NameServer::new(
+                    server,
+                    conn.clone(),
+                    options.clone(),
+                    conn_provider.clone(),
+                ));
+            }
+        }
+
+        Self::from_nameservers(servers, options)
     }
 
     #[doc(hidden)]
@@ -238,14 +236,14 @@ impl<P: ConnectionProvider> PoolState<P> {
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::net::IpAddr;
     use std::str::FromStr;
 
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::config::{NameServerConfig, ProtocolConfig};
+    use crate::config::NameServerConfig;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
@@ -258,19 +256,8 @@ mod tests {
     fn test_failed_then_success_pool() {
         subscribe();
 
-        let config1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
-
-        let config2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
+        let config1 = NameServerConfig::udp(IpAddr::from([127, 0, 0, 252]));
+        let config2 = NameServerConfig::udp(IpAddr::from([8, 8, 8, 8]));
 
         let mut resolver_config = ResolverConfig::default();
         resolver_config.add_name_server(config1);
@@ -324,19 +311,14 @@ mod tests {
         subscribe();
 
         let conn_provider = TokioRuntimeProvider::default();
-
-        let tcp = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: ProtocolConfig::Tcp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
-
         let opts = Arc::new(ResolverOpts {
             try_tcp_on_error: true,
             ..ResolverOpts::default()
         });
-        let name_server = NameServer::new(tcp, opts.clone(), conn_provider);
+
+        let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
+        let connection_config = tcp.connections.first().unwrap().clone();
+        let name_server = NameServer::new(&tcp, connection_config, opts.clone(), conn_provider);
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(name_servers.clone(), opts);
 

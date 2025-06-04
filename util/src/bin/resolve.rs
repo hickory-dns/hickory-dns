@@ -274,21 +274,15 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Configure all the name servers
     let mut name_servers = Vec::new();
-
     for socket_addr in &opts.nameserver {
-        name_servers.push(NameServerConfig {
-            socket_addr: *socket_addr,
-            protocol: ProtocolConfig::Tcp,
-            trust_negative_responses: false,
-            bind_addr: opts.bind.map(|ip| SocketAddr::new(ip, 0)),
-        });
+        let mut config = NameServerConfig::udp_and_tcp(socket_addr.ip());
+        config.trust_negative_responses = false;
+        for conn in config.connections.iter_mut() {
+            conn.port = socket_addr.port();
+            conn.bind_addr = opts.bind.map(|ip| SocketAddr::new(ip, 0));
+        }
 
-        name_servers.push(NameServerConfig {
-            socket_addr: *socket_addr,
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: opts.bind.map(|ip| SocketAddr::new(ip, 0)),
-        });
+        name_servers.push(config);
     }
 
     if opts.google {
@@ -310,11 +304,13 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let udp = opts.udp || !opts.tcp;
     let tcp = opts.tcp || !opts.udp;
 
-    name_servers
-        .retain(|ns| (ipv4 && ns.socket_addr.is_ipv4()) || (ipv6 && ns.socket_addr.is_ipv6()));
-    name_servers.retain(|ns| {
-        (udp && ns.protocol == ProtocolConfig::Udp) || (tcp && ns.protocol == ProtocolConfig::Tcp)
-    });
+    name_servers.retain(|ns| (ipv4 && ns.ip.is_ipv4()) || (ipv6 && ns.ip.is_ipv6()));
+    for ns in name_servers.iter_mut() {
+        ns.connections.retain(|conn| {
+            (udp && conn.protocol == ProtocolConfig::Udp)
+                || (tcp && conn.protocol == ProtocolConfig::Tcp)
+        });
+    }
 
     let mut config = sys_config.unwrap_or_default();
 

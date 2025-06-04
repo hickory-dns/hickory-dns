@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    net::{IpAddr, SocketAddr},
+    net::IpAddr,
     sync::{
         Arc,
         atomic::{AtomicU8, Ordering},
@@ -31,7 +31,7 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache, TtlConfig,
-        config::{NameServerConfig, ProtocolConfig, ResolverOpts},
+        config::{NameServerConfig, ResolverOpts},
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -69,20 +69,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         case_randomization: bool,
         conn_provider: P,
     ) -> Self {
-        // configure the hickory-resolver
         assert!(!roots.is_empty(), "roots must not be empty");
-        let servers = roots
-            .iter()
-            .copied()
-            .flat_map(udp_and_tcp)
-            .collect::<Vec<_>>();
+        let servers = roots.iter().copied().map(udp_and_tcp).collect::<Vec<_>>();
 
         debug!(
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots = NameServerPool::from_config(servers, Arc::new(opts), conn_provider.clone());
+        let roots = NameServerPool::from_config(&servers, Arc::new(opts), conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config);
@@ -459,7 +454,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             match glue_ips.get(&ns_data.0) {
                 Some(glue) if !glue.is_empty() => {
-                    config_group.extend(glue.iter().copied().flat_map(udp_and_tcp));
+                    config_group.extend(glue.iter().copied().map(udp_and_tcp));
                 }
                 _ => {
                     debug!("glue not found for {ns_data}");
@@ -489,7 +484,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // now construct a namesever pool based off the NS and glue records
         let ns = NameServerPool::from_config(
-            config_group,
+            &config_group,
             Arc::new(self.recursor_opts()),
             self.conn_provider.clone(),
         );
@@ -587,8 +582,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             match next {
                 Ok(mut response) => {
                     debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
-                    config.extend(
-                        response
+                    config.extend(response
                         .take_answers()
                         .into_iter()
                         .filter_map(|answer| {
@@ -600,7 +594,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             } else {
                                 Some(ip)
                             }
-                        }).flat_map(udp_and_tcp));
+                        }).map(udp_and_tcp));
                 }
                 Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
@@ -616,15 +610,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 }
 
-fn udp_and_tcp(ip: IpAddr) -> impl Iterator<Item = NameServerConfig> {
-    [ProtocolConfig::Udp, ProtocolConfig::Tcp]
-        .into_iter()
-        .map(move |protocol| NameServerConfig {
-            socket_addr: SocketAddr::new(ip, 53),
-            protocol,
-            trust_negative_responses: true,
-            bind_addr: None,
-        })
+fn udp_and_tcp(ip: IpAddr) -> NameServerConfig {
+    let mut server = NameServerConfig::udp_and_tcp(ip);
+    server.trust_negative_responses = true;
+    server
 }
 
 fn recursor_opts(
