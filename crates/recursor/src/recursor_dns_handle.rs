@@ -31,7 +31,7 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache, TtlConfig,
-        config::{NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverOpts},
+        config::{NameServerConfig, ProtocolConfig, ResolverOpts},
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -71,28 +71,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     ) -> Self {
         // configure the hickory-resolver
         assert!(!roots.is_empty(), "roots must not be empty");
-        let mut servers = Vec::with_capacity(roots.len() * 2);
-        for &root in roots {
-            for protocol in [ProtocolConfig::Udp, ProtocolConfig::Tcp] {
-                servers.push(NameServerConfig {
-                    socket_addr: SocketAddr::from((root, 53)),
-                    protocol,
-                    trust_negative_responses: true,
-                    bind_addr: None,
-                });
-            }
-        }
+        let servers = roots
+            .iter()
+            .copied()
+            .flat_map(udp_and_tcp)
+            .collect::<Vec<_>>();
 
         debug!(
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots = NameServerPool::from_config(
-            NameServerConfigGroup::from(servers),
-            Arc::new(opts),
-            conn_provider.clone(),
-        );
+        let roots = NameServerPool::from_config(servers, Arc::new(opts), conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config);
@@ -438,7 +428,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // TODO: grab TTL and use for cache
         // get all the NS records and glue
-        let mut config_group = NameServerConfigGroup::default();
+        let mut config_group = Vec::new();
         let mut need_ips_for_names = Vec::new();
         let mut glue_ips = HashMap::new();
 
@@ -469,7 +459,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             match glue_ips.get(&ns_data.0) {
                 Some(glue) if !glue.is_empty() => {
-                    config_group.append_ips(glue.iter().cloned(), true)
+                    config_group.extend(glue.iter().copied().flat_map(udp_and_tcp));
                 }
                 _ => {
                     debug!("glue not found for {ns_data}");
@@ -562,7 +552,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         request_time: Instant,
         nameserver_pool: RecursorPool<P>,
         nameservers: I,
-        config: &mut NameServerConfigGroup,
+        config: &mut Vec<NameServerConfig>,
     ) -> Result<u8, Error> {
         let mut pool_queries = vec![];
 
@@ -597,7 +587,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             match next {
                 Ok(mut response) => {
                     debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
-                    let ip_iter = response
+                    config.extend(
+                        response
                         .take_answers()
                         .into_iter()
                         .filter_map(|answer| {
@@ -609,8 +600,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             } else {
                                 Some(ip)
                             }
-                        });
-                    config.append_ips(ip_iter, true);
+                        }).flat_map(udp_and_tcp));
                 }
                 Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
@@ -624,6 +614,17 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     fn recursor_opts(&self) -> ResolverOpts {
         recursor_opts(self.avoid_local_udp_ports.clone(), self.case_randomization)
     }
+}
+
+fn udp_and_tcp(ip: IpAddr) -> impl Iterator<Item = NameServerConfig> {
+    [ProtocolConfig::Udp, ProtocolConfig::Tcp]
+        .into_iter()
+        .map(move |protocol| NameServerConfig {
+            socket_addr: SocketAddr::new(ip, 53),
+            protocol,
+            trust_negative_responses: true,
+            bind_addr: None,
+        })
 }
 
 fn recursor_opts(
