@@ -32,7 +32,7 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name,
-        config::{NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverOpts},
+        config::{NameServerConfig, ProtocolConfig, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
         lookup::Lookup,
         name_server::{ConnectionProvider, NameServerPool},
@@ -73,6 +73,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         conn_provider: P,
     ) -> Self {
         // configure the hickory-resolver
+        let mut servers = Vec::with_capacity(roots.len() * 2);
+        for &root in roots {
+            for protocol in [ProtocolConfig::Udp, ProtocolConfig::Tcp] {
+                servers.push(NameServerConfig {
+                    socket_addr: SocketAddr::from((root, 53)),
+                    protocol,
+                    trust_negative_responses: true,
+                    bind_addr: None,
+                });
+            }
+        }
+
         assert!(!roots.is_empty(), "roots must not be empty");
         let mut servers = Vec::with_capacity(roots.len() * 2);
         for &root in roots {
@@ -88,11 +100,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots = NameServerPool::from_config(
-            NameServerConfigGroup::from(servers),
-            Arc::new(opts),
-            conn_provider.clone(),
-        );
+        let roots = NameServerPool::from_config(servers, Arc::new(opts), conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, ttl_config);
@@ -427,7 +435,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // TODO: grab TTL and use for cache
         // get all the NS records and glue
-        let mut config_group = NameServerConfigGroup::default();
+        let mut config_group = Vec::new();
         let mut need_ips_for_names = Vec::new();
         let mut glue_ips = HashMap::new();
 
@@ -467,7 +475,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             match glue_ips.get(&ns_data.0) {
                 Some(glue) if !glue.is_empty() => {
-                    config_group.append_ips(glue.iter().cloned(), true)
+                    config_group.extend(glue.iter().map(|&ip| NameServerConfig {
+                        socket_addr: SocketAddr::new(ip, 53),
+                        protocol: ProtocolConfig::Udp,
+                        trust_negative_responses: true,
+                        bind_addr: None,
+                    }));
                 }
                 _ => {
                     debug!("glue not found for {ns_data}");
@@ -560,7 +573,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         request_time: Instant,
         nameserver_pool: RecursorPool<P>,
         nameservers: I,
-        config: &mut NameServerConfigGroup,
+        config: &mut Vec<NameServerConfig>,
     ) -> Result<u8, Error> {
         let mut pool_queries = vec![];
 
@@ -595,7 +608,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             match next {
                 Ok(mut response) => {
                     debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
-                    let ip_iter = response
+                    config.extend(
+                        response
                         .take_answers()
                         .into_iter()
                         .filter_map(|answer| {
@@ -607,8 +621,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             } else {
                                 Some(ip)
                             }
-                        });
-                    config.append_ips(ip_iter, true);
+                        }).map(|ip| {
+                            NameServerConfig {
+                                socket_addr: SocketAddr::new(ip, 53),
+                                protocol: ProtocolConfig::Udp,
+                                trust_negative_responses: true,
+                                bind_addr: None,
+                            }
+                        }));
                 }
                 Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");

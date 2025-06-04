@@ -10,13 +10,12 @@
 
 use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::proto::rr::Name;
 #[cfg(feature = "__tls")]
@@ -34,96 +33,71 @@ pub struct ResolverConfig {
     #[cfg_attr(feature = "serde", serde(default))]
     search: Vec<Name>,
     // nameservers to use for resolution.
-    name_servers: NameServerConfigGroup,
+    name_servers: Vec<NameServerConfig>,
 }
 
 impl ResolverConfig {
     /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
     /// Connects via UDP and TCP.
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     pub fn udp_and_tcp(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup {
-                servers: config.udp_and_tcp().collect(),
-            },
+            name_servers: config.udp_and_tcp().collect(),
         }
     }
 
     /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
     /// Only connects via TLS.
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__tls")]
     pub fn tls(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup {
-                servers: config.tls().collect(),
-            },
+            name_servers: config.tls().collect(),
         }
     }
 
     /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
     /// Only connects via HTTPS (HTTP/2).
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__https")]
     pub fn https(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup {
-                servers: config.https().collect(),
-            },
+            name_servers: config.https().collect(),
         }
     }
 
     /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
     /// Only connects via QUIC.
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__quic")]
     pub fn quic(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup {
-                servers: config.quic().collect(),
-            },
+            name_servers: config.quic().collect(),
         }
     }
 
     /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
     /// Only connects via HTTP/3.
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__h3")]
     pub fn h3(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup {
-                servers: config.h3().collect(),
-            },
+            name_servers: config.h3().collect(),
         }
     }
 
@@ -134,16 +108,21 @@ impl ResolverConfig {
     /// * `domain` - domain of the entity querying results. If the `Name` being looked up is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in the `ResolverOption` does take precedence over this.
     /// * `search` - additional search domains that are attempted if the `Name` is not found in `domain`, defaults to `vec![]`
     /// * `name_servers` - set of name servers to use for lookups, defaults are Google: `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844`
-    pub fn from_parts<G: Into<NameServerConfigGroup>>(
+    pub fn from_parts(
         domain: Option<Name>,
         search: Vec<Name>,
-        name_servers: G,
+        name_servers: Vec<NameServerConfig>,
     ) -> Self {
         Self {
             domain,
             search,
-            name_servers: name_servers.into(),
+            name_servers,
         }
+    }
+
+    /// Take the `domain`, `search`, and `name_servers` from the config.
+    pub fn into_parts(self) -> (Option<Name>, Vec<Name>, Vec<NameServerConfig>) {
+        (self.domain, self.search, self.name_servers)
     }
 
     /// Returns the local domain
@@ -180,112 +159,6 @@ impl ResolverConfig {
     /// Returns a reference to the name servers
     pub fn name_servers(&self) -> &[NameServerConfig] {
         &self.name_servers
-    }
-}
-
-/// A set of name_servers to associate with a [`ResolverConfig`].
-#[derive(Clone, Debug)]
-pub struct NameServerConfigGroup {
-    servers: Vec<NameServerConfig>,
-}
-
-impl NameServerConfigGroup {
-    /// Creates a new `NameServiceConfigGroup` with the specified capacity
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            servers: Vec::with_capacity(capacity),
-        }
-    }
-
-    /// Returns the inner vec of configs
-    pub fn into_inner(self) -> Vec<NameServerConfig> {
-        self.servers
-    }
-
-    /// Merges this set of [`NameServerConfig`]s with the other
-    ///
-    /// ```
-    /// use std::net::{SocketAddr, Ipv4Addr};
-    /// use hickory_resolver::config::{NameServerConfigGroup, GOOGLE, CLOUDFLARE, QUAD9};
-    ///
-    /// let mut group = NameServerConfigGroup::from(GOOGLE.udp_and_tcp().collect::<Vec<_>>());
-    /// group.merge(NameServerConfigGroup::from(CLOUDFLARE.udp_and_tcp().collect::<Vec<_>>()));
-    /// group.merge(NameServerConfigGroup::from(QUAD9.udp_and_tcp().collect::<Vec<_>>()));
-    ///
-    /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(8, 8, 8, 8).into(), 53)));
-    /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(1, 1, 1, 1).into(), 53)));
-    /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(9, 9, 9, 9).into(), 53)));
-    /// ```
-    pub fn merge(&mut self, mut other: Self) {
-        self.append(&mut other);
-    }
-
-    /// Append nameservers to a NameServerConfigGroup.
-    pub fn append_ips(
-        &mut self,
-        nameserver_ips: impl Iterator<Item = IpAddr>,
-        trust_negative_response: bool,
-    ) {
-        for ip in nameserver_ips {
-            for proto in [ProtocolConfig::Udp, ProtocolConfig::Tcp] {
-                let mut config = NameServerConfig::new(SocketAddr::from((ip, 53)), proto);
-                config.trust_negative_responses = trust_negative_response;
-                self.push(config);
-            }
-        }
-    }
-
-    /// Sets the client address (IP and port) to connect from on all name servers.
-    pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
-        for server in &mut self.servers {
-            server.bind_addr = bind_addr;
-        }
-        self
-    }
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for NameServerConfigGroup {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.servers.serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for NameServerConfigGroup {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Vec::deserialize(deserializer).map(|servers| Self { servers })
-    }
-}
-
-impl Deref for NameServerConfigGroup {
-    type Target = Vec<NameServerConfig>;
-    fn deref(&self) -> &Self::Target {
-        &self.servers
-    }
-}
-
-impl DerefMut for NameServerConfigGroup {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.servers
-    }
-}
-
-impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
-    fn from(servers: Vec<NameServerConfig>) -> Self {
-        Self { servers }
-    }
-}
-
-impl Default for NameServerConfigGroup {
-    fn default() -> Self {
-        Self::with_capacity(2)
     }
 }
 

@@ -32,7 +32,7 @@ use crate::{
     },
     resolver::{
         Resolver,
-        config::{NameServerConfigGroup, ResolveHosts, ResolverConfig, ResolverOpts},
+        config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
         lookup::Lookup as ResolverLookup,
         name_server::ConnectionProvider,
     },
@@ -177,7 +177,7 @@ impl<P: ConnectionProvider> ForwardAuthority<P> {
         let (resolver_config, options) = hickory_resolver::system_conf::read_system_conf()
             .map_err(|e| format!("error reading system configuration: {e}"))?;
         let forward_config = ForwardConfig {
-            name_servers: resolver_config.name_servers().to_vec().into(),
+            name_servers: resolver_config.name_servers().to_owned(),
             options: Some(options),
         };
         let mut builder = Self::builder_with_config(forward_config, runtime);
@@ -336,7 +336,7 @@ impl LookupObject for ForwardLookup {
 #[serde(deny_unknown_fields)]
 pub struct ForwardConfig {
     /// upstream name_server configurations
-    pub name_servers: NameServerConfigGroup,
+    pub name_servers: Vec<NameServerConfig>,
     /// Resolver options
     pub options: Option<ResolverOpts>,
 }

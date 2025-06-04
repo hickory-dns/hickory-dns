@@ -43,8 +43,7 @@ use hickory_proto::{
 use hickory_resolver::{
     TokioResolver,
     config::{
-        CLOUDFLARE, GOOGLE, NameServerConfig, NameServerConfigGroup, ProtocolConfig, QUAD9,
-        ResolverConfig, ResolverOpts,
+        CLOUDFLARE, GOOGLE, NameServerConfig, ProtocolConfig, QUAD9, ResolverConfig, ResolverOpts,
     },
     lookup::Lookup,
 };
@@ -274,7 +273,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Configure all the name servers
-    let mut name_servers = NameServerConfigGroup::default();
+    let mut name_servers = Vec::new();
 
     for socket_addr in &opts.nameserver {
         name_servers.push(NameServerConfig {
