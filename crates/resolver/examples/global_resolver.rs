@@ -43,11 +43,11 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioResolver> = Lazy::new(|| {
             #[cfg(not(any(unix, windows)))]
             {
                 // Directly reference the config types
-                use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+                use hickory_resolver::config::{GOOGLE, ResolverConfig, ResolverOpts};
 
                 // Get a new resolver with the google nameservers as the upstream recursive resolvers
                 TokioResolver::new(
-                    ResolverConfig::google(),
+                    ResolverConfig::udp_and_tcp(&GOOGLE),
                     ResolverOpts::default(),
                     runtime.handle().clone(),
                 )
