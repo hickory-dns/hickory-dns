@@ -18,8 +18,6 @@ use std::time::Duration;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(any(feature = "__https", feature = "__h3"))]
-use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
 use crate::proto::rr::Name;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::client_config;
@@ -255,15 +253,13 @@ impl NameServerConfigGroup {
         ips: &[IpAddr],
         port: u16,
         server_name: Arc<str>,
+        path: Arc<str>,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
             ips,
             port,
-            ProtocolConfig::Https {
-                server_name,
-                path: Arc::from(DEFAULT_DNS_QUERY_PATH),
-            },
+            ProtocolConfig::Https { server_name, path },
             trust_negative_responses,
         )
     }
@@ -294,15 +290,13 @@ impl NameServerConfigGroup {
         ips: &[IpAddr],
         port: u16,
         server_name: Arc<str>,
+        path: Arc<str>,
         trust_negative_responses: bool,
     ) -> Self {
         Self::from_ips_encrypted(
             ips,
             port,
-            ProtocolConfig::H3 {
-                server_name,
-                path: Arc::from(DEFAULT_DNS_QUERY_PATH),
-            },
+            ProtocolConfig::H3 { server_name, path },
             trust_negative_responses,
         )
     }
@@ -321,7 +315,13 @@ impl NameServerConfigGroup {
     /// Creates a configuration only connecting via HTTPS (HTTP/2).
     #[cfg(feature = "__https")]
     pub fn https(config: &ServerGroup<'_>) -> Self {
-        Self::from_ips_https(config.ips, 443, Arc::from(config.server_name), true)
+        Self::from_ips_https(
+            config.ips,
+            443,
+            Arc::from(config.server_name),
+            Arc::from(config.path),
+            true,
+        )
     }
 
     /// Creates a configuration only connecting via HTTP/3.
@@ -329,7 +329,13 @@ impl NameServerConfigGroup {
     /// Note that not all public DNS providers support HTTP/3.
     #[cfg(feature = "__h3")]
     pub fn h3(config: &ServerGroup<'_>) -> Self {
-        Self::from_ips_h3(config.ips, 443, Arc::from(config.server_name), true)
+        Self::from_ips_h3(
+            config.ips,
+            443,
+            Arc::from(config.server_name),
+            Arc::from(config.path),
+            true,
+        )
     }
 
     /// Merges this set of [`NameServerConfig`]s with the other
@@ -771,6 +777,7 @@ pub const GOOGLE: ServerGroup<'static> = ServerGroup {
         IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
     ],
     server_name: "dns.google",
+    path: "/dns-query",
 };
 
 /// Cloudflare's 1.1.1.1 DNS service configuration.
@@ -784,6 +791,7 @@ pub const CLOUDFLARE: ServerGroup<'static> = ServerGroup {
         IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
     ],
     server_name: "cloudflare-dns.com",
+    path: "/dns-query",
 };
 
 /// The Quad9 DNS service configuration.
@@ -797,6 +805,7 @@ pub const QUAD9: ServerGroup<'static> = ServerGroup {
         IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
     ],
     server_name: "dns.quad9.net",
+    path: "/dns-query",
 };
 
 /// A group of DNS servers.
@@ -804,8 +813,10 @@ pub const QUAD9: ServerGroup<'static> = ServerGroup {
 pub struct ServerGroup<'a> {
     /// IP addresses of the DNS servers in this group.
     pub ips: &'a [IpAddr],
-    /// The TLS server name to use for this group.
+    /// The TLS server name to use for servers.
     pub server_name: &'a str,
+    /// The query path to use for HTTP queries.
+    pub path: &'a str,
 }
 
 #[cfg(all(test, feature = "serde"))]
