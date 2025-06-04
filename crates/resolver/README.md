@@ -41,7 +41,7 @@ use hickory_resolver::config::*;
 
 // Construct a new Resolver with default configuration options
 let resolver = Resolver::builder_with_config(
-    ResolverConfig::default(),
+    ResolverConfig::udp_and_tcp(&GOOGLE),
     TokioRuntimeProvider::default(),
 )
 .build();

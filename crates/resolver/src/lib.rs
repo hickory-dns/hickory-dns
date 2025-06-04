@@ -69,7 +69,7 @@
 //!
 //! // Construct a new Resolver with default configuration options
 //! let resolver = Resolver::builder_with_config(
-//!     ResolverConfig::google(),
+//!     ResolverConfig::udp_and_tcp(&GOOGLE),
 //!     TokioRuntimeProvider::default()
 //! ).build();
 //!
@@ -158,7 +158,7 @@
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "__tls")]
 //! let mut resolver = Resolver::builder_with_config(
-//!     ResolverConfig::cloudflare_tls(),
+//!     ResolverConfig::tls(&CLOUDFLARE),
 //!     TokioRuntimeProvider::default(),
 //! ).build();
 //!
