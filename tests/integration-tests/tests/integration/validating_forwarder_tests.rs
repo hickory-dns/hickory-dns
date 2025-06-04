@@ -28,7 +28,7 @@ use hickory_proto::{
 };
 use hickory_resolver::{
     Name,
-    config::{NameServerConfig, ProtocolConfig, ResolverOpts},
+    config::{NameServerConfig, ResolverOpts},
 };
 use hickory_server::{
     ServerFuture,
@@ -254,8 +254,10 @@ async fn setup_client_forwarder(
     public_key: Option<&PublicKeyBuf>,
 ) -> (Client, ServerFuture<Catalog>) {
     // Server setup
+    let mut config = NameServerConfig::udp(name_server_addr.ip());
+    config.connections[0].port = name_server_addr.port();
     let mut authority_builder = ForwardAuthority::builder_tokio(ForwardConfig {
-        name_servers: vec![NameServerConfig::new(name_server_addr, ProtocolConfig::Udp)],
+        name_servers: vec![config],
         options: Some(ResolverOpts::default()),
     });
 
