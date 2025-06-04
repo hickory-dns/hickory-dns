@@ -259,19 +259,24 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 mod tests {
     #[cfg(feature = "__quic")]
     use std::net::IpAddr;
-    #[cfg(feature = "__quic")]
-    use std::sync::Arc;
 
     use test_support::subscribe;
 
     use crate::TokioResolver;
-    use crate::config::ResolverConfig;
-    #[cfg(feature = "__quic")]
-    use crate::config::{NameServerConfigGroup, ServerOrderingStrategy};
     #[cfg(any(feature = "__tls", feature = "__https"))]
     use crate::config::CLOUDFLARE;
-    #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic", feature = "__h3"))]
+    #[cfg(any(
+        feature = "__tls",
+        feature = "__https",
+        feature = "__quic",
+        feature = "__h3"
+    ))]
     use crate::config::GOOGLE;
+    use crate::config::ResolverConfig;
+    #[cfg(feature = "__quic")]
+    use crate::config::ServerGroup;
+    #[cfg(feature = "__quic")]
+    use crate::config::ServerOrderingStrategy;
     use crate::proto::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
     use crate::proto::rustls::client_config;
@@ -315,22 +320,18 @@ mod tests {
         // AdGuard requires SNI.
         let config = client_config();
 
-        let name_servers = NameServerConfigGroup::from_ips_quic(
-            &[
+        let group = ServerGroup {
+            ips: &[
                 IpAddr::from([94, 140, 14, 140]),
                 IpAddr::from([94, 140, 14, 141]),
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x1, 0xff]),
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x2, 0xff]),
             ],
-            853,
-            Arc::from("unfiltered.adguard-dns.com"),
-            true,
-        );
-        quic_test(
-            ResolverConfig::from_parts(None, Vec::new(), name_servers),
-            config,
-        )
-        .await
+            server_name: "unfiltered.adguard-dns.com",
+            path: "/dns-query",
+        };
+
+        quic_test(ResolverConfig::quic(&group), config).await
     }
 
     #[cfg(feature = "__quic")]
