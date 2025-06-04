@@ -436,7 +436,7 @@ impl NameServerConfigGroup {
     /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "__tls")]
     pub fn google_tls() -> Self {
-        Self::from_ips_tls(GOOGLE_IPS, 853, Arc::from("dns.google"), true)
+        Self::from_ips_tls(GOOGLE_IPS, 853, Arc::from(GOOGLE_SERVER_NAME), true)
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
@@ -449,7 +449,7 @@ impl NameServerConfigGroup {
     /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "__https")]
     pub fn google_https() -> Self {
-        Self::from_ips_https(GOOGLE_IPS, 443, Arc::from("dns.google"), true)
+        Self::from_ips_https(GOOGLE_IPS, 443, Arc::from(GOOGLE_SERVER_NAME), true)
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
@@ -462,7 +462,7 @@ impl NameServerConfigGroup {
     /// configuration see: `Resolver::from_system_conf`.
     #[cfg(feature = "__h3")]
     pub fn google_h3() -> Self {
-        Self::from_ips_h3(GOOGLE_IPS, 443, Arc::from("dns.google"), true)
+        Self::from_ips_h3(GOOGLE_IPS, 443, Arc::from(GOOGLE_SERVER_NAME), true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
@@ -477,7 +477,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "__tls")]
     pub fn cloudflare_tls() -> Self {
-        Self::from_ips_tls(CLOUDFLARE_IPS, 853, Arc::from("cloudflare-dns.com"), true)
+        Self::from_ips_tls(CLOUDFLARE_IPS, 853, Arc::from(CLOUDFLARE_SERVER_NAME), true)
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
@@ -485,7 +485,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "__https")]
     pub fn cloudflare_https() -> Self {
-        Self::from_ips_https(CLOUDFLARE_IPS, 443, Arc::from("cloudflare-dns.com"), true)
+        Self::from_ips_https(CLOUDFLARE_IPS, 443, Arc::from(CLOUDFLARE_SERVER_NAME), true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
@@ -500,7 +500,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "__tls")]
     pub fn quad9_tls() -> Self {
-        Self::from_ips_tls(QUAD9_IPS, 853, Arc::from("dns.quad9.net"), true)
+        Self::from_ips_tls(QUAD9_IPS, 853, Arc::from(QUAD9_SERVER_NAME), true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
@@ -508,7 +508,7 @@ impl NameServerConfigGroup {
     /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "__https")]
     pub fn quad9_https() -> Self {
-        Self::from_ips_https(QUAD9_IPS, 443, Arc::from("dns.quad9.net"), true)
+        Self::from_ips_https(QUAD9_IPS, 443, Arc::from(QUAD9_SERVER_NAME), true)
     }
 
     /// Merges this set of [`NameServerConfig`]s with the other
@@ -947,6 +947,8 @@ pub const GOOGLE_IPS: &[IpAddr] = &[
     IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
     IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
 ];
+/// TLS server name for Google Public DNS
+pub const GOOGLE_SERVER_NAME: &str = "dns.google";
 
 /// IP addresses for Cloudflare's 1.1.1.1 DNS service
 pub const CLOUDFLARE_IPS: &[IpAddr] = &[
@@ -955,6 +957,8 @@ pub const CLOUDFLARE_IPS: &[IpAddr] = &[
     IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
     IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
 ];
+/// TLS server name for Cloudflare's 1.1.1.1 DNS service
+pub const CLOUDFLARE_SERVER_NAME: &str = "cloudflare-dns.com";
 
 /// IP address for the Quad9 DNS service
 pub const QUAD9_IPS: &[IpAddr] = &[
@@ -963,6 +967,8 @@ pub const QUAD9_IPS: &[IpAddr] = &[
     IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
     IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
 ];
+/// TLS server name for the Quad9 DNS service
+pub const QUAD9_SERVER_NAME: &str = "dns.quad9.net";
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
