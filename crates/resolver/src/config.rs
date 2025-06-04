@@ -87,6 +87,27 @@ impl ResolverConfig {
 
     /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
+    /// Only connects via QUIC.
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see
+    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
+    #[cfg(feature = "__quic")]
+    pub fn quic(config: &ServerGroup<'_>) -> Self {
+        Self {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::from_ips_quic(
+                config.ips,
+                853,
+                Arc::from(config.server_name),
+                true,
+            ),
+        }
+    }
+
+    /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
+    ///
     /// Only connects via HTTP/3.
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see
