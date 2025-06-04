@@ -268,6 +268,10 @@ mod tests {
     use crate::config::ResolverConfig;
     #[cfg(feature = "__quic")]
     use crate::config::{NameServerConfigGroup, ServerOrderingStrategy};
+    #[cfg(any(feature = "__tls", feature = "__https"))]
+    use crate::config::CLOUDFLARE;
+    #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic", feature = "__h3"))]
+    use crate::config::GOOGLE;
     use crate::proto::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
     use crate::proto::rustls::client_config;
@@ -276,7 +280,7 @@ mod tests {
     #[tokio::test]
     async fn test_google_h3() {
         subscribe();
-        h3_test(ResolverConfig::google_h3()).await
+        h3_test(ResolverConfig::h3(&GOOGLE)).await
     }
 
     #[cfg(feature = "__h3")]
@@ -360,14 +364,14 @@ mod tests {
     #[tokio::test]
     async fn test_google_https() {
         subscribe();
-        https_test(ResolverConfig::google_https()).await
+        https_test(ResolverConfig::https(&GOOGLE)).await
     }
 
     #[cfg(feature = "__https")]
     #[tokio::test]
     async fn test_cloudflare_https() {
         subscribe();
-        https_test(ResolverConfig::cloudflare_https()).await
+        https_test(ResolverConfig::https(&CLOUDFLARE)).await
     }
 
     #[cfg(feature = "__https")]
@@ -397,14 +401,14 @@ mod tests {
     #[tokio::test]
     async fn test_google_tls() {
         subscribe();
-        tls_test(ResolverConfig::google_tls()).await
+        tls_test(ResolverConfig::tls(&GOOGLE)).await
     }
 
     #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_cloudflare_tls() {
         subscribe();
-        tls_test(ResolverConfig::cloudflare_tls()).await
+        tls_test(ResolverConfig::tls(&CLOUDFLARE)).await
     }
 
     #[cfg(feature = "__tls")]

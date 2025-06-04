@@ -621,7 +621,7 @@ pub(crate) mod testing {
     use std::{net::*, str::FromStr};
 
     use crate::Resolver;
-    use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig};
+    use crate::config::{GOOGLE, LookupIpStrategy, NameServerConfig, ResolverConfig};
     use crate::name_server::ConnectionProvider;
     use crate::proto::{rr::Name, runtime::Executor};
 
@@ -639,7 +639,9 @@ pub(crate) mod testing {
 
     /// Test IP lookup from IP literals.
     pub(crate) async fn ip_lookup_test<R: ConnectionProvider>(handle: R) {
-        let resolver = Resolver::<R>::builder_with_config(ResolverConfig::google(), handle).build();
+        let resolver =
+            Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
+                .build();
 
         let response = resolver
             .lookup_ip("10.1.0.2")
@@ -670,7 +672,9 @@ pub(crate) mod testing {
         // executor in a separate thread from the futures returned by the
         // Resolver works correctly.
         use std::thread;
-        let resolver = Resolver::<R>::builder_with_config(ResolverConfig::google(), handle).build();
+        let resolver =
+            Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
+                .build();
 
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
@@ -714,7 +718,8 @@ pub(crate) mod testing {
     /// Test IP lookup from URLs with DNSSEC validation.
     #[cfg(feature = "__dnssec")]
     pub(crate) async fn sec_lookup_test<R: ConnectionProvider>(handle: R) {
-        let mut resolver_builder = Resolver::builder_with_config(ResolverConfig::google(), handle);
+        let mut resolver_builder =
+            Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().validate = true;
         resolver_builder.options_mut().try_tcp_on_error = true;
         let resolver = resolver_builder.build();
@@ -737,7 +742,8 @@ pub(crate) mod testing {
     #[allow(deprecated)]
     #[cfg(feature = "__dnssec")]
     pub(crate) async fn sec_lookup_fails_test<R: ConnectionProvider>(handle: R) {
-        let mut resolver_builder = Resolver::builder_with_config(ResolverConfig::google(), handle);
+        let mut resolver_builder =
+            Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().validate = true;
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
         let resolver = resolver_builder.build();
@@ -807,8 +813,9 @@ pub(crate) mod testing {
             Name::from_str("bad.example.com.").unwrap(),
             Name::from_str("wrong.example.com.").unwrap(),
         ];
-        let name_servers: Vec<NameServerConfig> =
-            ResolverConfig::google().name_servers().to_owned();
+        let name_servers: Vec<NameServerConfig> = ResolverConfig::udp_and_tcp(&GOOGLE)
+            .name_servers()
+            .to_owned();
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
@@ -835,8 +842,9 @@ pub(crate) mod testing {
             Name::from_str("bad.example.com.").unwrap(),
             Name::from_str("wrong.example.com.").unwrap(),
         ];
-        let name_servers: Vec<NameServerConfig> =
-            ResolverConfig::google().name_servers().to_owned();
+        let name_servers: Vec<NameServerConfig> = ResolverConfig::udp_and_tcp(&GOOGLE)
+            .name_servers()
+            .to_owned();
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
@@ -866,8 +874,9 @@ pub(crate) mod testing {
             Name::from_str("bad.example.com.").unwrap(),
             Name::from_str("wrong.example.com.").unwrap(),
         ];
-        let name_servers: Vec<NameServerConfig> =
-            ResolverConfig::google().name_servers().to_owned();
+        let name_servers: Vec<NameServerConfig> = ResolverConfig::udp_and_tcp(&GOOGLE)
+            .name_servers()
+            .to_owned();
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
@@ -898,8 +907,9 @@ pub(crate) mod testing {
             Name::from_str("bad.example.com.").unwrap(),
             Name::from_str("wrong.example.com.").unwrap(),
         ];
-        let name_servers: Vec<NameServerConfig> =
-            ResolverConfig::google().name_servers().to_owned();
+        let name_servers: Vec<NameServerConfig> = ResolverConfig::udp_and_tcp(&GOOGLE)
+            .name_servers()
+            .to_owned();
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
@@ -929,8 +939,9 @@ pub(crate) mod testing {
             // this should combine with the search name to form www.example.com
             Name::from_str("example.com.").unwrap(),
         ];
-        let name_servers: Vec<NameServerConfig> =
-            ResolverConfig::google().name_servers().to_owned();
+        let name_servers: Vec<NameServerConfig> = ResolverConfig::udp_and_tcp(&GOOGLE)
+            .name_servers()
+            .to_owned();
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
@@ -953,7 +964,9 @@ pub(crate) mod testing {
 
     /// Test idna.
     pub(crate) async fn idna_test<R: ConnectionProvider>(handle: R) {
-        let resolver = Resolver::<R>::builder_with_config(ResolverConfig::google(), handle).build();
+        let resolver =
+            Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
+                .build();
 
         let response = resolver
             .lookup_ip("中国.icom.museum.")
@@ -968,7 +981,7 @@ pub(crate) mod testing {
     /// Test ipv4 localhost.
     pub(crate) async fn localhost_ipv4_test<R: ConnectionProvider>(handle: R) {
         let mut resolver_builder =
-            Resolver::<R>::builder_with_config(ResolverConfig::google(), handle);
+            Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4thenIpv6;
         let resolver = resolver_builder.build();
 
@@ -984,7 +997,7 @@ pub(crate) mod testing {
     /// Test ipv6 localhost.
     pub(crate) async fn localhost_ipv6_test<R: ConnectionProvider>(handle: R) {
         let mut resolver_builder =
-            Resolver::<R>::builder_with_config(ResolverConfig::google(), handle);
+            Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv6thenIpv4;
         let resolver = resolver_builder.build();
 
@@ -1002,7 +1015,7 @@ pub(crate) mod testing {
 
     /// Test ipv4 search with large ndots.
     pub(crate) async fn search_ipv4_large_ndots_test<R: ConnectionProvider>(handle: R) {
-        let mut config = ResolverConfig::google();
+        let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_str("example.com").unwrap());
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(config, handle);
@@ -1024,7 +1037,7 @@ pub(crate) mod testing {
 
     /// Test ipv6 search with large ndots.
     pub(crate) async fn search_ipv6_large_ndots_test<R: ConnectionProvider>(handle: R) {
-        let mut config = ResolverConfig::google();
+        let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_str("example.com").unwrap());
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(config, handle);
@@ -1046,7 +1059,7 @@ pub(crate) mod testing {
 
     /// Test ipv6 name parse fails.
     pub(crate) async fn search_ipv6_name_parse_fails_test<R: ConnectionProvider>(handle: R) {
-        let mut config = ResolverConfig::google();
+        let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_str("example.com").unwrap());
 
         let mut resolver_builder = Resolver::<R>::builder_with_config(config, handle);
@@ -1093,7 +1106,7 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
-    use crate::config::{ResolverConfig, ResolverOpts};
+    use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
     use crate::proto::op::Message;
     use crate::proto::rr::rdata::A;
     use crate::proto::xfer::{DnsRequest, DnsResponse};
@@ -1126,14 +1139,14 @@ mod tests {
     async fn test_lookup_google() {
         subscribe();
         let handle = TokioRuntimeProvider::default();
-        lookup_test(ResolverConfig::google(), handle).await;
+        lookup_test(ResolverConfig::udp_and_tcp(&GOOGLE), handle).await;
     }
 
     #[tokio::test]
     async fn test_lookup_cloudflare() {
         subscribe();
         let handle = TokioRuntimeProvider::default();
-        lookup_test(ResolverConfig::cloudflare(), handle).await;
+        lookup_test(ResolverConfig::udp_and_tcp(&CLOUDFLARE), handle).await;
     }
 
     #[tokio::test]
@@ -1268,7 +1281,7 @@ mod tests {
         use std::str::FromStr;
 
         let handle = TokioRuntimeProvider::default();
-        let mut config = ResolverConfig::google();
+        let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver = Resolver::builder_with_config(config, handle).build();
 
@@ -1287,7 +1300,7 @@ mod tests {
     #[test]
     fn test_build_names_onion() {
         let handle = TokioRuntimeProvider::default();
-        let mut config = ResolverConfig::google();
+        let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver = Resolver::builder_with_config(config, handle).build();
         let tor_address = [

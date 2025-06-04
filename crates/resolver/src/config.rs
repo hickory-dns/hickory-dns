@@ -40,173 +40,66 @@ pub struct ResolverConfig {
 }
 
 impl ResolverConfig {
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google).
+    /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Connects via UDP and TCP.
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    pub fn google() -> Self {
+    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
+    pub fn udp_and_tcp(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::google(),
+            name_servers: NameServerConfigGroup::udp_and_tcp(config),
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
-    /// TLS lookups
+    /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Only connects via TLS.
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__tls")]
-    pub fn google_tls() -> Self {
+    pub fn tls(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::google_tls(),
+            name_servers: NameServerConfigGroup::tls(config),
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
-    /// HTTPS lookups
+    /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Only connects via HTTPS (HTTP/2).
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__https")]
-    pub fn google_https() -> Self {
+    pub fn https(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::google_https(),
+            name_servers: NameServerConfigGroup::https(config),
         }
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
-    /// HTTP/3 lookups
+    /// Create a new `ResolverConfig` from [`ServerGroup`] configuration.
     ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Only connects via HTTP/3.
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see
-    /// `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    /// [`NameServerConfigGroup`] and [`ResolverConfig::from_parts()`].
     #[cfg(feature = "__h3")]
-    pub fn google_h3() -> Self {
+    pub fn h3(config: &ServerGroup<'_>) -> Self {
         Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: NameServerConfigGroup::google_h3(),
-        }
-    }
-
-    /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
-    ///
-    /// Please see: <https://www.cloudflare.com/dns/>
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    pub fn cloudflare() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::cloudflare(),
-        }
-    }
-
-    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
-    ///
-    /// Please see: <https://www.cloudflare.com/dns/>
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "__tls")]
-    pub fn cloudflare_tls() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::cloudflare_tls(),
-        }
-    }
-
-    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
-    ///
-    /// Please see: <https://www.cloudflare.com/dns/>
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "__https")]
-    pub fn cloudflare_https() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::cloudflare_https(),
-        }
-    }
-
-    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
-    ///
-    /// Please see: <https://www.quad9.net/faq/>
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    pub fn quad9() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::quad9(),
-        }
-    }
-
-    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
-    ///
-    /// Please see: <https://www.quad9.net/faq/>
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "__tls")]
-    pub fn quad9_tls() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::quad9_tls(),
-        }
-    }
-
-    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
-    ///
-    /// Please see: <https://www.quad9.net/faq/>
-    ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
-    #[cfg(feature = "__https")]
-    pub fn quad9_https() -> Self {
-        Self {
-            // TODO: this should get the hostname and use the basename as the default
-            domain: None,
-            search: vec![],
-            name_servers: NameServerConfigGroup::quad9_https(),
+            name_servers: NameServerConfigGroup::h3(config),
         }
     }
 
@@ -415,111 +308,40 @@ impl NameServerConfigGroup {
         )
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google).
-    ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
-    pub fn google() -> Self {
-        Self::from_ips_clear(GOOGLE_IPS, 53, true)
+    /// Creates a configuration connecting via UDP and TCP.
+    pub fn udp_and_tcp(config: &ServerGroup<'_>) -> Self {
+        Self::from_ips_clear(config.ips, 53, true)
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
-    /// TLS lookups
-    ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Creates a configuration only connecting via TLS.
     #[cfg(feature = "__tls")]
-    pub fn google_tls() -> Self {
-        Self::from_ips_tls(GOOGLE_IPS, 853, Arc::from(GOOGLE_SERVER_NAME), true)
+    pub fn tls(config: &ServerGroup<'_>) -> Self {
+        Self::from_ips_tls(config.ips, 853, Arc::from(config.server_name), true)
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
-    /// HTTPS lookups
-    ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Creates a configuration only connecting via HTTPS (HTTP/2).
     #[cfg(feature = "__https")]
-    pub fn google_https() -> Self {
-        Self::from_ips_https(GOOGLE_IPS, 443, Arc::from(GOOGLE_SERVER_NAME), true)
+    pub fn https(config: &ServerGroup<'_>) -> Self {
+        Self::from_ips_https(config.ips, 443, Arc::from(config.server_name), true)
     }
 
-    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`,
-    /// `2001:4860:4860::8844` (thank you, Google). This limits the registered connections to just
-    /// HTTP/3 lookups
+    /// Creates a configuration only connecting via HTTP/3.
     ///
-    /// Please see Google's [privacy
-    /// statement](https://developers.google.com/speed/public-dns/privacy) for important information
-    /// about what they track, many ISP's track similar information in DNS. To use the system
-    /// configuration see: `Resolver::from_system_conf`.
+    /// Note that not all public DNS providers support HTTP/3.
     #[cfg(feature = "__h3")]
-    pub fn google_h3() -> Self {
-        Self::from_ips_h3(GOOGLE_IPS, 443, Arc::from(GOOGLE_SERVER_NAME), true)
-    }
-
-    /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
-    ///
-    /// Please see: <https://www.cloudflare.com/dns/>
-    pub fn cloudflare() -> Self {
-        Self::from_ips_clear(CLOUDFLARE_IPS, 53, true)
-    }
-
-    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
-    ///
-    /// Please see: <https://www.cloudflare.com/dns/>
-    #[cfg(feature = "__tls")]
-    pub fn cloudflare_tls() -> Self {
-        Self::from_ips_tls(CLOUDFLARE_IPS, 853, Arc::from(CLOUDFLARE_SERVER_NAME), true)
-    }
-
-    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
-    ///
-    /// Please see: <https://www.cloudflare.com/dns/>
-    #[cfg(feature = "__https")]
-    pub fn cloudflare_https() -> Self {
-        Self::from_ips_https(CLOUDFLARE_IPS, 443, Arc::from(CLOUDFLARE_SERVER_NAME), true)
-    }
-
-    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
-    ///
-    /// Please see: <https://www.quad9.net/faq/>
-    pub fn quad9() -> Self {
-        Self::from_ips_clear(QUAD9_IPS, 53, true)
-    }
-
-    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
-    ///
-    /// Please see: <https://www.quad9.net/faq/>
-    #[cfg(feature = "__tls")]
-    pub fn quad9_tls() -> Self {
-        Self::from_ips_tls(QUAD9_IPS, 853, Arc::from(QUAD9_SERVER_NAME), true)
-    }
-
-    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
-    ///
-    /// Please see: <https://www.quad9.net/faq/>
-    #[cfg(feature = "__https")]
-    pub fn quad9_https() -> Self {
-        Self::from_ips_https(QUAD9_IPS, 443, Arc::from(QUAD9_SERVER_NAME), true)
+    pub fn h3(config: &ServerGroup<'_>) -> Self {
+        Self::from_ips_h3(config.ips, 443, Arc::from(config.server_name), true)
     }
 
     /// Merges this set of [`NameServerConfig`]s with the other
     ///
     /// ```
     /// use std::net::{SocketAddr, Ipv4Addr};
-    /// use hickory_resolver::config::NameServerConfigGroup;
+    /// use hickory_resolver::config::{NameServerConfigGroup, GOOGLE, CLOUDFLARE, QUAD9};
     ///
-    /// let mut group = NameServerConfigGroup::google();
-    /// group.merge(NameServerConfigGroup::cloudflare());
-    /// group.merge(NameServerConfigGroup::quad9());
+    /// let mut group = NameServerConfigGroup::udp_and_tcp(&GOOGLE);
+    /// group.merge(NameServerConfigGroup::udp_and_tcp(&CLOUDFLARE));
+    /// group.merge(NameServerConfigGroup::udp_and_tcp(&QUAD9));
     ///
     /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(8, 8, 8, 8).into(), 53)));
     /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(1, 1, 1, 1).into(), 53)));
@@ -940,35 +762,55 @@ pub enum ResolveHosts {
     Auto,
 }
 
-/// IP addresses for Google Public DNS
-pub const GOOGLE_IPS: &[IpAddr] = &[
-    IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
-    IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
-    IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
-    IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
-];
-/// TLS server name for Google Public DNS
-pub const GOOGLE_SERVER_NAME: &str = "dns.google";
+/// Google Public DNS configuration.
+///
+/// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy)
+/// for important information about what they track, many ISP's track similar information in DNS.
+/// To use the system configuration see: `Resolver::from_system_conf`.
+pub const GOOGLE: ServerGroup<'static> = ServerGroup {
+    ips: &[
+        IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+        IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
+        IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
+        IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
+    ],
+    server_name: "dns.google",
+};
 
-/// IP addresses for Cloudflare's 1.1.1.1 DNS service
-pub const CLOUDFLARE_IPS: &[IpAddr] = &[
-    IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-    IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-    IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-    IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-];
-/// TLS server name for Cloudflare's 1.1.1.1 DNS service
-pub const CLOUDFLARE_SERVER_NAME: &str = "cloudflare-dns.com";
+/// Cloudflare's 1.1.1.1 DNS service configuration.
+///
+/// See <https://www.cloudflare.com/dns/> for more information.
+pub const CLOUDFLARE: ServerGroup<'static> = ServerGroup {
+    ips: &[
+        IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+        IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
+        IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+        IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+    ],
+    server_name: "cloudflare-dns.com",
+};
 
-/// IP address for the Quad9 DNS service
-pub const QUAD9_IPS: &[IpAddr] = &[
-    IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
-    IpAddr::V4(Ipv4Addr::new(149, 112, 112, 112)),
-    IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
-    IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
-];
-/// TLS server name for the Quad9 DNS service
-pub const QUAD9_SERVER_NAME: &str = "dns.quad9.net";
+/// The Quad9 DNS service configuration.
+///
+/// See <https://www.quad9.net/faq/> for more information.
+pub const QUAD9: ServerGroup<'static> = ServerGroup {
+    ips: &[
+        IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+        IpAddr::V4(Ipv4Addr::new(149, 112, 112, 112)),
+        IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+        IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
+    ],
+    server_name: "dns.quad9.net",
+};
+
+/// A group of DNS servers.
+#[derive(Clone, Copy, Debug)]
+pub struct ServerGroup<'a> {
+    /// IP addresses of the DNS servers in this group.
+    pub ips: &'a [IpAddr],
+    /// The TLS server name to use for this group.
+    pub server_name: &'a str,
+}
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {

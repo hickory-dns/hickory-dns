@@ -32,11 +32,11 @@ fn run() {
             // Directly reference the config types
             use hickory_resolver::{
                 Resolver,
-                config::{ResolverConfig, ResolverOpts},
+                config::{GOOGLE, ResolverConfig, ResolverOpts},
             };
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
-            Resolver::tokio(ResolverConfig::google(), ResolverOpts::default())
+            Resolver::tokio(ResolverConfig::udp_and_tcp(), ResolverOpts::default())
         }
     };
 
