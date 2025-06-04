@@ -37,7 +37,7 @@ use std::sync::Arc;
 pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
-pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
+pub use hickory_resolver::config::NameServerConfig;
 #[cfg(feature = "__dnssec")]
 use proto::dnssec::TrustAnchors;
 use proto::{
