@@ -17,6 +17,8 @@ use crate::{
 };
 
 /// A EncodableMessage with borrowed data for Responses in the Server
+///
+/// This can be constructed via [`MessageResponseBuilder`].
 #[derive(Debug)]
 pub struct MessageResponse<'q, 'a, Answers, NameServers, Soa, Additionals>
 where
@@ -111,6 +113,28 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `message` - original request message to associate with the response
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use hickory_proto::{op::ResponseCode, rr::Record};
+    /// use hickory_server::{
+    ///     authority::{MessageResponse, MessageResponseBuilder},
+    ///     server::Request,
+    /// };
+    ///
+    /// fn handle_request<'q>(request: &'q Request) -> MessageResponse<
+    ///     'q,
+    ///     'static,
+    ///     impl Iterator<Item = &'static Record> + Send + 'static,
+    ///     impl Iterator<Item = &'static Record> + Send + 'static,
+    ///     impl Iterator<Item = &'static Record> + Send + 'static,
+    ///     impl Iterator<Item = &'static Record> + Send + 'static,
+    /// > {
+    ///     MessageResponseBuilder::from_message_request(request)
+    ///         .error_msg(request.header(), ResponseCode::ServFail)
+    /// }
+    /// ```
     pub fn from_message_request(message: &'q MessageRequest) -> Self {
         Self::new(message.raw_queries())
     }
