@@ -13,6 +13,8 @@ use std::{borrow::Borrow, collections::HashMap, io, sync::Arc};
 use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
 
+#[cfg(feature = "metrics")]
+use crate::authority::metrics::CatalogMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
@@ -35,6 +37,8 @@ use crate::{
 #[derive(Default)]
 pub struct Catalog {
     authorities: HashMap<LowerName, Vec<Arc<dyn AuthorityObject>>>,
+    #[cfg(feature = "metrics")]
+    metrics: CatalogMetrics,
 }
 
 async fn send_response<'a, R: ResponseHandler>(
@@ -165,6 +169,8 @@ impl Catalog {
     pub fn new() -> Self {
         Self {
             authorities: HashMap::new(),
+            #[cfg(feature = "metrics")]
+            metrics: CatalogMetrics::default(),
         }
     }
 
@@ -376,6 +382,8 @@ impl Catalog {
                 .as_ref()
                 .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
             response_handle.clone(),
+            #[cfg(feature = "metrics")]
+            &self.metrics,
         )
         .await;
 
@@ -405,6 +413,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     request: &Request,
     response_edns: Option<Edns>,
     response_handle: R,
+    #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> Result<ResponseInfo, LookupError> {
     let edns = request.edns();
     let lookup_options = lookup_options_for_edns(edns);
@@ -482,6 +491,9 @@ async fn lookup<R: ResponseHandler + Unpin>(
         );
 
         let result = send_response(response_edns, message_response, response_handle).await;
+
+        #[cfg(feature = "metrics")]
+        metrics.update(authority.clone(), query, sections.answers.iter());
 
         match result {
             Err(error) => {

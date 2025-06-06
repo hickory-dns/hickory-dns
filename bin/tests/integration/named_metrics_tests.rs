@@ -275,6 +275,92 @@ fn test_request_response() {
             verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
         });
 
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &[("type", "authoritative"), ("role", "primary")],
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &[("type", "authoritative"), ("role", "secondary")],
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &[("type", "external"), ("role", "forwarded")],
+            Some(0f64),
+        );
+
+        let record_types = [
+            "a",
+            "aaaa",
+            "aname",
+            "any",
+            "axfr",
+            "caa",
+            "cdnskey",
+            "cds",
+            "cert",
+            "cname",
+            "csync",
+            "dnskey",
+            "ds",
+            "hinfo",
+            "https",
+            "ixfr",
+            "key",
+            "mx",
+            "naptr",
+            "ns",
+            "nsec",
+            "nsec3",
+            "nsec3param",
+            "null",
+            "openpgpkey",
+            "opt",
+            "ptr",
+            "rrsig",
+            "sig",
+            "soa",
+            "srv",
+            "sshfp",
+            "svcb",
+            "tlsa",
+            "tsig",
+            "txt",
+            "unknown",
+            "zero",
+        ];
+        record_types.iter().for_each(|r#type| {
+            let value = if *r#type == "a" { 1f64 } else { 0f64 };
+            let r#type = [("type", *r#type)];
+            for direction in ["request", "response"] {
+                verify_metric(
+                    metrics,
+                    format!("hickory_{}_record_types_total", direction).as_str(),
+                    &r#type,
+                    Some(value),
+                )
+            }
+        });
+
+        let dns_classes = ["in", "ch", "hs", "none", "any", "opt", "unknown"];
+        dns_classes.iter().for_each(|class| {
+            let value = if *class == "in" { 1f64 } else { 0f64 };
+            let class = [("class", *class)];
+            for direction in ["request", "response"] {
+                verify_metric(
+                    metrics,
+                    format!("hickory_{}_dns_classes_total", direction).as_str(),
+                    &class,
+                    Some(value),
+                )
+            }
+        });
+
         // check store lookups
         verify_metric(
             metrics,
