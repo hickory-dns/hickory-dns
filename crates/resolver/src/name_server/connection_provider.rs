@@ -24,6 +24,8 @@ use futures_util::ready;
 use rustls::pki_types::ServerName;
 
 use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
+#[cfg(feature = "__https")]
+use crate::proto::h2::HttpsClientConnect;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::{
@@ -193,17 +195,14 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
-                let socket_addr = config.socket_addr;
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
-
-                let exchange = crate::h2::new_https_stream_with_future(
-                    tcp_future,
-                    socket_addr,
+                Connecting::Https(DnsExchange::connect(HttpsClientConnect::new(
+                    self.runtime_provider
+                        .connect_tcp(config.socket_addr, None, None),
+                    Arc::new(options.tls_config.clone()),
+                    config.socket_addr,
                     server_name.clone(),
                     path.clone(),
-                    Arc::new(options.tls_config.clone()),
-                );
-                Connecting::Https(exchange)
+                )))
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { server_name }, Some(binder)) => {
@@ -282,6 +281,43 @@ mod tests {
     use crate::TokioResolver;
     use crate::config::ResolverConfig;
     use crate::name_server::TokioConnectionProvider;
+
+    #[cfg(feature = "__https")]
+    #[tokio::test]
+    async fn test_google_https() {
+        subscribe();
+        https_test(ResolverConfig::google_https()).await
+    }
+
+    #[cfg(feature = "__https")]
+    #[tokio::test]
+    async fn test_cloudflare_https() {
+        subscribe();
+        https_test(ResolverConfig::cloudflare_https()).await
+    }
+
+    #[cfg(feature = "__https")]
+    async fn https_test(config: ResolverConfig) {
+        let mut resolver_builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        resolver_builder.options_mut().try_tcp_on_error = true;
+        let resolver = resolver_builder.build();
+
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
+
+        // check if there is another connection created
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
+    }
 
     #[cfg(feature = "__tls")]
     #[tokio::test]
