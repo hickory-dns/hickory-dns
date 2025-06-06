@@ -40,7 +40,7 @@ use crate::{
         serialize::txt::{ParseError, Parser},
     },
     recursor::{DnssecPolicy, Recursor},
-    resolver::{dns_lru::TtlConfig, lookup::Lookup, name_server::GenericConnector},
+    resolver::{dns_lru::TtlConfig, lookup::Lookup},
     server::{Request, RequestInfo},
 };
 
@@ -59,7 +59,7 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
         _zone_type: ZoneType,
         config: &RecursiveConfig,
         root_dir: Option<&Path>,
-        conn_provider: GenericConnector<P>,
+        conn_provider: P,
     ) -> Result<Self, String> {
         info!("loading recursor config: {}", origin);
 

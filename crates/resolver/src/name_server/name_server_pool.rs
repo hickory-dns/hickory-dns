@@ -22,16 +22,11 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
-use crate::name_server::connection_provider::{ConnectionProvider, GenericConnector};
+use crate::name_server::connection_provider::ConnectionProvider;
 use crate::name_server::name_server::NameServer;
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer, Protocol};
 use crate::proto::{ProtoError, ProtoErrorKind};
-
-/// A pool of NameServers
-///
-/// This is not expected to be used directly, see [crate::Resolver].
-pub type GenericNameServerPool<P> = NameServerPool<GenericConnector<P>>;
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
@@ -254,8 +249,6 @@ mod tests {
 
     use super::*;
     use crate::config::{NameServerConfig, ProtocolConfig};
-    use crate::name_server::GenericNameServer;
-    use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
@@ -287,7 +280,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let pool = GenericNameServerPool::tokio_from_config(
+        let pool = NameServerPool::tokio_from_config(
             &resolver_config,
             Arc::new(ResolverOpts::default()),
             TokioRuntimeProvider::new(),
@@ -333,7 +326,7 @@ mod tests {
     async fn test_multi_use_conns() {
         subscribe();
 
-        let conn_provider = TokioConnectionProvider::default();
+        let conn_provider = TokioRuntimeProvider::default();
 
         let tcp = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
@@ -346,10 +339,9 @@ mod tests {
             try_tcp_on_error: true,
             ..ResolverOpts::default()
         });
-
-        let name_server = GenericNameServer::new(tcp, opts.clone(), conn_provider);
+        let name_server = NameServer::new(tcp, opts.clone(), conn_provider);
         let name_servers = vec![name_server];
-        let pool = GenericNameServerPool::from_nameservers(name_servers.clone(), opts);
+        let pool = NameServerPool::from_nameservers(name_servers.clone(), opts);
 
         let name = Name::from_str("www.example.com.").unwrap();
 
@@ -388,13 +380,13 @@ mod tests {
         );
     }
 
-    impl GenericNameServerPool<TokioRuntimeProvider> {
+    impl NameServerPool<TokioRuntimeProvider> {
         pub(crate) fn tokio_from_config(
             config: &ResolverConfig,
             options: Arc<ResolverOpts>,
-            runtime: TokioRuntimeProvider,
+            provider: TokioRuntimeProvider,
         ) -> Self {
-            Self::from_config_with_provider(config, options, GenericConnector::new(runtime))
+            Self::from_config_with_provider(config, options, provider)
         }
     }
 }

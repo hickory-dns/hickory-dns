@@ -18,10 +18,10 @@ fn run() {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
-            use hickory_resolver::{TokioResolver, name_server::TokioConnectionProvider};
+            use hickory_resolver::{TokioResolver, proto::runtime::TokioRuntimeProvider};
 
             // use the system resolver configuration
-            TokioResolver::builder(TokioConnectionProvider::default())
+            TokioResolver::builder(TokioRuntimeProvider::default())
                 .expect("failed to create resolver")
                 .build()
         }

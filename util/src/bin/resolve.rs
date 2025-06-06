@@ -38,6 +38,7 @@ use tokio::time::MissedTickBehavior;
 use hickory_proto::{
     ProtoError, ProtoErrorKind,
     rr::{Record, RecordData, RecordType},
+    runtime::TokioRuntimeProvider,
 };
 use hickory_resolver::{
     TokioResolver,
@@ -45,7 +46,6 @@ use hickory_resolver::{
         NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverConfig, ResolverOpts,
     },
     lookup::Lookup,
-    name_server::TokioConnectionProvider,
 };
 
 /// A CLI interface for the hickory-resolver.
@@ -336,7 +336,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut resolver_builder =
-        TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
     *resolver_builder.options_mut() = options;
     let resolver_arc = Arc::new(resolver_builder.build());
 

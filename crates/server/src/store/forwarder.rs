@@ -28,12 +28,13 @@ use crate::{
     proto::{
         op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
+        runtime::TokioRuntimeProvider,
     },
     resolver::{
         Resolver,
         config::{NameServerConfigGroup, ResolveHosts, ResolverConfig, ResolverOpts},
         lookup::Lookup as ResolverLookup,
-        name_server::{ConnectionProvider, TokioConnectionProvider},
+        name_server::ConnectionProvider,
     },
     server::{Request, RequestInfo},
 };
@@ -162,7 +163,7 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
 /// An authority that will forward resolutions to upstream resolvers.
 ///
 /// This uses the hickory-resolver crate for resolving requests.
-pub struct ForwardAuthority<P: ConnectionProvider = TokioConnectionProvider> {
+pub struct ForwardAuthority<P: ConnectionProvider = TokioRuntimeProvider> {
     origin: LowerName,
     resolver: Resolver<P>,
     #[cfg(feature = "metrics")]
@@ -201,12 +202,10 @@ impl<P: ConnectionProvider> ForwardAuthority<P> {
     }
 }
 
-impl ForwardAuthority<TokioConnectionProvider> {
+impl ForwardAuthority<TokioRuntimeProvider> {
     /// Construct a new [`ForwardAuthority`] via [`ForwardAuthorityBuilder`] with the provided configuration.
-    pub fn builder_tokio(
-        config: ForwardConfig,
-    ) -> ForwardAuthorityBuilder<TokioConnectionProvider> {
-        Self::builder_with_config(config, TokioConnectionProvider::default())
+    pub fn builder_tokio(config: ForwardConfig) -> ForwardAuthorityBuilder<TokioRuntimeProvider> {
+        Self::builder_with_config(config, TokioRuntimeProvider::default())
     }
 }
 

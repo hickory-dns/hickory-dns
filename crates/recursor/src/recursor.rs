@@ -21,11 +21,7 @@ use crate::{
         runtime::{RuntimeProvider, TokioRuntimeProvider},
     },
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{
-        dns_lru::TtlConfig,
-        lookup::Lookup,
-        name_server::{GenericConnector, TokioConnectionProvider},
-    },
+    resolver::{dns_lru::TtlConfig, lookup::Lookup},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -57,7 +53,7 @@ pub struct RecursorBuilder<P: RuntimeProvider> {
     avoid_local_udp_ports: HashSet<u16>,
     ttl_config: TtlConfig,
     case_randomization: bool,
-    conn_provider: GenericConnector<P>,
+    conn_provider: P,
 }
 
 impl<P: RuntimeProvider> RecursorBuilder<P> {
@@ -152,13 +148,13 @@ impl Recursor<TokioRuntimeProvider> {
     /// This uses the Tokio async runtime. To use a different runtime provider, see
     /// [`Recursor::builder_with_provider`].
     pub fn builder() -> RecursorBuilder<TokioRuntimeProvider> {
-        Self::builder_with_provider(TokioConnectionProvider::default())
+        Self::builder_with_provider(TokioRuntimeProvider::default())
     }
 }
 
 impl<P: RuntimeProvider> Recursor<P> {
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
-    pub fn builder_with_provider(conn_provider: GenericConnector<P>) -> RecursorBuilder<P> {
+    pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
         RecursorBuilder {
             ns_cache_size: 1_024,
             record_cache_size: 1_048_576,

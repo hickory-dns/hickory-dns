@@ -60,7 +60,7 @@
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
 //! use hickory_resolver::Resolver;
-//! use hickory_resolver::name_server::TokioConnectionProvider;
+//! use hickory_resolver::proto::runtime::TokioRuntimeProvider;
 //! use hickory_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
@@ -70,7 +70,7 @@
 //! // Construct a new Resolver with default configuration options
 //! let resolver = Resolver::builder_with_config(
 //!     ResolverConfig::google(),
-//!     TokioConnectionProvider::default()
+//!     TokioRuntimeProvider::default()
 //! ).build();
 //!
 //! // Lookup the IP addresses associated with a name.
@@ -98,7 +98,7 @@
 //! # use std::net::*;
 //! # use tokio::runtime::Runtime;
 //! # use hickory_resolver::Resolver;
-//! # use hickory_resolver::name_server::TokioConnectionProvider;
+//! # use hickory_resolver::proto::runtime::TokioRuntimeProvider;
 //! # use hickory_resolver::config::*;
 //! # use futures_util::TryFutureExt;
 //! #
@@ -106,7 +106,7 @@
 //! #
 //! # let resolver = Resolver::builder_with_config(
 //! #     ResolverConfig::default(),
-//! #     TokioConnectionProvider::default()
+//! #     TokioRuntimeProvider::default()
 //! # ).build();
 //! #
 //! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
@@ -152,14 +152,14 @@
 //! # #[cfg(feature = "tokio")]
 //! # {
 //! use hickory_resolver::Resolver;
-//! use hickory_resolver::name_server::TokioConnectionProvider;
+//! use hickory_resolver::proto::runtime::TokioRuntimeProvider;
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "__tls")]
 //! let mut resolver = Resolver::builder_with_config(
 //!     ResolverConfig::cloudflare_tls(),
-//!     TokioConnectionProvider::default(),
+//!     TokioRuntimeProvider::default(),
 //! ).build();
 //!
 //! // see example above...
@@ -195,6 +195,8 @@
 pub use hickory_proto as proto;
 // reexports from proto
 pub use proto::rr::{IntoName, Name};
+#[cfg(feature = "tokio")]
+use proto::runtime::TokioRuntimeProvider;
 
 pub mod caching_client;
 pub mod config;
@@ -205,8 +207,6 @@ pub mod lookup;
 pub mod lookup_ip;
 // TODO: consider #[doc(hidden)]
 pub mod name_server;
-#[cfg(feature = "tokio")]
-use name_server::TokioConnectionProvider;
 mod resolver;
 pub use resolver::LookupFuture;
 #[cfg(feature = "tokio")]
@@ -223,7 +223,7 @@ pub type AsyncResolver<P> = Resolver<P>;
 #[doc(hidden)]
 #[deprecated(since = "0.25.0", note = "use `TokioResolver` instead")]
 #[cfg(feature = "tokio")]
-pub type TokioAsyncResolver = Resolver<TokioConnectionProvider>;
+pub type TokioAsyncResolver = Resolver<TokioRuntimeProvider>;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

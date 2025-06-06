@@ -13,6 +13,7 @@ use std::{
 };
 
 use futures_util::{Future, FutureExt, StreamExt, future::Shared};
+use hickory_resolver::name_server::NameServerPool;
 use parking_lot::Mutex;
 use tracing::info;
 
@@ -22,7 +23,7 @@ use crate::proto::{
     runtime::RuntimeProvider,
     xfer::{DnsRequestOptions, DnsResponse},
 };
-use crate::resolver::{Name, name_server::GenericNameServerPool};
+use crate::resolver::Name;
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
@@ -44,18 +45,16 @@ impl Future for SharedLookup {
 #[derive(Clone)]
 pub(crate) struct RecursorPool<P: RuntimeProvider> {
     zone: Name,
-    ns: GenericNameServerPool<P>,
+    ns: NameServerPool<P>,
     active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
 }
 
 impl<P: RuntimeProvider> RecursorPool<P> {
-    pub(crate) fn from(zone: Name, ns: GenericNameServerPool<P>) -> Self {
-        let active_requests = Arc::new(Mutex::new(HashMap::default()));
-
+    pub(crate) fn from(zone: Name, ns: NameServerPool<P>) -> Self {
         Self {
             zone,
             ns,
-            active_requests,
+            active_requests: Arc::new(Mutex::new(HashMap::default())),
         }
     }
 
