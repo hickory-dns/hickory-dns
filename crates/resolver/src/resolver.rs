@@ -1076,6 +1076,7 @@ mod tests {
 
     use futures_util::stream::once;
     use futures_util::{Stream, future};
+    use hickory_proto::xfer::DnsExchange;
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
@@ -1093,7 +1094,6 @@ mod tests {
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
     use crate::config::{ResolverConfig, ResolverOpts};
-    use crate::name_server::GenericConnection;
     use crate::proto::op::Message;
     use crate::proto::rr::rdata::A;
     use crate::proto::xfer::{DnsRequest, DnsResponse};
@@ -1118,8 +1118,8 @@ mod tests {
         assert!(is_sync_t::<Resolver<TokioConnectionProvider>>());
 
         assert!(is_send_t::<DnsRequest>());
-        assert!(is_send_t::<LookupIpFuture<GenericConnection>>());
-        assert!(is_send_t::<LookupFuture<GenericConnection>>());
+        assert!(is_send_t::<LookupIpFuture<DnsExchange>>());
+        assert!(is_send_t::<LookupFuture<DnsExchange>>());
     }
 
     #[tokio::test]
