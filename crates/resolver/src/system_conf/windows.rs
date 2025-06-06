@@ -49,7 +49,7 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
         });
     }
 
-    let search_list: Vec<Name> = get_search_list()
+    let search_list = get_search_list()
         .map_err(|e| format!("ipconfig::get_search_list() failed: {e}"))?
         .iter()
         .map(|x| Name::from_str(x))
@@ -60,9 +60,10 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
         None => Name::root(),
     };
 
-    let config = ResolverConfig::from_parts(Some(domain), search_list, name_servers);
-
-    Ok((config, ResolverOpts::default()))
+    Ok((
+        ResolverConfig::from_parts(Some(domain), search_list, name_servers),
+        ResolverOpts::default(),
+    ))
 }
 
 // https://datatracker.ietf.org/doc/html/draft-ietf-ipv6-dns-discovery-07
