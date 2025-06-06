@@ -10,7 +10,6 @@ use std::{
 
 use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
-use hickory_resolver::name_server::NameServerPool;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
@@ -28,7 +27,6 @@ use crate::{
             Record, RecordType,
             rdata::{A, AAAA, NS},
         },
-        runtime::RuntimeProvider,
         xfer::DnsResponse,
     },
     recursor_pool::RecursorPool,
@@ -37,11 +35,12 @@ use crate::{
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
         lookup::Lookup,
+        name_server::{ConnectionProvider, NameServerPool},
     },
 };
 
 #[derive(Clone)]
-pub(crate) struct RecursorDnsHandle<P: RuntimeProvider> {
+pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     roots: RecursorPool<P>,
     name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<P>>>>,
     record_cache: DnsLru,
@@ -57,7 +56,7 @@ pub(crate) struct RecursorDnsHandle<P: RuntimeProvider> {
     conn_provider: P,
 }
 
-impl<P: RuntimeProvider> RecursorDnsHandle<P> {
+impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         roots: &[IpAddr],

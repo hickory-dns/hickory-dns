@@ -20,10 +20,9 @@ use tracing::info;
 use crate::proto::{
     DnsHandle, ProtoError,
     op::Query,
-    runtime::RuntimeProvider,
     xfer::{DnsRequestOptions, DnsResponse},
 };
-use crate::resolver::Name;
+use crate::resolver::{Name, name_server::ConnectionProvider};
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
@@ -43,13 +42,13 @@ impl Future for SharedLookup {
 }
 
 #[derive(Clone)]
-pub(crate) struct RecursorPool<P: RuntimeProvider> {
+pub(crate) struct RecursorPool<P: ConnectionProvider> {
     zone: Name,
     ns: NameServerPool<P>,
     active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
 }
 
-impl<P: RuntimeProvider> RecursorPool<P> {
+impl<P: ConnectionProvider> RecursorPool<P> {
     pub(crate) fn from(zone: Name, ns: NameServerPool<P>) -> Self {
         Self {
             zone,
