@@ -43,7 +43,7 @@ mod serial_message;
 
 #[cfg(feature = "std")]
 pub use self::dns_exchange::{
-    DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
+    Connecting, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
 #[cfg(feature = "std")]

@@ -7,6 +7,7 @@
 
 //! This module contains all the types for demuxing DNS oriented streams.
 
+use alloc::boxed::Box;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::pin::Pin;
@@ -17,16 +18,73 @@ use futures_util::future::FutureExt;
 use futures_util::stream::{Peekable, Stream, StreamExt};
 use tracing::debug;
 
-use crate::error::*;
+#[cfg(all(feature = "__https", feature = "tokio"))]
+use crate::h2::{HttpsClientConnect, HttpsClientStream};
+#[cfg(all(feature = "__h3", feature = "tokio"))]
+use crate::h3::{H3ClientConnect, H3ClientStream};
+#[cfg(all(feature = "__quic", feature = "tokio"))]
+use crate::quic::{QuicClientConnect, QuicClientStream};
+use crate::runtime::RuntimeProvider;
 #[cfg(feature = "std")]
 use crate::runtime::Time;
-use crate::xfer::DnsResponseReceiver;
+#[cfg(feature = "__tls")]
+use crate::runtime::TokioTime;
+#[cfg(feature = "__tls")]
+use crate::rustls::TlsClientStream;
+use crate::tcp::TcpClientStream;
+use crate::udp::{UdpClientConnect, UdpClientStream};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
     BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequest, DnsRequestSender, DnsResponse,
     OneshotDnsRequest,
 };
+use crate::xfer::{DnsMultiplexerConnect, DnsResponseReceiver};
+use crate::{DnsMultiplexer, error::*};
+
+/// The variants of all supported connections for a `DnsExchange`.
+#[allow(missing_docs, clippy::large_enum_variant, clippy::type_complexity)]
+#[non_exhaustive]
+pub enum Connecting<R: RuntimeProvider> {
+    Udp(DnsExchangeConnect<UdpClientConnect<R>, UdpClientStream<R>, R::Timer>),
+    Tcp(
+        DnsExchangeConnect<
+            DnsMultiplexerConnect<
+                Pin<Box<dyn Future<Output = Result<TcpClientStream<R::Tcp>, ProtoError>> + Send>>,
+                TcpClientStream<<R as RuntimeProvider>::Tcp>,
+            >,
+            DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>>,
+            R::Timer,
+        >,
+    ),
+    #[cfg(feature = "__tls")]
+    Tls(
+        DnsExchangeConnect<
+            DnsMultiplexerConnect<
+                Pin<
+                    Box<
+                        dyn Future<
+                                Output = Result<
+                                    TlsClientStream<<R as RuntimeProvider>::Tcp>,
+                                    ProtoError,
+                                >,
+                            > + Send
+                            + 'static,
+                    >,
+                >,
+                TlsClientStream<<R as RuntimeProvider>::Tcp>,
+            >,
+            DnsMultiplexer<TlsClientStream<<R as RuntimeProvider>::Tcp>>,
+            TokioTime,
+        >,
+    ),
+    #[cfg(all(feature = "__https", feature = "tokio"))]
+    Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
+    #[cfg(all(feature = "__quic", feature = "tokio"))]
+    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
+    #[cfg(all(feature = "__h3", feature = "tokio"))]
+    H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>),
+}
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///

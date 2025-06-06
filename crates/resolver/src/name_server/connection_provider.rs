@@ -18,36 +18,18 @@ use std::task::{Context, Poll};
 use crate::proto::runtime::Spawn;
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
-#[cfg(feature = "__tls")]
-use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
 use futures_util::future::FutureExt;
 use futures_util::ready;
 #[cfg(feature = "__tls")]
 use rustls::pki_types::ServerName;
-#[cfg(feature = "__tls")]
-use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
-#[cfg(feature = "__https")]
-use crate::proto::h2::{HttpsClientConnect, HttpsClientStream};
-#[cfg(feature = "__h3")]
-use crate::proto::h3::{H3ClientConnect, H3ClientStream};
-#[cfg(feature = "__quic")]
-use crate::proto::quic::{QuicClientConnect, QuicClientStream};
-#[cfg(feature = "tokio")]
-#[allow(unused_imports)] // Complicated cfg for which protocols are enabled
-use crate::proto::runtime::TokioTime;
-#[cfg(feature = "__tls")]
-use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::proto::{
     ProtoError,
     runtime::RuntimeProvider,
     tcp::TcpClientStream,
-    udp::{UdpClientConnect, UdpClientStream},
-    xfer::{
-        DnsExchange, DnsExchangeConnect, DnsHandle, DnsMultiplexer,
-        DnsMultiplexerConnect, 
-    },
+    udp::UdpClientStream,
+    xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
 };
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
@@ -68,57 +50,10 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     ) -> Result<Self::FutureConn, io::Error>;
 }
 
-#[cfg(feature = "__tls")]
-/// Predefined type for TLS client stream
-type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
-
-/// The variants of all supported connections for the Resolver
-#[allow(clippy::large_enum_variant, clippy::type_complexity)]
-pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
-    Udp(DnsExchangeConnect<UdpClientConnect<R>, UdpClientStream<R>, R::Timer>),
-    Tcp(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<
-                Pin<Box<dyn Future<Output = Result<TcpClientStream<R::Tcp>, ProtoError>> + Send>>,
-                TcpClientStream<<R as RuntimeProvider>::Tcp>,
-            >,
-            DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>>,
-            R::Timer,
-        >,
-    ),
-    #[cfg(feature = "__tls")]
-    Tls(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<
-                Pin<
-                    Box<
-                        dyn Future<
-                                Output = Result<
-                                    TlsClientStream<<R as RuntimeProvider>::Tcp>,
-                                    ProtoError,
-                                >,
-                            > + Send
-                            + 'static,
-                    >,
-                >,
-                TlsClientStream<<R as RuntimeProvider>::Tcp>,
-            >,
-            DnsMultiplexer<TlsClientStream<<R as RuntimeProvider>::Tcp>>,
-            TokioTime,
-        >,
-    ),
-    #[cfg(all(feature = "__https", feature = "tokio"))]
-    Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
-    #[cfg(all(feature = "__quic", feature = "tokio"))]
-    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
-    #[cfg(all(feature = "__h3", feature = "tokio"))]
-    H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, TokioTime>),
-}
-
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
 pub struct ConnectionFuture<R: RuntimeProvider> {
-    pub(crate) connect: ConnectionConnect<R>,
+    pub(crate) connect: Connecting<R>,
     pub(crate) spawner: R::Handle,
 }
 
@@ -127,40 +62,41 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
-            ConnectionConnect::Udp(conn) => {
+            Connecting::Udp(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 conn
             }
-            ConnectionConnect::Tcp(conn) => {
+            Connecting::Tcp(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 conn
             }
             #[cfg(feature = "__tls")]
-            ConnectionConnect::Tls(conn) => {
+            Connecting::Tls(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 conn
             }
             #[cfg(feature = "__https")]
-            ConnectionConnect::Https(conn) => {
+            Connecting::Https(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 conn
             }
             #[cfg(feature = "__quic")]
-            ConnectionConnect::Quic(conn) => {
+            Connecting::Quic(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 conn
             }
             #[cfg(feature = "__h3")]
-            ConnectionConnect::H3(conn) => {
+            Connecting::H3(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 conn
             }
+            _ => unreachable!("unsupported connection type in Connecting"),
         }))
     }
 }
@@ -210,7 +146,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     .with_bind_addr(config.bind_addr)
                     .build();
                 let exchange = DnsExchange::connect(stream);
-                ConnectionConnect::Udp(exchange)
+                Connecting::Udp(exchange)
             }
             (ProtocolConfig::Tcp, _) => {
                 let (future, handle) = TcpClientStream::new(
@@ -223,7 +159,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(future, handle, options.timeout, None);
                 let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Tcp(exchange)
+                Connecting::Tcp(exchange)
             }
             #[cfg(feature = "__tls")]
             (ProtocolConfig::Tls { server_name }, _) => {
@@ -247,7 +183,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
 
                 let dns_conn = DnsMultiplexer::with_timeout(stream, handle, timeout, None);
                 let exchange = DnsExchange::connect(dns_conn);
-                ConnectionConnect::Tls(exchange)
+                Connecting::Tls(exchange)
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
@@ -261,7 +197,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     path.clone(),
                     Arc::new(options.tls_config.clone()),
                 );
-                ConnectionConnect::Https(exchange)
+                Connecting::Https(exchange)
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { server_name }, Some(binder)) => {
@@ -279,7 +215,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     server_name.clone(),
                     client_config,
                 );
-                ConnectionConnect::Quic(exchange)
+                Connecting::Quic(exchange)
             }
             #[cfg(feature = "__h3")]
             (ProtocolConfig::H3 { server_name, path }, Some(binder)) => {
@@ -298,7 +234,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     path.clone(),
                     client_config,
                 );
-                ConnectionConnect::H3(exchange)
+                Connecting::H3(exchange)
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { .. }, None) => {
