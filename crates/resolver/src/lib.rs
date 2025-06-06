@@ -199,8 +199,6 @@ pub use proto::rr::{IntoName, Name};
 pub mod caching_client;
 pub mod config;
 pub mod dns_lru;
-#[cfg(feature = "__h3")]
-mod h3;
 mod hosts;
 pub use hosts::Hosts;
 pub mod lookup;
