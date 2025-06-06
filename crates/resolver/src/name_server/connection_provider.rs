@@ -251,15 +251,24 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 mod tests {
     #[cfg(feature = "__quic")]
     use std::net::IpAddr;
-    #[cfg(feature = "__quic")]
-    use std::sync::Arc;
 
     use test_support::subscribe;
 
     use crate::TokioResolver;
+    #[cfg(any(feature = "__tls", feature = "__https"))]
+    use crate::config::CLOUDFLARE;
+    #[cfg(any(
+        feature = "__tls",
+        feature = "__https",
+        feature = "__quic",
+        feature = "__h3"
+    ))]
+    use crate::config::GOOGLE;
     use crate::config::ResolverConfig;
     #[cfg(feature = "__quic")]
-    use crate::config::{NameServerConfigGroup, ServerOrderingStrategy};
+    use crate::config::ServerGroup;
+    #[cfg(feature = "__quic")]
+    use crate::config::ServerOrderingStrategy;
     use crate::proto::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
     use crate::proto::rustls::client_config;
@@ -268,7 +277,7 @@ mod tests {
     #[tokio::test]
     async fn test_google_h3() {
         subscribe();
-        h3_test(ResolverConfig::google_h3()).await
+        h3_test(ResolverConfig::h3(&GOOGLE)).await
     }
 
     #[cfg(feature = "__h3")]
@@ -303,22 +312,18 @@ mod tests {
         // AdGuard requires SNI.
         let config = client_config();
 
-        let name_servers = NameServerConfigGroup::from_ips_quic(
-            &[
+        let group = ServerGroup {
+            ips: &[
                 IpAddr::from([94, 140, 14, 140]),
                 IpAddr::from([94, 140, 14, 141]),
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x1, 0xff]),
                 IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x2, 0xff]),
             ],
-            853,
-            Arc::from("unfiltered.adguard-dns.com"),
-            true,
-        );
-        quic_test(
-            ResolverConfig::from_parts(None, Vec::new(), name_servers),
-            config,
-        )
-        .await
+            server_name: "unfiltered.adguard-dns.com",
+            path: "/dns-query",
+        };
+
+        quic_test(ResolverConfig::quic(&group), config).await
     }
 
     #[cfg(feature = "__quic")]
@@ -352,14 +357,14 @@ mod tests {
     #[tokio::test]
     async fn test_google_https() {
         subscribe();
-        https_test(ResolverConfig::google_https()).await
+        https_test(ResolverConfig::https(&GOOGLE)).await
     }
 
     #[cfg(feature = "__https")]
     #[tokio::test]
     async fn test_cloudflare_https() {
         subscribe();
-        https_test(ResolverConfig::cloudflare_https()).await
+        https_test(ResolverConfig::https(&CLOUDFLARE)).await
     }
 
     #[cfg(feature = "__https")]
@@ -389,14 +394,14 @@ mod tests {
     #[tokio::test]
     async fn test_google_tls() {
         subscribe();
-        tls_test(ResolverConfig::google_tls()).await
+        tls_test(ResolverConfig::tls(&GOOGLE)).await
     }
 
     #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_cloudflare_tls() {
         subscribe();
-        tls_test(ResolverConfig::cloudflare_tls()).await
+        tls_test(ResolverConfig::tls(&CLOUDFLARE)).await
     }
 
     #[cfg(feature = "__tls")]

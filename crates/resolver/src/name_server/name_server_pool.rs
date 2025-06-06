@@ -21,7 +21,7 @@ use hickory_proto::op::ResponseCode;
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::ConnectionProvider;
 use crate::name_server::name_server::NameServer;
 use crate::proto::runtime::{RuntimeProvider, Time};
@@ -53,13 +53,12 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
-        name_servers: NameServerConfigGroup,
+        name_servers: Vec<NameServerConfig>,
         options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
             name_servers
-                .into_inner()
                 .into_iter()
                 .map(|ns_config| NameServer::new(ns_config, options.clone(), conn_provider.clone()))
                 .collect(),

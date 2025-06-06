@@ -43,7 +43,7 @@ use hickory_proto::{
 use hickory_resolver::{
     TokioResolver,
     config::{
-        NameServerConfig, NameServerConfigGroup, ProtocolConfig, ResolverConfig, ResolverOpts,
+        CLOUDFLARE, GOOGLE, NameServerConfig, ProtocolConfig, QUAD9, ResolverConfig, ResolverOpts,
     },
     lookup::Lookup,
 };
@@ -273,7 +273,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Configure all the name servers
-    let mut name_servers = NameServerConfigGroup::default();
+    let mut name_servers = Vec::new();
 
     for socket_addr in &opts.nameserver {
         name_servers.push(NameServerConfig {
@@ -292,16 +292,16 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if opts.google {
-        name_servers.merge(NameServerConfigGroup::google());
+        name_servers.extend(GOOGLE.udp_and_tcp());
     }
     if opts.cloudflare {
-        name_servers.merge(NameServerConfigGroup::cloudflare());
+        name_servers.extend(CLOUDFLARE.udp_and_tcp());
     }
     if opts.quad9 {
-        name_servers.merge(NameServerConfigGroup::quad9());
+        name_servers.extend(QUAD9.udp_and_tcp());
     }
     if name_servers.is_empty() && sys_config.is_none() {
-        name_servers.merge(NameServerConfigGroup::google());
+        name_servers.extend(GOOGLE.udp_and_tcp());
     }
 
     let ipv4 = opts.ipv4 || !opts.ipv6;
