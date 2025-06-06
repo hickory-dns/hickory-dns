@@ -9,15 +9,15 @@ async fn readme_example() {
 
     use crate::Resolver;
     use crate::config::*;
-    use crate::name_server::TokioConnectionProvider;
+    use crate::proto::runtime::TokioRuntimeProvider;
 
     // Construct a new Resolver with default configuration options
     let resolver =
-        Resolver::builder_with_config(ResolverConfig::google(), TokioConnectionProvider::default())
+        Resolver::builder_with_config(ResolverConfig::google(), TokioRuntimeProvider::default())
             .build();
 
     // On Unix/Posix systems, this will read the /etc/resolv.conf
-    // let resolver = TokioResolver::builder(TokioConnectionProvider::default()).unwrap().build();
+    // let resolver = TokioResolver::builder(TokioRuntimeProvider::default()).unwrap().build();
 
     // Lookup the IP addresses associated with a name.
     let response = resolver.lookup_ip("www.example.com.").await.unwrap();
@@ -33,12 +33,12 @@ async fn readme_example() {
 fn readme_tls() {
     use crate::Resolver;
     use crate::config::*;
-    use crate::name_server::TokioConnectionProvider;
+    use crate::proto::runtime::TokioRuntimeProvider;
 
     // Construct a new Resolver with default configuration options
     let resolver = Resolver::builder_with_config(
         ResolverConfig::cloudflare_tls(),
-        TokioConnectionProvider::default(),
+        TokioRuntimeProvider::default(),
     )
     .build();
 

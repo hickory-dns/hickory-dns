@@ -15,9 +15,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use crate::proto::runtime::Spawn;
-#[cfg(feature = "tokio")]
-use crate::proto::runtime::TokioRuntimeProvider;
 use futures_util::future::FutureExt;
 use futures_util::ready;
 #[cfg(feature = "__tls")]
@@ -34,7 +31,7 @@ use crate::proto::quic::QuicClientStream;
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::{
     ProtoError,
-    runtime::RuntimeProvider,
+    runtime::{RuntimeProvider, Spawn},
     tcp::TcpClientStream,
     udp::UdpClientStream,
     xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
@@ -109,32 +106,7 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
     }
 }
 
-/// Default ConnectionProvider with `GenericConnection`.
-#[cfg(feature = "tokio")]
-pub type TokioConnectionProvider = GenericConnector<TokioRuntimeProvider>;
-
-/// Default connector for `GenericConnection`
-#[derive(Clone)]
-pub struct GenericConnector<P: RuntimeProvider> {
-    runtime_provider: P,
-}
-
-impl<P: RuntimeProvider> GenericConnector<P> {
-    /// Create a new instance.
-    pub fn new(runtime_provider: P) -> Self {
-        Self { runtime_provider }
-    }
-}
-
-impl<P: RuntimeProvider + Default> Default for GenericConnector<P> {
-    fn default() -> Self {
-        Self {
-            runtime_provider: P::default(),
-        }
-    }
-}
-
-impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
+impl<P: RuntimeProvider> ConnectionProvider for P {
     type Conn = DnsExchange;
     type FutureConn = ConnectionFuture<P>;
     type RuntimeProvider = P;
@@ -144,9 +116,9 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
         config: &NameServerConfig,
         options: &ResolverOpts,
     ) -> Result<Self::FutureConn, io::Error> {
-        let dns_connect = match (&config.protocol, self.runtime_provider.quic_binder()) {
+        let dns_connect = match (&config.protocol, self.quic_binder()) {
             (ProtocolConfig::Udp, _) => {
-                let provider_handle = self.runtime_provider.clone();
+                let provider_handle = self.clone();
                 let stream = UdpClientStream::builder(config.socket_addr, provider_handle)
                     .with_timeout(Some(options.timeout))
                     .with_os_port_selection(options.os_port_selection)
@@ -161,7 +133,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     config.socket_addr,
                     config.bind_addr,
                     Some(options.timeout),
-                    self.runtime_provider.clone(),
+                    self.clone(),
                 );
 
                 // TODO: need config for Signer...
@@ -173,7 +145,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             (ProtocolConfig::Tls { server_name }, _) => {
                 let socket_addr = config.socket_addr;
                 let timeout = options.timeout;
-                let tcp_future = self.runtime_provider.connect_tcp(socket_addr, None, None);
+                let tcp_future = self.connect_tcp(socket_addr, None, None);
 
                 let Ok(server_name) = ServerName::try_from(&**server_name) else {
                     return Err(io::Error::new(
@@ -200,8 +172,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
                 Connecting::Https(DnsExchange::connect(HttpsClientConnect::new(
-                    self.runtime_provider
-                        .connect_tcp(config.socket_addr, None, None),
+                    self.connect_tcp(config.socket_addr, None, None),
                     Arc::new(options.tls_config.clone()),
                     config.socket_addr,
                     server_name.clone(),
@@ -261,7 +232,7 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
 
         Ok(ConnectionFuture::<P> {
             connect: dns_connect,
-            spawner: self.runtime_provider.create_handle(),
+            spawner: self.create_handle(),
         })
     }
 }
@@ -289,7 +260,7 @@ mod tests {
     use crate::config::ResolverConfig;
     #[cfg(feature = "__quic")]
     use crate::config::{NameServerConfigGroup, ServerOrderingStrategy};
-    use crate::name_server::TokioConnectionProvider;
+    use crate::proto::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
     use crate::proto::rustls::client_config;
 
@@ -303,7 +274,7 @@ mod tests {
     #[cfg(feature = "__h3")]
     async fn h3_test(config: ResolverConfig) {
         let mut builder =
-            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+            TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         // Prefer IPv4 addresses for this test.
         builder.options_mut().server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
         let resolver = builder.build();
@@ -353,7 +324,7 @@ mod tests {
     #[cfg(feature = "__quic")]
     async fn quic_test(config: ResolverConfig, tls_config: rustls::ClientConfig) {
         let mut resolver_builder =
-            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+            TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
         resolver_builder.options_mut().tls_config = tls_config;
         // Prefer IPv4 addresses for this test.
@@ -394,7 +365,7 @@ mod tests {
     #[cfg(feature = "__https")]
     async fn https_test(config: ResolverConfig) {
         let mut resolver_builder =
-            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+            TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
         let resolver = resolver_builder.build();
 
@@ -431,7 +402,7 @@ mod tests {
     #[cfg(feature = "__tls")]
     async fn tls_test(config: ResolverConfig) {
         let mut resolver_builder =
-            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+            TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
         let resolver = resolver_builder.build();
 

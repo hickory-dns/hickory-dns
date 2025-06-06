@@ -2,8 +2,9 @@
 
 use std::{fmt::Display, future::pending, io, net::SocketAddr};
 
-use hickory_resolver::{IntoName, TokioResolver, name_server::TokioConnectionProvider};
 use once_cell::sync::Lazy;
+
+use hickory_resolver::{IntoName, TokioResolver, proto::runtime::TokioRuntimeProvider};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -34,7 +35,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioResolver> = Lazy::new(|| {
             #[cfg(any(unix, windows))]
             {
                 // use the system resolver configuration
-                TokioResolver::builder(TokioConnectionProvider::default())
+                TokioResolver::builder(TokioRuntimeProvider::default())
                     .map(|builder| builder.build())
             }
 

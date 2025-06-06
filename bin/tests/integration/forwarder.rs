@@ -4,8 +4,10 @@ use std::str::FromStr;
 
 use tokio::runtime::Runtime;
 
-use hickory_proto::rr::{Name, RecordType};
-use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_proto::{
+    rr::{Name, RecordType},
+    runtime::TokioRuntimeProvider,
+};
 use hickory_server::{
     authority::{Authority, LookupObject},
     store::forwarder::ForwardAuthority,
@@ -17,7 +19,7 @@ fn test_lookup() {
     subscribe();
 
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let forwarder = ForwardAuthority::builder(TokioConnectionProvider::default())
+    let forwarder = ForwardAuthority::builder(TokioRuntimeProvider::default())
         .unwrap()
         .build()
         .expect("failed to create forwarder");

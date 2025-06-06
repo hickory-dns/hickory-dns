@@ -10,6 +10,7 @@ use std::{
 
 use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
+use hickory_resolver::name_server::NameServerPool;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
@@ -36,7 +37,6 @@ use crate::{
         config::{NameServerConfigGroup, ResolverOpts},
         dns_lru::{DnsLru, TtlConfig},
         lookup::Lookup,
-        name_server::{GenericConnector, GenericNameServerPool},
     },
 };
 
@@ -54,7 +54,7 @@ pub(crate) struct RecursorDnsHandle<P: RuntimeProvider> {
     allow_server_v6: PrefixSet<Ipv6Net>,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
-    conn_provider: GenericConnector<P>,
+    conn_provider: P,
 }
 
 impl<P: RuntimeProvider> RecursorDnsHandle<P> {
@@ -71,7 +71,7 @@ impl<P: RuntimeProvider> RecursorDnsHandle<P> {
         avoid_local_udp_ports: Arc<HashSet<u16>>,
         ttl_config: TtlConfig,
         case_randomization: bool,
-        conn_provider: GenericConnector<P>,
+        conn_provider: P,
     ) -> Self {
         // configure the hickory-resolver
         let roots = NameServerConfigGroup::from_ips_clear(roots, 53, true);
@@ -80,8 +80,7 @@ impl<P: RuntimeProvider> RecursorDnsHandle<P> {
 
         debug!("Using cache sizes {}/{}", ns_cache_size, record_cache_size);
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots =
-            GenericNameServerPool::from_config(roots, Arc::new(opts), conn_provider.clone());
+        let roots = NameServerPool::from_config(roots, Arc::new(opts), conn_provider.clone());
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let record_cache = DnsLru::new(record_cache_size, ttl_config);
@@ -485,7 +484,7 @@ impl<P: RuntimeProvider> RecursorDnsHandle<P> {
         }
 
         // now construct a namesever pool based off the NS and glue records
-        let ns = GenericNameServerPool::from_config(
+        let ns = NameServerPool::from_config(
             config_group,
             Arc::new(self.recursor_opts()),
             self.conn_provider.clone(),
@@ -644,8 +643,10 @@ mod tests {
 
     use ipnet::IpNet;
 
-    use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::resolver::{dns_lru::TtlConfig, name_server::TokioConnectionProvider};
+    use crate::{
+        proto::runtime::TokioRuntimeProvider, recursor_dns_handle::RecursorDnsHandle,
+        resolver::dns_lru::TtlConfig,
+    };
 
     #[test]
     fn test_nameserver_filter() {
@@ -668,7 +669,7 @@ mod tests {
             Arc::new(HashSet::new()),
             TtlConfig::default(),
             false,
-            TokioConnectionProvider::default(),
+            TokioRuntimeProvider::default(),
         );
 
         for addr in [

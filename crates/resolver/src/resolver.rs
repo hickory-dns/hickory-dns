@@ -22,14 +22,14 @@ use crate::dns_lru::{self, DnsLru, TtlConfig};
 use crate::hosts::Hosts;
 use crate::lookup::{self, Lookup, LookupEither};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-#[cfg(feature = "tokio")]
-use crate::name_server::TokioConnectionProvider;
 use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::Query;
 use crate::proto::rr::domain::usage::ONION;
 use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
+#[cfg(feature = "tokio")]
+use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
@@ -179,7 +179,7 @@ pub struct Resolver<P: ConnectionProvider> {
 
 /// A Resolver used with Tokio
 #[cfg(feature = "tokio")]
-pub type TokioResolver = Resolver<TokioConnectionProvider>;
+pub type TokioResolver = Resolver<TokioRuntimeProvider>;
 
 macro_rules! lookup_fn {
     ($p:ident, $l:ty, $r:path) => {
@@ -221,8 +221,8 @@ impl TokioResolver {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    pub fn builder_tokio() -> Result<ResolverBuilder<TokioConnectionProvider>, ProtoError> {
-        Self::builder(TokioConnectionProvider::default())
+    pub fn builder_tokio() -> Result<ResolverBuilder<TokioRuntimeProvider>, ProtoError> {
+        Self::builder(TokioRuntimeProvider::default())
     }
 }
 
@@ -1114,8 +1114,8 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        assert!(is_send_t::<Resolver<TokioConnectionProvider>>());
-        assert!(is_sync_t::<Resolver<TokioConnectionProvider>>());
+        assert!(is_send_t::<Resolver<TokioRuntimeProvider>>());
+        assert!(is_sync_t::<Resolver<TokioRuntimeProvider>>());
 
         assert!(is_send_t::<DnsRequest>());
         assert!(is_send_t::<LookupIpFuture<DnsExchange>>());
@@ -1125,28 +1125,28 @@ mod tests {
     #[tokio::test]
     async fn test_lookup_google() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         lookup_test(ResolverConfig::google(), handle).await;
     }
 
     #[tokio::test]
     async fn test_lookup_cloudflare() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         lookup_test(ResolverConfig::cloudflare(), handle).await;
     }
 
     #[tokio::test]
     async fn test_ip_lookup() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         ip_lookup_test(handle).await;
     }
 
     #[test]
     fn test_ip_lookup_across_threads() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         ip_lookup_across_threads_test::<Runtime, _>(handle);
     }
 
@@ -1154,7 +1154,7 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     async fn test_sec_lookup() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         sec_lookup_test(handle).await;
     }
 
@@ -1162,7 +1162,7 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     async fn test_sec_lookup_fails() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         sec_lookup_fails_test(handle).await;
     }
 
@@ -1172,7 +1172,7 @@ mod tests {
     #[cfg(feature = "system-config")]
     async fn test_system_lookup() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         system_lookup_test(handle).await;
     }
 
@@ -1182,84 +1182,84 @@ mod tests {
     #[cfg(all(unix, feature = "system-config"))]
     async fn test_hosts_lookup() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         hosts_lookup_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_fqdn() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         fqdn_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_ndots() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         ndots_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_large_ndots() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         large_ndots_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_domain_search() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         domain_search_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_search_list() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         search_list_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_idna() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         idna_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_localhost_ipv4() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         localhost_ipv4_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_localhost_ipv6() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         localhost_ipv6_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_search_ipv4_large_ndots() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         search_ipv4_large_ndots_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_search_ipv6_large_ndots() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         search_ipv6_large_ndots_test(handle).await;
     }
 
     #[tokio::test]
     async fn test_search_ipv6_name_parse_fails() {
         subscribe();
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         search_ipv6_name_parse_fails_test(handle).await;
     }
 
@@ -1267,7 +1267,7 @@ mod tests {
     fn test_build_names() {
         use std::str::FromStr;
 
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         let mut config = ResolverConfig::google();
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver = Resolver::builder_with_config(config, handle).build();
@@ -1286,7 +1286,7 @@ mod tests {
 
     #[test]
     fn test_build_names_onion() {
-        let handle = TokioConnectionProvider::default();
+        let handle = TokioRuntimeProvider::default();
         let mut config = ResolverConfig::google();
         config.add_search(Name::from_ascii("example.com.").unwrap());
         let resolver = Resolver::builder_with_config(config, handle).build();

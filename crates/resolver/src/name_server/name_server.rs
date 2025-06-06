@@ -449,11 +449,10 @@ mod tests {
 
     use super::*;
     use crate::config::ProtocolConfig;
-    use crate::name_server::GenericNameServer;
-    use crate::name_server::connection_provider::TokioConnectionProvider;
     use crate::proto::op::{Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
+    use crate::proto::runtime::TokioRuntimeProvider;
     use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
 
     #[tokio::test]
@@ -466,10 +465,10 @@ mod tests {
             trust_negative_responses: false,
             bind_addr: None,
         };
-        let name_server = GenericNameServer::new(
+        let name_server = NameServer::new(
             config,
             Arc::new(ResolverOpts::default()),
-            TokioConnectionProvider::default(),
+            TokioRuntimeProvider::default(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -498,11 +497,8 @@ mod tests {
             trust_negative_responses: false,
             bind_addr: None,
         };
-        let name_server = GenericNameServer::new(
-            config,
-            Arc::new(options),
-            TokioConnectionProvider::default(),
-        );
+        let name_server =
+            NameServer::new(config, Arc::new(options), TokioRuntimeProvider::default());
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
@@ -521,7 +517,7 @@ mod tests {
     async fn case_randomization_query_preserved() {
         subscribe();
 
-        let provider = TokioConnectionProvider::default();
+        let provider = TokioRuntimeProvider::default();
         let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
         let server_addr = server.local_addr().unwrap();
         let name = Name::from_str("dead.beef.").unwrap();

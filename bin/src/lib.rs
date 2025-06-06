@@ -44,7 +44,7 @@ use hickory_server::authority::DnssecAuthority;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "recursor")]
-use hickory_server::resolver::name_server::TokioConnectionProvider;
+use hickory_server::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistAuthority;
 #[cfg(feature = "blocklist")]
@@ -473,7 +473,7 @@ impl ZoneConfig {
                                 zone_type,
                                 config,
                                 Some(zone_dir),
-                                TokioConnectionProvider::default(),
+                                TokioRuntimeProvider::default(),
                             )
                             .await?;
 
