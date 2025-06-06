@@ -10,7 +10,7 @@
 mod connection_provider;
 #[cfg(feature = "tokio")]
 pub use connection_provider::TokioConnectionProvider;
-pub use connection_provider::{ConnectionProvider, GenericConnection, GenericConnector};
+pub use connection_provider::{ConnectionProvider, GenericConnector};
 #[allow(clippy::module_inception)]
 mod name_server;
 pub use name_server::NameServer;

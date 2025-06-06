@@ -22,7 +22,6 @@ use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::runtime::iocompat::AsyncIoStdAsTokio;
 use futures_util::future::FutureExt;
 use futures_util::ready;
-use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "__tls")]
 use rustls::pki_types::ServerName;
 #[cfg(feature = "__tls")]
@@ -46,8 +45,8 @@ use crate::proto::{
     tcp::TcpClientStream,
     udp::{UdpClientConnect, UdpClientStream},
     xfer::{
-        DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
-        DnsMultiplexerConnect, DnsRequest, DnsResponse,
+        DnsExchange, DnsExchangeConnect, DnsHandle, DnsMultiplexer,
+        DnsMultiplexerConnect, 
     },
 };
 
@@ -124,57 +123,45 @@ pub struct ConnectionFuture<R: RuntimeProvider> {
 }
 
 impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
-    type Output = Result<GenericConnection, ProtoError>;
+    type Output = Result<DnsExchange, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
             ConnectionConnect::Udp(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
+                conn
             }
             ConnectionConnect::Tcp(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
+                conn
             }
             #[cfg(feature = "__tls")]
             ConnectionConnect::Tls(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
+                conn
             }
             #[cfg(feature = "__https")]
             ConnectionConnect::Https(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
+                conn
             }
             #[cfg(feature = "__quic")]
             ConnectionConnect::Quic(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
+                conn
             }
             #[cfg(feature = "__h3")]
             ConnectionConnect::H3(conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(conn)
+                conn
             }
         }))
-    }
-}
-
-/// A connected DNS handle
-#[derive(Clone)]
-pub struct GenericConnection(DnsExchange);
-
-impl DnsHandle for GenericConnection {
-    type Response = ConnectionResponse;
-
-    fn send(&self, request: DnsRequest) -> Self::Response {
-        ConnectionResponse(self.0.send(request))
     }
 }
 
@@ -204,7 +191,7 @@ impl<P: RuntimeProvider + Default> Default for GenericConnector<P> {
 }
 
 impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
-    type Conn = GenericConnection;
+    type Conn = DnsExchange;
     type FutureConn = ConnectionFuture<P>;
     type RuntimeProvider = P;
 
@@ -333,17 +320,5 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             connect: dns_connect,
             spawner: self.runtime_provider.create_handle(),
         })
-    }
-}
-
-/// A stream of response to a DNS request.
-#[must_use = "streams do nothing unless polled"]
-pub struct ConnectionResponse(DnsExchangeSend);
-
-impl Stream for ConnectionResponse {
-    type Item = Result<DnsResponse, ProtoError>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Ready(ready!(self.0.poll_next_unpin(cx)))
     }
 }
