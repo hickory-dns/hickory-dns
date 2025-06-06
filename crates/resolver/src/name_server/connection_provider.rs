@@ -26,6 +26,8 @@ use rustls::pki_types::ServerName;
 use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
 #[cfg(feature = "__https")]
 use crate::proto::h2::HttpsClientConnect;
+#[cfg(feature = "__quic")]
+use crate::proto::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::{
@@ -206,21 +208,20 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { server_name }, Some(binder)) => {
-                let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
+                let bind_addr = config.bind_addr.unwrap_or(match config.socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
-                let client_config = options.tls_config.clone();
-                let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
-                let exchange = crate::quic::new_quic_stream_with_future(
-                    socket,
-                    socket_addr,
-                    server_name.clone(),
-                    client_config,
-                );
-                Connecting::Quic(exchange)
+                Connecting::Quic(DnsExchange::connect(
+                    QuicClientStream::builder()
+                        .crypto_config(options.tls_config.clone())
+                        .build_with_future(
+                            binder.bind_quic(bind_addr, config.socket_addr)?,
+                            config.socket_addr,
+                            server_name.clone(),
+                        ),
+                ))
             }
             #[cfg(feature = "__h3")]
             (ProtocolConfig::H3 { server_name, path }, Some(binder)) => {
@@ -276,11 +277,73 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
     )
 ))]
 mod tests {
+    #[cfg(feature = "__quic")]
+    use std::net::IpAddr;
+    #[cfg(feature = "__quic")]
+    use std::sync::Arc;
+
     use test_support::subscribe;
 
     use crate::TokioResolver;
     use crate::config::ResolverConfig;
+    #[cfg(feature = "__quic")]
+    use crate::config::{NameServerConfigGroup, ServerOrderingStrategy};
     use crate::name_server::TokioConnectionProvider;
+    #[cfg(feature = "__quic")]
+    use crate::proto::rustls::client_config;
+
+    #[cfg(feature = "__quic")]
+    #[tokio::test]
+    async fn test_adguard_quic() {
+        subscribe();
+
+        // AdGuard requires SNI.
+        let config = client_config();
+
+        let name_servers = NameServerConfigGroup::from_ips_quic(
+            &[
+                IpAddr::from([94, 140, 14, 140]),
+                IpAddr::from([94, 140, 14, 141]),
+                IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x1, 0xff]),
+                IpAddr::from([0x2a10, 0x50c0, 0, 0, 0, 0, 0x2, 0xff]),
+            ],
+            853,
+            Arc::from("unfiltered.adguard-dns.com"),
+            true,
+        );
+        quic_test(
+            ResolverConfig::from_parts(None, Vec::new(), name_servers),
+            config,
+        )
+        .await
+    }
+
+    #[cfg(feature = "__quic")]
+    async fn quic_test(config: ResolverConfig, tls_config: rustls::ClientConfig) {
+        let mut resolver_builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        resolver_builder.options_mut().try_tcp_on_error = true;
+        resolver_builder.options_mut().tls_config = tls_config;
+        // Prefer IPv4 addresses for this test.
+        resolver_builder.options_mut().server_ordering_strategy =
+            ServerOrderingStrategy::UserProvidedOrder;
+        let resolver = resolver_builder.build();
+
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
+
+        // check if there is another connection created
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
+    }
 
     #[cfg(feature = "__https")]
     #[tokio::test]

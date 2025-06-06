@@ -209,8 +209,6 @@ pub mod lookup_ip;
 pub mod name_server;
 #[cfg(feature = "tokio")]
 use name_server::TokioConnectionProvider;
-#[cfg(feature = "__quic")]
-mod quic;
 mod resolver;
 pub use resolver::LookupFuture;
 #[cfg(feature = "tokio")]
