@@ -16,12 +16,9 @@ use ipnet::IpNet;
 
 use crate::{
     DnssecPolicy, Error,
-    proto::{
-        op::Query,
-        runtime::{RuntimeProvider, TokioRuntimeProvider},
-    },
+    proto::{op::Query, runtime::TokioRuntimeProvider},
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{dns_lru::TtlConfig, lookup::Lookup},
+    resolver::{dns_lru::TtlConfig, lookup::Lookup, name_server::ConnectionProvider},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -38,7 +35,7 @@ use crate::{
 
 /// A `Recursor` builder
 #[derive(Clone)]
-pub struct RecursorBuilder<P: RuntimeProvider> {
+pub struct RecursorBuilder<P: ConnectionProvider> {
     ns_cache_size: usize,
     record_cache_size: usize,
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
@@ -56,7 +53,7 @@ pub struct RecursorBuilder<P: RuntimeProvider> {
     conn_provider: P,
 }
 
-impl<P: RuntimeProvider> RecursorBuilder<P> {
+impl<P: ConnectionProvider> RecursorBuilder<P> {
     /// Sets the size of the list of cached name servers
     pub fn ns_cache_size(mut self, size: usize) -> Self {
         self.ns_cache_size = size;
@@ -138,7 +135,7 @@ impl<P: RuntimeProvider> RecursorBuilder<P> {
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
-pub struct Recursor<P: RuntimeProvider> {
+pub struct Recursor<P: ConnectionProvider> {
     mode: RecursorMode<P>,
 }
 
@@ -152,7 +149,7 @@ impl Recursor<TokioRuntimeProvider> {
     }
 }
 
-impl<P: RuntimeProvider> Recursor<P> {
+impl<P: ConnectionProvider> Recursor<P> {
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
     pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
         RecursorBuilder {
@@ -512,7 +509,7 @@ impl<P: RuntimeProvider> Recursor<P> {
     }
 }
 
-enum RecursorMode<P: RuntimeProvider> {
+enum RecursorMode<P: ConnectionProvider> {
     NonValidating {
         handle: RecursorDnsHandle<P>,
     },
@@ -541,12 +538,12 @@ mod for_dnssec {
     use crate::proto::{
         ProtoError,
         op::{Message, OpCode},
-        runtime::RuntimeProvider,
         xfer::{DnsHandle, DnsRequest, DnsResponse},
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
+    use crate::resolver::name_server::ConnectionProvider;
 
-    impl<P: RuntimeProvider> DnsHandle for RecursorDnsHandle<P> {
+    impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
