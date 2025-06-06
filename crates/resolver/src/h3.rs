@@ -33,12 +33,15 @@ mod tests {
     use test_support::subscribe;
 
     use crate::TokioResolver;
-    use crate::config::ResolverConfig;
+    use crate::config::{ResolverConfig, ServerOrderingStrategy};
     use crate::name_server::TokioConnectionProvider;
 
     async fn h3_test(config: ResolverConfig) {
-        let resolver =
-            TokioResolver::builder_with_config(config, TokioConnectionProvider::default()).build();
+        let mut builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        // Prefer IPv4 addresses for this test.
+        builder.options_mut().server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+        let resolver = builder.build();
 
         let response = resolver
             .lookup_ip("www.example.com.")
