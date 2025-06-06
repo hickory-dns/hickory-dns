@@ -200,13 +200,13 @@ pub struct QuicClientStreamBuilder {
 
 impl QuicClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn crypto_config(&mut self, crypto_config: rustls::ClientConfig) -> &mut Self {
+    pub fn crypto_config(mut self, crypto_config: rustls::ClientConfig) -> Self {
         self.crypto_config = Some(crypto_config);
         self
     }
 
     /// Sets the address to connect from.
-    pub fn bind_addr(&mut self, bind_addr: SocketAddr) -> &mut Self {
+    pub fn bind_addr(mut self, bind_addr: SocketAddr) -> Self {
         self.bind_addr = Some(bind_addr);
         self
     }
