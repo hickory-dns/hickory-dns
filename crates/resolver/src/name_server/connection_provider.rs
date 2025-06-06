@@ -11,7 +11,7 @@ use std::marker::Unpin;
 #[cfg(feature = "__quic")]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-#[cfg(feature = "__https")]
+#[cfg(any(feature = "__tls", feature = "__https"))]
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
@@ -24,6 +24,8 @@ use futures_util::ready;
 use rustls::pki_types::ServerName;
 
 use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
+#[cfg(feature = "__tls")]
+use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
 use crate::proto::{
     ProtoError,
     runtime::RuntimeProvider,
@@ -174,16 +176,20 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
                     ));
                 };
 
-                let (stream, handle) = crate::tls::new_tls_stream_with_future(
+                let mut tls_config = options.tls_config.clone();
+                // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
+                tls_config.enable_sni = false;
+
+                let (stream, handle) = tls_client_connect_with_future(
                     tcp_future,
                     socket_addr,
                     server_name.to_owned(),
-                    options.tls_config.clone(),
+                    Arc::new(tls_config),
                 );
 
-                let dns_conn = DnsMultiplexer::with_timeout(stream, handle, timeout, None);
-                let exchange = DnsExchange::connect(dns_conn);
-                Connecting::Tls(exchange)
+                Connecting::Tls(DnsExchange::connect(DnsMultiplexer::with_timeout(
+                    stream, handle, timeout, None,
+                )))
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
@@ -256,5 +262,53 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             connect: dns_connect,
             spawner: self.runtime_provider.create_handle(),
         })
+    }
+}
+
+#[cfg(all(
+    test,
+    feature = "tokio",
+    any(feature = "webpki-roots", feature = "rustls-platform-verifier"),
+    any(
+        feature = "__tls",
+        feature = "__https",
+        feature = "__quic",
+        feature = "__h3"
+    )
+))]
+mod tests {
+    use test_support::subscribe;
+
+    use crate::TokioResolver;
+    use crate::config::ResolverConfig;
+    use crate::name_server::TokioConnectionProvider;
+
+    #[cfg(feature = "__tls")]
+    #[tokio::test]
+    async fn test_google_tls() {
+        subscribe();
+        tls_test(ResolverConfig::google_tls()).await
+    }
+
+    #[cfg(feature = "__tls")]
+    #[tokio::test]
+    async fn test_cloudflare_tls() {
+        subscribe();
+        tls_test(ResolverConfig::cloudflare_tls()).await
+    }
+
+    #[cfg(feature = "__tls")]
+    async fn tls_test(config: ResolverConfig) {
+        let mut resolver_builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        resolver_builder.options_mut().try_tcp_on_error = true;
+        let resolver = resolver_builder.build();
+
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
     }
 }
