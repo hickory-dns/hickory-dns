@@ -26,6 +26,8 @@ use rustls::pki_types::ServerName;
 use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts};
 #[cfg(feature = "__https")]
 use crate::proto::h2::HttpsClientConnect;
+#[cfg(feature = "__h3")]
+use crate::proto::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::proto::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
@@ -225,22 +227,21 @@ impl<P: RuntimeProvider> ConnectionProvider for GenericConnector<P> {
             }
             #[cfg(feature = "__h3")]
             (ProtocolConfig::H3 { server_name, path }, Some(binder)) => {
-                let socket_addr = config.socket_addr;
-                let bind_addr = config.bind_addr.unwrap_or(match socket_addr {
+                let bind_addr = config.bind_addr.unwrap_or(match config.socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
-                let client_config = options.tls_config.clone();
-                let socket = binder.bind_quic(bind_addr, socket_addr)?;
 
-                let exchange = crate::h3::new_h3_stream_with_future(
-                    socket,
-                    socket_addr,
-                    server_name.clone(),
-                    path.clone(),
-                    client_config,
-                );
-                Connecting::H3(exchange)
+                Connecting::H3(DnsExchange::connect(
+                    H3ClientStream::builder()
+                        .crypto_config(options.tls_config.clone())
+                        .build_with_future(
+                            binder.bind_quic(bind_addr, config.socket_addr)?,
+                            config.socket_addr,
+                            server_name.clone(),
+                            path.clone(),
+                        ),
+                ))
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { .. }, None) => {
@@ -291,6 +292,37 @@ mod tests {
     use crate::name_server::TokioConnectionProvider;
     #[cfg(feature = "__quic")]
     use crate::proto::rustls::client_config;
+
+    #[cfg(feature = "__h3")]
+    #[tokio::test]
+    async fn test_google_h3() {
+        subscribe();
+        h3_test(ResolverConfig::google_h3()).await
+    }
+
+    #[cfg(feature = "__h3")]
+    async fn h3_test(config: ResolverConfig) {
+        let mut builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
+        // Prefer IPv4 addresses for this test.
+        builder.options_mut().server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+        let resolver = builder.build();
+
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
+
+        // check if there is another connection created
+        let response = resolver
+            .lookup_ip("www.example.com.")
+            .await
+            .expect("failed to run lookup");
+
+        assert_ne!(response.iter().count(), 0);
+    }
 
     #[cfg(feature = "__quic")]
     #[tokio::test]
