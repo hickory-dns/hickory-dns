@@ -1079,14 +1079,16 @@ mod tests {
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
+    #[cfg(all(unix, feature = "system-config"))]
+    use super::testing::hosts_lookup_test;
+    #[cfg(feature = "system-config")]
+    use super::testing::system_lookup_test;
     use super::testing::{
         domain_search_test, fqdn_test, idna_test, ip_lookup_across_threads_test, ip_lookup_test,
         large_ndots_test, localhost_ipv4_test, localhost_ipv6_test, lookup_test, ndots_test,
         search_ipv4_large_ndots_test, search_ipv6_large_ndots_test,
         search_ipv6_name_parse_fails_test, search_list_test,
     };
-    #[cfg(feature = "system-config")]
-    use super::testing::{hosts_lookup_test, system_lookup_test};
     #[cfg(feature = "__dnssec")]
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
@@ -1174,11 +1176,10 @@ mod tests {
         system_lookup_test(handle).await;
     }
 
+    // these appear to not work on CI, test on macos with `10.1.0.104  a.com`
     #[tokio::test]
     #[ignore]
-    // these appear to not work on CI, test on macos with `10.1.0.104  a.com`
-    #[cfg(unix)]
-    #[cfg(feature = "system-config")]
+    #[cfg(all(unix, feature = "system-config"))]
     async fn test_hosts_lookup() {
         subscribe();
         let handle = TokioConnectionProvider::default();
