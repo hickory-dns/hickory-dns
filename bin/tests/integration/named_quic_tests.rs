@@ -52,11 +52,11 @@ fn test_example_quic_toml_startup() {
             .with_root_certificates(root_store)
             .with_no_client_auth();
 
-        let mut quic_builder = QuicClientStream::builder();
-        quic_builder.crypto_config(client_config);
-
-        let mp = quic_builder.build(addr, Arc::from("ns.example.com"));
-        let client = Client::connect(mp);
+        let client = Client::connect(
+            QuicClientStream::builder()
+                .crypto_config(client_config)
+                .build(addr, Arc::from("ns.example.com")),
+        );
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

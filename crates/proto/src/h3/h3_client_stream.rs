@@ -298,14 +298,15 @@ pub struct H3ClientStreamBuilder {
 
 impl H3ClientStreamBuilder {
     /// Constructs a new H3ClientStreamBuilder with the associated ClientConfig
-    pub fn crypto_config(&mut self, crypto_config: rustls::ClientConfig) -> &mut Self {
+    pub fn crypto_config(mut self, crypto_config: rustls::ClientConfig) -> Self {
         self.crypto_config = crypto_config;
         self
     }
 
     /// Sets the address to connect from.
-    pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
+    pub fn bind_addr(mut self, bind_addr: SocketAddr) -> Self {
         self.bind_addr = Some(bind_addr);
+        self
     }
 
     /// Creates a new H3Stream to the specified name_server
@@ -500,11 +501,11 @@ mod tests {
         let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3_builder = H3ClientStream::builder();
-        h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(google, Arc::from("dns.google"), Arc::from("/dns-query"));
-
-        let mut h3 = connect.await.expect("h3 connect failed");
+        let mut h3 = H3ClientStream::builder()
+            .crypto_config(client_config)
+            .build(google, Arc::from("dns.google"), Arc::from("/dns-query"))
+            .await
+            .expect("h3 connect failed");
 
         let response = h3
             .send_message(request)
@@ -568,15 +569,15 @@ mod tests {
         let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3_builder = H3ClientStream::builder();
-        h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(
-            google,
-            Arc::from(google.ip().to_string()),
-            Arc::from("/dns-query"),
-        );
-
-        let mut h3 = connect.await.expect("h3 connect failed");
+        let mut h3 = H3ClientStream::builder()
+            .crypto_config(client_config)
+            .build(
+                google,
+                Arc::from(google.ip().to_string()),
+                Arc::from("/dns-query"),
+            )
+            .await
+            .expect("h3 connect failed");
 
         let response = h3
             .send_message(request)
@@ -637,13 +638,13 @@ mod tests {
         let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3_builder = H3ClientStream::builder();
-        h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(
-            cloudflare,
-            Arc::from("cloudflare-dns.com"),
-            Arc::from("/dns-query"),
-        );
+        let connect = H3ClientStream::builder()
+            .crypto_config(client_config)
+            .build(
+                cloudflare,
+                Arc::from("cloudflare-dns.com"),
+                Arc::from("/dns-query"),
+            );
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
@@ -693,11 +694,11 @@ mod tests {
         let mut client_config = client_config();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3_builder = H3ClientStream::builder();
-        h3_builder.crypto_config(client_config);
-        let connect = h3_builder.build(google, Arc::from("dns.google"), Arc::from("/dns-query"));
-
-        let h3 = connect.await.expect("h3 connect failed");
+        let h3 = H3ClientStream::builder()
+            .crypto_config(client_config)
+            .build(google, Arc::from("dns.google"), Arc::from("/dns-query"))
+            .await
+            .expect("h3 connect failed");
 
         // prepare request
         let mut request = Message::query();
