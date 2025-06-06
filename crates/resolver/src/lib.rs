@@ -221,8 +221,6 @@ pub use resolver::{Resolver, ResolverBuilder};
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
-#[cfg(feature = "__tls")]
-mod tls;
 
 #[doc(hidden)]
 #[deprecated(since = "0.25.0", note = "use `Resolver` instead")]
