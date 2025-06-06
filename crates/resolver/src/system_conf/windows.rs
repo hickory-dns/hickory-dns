@@ -17,24 +17,17 @@ use crate::config::{NameServerConfig, ProtocolConfig, ResolverConfig, ResolverOp
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
 
-/// Returns the name servers of the computer (of all adapters)
-fn get_name_servers() -> Result<Vec<NameServerConfig>, ProtoError> {
+pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
     let adapters = get_adapters().map_err(|e| format!("ipconfig::get_adapters() failed: {e}"))?;
-    let mut name_servers = vec![];
 
-    // https://datatracker.ietf.org/doc/html/draft-ietf-ipv6-dns-discovery-07
-    // [RFC 3879](https://datatracker.ietf.org/doc/html/rfc3879)
-    const FORBIDDEN_ADDRS: [Ipv6Addr; 3] = [
-        Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 1), // fec0:0:0:ffff::1
-        Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 2), // fec0:0:0:ffff::2
-        Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 3), // fec0:0:0:ffff::3
-    ];
-
-    for dns_server in adapters
+    let servers = adapters
         .iter()
-        .filter(|adapter| adapter.oper_status() == ipconfig::OperStatus::IfOperStatusUp) // Only take interfaces whose OperStatus is Up
-        .flat_map(|adapter| adapter.dns_servers().iter())
-    {
+        // Only take interfaces whose OperStatus is Up
+        .filter(|adapter| adapter.oper_status() == ipconfig::OperStatus::IfOperStatusUp)
+        .flat_map(|adapter| adapter.dns_servers());
+
+    let mut name_servers = vec![];
+    for dns_server in servers {
         if let IpAddr::V6(ip) = dns_server {
             if FORBIDDEN_ADDRS.contains(ip) {
                 continue;
@@ -55,12 +48,6 @@ fn get_name_servers() -> Result<Vec<NameServerConfig>, ProtoError> {
             bind_addr: None,
         });
     }
-    Ok(name_servers)
-}
-
-pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
-    let name_servers =
-        get_name_servers().map_err(|e| format!("ipconfig::get_name_servers() failed: {e}"))?;
 
     let search_list: Vec<Name> = get_search_list()
         .map_err(|e| format!("ipconfig::get_search_list() failed: {e}"))?
@@ -77,3 +64,11 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
 
     Ok((config, ResolverOpts::default()))
 }
+
+// https://datatracker.ietf.org/doc/html/draft-ietf-ipv6-dns-discovery-07
+// [RFC 3879](https://datatracker.ietf.org/doc/html/rfc3879)
+const FORBIDDEN_ADDRS: [Ipv6Addr; 3] = [
+    Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 1), // fec0:0:0:ffff::1
+    Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 2), // fec0:0:0:ffff::2
+    Ipv6Addr::new(0xfec0, 0, 0, 0xffff, 0, 0, 0, 3), // fec0:0:0:ffff::3
+];
