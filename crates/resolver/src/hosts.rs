@@ -14,8 +14,8 @@ use crate::proto::rr::{Name, RecordType};
 use crate::proto::rr::{RData, Record};
 use tracing::warn;
 
-use crate::dns_lru;
 use crate::lookup::Lookup;
+use crate::response_cache::MAX_TTL;
 
 #[derive(Debug, Default)]
 struct LookupType {
@@ -96,11 +96,7 @@ impl Hosts {
                         },
                     })
                     .map(|(n, _)| {
-                        Record::from_rdata(
-                            name.clone(),
-                            dns_lru::MAX_TTL,
-                            RData::PTR(PTR(n.clone())),
-                        )
+                        Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone())))
                     })
                     .collect::<Arc<[Record]>>();
 
@@ -199,7 +195,7 @@ impl Hosts {
                 };
 
                 name.set_fqdn(true);
-                let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
+                let record = Record::from_rdata(name.clone(), MAX_TTL, addr.clone());
                 match addr {
                     RData::A(..) => {
                         let query = Query::query(name.clone(), RecordType::A);

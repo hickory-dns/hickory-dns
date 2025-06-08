@@ -39,7 +39,7 @@ use crate::{
         serialize::txt::{ParseError, Parser},
     },
     recursor::{DnssecPolicy, Recursor},
-    resolver::{dns_lru::TtlConfig, lookup::Lookup},
+    resolver::{TtlConfig, lookup::Lookup},
     server::{Request, RequestInfo},
 };
 

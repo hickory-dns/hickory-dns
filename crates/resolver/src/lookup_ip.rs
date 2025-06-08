@@ -26,9 +26,9 @@ use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
 
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
-use crate::dns_lru::MAX_TTL;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
+use crate::response_cache::MAX_TTL;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
