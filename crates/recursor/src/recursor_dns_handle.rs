@@ -30,9 +30,8 @@ use crate::{
     },
     recursor_pool::RecursorPool,
     resolver::{
-        Name, ResponseCache,
+        Name, ResponseCache, TtlConfig,
         config::{NameServerConfigGroup, ResolverOpts},
-        dns_lru::TtlConfig,
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -646,7 +645,7 @@ mod tests {
 
     use crate::{
         proto::runtime::TokioRuntimeProvider, recursor_dns_handle::RecursorDnsHandle,
-        resolver::dns_lru::TtlConfig,
+        resolver::TtlConfig,
     };
 
     #[test]

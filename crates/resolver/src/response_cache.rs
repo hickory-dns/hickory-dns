@@ -1,16 +1,21 @@
 //! A cache for DNS responses.
 
 use std::{
+    collections::HashMap,
+    ops::RangeInclusive,
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use moka::{Expiry, sync::Cache};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer};
 
-use crate::dns_lru::TtlConfig;
+use crate::config;
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
     op::{Message, Query},
+    rr::RecordType,
 };
 
 /// A cache for DNS responses.
@@ -167,6 +172,186 @@ impl Expiry<Query, Entry> for EntryExpiry {
     }
 }
 
+/// The time-to-live (TTL) configuration used by the cache.
+///
+/// Minimum and maximum TTLs can be set for both positive responses and negative responses. Separate
+/// limits may be set depending on the query type.
+///
+/// Note that TTLs in DNS are represented as a number of seconds stored in a 32-bit unsigned
+/// integer. We use `Duration` here, instead of `u32`, which can express larger values than the DNS
+/// standard. Generally, a `Duration` greater than `u32::MAX_VALUE` shouldn't cause any issue, as
+/// this will never be used in serialization, but note that this would be outside the standard
+/// range.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(from = "ttl_config_deserialize::TtlConfigMap")
+)]
+pub struct TtlConfig {
+    /// TTL limits applied to all queries.
+    default: TtlBounds,
+
+    /// TTL limits applied to queries with specific query types.
+    by_query_type: HashMap<RecordType, TtlBounds>,
+}
+
+impl TtlConfig {
+    /// Construct the LRU's TTL configuration based on the ResolverOpts configuration.
+    pub fn from_opts(opts: &config::ResolverOpts) -> Self {
+        Self {
+            default: TtlBounds {
+                positive_min_ttl: opts.positive_min_ttl,
+                negative_min_ttl: opts.negative_min_ttl,
+                positive_max_ttl: opts.positive_max_ttl,
+                negative_max_ttl: opts.negative_max_ttl,
+            },
+            by_query_type: HashMap::new(),
+        }
+    }
+
+    /// Creates a new cache TTL configuration.
+    ///
+    /// The provided minimum and maximum TTLs will be applied to all queries unless otherwise
+    /// specified via [`Self::with_query_type_ttl_bounds`].
+    ///
+    /// If a minimum value is not provided, it will default to 0 seconds. If a maximum value is not
+    /// provided, it will default to one day.
+    pub fn new(
+        positive_min_ttl: Option<Duration>,
+        negative_min_ttl: Option<Duration>,
+        positive_max_ttl: Option<Duration>,
+        negative_max_ttl: Option<Duration>,
+    ) -> Self {
+        Self {
+            default: TtlBounds {
+                positive_min_ttl,
+                negative_min_ttl,
+                positive_max_ttl,
+                negative_max_ttl,
+            },
+            by_query_type: HashMap::new(),
+        }
+    }
+
+    /// Override the minimum and maximum TTL values for a specific query type.
+    ///
+    /// If a minimum value is not provided, it will default to 0 seconds. If a maximum value is not
+    /// provided, it will default to one day.
+    pub fn with_query_type_ttl_bounds(
+        &mut self,
+        query_type: RecordType,
+        positive_min_ttl: Option<Duration>,
+        negative_min_ttl: Option<Duration>,
+        positive_max_ttl: Option<Duration>,
+        negative_max_ttl: Option<Duration>,
+    ) -> &mut Self {
+        self.by_query_type.insert(
+            query_type,
+            TtlBounds {
+                positive_min_ttl,
+                negative_min_ttl,
+                positive_max_ttl,
+                negative_max_ttl,
+            },
+        );
+        self
+    }
+
+    /// Retrieves the minimum and maximum TTL values for positive responses.
+    pub fn positive_response_ttl_bounds(&self, query_type: RecordType) -> RangeInclusive<Duration> {
+        let bounds = self.by_query_type.get(&query_type).unwrap_or(&self.default);
+        let min = bounds
+            .positive_min_ttl
+            .unwrap_or_else(|| Duration::from_secs(0));
+        let max = bounds
+            .positive_max_ttl
+            .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL)));
+        min..=max
+    }
+
+    /// Retrieves the minimum and maximum TTL values for negative responses.
+    pub fn negative_response_ttl_bounds(&self, query_type: RecordType) -> RangeInclusive<Duration> {
+        let bounds = self.by_query_type.get(&query_type).unwrap_or(&self.default);
+        let min = bounds
+            .negative_min_ttl
+            .unwrap_or_else(|| Duration::from_secs(0));
+        let max = bounds
+            .negative_max_ttl
+            .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL)));
+        min..=max
+    }
+}
+
+/// Minimum and maximum TTL values for positive and negative responses.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct TtlBounds {
+    /// An optional minimum TTL value for positive responses.
+    ///
+    /// Positive responses with TTLs under `positive_min_ttl` will use
+    /// `positive_min_ttl` instead.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "duration_deserialize")
+    )]
+    positive_min_ttl: Option<Duration>,
+
+    /// An optional minimum TTL value for negative (`NXDOMAIN`) responses.
+    ///
+    /// `NXDOMAIN` responses with TTLs under `negative_min_ttl` will use
+    /// `negative_min_ttl` instead.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "duration_deserialize")
+    )]
+    negative_min_ttl: Option<Duration>,
+
+    /// An optional maximum TTL value for positive responses.
+    ///
+    /// Positive responses with TTLs over `positive_max_ttl` will use
+    /// `positive_max_ttl` instead.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "duration_deserialize")
+    )]
+    positive_max_ttl: Option<Duration>,
+
+    /// An optional maximum TTL value for negative (`NXDOMAIN`) responses.
+    ///
+    /// `NXDOMAIN` responses with TTLs over `negative_max_ttl` will use
+    /// `negative_max_ttl` instead.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "duration_deserialize")
+    )]
+    negative_max_ttl: Option<Duration>,
+}
+
+/// This is an alternate deserialization function for an optional [`Duration`] that expects a single
+/// number, representing the number of seconds, instead of a struct with `secs` and `nanos` fields.
+#[cfg(feature = "serde")]
+fn duration_deserialize<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(
+        Option::<u32>::deserialize(deserializer)?
+            .map(|seconds| Duration::from_secs(seconds.into())),
+    )
+}
+
+#[cfg(feature = "serde")]
+mod ttl_config_deserialize;
+
+/// Maximum TTL. This is set to one day (in seconds).
+///
+/// [RFC 2181, section 8](https://tools.ietf.org/html/rfc2181#section-8) says
+/// that the maximum TTL value is 2147483647, but implementations may place an
+/// upper bound on received TTLs.
+pub(crate) const MAX_TTL: u32 = 86400_u32;
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -175,7 +360,6 @@ mod tests {
     };
 
     use crate::{
-        dns_lru::TtlConfig,
         proto::{
             NoRecords, ProtoErrorKind,
             op::{Message, OpCode, Query, ResponseCode},
@@ -184,7 +368,7 @@ mod tests {
                 rdata::{A, TXT},
             },
         },
-        response_cache::{Entry, ResponseCache},
+        response_cache::{Entry, ResponseCache, TtlConfig},
     };
 
     #[test]

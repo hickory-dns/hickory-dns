@@ -40,7 +40,7 @@ enum TtlConfigField {
 mod tests {
     use serde::Deserialize;
 
-    use crate::dns_lru::TtlConfig;
+    use crate::response_cache::TtlConfig;
 
     #[test]
     fn error_cases() {

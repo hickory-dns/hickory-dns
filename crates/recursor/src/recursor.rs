@@ -21,7 +21,7 @@ use crate::{
         runtime::TokioRuntimeProvider,
     },
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{dns_lru::TtlConfig, name_server::ConnectionProvider},
+    resolver::{TtlConfig, name_server::ConnectionProvider},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{

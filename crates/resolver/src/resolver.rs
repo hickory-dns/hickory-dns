@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
-use crate::dns_lru::{self, DnsLru, TtlConfig};
+use crate::dns_lru::DnsLru;
 use crate::hosts::Hosts;
 use crate::lookup::{self, Lookup, LookupEither};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -32,6 +32,7 @@ use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
+use crate::response_cache::{MAX_TTL, TtlConfig};
 
 /// A builder to construct a [`Resolver`].
 ///
@@ -413,7 +414,7 @@ impl<P: ConnectionProvider> Resolver<P> {
         // if host is a ip address, return directly.
         if let Some(ip_addr) = maybe_ip {
             let name = maybe_name.clone().unwrap_or_default();
-            let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, ip_addr.clone());
+            let record = Record::from_rdata(name.clone(), MAX_TTL, ip_addr.clone());
 
             // if ndots are greater than 4, then we can't assume the name is an IpAddr
             //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35

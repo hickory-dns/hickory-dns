@@ -12,9 +12,10 @@ use std::{borrow::Cow, future::Future, pin::Pin, time::Instant};
 use once_cell::sync::Lazy;
 
 use crate::{
-    dns_lru::{self, DnsLru, TtlConfig},
+    dns_lru::DnsLru,
     lookup::Lookup,
     proto::{
+        NoRecords, ProtoError, ProtoErrorKind,
         op::{Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordType,
@@ -26,8 +27,8 @@ use crate::{
             resource::RecordRef,
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
-        {NoRecords, ProtoError, ProtoErrorKind},
     },
+    response_cache::{MAX_TTL, TtlConfig},
 };
 
 static LOCALHOST: Lazy<RData> =
@@ -230,7 +231,7 @@ where
         depth: DepthTracker,
     ) -> Result<Records, ProtoError> {
         // initial ttl is what CNAMES for min usage
-        const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
+        const INITIAL_TTL: u32 = MAX_TTL;
 
         // need to capture these before the subsequent and destructive record processing
         let soa = response.soa().as_ref().map(RecordRef::to_owned);
@@ -423,11 +424,12 @@ mod tests {
 
     use super::*;
     use crate::lookup_ip::tests::*;
+    use crate::response_cache::TtlConfig;
 
     #[test]
     fn test_empty_cache() {
         subscribe();
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
@@ -455,7 +457,7 @@ mod tests {
     #[test]
     fn test_from_cache() {
         subscribe();
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
         let query = Query::new();
         cache.insert(
             query.clone(),
@@ -491,7 +493,7 @@ mod tests {
     #[test]
     fn test_no_cache_insert() {
         subscribe();
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
         // first should come from client...
         let client = mock(vec![v4_message()]);
         let client = CachingClient::with_cache(cache.clone(), client, false);
@@ -580,7 +582,7 @@ mod tests {
     }
 
     fn no_recursion_on_query_test(query_type: RecordType) {
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let client = mock(vec![error(), cname_message()]);
@@ -619,7 +621,7 @@ mod tests {
     fn test_non_recursive_srv_query() {
         subscribe();
 
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let client = mock(vec![error(), srv_message()]);
@@ -652,7 +654,7 @@ mod tests {
     fn test_single_srv_query_response() {
         subscribe();
 
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
 
         let mut message = srv_message().unwrap().into_message();
         message.add_answer(Record::from_rdata(
@@ -759,7 +761,7 @@ mod tests {
     fn test_single_ns_query_response() {
         subscribe();
 
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
 
         let mut message = ns_message().unwrap().into_message();
         message.add_answer(Record::from_rdata(
@@ -806,7 +808,7 @@ mod tests {
     }
 
     fn cname_ttl_test(first: u32, second: u32) {
-        let lru = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let lru = DnsLru::new(1, TtlConfig::default());
         // expecting no queries to be performed
         let mut client = CachingClient::with_cache(lru, mock(vec![error()]), false);
 
@@ -857,7 +859,7 @@ mod tests {
     #[test]
     fn test_early_return_localhost() {
         subscribe();
-        let cache = DnsLru::new(0, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(0, TtlConfig::default());
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
@@ -939,7 +941,7 @@ mod tests {
     #[test]
     fn test_early_return_invalid() {
         subscribe();
-        let cache = DnsLru::new(0, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(0, TtlConfig::default());
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
@@ -959,7 +961,7 @@ mod tests {
     fn test_no_error_on_dot_local_no_mdns() {
         subscribe();
 
-        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+        let cache = DnsLru::new(1, TtlConfig::default());
 
         let mut message = srv_message().unwrap().into_message();
         message.add_query(Query::query(
