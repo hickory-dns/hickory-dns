@@ -197,7 +197,14 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 ))
             }
             #[cfg(feature = "__h3")]
-            (ProtocolConfig::H3 { server_name, path }, Some(binder)) => {
+            (
+                ProtocolConfig::H3 {
+                    server_name,
+                    path,
+                    disable_grease,
+                },
+                Some(binder),
+            ) => {
                 let bind_addr = config.bind_addr.unwrap_or(match config.socket_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
@@ -206,6 +213,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 Connecting::H3(DnsExchange::connect(
                     H3ClientStream::builder()
                         .crypto_config(options.tls_config.clone())
+                        .disable_grease(*disable_grease)
                         .build_with_future(
                             binder.bind_quic(bind_addr, config.socket_addr)?,
                             config.socket_addr,
