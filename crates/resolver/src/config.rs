@@ -409,6 +409,7 @@ impl NameServerConfigGroup {
             ProtocolConfig::H3 {
                 server_name,
                 path: Arc::from(DEFAULT_DNS_QUERY_PATH),
+                disable_grease: false,
             },
             trust_negative_responses,
         )
@@ -674,6 +675,9 @@ pub enum ProtocolConfig {
         server_name: Arc<str>,
         /// The path (or endpoint) to use for the DNS query.
         path: Arc<str>,
+        /// Whether to disable sending "grease"
+        #[cfg_attr(feature = "serde", serde(default))]
+        disable_grease: bool,
     },
 }
 

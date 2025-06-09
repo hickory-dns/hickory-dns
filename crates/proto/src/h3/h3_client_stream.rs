@@ -294,6 +294,7 @@ pub struct H3ClientStreamBuilder {
     crypto_config: rustls::ClientConfig,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
+    disable_grease: bool,
 }
 
 impl H3ClientStreamBuilder {
@@ -306,6 +307,12 @@ impl H3ClientStreamBuilder {
     /// Sets the address to connect from.
     pub fn bind_addr(mut self, bind_addr: SocketAddr) -> Self {
         self.bind_addr = Some(bind_addr);
+        self
+    }
+
+    /// Sets whether to disable GREASE
+    pub fn disable_grease(mut self, disable_grease: bool) -> Self {
+        self.disable_grease = disable_grease;
         self
     }
 
@@ -396,7 +403,9 @@ impl H3ClientStreamBuilder {
         .await?;
 
         let h3_connection = h3_quinn::Connection::new(quic_connection);
-        let (mut driver, send_request) = h3::client::new(h3_connection)
+        let (mut driver, send_request) = h3::client::builder()
+            .send_grease(!self.disable_grease)
+            .build(h3_connection)
             .await
             .map_err(|e| ProtoError::from(format!("h3 connection failed: {e}")))?;
 
@@ -433,6 +442,7 @@ impl Default for H3ClientStreamBuilder {
             crypto_config: client_config(),
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
+            disable_grease: false,
         }
     }
 }
@@ -622,9 +632,7 @@ mod tests {
         );
     }
 
-    /// Currently fails, see <https://github.com/hyperium/h3/issues/206>.
     #[test]
-    #[ignore = "cloudflare has been unreliable as a public test service"]
     fn test_h3_cloudflare() {
         subscribe();
 
@@ -645,6 +653,8 @@ mod tests {
 
         let connect = H3ClientStream::builder()
             .crypto_config(client_config)
+            // Currently CF is using a broken GREASE implementation, see <https://github.com/hyperium/h3/issues/206>.
+            .disable_grease(true)
             .build(
                 cloudflare,
                 Arc::from("cloudflare-dns.com"),
