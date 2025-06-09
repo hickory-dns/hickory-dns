@@ -21,7 +21,7 @@ use std::{
 };
 
 use serde::Deserialize;
-use tracing::{error, info, trace, warn};
+use tracing::{error, info, trace};
 
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
@@ -227,47 +227,24 @@ impl BlocklistAuthority {
                 continue;
             }
 
-            let name = match entry.split_once(' ') {
-                Some((ip, domain)) => {
-                    if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() {
-                        let mut str_entry = domain.to_string();
-                        if !str_entry.ends_with('.') {
-                            str_entry += ".";
-                        }
-
-                        let Ok(lowername) = LowerName::from_str(&str_entry[..]) else {
-                            error!(
-                                "unable to derive LowerName for blocklist entry '{str_entry}'; skipping entry"
-                            );
-                            continue;
-                        };
-
-                        lowername
-                    } else {
-                        let str_ip = ip.to_string();
-                        let str_entry = domain.to_string();
-                        warn!(
-                            "unable to derive LowerName for blocklist entry '{str_ip} / {str_entry}'; skipping entry"
-                        );
-
-                        continue;
-                    }
+            let mut name = if let Some((ip, domain)) = entry.split_once(' ') {
+                if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() {
+                    domain.to_string()
+                } else {
+                    error!("invalid blocklist entry '{entry}'; skipping entry");
+                    continue;
                 }
-                None => {
-                    let mut str_entry = entry.to_string();
-                    if !str_entry.ends_with('.') {
-                        str_entry += ".";
-                    }
+            } else {
+                entry.to_string()
+            };
 
-                    let Ok(name) = LowerName::from_str(&str_entry[..]) else {
-                        error!(
-                            "unable to derive LowerName for blocklist entry '{str_entry}'; skipping entry"
-                        );
-                        continue;
-                    };
+            if !name.ends_with('.') {
+                name += ".";
+            }
 
-                    name
-                }
+            let Ok(name) = LowerName::from_str(&name[..]) else {
+                error!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
+                continue;
             };
 
             trace!("inserting blocklist entry {name}");
