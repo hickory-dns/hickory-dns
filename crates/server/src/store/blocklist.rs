@@ -736,6 +736,81 @@ mod test {
         .await;
     }
 
+    #[tokio::test]
+    async fn test_blocklist_hosts_format() {
+        subscribe();
+        let config = super::BlocklistConfig {
+            min_wildcard_depth: 2,
+            wildcard_match: true,
+            lists: vec!["default/blocklist3.txt".to_string()],
+            sinkhole_ipv4: Some(Ipv4Addr::new(192, 0, 2, 1)),
+            sinkhole_ipv6: Some(Ipv6Addr::new(0, 0, 0, 0, 0xc0, 0, 2, 1)),
+            block_message: Some(String::from("blocked")),
+            ttl: 86_400,
+            consult_action: BlocklistConsultAction::Disabled,
+        };
+
+        let blocklist = super::BlocklistAuthority::try_from_config(
+            Name::root(),
+            ZoneType::External,
+            &config,
+            Some(Path::new("../../tests/test-data/test_configs/")),
+        );
+
+        let authority = blocklist.await;
+
+        // Test: verify the blocklist authority was successfully created.
+        match authority {
+            Ok(ref _authority) => {}
+            Err(e) => {
+                panic!("Unable to create blocklist authority: {e}");
+            }
+        }
+
+        let ao: Arc<dyn AuthorityObject> = Arc::new(authority.unwrap());
+
+        let v4 = A::new(192, 0, 2, 1);
+        let msg = config.block_message;
+
+        use TestResult::*;
+
+        // Test: lookup a record from a blocklist file in plain format (only domain) which should match without a wildcard.
+        basic_test(
+            &ao,
+            "test.com.",
+            RecordType::A,
+            Break,
+            Some(v4),
+            None,
+            msg.clone(),
+        )
+        .await;
+
+        // Test: lookup a record from a blocklist file in hosts format (ip <space> domain) which should match without a wildcard.
+        basic_test(
+            &ao,
+            "anothertest.com.",
+            RecordType::A,
+            Break,
+            Some(v4),
+            None,
+            msg.clone(),
+        )
+        .await;
+
+        // Test: lookup a record from a blocklist file in hosts format (ip <space> domain) which should match with a wildcard.
+        basic_test(
+            &ao,
+            "yet.anothertest.com.",
+            RecordType::A,
+            Break,
+            Some(v4),
+            None,
+            msg.clone(),
+        )
+        .await;
+    }
+
     async fn basic_test(
         ao: &Arc<dyn AuthorityObject>,
         query: &'static str,
