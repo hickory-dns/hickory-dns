@@ -7,16 +7,20 @@
 
 //! Caching related functionality for the Resolver.
 
-use std::{borrow::Cow, future::Future, pin::Pin, time::Instant};
+use std::{
+    borrow::Cow,
+    future::Future,
+    pin::Pin,
+    time::{Duration, Instant},
+};
 
 use once_cell::sync::Lazy;
 
 use crate::{
-    dns_lru::DnsLru,
     lookup::Lookup,
     proto::{
         NoRecords, ProtoError, ProtoErrorKind,
-        op::{Query, ResponseCode},
+        op::{Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordType,
             domain::usage::{
@@ -28,7 +32,7 @@ use crate::{
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
     },
-    response_cache::{MAX_TTL, TtlConfig},
+    response_cache::{MAX_TTL, ResponseCache, TtlConfig},
 };
 
 static LOCALHOST: Lazy<RData> =
@@ -64,7 +68,7 @@ pub struct CachingClient<C>
 where
     C: DnsHandle,
 {
-    lru: DnsLru,
+    cache: ResponseCache,
     client: C,
     preserve_intermediates: bool,
 }
@@ -74,17 +78,21 @@ where
     C: DnsHandle + Send + 'static,
 {
     #[doc(hidden)]
-    pub fn new(max_size: usize, client: C, preserve_intermediates: bool) -> Self {
+    pub fn new(max_size: u64, client: C, preserve_intermediates: bool) -> Self {
         Self::with_cache(
-            DnsLru::new(max_size, TtlConfig::default()),
+            ResponseCache::new(max_size, TtlConfig::default()),
             client,
             preserve_intermediates,
         )
     }
 
-    pub(crate) fn with_cache(lru: DnsLru, client: C, preserve_intermediates: bool) -> Self {
+    pub(crate) fn with_cache(
+        cache: ResponseCache,
+        client: C,
+        preserve_intermediates: bool,
+    ) -> Self {
         Self {
-            lru,
+            cache,
             client,
             preserve_intermediates,
         }
@@ -109,7 +117,7 @@ where
         query: Query,
         options: DnsRequestOptions,
         mut client: Self,
-        preserved_records: Vec<(Record, u32)>,
+        preserved_records: Vec<Record>,
         depth: DepthTracker,
     ) -> Result<Lookup, ProtoError> {
         // see https://tools.ietf.org/html/rfc6761
@@ -154,7 +162,6 @@ where
 
         let is_dnssec = client.client.is_verifying_dnssec();
 
-        // first transition any polling that is needed (mutable refs...)
         if let Some(cached_lookup) = client.lookup_from_cache(&query) {
             return cached_lookup;
         };
@@ -204,11 +211,8 @@ where
 
         // after the request, evaluate if we have additional queries to perform
         match records {
-            Ok(Records::CnameChain {
-                next: future,
-                min_ttl: ttl,
-            }) => match future.await {
-                Ok(lookup) => client.cname(lookup, query, ttl),
+            Ok(Records::CnameChain { next: future }) => match future.await {
+                Ok(lookup) => client.cname(lookup, query),
                 Err(e) => client.cache(query, Err(e)),
             },
             Ok(Records::Exists(rdata)) => client.cache(query, Ok(rdata)),
@@ -218,7 +222,13 @@ where
 
     /// Check if this query is already cached
     fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, ProtoError>> {
-        self.lru.get(query, Instant::now())
+        let now = Instant::now();
+        let message_res = self.cache.get(query, now)?;
+        let message = match message_res {
+            Ok(message) => message,
+            Err(err) => return Some(Err(err)),
+        };
+        Some(Ok(records_to_lookup(query.clone(), message.answers(), now)))
     }
 
     /// Handle the case where there is no error returned
@@ -227,7 +237,7 @@ where
         options: DnsRequestOptions,
         query: &Query,
         response: DnsResponse,
-        mut preserved_records: Vec<(Record, u32)>,
+        mut preserved_records: Vec<Record>,
         depth: DepthTracker,
     ) -> Result<Records, ProtoError> {
         // initial ttl is what CNAMES for min usage
@@ -242,7 +252,7 @@ where
         // FIXME: for SRV this evaluation is inadequate. CNAME is a single chain to a single record
         //   for SRV, there could be many different targets. The search_name needs to be enhanced to
         //   be a list of names found for SRV records.
-        let (search_name, cname_ttl, was_cname, preserved_records) = {
+        let (search_name, was_cname, preserved_records) = {
             // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
             let (search_name, cname_ttl, was_cname) =
                 if query.query_type().is_any() || query.query_type().is_cname() {
@@ -298,9 +308,10 @@ where
                 // Chained records will generally exist in the additionals section
                 .chain(additionals)
                 .chain(name_servers)
-                .filter_map(|r| {
+                .filter_map(|mut r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
+                    r.set_ttl(ttl);
                     // TODO: disable name validation with ResolverOpts? glibc feature...
                     // restrict to the RData type requested
                     if query.query_class() == r.dns_class() {
@@ -310,11 +321,11 @@ where
                             && (search_name.as_ref() == r.name() || query.name() == r.name())
                         {
                             found_name = true;
-                            return Some((r, ttl));
+                            return Some(r);
                         }
                         // CNAME evaluation, the record is from the CNAME lookup chain.
                         if client.preserve_intermediates && r.record_type() == RecordType::CNAME {
-                            return Some((r, ttl));
+                            return Some(r);
                         }
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //    and it's an IP
@@ -323,9 +334,9 @@ where
                             && search_name.as_ref() == r.name()
                         {
                             found_name = true;
-                            Some((r, ttl))
+                            Some(r)
                         } else if query.query_type().is_ns() && r.record_type().is_ip_addr() {
-                            Some((r, ttl))
+                            Some(r)
                         } else {
                             None
                         }
@@ -341,12 +352,7 @@ where
                 return Ok(Records::Exists(preserved_records));
             }
 
-            (
-                search_name.into_owned(),
-                cname_ttl,
-                was_cname,
-                preserved_records,
-            )
+            (search_name.into_owned(), was_cname, preserved_records)
         };
 
         // TODO: for SRV records we *could* do an implicit lookup, but, this requires knowing the type of IP desired
@@ -362,7 +368,6 @@ where
                     preserved_records,
                     depth.nest(),
                 )),
-                min_ttl: cname_ttl,
             })
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
@@ -376,37 +381,57 @@ where
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn cname(&self, lookup: Lookup, query: Query, cname_ttl: u32) -> Result<Lookup, ProtoError> {
-        // this duplicates the cache entry under the original query
-        Ok(self.lru.duplicate(query, lookup, cname_ttl, Instant::now()))
+    fn cname(&self, lookup: Lookup, query: Query) -> Result<Lookup, ProtoError> {
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_answers(lookup.records().iter().cloned());
+        self.cache.insert(query, Ok(message), Instant::now());
+        Ok(lookup)
     }
 
     fn cache(
         &self,
         query: Query,
-        records: Result<Vec<(Record, u32)>, ProtoError>,
+        records: Result<Vec<Record>, ProtoError>,
     ) -> Result<Lookup, ProtoError> {
-        // this will put this object into an inconsistent state, but no one should call poll again...
-        match records {
-            Ok(rdata) => Ok(self.lru.insert(query, rdata, Instant::now())),
-            Err(err) => Err(self.lru.negative(query, err, Instant::now())),
-        }
+        let rdata = match records {
+            Ok(rdata) => rdata,
+            Err(err) => {
+                self.cache.insert(query, Err(err.clone()), Instant::now());
+                return Err(err);
+            }
+        };
+
+        let now = Instant::now();
+        let lookup = records_to_lookup(query.clone(), &rdata, now);
+
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_answers(rdata);
+        self.cache.insert(query, Ok(message), now);
+
+        Ok(lookup)
     }
 
     /// Flushes/Removes all entries from the cache
     pub fn clear_cache(&self) {
-        self.lru.clear();
+        self.cache.clear();
     }
 }
 
 enum Records {
     /// The records exists, a vec of rdata with ttl
-    Exists(Vec<(Record, u32)>),
+    Exists(Vec<Record>),
     /// Future lookup for recursive cname records
     CnameChain {
         next: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
-        min_ttl: u32,
     },
+}
+
+/// Helper function to construct a [`Lookup`] from a list of records.
+fn records_to_lookup(query: Query, records: &[Record], now: Instant) -> Lookup {
+    let ttl = records.iter().map(Record::ttl).min().unwrap_or(MAX_TTL);
+    let valid_until = now + Duration::from_secs(ttl.into());
+    let records = records.to_vec().into();
+    Lookup::new_with_deadline(query, records, valid_until)
 }
 
 // see also the lookup_tests.rs in integration-tests crate
@@ -429,7 +454,7 @@ mod tests {
     #[test]
     fn test_empty_cache() {
         subscribe();
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
@@ -457,20 +482,15 @@ mod tests {
     #[test]
     fn test_from_cache() {
         subscribe();
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
         let query = Query::new();
-        cache.insert(
-            query.clone(),
-            vec![(
-                Record::from_rdata(
-                    query.name().clone(),
-                    u32::MAX,
-                    RData::A(A::new(127, 0, 0, 1)),
-                ),
-                u32::MAX,
-            )],
-            Instant::now(),
-        );
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_answer(Record::from_rdata(
+            query.name().clone(),
+            u32::MAX,
+            RData::A(A::new(127, 0, 0, 1)),
+        ));
+        cache.insert(query.clone(), Ok(message), Instant::now());
 
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
@@ -493,7 +513,7 @@ mod tests {
     #[test]
     fn test_no_cache_insert() {
         subscribe();
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
         // first should come from client...
         let client = mock(vec![v4_message()]);
         let client = CachingClient::with_cache(cache.clone(), client, false);
@@ -582,7 +602,7 @@ mod tests {
     }
 
     fn no_recursion_on_query_test(query_type: RecordType) {
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let client = mock(vec![error(), cname_message()]);
@@ -621,7 +641,7 @@ mod tests {
     fn test_non_recursive_srv_query() {
         subscribe();
 
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let client = mock(vec![error(), srv_message()]);
@@ -654,7 +674,7 @@ mod tests {
     fn test_single_srv_query_response() {
         subscribe();
 
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
 
         let mut message = srv_message().unwrap().into_message();
         message.add_answer(Record::from_rdata(
@@ -761,7 +781,7 @@ mod tests {
     fn test_single_ns_query_response() {
         subscribe();
 
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
 
         let mut message = ns_message().unwrap().into_message();
         message.add_answer(Record::from_rdata(
@@ -808,7 +828,7 @@ mod tests {
     }
 
     fn cname_ttl_test(first: u32, second: u32) {
-        let lru = DnsLru::new(1, TtlConfig::default());
+        let lru = ResponseCache::new(1, TtlConfig::default());
         // expecting no queries to be performed
         let mut client = CachingClient::with_cache(lru, mock(vec![error()]), false);
 
@@ -835,11 +855,11 @@ mod tests {
 
         if let Ok(records) = records {
             if let Records::Exists(records) = records {
-                for (record, ttl) in records.iter() {
+                for record in records.iter() {
                     if record.record_type() == RecordType::CNAME {
                         continue;
                     }
-                    assert_eq!(ttl, &1);
+                    assert_eq!(record.ttl(), 1);
                 }
             } else {
                 panic!("records don't exist");
@@ -859,7 +879,7 @@ mod tests {
     #[test]
     fn test_early_return_localhost() {
         subscribe();
-        let cache = DnsLru::new(0, TtlConfig::default());
+        let cache = ResponseCache::new(0, TtlConfig::default());
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
@@ -941,7 +961,7 @@ mod tests {
     #[test]
     fn test_early_return_invalid() {
         subscribe();
-        let cache = DnsLru::new(0, TtlConfig::default());
+        let cache = ResponseCache::new(0, TtlConfig::default());
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
@@ -961,7 +981,7 @@ mod tests {
     fn test_no_error_on_dot_local_no_mdns() {
         subscribe();
 
-        let cache = DnsLru::new(1, TtlConfig::default());
+        let cache = ResponseCache::new(1, TtlConfig::default());
 
         let mut message = srv_message().unwrap().into_message();
         message.add_query(Query::query(

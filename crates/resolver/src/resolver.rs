@@ -18,7 +18,6 @@ use tracing::debug;
 
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
-use crate::dns_lru::DnsLru;
 use crate::hosts::Hosts;
 use crate::lookup::{self, Lookup, LookupEither};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -32,7 +31,7 @@ use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
-use crate::response_cache::{MAX_TTL, TtlConfig};
+use crate::response_cache::{MAX_TTL, ResponseCache, TtlConfig};
 
 /// A builder to construct a [`Resolver`].
 ///
@@ -140,8 +139,8 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             either = LookupEither::Retry(client);
         }
 
-        let lru = DnsLru::new(options.cache_size, TtlConfig::from_opts(&options));
-        let client_cache = CachingClient::with_cache(lru, either, options.preserve_intermediates);
+        let cache = ResponseCache::new(options.cache_size, TtlConfig::from_opts(&options));
+        let client_cache = CachingClient::with_cache(cache, either, options.preserve_intermediates);
 
         let hosts = Arc::new(match options.use_hosts_file {
             ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system().unwrap_or_default(),
