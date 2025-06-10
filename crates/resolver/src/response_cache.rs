@@ -91,6 +91,10 @@ impl ResponseCache {
         }
         Some(entry.updated_ttl(now))
     }
+
+    pub(crate) fn clear(&self) {
+        self.cache.invalidate_all();
+    }
 }
 
 /// An entry in the response cache.

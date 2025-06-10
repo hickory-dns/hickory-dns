@@ -725,9 +725,9 @@ pub struct ResolverOpts {
     pub validate: bool,
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
     pub ip_strategy: LookupIpStrategy,
-    /// Cache size is in number of records (some records can be large)
+    /// Cache size is in number of responses (some responses can be large)
     #[cfg_attr(feature = "serde", serde(default = "default_cache_size"))]
-    pub cache_size: usize,
+    pub cache_size: u64,
     /// Check /etc/hosts file before dns requery (only works for unix like OS)
     pub use_hosts_file: ResolveHosts,
     /// Optional minimum TTL for positive responses.
@@ -859,7 +859,7 @@ fn default_check_names() -> bool {
     true
 }
 
-fn default_cache_size() -> usize {
+fn default_cache_size() -> u64 {
     32
 }
 

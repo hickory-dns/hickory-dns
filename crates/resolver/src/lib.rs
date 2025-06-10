@@ -200,7 +200,6 @@ use proto::runtime::TokioRuntimeProvider;
 
 pub mod caching_client;
 pub mod config;
-pub mod dns_lru;
 mod hosts;
 pub use hosts::Hosts;
 pub mod lookup;
