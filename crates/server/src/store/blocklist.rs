@@ -212,11 +212,7 @@ impl BlocklistAuthority {
     pub fn add(&mut self, mut handle: impl Read) -> Result<(), Error> {
         let mut contents = String::new();
 
-        if let Err(e) = handle.read_to_string(&mut contents) {
-            error!("unable to read blocklist data: {e:?}");
-            return Err(e);
-        }
-
+        handle.read_to_string(&mut contents)?;
         for mut entry in contents.lines() {
             // Strip comments
             if let Some((item, _)) = entry.split_once('#') {
