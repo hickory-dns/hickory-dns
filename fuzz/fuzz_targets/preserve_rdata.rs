@@ -32,7 +32,7 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
     let additional_records_count = u16::from_be_bytes(reencoded[10..12].try_into().unwrap());
 
     let rr_count = answer_count + name_server_count + additional_records_count;
-    let original_rrs = match split_rrs(original, query_count, rr_count) {
+    let mut original_rrs = match split_rrs(original, query_count, rr_count) {
         Ok(original_rrs) => original_rrs,
         Err(error_message) => {
             println!("Parsed message: {message:?}");
@@ -40,7 +40,7 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
             panic!("failed to split original message into resource records: {error_message}");
         }
     };
-    let reencoded_rrs = match split_rrs(reencoded, query_count, rr_count) {
+    let mut reencoded_rrs = match split_rrs(reencoded, query_count, rr_count) {
         Ok(reencoded_rrs) => reencoded_rrs,
         Err(error_message) => {
             println!("Parsed message: {message:?}");
@@ -50,7 +50,10 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
         }
     };
 
-    for (original_rr, reencoded_rr) in original_rrs.into_iter().zip(reencoded_rrs.into_iter()) {
+    sort_opt(&mut original_rrs);
+    sort_opt(&mut reencoded_rrs);
+
+    for (original_rr, reencoded_rr) in original_rrs.iter().zip(reencoded_rrs.iter()) {
         match original_rr.has_invalid_compressed_label() {
             Ok(true) => continue,
             Ok(false) => {}
@@ -63,14 +66,29 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
         }
         if original_rr.r#type != reencoded_rr.r#type {
             println!("Parsed message: {message:?}");
-            println!("Original:   {:02x?}", original);
-            println!("Re-encoded: {:02x?}", reencoded);
+            println!("Original:   {original:02x?}");
+            println!("Re-encoded: {reencoded:02x?}");
+            println!(
+                "Original record types:   {:?}",
+                original_rrs
+                    .iter()
+                    .map(|record| record.r#type)
+                    .collect::<Vec<_>>()
+            );
+            println!(
+                "Re-encoded record types: {:?}",
+                reencoded_rrs
+                    .iter()
+                    .map(|record| record.r#type)
+                    .collect::<Vec<_>>()
+            );
             panic!(
                 "record type changed when decoding and re-encoding: {} vs. {}",
                 original_rr.r#type, reencoded_rr.r#type
             );
         }
-        let Err(error_message) = compare_rr(original, original_rr, reencoded, reencoded_rr) else {
+        let Err(error_message) = compare_rr(original, *original_rr, reencoded, *reencoded_rr)
+        else {
             continue;
         };
         println!("Parsed message: {message:?}");
@@ -309,6 +327,16 @@ fn name_uses_compression(input: &[u8]) -> Result<bool, &'static str> {
             return Err("name label length is longer than the remainder of the message");
         }
     }
+}
+
+/// Re-sort the list of records such that OPT records are at the end.
+///
+/// Hickory DNS extracts any OPT record from the rest of the additional section record, and stores
+/// it separately, then re-encodes it at the end. To adapt to this, we do a stable sort of records
+/// before and after re-encoding. Then, records should line up with each other one-to-one in the two
+/// vectors again.
+fn sort_opt(rrs: &mut Vec<Record<'_>>) {
+    rrs.sort_by_key(|record| record.r#type == record_types::OPT);
 }
 
 /// A decompressed domain name.
