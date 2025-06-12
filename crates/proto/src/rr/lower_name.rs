@@ -12,7 +12,7 @@ use alloc::string::{String, ToString};
 use core::cmp::{Ordering, PartialEq};
 use core::fmt;
 use core::hash::{Hash, Hasher};
-use core::ops::Deref;
+use core::ops::{Deref, DerefMut};
 use core::str::FromStr;
 
 use crate::error::*;
@@ -261,6 +261,12 @@ impl Deref for LowerName {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for LowerName {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
