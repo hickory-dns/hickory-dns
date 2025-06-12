@@ -372,24 +372,6 @@ impl ZoneConfig {
         // load the zone and insert any configured authorities in the catalog.
 
         let mut authorities: Vec<Arc<dyn AuthorityObject>> = vec![];
-
-        #[cfg(feature = "blocklist")]
-        let handle_blocklist_store = |config| {
-            let zone_name = zone_name.clone();
-
-            async move {
-                Result::<Arc<dyn AuthorityObject>, String>::Ok(Arc::new(
-                    BlocklistAuthority::try_from_config(
-                        zone_name.clone(),
-                        zone_type,
-                        config,
-                        Some(zone_dir),
-                    )
-                    .await?,
-                ))
-            }
-        };
-
         match &self.zone_type_config {
             ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
                 debug!(
@@ -456,7 +438,12 @@ impl ZoneConfig {
                     let authority: Arc<dyn AuthorityObject> = match store {
                         #[cfg(feature = "blocklist")]
                         ExternalStoreConfig::Blocklist(config) => {
-                            handle_blocklist_store(config).await?
+                            Arc::new(BlocklistAuthority::try_from_config(
+                                zone_name.clone(),
+                                zone_type,
+                                config,
+                                Some(zone_dir),
+                            )?)
                         }
                         #[cfg(feature = "resolver")]
                         ExternalStoreConfig::Forward(config) => {
