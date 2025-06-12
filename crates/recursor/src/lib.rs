@@ -33,23 +33,20 @@ pub(crate) mod recursor_pool;
 
 #[cfg(feature = "__dnssec")]
 use std::sync::Arc;
-use std::time::Instant;
 
 pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
-use hickory_resolver::ResponseCache;
 pub use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup};
 #[cfg(feature = "__dnssec")]
 use proto::dnssec::TrustAnchors;
 use proto::{
     op::{Message, Query},
     rr::Record,
-    xfer::DnsResponse,
 };
 pub use recursor::{Recursor, RecursorBuilder};
 use resolver::Name;
-use tracing::{info, warn};
+use tracing::warn;
 
 /// `Recursor`'s DNSSEC policy
 // `Copy` can only be implemented when `dnssec` is disabled we don't want to remove a trait
@@ -84,21 +81,6 @@ impl DnssecPolicy {
     pub(crate) fn is_security_aware(&self) -> bool {
         !matches!(self, Self::SecurityUnaware)
     }
-}
-
-/// caches the `response` to `query` in `response_cache`
-///
-/// `now` indicates when the `response` was obtained
-fn cache_response(
-    response: DnsResponse,
-    response_cache: &ResponseCache,
-    query: Query,
-    now: Instant,
-) {
-    let response = response.into_message();
-    info!("response: {}", response.header());
-
-    response_cache.insert(query, Ok(response), now);
 }
 
 // as per section 3.2.1 of RFC4035

@@ -491,15 +491,11 @@ impl<P: ConnectionProvider> Recursor<P> {
 
                     Err(Error::from(ProtoError::from(no_records)))
                 } else {
-                    super::cache_response(
-                        response.clone(),
-                        response_cache,
-                        query.clone(),
-                        request_time,
-                    );
+                    let message = response.into_message();
+                    response_cache.insert(query.clone(), Ok(message.clone()), request_time);
                     Ok(super::maybe_strip_dnssec_records(
                         query_has_dnssec_ok,
-                        response.into_message(),
+                        message,
                         query,
                     ))
                 }
