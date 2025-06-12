@@ -422,7 +422,7 @@ impl Child {
     /// on a running process.
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
         match self.inner.as_mut() {
-            Some(ref mut child) => Ok(child.try_wait()?),
+            Some(child) => Ok(child.try_wait()?),
             _ => Err("can't borrow child as mut for try_wait".into()),
         }
     }

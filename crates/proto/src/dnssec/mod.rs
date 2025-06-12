@@ -272,7 +272,7 @@ impl Clone for DnsSecErrorKind {
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
             RingUnspecified(_r) => RingUnspecified(ring_like::Unspecified),
             Timeout => Timeout,
-            TsigUnsupportedMacAlgorithm(ref alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
+            TsigUnsupportedMacAlgorithm(alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
             TsigWrongKey => TsigWrongKey,
         }
     }

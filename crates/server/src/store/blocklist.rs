@@ -559,8 +559,8 @@ mod test {
         let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
-        match authority {
-            Ok(ref _authority) => {}
+        match &authority {
+            Ok(_authority) => {}
             Err(e) => {
                 panic!("Unable to create blocklist authority: {e}");
             }
@@ -622,8 +622,8 @@ mod test {
         let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
-        match authority {
-            Ok(ref _authority) => {}
+        match &authority {
+            Ok(_authority) => {}
             Err(e) => {
                 panic!("Unable to create blocklist authority: {e}");
             }
@@ -674,8 +674,8 @@ mod test {
         let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
-        match authority {
-            Ok(ref _authority) => {}
+        match &authority {
+            Ok(_authority) => {}
             Err(error) => {
                 error!(%error, "unable to create blocklist authority");
                 return;
@@ -724,8 +724,8 @@ mod test {
         let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
-        match authority {
-            Ok(ref _authority) => {}
+        match &authority {
+            Ok(_authority) => {}
             Err(e) => {
                 panic!("Unable to create blocklist authority: {e}");
             }

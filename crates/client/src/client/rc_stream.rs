@@ -49,10 +49,10 @@ where
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
         let mut stream_and_result = ready!(self.stream_and_result.lock().poll_unpin(cx));
-        let (ref mut stream, ref mut stored_result) = *stream_and_result;
+        let (stream, stored_result) = &mut *stream_and_result;
         if stored_result.len() > self.pos {
             let result = stored_result[self.pos].clone();
-            drop(stream_and_result); // release lock early to please borrow checker
+            drop(stream_and_result);
             self.pos += 1;
             return Poll::Ready(Some(result));
         }
