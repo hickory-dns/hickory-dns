@@ -535,11 +535,6 @@ mod test {
     };
     use test_support::subscribe;
 
-    enum TestResult {
-        Break,
-        Skip,
-    }
-
     #[tokio::test]
     async fn test_blocklist_basic() {
         subscribe();
@@ -839,5 +834,10 @@ mod test {
                 }
             },
         }
+    }
+
+    enum TestResult {
+        Break,
+        Skip,
     }
 }
