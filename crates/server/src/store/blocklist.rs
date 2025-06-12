@@ -80,7 +80,6 @@ impl BlocklistAuthority {
     /// Read the Authority for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
-        _zone_type: ZoneType,
         config: &BlocklistConfig,
         base_dir: Option<&Path>,
     ) -> Result<Self, String> {
@@ -183,7 +182,6 @@ impl BlocklistAuthority {
     ///
     ///     let mut blocklist = BlocklistAuthority::try_from_config(
     ///         Name::root(),
-    ///         ZoneType::External,
     ///         &config,
     ///         Some(Path::new("../../tests/test-data/test_configs")),
     ///     ).unwrap();
@@ -524,7 +522,7 @@ mod test {
 
     use super::*;
     use crate::{
-        authority::{AuthorityObject, LookupOptions, ZoneType},
+        authority::{AuthorityObject, LookupOptions},
         proto::rr::domain::Name,
         proto::rr::{
             LowerName, RData, RecordType,
@@ -764,7 +762,6 @@ mod test {
     fn authority(config: &BlocklistConfig) -> Arc<dyn AuthorityObject> {
         let authority = BlocklistAuthority::try_from_config(
             Name::root(),
-            ZoneType::External,
             config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );

@@ -440,7 +440,6 @@ impl ZoneConfig {
                         ExternalStoreConfig::Blocklist(config) => {
                             Arc::new(BlocklistAuthority::try_from_config(
                                 zone_name.clone(),
-                                zone_type,
                                 config,
                                 Some(zone_dir),
                             )?)
