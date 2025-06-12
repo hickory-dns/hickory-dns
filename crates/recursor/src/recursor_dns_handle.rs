@@ -353,8 +353,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // TODO: check if data is "authentic"
         match response_future.await {
             Ok(r) => {
-                super::cache_response(r.clone(), &self.response_cache, query, now);
-                Ok(r.into_message())
+                let message = r.into_message();
+                self.response_cache.insert(query, Ok(message.clone()), now);
+                Ok(message)
             }
             Err(e) => {
                 warn!("lookup error: {e}");
