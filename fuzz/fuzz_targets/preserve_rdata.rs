@@ -51,6 +51,16 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
     };
 
     for (original_rr, reencoded_rr) in original_rrs.into_iter().zip(reencoded_rrs.into_iter()) {
+        match original_rr.has_invalid_compressed_label() {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(error_message) => {
+                println!("Parsed message: {message:?}");
+                println!("Record type: {}", original_rr.r#type);
+                println!("Original: {:02x?}", original_rr.rdata);
+                panic!("failed to check name labels of original RDATA: {error_message}");
+            }
+        }
         if original_rr.r#type != reencoded_rr.r#type {
             println!("Parsed message: {message:?}");
             println!("Original:   {:02x?}", original);
@@ -143,6 +153,77 @@ struct Record<'a> {
     rdata: &'a [u8],
 }
 
+impl Record<'_> {
+    /// Check if this record is of a non-well-known type, and if it contains a compressed label in
+    /// some name in the RDATA.
+    ///
+    /// If the fuzzer input contains such a label, it is improperly encoded, because only well-known
+    /// record types are allowed to use compression in their RDATA. We don't want to enforce that
+    /// the re-encoded message preserves the malformed, non-interoperable RDATA, thus, we can skip
+    /// further comparisons.
+    fn has_invalid_compressed_label(&self) -> Result<bool, &'static str> {
+        let Self { r#type, rdata } = self;
+        if rdata.is_empty() {
+            return Ok(false);
+        }
+        match *r#type {
+            // RFC 1035 types
+            record_types::CNAME
+            | record_types::MB
+            | record_types::MD
+            | record_types::MF
+            | record_types::MG
+            | record_types::MINFO
+            | record_types::MR
+            | record_types::MX
+            | record_types::NS
+            | record_types::PTR
+            | record_types::SOA => Ok(false),
+            record_types::SIG | record_types::RRSIG => {
+                // Signer's name appears at an offset of 18 bytes.
+                if rdata.len() <= 18 {
+                    return Ok(false);
+                }
+                name_uses_compression(&rdata[18..])
+            }
+            record_types::SRV => {
+                // Target name appears at an offset of 6 bytes.
+                if rdata.len() <= 6 {
+                    return Ok(false);
+                }
+                name_uses_compression(&rdata[6..])
+            }
+            record_types::NAPTR => {
+                // The replacement name appears after two fixed length fields and three
+                // variable-length `character-string` fields.
+                let mut offset = 4;
+                for _ in 0..3 {
+                    if rdata.len() <= offset {
+                        return Ok(false);
+                    }
+                    let character_string_length = rdata[offset];
+                    offset += 1 + character_string_length as usize;
+                }
+                if rdata.len() <= offset {
+                    return Ok(false);
+                }
+                name_uses_compression(&rdata[offset..])
+            }
+            record_types::NSEC => name_uses_compression(rdata),
+            record_types::SVCB | record_types::HTTPS => {
+                // Target name appears at an offset of 2 bytes.
+                if rdata.len() <= 2 {
+                    return Ok(false);
+                }
+                name_uses_compression(&rdata[2..])
+            }
+            record_types::TSIG => name_uses_compression(rdata),
+            record_types::ANAME => name_uses_compression(rdata),
+            _ => Ok(false),
+        }
+    }
+}
+
 /// Walks through a DNS message and returns slices spanning each resource record in the main three
 /// sections.
 fn split_rrs(
@@ -203,6 +284,25 @@ fn name_length(input: &[u8]) -> Result<usize, &'static str> {
         match byte & LABEL_TYPE_MASK {
             0 => offset += 1 + byte as usize,
             COMPRESSED_LABEL_TYPE => return Ok(offset + 2),
+            _ => return Err("unsupported label type in name"),
+        }
+        if offset >= input.len() {
+            return Err("name label length is longer than the remainder of the message");
+        }
+    }
+}
+
+/// Checks whether an encoded name ends with a compressed label pointer.
+fn name_uses_compression(input: &[u8]) -> Result<bool, &'static str> {
+    let mut offset = 0;
+    loop {
+        let byte = input[offset];
+        if byte == 0 {
+            return Ok(false);
+        }
+        match byte & LABEL_TYPE_MASK {
+            0 => offset += 1 + byte as usize,
+            COMPRESSED_LABEL_TYPE => return Ok(true),
             _ => return Err("unsupported label type in name"),
         }
         if offset >= input.len() {
@@ -316,5 +416,14 @@ mod record_types {
     pub(super) const PTR: u16 = 12;
     pub(super) const MINFO: u16 = 14;
     pub(super) const MX: u16 = 15;
+    pub(super) const SIG: u16 = 24;
+    pub(super) const SRV: u16 = 33;
+    pub(super) const NAPTR: u16 = 35;
     pub(super) const OPT: u16 = 41;
+    pub(super) const RRSIG: u16 = 46;
+    pub(super) const NSEC: u16 = 47;
+    pub(super) const SVCB: u16 = 64;
+    pub(super) const HTTPS: u16 = 65;
+    pub(super) const TSIG: u16 = 250;
+    pub(super) const ANAME: u16 = 65305;
 }
