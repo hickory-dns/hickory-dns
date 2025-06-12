@@ -90,7 +90,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // query parameters
-    let name = opts.domainname;
+    let mut name = opts.domainname;
+    name.set_fqdn(true);
     let ty = opts.ty;
 
     if opts.nameservers.is_empty() {
