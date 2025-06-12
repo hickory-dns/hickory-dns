@@ -522,8 +522,6 @@ mod test {
         sync::Arc,
     };
 
-    use tracing::error;
-
     use super::*;
     use crate::{
         authority::{AuthorityObject, LookupOptions, ZoneType},
@@ -549,23 +547,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let authority = BlocklistAuthority::try_from_config(
-            Name::root(),
-            ZoneType::External,
-            &config,
-            Some(Path::new("../../tests/test-data/test_configs/")),
-        );
-
-        // Test: verify the blocklist authority was successfully created.
-        match &authority {
-            Ok(_authority) => {}
-            Err(e) => {
-                panic!("Unable to create blocklist authority: {e}");
-            }
-        }
-
-        let ao = Arc::new(authority.unwrap()) as Arc<dyn AuthorityObject>;
-
+        let ao = authority(&config);
         let v4 = A::new(0, 0, 0, 0);
         let v6 = AAAA::new(0, 0, 0, 0, 0, 0, 0, 0);
 
@@ -610,23 +592,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let authority = BlocklistAuthority::try_from_config(
-            Name::root(),
-            ZoneType::External,
-            &config,
-            Some(Path::new("../../tests/test-data/test_configs/")),
-        );
-
-        // Test: verify the blocklist authority was successfully created.
-        match &authority {
-            Ok(_authority) => {}
-            Err(e) => {
-                panic!("Unable to create blocklist authority: {e}");
-            }
-        }
-
-        let ao = Arc::new(authority.unwrap()) as Arc<dyn AuthorityObject>;
-
+        let ao = authority(&config);
         let v4 = A::new(192, 0, 2, 1);
         let v6 = AAAA::new(0, 0, 0, 0, 0xc0, 0, 2, 1);
         let msg = config.block_message;
@@ -660,24 +626,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let authority = BlocklistAuthority::try_from_config(
-            Name::root(),
-            ZoneType::External,
-            &config,
-            Some(Path::new("../../tests/test-data/test_configs/")),
-        );
-
-        // Test: verify the blocklist authority was successfully created.
-        match &authority {
-            Ok(_authority) => {}
-            Err(error) => {
-                error!(%error, "unable to create blocklist authority");
-                return;
-            }
-        }
-
-        let ao = Arc::new(authority.unwrap()) as Arc<dyn AuthorityObject>;
-
+        let ao = authority(&config);
         let sinkhole_v4 = A::new(192, 0, 2, 1);
 
         // Test: lookup a record that is in the blocklist, but specify an incorrect block message to
@@ -708,23 +657,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let authority = BlocklistAuthority::try_from_config(
-            Name::root(),
-            ZoneType::External,
-            &config,
-            Some(Path::new("../../tests/test-data/test_configs/")),
-        );
-
-        // Test: verify the blocklist authority was successfully created.
-        match &authority {
-            Ok(_authority) => {}
-            Err(e) => {
-                panic!("Unable to create blocklist authority: {e}");
-            }
-        }
-
-        let ao: Arc<dyn AuthorityObject> = Arc::new(authority.unwrap());
-
+        let ao = authority(&config);
         let v4 = A::new(192, 0, 2, 1);
         let msg = config.block_message;
 
@@ -825,6 +758,21 @@ mod test {
                     panic!("unexpected result for {query}; expected Skip, found {res}");
                 }
             },
+        }
+    }
+
+    fn authority(config: &BlocklistConfig) -> Arc<dyn AuthorityObject> {
+        let authority = BlocklistAuthority::try_from_config(
+            Name::root(),
+            ZoneType::External,
+            config,
+            Some(Path::new("../../tests/test-data/test_configs/")),
+        );
+
+        // Test: verify the blocklist authority was successfully created.
+        match authority {
+            Ok(authority) => Arc::new(authority),
+            Err(error) => panic!("error creating blocklist authority: {error}"),
         }
     }
 
