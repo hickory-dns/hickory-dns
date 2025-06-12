@@ -227,15 +227,13 @@ impl BlocklistAuthority {
                 continue;
             }
 
-            let name = if let Some((ip, domain)) = entry.split_once(' ') {
-                if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() {
-                    domain
-                } else {
+            let name = match entry.split_once(' ') {
+                Some((ip, domain)) if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() => domain,
+                Some(_) => {
                     error!("invalid blocklist entry '{entry}'; skipping entry");
                     continue;
                 }
-            } else {
-                entry
+                None => entry,
             };
 
             let Ok(mut name) = LowerName::from_str(name) else {
