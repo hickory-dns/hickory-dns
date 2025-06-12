@@ -521,8 +521,10 @@ mod test {
         str::FromStr,
         sync::Arc,
     };
+
     use tracing::error;
 
+    use super::*;
     use crate::{
         authority::{AuthorityObject, LookupOptions, ZoneType},
         proto::rr::domain::Name,
@@ -530,7 +532,6 @@ mod test {
             LowerName, RData, RecordType,
             rdata::{A, AAAA},
         },
-        store::blocklist::BlocklistConsultAction,
     };
     use test_support::subscribe;
 
@@ -542,7 +543,7 @@ mod test {
     #[tokio::test]
     async fn test_blocklist_basic() {
         subscribe();
-        let config = super::BlocklistConfig {
+        let config = BlocklistConfig {
             wildcard_match: true,
             min_wildcard_depth: 2,
             lists: vec!["default/blocklist.txt".to_string()],
@@ -553,7 +554,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = super::BlocklistAuthority::try_from_config(
+        let blocklist = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
@@ -605,7 +606,7 @@ mod test {
     #[tokio::test]
     async fn test_blocklist_wildcard_disabled() {
         subscribe();
-        let config = super::BlocklistConfig {
+        let config = BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: false,
             lists: vec!["default/blocklist.txt".to_string()],
@@ -616,7 +617,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = super::BlocklistAuthority::try_from_config(
+        let blocklist = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
@@ -657,7 +658,7 @@ mod test {
     #[should_panic]
     async fn test_blocklist_wrong_block_message() {
         subscribe();
-        let config = super::BlocklistConfig {
+        let config = BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: false,
             lists: vec!["default/blocklist.txt".to_string()],
@@ -668,7 +669,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = super::BlocklistAuthority::try_from_config(
+        let blocklist = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
@@ -707,7 +708,7 @@ mod test {
     #[tokio::test]
     async fn test_blocklist_hosts_format() {
         subscribe();
-        let config = super::BlocklistConfig {
+        let config = BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: true,
             lists: vec!["default/blocklist3.txt".to_string()],
@@ -718,7 +719,7 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = super::BlocklistAuthority::try_from_config(
+        let blocklist = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
@@ -796,7 +797,7 @@ mod test {
             )
             .await;
 
-        use super::LookupControlFlow::*;
+        use LookupControlFlow::*;
 
         match r_type {
             TestResult::Break => match res {
