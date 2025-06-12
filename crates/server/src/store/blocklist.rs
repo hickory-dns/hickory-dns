@@ -227,22 +227,18 @@ impl BlocklistAuthority {
                 continue;
             }
 
-            let mut name = if let Some((ip, domain)) = entry.split_once(' ') {
+            let name = if let Some((ip, domain)) = entry.split_once(' ') {
                 if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() {
-                    domain.to_string()
+                    domain
                 } else {
                     error!("invalid blocklist entry '{entry}'; skipping entry");
                     continue;
                 }
             } else {
-                entry.to_string()
+                entry
             };
 
-            if !name.ends_with('.') {
-                name += ".";
-            }
-
-            let Ok(name) = LowerName::from_str(&name[..]) else {
+            let Ok(mut name) = LowerName::from_str(name) else {
                 error!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
                 continue;
             };
@@ -250,6 +246,7 @@ impl BlocklistAuthority {
             trace!("inserting blocklist entry {name}");
 
             // The boolean value is not significant; only the key is used.
+            name.set_fqdn(true);
             self.blocklist.insert(name, true);
         }
 
