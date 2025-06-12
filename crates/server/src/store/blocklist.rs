@@ -78,7 +78,7 @@ pub struct BlocklistAuthority {
 
 impl BlocklistAuthority {
     /// Read the Authority for the origin from the specified configuration
-    pub async fn try_from_config(
+    pub fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,
         config: &BlocklistConfig,
@@ -186,7 +186,7 @@ impl BlocklistAuthority {
     ///         ZoneType::External,
     ///         &config,
     ///         Some(Path::new("../../tests/test-data/test_configs")),
-    ///     ).await.unwrap();
+    ///     ).unwrap();
     ///
     ///     let handle = File::open("../../tests/test-data/test_configs/default/blocklist2.txt").unwrap();
     ///     if let Err(e) = blocklist.add(handle) {
@@ -549,14 +549,12 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = BlocklistAuthority::try_from_config(
+        let authority = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
-
-        let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
         match &authority {
@@ -612,14 +610,12 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = BlocklistAuthority::try_from_config(
+        let authority = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
-
-        let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
         match &authority {
@@ -664,14 +660,12 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = BlocklistAuthority::try_from_config(
+        let authority = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
-
-        let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
         match &authority {
@@ -714,14 +708,12 @@ mod test {
             consult_action: BlocklistConsultAction::Disabled,
         };
 
-        let blocklist = BlocklistAuthority::try_from_config(
+        let authority = BlocklistAuthority::try_from_config(
             Name::root(),
             ZoneType::External,
             &config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
-
-        let authority = blocklist.await;
 
         // Test: verify the blocklist authority was successfully created.
         match &authority {
