@@ -40,8 +40,6 @@ use serde::{self, Deserialize, Deserializer};
 use hickory_proto::rustls::default_provider;
 use hickory_proto::{ProtoError, rr::Name};
 #[cfg(feature = "__dnssec")]
-use hickory_server::authority::DnssecAuthority;
-#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "recursor")]
 use hickory_server::proto::runtime::TokioRuntimeProvider;
@@ -398,7 +396,8 @@ impl ZoneConfig {
                             .await?;
 
                             #[cfg(feature = "__dnssec")]
-                            server_config.load_keys(&mut authority, &zone_name).await?;
+                            dnssec::load_keys(&mut authority, &zone_name, &server_config.keys)
+                                .await?;
                             Arc::new(authority)
                         }
 
@@ -415,7 +414,8 @@ impl ZoneConfig {
                             )?;
 
                             #[cfg(feature = "__dnssec")]
-                            server_config.load_keys(&mut authority, &zone_name).await?;
+                            dnssec::load_keys(&mut authority, &zone_name, &server_config.keys)
+                                .await?;
                             Arc::new(authority)
                         }
                         _ => return empty_stores_error(),
@@ -548,29 +548,6 @@ pub struct ServerZoneConfig {
 }
 
 impl ServerZoneConfig {
-    #[cfg(feature = "__dnssec")]
-    async fn load_keys(
-        &self,
-        authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
-        zone_name: &Name,
-    ) -> Result<(), String> {
-        if !self.is_dnssec_enabled() {
-            return Ok(());
-        }
-
-        for key_config in &self.keys {
-            key_config.load(authority, zone_name.clone()).await?;
-        }
-
-        info!("signing zone: {zone_name}");
-        authority
-            .secure_zone()
-            .await
-            .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
-
-        Ok(())
-    }
-
     /// path to the zone file, i.e. the base set of original records in the zone
     ///
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal

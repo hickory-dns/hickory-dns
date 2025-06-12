@@ -23,6 +23,28 @@ use hickory_proto::{
 };
 use hickory_server::authority::DnssecAuthority;
 
+pub(super) async fn load_keys(
+    authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
+    zone_name: &Name,
+    keys: &[KeyConfig],
+) -> Result<(), String> {
+    if keys.is_empty() {
+        return Ok(());
+    }
+
+    for key_config in keys {
+        key_config.load(authority, zone_name.clone()).await?;
+    }
+
+    info!("signing zone: {zone_name}");
+    authority
+        .secure_zone()
+        .await
+        .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
+
+    Ok(())
+}
+
 /// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
