@@ -113,13 +113,13 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // report response, TODO: better display of errors
     println!(
-        "{} for query {:?}",
+        "{} for query {:#?}",
         style("Success").green(),
         style(&response).blue()
     );
 
     for r in response.all_sections().filter(|r| r.record_type() == ty) {
-        print!(
+        println!(
             "\t{name} {ttl} {class} {ty} {rdata}",
             name = style(r.name()).blue(),
             ttl = style(r.ttl()).blue(),
