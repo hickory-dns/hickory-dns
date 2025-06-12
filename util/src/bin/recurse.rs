@@ -26,6 +26,7 @@ use clap::Parser;
 use console::style;
 
 use hickory_proto::{
+    ROOTS,
     op::Query,
     rr::{Name, RecordType},
 };
@@ -71,7 +72,7 @@ struct Opts {
 /// Run the resolve program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opts: Opts = Opts::parse();
+    let mut opts = Opts::parse();
 
     // enable logging early
     let log_level = if opts.debug {
@@ -91,6 +92,10 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // query parameters
     let name = opts.domainname;
     let ty = opts.ty;
+
+    if opts.nameservers.is_empty() {
+        opts.nameservers = ROOTS.to_vec();
+    }
 
     let recursor = Recursor::builder().build(&opts.nameservers)?;
 
