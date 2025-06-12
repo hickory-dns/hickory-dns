@@ -227,19 +227,27 @@ impl BlocklistAuthority {
                 continue;
             }
 
-            let mut str_entry = entry.to_string();
-            if !entry.ends_with('.') {
-                str_entry += ".";
+            let mut name = if let Some((ip, domain)) = entry.split_once(' ') {
+                if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() {
+                    domain.to_string()
+                } else {
+                    error!("invalid blocklist entry '{entry}'; skipping entry");
+                    continue;
+                }
+            } else {
+                entry.to_string()
+            };
+
+            if !name.ends_with('.') {
+                name += ".";
             }
 
-            let Ok(name) = LowerName::from_str(&str_entry[..]) else {
-                error!(
-                    "unable to derive LowerName for blocklist entry '{str_entry}'; skipping entry"
-                );
+            let Ok(name) = LowerName::from_str(&name[..]) else {
+                error!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
                 continue;
             };
 
-            trace!("inserting blocklist entry {str_entry}");
+            trace!("inserting blocklist entry {name}");
 
             // The boolean value is not significant; only the key is used.
             self.blocklist.insert(name, true);
@@ -701,6 +709,81 @@ mod test {
             Some(sinkhole_v4),
             None,
             Some(String::from("wrong message")),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_blocklist_hosts_format() {
+        subscribe();
+        let config = super::BlocklistConfig {
+            min_wildcard_depth: 2,
+            wildcard_match: true,
+            lists: vec!["default/blocklist3.txt".to_string()],
+            sinkhole_ipv4: Some(Ipv4Addr::new(192, 0, 2, 1)),
+            sinkhole_ipv6: Some(Ipv6Addr::new(0, 0, 0, 0, 0xc0, 0, 2, 1)),
+            block_message: Some(String::from("blocked")),
+            ttl: 86_400,
+            consult_action: BlocklistConsultAction::Disabled,
+        };
+
+        let blocklist = super::BlocklistAuthority::try_from_config(
+            Name::root(),
+            ZoneType::External,
+            &config,
+            Some(Path::new("../../tests/test-data/test_configs/")),
+        );
+
+        let authority = blocklist.await;
+
+        // Test: verify the blocklist authority was successfully created.
+        match authority {
+            Ok(ref _authority) => {}
+            Err(e) => {
+                panic!("Unable to create blocklist authority: {e}");
+            }
+        }
+
+        let ao: Arc<dyn AuthorityObject> = Arc::new(authority.unwrap());
+
+        let v4 = A::new(192, 0, 2, 1);
+        let msg = config.block_message;
+
+        use TestResult::*;
+
+        // Test: lookup a record from a blocklist file in plain format (only domain) which should match without a wildcard.
+        basic_test(
+            &ao,
+            "test.com.",
+            RecordType::A,
+            Break,
+            Some(v4),
+            None,
+            msg.clone(),
+        )
+        .await;
+
+        // Test: lookup a record from a blocklist file in hosts format (ip <space> domain) which should match without a wildcard.
+        basic_test(
+            &ao,
+            "anothertest.com.",
+            RecordType::A,
+            Break,
+            Some(v4),
+            None,
+            msg.clone(),
+        )
+        .await;
+
+        // Test: lookup a record from a blocklist file in hosts format (ip <space> domain) which should match with a wildcard.
+        basic_test(
+            &ao,
+            "yet.anothertest.com.",
+            RecordType::A,
+            Break,
+            Some(v4),
+            None,
+            msg.clone(),
         )
         .await;
     }
