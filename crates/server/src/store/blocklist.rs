@@ -21,7 +21,7 @@ use std::{
 };
 
 use serde::Deserialize;
-use tracing::{error, info, trace};
+use tracing::{info, trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
@@ -226,14 +226,14 @@ impl BlocklistAuthority {
             let name = match entry.split_once(' ') {
                 Some((ip, domain)) if ip.trim() == "0.0.0.0" && !domain.trim().is_empty() => domain,
                 Some(_) => {
-                    error!("invalid blocklist entry '{entry}'; skipping entry");
+                    warn!("invalid blocklist entry '{entry}'; skipping entry");
                     continue;
                 }
                 None => entry,
             };
 
             let Ok(mut name) = LowerName::from_str(name) else {
-                error!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
+                warn!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
                 continue;
             };
 
