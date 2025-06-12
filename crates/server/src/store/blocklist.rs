@@ -716,46 +716,43 @@ mod test {
             .await;
 
         use LookupControlFlow::*;
-
-        match r_type {
+        let lookup = match r_type {
             TestResult::Break => match res {
-                Break(Ok(l)) => {
-                    if !l.iter().all(|x| match x.record_type() {
-                        RecordType::TXT => {
-                            if let Some(msg) = &msg {
-                                x.data().to_string() == *msg
-                            } else {
-                                false
-                            }
-                        }
-                        RecordType::AAAA => {
-                            let Some(rec_ip) = ipv6 else {
-                                panic!("expected to validate record IPv6, but None was passed");
-                            };
-
-                            x.name() == &Name::from_str(query).unwrap()
-                                && x.data() == &RData::AAAA(rec_ip)
-                        }
-                        _ => {
-                            let Some(rec_ip) = ipv4 else {
-                                panic!("expected to validate record IPv4, but None was passed");
-                            };
-
-                            x.name() == &Name::from_str(query).unwrap()
-                                && x.data() == &RData::A(rec_ip)
-                        }
-                    }) {
-                        panic!("{query} lookup data is incorrect.");
-                    }
-                }
+                Break(Ok(lookup)) => lookup,
                 _ => panic!("Unexpected result for {query}: {res}"),
             },
             TestResult::Skip => match res {
-                Skip => {}
+                Skip => return,
                 _ => {
                     panic!("unexpected result for {query}; expected Skip, found {res}");
                 }
             },
+        };
+
+        if !lookup.iter().all(|x| match x.record_type() {
+            RecordType::TXT => {
+                if let Some(msg) = &msg {
+                    x.data().to_string() == *msg
+                } else {
+                    false
+                }
+            }
+            RecordType::AAAA => {
+                let Some(rec_ip) = ipv6 else {
+                    panic!("expected to validate record IPv6, but None was passed");
+                };
+
+                x.name() == &Name::from_str(query).unwrap() && x.data() == &RData::AAAA(rec_ip)
+            }
+            _ => {
+                let Some(rec_ip) = ipv4 else {
+                    panic!("expected to validate record IPv4, but None was passed");
+                };
+
+                x.name() == &Name::from_str(query).unwrap() && x.data() == &RData::A(rec_ip)
+            }
+        }) {
+            panic!("{query} lookup data is incorrect.");
         }
     }
 
