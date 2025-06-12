@@ -116,19 +116,19 @@ impl BlocklistAuthority {
         for bl in &config.lists {
             info!("adding blocklist {bl}");
 
-            match File::open(format!("{base_dir}/{bl}")) {
-                Ok(handle) => {
-                    if let Err(e) = authority.add(handle) {
-                        return Err(format!(
-                            "unable to add data from blocklist {base_dir}/{bl}: {e:?}"
-                        ));
-                    }
-                }
+            let file = match File::open(format!("{base_dir}/{bl}")) {
+                Ok(file) => file,
                 Err(e) => {
                     return Err(format!(
                         "unable to open blocklist file {base_dir}/{bl}: {e:?}"
                     ));
                 }
+            };
+
+            if let Err(e) = authority.add(file) {
+                return Err(format!(
+                    "unable to add data from blocklist {base_dir}/{bl}: {e:?}"
+                ));
             }
         }
 
