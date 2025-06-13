@@ -70,8 +70,8 @@ impl<P: ConnectionProvider> NameServer<P> {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
-        use ConnectionState::*;
-        match (self.inner.state(), self.inner.client.try_lock()) {
+        use Status::*;
+        match (self.inner.status(), self.inner.client.try_lock()) {
             (Established | Init, Some(client)) => client.is_some(),
             (Failed, _) => false,
             // assuming that if someone has it locked it will be or is connected
@@ -121,7 +121,7 @@ struct NameServerState<P: ConnectionProvider> {
     config: NameServerConfig,
     options: Arc<ResolverOpts>,
     client: AsyncMutex<Option<P::Conn>>,
-    conn_state: AtomicU8,
+    status: AtomicU8,
     stats: NameServerStats,
     connection_provider: P,
 }
@@ -137,7 +137,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
             config,
             options,
             client: AsyncMutex::new(client),
-            conn_state: AtomicU8::new(ConnectionState::Init.into()),
+            status: AtomicU8::new(Status::Init.into()),
             stats: NameServerStats::default(),
             connection_provider,
         }
@@ -157,7 +157,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 let response = result?;
 
                 // take the remote edns options and store them
-                self.set_state(ConnectionState::Established);
+                self.set_status(Status::Established);
 
                 Ok(response)
             }
@@ -165,7 +165,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 debug!(config = ?self.config, "name_server connection failure: {}", error);
 
                 // this transitions the state to failure
-                self.set_state(ConnectionState::Failed);
+                self.set_status(Status::Failed);
 
                 // record the failure
                 self.stats.record_connection_failure();
@@ -183,10 +183,10 @@ impl<P: ConnectionProvider> NameServerState<P> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
-        if self.state() == ConnectionState::Failed || client.is_none() {
+        if self.status() == Status::Failed || client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
-            self.set_state(ConnectionState::Init);
+            self.set_status(Status::Init);
 
             let new_client = Box::pin(
                 self.connection_provider
@@ -205,12 +205,12 @@ impl<P: ConnectionProvider> NameServerState<P> {
             .expect("bad state, client should be connected"))
     }
 
-    fn set_state(&self, conn_state: ConnectionState) {
-        self.conn_state.store(conn_state.into(), Ordering::Release);
+    fn set_status(&self, status: Status) {
+        self.status.store(status.into(), Ordering::Release);
     }
 
-    fn state(&self) -> ConnectionState {
-        ConnectionState::from(self.conn_state.load(Ordering::Acquire))
+    fn status(&self) -> Status {
+        Status::from(self.status.load(Ordering::Acquire))
     }
 }
 
@@ -405,7 +405,7 @@ fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
 /// State of a connection with a remote NameServer.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
-enum ConnectionState {
+enum Status {
     /// For some reason the connection failed. For UDP this would generally be a timeout
     ///  for TCP this could be either Connection could never be established, or it
     ///  failed at some point after. The Failed state should *not* be entered due to an
@@ -419,14 +419,14 @@ enum ConnectionState {
     Established = 2,
 }
 
-impl From<ConnectionState> for u8 {
+impl From<Status> for u8 {
     /// used for ordering purposes. The highest priority is placed on open connections
-    fn from(val: ConnectionState) -> Self {
+    fn from(val: Status) -> Self {
         val as Self
     }
 }
 
-impl From<u8> for ConnectionState {
+impl From<u8> for Status {
     fn from(val: u8) -> Self {
         match val {
             2 => Self::Established,
