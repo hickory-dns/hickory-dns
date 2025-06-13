@@ -16,6 +16,7 @@ use std::task::{Context, Poll};
 use futures_util::{FutureExt, future};
 use tracing::debug;
 
+use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
@@ -31,7 +32,6 @@ use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
-use crate::response_cache::{MAX_TTL, ResponseCache, TtlConfig};
 
 /// A builder to construct a [`Resolver`].
 ///

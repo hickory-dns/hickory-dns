@@ -24,11 +24,11 @@ use crate::proto::op::Query;
 use crate::proto::rr::{Name, RData, Record, RecordType};
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
 
+use crate::cache::MAX_TTL;
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
-use crate::response_cache::MAX_TTL;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///

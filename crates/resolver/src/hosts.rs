@@ -14,8 +14,8 @@ use crate::proto::rr::{Name, RecordType};
 use crate::proto::rr::{RData, Record};
 use tracing::warn;
 
+use crate::cache::MAX_TTL;
 use crate::lookup::Lookup;
-use crate::response_cache::MAX_TTL;
 
 #[derive(Debug, Default)]
 struct LookupType {
