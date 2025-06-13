@@ -18,6 +18,7 @@ use std::{
 use futures_util::stream::Stream;
 
 use crate::{
+    cache::MAX_TTL,
     lookup_ip::LookupIpIter,
     name_server::{ConnectionProvider, NameServerPool},
     proto::{
@@ -29,7 +30,6 @@ use crate::{
         },
         xfer::{DnsRequest, DnsResponse},
     },
-    response_cache::MAX_TTL,
 };
 
 #[cfg(feature = "__dnssec")]

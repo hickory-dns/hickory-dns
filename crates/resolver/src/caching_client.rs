@@ -17,6 +17,7 @@ use std::{
 use once_cell::sync::Lazy;
 
 use crate::{
+    cache::{MAX_TTL, ResponseCache, TtlConfig},
     lookup::Lookup,
     proto::{
         NoRecords, ProtoError, ProtoErrorKind,
@@ -32,7 +33,6 @@ use crate::{
         },
         xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
     },
-    response_cache::{MAX_TTL, ResponseCache, TtlConfig},
 };
 
 static LOCALHOST: Lazy<RData> =
@@ -448,8 +448,8 @@ mod tests {
     use test_support::subscribe;
 
     use super::*;
+    use crate::cache::TtlConfig;
     use crate::lookup_ip::tests::*;
-    use crate::response_cache::TtlConfig;
 
     #[test]
     fn test_empty_cache() {

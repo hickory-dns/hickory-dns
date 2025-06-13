@@ -404,6 +404,7 @@ mod tests {
     use serde::Deserialize;
 
     use crate::{
+        cache::{Entry, ResponseCache, TtlConfig},
         proto::{
             NoRecords, ProtoErrorKind,
             op::{Message, OpCode, Query, ResponseCode},
@@ -412,7 +413,6 @@ mod tests {
                 rdata::{A, TXT},
             },
         },
-        response_cache::{Entry, ResponseCache, TtlConfig},
     };
 
     #[test]
