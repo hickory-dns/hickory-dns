@@ -86,7 +86,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
         let state = self.state.clone();
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
-            try_send(&state.options, &state.servers, request, &state.next).await
+            state.try_send(request).await
         }))
     }
 }
@@ -111,127 +111,125 @@ impl<P: ConnectionProvider> PoolState<P> {
             next: AtomicUsize::new(0),
         }
     }
-}
 
-async fn try_send<P: ConnectionProvider>(
-    opts: &ResolverOpts,
-    conns: &[NameServer<P>],
-    request: DnsRequest,
-    next_index: &AtomicUsize,
-) -> Result<DnsResponse, ProtoError> {
-    let mut conns: Vec<NameServer<P>> = conns.to_vec();
-
-    match opts.server_ordering_strategy {
-        // select the highest priority connection
-        //   reorder the connections based on current view...
-        //   this reorders the inner set
-        ServerOrderingStrategy::QueryStatistics => {
-            conns.sort_by(|a, b| match (a.protocol(), b.protocol()) {
-                (ap, bp) if ap == bp => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
-                (Protocol::Udp, _) => Ordering::Less,
-                (_, Protocol::Udp) => Ordering::Greater,
-                (_, _) => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
-            });
-        }
-        ServerOrderingStrategy::UserProvidedOrder => {}
-        ServerOrderingStrategy::RoundRobin => {
-            let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
-                opts.num_concurrent_reqs
-            } else {
-                1
-            };
-            if num_concurrent_reqs < conns.len() {
-                let index =
-                    next_index.fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst) % conns.len();
-                conns.rotate_left(index);
+    async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
+        let mut conns = self.servers.clone();
+        match self.options.server_ordering_strategy {
+            // select the highest priority connection
+            //   reorder the connections based on current view...
+            //   this reorders the inner set
+            ServerOrderingStrategy::QueryStatistics => {
+                conns.sort_by(|a, b| match (a.protocol(), b.protocol()) {
+                    (ap, bp) if ap == bp => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
+                    (Protocol::Udp, _) => Ordering::Less,
+                    (_, Protocol::Udp) => Ordering::Greater,
+                    (_, _) => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
+                });
             }
-        }
-    }
-
-    // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
-    // we will first try the other name servers (as for other error types). However, if the other
-    // servers are also busy, we're going to wait for a little while and then retry each server that
-    // returned Busy in the previous round. If the server is still Busy, this continues, while
-    // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
-    // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
-    //
-    // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
-    // close to the connection, which means the top level resolution might take substantially longer
-    // to fire than the timeout configured in `ResolverOpts`.
-    let mut conns = VecDeque::from(conns);
-    let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
-    let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
-    let mut skip_udp = false;
-
-    loop {
-        // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
-        while !conns.is_empty() && par_conns.len() < Ord::max(opts.num_concurrent_reqs, 1) {
-            if let Some(conn) = conns.pop_front() {
-                if !(skip_udp && conn.protocol() == Protocol::Udp) {
-                    par_conns.push(conn);
+            ServerOrderingStrategy::UserProvidedOrder => {}
+            ServerOrderingStrategy::RoundRobin => {
+                let num_concurrent_reqs = if self.options.num_concurrent_reqs > 1 {
+                    self.options.num_concurrent_reqs
+                } else {
+                    1
+                };
+                if num_concurrent_reqs < conns.len() {
+                    let index = self
+                        .next
+                        .fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
+                        % conns.len();
+                    conns.rotate_left(index);
                 }
             }
         }
 
-        if par_conns.is_empty() {
-            if !busy.is_empty() && backoff < Duration::from_millis(300) {
-                <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
+        // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
+        // we will first try the other name servers (as for other error types). However, if the other
+        // servers are also busy, we're going to wait for a little while and then retry each server that
+        // returned Busy in the previous round. If the server is still Busy, this continues, while
+        // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
+        // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
+        //
+        // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
+        // close to the connection, which means the top level resolution might take substantially longer
+        // to fire than the timeout configured in `ResolverOpts`.
+        let mut conns = VecDeque::from(conns);
+        let mut backoff = Duration::from_millis(20);
+        let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
+        let mut skip_udp = false;
+
+        loop {
+            // construct the parallel requests, 2 is the default
+            let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
+            while !conns.is_empty()
+                && par_conns.len() < Ord::max(self.options.num_concurrent_reqs, 1)
+            {
+                if let Some(conn) = conns.pop_front() {
+                    if !(skip_udp && conn.protocol() == Protocol::Udp) {
+                        par_conns.push(conn);
+                    }
+                }
+            }
+
+            if par_conns.is_empty() {
+                if !busy.is_empty() && backoff < Duration::from_millis(300) {
+                    <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
                     backoff,
                 )
                 .await;
-                conns.extend(
-                    busy.drain(..)
-                        .filter(|ns| !(skip_udp && ns.protocol() == Protocol::Udp)),
-                );
-                backoff *= 2;
-                continue;
-            }
-            return Err(err);
-        }
-
-        let mut requests = par_conns
-            .into_iter()
-            .map(|conn| {
-                conn.send(request.clone())
-                    .first_answer()
-                    .map(|result| result.map_err(|e| (conn, e)))
-            })
-            .collect::<FuturesUnordered<_>>();
-
-        while let Some(result) = requests.next().await {
-            let (conn, e) = match result {
-                Ok(response) if response.truncated() => {
-                    debug!("truncated response received, retrying over TCP");
-                    skip_udp = true;
-                    err = ProtoError::from("received truncated response");
+                    conns.extend(
+                        busy.drain(..)
+                            .filter(|ns| !(skip_udp && ns.protocol() == Protocol::Udp)),
+                    );
+                    backoff *= 2;
                     continue;
                 }
-                Ok(response) => return Ok(response),
-                Err((conn, e)) => (conn, e),
-            };
-
-            use ProtoErrorKind::*;
-            match e.kind() {
-                // We assume the response is spoofed, so ignore it and avoid UDP server for this
-                // request to try and avoid further spoofing.
-                QueryCaseMismatch => skip_udp = true,
-                // If the server is busy, try it again later if necessary.
-                Busy => busy.push(conn),
-                // If the connection failed, try another one.
-                Io(_) | NoConnections => {}
-                // If we got an `NXDomain` response from a server whose negative responses we
-                // don't trust, we should try another server.
-                NoRecordsFound(NoRecords {
-                    response_code: ResponseCode::NXDomain,
-                    ..
-                }) if !conn.trust_negative_responses() => {}
-                _ => return Err(e),
+                return Err(err);
             }
 
-            if err.cmp_specificity(&e) == Ordering::Less {
-                err = e;
+            let mut requests = par_conns
+                .into_iter()
+                .map(|conn| {
+                    conn.send(request.clone())
+                        .first_answer()
+                        .map(|result| result.map_err(|e| (conn, e)))
+                })
+                .collect::<FuturesUnordered<_>>();
+
+            while let Some(result) = requests.next().await {
+                let (conn, e) = match result {
+                    Ok(response) if response.truncated() => {
+                        debug!("truncated response received, retrying over TCP");
+                        skip_udp = true;
+                        err = ProtoError::from("received truncated response");
+                        continue;
+                    }
+                    Ok(response) => return Ok(response),
+                    Err((conn, e)) => (conn, e),
+                };
+
+                use ProtoErrorKind::*;
+                match e.kind() {
+                    // We assume the response is spoofed, so ignore it and avoid UDP server for this
+                    // request to try and avoid further spoofing.
+                    QueryCaseMismatch => skip_udp = true,
+                    // If the server is busy, try it again later if necessary.
+                    Busy => busy.push(conn),
+                    // If the connection failed, try another one.
+                    Io(_) | NoConnections => {}
+                    // If we got an `NXDomain` response from a server whose negative responses we
+                    // don't trust, we should try another server.
+                    NoRecordsFound(NoRecords {
+                        response_code: ResponseCode::NXDomain,
+                        ..
+                    }) if !conn.trust_negative_responses() => {}
+                    _ => return Err(e),
+                }
+
+                if err.cmp_specificity(&e) == Ordering::Less {
+                    err = e;
+                }
             }
         }
     }
