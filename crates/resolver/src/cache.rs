@@ -179,7 +179,8 @@ impl Expiry<Query, Entry> for EntryExpiry {
 /// The time-to-live (TTL) configuration used by the cache.
 ///
 /// Minimum and maximum TTLs can be set for both positive responses and negative responses. Separate
-/// limits may be set depending on the query type.
+/// limits may be set depending on the query type. If a minimum value is not provided, it will
+/// default to 0 seconds. If a maximum value is not provided, it will default to one day.
 ///
 /// Note that TTLs in DNS are represented as a number of seconds stored in a 32-bit unsigned
 /// integer. We use `Duration` here, instead of `u32`, which can express larger values than the DNS
@@ -210,20 +211,6 @@ impl TtlConfig {
                 positive_max_ttl: opts.positive_max_ttl,
                 negative_max_ttl: opts.negative_max_ttl,
             },
-            by_query_type: HashMap::new(),
-        }
-    }
-
-    /// Creates a new cache TTL configuration.
-    ///
-    /// The provided minimum and maximum TTLs will be applied to all queries unless otherwise
-    /// specified via [`Self::with_query_type_ttl_bounds`].
-    ///
-    /// If a minimum value is not provided, it will default to 0 seconds. If a maximum value is not
-    /// provided, it will default to one day.
-    pub fn new(default: TtlBounds) -> Self {
-        Self {
-            default,
             by_query_type: HashMap::new(),
         }
     }
@@ -263,6 +250,15 @@ impl TtlConfig {
             .negative_max_ttl
             .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL)));
         min..=max
+    }
+}
+
+impl From<TtlBounds> for TtlConfig {
+    fn from(default: TtlBounds) -> Self {
+        Self {
+            default,
+            by_query_type: HashMap::default(),
+        }
     }
 }
 
@@ -426,7 +422,7 @@ mod tests {
         ));
 
         // Configure the cache with a minimum TTL of 2 seconds.
-        let ttls = TtlConfig::new(TtlBounds {
+        let ttls = TtlConfig::from(TtlBounds {
             positive_min_ttl: Some(Duration::from_secs(2)),
             ..TtlBounds::default()
         });
@@ -461,7 +457,7 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
 
         // Configure the cache with a minimum TTL of 2 seconds.
-        let ttls = TtlConfig::new(TtlBounds {
+        let ttls = TtlConfig::from(TtlBounds {
             negative_min_ttl: Some(Duration::from_secs(2)),
             ..TtlBounds::default()
         });
@@ -500,7 +496,7 @@ mod tests {
         ));
 
         // Configure the cache with a maximum TTL of 60 seconds.
-        let ttls = TtlConfig::new(TtlBounds {
+        let ttls = TtlConfig::from(TtlBounds {
             positive_max_ttl: Some(Duration::from_secs(60)),
             ..Default::default()
         });
@@ -535,7 +531,7 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
 
         // Configure the cache with a maximum TTL of 60 seconds.
-        let ttls = TtlConfig::new(TtlBounds {
+        let ttls = TtlConfig::from(TtlBounds {
             negative_max_ttl: Some(Duration::from_secs(60)),
             ..TtlBounds::default()
         });
@@ -647,7 +643,7 @@ mod tests {
         message_txt.add_answer(Record::from_rdata(name.clone(), 1, rdata_txt.clone()));
 
         // Set separate positive_min_ttl limits for TXT queries and all others.
-        let mut ttl_config = TtlConfig::new(TtlBounds {
+        let mut ttl_config = TtlConfig::from(TtlBounds {
             positive_min_ttl: Some(Duration::from_secs(2)),
             ..TtlBounds::default()
         });
