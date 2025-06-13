@@ -221,19 +221,9 @@ impl TtlConfig {
     ///
     /// If a minimum value is not provided, it will default to 0 seconds. If a maximum value is not
     /// provided, it will default to one day.
-    pub fn new(
-        positive_min_ttl: Option<Duration>,
-        negative_min_ttl: Option<Duration>,
-        positive_max_ttl: Option<Duration>,
-        negative_max_ttl: Option<Duration>,
-    ) -> Self {
+    pub fn new(default: TtlBounds) -> Self {
         Self {
-            default: TtlBounds {
-                positive_min_ttl,
-                negative_min_ttl,
-                positive_max_ttl,
-                negative_max_ttl,
-            },
+            default,
             by_query_type: HashMap::new(),
         }
     }
@@ -245,20 +235,9 @@ impl TtlConfig {
     pub fn with_query_type_ttl_bounds(
         &mut self,
         query_type: RecordType,
-        positive_min_ttl: Option<Duration>,
-        negative_min_ttl: Option<Duration>,
-        positive_max_ttl: Option<Duration>,
-        negative_max_ttl: Option<Duration>,
+        bounds: TtlBounds,
     ) -> &mut Self {
-        self.by_query_type.insert(
-            query_type,
-            TtlBounds {
-                positive_min_ttl,
-                negative_min_ttl,
-                positive_max_ttl,
-                negative_max_ttl,
-            },
-        );
+        self.by_query_type.insert(query_type, bounds);
         self
     }
 
@@ -403,15 +382,13 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
-    use crate::{
-        cache::{Entry, ResponseCache, TtlConfig},
-        proto::{
-            NoRecords, ProtoErrorKind,
-            op::{Message, OpCode, Query, ResponseCode},
-            rr::{
-                Name, RData, Record, RecordType,
-                rdata::{A, TXT},
-            },
+    use super::*;
+    use crate::proto::{
+        NoRecords, ProtoErrorKind,
+        op::{Message, OpCode, Query, ResponseCode},
+        rr::{
+            Name, RData, Record, RecordType,
+            rdata::{A, TXT},
         },
     };
 
@@ -449,7 +426,10 @@ mod tests {
         ));
 
         // Configure the cache with a minimum TTL of 2 seconds.
-        let ttls = TtlConfig::new(Some(Duration::from_secs(2)), None, None, None);
+        let ttls = TtlConfig::new(TtlBounds {
+            positive_min_ttl: Some(Duration::from_secs(2)),
+            ..TtlBounds::default()
+        });
         let cache = ResponseCache::new(1, ttls);
 
         cache.insert(query.clone(), Ok(message), now);
@@ -481,7 +461,10 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
 
         // Configure the cache with a minimum TTL of 2 seconds.
-        let ttls = TtlConfig::new(None, Some(Duration::from_secs(2)), None, None);
+        let ttls = TtlConfig::new(TtlBounds {
+            negative_min_ttl: Some(Duration::from_secs(2)),
+            ..TtlBounds::default()
+        });
         let cache = ResponseCache::new(1, ttls);
 
         // Negative response should have TTL of 1 second.
@@ -517,7 +500,10 @@ mod tests {
         ));
 
         // Configure the cache with a maximum TTL of 60 seconds.
-        let ttls = TtlConfig::new(None, None, Some(Duration::from_secs(60)), None);
+        let ttls = TtlConfig::new(TtlBounds {
+            positive_max_ttl: Some(Duration::from_secs(60)),
+            ..Default::default()
+        });
         let cache = ResponseCache::new(1, ttls);
 
         cache.insert(query.clone(), Ok(message), now);
@@ -549,7 +535,10 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
 
         // Configure the cache with a maximum TTL of 60 seconds.
-        let ttls = TtlConfig::new(None, None, None, Some(Duration::from_secs(60)));
+        let ttls = TtlConfig::new(TtlBounds {
+            negative_max_ttl: Some(Duration::from_secs(60)),
+            ..TtlBounds::default()
+        });
         let cache = ResponseCache::new(1, ttls);
 
         // Negative response should have TTL of 62 seconds.
@@ -658,13 +647,16 @@ mod tests {
         message_txt.add_answer(Record::from_rdata(name.clone(), 1, rdata_txt.clone()));
 
         // Set separate positive_min_ttl limits for TXT queries and all others.
-        let mut ttl_config = TtlConfig::new(Some(Duration::from_secs(2)), None, None, None);
+        let mut ttl_config = TtlConfig::new(TtlBounds {
+            positive_min_ttl: Some(Duration::from_secs(2)),
+            ..TtlBounds::default()
+        });
         ttl_config.with_query_type_ttl_bounds(
             RecordType::TXT,
-            Some(Duration::from_secs(5)),
-            None,
-            None,
-            None,
+            TtlBounds {
+                positive_min_ttl: Some(Duration::from_secs(5)),
+                ..TtlBounds::default()
+            },
         );
         let cache = ResponseCache::new(2, ttl_config);
 
