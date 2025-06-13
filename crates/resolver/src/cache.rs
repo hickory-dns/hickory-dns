@@ -204,15 +204,12 @@ pub struct TtlConfig {
 impl TtlConfig {
     /// Construct the LRU's TTL configuration based on the ResolverOpts configuration.
     pub fn from_opts(opts: &config::ResolverOpts) -> Self {
-        Self {
-            default: TtlBounds {
-                positive_min_ttl: opts.positive_min_ttl,
-                negative_min_ttl: opts.negative_min_ttl,
-                positive_max_ttl: opts.positive_max_ttl,
-                negative_max_ttl: opts.negative_max_ttl,
-            },
-            by_query_type: HashMap::new(),
-        }
+        Self::from(TtlBounds {
+            positive_min_ttl: opts.positive_min_ttl,
+            negative_min_ttl: opts.negative_min_ttl,
+            positive_max_ttl: opts.positive_max_ttl,
+            negative_max_ttl: opts.negative_max_ttl,
+        })
     }
 
     /// Override the minimum and maximum TTL values for a specific query type.
