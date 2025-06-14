@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Debug, Formatter};
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
@@ -19,7 +20,7 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ResolverOpts};
+use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::ConnectionProvider;
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
@@ -36,12 +37,14 @@ pub struct NameServer<P: ConnectionProvider> {
 impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new(
-        config: NameServerConfig,
+        server_config: &NameServerConfig,
+        config: ConnectionConfig,
         options: Arc<ResolverOpts>,
         connection_provider: P,
     ) -> Self {
         Self {
             inner: Arc::new(NameServerState::new(
+                server_config,
                 config,
                 options,
                 None,
@@ -52,13 +55,15 @@ impl<P: ConnectionProvider> NameServer<P> {
 
     #[doc(hidden)]
     pub fn from_conn(
-        config: NameServerConfig,
+        server_config: &NameServerConfig,
+        config: ConnectionConfig,
         options: Arc<ResolverOpts>,
         client: P::Conn,
         connection_provider: P,
     ) -> Self {
         Self {
             inner: Arc::new(NameServerState::new(
+                server_config,
                 config,
                 options,
                 Some(client),
@@ -70,8 +75,8 @@ impl<P: ConnectionProvider> NameServer<P> {
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
-        use ConnectionState::*;
-        match (self.inner.state(), self.inner.client.try_lock()) {
+        use Status::*;
+        match (self.inner.status(), self.inner.client.try_lock()) {
             (Established | Init, Some(client)) => client.is_some(),
             (Failed, _) => false,
             // assuming that if someone has it locked it will be or is connected
@@ -88,7 +93,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     pub(super) fn trust_negative_responses(&self) -> bool {
-        self.inner.config.trust_negative_responses
+        self.inner.trust_negative_responses
     }
 }
 
@@ -118,27 +123,32 @@ impl<P: ConnectionProvider> Debug for NameServer<P> {
 }
 
 struct NameServerState<P: ConnectionProvider> {
-    config: NameServerConfig,
+    ip: IpAddr,
+    config: ConnectionConfig,
     options: Arc<ResolverOpts>,
     client: AsyncMutex<Option<P::Conn>>,
-    conn_state: AtomicU8,
+    status: AtomicU8,
     stats: NameServerStats,
+    trust_negative_responses: bool,
     connection_provider: P,
 }
 
 impl<P: ConnectionProvider> NameServerState<P> {
     fn new(
-        config: NameServerConfig,
+        server_config: &NameServerConfig,
+        config: ConnectionConfig,
         options: Arc<ResolverOpts>,
         client: Option<P::Conn>,
         connection_provider: P,
     ) -> Self {
         Self {
+            ip: server_config.ip,
             config,
             options,
             client: AsyncMutex::new(client),
-            conn_state: AtomicU8::new(ConnectionState::Init.into()),
+            status: AtomicU8::new(Status::Init.into()),
             stats: NameServerStats::default(),
+            trust_negative_responses: server_config.trust_negative_responses,
             connection_provider,
         }
     }
@@ -157,7 +167,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 let response = result?;
 
                 // take the remote edns options and store them
-                self.set_state(ConnectionState::Established);
+                self.set_status(Status::Established);
 
                 Ok(response)
             }
@@ -165,7 +175,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 debug!(config = ?self.config, "name_server connection failure: {}", error);
 
                 // this transitions the state to failure
-                self.set_state(ConnectionState::Failed);
+                self.set_status(Status::Failed);
 
                 // record the failure
                 self.stats.record_connection_failure();
@@ -183,15 +193,16 @@ impl<P: ConnectionProvider> NameServerState<P> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
-        if self.state() == ConnectionState::Failed || client.is_none() {
+        if self.status() == Status::Failed || client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
-            self.set_state(ConnectionState::Init);
+            self.set_status(Status::Init);
 
-            let new_client = Box::pin(
-                self.connection_provider
-                    .new_connection(&self.config, &self.options)?,
-            )
+            let new_client = Box::pin(self.connection_provider.new_connection(
+                self.ip,
+                &self.config,
+                &self.options,
+            )?)
             .await?;
 
             // establish a new connection
@@ -205,12 +216,12 @@ impl<P: ConnectionProvider> NameServerState<P> {
             .expect("bad state, client should be connected"))
     }
 
-    fn set_state(&self, conn_state: ConnectionState) {
-        self.conn_state.store(conn_state.into(), Ordering::Release);
+    fn set_status(&self, status: Status) {
+        self.status.store(status.into(), Ordering::Release);
     }
 
-    fn state(&self) -> ConnectionState {
-        ConnectionState::from(self.conn_state.load(Ordering::Acquire))
+    fn status(&self) -> Status {
+        Status::from(self.status.load(Ordering::Acquire))
     }
 }
 
@@ -405,7 +416,7 @@ fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
 /// State of a connection with a remote NameServer.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
-enum ConnectionState {
+enum Status {
     /// For some reason the connection failed. For UDP this would generally be a timeout
     ///  for TCP this could be either Connection could never be established, or it
     ///  failed at some point after. The Failed state should *not* be entered due to an
@@ -419,14 +430,14 @@ enum ConnectionState {
     Established = 2,
 }
 
-impl From<ConnectionState> for u8 {
+impl From<Status> for u8 {
     /// used for ordering purposes. The highest priority is placed on open connections
-    fn from(val: ConnectionState) -> Self {
+    fn from(val: Status) -> Self {
         val as Self
     }
 }
 
-impl From<u8> for ConnectionState {
+impl From<u8> for Status {
     fn from(val: u8) -> Self {
         match val {
             2 => Self::Established,
@@ -439,7 +450,7 @@ impl From<u8> for ConnectionState {
 #[cfg(all(test, feature = "tokio"))]
 mod tests {
     use std::cmp;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::net::{IpAddr, Ipv4Addr};
     use std::str::FromStr;
     use std::time::Duration;
 
@@ -459,14 +470,11 @@ mod tests {
     async fn test_name_server() {
         subscribe();
 
-        let config = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
+        let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+        let connection_config = config.connections.first().unwrap().clone();
         let name_server = NameServer::new(
-            config,
+            &config,
+            connection_config,
             Arc::new(ResolverOpts::default()),
             TokioRuntimeProvider::default(),
         );
@@ -491,14 +499,15 @@ mod tests {
             timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
             ..ResolverOpts::default()
         };
-        let config = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
-        let name_server =
-            NameServer::new(config, Arc::new(options), TokioRuntimeProvider::default());
+
+        let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)));
+        let connection_config = config.connections.first().unwrap().clone();
+        let name_server = NameServer::new(
+            &config,
+            connection_config,
+            Arc::new(options),
+            TokioRuntimeProvider::default(),
+        );
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
@@ -541,14 +550,30 @@ mod tests {
             }
         });
 
-        let config = NameServerConfig::new(server_addr, ProtocolConfig::Udp);
+        let config = NameServerConfig {
+            ip: server_addr.ip(),
+            trust_negative_responses: true,
+            connections: vec![ConnectionConfig {
+                port: server_addr.port(),
+                protocol: ProtocolConfig::Udp,
+                bind_addr: None,
+            }],
+        };
+
         let resolver_opts = ResolverOpts {
             case_randomization: true,
             ..Default::default()
         };
+
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let ns = NameServer::new(config, Arc::new(resolver_opts), provider);
+        let connection_config = config.connections.first().unwrap().clone();
+        let ns = NameServer::new(
+            &config,
+            connection_config,
+            Arc::new(resolver_opts),
+            provider,
+        );
 
         let stream = ns.lookup(
             Query::query(name.clone(), RecordType::NULL),

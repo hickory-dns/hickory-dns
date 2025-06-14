@@ -14,16 +14,13 @@
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::net::SocketAddr;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
-use crate::config::{NameServerConfig, ProtocolConfig, ResolverConfig, ResolverOpts};
+use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
-
-const DEFAULT_PORT: u16 = 53;
 
 pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
     read_resolv_conf("/etc/resolv.conf")
@@ -63,21 +60,16 @@ fn into_resolver_config(
     };
 
     // nameservers
-    let mut nameservers = Vec::<NameServerConfig>::with_capacity(parsed_config.nameservers.len());
-    for ip in &parsed_config.nameservers {
-        nameservers.push(NameServerConfig {
-            socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        });
-        nameservers.push(NameServerConfig {
-            socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
-            protocol: ProtocolConfig::Tcp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        });
-    }
+    let nameservers = parsed_config
+        .nameservers
+        .iter()
+        .map(|ip| {
+            // Convert the IP address to a NameServerConfig
+            let mut server = NameServerConfig::udp_and_tcp(ip.into());
+            server.trust_negative_responses = false;
+            server
+        })
+        .collect::<Vec<_>>();
     if nameservers.is_empty() {
         Err(io::Error::new(
             io::ErrorKind::Other,
@@ -122,26 +114,14 @@ mod tests {
     use std::net::*;
     use std::str::FromStr;
 
-    fn empty_config(name_servers: Vec<NameServerConfig>) -> ResolverConfig {
-        ResolverConfig::from_parts(None, vec![], name_servers)
+    fn empty_config(name_servers: NameServerConfig) -> ResolverConfig {
+        ResolverConfig::from_parts(None, vec![], vec![name_servers])
     }
 
-    fn nameserver_config(ip: &str) -> [NameServerConfig; 2] {
-        let addr = SocketAddr::new(IpAddr::from_str(ip).unwrap(), 53);
-        [
-            NameServerConfig {
-                socket_addr: addr,
-                protocol: ProtocolConfig::Udp,
-                trust_negative_responses: false,
-                bind_addr: None,
-            },
-            NameServerConfig {
-                socket_addr: addr,
-                protocol: ProtocolConfig::Tcp,
-                trust_negative_responses: false,
-                bind_addr: None,
-            },
-        ]
+    fn nameserver_config(ip: &str) -> NameServerConfig {
+        let mut server = NameServerConfig::udp_and_tcp(IpAddr::from_str(ip).unwrap());
+        server.trust_negative_responses = false;
+        server
     }
 
     fn tests_dir() -> String {
@@ -152,18 +132,15 @@ mod tests {
     #[test]
     fn test_name_server() {
         let parsed = parse_resolv_conf("nameserver 127.0.0.1").expect("failed");
-        let cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
-        assert_eq!(
-            cfg.name_servers()[0].socket_addr,
-            parsed.0.name_servers()[0].socket_addr
-        );
+        let cfg = empty_config(nameserver_config("127.0.0.1"));
+        assert_eq!(cfg.name_servers()[0].ip, parsed.0.name_servers()[0].ip);
         is_default_opts(parsed.1);
     }
 
     #[test]
     fn test_search() {
         let parsed = parse_resolv_conf("search localnet.\nnameserver 127.0.0.1").expect("failed");
-        let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
+        let mut cfg = empty_config(nameserver_config("127.0.0.1"));
         cfg.add_search(Name::from_str("localnet.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         is_default_opts(parsed.1);
@@ -174,13 +151,10 @@ mod tests {
         let parsed =
             parse_resolv_conf("\n\nnameserver 127.0.0.53\noptions edns0 trust-ad\nsearch -- lan\n")
                 .expect("failed");
-        let mut cfg = empty_config(nameserver_config("127.0.0.53").to_vec());
+        let mut cfg = empty_config(nameserver_config("127.0.0.53"));
 
         {
-            assert_eq!(
-                cfg.name_servers()[0].socket_addr,
-                parsed.0.name_servers()[0].socket_addr
-            );
+            assert_eq!(cfg.name_servers()[0].ip, parsed.0.name_servers()[0].ip);
             is_default_opts(parsed.1);
         }
 
@@ -195,7 +169,7 @@ mod tests {
     fn test_underscore_in_search() {
         let parsed =
             parse_resolv_conf("search Speedport_000\nnameserver 127.0.0.1").expect("failed");
-        let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
+        let mut cfg = empty_config(nameserver_config("127.0.0.1"));
         cfg.add_search(Name::from_str_relaxed("Speedport_000").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         is_default_opts(parsed.1);
@@ -204,12 +178,9 @@ mod tests {
     #[test]
     fn test_domain() {
         let parsed = parse_resolv_conf("domain example.com\nnameserver 127.0.0.1").expect("failed");
-        let mut cfg = empty_config(nameserver_config("127.0.0.1").to_vec());
+        let mut cfg = empty_config(nameserver_config("127.0.0.1"));
         cfg.set_domain(Name::from_str("example.com").unwrap());
-        assert_eq!(
-            cfg.name_servers()[0].socket_addr,
-            parsed.0.name_servers()[0].socket_addr
-        );
+        assert_eq!(cfg.name_servers()[0].ip, parsed.0.name_servers()[0].ip);
         assert_eq!(cfg.domain(), parsed.0.domain());
         is_default_opts(parsed.1);
     }

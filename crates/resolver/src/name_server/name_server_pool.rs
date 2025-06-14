@@ -40,30 +40,28 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
-        let servers = config
-            .name_servers()
-            .iter()
-            .map(|ns_config| {
-                NameServer::new(ns_config.clone(), options.clone(), conn_provider.clone())
-            })
-            .collect();
-
-        Self::from_nameservers(servers, options)
+        Self::from_config(config.name_servers(), options, conn_provider)
     }
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
-        name_servers: Vec<NameServerConfig>,
+        name_servers: &[NameServerConfig],
         options: Arc<ResolverOpts>,
         conn_provider: P,
     ) -> Self {
-        Self::from_nameservers(
-            name_servers
-                .into_iter()
-                .map(|ns_config| NameServer::new(ns_config, options.clone(), conn_provider.clone()))
-                .collect(),
-            options,
-        )
+        let mut servers = Vec::with_capacity(name_servers.len());
+        for server in name_servers {
+            for conn in &server.connections {
+                servers.push(NameServer::new(
+                    server,
+                    conn.clone(),
+                    options.clone(),
+                    conn_provider.clone(),
+                ));
+            }
+        }
+
+        Self::from_nameservers(servers, options)
     }
 
     #[doc(hidden)]
@@ -86,7 +84,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
         let state = self.state.clone();
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
-            try_send(&state.options, &state.servers, request, &state.next).await
+            state.try_send(request).await
         }))
     }
 }
@@ -111,127 +109,125 @@ impl<P: ConnectionProvider> PoolState<P> {
             next: AtomicUsize::new(0),
         }
     }
-}
 
-async fn try_send<P: ConnectionProvider>(
-    opts: &ResolverOpts,
-    conns: &[NameServer<P>],
-    request: DnsRequest,
-    next_index: &AtomicUsize,
-) -> Result<DnsResponse, ProtoError> {
-    let mut conns: Vec<NameServer<P>> = conns.to_vec();
-
-    match opts.server_ordering_strategy {
-        // select the highest priority connection
-        //   reorder the connections based on current view...
-        //   this reorders the inner set
-        ServerOrderingStrategy::QueryStatistics => {
-            conns.sort_by(|a, b| match (a.protocol(), b.protocol()) {
-                (ap, bp) if ap == bp => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
-                (Protocol::Udp, _) => Ordering::Less,
-                (_, Protocol::Udp) => Ordering::Greater,
-                (_, _) => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
-            });
-        }
-        ServerOrderingStrategy::UserProvidedOrder => {}
-        ServerOrderingStrategy::RoundRobin => {
-            let num_concurrent_reqs = if opts.num_concurrent_reqs > 1 {
-                opts.num_concurrent_reqs
-            } else {
-                1
-            };
-            if num_concurrent_reqs < conns.len() {
-                let index =
-                    next_index.fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst) % conns.len();
-                conns.rotate_left(index);
+    async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
+        let mut conns = self.servers.clone();
+        match self.options.server_ordering_strategy {
+            // select the highest priority connection
+            //   reorder the connections based on current view...
+            //   this reorders the inner set
+            ServerOrderingStrategy::QueryStatistics => {
+                conns.sort_by(|a, b| match (a.protocol(), b.protocol()) {
+                    (ap, bp) if ap == bp => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
+                    (Protocol::Udp, _) => Ordering::Less,
+                    (_, Protocol::Udp) => Ordering::Greater,
+                    (_, _) => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
+                });
             }
-        }
-    }
-
-    // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
-    // we will first try the other name servers (as for other error types). However, if the other
-    // servers are also busy, we're going to wait for a little while and then retry each server that
-    // returned Busy in the previous round. If the server is still Busy, this continues, while
-    // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
-    // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
-    //
-    // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
-    // close to the connection, which means the top level resolution might take substantially longer
-    // to fire than the timeout configured in `ResolverOpts`.
-    let mut conns = VecDeque::from(conns);
-    let mut backoff = Duration::from_millis(20);
-    let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
-    let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
-    let mut skip_udp = false;
-
-    loop {
-        // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
-        while !conns.is_empty() && par_conns.len() < Ord::max(opts.num_concurrent_reqs, 1) {
-            if let Some(conn) = conns.pop_front() {
-                if !(skip_udp && conn.protocol() == Protocol::Udp) {
-                    par_conns.push(conn);
+            ServerOrderingStrategy::UserProvidedOrder => {}
+            ServerOrderingStrategy::RoundRobin => {
+                let num_concurrent_reqs = if self.options.num_concurrent_reqs > 1 {
+                    self.options.num_concurrent_reqs
+                } else {
+                    1
+                };
+                if num_concurrent_reqs < conns.len() {
+                    let index = self
+                        .next
+                        .fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
+                        % conns.len();
+                    conns.rotate_left(index);
                 }
             }
         }
 
-        if par_conns.is_empty() {
-            if !busy.is_empty() && backoff < Duration::from_millis(300) {
-                <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
+        // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
+        // we will first try the other name servers (as for other error types). However, if the other
+        // servers are also busy, we're going to wait for a little while and then retry each server that
+        // returned Busy in the previous round. If the server is still Busy, this continues, while
+        // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
+        // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
+        //
+        // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
+        // close to the connection, which means the top level resolution might take substantially longer
+        // to fire than the timeout configured in `ResolverOpts`.
+        let mut conns = VecDeque::from(conns);
+        let mut backoff = Duration::from_millis(20);
+        let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
+        let mut skip_udp = false;
+
+        loop {
+            // construct the parallel requests, 2 is the default
+            let mut par_conns = SmallVec::<[NameServer<P>; 2]>::new();
+            while !conns.is_empty()
+                && par_conns.len() < Ord::max(self.options.num_concurrent_reqs, 1)
+            {
+                if let Some(conn) = conns.pop_front() {
+                    if !(skip_udp && conn.protocol() == Protocol::Udp) {
+                        par_conns.push(conn);
+                    }
+                }
+            }
+
+            if par_conns.is_empty() {
+                if !busy.is_empty() && backoff < Duration::from_millis(300) {
+                    <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
                     backoff,
                 )
                 .await;
-                conns.extend(
-                    busy.drain(..)
-                        .filter(|ns| !(skip_udp && ns.protocol() == Protocol::Udp)),
-                );
-                backoff *= 2;
-                continue;
-            }
-            return Err(err);
-        }
-
-        let mut requests = par_conns
-            .into_iter()
-            .map(|conn| {
-                conn.send(request.clone())
-                    .first_answer()
-                    .map(|result| result.map_err(|e| (conn, e)))
-            })
-            .collect::<FuturesUnordered<_>>();
-
-        while let Some(result) = requests.next().await {
-            let (conn, e) = match result {
-                Ok(response) if response.truncated() => {
-                    debug!("truncated response received, retrying over TCP");
-                    skip_udp = true;
-                    err = ProtoError::from("received truncated response");
+                    conns.extend(
+                        busy.drain(..)
+                            .filter(|ns| !(skip_udp && ns.protocol() == Protocol::Udp)),
+                    );
+                    backoff *= 2;
                     continue;
                 }
-                Ok(response) => return Ok(response),
-                Err((conn, e)) => (conn, e),
-            };
-
-            use ProtoErrorKind::*;
-            match e.kind() {
-                // We assume the response is spoofed, so ignore it and avoid UDP server for this
-                // request to try and avoid further spoofing.
-                QueryCaseMismatch => skip_udp = true,
-                // If the server is busy, try it again later if necessary.
-                Busy => busy.push(conn),
-                // If the connection failed, try another one.
-                Io(_) | NoConnections => {}
-                // If we got an `NXDomain` response from a server whose negative responses we
-                // don't trust, we should try another server.
-                NoRecordsFound(NoRecords {
-                    response_code: ResponseCode::NXDomain,
-                    ..
-                }) if !conn.trust_negative_responses() => {}
-                _ => return Err(e),
+                return Err(err);
             }
 
-            if err.cmp_specificity(&e) == Ordering::Less {
-                err = e;
+            let mut requests = par_conns
+                .into_iter()
+                .map(|conn| {
+                    conn.send(request.clone())
+                        .first_answer()
+                        .map(|result| result.map_err(|e| (conn, e)))
+                })
+                .collect::<FuturesUnordered<_>>();
+
+            while let Some(result) = requests.next().await {
+                let (conn, e) = match result {
+                    Ok(response) if response.truncated() => {
+                        debug!("truncated response received, retrying over TCP");
+                        skip_udp = true;
+                        err = ProtoError::from("received truncated response");
+                        continue;
+                    }
+                    Ok(response) => return Ok(response),
+                    Err((conn, e)) => (conn, e),
+                };
+
+                use ProtoErrorKind::*;
+                match e.kind() {
+                    // We assume the response is spoofed, so ignore it and avoid UDP server for this
+                    // request to try and avoid further spoofing.
+                    QueryCaseMismatch => skip_udp = true,
+                    // If the server is busy, try it again later if necessary.
+                    Busy => busy.push(conn),
+                    // If the connection failed, try another one.
+                    Io(_) | NoConnections => {}
+                    // If we got an `NXDomain` response from a server whose negative responses we
+                    // don't trust, we should try another server.
+                    NoRecordsFound(NoRecords {
+                        response_code: ResponseCode::NXDomain,
+                        ..
+                    }) if !conn.trust_negative_responses() => {}
+                    _ => return Err(e),
+                }
+
+                if err.cmp_specificity(&e) == Ordering::Less {
+                    err = e;
+                }
             }
         }
     }
@@ -240,14 +236,14 @@ async fn try_send<P: ConnectionProvider>(
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::net::IpAddr;
     use std::str::FromStr;
 
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::config::{NameServerConfig, ProtocolConfig};
+    use crate::config::NameServerConfig;
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
@@ -260,19 +256,8 @@ mod tests {
     fn test_failed_then_success_pool() {
         subscribe();
 
-        let config1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
-
-        let config2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
+        let config1 = NameServerConfig::udp(IpAddr::from([127, 0, 0, 252]));
+        let config2 = NameServerConfig::udp(IpAddr::from([8, 8, 8, 8]));
 
         let mut resolver_config = ResolverConfig::default();
         resolver_config.add_name_server(config1);
@@ -326,19 +311,14 @@ mod tests {
         subscribe();
 
         let conn_provider = TokioRuntimeProvider::default();
-
-        let tcp = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: ProtocolConfig::Tcp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        };
-
         let opts = Arc::new(ResolverOpts {
             try_tcp_on_error: true,
             ..ResolverOpts::default()
         });
-        let name_server = NameServer::new(tcp, opts.clone(), conn_provider);
+
+        let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
+        let connection_config = tcp.connections.first().unwrap().clone();
+        let name_server = NameServer::new(&tcp, connection_config, opts.clone(), conn_provider);
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(name_servers.clone(), opts);
 

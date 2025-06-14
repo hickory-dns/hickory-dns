@@ -1,6 +1,6 @@
 use std::future::{Future, poll_fn};
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{
@@ -17,7 +17,7 @@ use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use hickory_proto::{NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
-    NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
+    ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
 };
 use hickory_resolver::name_server::{NameServer, NameServerPool};
 use test_support::subscribe;
@@ -97,7 +97,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     protocol: ProtocolConfig,
     options: ResolverOpts,
     on_send: O,
-    addr: IpAddr,
+    ip: IpAddr,
     trust_negative_responses: bool,
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
@@ -105,13 +105,16 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     };
     let client = MockClientHandle::mock_on_send(messages, on_send);
 
+    let config = NameServerConfig::new(
+        ip,
+        trust_negative_responses,
+        vec![ConnectionConfig::new(protocol)],
+    );
+    let connection_config = config.connections.first().unwrap().clone();
+
     NameServer::from_conn(
-        NameServerConfig {
-            socket_addr: SocketAddr::new(addr, 0),
-            protocol,
-            trust_negative_responses,
-            bind_addr: None,
-        },
+        &config,
+        connection_config,
         Arc::new(options),
         client,
         conn_provider,

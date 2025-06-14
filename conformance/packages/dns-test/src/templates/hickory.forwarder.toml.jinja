@@ -15,6 +15,6 @@ trust_anchor = "/etc/trusted-key.key"
 {% endif %}
 
 [[zones.stores.name_servers]]
-socket_addr = "{{ resolver_ip }}:53"
-protocol = { type = "tcp" }
+ip = "{{ resolver_ip }}"
 trust_negative_responses = true
+connections = [{ protocol = { type = "tcp" } }]

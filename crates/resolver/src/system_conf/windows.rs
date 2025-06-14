@@ -7,13 +7,13 @@
 
 //! System configuration loading for windows
 
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr};
 use std::str::FromStr;
 
 use ipconfig::computer::{get_domain, get_search_list};
 use ipconfig::get_adapters;
 
-use crate::config::{NameServerConfig, ProtocolConfig, ResolverConfig, ResolverOpts};
+use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
 
@@ -27,26 +27,14 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
         .flat_map(|adapter| adapter.dns_servers());
 
     let mut name_servers = vec![];
-    for dns_server in servers {
-        if let IpAddr::V6(ip) = dns_server {
-            if FORBIDDEN_ADDRS.contains(ip) {
+    for &ip in servers {
+        if let IpAddr::V6(ip) = ip {
+            if FORBIDDEN_ADDRS.contains(&ip) {
                 continue;
             }
         }
 
-        let socket_addr = SocketAddr::new(*dns_server, 53);
-        name_servers.push(NameServerConfig {
-            socket_addr,
-            protocol: ProtocolConfig::Udp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        });
-        name_servers.push(NameServerConfig {
-            socket_addr,
-            protocol: ProtocolConfig::Tcp,
-            trust_negative_responses: false,
-            bind_addr: None,
-        });
+        name_servers.push(NameServerConfig::udp_and_tcp(ip));
     }
 
     let search_list = get_search_list()
