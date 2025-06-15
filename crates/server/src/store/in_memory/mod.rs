@@ -22,8 +22,8 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, UpdateResult, ZoneType,
+        AnyRecords, AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
+        LookupOptions, LookupRecords, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -53,7 +53,7 @@ pub struct InMemoryAuthority {
     origin: LowerName,
     class: DNSClass,
     zone_type: ZoneType,
-    allow_axfr: bool,
+    axfr_policy: AxfrPolicy,
     inner: RwLock<InnerInMemory>,
     #[cfg(feature = "__dnssec")]
     nx_proof_kind: Option<NxProofKind>,
@@ -68,7 +68,7 @@ impl InMemoryAuthority {
     ///   record.
     /// * `records` - The map of the initial set of records in the zone.
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
-    /// * `allow_axfr` - Whether AXFR is allowed.
+    /// * `axfr_policy` - A policy for determining if AXFR is allowed.
     /// * `nx_proof_kind` - The kind of non-existence proof to be used by the server.
     ///
     /// # Return value
@@ -78,13 +78,13 @@ impl InMemoryAuthority {
         origin: Name,
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
-        allow_axfr: bool,
+        axfr_policy: AxfrPolicy,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         let mut this = Self::empty(
             origin.clone(),
             zone_type,
-            allow_axfr,
+            axfr_policy,
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
         );
@@ -127,14 +127,14 @@ impl InMemoryAuthority {
     pub fn empty(
         origin: Name,
         zone_type: ZoneType,
-        allow_axfr: bool,
+        axfr_policy: AxfrPolicy,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             zone_type,
-            allow_axfr,
+            axfr_policy,
             inner: RwLock::new(InnerInMemory::default()),
 
             #[cfg(feature = "__dnssec")]
@@ -147,10 +147,10 @@ impl InMemoryAuthority {
         self.class
     }
 
-    /// Allow AXFR's (zone transfers)
+    /// Set the AXFR policy for testing purposes
     #[cfg(any(test, feature = "testing"))]
-    pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
-        self.allow_axfr = allow_axfr;
+    pub fn set_axfr_policy(&mut self, policy: AxfrPolicy) {
+        self.axfr_policy = policy;
     }
 
     /// Clears all records (including SOA, etc)
@@ -323,9 +323,9 @@ impl Authority for InMemoryAuthority {
         self.zone_type
     }
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        self.allow_axfr
+    /// Return the policy for determining if AXFR requests are allowed
+    fn axfr_policy(&self) -> AxfrPolicy {
+        self.axfr_policy
     }
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -550,7 +550,7 @@ impl Authority for InMemoryAuthority {
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
-            if !self.is_axfr_allowed() {
+            if self.axfr_policy != AxfrPolicy::AllowAll {
                 return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
             }
 

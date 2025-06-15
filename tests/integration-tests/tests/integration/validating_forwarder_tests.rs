@@ -32,7 +32,7 @@ use hickory_resolver::{
 };
 use hickory_server::{
     ServerFuture,
-    authority::{Catalog, ZoneType},
+    authority::{AxfrPolicy, Catalog, ZoneType},
     store::{
         forwarder::{ForwardAuthority, ForwardConfig},
         in_memory::InMemoryAuthority,
@@ -201,7 +201,7 @@ async fn setup_authoritative_server(
     let mut authority = InMemoryAuthority::empty(
         Name::root(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         Some(hickory_server::dnssec::NxProofKind::Nsec),
     );
     authority.upsert_mut(

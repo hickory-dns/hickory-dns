@@ -29,7 +29,7 @@ mod message_response;
 pub use self::auth_lookup::{
     AnyRecords, AuthLookup, AuthLookupIter, LookupRecords, LookupRecordsIter,
 };
-pub use self::authority::{Authority, LookupControlFlow, LookupOptions};
+pub use self::authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions};
 #[cfg(feature = "__dnssec")]
 pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
 pub use self::authority_object::{AuthorityObject, DnssecSummary, EmptyLookup, LookupObject};

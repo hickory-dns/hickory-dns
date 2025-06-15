@@ -8,6 +8,7 @@
 //! All authority related types
 
 use cfg_if::cfg_if;
+use serde::Deserialize;
 use std::fmt;
 
 use crate::{
@@ -76,8 +77,8 @@ pub trait Authority: Send + Sync {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool;
+    /// Return the policy for determining if AXFR requests are allowed
+    fn axfr_policy(&self) -> AxfrPolicy;
 
     /// Whether the authority can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool {
@@ -225,6 +226,18 @@ pub trait DnssecAuthority: Authority {
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()>;
+}
+
+/// AxfrPolicy describes how to handle AXFR requests
+///
+/// By default, all AXFR requests are denied.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum AxfrPolicy {
+    /// Deny all AXFR requests.
+    #[default]
+    Deny,
+    /// Allow all AXFR requests, regardless of whether they are signed.
+    AllowAll,
 }
 
 /// Result of a Lookup in the Catalog and Authority
