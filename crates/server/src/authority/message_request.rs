@@ -5,8 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(any(test, feature = "testing"))]
-use crate::proto::op::Query;
 use crate::proto::{
     ProtoError, ProtoErrorKind,
     op::{
@@ -34,7 +32,7 @@ impl MessageRequest {
     ///
     /// The unspecified fields are left empty.
     #[cfg(any(test, feature = "testing"))]
-    pub fn mock(header: Header, query: Query) -> Self {
+    pub fn mock(header: Header, query: impl Into<LowerQuery>) -> Self {
         Self {
             header,
             queries: Queries::new(vec![query.into()]),

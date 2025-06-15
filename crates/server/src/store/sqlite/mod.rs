@@ -21,9 +21,7 @@ use std::{
 
 use futures_util::lock::Mutex;
 use serde::Deserialize;
-#[cfg(feature = "__dnssec")]
-use tracing::debug;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
@@ -550,6 +548,26 @@ impl SqliteAuthority {
         }
     }
 
+    /// Checks that an AXFR `Request` has a valid signature, or returns an error
+    async fn authorize_axfr(&self, _request: &Request) -> Result<(), ResponseCode> {
+        match self.axfr_policy {
+            // Deny without checking any signatures.
+            AxfrPolicy::Deny => Err(ResponseCode::NotAuth),
+            // Allow without checking any signatures.
+            AxfrPolicy::AllowAll => Ok(()),
+            // Allow only if a valid signature is present.
+            #[cfg(feature = "__dnssec")]
+            AxfrPolicy::AllowSigned => match _request.signature() {
+                MessageSignature::Sig0(sig0) => self.authorized_sig0(sig0, _request).await,
+                MessageSignature::Tsig(tsig) => self.authorized_tsig(tsig, _request).await,
+                MessageSignature::Unsigned => {
+                    warn!("AXFR request was not signed");
+                    Err(ResponseCode::NotAuth)
+                }
+            },
+        }
+    }
+
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
     ///
     /// ```text
@@ -1047,10 +1065,12 @@ impl Authority for SqliteAuthority {
             Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
         };
 
-        if request_info.query.query_type() == RecordType::AXFR
-            && self.axfr_policy != AxfrPolicy::AllowAll
-        {
-            return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
+        if request_info.query.query_type() == RecordType::AXFR {
+            if let Err(code) = self.authorize_axfr(request).await {
+                warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
+                return LookupControlFlow::Continue(Err(LookupError::ResponseCode(code)));
+            }
+            debug!(axfr_policy = ?self.axfr_policy, "authorized AXFR")
         }
 
         let search = self.in_memory.search(request, lookup_options).await;
