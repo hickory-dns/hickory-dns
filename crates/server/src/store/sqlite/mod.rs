@@ -28,7 +28,10 @@ use tracing::{error, info, warn};
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
+        ZoneType,
+    },
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
@@ -65,6 +68,7 @@ pub use persistence::Journal;
 pub struct SqliteAuthority {
     in_memory: InMemoryAuthority,
     journal: Mutex<Option<Journal>>,
+    axfr_policy: AxfrPolicy,
     allow_update: bool,
     is_dnssec_enabled: bool,
     #[cfg(feature = "metrics")]
@@ -79,6 +83,7 @@ impl SqliteAuthority {
     /// # Arguments
     ///
     /// * `in_memory` - InMemoryAuthority for all records.
+    /// * `axfr_policy` - A policy for determining if AXFR requests are allowed.
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
     ///   (see `add_zone_signing_key()`)
@@ -86,10 +91,16 @@ impl SqliteAuthority {
     /// # Return value
     ///
     /// The new `Authority`.
-    pub fn new(in_memory: InMemoryAuthority, allow_update: bool, is_dnssec_enabled: bool) -> Self {
+    pub fn new(
+        in_memory: InMemoryAuthority,
+        axfr_policy: AxfrPolicy,
+        allow_update: bool,
+        is_dnssec_enabled: bool,
+    ) -> Self {
         Self {
             in_memory,
             journal: Mutex::new(None),
+            axfr_policy,
             allow_update,
             is_dnssec_enabled,
             #[cfg(feature = "metrics")]
@@ -125,11 +136,12 @@ impl SqliteAuthority {
             let in_memory = InMemoryAuthority::empty(
                 zone_name.clone(),
                 zone_type,
-                axfr_policy,
+                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             );
-            let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
+            let mut authority =
+                Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
 
             authority
                 .recover_with_journal(&journal)
@@ -151,12 +163,13 @@ impl SqliteAuthority {
                 zone_name.clone(),
                 records,
                 zone_type,
-                axfr_policy,
+                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             )?;
 
-            let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
+            let mut authority =
+                Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
             info!("creating new journal: {journal_path:?}");
@@ -272,6 +285,12 @@ impl SqliteAuthority {
     #[cfg(all(any(test, feature = "testing"), feature = "__dnssec"))]
     pub fn set_tsig_signers(&mut self, signers: Vec<TSigner>) {
         self.tsig_signers = signers;
+    }
+
+    /// Set the AXFR policy for testing purposes
+    #[cfg(feature = "testing")]
+    pub fn set_axfr_policy(&mut self, policy: AxfrPolicy) {
+        self.axfr_policy = policy;
     }
 
     /// Get serial
@@ -950,7 +969,7 @@ impl Authority for SqliteAuthority {
 
     /// Return a policy that can be used to determine how AXFR requests should be handled.
     fn axfr_policy(&self) -> AxfrPolicy {
-        self.in_memory.axfr_policy()
+        self.axfr_policy
     }
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -1023,6 +1042,17 @@ impl Authority for SqliteAuthority {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+        };
+
+        if request_info.query.query_type() == RecordType::AXFR
+            && self.axfr_policy != AxfrPolicy::AllowAll
+        {
+            return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
+        }
+
         let search = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
