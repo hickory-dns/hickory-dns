@@ -33,6 +33,7 @@ use crate::{
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
+        op::message::ResponseSigner,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
     server::Request,
@@ -935,18 +936,18 @@ impl SqliteAuthority {
     #[cfg(feature = "__dnssec")]
     async fn authorized_tsig(&self, tsig: &Record, request: &Request) -> UpdateResult<()> {
         debug!("authorizing with: {tsig:?}");
-        let Some(signer) = self
+        let Some(tsigner) = self
             .tsig_signers
             .iter()
-            .find(|signer| signer.signer_name() == tsig.name())
+            .find(|tsigner| tsigner.signer_name() == tsig.name())
         else {
             warn!("no TSIG key name matched: id {}", request.id());
-            return Err(ResponseCode::Refused);
+            return Err(ResponseCode::NotAuth);
         };
 
-        let Ok((_, _, range)) = signer.verify_message_byte(request.as_slice(), None, true) else {
+        let Ok((_, _, range)) = tsigner.verify_message_byte(request.as_slice(), None, true) else {
             warn!("invalid TSIG signature: id {}", request.id());
-            return Err(ResponseCode::Refused);
+            return Err(ResponseCode::NotAuth);
         };
 
         let now = SystemTime::now()
@@ -1005,19 +1006,28 @@ impl Authority for SqliteAuthority {
     ///
     /// See [RFC 2136](https://datatracker.ietf.org/doc/html/rfc2136#section-3) section 3.4 for
     /// details.
-    async fn update(&self, _request: &Request) -> UpdateResult<bool> {
+    async fn update(
+        &self,
+        _request: &Request,
+    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.
-            self.authorize_update(_request).await?;
-            self.verify_prerequisites(_request.prerequisites()).await?;
-            self.pre_scan(_request.updates()).await?;
-            self.update_records(_request.updates(), true).await
+            if let Err(code) = self.authorize_update(_request).await {
+                return (Err(code), None);
+            }
+            if let Err(code) = self.verify_prerequisites(_request.prerequisites()).await {
+                return (Err(code), None);
+            }
+            if let Err(code) = self.pre_scan(_request.updates()).await {
+                return (Err(code), None);
+            }
+            (self.update_records(_request.updates(), true).await, None)
         }
         #[cfg(not(feature = "__dnssec"))]
         {
             // if we don't have dnssec, we can't do updates.
-            Err(ResponseCode::NotImp)
+            (Err(ResponseCode::NotImp), None)
         }
     }
 
@@ -1059,26 +1069,32 @@ impl Authority for SqliteAuthority {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> (
+        LookupControlFlow<Self::Lookup>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
 
         if request_info.query.query_type() == RecordType::AXFR {
             if let Err(code) = self.authorize_axfr(request).await {
                 warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
-                return LookupControlFlow::Continue(Err(LookupError::ResponseCode(code)));
+                return (
+                    LookupControlFlow::Continue(Err(LookupError::ResponseCode(code))),
+                    None,
+                );
             }
             debug!(axfr_policy = ?self.axfr_policy, "authorized AXFR")
         }
 
-        let search = self.in_memory.search(request, lookup_options).await;
+        let (search, signer) = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
         self.metrics.query.increment_lookup(&search);
 
-        search
+        (search, signer)
     }
 
     /// Return the NSEC records based on the given name

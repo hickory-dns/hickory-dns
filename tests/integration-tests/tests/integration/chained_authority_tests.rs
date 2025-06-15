@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
+    op::message::ResponseSigner,
     op::{Message, MessageType, Query, ResponseCode},
     rr::{LowerName, Name, RData, Record, RecordSet, RecordType, rdata::A},
     serialize::binary::BinEncodable,
@@ -186,8 +187,11 @@ impl Authority for TestAuthority {
         AxfrPolicy::Deny
     }
 
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(
+        &self,
+        _update: &Request,
+    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     async fn get_nsec_records(
@@ -228,17 +232,23 @@ impl Authority for TestAuthority {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> (
+        LookupControlFlow<Self::Lookup>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
-        self.lookup(
-            request_info.query.name(),
-            request_info.query.query_type(),
-            lookup_options,
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                lookup_options,
+            )
+            .await,
+            None,
         )
-        .await
     }
 
     async fn consult(
@@ -247,11 +257,14 @@ impl Authority for TestAuthority {
         _rtype: RecordType,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         let Some(res) = inner_lookup(name, &self.consult_records, &lookup_options) else {
-            return last_result;
+            return (last_result, None);
         };
-        res.map_dyn()
+        (res.map_dyn(), None)
     }
 }
 
