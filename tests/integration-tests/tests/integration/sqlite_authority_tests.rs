@@ -13,6 +13,8 @@ use rusqlite::*;
 use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::tsig::TSigner;
+#[cfg(feature = "__dnssec")]
+use hickory_proto::op::LowerQuery;
 use hickory_proto::op::{Header, Message, MessageSigner, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -1352,10 +1354,40 @@ async fn test_axfr_deny_all() {
     )
     .unwrap();
 
-    let result = authority.search(&request, LookupOptions::default()).await;
-
+    let err = authority
+        .search(&request, LookupOptions::default())
+        .await
+        .unwrap_err();
     assert!(matches!(
-        result.unwrap_err(),
-        LookupError::ResponseCode(ResponseCode::Refused)
+        err,
+        LookupError::ResponseCode(ResponseCode::NotAuth)
+    ))
+}
+
+#[cfg(feature = "__dnssec")]
+#[tokio::test]
+async fn test_axfr_deny_unsigned() {
+    subscribe();
+    let mut authority = create_example();
+    authority.set_axfr_policy(AxfrPolicy::AllowSigned);
+
+    let query = LowerQuery::from(Query::query(
+        Name::from_str("example.com.").unwrap(),
+        RecordType::AXFR,
     ));
+    let request = Request::from_message(
+        MessageRequest::mock(*TEST_HEADER, query),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let err = authority
+        .search(&request, LookupOptions::default())
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        LookupError::ResponseCode(ResponseCode::NotAuth)
+    ))
 }

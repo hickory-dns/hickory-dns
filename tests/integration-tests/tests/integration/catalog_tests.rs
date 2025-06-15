@@ -530,6 +530,43 @@ async fn test_axfr_deny_all() {
     assert!(result.additionals().is_empty());
 }
 
+#[tokio::test]
+#[cfg(feature = "__dnssec")]
+async fn test_axfr_deny_unsigned() {
+    subscribe();
+
+    let mut test = create_test();
+    test.set_axfr_policy(AxfrPolicy::AllowSigned);
+
+    let origin = test.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), vec![Arc::new(test)]);
+
+    let mut query = Query::new();
+    query.set_name(origin.into());
+    query.set_query_type(RecordType::AXFR);
+
+    let mut question = Message::query();
+    question.add_query(query);
+
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
+
+    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert!(result.answers().is_empty());
+    assert!(result.name_servers().is_empty());
+    assert!(result.additionals().is_empty());
+}
+
 // Test that requesting NSID produces no NSID response when a payload isn't configured.
 #[tokio::test]
 async fn test_nsid_disabled_requested() {
