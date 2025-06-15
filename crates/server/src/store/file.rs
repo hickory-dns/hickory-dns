@@ -19,7 +19,7 @@ use crate::store::metrics::StoreMetrics;
 use crate::{
     authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     proto::rr::{LowerName, Name, RecordType},
-    server::{Request, RequestInfo},
+    server::Request,
     store::in_memory::{InMemoryAuthority, zone_from_path},
 };
 #[cfg(feature = "__dnssec")]
@@ -172,7 +172,7 @@ impl Authority for FileAuthority {
     ///
     /// # Arguments
     ///
-    /// * `request_info` - the query to perform the lookup with.
+    /// * `request` - the query to perform the lookup with.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///   algorithms, etc.)
     ///
@@ -181,10 +181,10 @@ impl Authority for FileAuthority {
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        let search = self.in_memory.search(request_info, lookup_options).await;
+        let search = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
         self.metrics.query.increment_lookup(&search);

@@ -416,7 +416,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
         // Wait so we can determine if we need to fire a request to the next authority in a chained
         // configuration if the current authority declines to answer.
-        let mut result = authority.search(request_info.clone(), lookup_options).await;
+        let mut result = authority.search(request, lookup_options).await;
 
         if let LookupControlFlow::Skip = result {
             trace!("catalog::lookup::authority did not handle request");

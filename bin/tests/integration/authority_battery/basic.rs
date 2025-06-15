@@ -14,23 +14,24 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{AuthLookup, Authority, LookupError, LookupOptions},
+    authority::{AuthLookup, Authority, LookupError, LookupOptions, MessageRequest},
     server::Request,
-    server::RequestInfo,
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     match lookup
         .into_iter()
@@ -85,15 +86,17 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::NS).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::NS),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = dbg!(
         lookup
@@ -122,15 +125,17 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::MX).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::MX),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = dbg!(
         lookup
@@ -180,19 +185,20 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(
-        Name::from_str("no-service.example.com.").unwrap(),
-        RecordType::MX,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("no-service.example.com.").unwrap(),
+                RecordType::MX,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     // In this case there should be no additional records
     assert!(lookup.take_additionals().is_none());
@@ -209,19 +215,20 @@ pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(
-        Name::from_str("alias.example.com.").unwrap(),
-        RecordType::CNAME,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("alias.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let cname = lookup
         .into_iter()
@@ -235,15 +242,17 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("alias.example.com.").unwrap(), RecordType::A).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("alias.example.com.").unwrap(), RecordType::A),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = lookup
         .take_additionals()
@@ -272,19 +281,20 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(
-        Name::from_str("alias-chain.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("alias-chain.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = lookup
         .take_additionals()
@@ -324,15 +334,17 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 /// In this the ANAME , should, return A and AAAA records in additional section
 /// the answer should be the A record
 pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::ANAME).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::ANAME),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = lookup
         .take_additionals()
@@ -370,15 +382,17 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 ///
 /// The additionals should include the ANAME.
 pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::A),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = lookup.take_additionals().expect("no additionals for aname");
 
@@ -409,19 +423,20 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 ///
 /// The additionals should include the ANAME, this one should include the CNAME chain as well.
 pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(
-        Name::from_str("aname-chain.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("aname-chain.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = lookup.take_additionals().expect("no additionals");
 
@@ -481,19 +496,20 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
 #[allow(clippy::uninlined_format_args)]
 pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(
-        Name::from_str("this.has.dots.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("this.has.dots.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     assert_eq!(
         *lookup
@@ -507,68 +523,73 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     );
 
     // the rest should all be NameExists
-    let query = Query::query(
-        Name::from_str("has.dots.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("has.dots.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap_err();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap_err();
 
     assert!(lookup.is_name_exists(), "lookup: {}", lookup);
 
     // the rest should all be NameExists
-    let query = Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap_err();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap_err();
 
     assert!(lookup.is_name_exists());
 
     // and this should be an NXDOMAIN
-    let query = Query::query(
-        Name::from_str("not.this.has.dots.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("not.this.has.dots.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap_err();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap_err();
 
     assert!(lookup.is_nx_domain());
 }
 
 pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
     // check direct lookup
-    let query = Query::query(
-        Name::from_str("*.wildcard.example.com.").unwrap(),
-        RecordType::CNAME,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("*.wildcard.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     assert_eq!(
         lookup
@@ -583,19 +604,20 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
     );
 
     // check wildcard lookup
-    let query = Query::query(
-        Name::from_str("www.wildcard.example.com.").unwrap(),
-        RecordType::CNAME,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("www.wildcard.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+    let lookup = block_on(authority.search(&request, LookupOptions::default()))
         .expect("lookup of www.wildcard.example.com. failed");
 
     assert_eq!(
@@ -620,19 +642,20 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
 pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     // check wildcard lookup
-    let query = Query::query(
-        Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
-        RecordType::CNAME,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default()))
+    let lookup = block_on(authority.search(&request, LookupOptions::default()))
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
     assert_eq!(
@@ -657,19 +680,20 @@ pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A) 
 
 pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     // check wildcard lookup
-    let query = Query::query(
-        Name::from_str("www.wildcard.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("www.wildcard.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default()))
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default()))
         .expect("lookup of www.wildcard.example.com. failed");
 
     // the name should match the lookup, not the A records
@@ -698,19 +722,20 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(
-        Name::from_str("server.example.com.").unwrap(),
-        RecordType::SRV,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("server.example.com.").unwrap(),
+                RecordType::SRV,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let mut lookup = block_on(authority.search(request_info, LookupOptions::default())).unwrap();
+    let mut lookup = block_on(authority.search(&request, LookupOptions::default())).unwrap();
 
     let additionals = dbg!(
         lookup
@@ -757,15 +782,17 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("www.google.com.").unwrap(), RecordType::A).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("www.google.com.").unwrap(), RecordType::A),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::default()));
+    let lookup = block_on(authority.search(&request, LookupOptions::default()));
 
     let err = lookup.expect_err("Lookup for www.google.com succeeded");
     match err {
