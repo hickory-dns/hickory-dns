@@ -1362,10 +1362,41 @@ async fn test_axfr_deny_all() {
     )
     .unwrap();
 
-    let result = authority.search(&request, LookupOptions::default()).await;
-
+    let err = authority
+        .search(&request, LookupOptions::default())
+        .await
+        .unwrap_err();
     assert!(matches!(
-        result.unwrap_err(),
-        LookupError::ResponseCode(ResponseCode::Refused)
+        err,
+        LookupError::ResponseCode(ResponseCode::NotAuth)
+    ))
+}
+
+#[cfg(feature = "__dnssec")]
+#[tokio::test]
+async fn test_axfr_deny_unsigned() {
+    subscribe();
+    let mut authority = create_example();
+    authority.set_axfr_policy(AxfrPolicy::AllowSigned);
+
+    let query = LowerQuery::from(Query::query(
+        Name::from_str("example.com.").unwrap(),
+        RecordType::AXFR,
     ));
+    let queries = Queries::new(vec![query]);
+    let request = Request::from_message(
+        MessageRequest::mock(*TEST_HEADER, queries),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let err = authority
+        .search(&request, LookupOptions::default())
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        LookupError::ResponseCode(ResponseCode::NotAuth)
+    ))
 }
