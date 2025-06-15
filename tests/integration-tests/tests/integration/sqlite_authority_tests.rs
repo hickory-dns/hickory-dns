@@ -64,6 +64,7 @@ async fn test_search() {
     let result = example
         .search(&request, LookupOptions::default())
         .await
+        .0
         .unwrap();
     if !result.is_empty() {
         let record = result.iter().next().unwrap();
@@ -94,6 +95,7 @@ async fn test_search_www() {
     let result = example
         .search(&request, LookupOptions::default())
         .await
+        .0
         .unwrap();
     if !result.is_empty() {
         let record = result.iter().next().unwrap();
@@ -902,7 +904,7 @@ async fn test_update_tsig_valid() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should succeed.
-    assert!(authority.update(&request).await.unwrap());
+    authority.update(&request).await.0.unwrap();
 
     // And we should now be able to look up the new record.
     let new_name = Name::from_str("new.example.com.").unwrap();
@@ -957,7 +959,10 @@ async fn test_update_tsig_invalid_unknown_signer() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been refused.
-    assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
+    assert_eq!(
+        authority.update(&request).await.0,
+        Err(ResponseCode::Refused)
+    );
 }
 
 #[cfg(feature = "__dnssec")]
@@ -998,7 +1003,10 @@ async fn test_update_tsig_invalid_sig() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been refused.
-    assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
+    assert_eq!(
+        authority.update(&request).await.0,
+        Err(ResponseCode::Refused)
+    );
 }
 
 #[cfg(feature = "__dnssec")]
@@ -1033,7 +1041,10 @@ async fn test_update_tsig_invalid_stale_sig() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been refused.
-    assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
+    assert_eq!(
+        authority.update(&request).await.0,
+        Err(ResponseCode::Refused)
+    );
 }
 
 #[cfg(feature = "__dnssec")]
@@ -1332,6 +1343,7 @@ async fn test_axfr_allow_all() {
     let result = authority
         .search(&request, LookupOptions::default())
         .await
+        .0
         .unwrap();
 
     // just update this if the count goes up in the authority
@@ -1357,6 +1369,7 @@ async fn test_axfr_deny_all() {
     let err = authority
         .search(&request, LookupOptions::default())
         .await
+        .0
         .unwrap_err();
     assert!(matches!(
         err,
@@ -1385,6 +1398,7 @@ async fn test_axfr_deny_unsigned() {
     let err = authority
         .search(&request, LookupOptions::default())
         .await
+        .0
         .unwrap_err();
     assert!(matches!(
         err,

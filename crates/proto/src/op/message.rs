@@ -931,6 +931,12 @@ pub trait MessageSigner: Send + Sync + 'static {
     }
 }
 
+/// A trait for producing a `MessageSignature` for responses
+pub trait ResponseSigner: Send + Sync {
+    /// sign produces a `MessageSignature` for the provided encoded, unsigned, response message.
+    fn sign(self: Box<Self>, response: &[u8]) -> Result<MessageSignature, ProtoError>;
+}
+
 /// Returns the count written and a boolean if it was truncated
 pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
     match result {

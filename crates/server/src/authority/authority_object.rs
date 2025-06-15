@@ -16,6 +16,7 @@ use crate::{
         Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
         ZoneType,
     },
+    proto::op::message::ResponseSigner,
     proto::rr::{LowerName, Record, RecordType},
     server::Request,
 };
@@ -33,7 +34,10 @@ pub trait AuthorityObject: Send + Sync {
     fn can_validate_dnssec(&self) -> bool;
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &Request) -> UpdateResult<bool>;
+    async fn update(
+        &self,
+        update: &Request,
+    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>);
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
@@ -85,13 +89,20 @@ pub trait AuthorityObject: Send + Sync {
     /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
     /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
     /// authority in question.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client. If it is
+    /// `None` and an earlier authority provided `Some`, it will be ignored. If it is `Some` it
+    /// will be used to replace any previous `ResponseSigner`.
     async fn consult(
         &self,
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<Box<dyn ResponseSigner>>,
+    );
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -104,11 +115,16 @@ pub trait AuthorityObject: Send + Sync {
     /// # Return value
     ///
     /// A LookupControlFlow containing the lookup that should be returned to the client.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client.
     async fn search(
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<Box<dyn ResponseSigner>>,
+    );
 
     /// Get the NS, NameServer, record for the zone
     async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Box<dyn LookupObject>> {
@@ -184,7 +200,10 @@ where
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &Request) -> UpdateResult<bool> {
+    async fn update(
+        &self,
+        update: &Request,
+    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
         Authority::update(self, update).await
     }
 
@@ -244,13 +263,20 @@ where
     /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
     /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
     /// authority in question.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client. If it is
+    /// `None` and an earlier authority provided `Some`, it will be ignored. If it is `Some` it
+    /// will be used to replace any previous `ResponseSigner`.
     async fn consult(
         &self,
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         Authority::consult(self, name, rtype, lookup_options, last_result).await
     }
 
@@ -265,19 +291,23 @@ where
     /// # Return value
     ///
     /// A LookupControlFlow containing the lookup that should be returned to the client.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client.
     async fn search(
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
         debug!("performing {} on {}", request_info.query, self.origin());
-        Authority::search(self, request, lookup_options)
-            .await
-            .map_dyn()
+        let (res, signer) = Authority::search(self, request, lookup_options).await;
+        (res.map_dyn(), signer)
     }
 
     /// Return the NSEC records based on the given name

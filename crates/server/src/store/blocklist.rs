@@ -31,6 +31,7 @@ use crate::{
         UpdateResult, ZoneType,
     },
     proto::{
+        op::message::ResponseSigner,
         op::{Query, ResponseCode},
         rr::{
             LowerName, Name, RData, Record, RecordType,
@@ -322,8 +323,11 @@ impl Authority for BlocklistAuthority {
         AxfrPolicy::Deny
     }
 
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(
+        &self,
+        _update: &Request,
+    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     fn origin(&self) -> &LowerName {
@@ -358,22 +362,24 @@ impl Authority for BlocklistAuthority {
         rtype: RecordType,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         match self.consult_action {
-            BlocklistConsultAction::Disabled => last_result,
+            BlocklistConsultAction::Disabled => return (last_result, None),
             BlocklistConsultAction::Log => {
                 self.is_blocked(name);
-                last_result
+                return (last_result, None);
             }
-            BlocklistConsultAction::Enforce => {
-                let lookup = self.lookup(name, rtype, lookup_options).await;
+            BlocklistConsultAction::Enforce => {}
+        }
 
-                if lookup.is_break() {
-                    lookup.map_dyn()
-                } else {
-                    last_result
-                }
-            }
+        let lookup = self.lookup(name, rtype, lookup_options).await;
+        if lookup.is_break() {
+            (lookup.map_dyn(), None)
+        } else {
+            (last_result, None)
         }
     }
 
@@ -381,17 +387,23 @@ impl Authority for BlocklistAuthority {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> (
+        LookupControlFlow<Self::Lookup>,
+        Option<Box<dyn ResponseSigner>>,
+    ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
-        self.lookup(
-            request_info.query.name(),
-            request_info.query.query_type(),
-            lookup_options,
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                lookup_options,
+            )
+            .await,
+            None,
         )
-        .await
     }
 
     async fn get_nsec_records(
