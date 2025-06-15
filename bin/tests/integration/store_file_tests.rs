@@ -4,7 +4,7 @@ use std::{
 };
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
-use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};
@@ -18,7 +18,7 @@ fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileAuthority {
     FileAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         None,
         &config,
         #[cfg(feature = "__dnssec")]
@@ -41,7 +41,7 @@ fn test_all_lines_are_loaded() {
     let mut authority = FileAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         None,
         &config,
         #[cfg(feature = "__dnssec")]
@@ -65,7 +65,7 @@ fn test_implicit_in_class() {
     let authority = FileAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         None,
         &config,
         #[cfg(feature = "__dnssec")]
@@ -85,7 +85,7 @@ async fn test_ttl_wildcard() {
     let mut authority = FileAuthority::try_from_config(
         Name::from(zone_name.clone()),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         None,
         &config,
         #[cfg(feature = "__dnssec")]

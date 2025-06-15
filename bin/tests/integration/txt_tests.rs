@@ -5,7 +5,7 @@ use futures_executor::block_on;
 use hickory_proto::rr::rdata::{A, AAAA, tlsa::*};
 use hickory_proto::rr::*;
 use hickory_proto::serialize::txt::*;
-use hickory_server::authority::{Authority, LookupOptions, ZoneType};
+use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
@@ -71,7 +71,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         origin,
         records,
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     )
@@ -448,7 +448,7 @@ a       A       127.0.0.1
             origin,
             records,
             ZoneType::Primary,
-            false,
+            AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),
         )
@@ -486,7 +486,7 @@ b       A       127.0.0.2
             origin,
             records,
             ZoneType::Primary,
-            false,
+            AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),
         )
@@ -523,7 +523,7 @@ a       A       127.0.0.1
             origin,
             records,
             ZoneType::Primary,
-            false,
+            AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),
         )

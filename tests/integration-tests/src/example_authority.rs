@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record};
-use hickory_server::authority::ZoneType;
+use hickory_server::authority::{AxfrPolicy, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
@@ -12,7 +12,7 @@ pub fn create_example() -> InMemoryAuthority {
     let mut records = InMemoryAuthority::empty(
         origin.clone(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );

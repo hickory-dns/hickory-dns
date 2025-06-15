@@ -22,8 +22,8 @@ use crate::store::metrics::QueryStoreMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
-        ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -218,9 +218,9 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         ZoneType::External
     }
 
-    /// Always false for Forward zones
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    /// AXFR requests are always denied for Forward zones
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
     /// Whether the authority can perform DNSSEC validation

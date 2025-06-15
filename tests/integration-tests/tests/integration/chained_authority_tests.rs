@@ -11,8 +11,8 @@ use hickory_proto::{
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
-        Authority, Catalog, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        LookupRecords, UpdateResult, ZoneType,
+        Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupObject,
+        LookupOptions, LookupRecords, UpdateResult, ZoneType,
     },
     server::{Request, RequestInfo, ResponseInfo},
 };
@@ -182,9 +182,8 @@ impl Authority for TestAuthority {
         self.zone_type
     }
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
     async fn update(&self, _update: &Request) -> UpdateResult<bool> {
