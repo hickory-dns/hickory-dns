@@ -32,7 +32,7 @@ use hickory_proto::{
 use hickory_resolver::Name;
 use hickory_server::{
     ServerFuture,
-    authority::{Catalog, MessageResponseBuilder, ZoneType},
+    authority::{AxfrPolicy, Catalog, MessageResponseBuilder, ZoneType},
     dnssec::NxProofKind,
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     store::in_memory::InMemoryAuthority,
@@ -547,7 +547,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryAut
     let mut authority = InMemoryAuthority::empty(
         origin.clone(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         Some(NxProofKind::Nsec3 {
             algorithm: Nsec3HashAlgorithm::SHA1,
             salt: data_encoding::HEXLOWER_PERMISSIVE

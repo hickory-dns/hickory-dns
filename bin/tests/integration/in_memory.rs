@@ -7,7 +7,7 @@ use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::CNAME};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
-    authority::{Authority, ZoneType},
+    authority::{Authority, AxfrPolicy, ZoneType},
     store::in_memory::InMemoryAuthority,
 };
 
@@ -19,7 +19,7 @@ fn test_cname_loop() {
     let mut auth = InMemoryAuthority::empty(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );

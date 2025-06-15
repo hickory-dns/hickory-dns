@@ -12,7 +12,7 @@ use tracing::debug;
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
-    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     proto::rr::{LowerName, Record, RecordType},
     server::{Request, RequestInfo},
 };
@@ -23,8 +23,8 @@ pub trait AuthorityObject: Send + Sync {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool;
+    /// Return the policy for determining if AXFR requests are allowed
+    fn axfr_policy(&self) -> AxfrPolicy;
 
     /// Whether the authority can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool;
@@ -170,9 +170,9 @@ where
         Authority::zone_type(self)
     }
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        Authority::is_axfr_allowed(self)
+    /// Return the policy for determining if AXFR requests are allowed
+    fn axfr_policy(&self) -> AxfrPolicy {
+        Authority::axfr_policy(self)
     }
 
     /// Whether the authority can perform DNSSEC validation

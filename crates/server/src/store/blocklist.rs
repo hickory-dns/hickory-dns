@@ -27,8 +27,8 @@ use tracing::{info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
-        ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        UpdateResult, ZoneType,
     },
     proto::{
         op::{Query, ResponseCode},
@@ -318,8 +318,8 @@ impl Authority for BlocklistAuthority {
         ZoneType::External
     }
 
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
     async fn update(&self, _update: &Request) -> UpdateResult<bool> {

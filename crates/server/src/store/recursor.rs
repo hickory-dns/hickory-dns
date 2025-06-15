@@ -28,8 +28,8 @@ use tracing::{debug, info};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
-        ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        UpdateResult, ZoneType,
     },
     error::ConfigError,
     proto::{
@@ -108,9 +108,9 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         ZoneType::External
     }
 
-    /// Always false for Forward zones
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    /// Always deny for Forward zones
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
     fn can_validate_dnssec(&self) -> bool {
