@@ -17,22 +17,24 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions},
-    server::RequestInfo,
+    authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions, MessageRequest},
+    server::Request,
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
-    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::for_dnssec(true))).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true))).unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -104,19 +106,20 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
 }
 
 pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
-    let query = Query::query(
-        Name::from_str("aname-chain.example.com.").unwrap(),
-        RecordType::A,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("aname-chain.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::for_dnssec(true))).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true))).unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -134,19 +137,20 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
 
 pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // check wildcard lookup
-    let query = Query::query(
-        Name::from_str("www.wildcard.example.com.").unwrap(),
-        RecordType::CNAME,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("www.wildcard.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::for_dnssec(true)))
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
         .expect("lookup of www.wildcard.example.com. failed");
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -171,19 +175,20 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
 
 pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // check wildcard lookup
-    let query = Query::query(
-        Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
-        RecordType::CNAME,
-    )
-    .into();
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(
+                Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let lookup = block_on(authority.search(request_info, LookupOptions::for_dnssec(true)))
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup

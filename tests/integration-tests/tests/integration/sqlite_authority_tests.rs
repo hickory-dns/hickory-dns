@@ -13,20 +13,19 @@ use rusqlite::*;
 use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::tsig::TSigner;
-use hickory_proto::op::{
-    Header, LowerQuery, Message, MessageSigner, MessageType, OpCode, Query, ResponseCode,
-};
+use hickory_proto::op::{Header, Message, MessageSigner, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::BinEncodable;
 use hickory_proto::xfer::Protocol;
-use hickory_server::authority::{Authority, AxfrPolicy, LookupError, LookupOptions, ZoneType};
+use hickory_server::authority::{
+    Authority, AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneType,
+};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "__dnssec")]
 use hickory_server::server::Request;
-use hickory_server::server::RequestInfo;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};
 use test_support::subscribe;
@@ -50,18 +49,17 @@ async fn test_search() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(origin.into());
-    let query = LowerQuery::from(query);
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(*TEST_HEADER, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
     let result = example
-        .search(request_info, LookupOptions::default())
+        .search(&request, LookupOptions::default())
         .await
         .unwrap();
     if !result.is_empty() {
@@ -81,18 +79,17 @@ async fn test_search_www() {
     let example = create_example();
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(www_name);
-    let query = LowerQuery::from(query);
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(*TEST_HEADER, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
     let result = example
-        .search(request_info, LookupOptions::default())
+        .search(&request, LookupOptions::default())
         .await
         .unwrap();
     if !result.is_empty() {
@@ -1319,19 +1316,18 @@ async fn test_axfr_allow_all() {
     let mut authority = create_example();
     authority.set_axfr_policy(AxfrPolicy::AllowAll);
 
-    let query = LowerQuery::from(Query::query(
-        Name::from_str("example.com.").unwrap(),
-        RecordType::AXFR,
-    ));
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
     let result = authority
-        .search(request_info, LookupOptions::default())
+        .search(&request, LookupOptions::default())
         .await
         .unwrap();
 
@@ -1345,20 +1341,17 @@ async fn test_axfr_deny_all() {
     let mut authority = create_example();
     authority.set_axfr_policy(AxfrPolicy::Deny);
 
-    let query = LowerQuery::from(Query::query(
-        Name::from_str("example.com.").unwrap(),
-        RecordType::AXFR,
-    ));
-    let request_info = RequestInfo::new(
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_HEADER,
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+        ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-        TEST_HEADER,
-        &query,
-    );
+    )
+    .unwrap();
 
-    let result = authority
-        .search(request_info, LookupOptions::default())
-        .await;
+    let result = authority.search(&request, LookupOptions::default()).await;
 
     assert!(matches!(
         result.unwrap_err(),

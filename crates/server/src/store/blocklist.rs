@@ -38,7 +38,7 @@ use crate::{
         },
     },
     resolver::lookup::Lookup,
-    server::{Request, RequestInfo},
+    server::Request,
 };
 
 // TODO:
@@ -379,9 +379,13 @@ impl Authority for BlocklistAuthority {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+        };
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),

@@ -12,9 +12,12 @@ use tracing::debug;
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
-    authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
+        ZoneType,
+    },
     proto::rr::{LowerName, Record, RecordType},
-    server::{Request, RequestInfo},
+    server::Request,
 };
 
 /// An Object safe Authority
@@ -94,7 +97,7 @@ pub trait AuthorityObject: Send + Sync {
     ///
     /// # Arguments
     ///
-    /// * `request_info` - the query to perform the lookup with.
+    /// * `request` - the query to perform the lookup with.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     ///
@@ -103,7 +106,7 @@ pub trait AuthorityObject: Send + Sync {
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>>;
 
@@ -255,7 +258,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `request_info` - the query to perform the lookup with.
+    /// * `request` - the query to perform the lookup with.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     ///
@@ -264,11 +267,15 @@ where
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Box<dyn LookupObject>> {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+        };
         debug!("performing {} on {}", request_info.query, self.origin());
-        Authority::search(self, request_info, lookup_options)
+        Authority::search(self, request, lookup_options)
             .await
             .map_dyn()
     }
