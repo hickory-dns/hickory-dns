@@ -17,7 +17,10 @@ use serde::Deserialize;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{
+        Authority, AxfrPolicy, LookupControlFlow, LookupOptions, ResponseSigner, UpdateResult,
+        ZoneType,
+    },
     proto::rr::{LowerName, Name, RecordType},
     server::Request,
     store::in_memory::{InMemoryAuthority, zone_from_path},
@@ -129,9 +132,9 @@ impl Authority for FileAuthority {
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
         use crate::proto::op::ResponseCode;
-        Err(ResponseCode::NotImp)
+        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
@@ -183,13 +186,13 @@ impl Authority for FileAuthority {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
-        let search = self.in_memory.search(request, lookup_options).await;
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
+        let (search, signer) = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
         self.metrics.query.increment_lookup(&search);
 
-        search
+        (search, signer)
     }
 
     /// Get the NS, NameServer, record for the zone

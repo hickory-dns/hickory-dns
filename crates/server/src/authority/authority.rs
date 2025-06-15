@@ -13,6 +13,8 @@ use std::fmt;
 
 use crate::{
     authority::{LookupError, LookupObject, UpdateResult, ZoneType},
+    proto::ProtoError,
+    proto::op::MessageSignature,
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     server::Request,
 };
@@ -20,7 +22,6 @@ use crate::{
 use crate::{
     dnssec::NxProofKind,
     proto::{
-        ProtoError,
         dnssec::{DnsSecResult, Nsec3HashAlgorithm, SigSigner, crypto::Digest, rdata::key::KEY},
         rr::Name,
     },
@@ -86,7 +87,7 @@ pub trait Authority: Send + Sync {
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &Request) -> UpdateResult<bool>;
+    async fn update(&self, update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>);
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
@@ -138,14 +139,21 @@ pub trait Authority: Send + Sync {
     /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
     /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
     /// authority in question.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client. If it is
+    /// `None` and an earlier authority provided `Some`, it will be ignored. If it is `Some` it
+    /// will be used to replace any previous `ResponseSigner`.
     async fn consult(
         &self,
         _name: &LowerName,
         _rtype: RecordType,
         _lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        last_result
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<ResponseSigner>,
+    ) {
+        (last_result, None)
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -159,11 +167,13 @@ pub trait Authority: Send + Sync {
     /// # Return value
     ///
     /// A LookupControlFlow containing the lookup that should be returned to the client.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client.
     async fn search(
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup>;
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>);
 
     /// Get the NS, NameServer, record for the zone
     async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
@@ -454,3 +464,7 @@ impl Nsec3QueryInfo<'_> {
         Ok(LowerName::new(&zone.prepend_label(label)?))
     }
 }
+
+/// A `ResponseSigner` takes a serialized response and produces a `MessageSignature` for it
+pub type ResponseSigner =
+    Box<dyn FnOnce(&[u8]) -> Result<MessageSignature, ProtoError> + Send + Sync>;

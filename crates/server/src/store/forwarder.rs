@@ -23,7 +23,7 @@ use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Trust
 use crate::{
     authority::{
         Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        UpdateResult, ZoneType,
+        ResponseSigner, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -228,8 +228,8 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         self.resolver.options().validate
     }
 
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
@@ -274,17 +274,20 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
-        self.lookup(
-            request_info.query.name(),
-            request_info.query.query_type(),
-            lookup_options,
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                lookup_options,
+            )
+            .await,
+            None,
         )
-        .await
     }
 
     async fn get_nsec_records(

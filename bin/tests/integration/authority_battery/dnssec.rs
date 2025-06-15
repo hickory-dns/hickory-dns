@@ -34,7 +34,9 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true))).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+        .0
+        .unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -120,7 +122,9 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true))).unwrap();
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+        .0
+        .unwrap();
 
     let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -153,6 +157,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
     .unwrap();
 
     let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+        .0
         .expect("lookup of www.wildcard.example.com. failed");
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup
@@ -192,6 +197,7 @@ pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A, 
     .unwrap();
 
     let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+        .0
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
     let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup

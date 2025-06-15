@@ -23,7 +23,7 @@ use tracing::{debug, info};
 use crate::{
     authority::{
         AnyRecords, AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
-        LookupOptions, LookupRecords, UpdateResult, ZoneType,
+        LookupOptions, LookupRecords, ResponseSigner, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -385,8 +385,8 @@ impl Authority for InMemoryAuthority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
@@ -579,10 +579,10 @@ impl Authority for InMemoryAuthority {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
@@ -594,26 +594,31 @@ impl Authority for InMemoryAuthority {
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
             if !matches!(self.axfr_policy, AxfrPolicy::AllowAll) {
-                return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
+                return (
+                    LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused))),
+                    None,
+                );
             }
 
             match self.zone_type() {
                 ZoneType::Primary | ZoneType::Secondary => (),
                 // TODO: Forward?
                 _ => {
-                    return LookupControlFlow::Continue(Err(LookupError::from(
-                        ResponseCode::NXDomain,
-                    )));
+                    return (
+                        LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
+                        None,
+                    );
                 }
             }
         }
 
         // perform the actual lookup
         match record_type {
-            RecordType::SOA => {
+            RecordType::SOA => (
                 self.lookup(self.origin(), record_type, lookup_options)
-                    .await
-            }
+                    .await,
+                None,
+            ),
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
                 use LookupControlFlow::Continue;
@@ -636,14 +641,20 @@ impl Authority for InMemoryAuthority {
                     LookupRecords::Empty
                 };
 
-                LookupControlFlow::Continue(Ok(AuthLookup::AXFR {
-                    start_soa,
-                    end_soa,
-                    records,
-                }))
+                (
+                    LookupControlFlow::Continue(Ok(AuthLookup::AXFR {
+                        start_soa,
+                        end_soa,
+                        records,
+                    })),
+                    None,
+                )
             }
             // A standard Lookup path
-            _ => self.lookup(lookup_name, record_type, lookup_options).await,
+            _ => (
+                self.lookup(lookup_name, record_type, lookup_options).await,
+                None,
+            ),
         }
     }
 

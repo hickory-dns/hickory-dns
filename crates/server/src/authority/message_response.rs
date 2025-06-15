@@ -66,6 +66,11 @@ where
         &self.edns
     }
 
+    /// Set the message signature
+    pub fn set_signature(&mut self, signature: MessageSignature) {
+        self.signature = signature;
+    }
+
     /// Consumes self, and emits to the encoder.
     pub fn destructive_emit(
         mut self,
