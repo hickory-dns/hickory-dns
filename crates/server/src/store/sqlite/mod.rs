@@ -37,7 +37,7 @@ use crate::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
-    server::{Request, RequestInfo},
+    server::Request,
     store::{
         file::rooted,
         in_memory::{InMemoryAuthority, zone_from_path},
@@ -1039,16 +1039,20 @@ impl Authority for SqliteAuthority {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+        };
         if request_info.query.query_type() == RecordType::AXFR
             && self.axfr_policy != AxfrPolicy::AllowAll
         {
             return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
         }
 
-        let search = self.in_memory.search(request_info, lookup_options).await;
+        let search = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
         self.metrics.query.increment_lookup(&search);

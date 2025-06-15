@@ -28,6 +28,22 @@ pub struct MessageRequest {
 }
 
 impl MessageRequest {
+    /// Construct a mock MessageRequest for testing purposes
+    ///
+    /// The unspecified fields are left empty.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn mock(header: Header, queries: Queries) -> Self {
+        Self {
+            header,
+            queries,
+            answers: Vec::new(),
+            name_servers: Vec::new(),
+            additionals: Vec::new(),
+            signature: MessageSignature::Unsigned,
+            edns: None,
+        }
+    }
+
     /// Return the request header
     pub fn header(&self) -> &Header {
         &self.header
@@ -231,6 +247,20 @@ pub struct Queries {
 }
 
 impl Queries {
+    /// Construct a mock Queries object for a given query for testing purposes
+    #[cfg(any(test, feature = "testing"))]
+    pub fn new(query: Vec<LowerQuery>) -> Self {
+        let mut encoded = Vec::new();
+        let mut encoder = BinEncoder::new(&mut encoded);
+        for q in query.iter() {
+            q.emit(&mut encoder).unwrap();
+        }
+        Self {
+            queries: query,
+            original: encoded.into_boxed_slice(),
+        }
+    }
+
     fn read_queries(
         decoder: &mut BinDecoder<'_>,
         count: usize,

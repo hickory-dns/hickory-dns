@@ -14,7 +14,7 @@ use hickory_server::{
         Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupObject,
         LookupOptions, LookupRecords, UpdateResult, ZoneType,
     },
-    server::{Request, RequestInfo, ResponseInfo},
+    server::{Request, ResponseInfo},
 };
 use test_support::subscribe;
 
@@ -226,9 +226,13 @@ impl Authority for TestAuthority {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return LookupControlFlow::Break(Err(LookupError::from(e))),
+        };
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),

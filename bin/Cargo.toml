@@ -108,6 +108,7 @@ bytes.workspace = true
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 regex.workspace = true
 hickory-proto = { workspace = true, features = ["testing", "std"] }
+hickory-server = { workspace = true, features = ["testing"]}
 hickory-resolver.workspace = true
 test-support.workspace = true
 toml.workspace = true

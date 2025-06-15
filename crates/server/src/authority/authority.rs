@@ -14,7 +14,7 @@ use std::fmt;
 use crate::{
     authority::{LookupError, LookupObject, UpdateResult, ZoneType},
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
-    server::{Request, RequestInfo},
+    server::Request,
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -161,7 +161,7 @@ pub trait Authority: Send + Sync {
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn search(
         &self,
-        request: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup>;
 
