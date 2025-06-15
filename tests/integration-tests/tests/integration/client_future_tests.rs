@@ -33,6 +33,8 @@ use hickory_proto::{
     runtime::TokioTime,
     xfer::{DnsExchangeBackground, DnsMultiplexer},
 };
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use hickory_server::authority::AxfrPolicy;
 use hickory_server::authority::{Authority, Catalog};
 
 #[tokio::test]
@@ -264,7 +266,7 @@ async fn create_sig0_ready_client() -> (
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
-    let mut authority = SqliteAuthority::new(authority, true, false);
+    let mut authority = SqliteAuthority::new(authority, AxfrPolicy::Deny, true, false);
     let origin = authority.origin().clone();
 
     let trusted_name = Name::from_str("trusted.example.com.").unwrap();
