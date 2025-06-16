@@ -195,7 +195,7 @@ impl MessageSigner for TSigner {
             self.0.fudge,
             Vec::new(),
             message.id(),
-            0,
+            None,
             Vec::new(),
         );
         let mut signature: Vec<u8> = self

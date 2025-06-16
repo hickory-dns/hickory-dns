@@ -150,7 +150,7 @@ pub struct TSIG {
     fudge: u16,
     mac: Vec<u8>,
     oid: u16,
-    error: u16,
+    error: Option<TsigError>,
     other: Vec<u8>,
 }
 
@@ -244,7 +244,7 @@ impl TSIG {
         fudge: u16,
         mac: Vec<u8>,
         oid: u16,
-        error: u16,
+        error: Option<TsigError>,
         other: Vec<u8>,
     ) -> Self {
         Self {
@@ -276,6 +276,22 @@ impl TSIG {
     /// Returns the algorithm used for the authentication code
     pub fn algorithm(&self) -> &TsigAlgorithm {
         &self.algorithm
+    }
+
+    /// Returns the TSIG error RCODE
+    ///
+    /// This is separate from the top-level error RCODE of a response
+    /// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
+    pub fn error(&self) -> &Option<TsigError> {
+        &self.error
+    }
+
+    /// Set the TSIG error RCODE
+    ///
+    /// This is separate from the top-level error RCODE of a response
+    /// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
+    pub fn set_error(&mut self, error: TsigError) {
+        self.error = Some(error)
     }
 
     /// Emit TSIG RR and RDATA as used for computing MAC
@@ -323,7 +339,10 @@ impl TSIG {
         encoder.emit_u16((self.time >> 32) as u16)?;
         encoder.emit_u32(self.time as u32)?;
         encoder.emit_u16(self.fudge)?;
-        encoder.emit_u16(self.error)?;
+        encoder.emit_u16(match self.error {
+            None => 0,
+            Some(err) => u16::from(err),
+        })?;
         encoder.emit_u16(self.other.len() as u16)?;
         encoder.emit_vec(&self.other)?;
         Ok(())
@@ -381,7 +400,10 @@ impl BinEncodable for TSIG {
         )?;
         encoder.emit_vec(&self.mac)?;
         encoder.emit_u16(self.oid)?;
-        encoder.emit_u16(self.error)?;
+        encoder.emit_u16(match self.error {
+            None => 0,
+            Some(err) => u16::from(err),
+        })?;
         encoder.emit_u16(self.other.len().try_into().map_err(|_| {
             ProtoError::from("invalid other_buffer, longer than 65535 B in TSIG")
         })?)?;
@@ -432,7 +454,10 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
         let mac =
             decoder.read_vec(mac_size as usize)?.unverified(/*valid as any vec of the right size*/);
         let oid = decoder.read_u16()?.unverified(/*valid as any u16*/);
-        let error = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let error = match decoder.read_u16()?.unverified(/*valid as any u16*/) {
+            0 => None,
+            code => Some(TsigError::from(code)),
+        };
         let other_len = decoder
             .read_u16()?
             .verify_unwrap(|&size| decoder.index() + size as usize == end_idx)
@@ -479,7 +504,7 @@ impl fmt::Display for TSIG {
             fudge = self.fudge,
             mac = sshfp::HEX.encode(&self.mac),
             oid = self.oid,
-            error = self.error,
+            error = self.error.map(Into::into).unwrap_or(0),
             other = sshfp::HEX.encode(&self.other),
         )
     }
@@ -604,6 +629,48 @@ impl BinDecodable<'_> for TsigAlgorithm {
         let mut name = Name::read(decoder)?;
         name.set_fqdn(false);
         Ok(Self::from_name(name))
+    }
+}
+
+/// A TSIG RR error rcode
+///
+/// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
+pub enum TsigError {
+    /// Bad signature
+    BadSig,
+    /// Bad key
+    BadKey,
+    /// Bad signature time
+    BadTime,
+    /// Bad truncated request MAC
+    BadTrunc,
+    /// An unknown error
+    Unknown(u16),
+}
+
+impl From<u16> for TsigError {
+    fn from(value: u16) -> Self {
+        match value {
+            16 => Self::BadSig,
+            17 => Self::BadKey,
+            18 => Self::BadTime,
+            22 => Self::BadTrunc,
+            code => Self::Unknown(code),
+        }
+    }
+}
+
+impl From<TsigError> for u16 {
+    fn from(value: TsigError) -> Self {
+        match value {
+            TsigError::BadSig => 16,
+            TsigError::BadKey => 17,
+            TsigError::BadTime => 18,
+            TsigError::BadTrunc => 22,
+            TsigError::Unknown(code) => code,
+        }
     }
 }
 
@@ -769,7 +836,7 @@ mod tests {
             300,
             vec![0, 1, 2, 3],
             0,
-            0,
+            None,
             vec![4, 5, 6, 7],
         ));
         test_encode_decode(TSIG::new(
@@ -778,7 +845,7 @@ mod tests {
             60,
             vec![9, 8, 7, 6, 5, 4],
             1,
-            2,
+            Some(TsigError::BadKey),
             vec![],
         ));
         test_encode_decode(TSIG::new(
@@ -787,7 +854,16 @@ mod tests {
             60,
             vec![],
             1,
-            2,
+            Some(TsigError::BadTime),
+            vec![0, 1, 2, 3, 4, 5, 6],
+        ));
+        test_encode_decode(TSIG::new(
+            TsigAlgorithm::Unknown(Name::from_ascii("unknown_algorithm").unwrap()),
+            123456789,
+            60,
+            vec![],
+            1,
+            Some(TsigError::Unknown(420)),
             vec![0, 1, 2, 3, 4, 5, 6],
         ));
     }
@@ -805,7 +881,7 @@ mod tests {
             60,
             vec![],
             message.id(),
-            0,
+            None,
             vec![],
         );
 
@@ -837,7 +913,7 @@ mod tests {
             60,
             vec![],
             message.id(),
-            0,
+            None,
             vec![],
         );
 
