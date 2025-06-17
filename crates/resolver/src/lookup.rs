@@ -9,31 +9,25 @@
 
 use std::{
     cmp::min,
-    pin::Pin,
     slice::Iter,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use futures_util::stream::Stream;
-
 use crate::{
     cache::MAX_TTL,
     lookup_ip::LookupIpIter,
-    name_server::{ConnectionProvider, NameServerPool},
     proto::{
-        DnsHandle, ProtoError, RetryDnsHandle,
         op::Query,
         rr::{
             RData, Record,
             rdata::{self, A, AAAA, NS, PTR},
         },
-        xfer::{DnsRequest, DnsResponse},
     },
 };
 
 #[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::{DnssecDnsHandle, Proven};
+use crate::proto::dnssec::Proven;
 
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
@@ -219,35 +213,6 @@ impl Iterator for LookupIntoIter {
         let rdata = self.records.get(self.index).map(Record::data);
         self.index += 1;
         rdata.cloned()
-    }
-}
-
-/// Different lookup options for the lookup attempts and validation
-#[derive(Clone)]
-#[doc(hidden)]
-pub enum LookupEither<P: ConnectionProvider> {
-    Retry(RetryDnsHandle<NameServerPool<P>>),
-    #[cfg(feature = "__dnssec")]
-    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
-}
-
-impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
-
-    fn is_verifying_dnssec(&self) -> bool {
-        match self {
-            Self::Retry(c) => c.is_verifying_dnssec(),
-            #[cfg(feature = "__dnssec")]
-            Self::Secure(c) => c.is_verifying_dnssec(),
-        }
-    }
-
-    fn send(&self, request: DnsRequest) -> Self::Response {
-        match self {
-            Self::Retry(c) => c.send(request),
-            #[cfg(feature = "__dnssec")]
-            Self::Secure(c) => c.send(request),
-        }
     }
 }
 
