@@ -9,20 +9,20 @@
 
 use std::{
     cmp::min,
+    marker::PhantomData,
     slice::Iter,
     sync::Arc,
     time::{Duration, Instant},
 };
+
+use hickory_proto::rr::RecordData;
 
 use crate::{
     cache::MAX_TTL,
     lookup_ip::LookupIpIter,
     proto::{
         op::Query,
-        rr::{
-            RData, Record,
-            rdata::{self, A, AAAA, NS, PTR},
-        },
+        rr::{RData, Record, rdata},
     },
 };
 
@@ -235,76 +235,68 @@ impl<'i> Iterator for SrvLookupIter<'i> {
     }
 }
 
-/// Creates a Lookup result type from the specified components
-macro_rules! lookup_type {
-    ($l:ident, $i:ident, $r:path, $t:path) => {
-        /// Contains the results of a lookup for the associated RecordType
-        #[derive(Debug, Clone)]
-        pub struct $l(Lookup);
-
-        impl $l {
-            #[doc = stringify!(Returns an iterator over the records that match $r)]
-            pub fn iter(&self) -> $i<'_> {
-                $i(self.0.iter())
-            }
-
-            /// Returns a reference to the Query that was used to produce this result.
-            pub fn query(&self) -> &Query {
-                self.0.query()
-            }
-
-            /// Returns the `Instant` at which this result is no longer valid.
-            pub fn valid_until(&self) -> Instant {
-                self.0.valid_until()
-            }
-
-            /// Return a reference to the inner lookup
-            ///
-            /// This can be useful for getting all records from the request
-            pub fn as_lookup(&self) -> &Lookup {
-                &self.0
-            }
-        }
-
-        impl From<Lookup> for $l {
-            fn from(lookup: Lookup) -> Self {
-                $l(lookup)
-            }
-        }
-
-        impl From<$l> for Lookup {
-            fn from(revlookup: $l) -> Self {
-                revlookup.0
-            }
-        }
-
-        /// An iterator over the Lookup type
-        pub struct $i<'i>(LookupIter<'i>);
-
-        impl<'i> Iterator for $i<'i> {
-            type Item = &'i $t;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                let iter: &mut _ = &mut self.0;
-                iter.find_map(|rdata| match rdata {
-                    $r(data) => Some(data),
-                    _ => None,
-                })
-            }
-        }
-    };
+/// Contains the results of a lookup for the associated RecordType
+#[derive(Debug, Clone)]
+pub struct TypedLookup<T> {
+    inner: Lookup,
+    _marker: PhantomData<T>,
 }
 
-// Generate all Lookup record types
-lookup_type!(ReverseLookup, ReverseLookupIter, RData::PTR, PTR);
-lookup_type!(Ipv4Lookup, Ipv4LookupIter, RData::A, A);
-lookup_type!(Ipv6Lookup, Ipv6LookupIter, RData::AAAA, AAAA);
-lookup_type!(MxLookup, MxLookupIter, RData::MX, rdata::MX);
-lookup_type!(TlsaLookup, TlsaLookupIter, RData::TLSA, rdata::TLSA);
-lookup_type!(TxtLookup, TxtLookupIter, RData::TXT, rdata::TXT);
-lookup_type!(CertLookup, CertLookupIter, RData::CERT, rdata::CERT);
-lookup_type!(SoaLookup, SoaLookupIter, RData::SOA, rdata::SOA);
-lookup_type!(NsLookup, NsLookupIter, RData::NS, NS);
+impl<T> TypedLookup<T> {
+    /// Returns an iterator over the matching records
+    pub fn iter(&self) -> TypedLookupIter<'_, T> {
+        TypedLookupIter {
+            inner: self.inner.iter(),
+            _marker: PhantomData,
+        }
+    }
+
+    /// Returns a reference to the Query that was used to produce this result.
+    pub fn query(&self) -> &Query {
+        self.inner.query()
+    }
+
+    /// Returns the `Instant` at which this result is no longer valid.
+    pub fn valid_until(&self) -> Instant {
+        self.inner.valid_until()
+    }
+
+    /// Return a reference to the inner lookup
+    ///
+    /// This can be useful for getting all records from the request
+    pub fn as_lookup(&self) -> &Lookup {
+        &self.inner
+    }
+}
+
+impl<T> From<Lookup> for TypedLookup<T> {
+    fn from(inner: Lookup) -> Self {
+        Self {
+            inner,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> From<TypedLookup<T>> for Lookup {
+    fn from(typed_lookup: TypedLookup<T>) -> Self {
+        typed_lookup.inner
+    }
+}
+
+/// An iterator over the Lookup type
+pub struct TypedLookupIter<'i, T> {
+    inner: LookupIter<'i>,
+    _marker: PhantomData<T>,
+}
+
+impl<'i, T: RecordData + 'i> Iterator for TypedLookupIter<'i, T> {
+    type Item = &'i T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.find_map(T::try_borrow)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -312,6 +304,7 @@ mod tests {
 
     #[cfg(feature = "__dnssec")]
     use crate::proto::op::Query;
+    use crate::proto::rr::rdata::A;
     use crate::proto::rr::{Name, RData, Record};
 
     use super::*;

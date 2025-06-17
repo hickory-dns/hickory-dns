@@ -13,13 +13,14 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::{FutureExt, Stream, future};
+use hickory_proto::rr::rdata;
 use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
-use crate::lookup::{self, Lookup};
+use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "__dnssec")]
@@ -41,7 +42,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p(&self, query: impl IntoName) -> Result<$l, ProtoError> {
+        pub async fn $p(&self, query: impl IntoName) -> Result<TypedLookup<$l>, ProtoError> {
             self.inner_lookup(query.into_name()?, $r, self.request_options())
                 .await
         }
@@ -292,16 +293,16 @@ impl<R: ConnectionProvider> Resolver<R> {
         }
     }
 
-    lookup_fn!(reverse_lookup, lookup::ReverseLookup, RecordType::PTR);
-    lookup_fn!(ipv4_lookup, lookup::Ipv4Lookup, RecordType::A);
-    lookup_fn!(ipv6_lookup, lookup::Ipv6Lookup, RecordType::AAAA);
-    lookup_fn!(mx_lookup, lookup::MxLookup, RecordType::MX);
-    lookup_fn!(ns_lookup, lookup::NsLookup, RecordType::NS);
-    lookup_fn!(soa_lookup, lookup::SoaLookup, RecordType::SOA);
-    lookup_fn!(srv_lookup, lookup::SrvLookup, RecordType::SRV);
-    lookup_fn!(tlsa_lookup, lookup::TlsaLookup, RecordType::TLSA);
-    lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
-    lookup_fn!(cert_lookup, lookup::CertLookup, RecordType::CERT);
+    lookup_fn!(reverse_lookup, rdata::PTR, RecordType::PTR);
+    lookup_fn!(ipv4_lookup, rdata::A, RecordType::A);
+    lookup_fn!(ipv6_lookup, rdata::AAAA, RecordType::AAAA);
+    lookup_fn!(mx_lookup, rdata::MX, RecordType::MX);
+    lookup_fn!(ns_lookup, rdata::NS, RecordType::NS);
+    lookup_fn!(soa_lookup, rdata::SOA, RecordType::SOA);
+    lookup_fn!(srv_lookup, rdata::SRV, RecordType::SRV);
+    lookup_fn!(tlsa_lookup, rdata::TLSA, RecordType::TLSA);
+    lookup_fn!(txt_lookup, rdata::TXT, RecordType::TXT);
+    lookup_fn!(cert_lookup, rdata::CERT, RecordType::CERT);
 
     /// Flushes/Removes all entries from the cache
     pub fn clear_cache(&self) {
