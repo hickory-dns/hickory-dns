@@ -148,9 +148,7 @@ impl<R: ConnectionProvider> Resolver<R> {
     pub fn options(&self) -> &ResolverOpts {
         &self.options
     }
-}
 
-impl<P: ConnectionProvider> Resolver<P> {
     /// Per request options based on the ResolverOpts
     pub(crate) fn request_options(&self) -> DnsRequestOptions {
         let mut request_opts = DnsRequestOptions::default();
