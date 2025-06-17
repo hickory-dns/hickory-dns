@@ -41,15 +41,9 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p<N: IntoName>(&self, query: N) -> Result<$l, ProtoError> {
-            let name = match query.into_name() {
-                Ok(name) => name,
-                Err(err) => {
-                    return Err(err.into());
-                }
-            };
-
-            self.inner_lookup(name, $r, self.request_options()).await
+        pub async fn $p(&self, query: impl IntoName) -> Result<$l, ProtoError> {
+            self.inner_lookup(query.into_name()?, $r, self.request_options())
+                .await
         }
     };
 }
