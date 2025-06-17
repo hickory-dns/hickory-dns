@@ -3,9 +3,9 @@
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use rusqlite::*;
+use rusqlite::Connection;
 
-use hickory_proto::rr::{rdata::A, *};
+use hickory_proto::rr::{Name, RData, Record, rdata::A};
 use hickory_server::store::sqlite::Journal;
 use hickory_server::store::sqlite::persistence::CURRENT_VERSION;
 
