@@ -208,10 +208,10 @@ async fn test_server_www_tls() {
     subscribe();
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    println!("using server src path: {}", server_path);
+    println!("using server src path: {server_path}");
 
-    let ca = read_certs(format!("{}/tests/test-data/ca.pem", server_path)).unwrap();
-    let cert_chain = read_certs(format!("{}/tests/test-data/cert.pem", server_path)).unwrap();
+    let ca = read_certs(format!("{server_path}/tests/test-data/ca.pem")).unwrap();
+    let cert_chain = read_certs(format!("{server_path}/tests/test-data/cert.pem")).unwrap();
 
     let key =
         PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
@@ -242,7 +242,7 @@ async fn test_server_www_tls() {
 
     let client_result = client.await;
 
-    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+    assert!(client_result.is_ok(), "client failed: {client_result:?}");
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();
 }

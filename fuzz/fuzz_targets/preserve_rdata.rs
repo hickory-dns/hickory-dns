@@ -36,7 +36,7 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
         Ok(original_rrs) => original_rrs,
         Err(error_message) => {
             println!("Parsed message: {message:?}");
-            println!("Original: {:02x?}", original);
+            println!("Original: {original:02x?}");
             panic!("failed to split original message into resource records: {error_message}");
         }
     };
@@ -44,8 +44,8 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
         Ok(reencoded_rrs) => reencoded_rrs,
         Err(error_message) => {
             println!("Parsed message: {message:?}");
-            println!("Original:   {:02x?}", original);
-            println!("Re-encoded: {:02x?}", reencoded);
+            println!("Original:   {original:02x?}");
+            println!("Re-encoded: {reencoded:02x?}");
             panic!("failed to split re-encoded message into resource records: {error_message}");
         }
     };
