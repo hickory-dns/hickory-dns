@@ -28,7 +28,7 @@ use crate::cache::MAX_TTL;
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
+use crate::lookup::{Lookup, LookupIter};
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -85,32 +85,6 @@ impl Iterator for LookupIpIter<'_> {
         iter.find_map(|rdata| match rdata {
             RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(*ip))),
             RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(*ip))),
-            _ => None,
-        })
-    }
-}
-
-impl IntoIterator for LookupIp {
-    type Item = IpAddr;
-    type IntoIter = LookupIpIntoIter;
-
-    /// This is not a free conversion, because the `RData`s are cloned.
-    fn into_iter(self) -> Self::IntoIter {
-        LookupIpIntoIter(self.0.into_iter())
-    }
-}
-
-/// Borrowed view of set of RDatas returned from a Lookup
-pub struct LookupIpIntoIter(LookupIntoIter);
-
-impl Iterator for LookupIpIntoIter {
-    type Item = IpAddr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match rdata {
-            RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(ip))),
-            RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(ip))),
             _ => None,
         })
     }
