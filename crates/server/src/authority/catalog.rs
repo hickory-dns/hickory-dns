@@ -269,13 +269,12 @@ impl Catalog {
         if let Some(authorities) = self.find(verify_request.query.name()) {
             #[allow(clippy::never_loop)]
             for authority in authorities {
-                #[allow(deprecated)]
                 let response_code = match authority.zone_type() {
-                    ZoneType::Secondary | ZoneType::Slave => {
+                    ZoneType::Secondary => {
                         error!("secondary forwarding for update not yet implemented");
                         ResponseCode::NotImp
                     }
-                    ZoneType::Primary | ZoneType::Master => {
+                    ZoneType::Primary => {
                         let update_result = authority.update(update).await;
                         match update_result {
                             // successful update
@@ -526,9 +525,8 @@ async fn build_response(
     let mut response_header = Header::response_from_request(request_header);
     response_header.set_authoritative(authority.zone_type().is_authoritative());
 
-    #[allow(deprecated)]
     let sections = match authority.zone_type() {
-        ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
+        ZoneType::Primary | ZoneType::Secondary => {
             build_authoritative_response(
                 result,
                 authority,
