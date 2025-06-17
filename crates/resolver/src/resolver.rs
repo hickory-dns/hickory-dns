@@ -66,6 +66,22 @@ macro_rules! lookup_fn {
     };
 }
 
+/// A Resolver used with Tokio
+#[cfg(feature = "tokio")]
+pub type TokioResolver = Resolver<TokioRuntimeProvider>;
+
+#[cfg(feature = "tokio")]
+impl TokioResolver {
+    /// Constructs a new Tokio based Resolver with the system configuration.
+    ///
+    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
+    #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
+    pub fn builder_tokio() -> Result<ResolverBuilder<TokioRuntimeProvider>, ProtoError> {
+        Self::builder(TokioRuntimeProvider::default())
+    }
+}
+
 /// An asynchronous resolver for DNS generic over async Runtimes.
 ///
 /// The lookup methods on `Resolver` spawn background tasks to perform
@@ -85,22 +101,6 @@ pub struct Resolver<P: ConnectionProvider> {
     options: Arc<ResolverOpts>,
     client_cache: CachingClient<LookupEither<P>>,
     hosts: Arc<Hosts>,
-}
-
-/// A Resolver used with Tokio
-#[cfg(feature = "tokio")]
-pub type TokioResolver = Resolver<TokioRuntimeProvider>;
-
-#[cfg(feature = "tokio")]
-impl TokioResolver {
-    /// Constructs a new Tokio based Resolver with the system configuration.
-    ///
-    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
-    #[cfg(any(unix, target_os = "windows"))]
-    #[cfg(feature = "system-config")]
-    pub fn builder_tokio() -> Result<ResolverBuilder<TokioRuntimeProvider>, ProtoError> {
-        Self::builder(TokioRuntimeProvider::default())
-    }
 }
 
 impl<R: ConnectionProvider> Resolver<R> {
