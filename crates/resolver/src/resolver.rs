@@ -160,81 +160,6 @@ impl<R: ConnectionProvider> Resolver<R> {
             .await
     }
 
-    fn build_names(&self, name: Name) -> Vec<Name> {
-        // if it's fully qualified, we can short circuit the lookup logic
-        if name.is_fqdn()
-            || ONION.zone_of(&name)
-                && name
-                    .trim_to(2)
-                    .iter()
-                    .next()
-                    .map(|name| name.len() == 56) // size of onion v3 address
-                    .unwrap_or(false)
-        {
-            // if already fully qualified, or if onion address, don't assume it might be a
-            // sub-domain
-            vec![name]
-        } else {
-            // Otherwise we have to build the search list
-            // Note: the vec is built in reverse order of precedence, for stack semantics
-            let mut names =
-                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
-
-            // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
-            let raw_name_first: bool =
-                name.num_labels() as usize > self.options.ndots || name.is_localhost();
-
-            // if not meeting ndots, we always do the raw name in the final lookup
-            if !raw_name_first {
-                let mut fqdn = name.clone();
-                fqdn.set_fqdn(true);
-                names.push(fqdn);
-            }
-
-            for search in self.config.search().iter().rev() {
-                let name_search = name.clone().append_domain(search);
-
-                match name_search {
-                    Ok(name_search) => {
-                        if !names.contains(&name_search) {
-                            names.push(name_search);
-                        }
-                    }
-                    Err(e) => debug!(
-                        "Not adding {} to {} for search due to error: {}",
-                        search, name, e
-                    ),
-                }
-            }
-
-            if let Some(domain) = self.config.domain() {
-                let name_search = name.clone().append_domain(domain);
-
-                match name_search {
-                    Ok(name_search) => {
-                        if !names.contains(&name_search) {
-                            names.push(name_search);
-                        }
-                    }
-                    Err(e) => debug!(
-                        "Not adding {} to {} for search due to error: {}",
-                        domain, name, e
-                    ),
-                }
-            }
-
-            // this is the direct name lookup
-            if raw_name_first {
-                // adding the name as though it's an FQDN for lookup
-                let mut fqdn = name.clone();
-                fqdn.set_fqdn(true);
-                names.push(fqdn);
-            }
-
-            names
-        }
-    }
-
     pub(crate) async fn inner_lookup<L>(
         &self,
         name: Name,
@@ -308,6 +233,81 @@ impl<R: ConnectionProvider> Resolver<R> {
             finally_ip_addr.map(Record::into_data),
         )
         .await
+    }
+
+    fn build_names(&self, name: Name) -> Vec<Name> {
+        // if it's fully qualified, we can short circuit the lookup logic
+        if name.is_fqdn()
+            || ONION.zone_of(&name)
+                && name
+                    .trim_to(2)
+                    .iter()
+                    .next()
+                    .map(|name| name.len() == 56) // size of onion v3 address
+                    .unwrap_or(false)
+        {
+            // if already fully qualified, or if onion address, don't assume it might be a
+            // sub-domain
+            vec![name]
+        } else {
+            // Otherwise we have to build the search list
+            // Note: the vec is built in reverse order of precedence, for stack semantics
+            let mut names =
+                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
+
+            // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
+            let raw_name_first: bool =
+                name.num_labels() as usize > self.options.ndots || name.is_localhost();
+
+            // if not meeting ndots, we always do the raw name in the final lookup
+            if !raw_name_first {
+                let mut fqdn = name.clone();
+                fqdn.set_fqdn(true);
+                names.push(fqdn);
+            }
+
+            for search in self.config.search().iter().rev() {
+                let name_search = name.clone().append_domain(search);
+
+                match name_search {
+                    Ok(name_search) => {
+                        if !names.contains(&name_search) {
+                            names.push(name_search);
+                        }
+                    }
+                    Err(e) => debug!(
+                        "Not adding {} to {} for search due to error: {}",
+                        search, name, e
+                    ),
+                }
+            }
+
+            if let Some(domain) = self.config.domain() {
+                let name_search = name.clone().append_domain(domain);
+
+                match name_search {
+                    Ok(name_search) => {
+                        if !names.contains(&name_search) {
+                            names.push(name_search);
+                        }
+                    }
+                    Err(e) => debug!(
+                        "Not adding {} to {} for search due to error: {}",
+                        domain, name, e
+                    ),
+                }
+            }
+
+            // this is the direct name lookup
+            if raw_name_first {
+                // adding the name as though it's an FQDN for lookup
+                let mut fqdn = name.clone();
+                fqdn.set_fqdn(true);
+                names.push(fqdn);
+            }
+
+            names
+        }
     }
 
     lookup_fn!(
