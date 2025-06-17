@@ -134,29 +134,9 @@ impl<R: ConnectionProvider> Resolver<R> {
         }
     }
 
-    /// Flushes/Removes all entries from the cache
-    pub fn clear_cache(&self) {
-        self.client_cache.clear_cache();
-    }
-
-    /// Read the config for this resolver.
-    pub fn config(&self) -> &ResolverConfig {
-        &self.config
-    }
-
-    /// Read the options for this resolver.
-    pub fn options(&self) -> &ResolverOpts {
-        &self.options
-    }
-
-    /// Per request options based on the ResolverOpts
-    pub(crate) fn request_options(&self) -> DnsRequestOptions {
-        let mut request_opts = DnsRequestOptions::default();
-        request_opts.recursion_desired = self.options.recursion_desired;
-        request_opts.use_edns = self.options.edns0;
-        request_opts.case_randomization = self.options.case_randomization;
-
-        request_opts
+    /// Customizes the static hosts used in this resolver.
+    pub fn set_hosts(&mut self, hosts: Arc<Hosts>) {
+        self.hosts = hosts;
     }
 
     /// Generic lookup for any RecordType
@@ -328,11 +308,6 @@ impl<R: ConnectionProvider> Resolver<R> {
         .await
     }
 
-    /// Customizes the static hosts used in this resolver.
-    pub fn set_hosts(&mut self, hosts: Arc<Hosts>) {
-        self.hosts = hosts;
-    }
-
     lookup_fn!(
         reverse_lookup,
         lookup::ReverseLookup,
@@ -348,6 +323,31 @@ impl<R: ConnectionProvider> Resolver<R> {
     lookup_fn!(tlsa_lookup, lookup::TlsaLookup, RecordType::TLSA);
     lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
     lookup_fn!(cert_lookup, lookup::CertLookup, RecordType::CERT);
+
+    /// Flushes/Removes all entries from the cache
+    pub fn clear_cache(&self) {
+        self.client_cache.clear_cache();
+    }
+
+    /// Per request options based on the ResolverOpts
+    pub(crate) fn request_options(&self) -> DnsRequestOptions {
+        let mut request_opts = DnsRequestOptions::default();
+        request_opts.recursion_desired = self.options.recursion_desired;
+        request_opts.use_edns = self.options.edns0;
+        request_opts.case_randomization = self.options.case_randomization;
+
+        request_opts
+    }
+
+    /// Read the config for this resolver.
+    pub fn config(&self) -> &ResolverConfig {
+        &self.config
+    }
+
+    /// Read the options for this resolver.
+    pub fn options(&self) -> &ResolverOpts {
+        &self.options
+    }
 }
 
 impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
