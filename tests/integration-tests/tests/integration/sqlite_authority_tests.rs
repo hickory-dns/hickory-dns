@@ -239,7 +239,7 @@ async fn test_authorize_update() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     assert_eq!(
-        authority.authorize_update(&request).await,
+        authority.authorize_update(&request).await.0,
         Err(ResponseCode::Refused)
     );
 
@@ -958,10 +958,10 @@ async fn test_update_tsig_invalid_unknown_signer() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    // The update should have been refused.
+    // The update should have been rejected as not authorized.
     assert_eq!(
         authority.update(&request).await.0,
-        Err(ResponseCode::Refused)
+        Err(ResponseCode::NotAuth)
     );
 }
 
@@ -1002,10 +1002,10 @@ async fn test_update_tsig_invalid_sig() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    // The update should have been refused.
+    // The update should have been rejected as not authorized.
     assert_eq!(
         authority.update(&request).await.0,
-        Err(ResponseCode::Refused)
+        Err(ResponseCode::NotAuth)
     );
 }
 
@@ -1040,10 +1040,10 @@ async fn test_update_tsig_invalid_stale_sig() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    // The update should have been refused.
+    // The update should have been rejected as not authorized.
     assert_eq!(
         authority.update(&request).await.0,
-        Err(ResponseCode::Refused)
+        Err(ResponseCode::NotAuth)
     );
 }
 

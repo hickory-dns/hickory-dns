@@ -17,6 +17,7 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::mem;
 use core::ops::Range;
 
 use tracing::debug;
@@ -26,10 +27,159 @@ use super::rdata::tsig::{
     TSIG, TsigAlgorithm, make_tsig_record, message_tbs, signed_bitmessage_to_buf,
 };
 use super::{DnsSecError, DnsSecErrorKind};
+use crate::dnssec::rdata::tsig::TsigError;
 use crate::error::{ProtoError, ProtoResult};
+use crate::op::message::ResponseSigner;
 use crate::op::{Message, MessageSignature, MessageSigner, MessageVerifier};
 use crate::rr::{Name, RData};
+use crate::serialize::binary::{BinEncoder, EncodeMode};
 use crate::xfer::DnsResponse;
+
+/// Context for a TSIG response, used to construct a TSIG response signer
+#[allow(missing_copy_implementations)]
+pub struct TSigResponseContext {
+    request_id: u16,
+    time: u64,
+}
+
+impl TSigResponseContext {
+    /// Create a new TSIG response context
+    pub fn new(request_id: u16, time: u64) -> Self {
+        Self { request_id, time }
+    }
+
+    /// Yield a response signer for a valid request signature
+    ///
+    /// `TsigError::BadSig` and `TSigError::BadKey` should not be provided
+    /// as an optional `error` - these conditions require an unsigned response.
+    /// Instead, use `bad_signature()` and `unknown_key()` for these error
+    /// conditions.
+    pub fn sign(
+        self,
+        req_sig: &TSIG,
+        error: Option<TsigError>,
+        signer: TSigner,
+    ) -> Box<dyn ResponseSigner> {
+        Box::new(TSigResponseSigner {
+            signer,
+            time: self.time,
+            error,
+            request_id: self.request_id,
+            request_mac: req_sig.mac().to_vec(),
+        })
+    }
+
+    /// Yield a response signer for a bad request signature
+    pub fn bad_signature(self, signer: TSigner) -> Box<dyn ResponseSigner> {
+        Box::new(BadSignatureSigner {
+            signer,
+            request_id: self.request_id,
+            time: self.time,
+        })
+    }
+
+    /// Yield a response signer for an unknown key
+    pub fn unknown_key(self, key_name: Name) -> Box<dyn ResponseSigner> {
+        Box::new(UnknownKeySigner {
+            time: self.time,
+            key_name,
+            request_id: self.request_id,
+        })
+    }
+}
+
+/// A TSIG response signer constructed in response to a specific request
+#[non_exhaustive]
+struct TSigResponseSigner {
+    /// The validated MAC of the TSIG RR from the request
+    request_mac: Vec<u8>,
+    /// An optional error to include in the TSIG RR
+    error: Option<TsigError>,
+    /// A TSigner to use to produce a signature for signed TSIG RRs
+    signer: TSigner,
+    /// The ID of the authenticated request the response is in reply to
+    request_id: u16,
+    /// The time the request TSIG RR MAC was validated
+    time: u64,
+}
+
+impl ResponseSigner for TSigResponseSigner {
+    fn sign(self: Box<Self>, response: &[u8]) -> Result<MessageSignature, ProtoError> {
+        // BadSig and BadKey are both spec'd to return **unsigned** TSIG RRs.
+        debug_assert!(!matches!(
+            self.error,
+            Some(TsigError::BadSig | TsigError::BadKey)
+        ));
+
+        let mut stub_tsig = TSIG::stub(self.request_id, self.time, &self.signer);
+        if let Some(err) = self.error {
+            stub_tsig.set_error(err);
+        }
+
+        let tbs_tsig_encoded =
+            self.signer
+                .encode_response_tbs(&self.request_mac, response, &stub_tsig)?;
+        let resp_tsig = stub_tsig.set_mac(
+            self.signer
+                .sign(&tbs_tsig_encoded)
+                .map_err(|e| ProtoError::from(e.to_string()))?,
+        );
+
+        Ok(MessageSignature::Tsig(make_tsig_record(
+            self.signer.signer_name().clone(),
+            resp_tsig,
+        )))
+    }
+}
+
+struct BadSignatureSigner {
+    signer: TSigner,
+    request_id: u16,
+    time: u64,
+}
+
+impl ResponseSigner for BadSignatureSigner {
+    fn sign(self: Box<Self>, _: &[u8]) -> Result<MessageSignature, ProtoError> {
+        let mut stub_tsig = TSIG::stub(self.request_id, self.time, &self.signer);
+        stub_tsig.set_error(TsigError::BadSig);
+        Ok(MessageSignature::Tsig(make_tsig_record(
+            self.signer.signer_name().clone(),
+            stub_tsig,
+        )))
+    }
+}
+
+struct UnknownKeySigner {
+    time: u64,
+    key_name: Name,
+    request_id: u16,
+}
+
+impl ResponseSigner for UnknownKeySigner {
+    fn sign(self: Box<Self>, _: &[u8]) -> Result<MessageSignature, ProtoError> {
+        // "If a non-forwarding server does not recognize the key or algorithm used by the
+        // client (or recognizes the algorithm but does not implement it), the server MUST
+        // generate an error response with RCODE 9 (NOTAUTH) and TSIG ERROR 17 (BADKEY).
+        // This response MUST be unsigned"
+        //
+        // Note that this doesn't specify what TSIG algorithm, fudge, or key name we
+        // should use in the response since we didn't recognize the key name as one
+        // of our configured signers. We choose a stand-in algorithm and reflect the
+        // unknown key name in absence of further direction.
+        Ok(MessageSignature::Tsig(make_tsig_record(
+            self.key_name.clone(),
+            TSIG::new(
+                TsigAlgorithm::HmacSha256,
+                self.time,
+                300,
+                Vec::new(),
+                self.request_id,
+                Some(TsigError::BadKey),
+                Vec::new(),
+            ),
+        )))
+    }
+}
 
 /// Struct to pass to a client for it to authenticate requests using TSIG.
 #[derive(Clone)]
@@ -177,6 +327,38 @@ impl TSigner {
                 end: tsig.time() + tsig.fudge() as u64,
             },
         ))
+    }
+
+    /// Encode the to-be-signed (TBS) bytes for an encoded response to a TSIG signed request
+    ///
+    /// The TSIG MAC of the query, the raw unsigned response bytes, and a stub TSIG
+    /// record are combined to produce the overall to-be-signed response.
+    ///
+    /// `previous_mac` contains the TSIG MAC of the query the reply is in response to.
+    /// `encoded_response` is the to-be-signed bytes of the constructed response.
+    /// `resp_id` is the ID of the response to use for the TSIG RR stub.
+    /// `now` is the timestamp to use for the TSIG RR stub.
+    pub fn encode_response_tbs(
+        &self,
+        previous_mac: &[u8],
+        encoded_response: &[u8],
+        stub_tsig: &TSIG,
+    ) -> Result<Vec<u8>, ProtoError> {
+        // the TBS buffer is sized based on the previous MAC, the overhead of its u16 len
+        // prefix, the size of the encoded response, and a rough approximation of the
+        // size of the stub TSIG RR.
+        let mut tbs_buf = Vec::with_capacity(
+            previous_mac.len() + mem::size_of::<u16>() + encoded_response.len() + 128,
+        );
+        let mut encoder = BinEncoder::with_mode(&mut tbs_buf, EncodeMode::Normal);
+
+        debug_assert!(previous_mac.len() <= u16::MAX as usize); // Shouldn't happen for supported algorithms.
+        encoder.emit_u16(previous_mac.len() as u16)?;
+        encoder.emit_vec(previous_mac)?;
+        encoder.emit_vec(encoded_response)?;
+        stub_tsig.emit_tsig_for_mac(&mut encoder, self.signer_name())?;
+
+        Ok(tbs_buf)
     }
 }
 

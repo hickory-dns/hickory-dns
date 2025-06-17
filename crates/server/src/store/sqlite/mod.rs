@@ -48,8 +48,12 @@ use crate::{
     dnssec::NxProofKind,
     proto::dnssec::{
         DnsSecResult, SigSigner, Verifier,
-        rdata::{DNSSECRData, key::KEY, tsig::TsigAlgorithm},
-        tsig::TSigner,
+        rdata::{
+            DNSSECRData,
+            key::KEY,
+            tsig::{TsigAlgorithm, TsigError},
+        },
+        tsig::{TSigResponseContext, TSigner},
     },
     proto::op::MessageSignature,
 };
@@ -523,7 +527,10 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "__dnssec")]
-    pub async fn authorize_update(&self, request: &Request) -> UpdateResult<()> {
+    pub async fn authorize_update(
+        &self,
+        request: &Request,
+    ) -> (UpdateResult<()>, Option<Box<dyn ResponseSigner>>) {
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -539,31 +546,40 @@ impl SqliteAuthority {
                 "update attempted on non-updatable Authority: {}",
                 self.origin()
             );
-            return Err(ResponseCode::Refused);
+            return (Err(ResponseCode::Refused), None);
         }
 
         match request.signature() {
-            MessageSignature::Sig0(sig0) => self.authorized_sig0(sig0, request).await,
-            MessageSignature::Tsig(tsig) => self.authorized_tsig(tsig, request).await,
-            MessageSignature::Unsigned => Err(ResponseCode::Refused),
+            MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, request).await, None),
+            MessageSignature::Tsig(tsig) => {
+                let (resp, signer) = self.authorized_tsig(tsig, request).await;
+                (resp, Some(signer))
+            }
+            MessageSignature::Unsigned => (Err(ResponseCode::Refused), None),
         }
     }
 
     /// Checks that an AXFR `Request` has a valid signature, or returns an error
-    async fn authorize_axfr(&self, _request: &Request) -> Result<(), ResponseCode> {
+    async fn authorize_axfr(
+        &self,
+        _request: &Request,
+    ) -> (Result<(), ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         match self.axfr_policy {
             // Deny without checking any signatures.
-            AxfrPolicy::Deny => Err(ResponseCode::NotAuth),
+            AxfrPolicy::Deny => (Err(ResponseCode::NotAuth), None),
             // Allow without checking any signatures.
-            AxfrPolicy::AllowAll => Ok(()),
+            AxfrPolicy::AllowAll => (Ok(()), None),
             // Allow only if a valid signature is present.
             #[cfg(feature = "__dnssec")]
             AxfrPolicy::AllowSigned => match _request.signature() {
-                MessageSignature::Sig0(sig0) => self.authorized_sig0(sig0, _request).await,
-                MessageSignature::Tsig(tsig) => self.authorized_tsig(tsig, _request).await,
+                MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, _request).await, None),
+                MessageSignature::Tsig(tsig) => {
+                    let (resp, signer) = self.authorized_tsig(tsig, _request).await;
+                    (resp, Some(signer))
+                }
                 MessageSignature::Unsigned => {
                     warn!("AXFR request was not signed");
-                    Err(ResponseCode::NotAuth)
+                    (Err(ResponseCode::NotAuth), None)
                 }
             },
         }
@@ -934,32 +950,57 @@ impl SqliteAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_tsig(&self, tsig: &Record, request: &Request) -> UpdateResult<()> {
+    async fn authorized_tsig(
+        &self,
+        tsig: &Record,
+        request: &Request,
+    ) -> (UpdateResult<()>, Box<dyn ResponseSigner>) {
+        let req_id = request.header().id();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|t| t.as_secs())
+            .unwrap_or_default();
+        let cx = TSigResponseContext::new(req_id, now);
+
         debug!("authorizing with: {tsig:?}");
         let Some(tsigner) = self
             .tsig_signers
             .iter()
             .find(|tsigner| tsigner.signer_name() == tsig.name())
         else {
-            warn!("no TSIG key name matched: id {}", request.id());
-            return Err(ResponseCode::NotAuth);
+            warn!("no TSIG key name matched: id {req_id}");
+            return (
+                Err(ResponseCode::NotAuth),
+                cx.unknown_key(tsig.name().clone()),
+            );
         };
 
         let Ok((_, _, range)) = tsigner.verify_message_byte(request.as_slice(), None, true) else {
-            warn!("invalid TSIG signature: id {}", request.id());
-            return Err(ResponseCode::NotAuth);
+            warn!("invalid TSIG signature: id {req_id}");
+            return (
+                Err(ResponseCode::NotAuth),
+                cx.bad_signature(tsigner.clone()),
+            );
         };
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|t| t.as_secs())
-            .unwrap_or_default();
+        let mut error = None;
+        let mut response = Ok(());
+
         if !range.contains(&now) {
-            warn!("expired TSIG signature: id {}", request.id());
-            return Err(ResponseCode::Refused);
+            warn!("expired TSIG signature: id {req_id}");
+            // "A response indicating a BADTIME error MUST be signed by the same key as the request."
+            response = Err(ResponseCode::NotAuth);
+            error = Some(TsigError::BadTime);
         }
 
-        Ok(())
+        // Unwrap safety: verify_message_byte() has already successfully extracted & parsed the
+        // TSIG RR.
+        let req_tsig = tsig
+            .data()
+            .as_dnssec()
+            .and_then(DNSSECRData::as_tsig)
+            .unwrap();
+        (response, cx.sign(req_tsig, error, tsigner.clone()))
     }
 }
 
@@ -1013,16 +1054,20 @@ impl Authority for SqliteAuthority {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.
-            if let Err(code) = self.authorize_update(_request).await {
-                return (Err(code), None);
-            }
+            let signer = match self.authorize_update(_request).await {
+                (Err(e), signer) => return (Err(e), signer),
+                (_, signer) => signer,
+            };
+
             if let Err(code) = self.verify_prerequisites(_request.prerequisites()).await {
-                return (Err(code), None);
+                return (Err(code), signer);
             }
+
             if let Err(code) = self.pre_scan(_request.updates()).await {
-                return (Err(code), None);
+                return (Err(code), signer);
             }
-            (self.update_records(_request.updates(), true).await, None)
+
+            (self.update_records(_request.updates(), true).await, signer)
         }
         #[cfg(not(feature = "__dnssec"))]
         {
@@ -1078,18 +1123,23 @@ impl Authority for SqliteAuthority {
             Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
 
-        if request_info.query.query_type() == RecordType::AXFR {
-            if let Err(code) = self.authorize_axfr(request).await {
+        let signer = if request_info.query.query_type() == RecordType::AXFR {
+            let (resp, signer) = self.authorize_axfr(request).await;
+            if let Err(code) = resp {
                 warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
                 return (
                     LookupControlFlow::Continue(Err(LookupError::ResponseCode(code))),
-                    None,
+                    signer,
                 );
             }
-            debug!(axfr_policy = ?self.axfr_policy, "authorized AXFR")
-        }
 
-        let (search, signer) = self.in_memory.search(request, lookup_options).await;
+            debug!(axfr_policy = ?self.axfr_policy, "authorized AXFR");
+            signer
+        } else {
+            None
+        };
+
+        let (search, _) = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
         self.metrics.query.increment_lookup(&search);
