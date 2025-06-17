@@ -17,6 +17,7 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::mem;
 use core::ops::Range;
 
 use tracing::debug;
@@ -29,6 +30,7 @@ use super::{DnsSecError, DnsSecErrorKind};
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, MessageSignature, MessageSigner, MessageVerifier};
 use crate::rr::{Name, RData};
+use crate::serialize::binary::{BinEncoder, EncodeMode};
 use crate::xfer::DnsResponse;
 
 /// Struct to pass to a client for it to authenticate requests using TSIG.
@@ -178,6 +180,54 @@ impl TSigner {
             },
         ))
     }
+
+    /// Return a stub TSIG record for the given oid/timestamp
+    ///
+    /// Typically, this will be used to build out a to-be-signed (tbs) message.
+    /// The algorithm and fudge will be set based on the `TSigner` settings.
+    pub fn stub_tsig(&self, oid: u16, now: u64) -> TSIG {
+        TSIG::new(
+            self.algorithm().clone(),
+            now,
+            self.fudge(),
+            Vec::new(),
+            oid,
+            None,
+            Vec::new(),
+        )
+    }
+
+    /// Encode the to-be-signed (TBS) bytes for an encoded response to a TSIG signed request
+    ///
+    /// The TSIG MAC of the query, the raw unsigned response bytes, and a stub TSIG
+    /// record are combined to produce the overall to-be-signed response.
+    ///
+    /// `previous_mac` contains the TSIG MAC of the query the reply is in response to.
+    /// `encoded_response` is the to-be-signed bytes of the constructed response.
+    /// `resp_id` is the ID of the response to use for the TSIG RR stub.
+    /// `now` is the timestamp to use for the TSIG RR stub.
+    pub fn encode_response_tbs(
+        &self,
+        previous_mac: &[u8],
+        encoded_response: &[u8],
+        stub_tsig: &TSIG,
+    ) -> Result<Vec<u8>, ProtoError> {
+        // the TBS buffer is sized based on the previous MAC, the overhead of its u16 len
+        // prefix, the size of the encoded response, and a rough approximation of the
+        // size of the stub TSIG RR.
+        let mut tbs_buf = Vec::with_capacity(
+            previous_mac.len() + mem::size_of::<u16>() + encoded_response.len() + 128,
+        );
+        let mut encoder = BinEncoder::with_mode(&mut tbs_buf, EncodeMode::Normal);
+
+        debug_assert!(previous_mac.len() <= u16::MAX as usize); // Shouldn't happen for supported algorithms.
+        encoder.emit_u16(previous_mac.len() as u16)?;
+        encoder.emit_vec(previous_mac)?;
+        encoder.emit_vec(encoded_response)?;
+        stub_tsig.emit_tsig_for_mac(&mut encoder, self.signer_name())?;
+
+        Ok(tbs_buf)
+    }
 }
 
 impl MessageSigner for TSigner {
@@ -189,21 +239,13 @@ impl MessageSigner for TSigner {
         debug!("signing message: {:?}", message);
         let current_time = current_time as u64;
 
-        let pre_tsig = TSIG::new(
-            self.0.algorithm.clone(),
-            current_time,
-            self.0.fudge,
-            Vec::new(),
-            message.id(),
-            None,
-            Vec::new(),
-        );
+        let stub_tsig = self.stub_tsig(message.id(), current_time);
         let mut signature: Vec<u8> = self
-            .sign_message(message, &pre_tsig)
+            .sign_message(message, &stub_tsig)
             .map_err(|err| ProtoError::from(err.to_string()))?;
         let tsig = make_tsig_record(
             self.0.signer_name.clone(),
-            pre_tsig.set_mac(signature.clone()),
+            stub_tsig.set_mac(signature.clone()),
         );
         let self2 = self.clone();
         let mut remote_time = 0;
