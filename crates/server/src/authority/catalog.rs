@@ -238,35 +238,23 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<ResponseInfo> {
+        // 2.3 - Zone Section
+        //
+        //  All records to be updated must be in the same zone, and
+        //  therefore the Zone Section is allowed to contain exactly one record.
+        //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
+        //  the zone's class.
+
         let request_info = update.request_info()?;
+        let ztype = request_info.query.query_type();
 
-        let verify_request = move || -> Result<RequestInfo<'_>, ResponseCode> {
-            // 2.3 - Zone Section
-            //
-            //  All records to be updated must be in the same zone, and
-            //  therefore the Zone Section is allowed to contain exactly one record.
-            //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
-            //  the zone's class.
-
-            let ztype = request_info.query.query_type();
-
-            if ztype != RecordType::SOA {
-                warn!(
-                    "invalid update request zone type must be SOA, ztype: {}",
-                    ztype
-                );
-                return Err(ResponseCode::FormErr);
-            }
-
-            Ok(request_info)
-        };
-
-        let Ok(verify_request) = verify_request() else {
+        if ztype != RecordType::SOA {
+            warn!("invalid update request zone type must be SOA, ztype: {ztype}");
             return Ok(ResponseInfo::serve_failed(update));
-        };
+        }
 
         // verify the zone type and number of zones in request, then find the zone to update
-        if let Some(authorities) = self.find(verify_request.query.name()) {
+        if let Some(authorities) = self.find(request_info.query.name()) {
             #[allow(clippy::never_loop)]
             for authority in authorities {
                 #[allow(deprecated)]
