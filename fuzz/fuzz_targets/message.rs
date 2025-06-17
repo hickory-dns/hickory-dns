@@ -18,8 +18,8 @@ fuzz_target!(|data: &[u8]| {
                 }
             }
             Err(e) => {
-                eprintln!("{:?}", original);
-                panic!("Message failed to deserialize: {:?}", e);
+                eprintln!("{original:?}");
+                panic!("Message failed to deserialize: {e:?}");
             }
         }
     }
