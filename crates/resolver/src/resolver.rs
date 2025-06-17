@@ -160,12 +160,6 @@ impl<R: ConnectionProvider> Resolver<R> {
             .await
     }
 
-    fn push_name(name: Name, names: &mut Vec<Name>) {
-        if !names.contains(&name) {
-            names.push(name);
-        }
-    }
-
     fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
         if name.is_fqdn()
@@ -201,7 +195,11 @@ impl<R: ConnectionProvider> Resolver<R> {
                 let name_search = name.clone().append_domain(search);
 
                 match name_search {
-                    Ok(name_search) => Self::push_name(name_search, &mut names),
+                    Ok(name_search) => {
+                        if !names.contains(&name_search) {
+                            names.push(name_search);
+                        }
+                    }
                     Err(e) => debug!(
                         "Not adding {} to {} for search due to error: {}",
                         search, name, e
@@ -213,7 +211,11 @@ impl<R: ConnectionProvider> Resolver<R> {
                 let name_search = name.clone().append_domain(domain);
 
                 match name_search {
-                    Ok(name_search) => Self::push_name(name_search, &mut names),
+                    Ok(name_search) => {
+                        if !names.contains(&name_search) {
+                            names.push(name_search);
+                        }
+                    }
                     Err(e) => debug!(
                         "Not adding {} to {} for search due to error: {}",
                         domain, name, e
