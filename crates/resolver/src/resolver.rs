@@ -8,7 +8,6 @@
 //! Structs for creating and using a Resolver
 use std::fmt;
 use std::future::Future;
-use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -50,17 +49,6 @@ macro_rules! lookup_fn {
                 }
             };
 
-            self.inner_lookup(name, $r, self.request_options()).await
-        }
-    };
-    ($p:ident, $l:ty, $r:path, $t:ty) => {
-        /// Performs a lookup for the associated type.
-        ///
-        /// # Arguments
-        ///
-        /// * `query` - a type which can be converted to `Name` via `From`.
-        pub async fn $p(&self, query: $t) -> Result<$l, ProtoError> {
-            let name = Name::from(query);
             self.inner_lookup(name, $r, self.request_options()).await
         }
     };
@@ -310,12 +298,7 @@ impl<R: ConnectionProvider> Resolver<R> {
         }
     }
 
-    lookup_fn!(
-        reverse_lookup,
-        lookup::ReverseLookup,
-        RecordType::PTR,
-        IpAddr
-    );
+    lookup_fn!(reverse_lookup, lookup::ReverseLookup, RecordType::PTR);
     lookup_fn!(ipv4_lookup, lookup::Ipv4Lookup, RecordType::A);
     lookup_fn!(ipv6_lookup, lookup::Ipv6Lookup, RecordType::AAAA);
     lookup_fn!(mx_lookup, lookup::MxLookup, RecordType::MX);
