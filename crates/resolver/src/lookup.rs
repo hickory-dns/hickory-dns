@@ -184,38 +184,6 @@ impl<'a> Iterator for DnssecLookupRecordIter<'a> {
     }
 }
 
-// TODO: consider removing this as it's not a zero-cost abstraction
-impl IntoIterator for Lookup {
-    type Item = RData;
-    type IntoIter = LookupIntoIter;
-
-    /// This is not a free conversion, because the `RData`s are cloned.
-    fn into_iter(self) -> Self::IntoIter {
-        LookupIntoIter {
-            records: Arc::clone(&self.records),
-            index: 0,
-        }
-    }
-}
-
-/// Borrowed view of set of [`RData`]s returned from a [`Lookup`].
-///
-/// This is not a zero overhead `Iterator`, because it clones each [`RData`].
-pub struct LookupIntoIter {
-    records: Arc<[Record]>,
-    index: usize,
-}
-
-impl Iterator for LookupIntoIter {
-    type Item = RData;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let rdata = self.records.get(self.index).map(Record::data);
-        self.index += 1;
-        rdata.cloned()
-    }
-}
-
 /// The result of an SRV lookup
 #[derive(Debug, Clone)]
 pub struct SrvLookup(Lookup);
@@ -267,34 +235,9 @@ impl<'i> Iterator for SrvLookupIter<'i> {
     }
 }
 
-impl IntoIterator for SrvLookup {
-    type Item = rdata::SRV;
-    type IntoIter = SrvLookupIntoIter;
-
-    /// This is not a free conversion, because the `RData`s are cloned.
-    fn into_iter(self) -> Self::IntoIter {
-        SrvLookupIntoIter(self.0.into_iter())
-    }
-}
-
-/// Borrowed view of set of RDatas returned from a Lookup
-pub struct SrvLookupIntoIter(LookupIntoIter);
-
-impl Iterator for SrvLookupIntoIter {
-    type Item = rdata::SRV;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match rdata {
-            RData::SRV(data) => Some(data),
-            _ => None,
-        })
-    }
-}
-
 /// Creates a Lookup result type from the specified components
 macro_rules! lookup_type {
-    ($l:ident, $i:ident, $ii:ident, $r:path, $t:path) => {
+    ($l:ident, $i:ident, $r:path, $t:path) => {
         /// Contains the results of a lookup for the associated RecordType
         #[derive(Debug, Clone)]
         pub struct $l(Lookup);
@@ -349,91 +292,23 @@ macro_rules! lookup_type {
                 })
             }
         }
-
-        impl IntoIterator for $l {
-            type Item = $t;
-            type IntoIter = $ii;
-
-            /// This is not a free conversion, because the `RData`s are cloned.
-            fn into_iter(self) -> Self::IntoIter {
-                $ii(self.0.into_iter())
-            }
-        }
-
-        /// Borrowed view of set of RDatas returned from a Lookup
-        pub struct $ii(LookupIntoIter);
-
-        impl Iterator for $ii {
-            type Item = $t;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                let iter: &mut _ = &mut self.0;
-                iter.find_map(|rdata| match rdata {
-                    $r(data) => Some(data),
-                    _ => None,
-                })
-            }
-        }
     };
 }
 
 // Generate all Lookup record types
-lookup_type!(
-    ReverseLookup,
-    ReverseLookupIter,
-    ReverseLookupIntoIter,
-    RData::PTR,
-    PTR
-);
-lookup_type!(Ipv4Lookup, Ipv4LookupIter, Ipv4LookupIntoIter, RData::A, A);
-lookup_type!(
-    Ipv6Lookup,
-    Ipv6LookupIter,
-    Ipv6LookupIntoIter,
-    RData::AAAA,
-    AAAA
-);
-lookup_type!(
-    MxLookup,
-    MxLookupIter,
-    MxLookupIntoIter,
-    RData::MX,
-    rdata::MX
-);
-lookup_type!(
-    TlsaLookup,
-    TlsaLookupIter,
-    TlsaLookupIntoIter,
-    RData::TLSA,
-    rdata::TLSA
-);
-lookup_type!(
-    TxtLookup,
-    TxtLookupIter,
-    TxtLookupIntoIter,
-    RData::TXT,
-    rdata::TXT
-);
-lookup_type!(
-    CertLookup,
-    CertLookupIter,
-    CertLookupIntoIter,
-    RData::CERT,
-    rdata::CERT
-);
-lookup_type!(
-    SoaLookup,
-    SoaLookupIter,
-    SoaLookupIntoIter,
-    RData::SOA,
-    rdata::SOA
-);
-lookup_type!(NsLookup, NsLookupIter, NsLookupIntoIter, RData::NS, NS);
+lookup_type!(ReverseLookup, ReverseLookupIter, RData::PTR, PTR);
+lookup_type!(Ipv4Lookup, Ipv4LookupIter, RData::A, A);
+lookup_type!(Ipv6Lookup, Ipv6LookupIter, RData::AAAA, AAAA);
+lookup_type!(MxLookup, MxLookupIter, RData::MX, rdata::MX);
+lookup_type!(TlsaLookup, TlsaLookupIter, RData::TLSA, rdata::TLSA);
+lookup_type!(TxtLookup, TxtLookupIter, RData::TXT, rdata::TXT);
+lookup_type!(CertLookup, CertLookupIter, RData::CERT, rdata::CERT);
+lookup_type!(SoaLookup, SoaLookupIter, RData::SOA, rdata::SOA);
+lookup_type!(NsLookup, NsLookupIter, RData::NS, NS);
 
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-    use std::sync::Arc;
 
     #[cfg(feature = "__dnssec")]
     use crate::proto::op::Query;
@@ -443,24 +318,22 @@ mod tests {
 
     #[test]
     fn test_lookup_into_iter_arc() {
-        let mut lookup = LookupIntoIter {
-            records: Arc::from([
-                Record::from_rdata(
-                    Name::from_str("www.example.com.").unwrap(),
-                    80,
-                    RData::A(A::new(127, 0, 0, 1)),
-                ),
-                Record::from_rdata(
-                    Name::from_str("www.example.com.").unwrap(),
-                    80,
-                    RData::A(A::new(127, 0, 0, 2)),
-                ),
-            ]),
-            index: 0,
-        };
+        let records = &[
+            Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                80,
+                RData::A(A::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                80,
+                RData::A(A::new(127, 0, 0, 2)),
+            ),
+        ];
 
-        assert_eq!(lookup.next().unwrap(), RData::A(A::new(127, 0, 0, 1)));
-        assert_eq!(lookup.next().unwrap(), RData::A(A::new(127, 0, 0, 2)));
+        let mut lookup = LookupIter(records.iter());
+        assert_eq!(lookup.next().unwrap(), &RData::A(A::new(127, 0, 0, 1)));
+        assert_eq!(lookup.next().unwrap(), &RData::A(A::new(127, 0, 0, 2)));
         assert_eq!(lookup.next(), None);
     }
 

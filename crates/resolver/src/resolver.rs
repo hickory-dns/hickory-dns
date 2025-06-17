@@ -29,7 +29,7 @@ use crate::proto::rr::domain::usage::ONION;
 use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
-use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle, DnsRequest, DnsResponse};
+use crate::proto::xfer::{DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
 macro_rules! lookup_fn {
@@ -1379,7 +1379,7 @@ mod tests {
             )
             .await
             .unwrap()
-            .into_iter()
+            .iter()
             .map(|r| r.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
