@@ -71,7 +71,7 @@ rustls = { version = "0.23.23", default-features = false, features = ["logging",
 rustls-platform-verifier = "0.5"
 rustls-pki-types = "1.10"
 tokio-rustls = { version = "0.26", default-features = false }
-webpki-roots = "0.26"
+webpki-roots = "1"
 ring = "0.17"
 
 
