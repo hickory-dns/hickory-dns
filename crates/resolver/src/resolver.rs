@@ -33,129 +33,6 @@ use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
-/// A builder to construct a [`Resolver`].
-///
-/// Created by [`Resolver::builder`].
-pub struct ResolverBuilder<P> {
-    config: ResolverConfig,
-    options: ResolverOpts,
-    provider: P,
-
-    #[cfg(feature = "__dnssec")]
-    trust_anchor: Option<Arc<TrustAnchors>>,
-    #[cfg(feature = "__dnssec")]
-    nsec3_soft_iteration_limit: Option<u16>,
-    #[cfg(feature = "__dnssec")]
-    nsec3_hard_iteration_limit: Option<u16>,
-}
-
-impl<P: ConnectionProvider> ResolverBuilder<P> {
-    /// Sets the [`ResolverOpts`] to be used by the resolver.
-    ///
-    /// NB: A [`ResolverBuilder<P>`] will use the system configuration e.g., `resolv.conf`, by
-    /// default. Usage of this method will overwrite any options set by the system configuration.
-    ///
-    /// See [`system_conf`][crate::system_conf] for functions that can parse a [`ResolverOpts`]
-    /// from the system configuration, or use [`options_mut()`][ResolverBuilder::with_options] to
-    /// acquire a muitable reference to the existing [`ResolverOpts`].
-    pub fn with_options(mut self, options: ResolverOpts) -> Self {
-        self.options = options;
-        self
-    }
-
-    /// Returns a mutable reference to the [`ResolverOpts`].
-    pub fn options_mut(&mut self) -> &mut ResolverOpts {
-        &mut self.options
-    }
-
-    /// Set the DNSSEC trust anchors to be used by the resolver.
-    #[cfg(feature = "__dnssec")]
-    pub fn with_trust_anchor(mut self, trust_anchor: Arc<TrustAnchors>) -> Self {
-        self.trust_anchor = Some(trust_anchor);
-        self
-    }
-
-    /// Set maximum limits on NSEC3 additional iterations.
-    ///
-    /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
-    /// zones that exceed the soft limit will be treated as insecure, and signed
-    /// zones that exceed the hard limit will be treated as bogus.
-    #[cfg(feature = "__dnssec")]
-    pub fn nsec3_iteration_limits(
-        mut self,
-        soft_limit: Option<u16>,
-        hard_limit: Option<u16>,
-    ) -> Self {
-        self.nsec3_soft_iteration_limit = soft_limit;
-        self.nsec3_hard_iteration_limit = hard_limit;
-        self
-    }
-
-    /// Construct the resolver.
-    pub fn build(self) -> Resolver<P> {
-        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-        let Self {
-            config,
-            mut options,
-            provider,
-            #[cfg(feature = "__dnssec")]
-            trust_anchor,
-            #[cfg(feature = "__dnssec")]
-            nsec3_soft_iteration_limit,
-            #[cfg(feature = "__dnssec")]
-            nsec3_hard_iteration_limit,
-        } = self;
-
-        #[cfg(feature = "__dnssec")]
-        if trust_anchor.is_some() || options.trust_anchor.is_some() {
-            options.validate = true;
-        }
-
-        let options = Arc::new(options);
-        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
-        let client = RetryDnsHandle::new(pool, options.attempts);
-        let either;
-        if options.validate {
-            #[cfg(feature = "__dnssec")]
-            {
-                let trust_anchor =
-                    trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
-
-                either = LookupEither::Secure(
-                    DnssecDnsHandle::with_trust_anchor(client, trust_anchor)
-                        .nsec3_iteration_limits(
-                            nsec3_soft_iteration_limit,
-                            nsec3_hard_iteration_limit,
-                        ),
-                );
-            }
-
-            #[cfg(not(feature = "__dnssec"))]
-            {
-                tracing::warn!("validate option is only available with dnssec features");
-                either = LookupEither::Retry(client);
-            }
-        } else {
-            either = LookupEither::Retry(client);
-        }
-
-        let cache = ResponseCache::new(options.cache_size, TtlConfig::from_opts(&options));
-        let client_cache = CachingClient::with_cache(cache, either, options.preserve_intermediates);
-
-        let hosts = Arc::new(match options.use_hosts_file {
-            ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system().unwrap_or_default(),
-            ResolveHosts::Never => Hosts::default(),
-        });
-
-        Resolver {
-            config,
-            options,
-            client_cache,
-            hosts,
-        }
-    }
-}
-
 /// An asynchronous resolver for DNS generic over async Runtimes.
 ///
 /// The lookup methods on `Resolver` spawn background tasks to perform
@@ -478,6 +355,129 @@ impl<P: ConnectionProvider> Resolver<P> {
 impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Resolver").finish()
+    }
+}
+
+/// A builder to construct a [`Resolver`].
+///
+/// Created by [`Resolver::builder`].
+pub struct ResolverBuilder<P> {
+    config: ResolverConfig,
+    options: ResolverOpts,
+    provider: P,
+
+    #[cfg(feature = "__dnssec")]
+    trust_anchor: Option<Arc<TrustAnchors>>,
+    #[cfg(feature = "__dnssec")]
+    nsec3_soft_iteration_limit: Option<u16>,
+    #[cfg(feature = "__dnssec")]
+    nsec3_hard_iteration_limit: Option<u16>,
+}
+
+impl<P: ConnectionProvider> ResolverBuilder<P> {
+    /// Sets the [`ResolverOpts`] to be used by the resolver.
+    ///
+    /// NB: A [`ResolverBuilder<P>`] will use the system configuration e.g., `resolv.conf`, by
+    /// default. Usage of this method will overwrite any options set by the system configuration.
+    ///
+    /// See [`system_conf`][crate::system_conf] for functions that can parse a [`ResolverOpts`]
+    /// from the system configuration, or use [`options_mut()`][ResolverBuilder::with_options] to
+    /// acquire a muitable reference to the existing [`ResolverOpts`].
+    pub fn with_options(mut self, options: ResolverOpts) -> Self {
+        self.options = options;
+        self
+    }
+
+    /// Returns a mutable reference to the [`ResolverOpts`].
+    pub fn options_mut(&mut self) -> &mut ResolverOpts {
+        &mut self.options
+    }
+
+    /// Set the DNSSEC trust anchors to be used by the resolver.
+    #[cfg(feature = "__dnssec")]
+    pub fn with_trust_anchor(mut self, trust_anchor: Arc<TrustAnchors>) -> Self {
+        self.trust_anchor = Some(trust_anchor);
+        self
+    }
+
+    /// Set maximum limits on NSEC3 additional iterations.
+    ///
+    /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
+    /// zones that exceed the soft limit will be treated as insecure, and signed
+    /// zones that exceed the hard limit will be treated as bogus.
+    #[cfg(feature = "__dnssec")]
+    pub fn nsec3_iteration_limits(
+        mut self,
+        soft_limit: Option<u16>,
+        hard_limit: Option<u16>,
+    ) -> Self {
+        self.nsec3_soft_iteration_limit = soft_limit;
+        self.nsec3_hard_iteration_limit = hard_limit;
+        self
+    }
+
+    /// Construct the resolver.
+    pub fn build(self) -> Resolver<P> {
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
+        let Self {
+            config,
+            mut options,
+            provider,
+            #[cfg(feature = "__dnssec")]
+            trust_anchor,
+            #[cfg(feature = "__dnssec")]
+            nsec3_soft_iteration_limit,
+            #[cfg(feature = "__dnssec")]
+            nsec3_hard_iteration_limit,
+        } = self;
+
+        #[cfg(feature = "__dnssec")]
+        if trust_anchor.is_some() || options.trust_anchor.is_some() {
+            options.validate = true;
+        }
+
+        let options = Arc::new(options);
+        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
+        let client = RetryDnsHandle::new(pool, options.attempts);
+        let either;
+        if options.validate {
+            #[cfg(feature = "__dnssec")]
+            {
+                let trust_anchor =
+                    trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
+
+                either = LookupEither::Secure(
+                    DnssecDnsHandle::with_trust_anchor(client, trust_anchor)
+                        .nsec3_iteration_limits(
+                            nsec3_soft_iteration_limit,
+                            nsec3_hard_iteration_limit,
+                        ),
+                );
+            }
+
+            #[cfg(not(feature = "__dnssec"))]
+            {
+                tracing::warn!("validate option is only available with dnssec features");
+                either = LookupEither::Retry(client);
+            }
+        } else {
+            either = LookupEither::Retry(client);
+        }
+
+        let cache = ResponseCache::new(options.cache_size, TtlConfig::from_opts(&options));
+        let client_cache = CachingClient::with_cache(cache, either, options.preserve_intermediates);
+
+        let hosts = Arc::new(match options.use_hosts_file {
+            ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system().unwrap_or_default(),
+            ResolveHosts::Never => Hosts::default(),
+        });
+
+        Resolver {
+            config,
+            options,
+            client_cache,
+            hosts,
+        }
     }
 }
 
