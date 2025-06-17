@@ -33,31 +33,6 @@ use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
-/// An asynchronous resolver for DNS generic over async Runtimes.
-///
-/// The lookup methods on `Resolver` spawn background tasks to perform
-/// queries. The futures returned by a `Resolver` and the corresponding
-/// background tasks need not be spawned on the same executor, or be in the
-/// same thread.
-///
-/// *NOTE* If lookup futures returned by a `Resolver` and the background
-/// tasks are spawned on two separate `CurrentThread` executors, one thread
-/// cannot run both executors simultaneously, so the `run` or `block_on`
-/// functions will cause the thread to deadlock. If both the background work
-/// and the lookup futures are intended to be run on the same thread, they
-/// should be spawned on the same executor.
-#[derive(Clone)]
-pub struct Resolver<P: ConnectionProvider> {
-    config: ResolverConfig,
-    options: Arc<ResolverOpts>,
-    client_cache: CachingClient<LookupEither<P>>,
-    hosts: Arc<Hosts>,
-}
-
-/// A Resolver used with Tokio
-#[cfg(feature = "tokio")]
-pub type TokioResolver = Resolver<TokioRuntimeProvider>;
-
 macro_rules! lookup_fn {
     ($p:ident, $l:ty, $r:path) => {
         /// Performs a lookup for the associated type.
@@ -90,6 +65,31 @@ macro_rules! lookup_fn {
         }
     };
 }
+
+/// An asynchronous resolver for DNS generic over async Runtimes.
+///
+/// The lookup methods on `Resolver` spawn background tasks to perform
+/// queries. The futures returned by a `Resolver` and the corresponding
+/// background tasks need not be spawned on the same executor, or be in the
+/// same thread.
+///
+/// *NOTE* If lookup futures returned by a `Resolver` and the background
+/// tasks are spawned on two separate `CurrentThread` executors, one thread
+/// cannot run both executors simultaneously, so the `run` or `block_on`
+/// functions will cause the thread to deadlock. If both the background work
+/// and the lookup futures are intended to be run on the same thread, they
+/// should be spawned on the same executor.
+#[derive(Clone)]
+pub struct Resolver<P: ConnectionProvider> {
+    config: ResolverConfig,
+    options: Arc<ResolverOpts>,
+    client_cache: CachingClient<LookupEither<P>>,
+    hosts: Arc<Hosts>,
+}
+
+/// A Resolver used with Tokio
+#[cfg(feature = "tokio")]
+pub type TokioResolver = Resolver<TokioRuntimeProvider>;
 
 #[cfg(feature = "tokio")]
 impl TokioResolver {
