@@ -587,9 +587,8 @@ impl Authority for InMemoryAuthority {
                 return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
             }
 
-            #[allow(deprecated)]
             match self.zone_type() {
-                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
+                ZoneType::Primary | ZoneType::Secondary => (),
                 // TODO: Forward?
                 _ => {
                     return LookupControlFlow::Continue(Err(LookupError::from(

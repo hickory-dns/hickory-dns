@@ -158,26 +158,16 @@ mod zone_type {
     pub enum ZoneType {
         /// This authority for a zone
         Primary,
-        /// This authority for a zone, i.e. the Primary
-        #[deprecated = "please read about Juneteenth"]
-        Master,
         /// A secondary, i.e. replicated from the Primary
         Secondary,
-        /// A secondary, i.e. replicated from the Primary
-        #[deprecated = "please read about Juneteenth"]
-        Slave,
         /// A cached zone that queries other nameservers
         External,
     }
 
     impl ZoneType {
         /// Is this an authoritative Authority, i.e. it owns the records of the zone.
-        #[allow(deprecated)]
         pub fn is_authoritative(self) -> bool {
-            matches!(
-                self,
-                Self::Primary | Self::Secondary | Self::Master | Self::Slave
-            )
+            matches!(self, Self::Primary | Self::Secondary)
         }
     }
 }
