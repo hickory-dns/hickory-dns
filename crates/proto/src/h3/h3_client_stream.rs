@@ -415,12 +415,14 @@ impl H3ClientStreamBuilder {
         debug!("h3 connection is ready: {}", name_server);
         tokio::spawn(async move {
             tokio::select! {
-                res = poll_fn(|cx| driver.poll_close(cx)) => {
-                    res.map_err(|e| warn!("h3 connection failed: {e}"))
+                error = poll_fn(|cx| driver.poll_close(cx)) => {
+                    // `poll_close()` strangely unconditionally returns a `ConnectionError`
+                    if !error.is_h3_no_error() {
+                        warn!(%error, "h3 connection failed to close")
+                    }
                 }
                 _ = shutdown_rx.recv() => {
                     debug!("h3 connection is shutting down: {}", name_server);
-                    Ok(())
                 }
             }
         });
