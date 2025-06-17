@@ -48,7 +48,7 @@ pub enum ErrorKind {
 
     #[error("h3: {0}")]
     #[cfg(feature = "__h3")]
-    H3(#[from] h3::Error),
+    H3(#[from] h3::error::StreamError),
 }
 
 /// The error type for errors that get returned in the crate
@@ -131,8 +131,8 @@ impl From<h2::Error> for Error {
 }
 
 #[cfg(feature = "__h3")]
-impl From<h3::Error> for Error {
-    fn from(msg: h3::Error) -> Self {
+impl From<h3::error::StreamError> for Error {
+    fn from(msg: h3::error::StreamError) -> Self {
         ErrorKind::H3(msg).into()
     }
 }

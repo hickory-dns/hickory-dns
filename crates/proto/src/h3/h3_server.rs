@@ -112,7 +112,12 @@ impl H3Connection {
         &mut self,
     ) -> Option<Result<(Request<()>, RequestStream<BidiStream<Bytes>, Bytes>), ProtoError>> {
         match self.connection.accept().await {
-            Ok(Some((request, stream))) => Some(Ok((request, stream))),
+            Ok(Some(resolver)) => match resolver.resolve_request().await {
+                Ok((request, stream)) => Some(Ok((request, stream))),
+                Err(e) => Some(Err(ProtoError::from(format!(
+                    "h3 request resolution failed: {e}"
+                )))),
+            },
             Ok(None) => None,
             Err(e) => Some(Err(ProtoError::from(format!("h3 request failed: {e}")))),
         }
