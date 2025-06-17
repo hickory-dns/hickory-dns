@@ -12,14 +12,14 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::{FutureExt, future};
+use futures_util::{FutureExt, Stream, future};
 use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
-use crate::lookup::{self, Lookup, LookupEither};
+use crate::lookup::{self, Lookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "__dnssec")]
@@ -29,7 +29,7 @@ use crate::proto::rr::domain::usage::ONION;
 use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
-use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle};
+use crate::proto::xfer::{DnsHandle, DnsRequestOptions, RetryDnsHandle, DnsRequest, DnsResponse};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
 macro_rules! lookup_fn {
@@ -332,6 +332,34 @@ impl<R: ConnectionProvider> Resolver<R> {
 impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Resolver").finish()
+    }
+}
+
+/// Different lookup options for the lookup attempts and validation
+#[derive(Clone)]
+enum LookupEither<P: ConnectionProvider> {
+    Retry(RetryDnsHandle<NameServerPool<P>>),
+    #[cfg(feature = "__dnssec")]
+    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
+}
+
+impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+
+    fn is_verifying_dnssec(&self) -> bool {
+        match self {
+            Self::Retry(c) => c.is_verifying_dnssec(),
+            #[cfg(feature = "__dnssec")]
+            Self::Secure(c) => c.is_verifying_dnssec(),
+        }
+    }
+
+    fn send(&self, request: DnsRequest) -> Self::Response {
+        match self {
+            Self::Retry(c) => c.send(request),
+            #[cfg(feature = "__dnssec")]
+            Self::Secure(c) => c.send(request),
+        }
     }
 }
 
