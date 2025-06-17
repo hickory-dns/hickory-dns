@@ -102,7 +102,7 @@ impl<'q> MessageResponseBuilder<'q> {
     ///
     /// * `queries` - queries (from the Request) to associate with the Response
     /// * `edns` - Optional Edns data to associate with the Response
-    pub(crate) fn new(queries: &'q Queries, edns: Option<Edns>) -> Self {
+    pub fn new(queries: &'q Queries, edns: Option<Edns>) -> Self {
         MessageResponseBuilder {
             queries,
             signature: MessageSignature::default(),

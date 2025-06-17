@@ -189,7 +189,7 @@ impl MessageRequest {
     }
 
     /// Returns the original queries received from the client
-    pub(crate) fn raw_queries(&self) -> &Queries {
+    pub fn raw_queries(&self) -> &Queries {
         &self.queries
     }
 }
