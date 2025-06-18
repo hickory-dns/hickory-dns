@@ -471,6 +471,9 @@ pub enum EdnsOption {
     /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
     Subnet(ClientSubnet),
 
+    /// [RFC 5001, DNS Name Server Identifier (NSID) Option](https://tools.ietf.org/html/rfc5001)
+    NSID(NSIDPayload),
+
     /// Unknown, used to deal with unknown or unsupported codes
     Unknown(u16, Vec<u8>),
 }
@@ -482,7 +485,8 @@ impl EdnsOption {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(algorithms) => algorithms.len(),
             EdnsOption::Subnet(subnet) => subnet.len(),
-            EdnsOption::Unknown(_, data) => data.len() as u16, // TODO: should we verify?
+            EdnsOption::NSID(payload) => payload.as_ref().len() as u16, // cast safety: NSIDPayload size is constrained.
+            EdnsOption::Unknown(_, data) => data.len() as u16,          // TODO: should we verify?
         }
     }
 
@@ -492,6 +496,7 @@ impl EdnsOption {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(algorithms) => algorithms.is_empty(),
             EdnsOption::Subnet(subnet) => subnet.is_empty(),
+            EdnsOption::NSID(payload) => payload.as_ref().is_empty(),
             EdnsOption::Unknown(_, data) => data.is_empty(),
         }
     }
@@ -503,6 +508,7 @@ impl BinEncodable for EdnsOption {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(algorithms) => algorithms.emit(encoder),
             EdnsOption::Subnet(subnet) => subnet.emit(encoder),
+            EdnsOption::NSID(payload) => encoder.emit_vec(payload.as_ref()),
             EdnsOption::Unknown(_, data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
         }
     }
@@ -517,6 +523,7 @@ impl<'a> TryFrom<(EdnsCode, &'a [u8])> for EdnsOption {
             #[cfg(feature = "__dnssec")]
             EdnsCode::DAU => Self::DAU(value.1.into()),
             EdnsCode::Subnet => Self::Subnet(value.1.try_into()?),
+            EdnsCode::NSID => Self::NSID(value.1.try_into()?),
             _ => Self::Unknown(value.0.into(), value.1.to_vec()),
         })
     }
@@ -530,6 +537,7 @@ impl<'a> TryFrom<&'a EdnsOption> for Vec<u8> {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(algorithms) => algorithms.into(),
             EdnsOption::Subnet(subnet) => subnet.try_into()?,
+            EdnsOption::NSID(payload) => payload.as_ref().to_vec(),
             EdnsOption::Unknown(_, data) => data.clone(), // gah, clone needed or make a crazy api.
         })
     }
@@ -541,6 +549,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(..) => Self::DAU,
             EdnsOption::Subnet(..) => Self::Subnet,
+            EdnsOption::NSID(..) => Self::NSID,
             EdnsOption::Unknown(code, _) => (*code).into(),
         }
     }
@@ -776,6 +785,41 @@ impl FromStr for ClientSubnet {
     }
 }
 
+/// A raw binary NSID payload
+///
+/// Constrained to u16::MAX bytes.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct NSIDPayload(Vec<u8>);
+
+impl NSIDPayload {
+    /// Construct a new NSID payload from the provided binary data
+    ///
+    /// A `ProtoError` is returned if the provided data is too large to be
+    /// expressed as an EDNS option value.
+    pub fn new(data: impl Into<Vec<u8>>) -> Result<Self, ProtoError> {
+        let data = data.into();
+        if data.len() > u16::MAX as usize {
+            return Err(ProtoError::from("NSID EDNS payload too large"));
+        }
+        Ok(Self(data))
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for NSIDPayload {
+    type Error = ProtoError;
+
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+        NSIDPayload::new(value)
+    }
+}
+
+impl AsRef<[u8]> for NSIDPayload {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
@@ -887,5 +931,25 @@ mod tests {
         let bytes: Vec<u8> = vec![0x00, 0x01, 0x18, 0x00, 0xac, 0x01, 0x01];
         let ecs = ClientSubnet::try_from(bytes.as_slice()).unwrap();
         assert_eq!(ecs, "172.1.1.0/24".parse().unwrap());
+    }
+
+    #[test]
+    fn test_nsid_payload_too_large() {
+        let err = NSIDPayload::try_from([0x00; (u16::MAX as usize) + 1].as_slice()).unwrap_err();
+        let ProtoErrorKind::Message(msg) = err.kind() else {
+            panic!("expected ProtoErrorKind::Message, got {err}");
+        };
+        assert!(msg.contains("too large"));
+    }
+
+    #[test]
+    fn test_nsid_payload_roundtrip() {
+        let payload_in = EdnsOption::NSID([0xC0, 0xFF, 0xEE].as_slice().try_into().unwrap());
+        let mut buf = Vec::new();
+        let mut encoder = BinEncoder::new(&mut buf);
+        payload_in.emit(&mut encoder).unwrap();
+
+        let payload_out = EdnsOption::try_from((EdnsCode::NSID, buf.as_ref())).unwrap();
+        assert_eq!(payload_in, payload_out);
     }
 }
