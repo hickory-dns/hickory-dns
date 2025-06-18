@@ -218,7 +218,7 @@ async fn test_authority() {
 
 #[cfg(feature = "__dnssec")]
 #[tokio::test]
-async fn test_authorize() {
+async fn test_authorize_update() {
     use hickory_proto::serialize::binary::BinEncodable;
 
     subscribe();
@@ -234,7 +234,7 @@ async fn test_authorize() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     assert_eq!(
-        authority.authorize(&request).await,
+        authority.authorize_update(&request).await,
         Err(ResponseCode::Refused)
     );
 

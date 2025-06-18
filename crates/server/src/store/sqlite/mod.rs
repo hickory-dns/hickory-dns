@@ -505,7 +505,7 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "__dnssec")]
-    pub async fn authorize(&self, request: &Request) -> UpdateResult<()> {
+    pub async fn authorize_update(&self, request: &Request) -> UpdateResult<()> {
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -972,7 +972,7 @@ impl Authority for SqliteAuthority {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.
-            self.authorize(_request).await?;
+            self.authorize_update(_request).await?;
             self.verify_prerequisites(_request.prerequisites()).await?;
             self.pre_scan(_request.updates()).await?;
             self.update_records(_request.updates(), true).await
