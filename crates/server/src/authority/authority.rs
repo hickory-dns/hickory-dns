@@ -233,7 +233,7 @@ pub trait DnssecAuthority: Authority {
 ///   These responses may be passed to other authorities for analysis or requery purposes.
 /// * Authorities may use LookupControlFlow::Break to indicate the response must be returned
 ///   immediately to the client, without consulting any other authorities.  For example, if the
-///   the user configures a blocklist authority, it would not be appropriate to pass the query to
+///   user configures a blocklist authority, it would not be appropriate to pass the query to
 ///   any additional authorities to try to resolve, as that might be used to leak information to a
 ///   hostile party, and so a blocklist (or similar) authority should wrap responses for any
 ///   blocklist hits in LookupControlFlow::Break.
