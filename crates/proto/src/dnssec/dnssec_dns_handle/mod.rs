@@ -453,10 +453,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// Checks whether a DS RRset exists for the given name or an ancestor of it.
     async fn find_ds_records(
         &self,
-        zone: Name,
+        name: Name,
         options: DnsRequestOptions,
     ) -> Result<(), ProofError> {
-        match self.fetch_ds_records(zone.clone(), options).await {
+        match self.fetch_ds_records(name.clone(), options).await {
             Ok(_) => return Ok(()),
             Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
             Err(err) => return Err(err),
@@ -464,13 +464,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // Otherwise, we need to discover the status of DS RRsets up the chain. If we find a valid DS
         // RRset, then we're in a Bogus state. If we get a ProofError, our result is the same.
-        let mut parent = zone.base_name();
+        let mut parent = name.base_name();
         loop {
             if parent.is_root() {
-                return Err(ProofError::ds_should_exist(zone));
+                return Err(ProofError::ds_should_exist(name));
             }
             match self.fetch_ds_records(parent.clone(), options).await {
-                Ok(_) => return Err(ProofError::ds_should_exist(zone)),
+                Ok(_) => return Err(ProofError::ds_should_exist(name)),
                 Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
                 Err(err) => return Err(err),
             }
