@@ -534,7 +534,18 @@ where
                     debug!("h2 connection established to: {}", name_server);
                     tokio::spawn(
                         connection
-                            .map_err(|e| warn!("h2 connection failed: {e}"))
+                            .map_err(|e| {
+                                if e.get_io()
+                                    .is_some_and(|ei| ei.kind() == io::ErrorKind::UnexpectedEof)
+                                    || e.is_go_away()
+                                {
+                                    // It is safe to ignore EoF as H2 framing already rejects
+                                    // truncated messages https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof
+                                    debug!("h2 connection closed by remote")
+                                } else {
+                                    warn!("h2 connection failed: {e}")
+                                }
+                            })
                             .map(|_: Result<(), ()>| ()),
                     );
 
