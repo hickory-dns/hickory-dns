@@ -23,8 +23,7 @@ use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
 use hickory_proto::xfer::Protocol;
-use hickory_server::authority::{Authority, ZoneType};
-use hickory_server::authority::{LookupOptions, MessageRequest};
+use hickory_server::authority::{Authority, LookupError, LookupOptions, MessageRequest, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "__dnssec")]
@@ -1389,6 +1388,8 @@ async fn test_refused_axfr() {
         .search(request_info, LookupOptions::default())
         .await;
 
-    // just update this if the count goes up in the authority
-    assert!(result.unwrap_err().is_refused());
+    assert!(matches!(
+        result.unwrap_err(),
+        LookupError::ResponseCode(ResponseCode::Refused)
+    ));
 }

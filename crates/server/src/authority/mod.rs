@@ -122,11 +122,6 @@ impl LookupError {
             _ => None,
         }
     }
-
-    /// This is a non-existent domain name
-    pub fn is_refused(&self) -> bool {
-        matches!(*self, Self::ResponseCode(ResponseCode::Refused))
-    }
 }
 
 impl From<ResponseCode> for LookupError {
