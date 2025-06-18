@@ -15,9 +15,6 @@ use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
-#[cfg(all(feature = "__dnssec", feature = "recursor"))]
-use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
-
 use crate::{
     authority::{
         AuthLookup, AuthorityObject, EmptyLookup, LookupControlFlow, LookupError, LookupObject,
@@ -26,14 +23,18 @@ use crate::{
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
+        rr::rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         rr::{LowerName, RecordSet, RecordType},
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
+#[cfg(all(feature = "__dnssec", feature = "recursor"))]
+use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
 
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
 pub struct Catalog {
+    nsid_payload: Option<NSIDPayload>,
     authorities: HashMap<LowerName, Vec<Arc<dyn AuthorityObject>>>,
 }
 
@@ -90,6 +91,29 @@ impl RequestHandler for Catalog {
                 };
             }
 
+            // RFC 5001 "DNS Name Server Identifier (NSID) Option" handling.
+            match (req_edns.option(EdnsCode::NSID), &self.nsid_payload) {
+                // NSID was requested, and we have a payload to reply with. Add it to the
+                // response EDNS.
+                (Some(request_option), Some(payload)) => {
+                    // "The name server MUST ignore any NSID payload data that might be
+                    //  present in the query message."
+                    if !request_option.is_empty() {
+                        warn!("ignoring non-empty EDNS NSID request payload")
+                    }
+                    resp_edns
+                        .options_mut()
+                        .insert(EdnsOption::NSID(payload.clone()));
+                }
+                // NSID was requested, but we don't have a payload configured.
+                (Some(_), None) => {
+                    trace!("ignoring EDNS NSID request - no response payload configured")
+                }
+                // "A name server MUST NOT send an NSID option back to a resolver which
+                // did not request it."
+                (None, _) => {}
+            };
+
             response_edns = Some(resp_edns);
         } else {
             response_edns = None;
@@ -142,6 +166,7 @@ impl Catalog {
     pub fn new() -> Self {
         Self {
             authorities: HashMap::new(),
+            nsid_payload: None,
         }
     }
 
@@ -158,6 +183,23 @@ impl Catalog {
     /// Remove a zone from the catalog
     pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn AuthorityObject>>> {
         self.authorities.remove(name)
+    }
+
+    /// Set a specified name server identifier (NSID) in responses
+    ///
+    /// The provided `NSIDPayload` will be included in responses to requests that
+    /// specify the NSID option in EDNS. Set to `None` to disable NSID.
+    ///
+    /// By default, no NSID is sent.
+    pub fn set_nsid(&mut self, payload: Option<NSIDPayload>) {
+        self.nsid_payload = payload
+    }
+
+    /// Return the name server identifier (NSID) that is used for responses (if enabled)
+    ///
+    /// See `set_nsid()` for more information.
+    pub fn nsid(&self) -> Option<&NSIDPayload> {
+        self.nsid_payload.as_ref()
     }
 
     /// Update the zone given the Update request.
