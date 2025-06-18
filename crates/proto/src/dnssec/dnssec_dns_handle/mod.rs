@@ -450,32 +450,56 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         ))
     }
 
-    /// Checks whether a DS RRset exists for the given name or an ancestor of it.
+    /// Checks whether a DS RRset exists for the zone containing a name.
+    ///
+    /// Returns an error with an `Insecure` proof if the zone is proven to be insecure. Returns
+    /// `Ok(())` if the zone is secure.
+    ///
+    /// This first finds the nearest zone cut at or above the given name, by making NS queries.
+    /// Then, the DS RRset at the delegation point is requested. The DS response is validated to
+    /// determine if any DS records exist or not, and thus whether the zone is secure, insecure, or
+    /// bogus. See [RFC 6840 section 6.1](https://datatracker.ietf.org/doc/html/rfc6840#section-6.1)
+    /// and [RFC 4035 section 4.2](https://datatracker.ietf.org/doc/html/rfc4035#section-4.2).
     async fn find_ds_records(
         &self,
         name: Name,
         options: DnsRequestOptions,
     ) -> Result<(), ProofError> {
-        match self.fetch_ds_records(name.clone(), options).await {
-            Ok(_) => return Ok(()),
-            Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
-            Err(err) => return Err(err),
-        }
-
-        // Otherwise, we need to discover the status of DS RRsets up the chain. If we find a valid DS
-        // RRset, then we're in a Bogus state. If we get a ProofError, our result is the same.
-        let mut parent = name.base_name();
-        loop {
-            if parent.is_root() {
+        let mut ancestor = name.clone();
+        let zone = loop {
+            if ancestor.is_root() {
                 return Err(ProofError::ds_should_exist(name));
             }
-            match self.fetch_ds_records(parent.clone(), options).await {
-                Ok(_) => return Err(ProofError::ds_should_exist(name)),
-                Err(err) if matches!(err.kind(), ProofErrorKind::DsRecordShouldExist { .. }) => {}
-                Err(err) => return Err(err),
+
+            // Make an un-verified request for the NS RRset at this ancestor name.
+            let query = Query::query(ancestor.clone(), RecordType::NS);
+            let result = self
+                .handle
+                .lookup(query.clone(), options)
+                .first_answer()
+                .await;
+            match result {
+                Ok(response) => {
+                    if response.all_sections().any(|record| {
+                        record.record_type() == RecordType::NS && record.name() == &ancestor
+                    }) {
+                        break ancestor;
+                    }
+                }
+                Err(e) if e.is_no_records_found() || e.is_nx_domain() => {}
+                Err(e) => {
+                    return Err(ProofError::new(
+                        Proof::Bogus,
+                        ProofErrorKind::Proto { query, proto: e },
+                    ));
+                }
             }
-            parent = parent.base_name();
-        }
+
+            ancestor = ancestor.base_name();
+        };
+
+        self.fetch_ds_records(zone, options).await?;
+        Ok(())
     }
 
     /// Retrieves DS records for the given zone.
