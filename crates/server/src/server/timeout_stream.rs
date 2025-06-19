@@ -25,7 +25,6 @@ impl<S> TimeoutStream<S> {
     ///
     /// * `stream` - stream to wrap
     /// * `timeout_duration` - timeout between each request, once exceed the connection is killed
-    /// * `reactor_handle` - reactor used for registering new timeouts
     pub fn new(stream: S, timeout_duration: Duration) -> Self {
         Self {
             stream,
