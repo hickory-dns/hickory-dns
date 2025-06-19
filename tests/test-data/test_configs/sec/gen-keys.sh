@@ -10,11 +10,9 @@ CSR_FILE=example.csr
 CRT_FILE=example.cert
 P12_FILE=example.p12
 
-# ec key request
+# RSA key request
+# TODO: Consider switching to ECC.
 echo "====> generating key"
-### Apple doesn't allow ECC keys? Ecc will fail native-tls
-# ${OPENSSL:?} ecparam -out ${KEY_FILE:?}.pem -outform pem -name secp256k1 -genkey
-### Using RSA for now
 ${OPENSSL:?} genrsa -out ${KEY_FILE:?}.pem 2048
 
 ${OPENSSL:?} pkey -in ${KEY_FILE:?}.pem -inform pem -out ${KEY_FILE:?} -outform der
