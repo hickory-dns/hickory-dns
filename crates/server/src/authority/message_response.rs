@@ -201,13 +201,7 @@ impl<'q> MessageResponseBuilder<'q> {
         }
     }
 
-    /// Constructs a new error MessageResponse with associated settings
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - request id to which this is a response
-    /// * `op_code` - operation for which this is a response
-    /// * `response_code` - the type of error
+    /// Constructs a new error MessageResponse with associated header and response code
     pub fn error_msg<'a>(
         self,
         request_header: &Header,
