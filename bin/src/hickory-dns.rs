@@ -21,6 +21,8 @@
 //!       -p, --port <PORT>        Listening port for DNS queries, overrides any value in config file
 //!           --disable-tcp        Disable TCP protocol, overrides any value in config file
 //!           --disable-udp        Disable UDP protocol, overrides any value in config file
+//!           --nsid <NSID>        Name server identifier (NSID) payload for EDNS responses. Use `0x` prefix for hex-encoded data. Mutually exclusive with --nsid-hostname
+//!           --nsid-hostname      Use the system hostname as the name server identifier (NSID) payload for EDNS responses. Mutually exclusive with --nsid
 //!       -h, --help               Print help
 //!       -V, --version            Print version
 //! ```
@@ -71,6 +73,8 @@ use hickory_dns::PrometheusServer;
 use hickory_dns::TlsCertConfig;
 #[cfg(feature = "metrics")]
 use hickory_dns::{ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
+use hickory_server::proto::ProtoError;
+use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 use hickory_server::{authority::Catalog, server::ServerFuture};
 
 /// Cli struct for all options managed with clap derive api.
@@ -174,6 +178,27 @@ struct Cli {
     #[cfg(feature = "prometheus-metrics")]
     #[clap(long = "disable-prometheus", conflicts_with = "prometheus_listen_addr")]
     disable_prometheus: bool,
+
+    /// Name server identifier (NSID) payload for EDNS responses.
+    /// Use `0x` prefix for hex-encoded data. Mutually exclusive with --nsid-hostname
+    #[clap(long = "nsid", value_name = "NSID", conflicts_with = "nsid_hostname", value_parser = parse_nsid_payload)]
+    nsid: Option<NSIDPayload>,
+
+    /// Use the system hostname as the name server identifier (NSID) payload
+    /// for EDNS responses.
+    /// Mutually exclusive with --nsid
+    #[clap(long = "nsid-hostname", conflicts_with = "nsid")]
+    nsid_hostname: bool,
+}
+
+fn parse_nsid_payload(raw_payload: &str) -> Result<NSIDPayload, ProtoError> {
+    let bytes = if let Some(hex_str) = raw_payload.strip_prefix("0x") {
+        hex::decode(hex_str)
+            .map_err(|e| ProtoError::from(format!("invalid NSID hex encoding: {e}")))?
+    } else {
+        raw_payload.as_bytes().to_vec()
+    };
+    NSIDPayload::new(bytes)
 }
 
 /// Main method for running the named server.
@@ -287,6 +312,19 @@ async fn async_run(args: Cli) -> Result<(), String> {
         .map_err(|e| format!("failed to register signal handler: {e}"))?;
 
     let mut catalog: Catalog = Catalog::new();
+    catalog.set_nsid(args.nsid);
+
+    if args.nsid_hostname {
+        let hostname =
+            hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
+        // TODO: After MSRV 1.74 we could use OsString::into_encoded_bytes() here to
+        //   allow using a non-UTF-8 hostname in the NSID payload.
+        let hostname = hostname.to_str().ok_or("hostname was not valid UTF-8")?;
+        let payload = NSIDPayload::new(hostname.as_bytes())
+            .map_err(|e| format!("invalid NSID payload: {e}"))?;
+        catalog.set_nsid(Some(payload));
+    }
+
     // configure our server based on the config_path
     for zone in config.zones() {
         let zone_name = zone
@@ -936,3 +974,32 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
 static DEFAULT_USER: &str = "nobody";
 #[cfg(target_family = "unix")]
 static DEFAULT_GROUP: &str = "nobody";
+
+#[cfg(test)]
+mod tests {
+    use hickory_proto::rr::rdata::opt::NSIDPayload;
+
+    use super::parse_nsid_payload;
+
+    #[test]
+    fn test_hex_nsid_payload() {
+        let expected = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
+        let value = parse_nsid_payload("0xC0FFEE").unwrap();
+        assert_eq!(value, expected);
+    }
+
+    #[test]
+    fn test_string_nsid_payload() {
+        let string_value = "HickoryDNS";
+        let expected = NSIDPayload::new(string_value.as_bytes()).unwrap();
+        let value = parse_nsid_payload(string_value).unwrap();
+        assert_eq!(value, expected);
+    }
+
+    #[test]
+    fn test_nsid_payload_too_long() {
+        let too_large = "x".repeat(u16::MAX as usize + 1);
+        let err = parse_nsid_payload(&too_large).unwrap_err();
+        assert_eq!(err.to_string(), "NSID EDNS payload too large");
+    }
+}
