@@ -90,14 +90,8 @@ impl BlocklistAuthority {
             blocklist: HashMap::new(),
             wildcard_match: config.wildcard_match,
             min_wildcard_depth: config.min_wildcard_depth,
-            sinkhole_ipv4: match config.sinkhole_ipv4 {
-                Some(ip) => ip,
-                None => Ipv4Addr::UNSPECIFIED,
-            },
-            sinkhole_ipv6: match config.sinkhole_ipv6 {
-                Some(ip) => ip,
-                None => Ipv6Addr::UNSPECIFIED,
-            },
+            sinkhole_ipv4: config.sinkhole_ipv4.unwrap_or(Ipv4Addr::UNSPECIFIED),
+            sinkhole_ipv6: config.sinkhole_ipv6.unwrap_or(Ipv6Addr::UNSPECIFIED),
             ttl: config.ttl,
             block_message: config.block_message.clone(),
             consult_action: config.consult_action,
