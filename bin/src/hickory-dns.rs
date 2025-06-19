@@ -550,7 +550,6 @@ fn config_https(
         } else {
             info!("loading cert for DNS over TLS from {tls_cert_path:?}");
         }
-        // TODO: see about modifying native_tls to impl Clone for Pkcs12
         let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
@@ -604,7 +603,6 @@ fn config_quic(
         } else {
             info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
         }
-        // TODO: see about modifying native_tls to impl Clone for Pkcs12
         let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
             format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
         })?;
