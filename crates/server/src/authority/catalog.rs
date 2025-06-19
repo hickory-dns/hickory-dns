@@ -168,12 +168,12 @@ impl Catalog {
         }
     }
 
-    /// Insert or update a zone authority
+    /// Insert or update the provided zone authorities
     ///
     /// # Arguments
     ///
     /// * `name` - zone name, e.g. example.com.
-    /// * `authority` - the zone data
+    /// * `authorities` - a vec of authority objects
     pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn AuthorityObject>>) {
         self.authorities.insert(name, authorities);
     }
