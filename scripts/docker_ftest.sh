@@ -10,7 +10,6 @@ builds="${builds} && echo '==> proto' && cd proto && cargo test ${OPTS} -- ${TES
 builds="${builds} && echo '==> resolver' && cd resolver && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
 builds="${builds} && echo '==> client' && cd client && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
 builds="${builds} && echo '==> server' && cd server && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
-builds="${builds} && echo '==> native-tls' && cd native-tls && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
 builds="${builds} && echo '==> openssl' && cd openssl && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
 builds="${builds} && echo '==> rustls' && cd rustls && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
 builds="${builds} && echo '==> integration-tests' && cd integration-tests && cargo test ${OPTS} -- ${TEST_OPTS} && cd .."
