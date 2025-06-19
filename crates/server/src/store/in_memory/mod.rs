@@ -256,6 +256,8 @@ impl InMemoryAuthority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
+    /// * `origin` - The origin `LowerName` for the signer record
+    /// * `dns_class` - The `DNSClass` for the signer record
     #[cfg(feature = "__dnssec")]
     fn inner_add_zone_signing_key(
         inner: &mut InnerInMemory,
