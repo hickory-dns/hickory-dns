@@ -562,12 +562,13 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///  to not make this too low depending on use cases.
     ///
     /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `socket` - a bound UDP socket
     /// * `timeout` - timeout duration of incoming requests, any connection that does not send
     ///   requests within this time period will be closed. In the future it should be
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
+    /// * `dns_hostname` - the DNS hostname of the DoQ server.
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener(
         &mut self,
