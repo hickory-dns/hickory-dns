@@ -444,11 +444,13 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    /// * `handshake_timeout` - timeout duration of incoming requests, any connection that does not send
     ///   requests within this time period will be closed. In the future it should be
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
+    /// * `dns_hostname` - the DNS hostname of the H2 server.
+    /// * `http_endpoint` - the HTTP endpoint of the H2 server.
     #[cfg(feature = "__https")]
     pub fn register_https_listener(
         &mut self,
