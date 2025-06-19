@@ -16,7 +16,8 @@ use crate::{
     server::ResponseInfo,
 };
 
-/// A EncodableMessage with borrowed data for Responses in the Server
+/// A [`crate::proto::serialize::binary::BinEncodable`] message with borrowed data for
+/// Responses in the Server
 ///
 /// This can be constructed via [`MessageResponseBuilder`].
 #[derive(Debug)]
