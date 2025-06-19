@@ -34,7 +34,7 @@ pub struct Request {
 }
 
 impl Request {
-    /// Build a new requests with the inbound message, source address, and protocol.
+    /// Build a new requests with the inbound message, its raw bytes, source address, and protocol.
     ///
     /// This will return an error on bad verification.
     pub fn new(message: MessageRequest, raw: Bytes, src: SocketAddr, protocol: Protocol) -> Self {
