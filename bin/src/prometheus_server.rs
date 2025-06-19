@@ -11,7 +11,7 @@ use tokio::{net::TcpListener, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
-/// An HTTP server that repsonds to Prometheus scrape requests.
+/// An HTTP server that responds to Prometheus scrape requests.
 pub struct PrometheusServer {
     join_handle: JoinHandle<()>,
     cancellation_token: CancellationToken,
