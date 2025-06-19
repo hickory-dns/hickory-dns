@@ -90,9 +90,7 @@ impl ResponseHandle {
 
 #[async_trait::async_trait]
 impl ResponseHandler for ResponseHandle {
-    /// Serializes and sends a message to to the wrapped handle
-    ///
-    /// self is consumed as only one message should ever be sent in response to a Request
+    /// Serializes and sends a message to the wrapped handle
     async fn send_response<'a>(
         &mut self,
         response: MessageResponse<
