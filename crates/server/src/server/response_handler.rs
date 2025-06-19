@@ -42,7 +42,7 @@ pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
     ) -> io::Result<ResponseInfo>;
 }
 
-/// A handler for wrapping a BufStreamHandle, which will properly serialize the message and add the
+/// A handler for wrapping a [`BufDnsStreamHandle`], which will properly serialize the message and add the
 ///  associated destination.
 #[derive(Clone)]
 pub struct ResponseHandle {
