@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Zone file based serving with Dynamic DNS and journaling support
+//! In-memory zone data authority
 
 #[cfg(all(feature = "__dnssec", feature = "testing"))]
 use std::ops::Deref;
