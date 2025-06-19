@@ -158,14 +158,7 @@ impl From<LookupRecords> for AuthLookup {
     }
 }
 
-/// An iterator over an ANY query for Records.
-///
-/// The length of this result cannot be known without consuming the iterator.
-///
-/// # Lifetimes
-///
-/// * `'r` - the record_set's lifetime, from the catalog
-/// * `'q` - the lifetime of the query/request
+/// A collection of RecordSets from an ANY query for Records.
 #[derive(Debug)]
 pub struct AnyRecords {
     #[cfg(feature = "__dnssec")]
