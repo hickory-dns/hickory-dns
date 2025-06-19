@@ -64,9 +64,8 @@ impl Journal {
 
     /// Inserts a record, this is an append only operation.
     ///
-    /// Records should never be posthumously modified. The message will be serialized into the.
-    ///  the first message serialized to the journal, should be a single AXFR of the entire zone,
-    ///  this will be used as a starting point to reconstruct the zone.
+    /// Records should never be posthumously modified. The first message serialized to the journal
+    /// should be a single AXFR of the entire zone to be used as a starting point for reconstruction.
     ///
     /// # Argument
     ///
