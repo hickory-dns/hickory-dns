@@ -85,8 +85,8 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 6844](https://tools.ietf.org/html/rfc6844): DNS Certification Authority Authorization Resource Record
 - [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
 - [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
-- [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
-- [RFC 8484](https://tools.ietf.org/html/rfc8484): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
+- [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `tls-aws-lc-rs`/`tls-ring`)
+- [RFC 8484](https://tools.ietf.org/html/rfc8484): DNS over HTTPS, DoH (feature: `https-aws-lc-rs`/`https-ring`)
 
 ## RFCs in progress or not yet implemented
 
@@ -135,14 +135,11 @@ just all-features
 - Individual feature tests
 
   Hickory DNS has many features, each individual feature can be tested
-  independently. See individual crates for all their features, here is a not
-  necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`,
-  `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`,
-  `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested
-  with itself as the task target for `just`:
+  independently. See individual crates for all their features.
+  Each feature can be tested with itself as the task target for `just`:
 
 ```shell
-just dns-over-https-rustls
+just tls-aws-lc-rs
 ```
 
 - Benchmarks
