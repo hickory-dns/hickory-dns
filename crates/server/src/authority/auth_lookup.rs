@@ -13,12 +13,6 @@ use crate::authority::{LookupObject, LookupOptions};
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 
 /// The result of a lookup on an Authority
-///
-/// # Lifetimes
-///
-/// * `'c` - the catalogue lifetime
-/// * `'r` - the recordset lifetime, subset of 'c
-/// * `'q` - the queries lifetime
 #[derive(Debug)]
 pub enum AuthLookup {
     /// No records
