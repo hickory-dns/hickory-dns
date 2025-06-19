@@ -146,11 +146,7 @@ impl<'q> MessageResponseBuilder<'q> {
         self
     }
 
-    /// Constructs the new MessageResponse with associated Header
-    ///
-    /// # Arguments
-    ///
-    /// * `header` - set of [Header]s for the Message
+    /// Constructs the new MessageResponse with associated data
     pub fn build<'a, A, N, S, D>(
         self,
         header: Header,
