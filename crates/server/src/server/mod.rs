@@ -75,7 +75,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         Self::with_access(handler, &[], &[])
     }
 
-    /// Creates a new ServerFuture with the specified Handler and Access
+    /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
     pub fn with_access(handler: T, denied_networks: &[IpNet], allowed_networks: &[IpNet]) -> Self {
         let mut access = AccessControl::default();
         access.insert_deny(denied_networks);
