@@ -412,8 +412,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         Ok(())
     }
 
-    /// Register a TlsListener to the Server by providing a pkcs12 certificate and key. The TlsListener
-    /// should already be bound to either an IPv6 or an IPv4 address.
+    /// Register a TlsListener to the Server by providing a rustls `ResolvesServerCert`. The
+    /// TlsListener should already be bound to either an IPv6 or an IPv4 address.
     ///
     /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
     ///  to not make this too low depending on use cases.
