@@ -231,6 +231,7 @@ impl Catalog {
     /// # Arguments
     ///
     /// * `request` - an update message
+    /// * `response_edns` an optional `Edns` value for the response message
     /// * `response_handle` - sink for the response message to be sent
     pub async fn update<R: ResponseHandler>(
         &self,
@@ -308,6 +309,7 @@ impl Catalog {
     /// # Arguments
     ///
     /// * `request` - the query message.
+    /// * `response_edns` an optional `Edns` value for the response message
     /// * `response_handle` - sink for the response message to be sent
     pub async fn lookup<R: ResponseHandler>(
         &self,
