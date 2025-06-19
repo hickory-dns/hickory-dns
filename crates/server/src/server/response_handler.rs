@@ -29,8 +29,6 @@ pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
     //type Error;
 
     /// Serializes and sends a message to the wrapped handle
-    ///
-    /// self is consumed as only one message should ever be sent in response to a Request
     async fn send_response<'a>(
         &mut self,
         response: MessageResponse<
