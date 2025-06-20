@@ -99,13 +99,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         ));
     }
 
-    /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket) -> io::Result<()> {
-        socket.set_nonblocking(true)?;
-        self.register_socket(net::UdpSocket::from_std(socket)?);
-        Ok(())
-    }
-
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
     ///  IPv4 address.
     ///
@@ -201,28 +194,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                 Err(ProtoError::from("unexpected close of socket"))
             }
         });
-    }
-
-    /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
-    ///  IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    pub fn register_listener_std(
-        &mut self,
-        listener: std::net::TcpListener,
-        timeout: Duration,
-    ) -> io::Result<()> {
-        listener.set_nonblocking(true)?;
-        self.register_listener(net::TcpListener::from_std(listener)?, timeout);
-        Ok(())
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -1234,9 +1205,7 @@ mod tests {
     #[derive(Clone)]
     struct Endpoints {
         udp_addr: SocketAddr,
-        udp_std_addr: SocketAddr,
         tcp_addr: SocketAddr,
-        tcp_std_addr: SocketAddr,
         #[cfg(feature = "__tls")]
         rustls_addr: SocketAddr,
         #[cfg(feature = "__https")]
@@ -1250,9 +1219,7 @@ mod tests {
     impl Endpoints {
         async fn new() -> Self {
             let udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-            let udp_std = UdpSocket::bind("127.0.0.1:0").await.unwrap();
             let tcp = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let tcp_std = TcpListener::bind("127.0.0.1:0").await.unwrap();
             #[cfg(feature = "__tls")]
             let rustls = TcpListener::bind("127.0.0.1:0").await.unwrap();
             #[cfg(feature = "__https")]
@@ -1264,9 +1231,7 @@ mod tests {
 
             Self {
                 udp_addr: udp.local_addr().unwrap(),
-                udp_std_addr: udp_std.local_addr().unwrap(),
                 tcp_addr: tcp.local_addr().unwrap(),
-                tcp_std_addr: tcp_std.local_addr().unwrap(),
                 #[cfg(feature = "__tls")]
                 rustls_addr: rustls.local_addr().unwrap(),
                 #[cfg(feature = "__https")]
@@ -1280,19 +1245,10 @@ mod tests {
 
         async fn register<T: RequestHandler>(&self, server: &mut ServerFuture<T>) {
             server.register_socket(UdpSocket::bind(self.udp_addr).await.unwrap());
-            server
-                .register_socket_std(std::net::UdpSocket::bind(self.udp_std_addr).unwrap())
-                .unwrap();
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Duration::from_secs(1),
             );
-            server
-                .register_listener_std(
-                    std::net::TcpListener::bind(self.tcp_std_addr).unwrap(),
-                    Duration::from_secs(1),
-                )
-                .unwrap();
 
             #[cfg(feature = "__tls")]
             {
@@ -1349,9 +1305,7 @@ mod tests {
 
         async fn rebind_all(&self) {
             UdpSocket::bind(self.udp_addr).await.unwrap();
-            UdpSocket::bind(self.udp_std_addr).await.unwrap();
             TcpListener::bind(self.tcp_addr).await.unwrap();
-            TcpListener::bind(self.tcp_std_addr).await.unwrap();
             #[cfg(feature = "__tls")]
             TcpListener::bind(self.rustls_addr).await.unwrap();
             #[cfg(feature = "__https")]
