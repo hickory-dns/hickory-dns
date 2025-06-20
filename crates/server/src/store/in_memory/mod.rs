@@ -510,8 +510,6 @@ impl Authority for InMemoryAuthority {
             None => Err(LookupError::from(ResponseCode::NXDomain)),
         });
 
-        let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
-
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
@@ -539,7 +537,12 @@ impl Authority for InMemoryAuthority {
             o => o,
         };
 
-        result.map(|answers| AuthLookup::answers(answers, additionals))
+        result.map(|answers| {
+            AuthLookup::answers(
+                answers,
+                additionals.map(|a| LookupRecords::many(lookup_options, a)),
+            )
+        })
     }
 
     async fn search(
