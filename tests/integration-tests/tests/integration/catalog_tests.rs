@@ -132,7 +132,7 @@ async fn test_catalog_lookup() {
 
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(origin.into());
 
     question.add_query(query);
@@ -171,7 +171,7 @@ async fn test_catalog_lookup() {
 
     // other zone
     let mut question = Message::query();
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(test_origin.into());
 
     question.add_query(query);
@@ -221,7 +221,7 @@ async fn test_catalog_lookup_soa() {
 
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(origin.into());
     query.set_query_type(RecordType::SOA);
 
@@ -294,7 +294,7 @@ async fn test_catalog_nx_soa() {
 
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(Name::parse("nx.example.com.", None).unwrap());
 
     question.add_query(query);
@@ -349,7 +349,7 @@ async fn test_non_authoritive_nx_refused() {
 
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(Name::parse("com.", None).unwrap());
     query.set_query_type(RecordType::SOA);
 
@@ -408,7 +408,7 @@ async fn test_axfr() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(origin.clone().into());
     query.set_query_type(RecordType::AXFR);
 
@@ -531,7 +531,7 @@ async fn test_axfr_refused() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(origin.into());
     query.set_query_type(RecordType::AXFR);
 
@@ -579,7 +579,7 @@ async fn test_cname_additionals() {
 
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(Name::from_str("alias.example.com.").unwrap());
     query.set_query_type(RecordType::A);
 
@@ -633,7 +633,7 @@ async fn test_multiple_cname_additionals() {
 
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query = Query::new();
     query.set_name(Name::from_str("alias2.example.com.").unwrap());
     query.set_query_type(RecordType::A);
 
