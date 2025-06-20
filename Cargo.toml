@@ -95,7 +95,7 @@ console = "0.15.0"
 data-encoding = { version = "2.2.0", default-features = false }
 enum-as-inner = "0.6"
 hex = "0.4"
-hostname = "0.3" # 0.4 requires MSRV 1.74+
+hostname = "0.4"
 idna = { version = "1.0.3", default-features = false, features = ["alloc", "compiled_data"] }
 ipconfig = "0.3.0"
 ipnet = { version = "2.3.0", default-features = false }
