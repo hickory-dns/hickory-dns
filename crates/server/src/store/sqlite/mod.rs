@@ -1111,7 +1111,7 @@ pub struct SqliteConfig {
     /// path to initial zone file
     pub zone_file_path: PathBuf,
     /// path to the sqlite journal file
-    pub journal_file_path: String,
+    pub journal_file_path: PathBuf,
     /// Are updates allowed to this zone
     #[serde(default)]
     pub allow_update: bool,
