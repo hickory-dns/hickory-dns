@@ -61,7 +61,7 @@ pub use error::{ConfigError, ConfigErrorKind, PersistenceError, PersistenceError
 pub mod server;
 pub mod store;
 
-pub use self::server::ServerFuture;
+pub use self::server::Server;
 
 /// Low-level types for DNSSEC operations
 #[cfg(feature = "__dnssec")]
