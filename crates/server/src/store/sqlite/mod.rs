@@ -35,7 +35,10 @@ use crate::{
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
     server::{Request, RequestInfo},
-    store::{file::rooted, in_memory::InMemoryAuthority},
+    store::{
+        file::rooted,
+        in_memory::{InMemoryAuthority, zone_from_path},
+    },
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -106,8 +109,6 @@ impl SqliteAuthority {
         config: &SqliteConfig,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
-        use crate::store::file::{FileAuthority, FileConfig};
-
         let zone_name = origin;
 
         // to be compatible with previous versions, the extension might be zone, not jrnl
@@ -143,22 +144,17 @@ impl SqliteAuthority {
             // TODO: deprecate this portion of loading, instantiate the journal through a separate tool
             info!("loading zone file: {zone_path:?}");
 
-            let file_config = FileConfig {
-                zone_path: config.zone_path.clone(),
-            };
+            let records = zone_from_path(&zone_path, zone_name.clone())
+                .map_err(|e| format!("failed to load zone file: {e}"))?;
 
-            let in_memory = FileAuthority::try_from_config_internal(
+            let in_memory = InMemoryAuthority::new(
                 zone_name.clone(),
+                records,
                 zone_type,
                 allow_axfr,
-                root_dir,
-                &file_config,
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
-                #[cfg(feature = "metrics")]
-                true,
-            )?
-            .unwrap();
+            )?;
 
             let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 

@@ -8,24 +8,19 @@
 //! Zone file based serving with Dynamic DNS and journaling support
 
 use std::{
-    fs,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
 
 use serde::Deserialize;
-use tracing::{debug, info};
 
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
     authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
-    proto::{
-        rr::{LowerName, Name, RecordType},
-        serialize::txt::Parser,
-    },
+    proto::rr::{LowerName, Name, RecordType},
     server::{Request, RequestInfo},
-    store::in_memory::InMemoryAuthority,
+    store::in_memory::{InMemoryAuthority, zone_from_path},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -81,55 +76,16 @@ impl FileAuthority {
         config: &FileConfig,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
-        Self::try_from_config_internal(
-            origin,
-            zone_type,
-            allow_axfr,
-            root_dir,
-            config,
-            #[cfg(feature = "__dnssec")]
-            nx_proof_kind,
-            #[cfg(feature = "metrics")]
-            false,
-        )
-    }
-
-    // internal load for e.g. sqlite db creation
-    pub(crate) fn try_from_config_internal(
-        origin: Name,
-        zone_type: ZoneType,
-        allow_axfr: bool,
-        root_dir: Option<&Path>,
-        config: &FileConfig,
-        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
-        #[cfg(feature = "metrics")] is_internal_load: bool,
-    ) -> Result<Self, String> {
         let zone_path = rooted(&config.zone_path, root_dir);
-        info!("loading zone file: {zone_path:?}");
+        let records = zone_from_path(&zone_path, origin.clone())
+            .map_err(|e| format!("failed to load zone file: {e}"))?;
 
-        // TODO: this should really use something to read line by line or some other method to
-        //  keep the usage down. and be a custom lexer...
-        let buf = fs::read_to_string(&zone_path)
-            .map_err(|e| format!("failed to read {}: {e:?}", zone_path.display()))?;
-
-        let (origin, records) = Parser::new(buf, Some(zone_path.clone()), Some(origin))
-            .parse()
-            .map_err(|e| format!("failed to parse {}: {e:?}", zone_path.display()))?;
-
-        info!(
-            "zone file loaded: {} with {} records",
-            origin,
-            records.len()
-        );
-        debug!("zone: {:#?}", records);
-
+        // Don't call `new()`, since it needs to be async to get the number of records to initialize metrics
         Ok(Self {
             #[cfg(feature = "metrics")]
             metrics: {
                 let new = StoreMetrics::new("file");
-                if !is_internal_load {
-                    new.persistent.zone_records.increment(records.len() as f64);
-                }
+                new.persistent.zone_records.increment(records.len() as f64);
                 new
             },
             in_memory: InMemoryAuthority::new(
@@ -141,11 +97,6 @@ impl FileAuthority {
                 nx_proof_kind,
             )?,
         })
-    }
-
-    /// Unwrap the InMemoryAuthority
-    pub fn unwrap(self) -> InMemoryAuthority {
-        self.in_memory
     }
 }
 
