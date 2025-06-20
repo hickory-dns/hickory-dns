@@ -11,23 +11,87 @@ use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
+use rustls::server::ResolvesServerCert;
+use tokio::{net, task::JoinSet};
 use tracing::{debug, error, warn};
 
+use super::{
+    ResponseInfo, ServerContext, reap_tasks,
+    request_handler::RequestHandler,
+    response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    sanitize_src_address,
+};
 use crate::{
     authority::MessageResponse,
-    server::{
-        ResponseInfo, ServerContext,
-        request_handler::RequestHandler,
-        response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    proto::{
+        ProtoError,
+        h3::{
+            H3Error,
+            h3_server::{H3Connection, H3Server},
+        },
+        http::Version,
+        rr::Record,
+        xfer::Protocol,
     },
 };
-use hickory_proto::{
-    ProtoError,
-    h3::{H3Error, h3_server::H3Connection},
-    http::Version,
-    rr::Record,
-    xfer::Protocol,
-};
+
+pub(super) async fn handle_h3(
+    socket: net::UdpSocket,
+    server_cert_resolver: Arc<dyn ResolvesServerCert>,
+    dns_hostname: Option<String>,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+
+    debug!("registered h3: {:?}", socket);
+    let mut server = H3Server::with_socket(socket, server_cert_resolver)?;
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let shutdown = cx.shutdown.clone();
+        let (streams, src_addr) = tokio::select! {
+            result = server.accept() => match result {
+                Ok(Some(c)) => c,
+                Ok(None) => continue,
+                Err(error) => {
+                    debug!(%error, "error receiving h3 connection");
+                    continue;
+                }
+            },
+            _ = shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(
+                %error, %src_addr,
+                "address can not be responded to",
+            );
+            continue;
+        }
+
+        let cx = cx.clone();
+        let dns_hostname = dns_hostname.clone();
+        inner_join_set.spawn(async move {
+            debug!("starting h3 stream request from: {src_addr}");
+
+            // TODO: need to consider timeout of total connect...
+            let result = h3_handler(streams, src_addr, dns_hostname, cx).await;
+
+            if let Err(error) = result {
+                warn!(%error, %src_addr, "h3 stream processing failed")
+            }
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    Ok(())
+}
 
 pub(crate) async fn h3_handler(
     mut connection: H3Connection,
