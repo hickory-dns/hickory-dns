@@ -12,32 +12,25 @@ use futures_util::lock::Mutex;
 use h2::server;
 use hickory_proto::{http::Version, rr::Record};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 use crate::{
-    access::AccessControl,
     authority::MessageResponse,
     proto::{h2::h2_server, xfer::Protocol},
     server::{
-        ResponseInfo,
+        ResponseInfo, ServerContext,
         request_handler::RequestHandler,
         response_handler::{ResponseHandler, encode_fallback_servfail_response},
     },
 };
 
-pub(crate) async fn h2_handler<T, I>(
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
-    io: I,
+pub(crate) async fn h2_handler(
+    io: impl AsyncRead + AsyncWrite + Unpin,
     src_addr: SocketAddr,
     dns_hostname: Option<Arc<str>>,
     http_endpoint: Arc<str>,
-    shutdown: CancellationToken,
-) where
-    T: RequestHandler,
-    I: AsyncRead + AsyncWrite + Unpin,
-{
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) {
     let dns_hostname = dns_hostname.clone();
     let http_endpoint = http_endpoint.clone();
 
@@ -64,19 +57,17 @@ pub(crate) async fn h2_handler<T, I>(
                     return;
                 }
             },
-            _ = shutdown.cancelled() => {
+            _ = cx.shutdown.cancelled() => {
                 // A graceful shutdown was initiated.
                 return
             },
         };
 
         debug!("Received request: {:#?}", request);
+        let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
-        let handler = handler.clone();
-        let access = access.clone();
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
-
         tokio::spawn(async move {
             let body = match h2_server::message_from(dns_hostname, http_endpoint, request).await {
                 Ok(bytes) => bytes,
@@ -86,15 +77,7 @@ pub(crate) async fn h2_handler<T, I>(
                 }
             };
 
-            super::handle_request(
-                body.freeze(),
-                src_addr,
-                Protocol::Https,
-                &access,
-                handler,
-                responder,
-            )
-            .await
+            super::handle_request(body.freeze(), src_addr, Protocol::Https, responder, &cx).await
         });
 
         // we'll continue handling requests from here.

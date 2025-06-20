@@ -11,14 +11,12 @@ use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
-use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 use crate::{
-    access::AccessControl,
     authority::MessageResponse,
     server::{
-        ResponseInfo,
+        ResponseInfo, ServerContext,
         request_handler::RequestHandler,
         response_handler::{ResponseHandler, encode_fallback_servfail_response},
     },
@@ -31,17 +29,12 @@ use hickory_proto::{
     xfer::Protocol,
 };
 
-pub(crate) async fn h3_handler<T>(
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
+pub(crate) async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
-    shutdown: CancellationToken,
-) -> Result<(), ProtoError>
-where
-    T: RequestHandler,
-{
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
     // TODO: we should make this configurable
     let mut max_requests = 100u32;
 
@@ -58,7 +51,7 @@ where
                     break;
                 }
             },
-            _ = shutdown.cancelled() => {
+            _ = cx.shutdown.cancelled() => {
                 // A graceful shutdown was initiated.
                 break;
             },
@@ -77,14 +70,12 @@ where
             "Received bytes {} from {src_addr} {request:?}",
             request.remaining()
         );
-        let handler = handler.clone();
-        let access = access.clone();
+
+        let cx = cx.clone();
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
-
         tokio::spawn(async move {
-            super::handle_request(request, src_addr, Protocol::H3, &access, handler, responder)
-                .await
+            super::handle_request(request, src_addr, Protocol::H3, responder, &cx).await
         });
 
         max_requests -= 1;
