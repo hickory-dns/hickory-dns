@@ -108,77 +108,8 @@ impl<T: RequestHandler> Server<T> {
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
-        debug!("register tcp: {:?}", listener);
-
-        // for each incoming request...
-        let cx = self.context.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(error) => {
-                            debug!(%error, "error receiving TCP tcp_stream error");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = cx.shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
-                    );
-                    continue;
-                }
-
-                // and spawn to the io_loop
-                let cx = cx.clone();
-                inner_join_set.spawn(async move {
-                    debug!("accepted request from: {}", src_addr);
-                    // take the created stream...
-                    let (buf_stream, stream_handle) =
-                        TcpStream::from_stream(AsyncIoTokioAsStd(tcp_stream), src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
-
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TCP request_stream src: {} error: {}",
-                                    src_addr, e
-                                );
-                                // we're going to bail on this connection...
-                                return;
-                            }
-                        };
-
-                        // we don't spawn here to limit clients from getting too many resources
-                        cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
-                            .await;
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if cx.shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
+        self.join_set
+            .spawn(handle_tcp(listener, timeout, self.context.clone()));
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -676,6 +607,75 @@ async fn handle_udp(
     } else {
         // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
         Err(ProtoError::from("unexpected close of UDP socket"))
+    }
+}
+
+async fn handle_tcp(
+    listener: net::TcpListener,
+    timeout: Duration,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    debug!("register tcp: {listener:?}");
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let (tcp_stream, src_addr) = tokio::select! {
+            tcp_stream = listener.accept() => match tcp_stream {
+                Ok((t, s)) => (t, s),
+                Err(error) => {
+                    debug!(%error, "error receiving TCP tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                },
+            },
+            _ = cx.shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(
+                %src_addr, %error,
+                "address can not be responded to (TCP)",
+            );
+            continue;
+        }
+
+        // and spawn to the io_loop
+        let cx = cx.clone();
+        inner_join_set.spawn(async move {
+            debug!(%src_addr, "accepted TCP request");
+            // take the created stream...
+            let (buf_stream, stream_handle) =
+                TcpStream::from_stream(AsyncIoTokioAsStd(tcp_stream), src_addr);
+            let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+
+            while let Some(message) = timeout_stream.next().await {
+                let message = match message {
+                    Ok(message) => message,
+                    Err(error) => {
+                        debug!(%src_addr, %error, "error in TCP request stream");
+                        // we're going to bail on this connection...
+                        return;
+                    }
+                };
+
+                // we don't spawn here to limit clients from getting too many resources
+                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                    .await;
+            }
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    if cx.shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        Err(ProtoError::from("unexpected close of socket"))
     }
 }
 
