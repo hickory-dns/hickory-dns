@@ -5,24 +5,109 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{io, net::SocketAddr, sync::Arc};
+use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use futures_util::lock::Mutex;
 use h2::server;
-use hickory_proto::{http::Version, rr::Record};
-use tokio::io::{AsyncRead, AsyncWrite};
+use rustls::server::ResolvesServerCert;
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    net::TcpListener,
+    task::JoinSet,
+    time::timeout,
+};
+use tokio_rustls::TlsAcceptor;
 use tracing::{debug, error, warn};
 
+use super::{
+    ResponseInfo, ServerContext, is_unrecoverable_socket_error, reap_tasks,
+    request_handler::RequestHandler,
+    response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    sanitize_src_address, tls_server_config,
+};
 use crate::{
     authority::MessageResponse,
-    proto::{h2::h2_server, xfer::Protocol},
-    server::{
-        ResponseInfo, ServerContext,
-        request_handler::RequestHandler,
-        response_handler::{ResponseHandler, encode_fallback_servfail_response},
-    },
+    proto::{ProtoError, h2::h2_server, http::Version, rr::Record, xfer::Protocol},
 };
+
+pub(super) async fn handle_h2(
+    listener: TcpListener,
+    // TODO: need to set a timeout between requests.
+    handshake_timeout: Duration,
+    server_cert_resolver: Arc<dyn ResolvesServerCert>,
+    dns_hostname: Option<String>,
+    http_endpoint: String,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
+    debug!("registered https: {listener:?}");
+
+    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(b"h2", server_cert_resolver)?));
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let shutdown = cx.shutdown.clone();
+        let (tcp_stream, src_addr) = tokio::select! {
+            tcp_stream = listener.accept() => match tcp_stream {
+                Ok((t, s)) => (t, s),
+                Err(error) => {
+                    debug!(%error, "error receiving HTTPS tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                },
+            },
+            _ = shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(%error, %src_addr, "address can not be responded to");
+            continue;
+        }
+
+        let cx = cx.clone();
+        let tls_acceptor = tls_acceptor.clone();
+        let dns_hostname = dns_hostname.clone();
+        let http_endpoint = http_endpoint.clone();
+        inner_join_set.spawn(async move {
+            debug!("starting HTTPS request from: {src_addr}");
+
+            // TODO: need to consider timeout of total connect...
+            // take the created stream...
+            let Ok(tls_stream) = timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            else {
+                warn!("https timeout expired during handshake");
+                return;
+            };
+
+            let tls_stream = match tls_stream {
+                Ok(tls_stream) => tls_stream,
+                Err(e) => {
+                    debug!("https handshake src: {src_addr} error: {e}");
+                    return;
+                }
+            };
+            debug!("accepted HTTPS request from: {src_addr}");
+
+            h2_handler(tls_stream, src_addr, dns_hostname, http_endpoint, cx).await;
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    if cx.shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        Err(ProtoError::from("unexpected close of socket"))
+    }
+}
 
 pub(crate) async fn h2_handler(
     io: impl AsyncRead + AsyncWrite + Unpin,
