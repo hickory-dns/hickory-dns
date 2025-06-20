@@ -62,14 +62,14 @@ pub use timeout_stream::TimeoutStream;
 
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
-pub struct ServerFuture<T: RequestHandler> {
+pub struct Server<T: RequestHandler> {
     handler: Arc<T>,
     join_set: JoinSet<Result<(), ProtoError>>,
     shutdown_token: CancellationToken,
     access: Arc<AccessControl>,
 }
 
-impl<T: RequestHandler> ServerFuture<T> {
+impl<T: RequestHandler> Server<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self::with_access(handler, &[], &[])
@@ -1152,7 +1152,7 @@ mod tests {
 
         let endpoints2 = endpoints.clone();
         let (abortable, abort_handle) = future::abortable(async move {
-            let mut server_future = ServerFuture::new(Catalog::new());
+            let mut server_future = Server::new(Catalog::new());
             endpoints2.register(&mut server_future).await;
             server_future.block_until_done().await
         });
@@ -1166,7 +1166,7 @@ mod tests {
     #[tokio::test]
     async fn graceful_shutdown() {
         subscribe();
-        let mut server_future = ServerFuture::new(Catalog::new());
+        let mut server_future = Server::new(Catalog::new());
         let endpoints = Endpoints::new().await;
         endpoints.register(&mut server_future).await;
 
@@ -1243,7 +1243,7 @@ mod tests {
             }
         }
 
-        async fn register<T: RequestHandler>(&self, server: &mut ServerFuture<T>) {
+        async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
             server.register_socket(UdpSocket::bind(self.udp_addr).await.unwrap());
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),

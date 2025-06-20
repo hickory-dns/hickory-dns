@@ -75,7 +75,7 @@ use hickory_dns::TlsCertConfig;
 use hickory_dns::{ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
 use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
-use hickory_server::{authority::Catalog, server::ServerFuture};
+use hickory_server::{authority::Catalog, server::Server};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -367,7 +367,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-    let mut server = ServerFuture::with_access(catalog, deny_networks, allow_networks);
+    let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
     if !args.disable_udp && !config.disable_udp() {
         // load all udp listeners
@@ -521,7 +521,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
 #[cfg(feature = "__tls")]
 fn config_tls(
     tls_port: Option<u16>,
-    server: &mut ServerFuture<Catalog>,
+    server: &mut Server<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
@@ -564,7 +564,7 @@ fn config_tls(
 #[cfg(feature = "__https")]
 fn config_https(
     https_port: Option<u16>,
-    server: &mut ServerFuture<Catalog>,
+    server: &mut Server<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
@@ -618,7 +618,7 @@ fn config_https(
 #[cfg(feature = "__quic")]
 fn config_quic(
     quic_port: Option<u16>,
-    server: &mut ServerFuture<Catalog>,
+    server: &mut Server<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
