@@ -1098,7 +1098,7 @@ async fn error_response_handler(
         metrics: ResponseHandlerMetrics::default(),
     };
 
-    let response = MessageResponseBuilder::new(&queries);
+    let response = MessageResponseBuilder::new(&queries, None);
     let result = reporter
         .send_response(response.error_msg(&header, response_code))
         .await;

@@ -56,9 +56,6 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         if let Some(req_edns) = request.edns() {
-            let mut response = MessageResponseBuilder::new(request.raw_queries());
-            let mut response_header = Header::response_from_request(request.header());
-
             let mut resp_edns: Edns = Edns::new();
 
             // check our version against the request
@@ -74,14 +71,14 @@ impl RequestHandler for Catalog {
                     our_version,
                     req_edns.version()
                 );
+                let mut response_header = Header::response_from_request(request.header());
                 response_header.set_response_code(ResponseCode::BADVERS);
                 resp_edns.set_rcode_high(ResponseCode::BADVERS.high());
-                response.edns(resp_edns);
+                let response = MessageResponseBuilder::new(request.raw_queries(), Some(resp_edns))
+                    .build_no_records(response_header);
 
                 // TODO: should ResponseHandle consume self?
-                let result = response_handle
-                    .send_response(response.build_no_records(response_header))
-                    .await;
+                let result = response_handle.send_response(response).await;
 
                 // couldn't handle the request
                 return match result {
@@ -114,20 +111,19 @@ impl RequestHandler for Catalog {
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponseBuilder::new(request.raw_queries());
+                    let response =
+                        MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                            .error_msg(request.header(), ResponseCode::NotImp);
 
-                    response_handle
-                        .send_response(response.error_msg(request.header(), ResponseCode::NotImp))
-                        .await
+                    response_handle.send_response(response).await
                 }
             },
             MessageType::Response => {
                 warn!("got a response as a request from id: {}", request.id());
-                let response = MessageResponseBuilder::new(request.raw_queries());
+                let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                    .error_msg(request.header(), ResponseCode::FormErr);
 
-                response_handle
-                    .send_response(response.error_msg(request.header(), ResponseCode::FormErr))
-                    .await
+                response_handle.send_response(response).await
             }
         };
 
@@ -255,17 +251,13 @@ impl Catalog {
                     _ => ResponseCode::NotAuth,
                 };
 
-                let response = MessageResponseBuilder::new(update.raw_queries());
+                let response = MessageResponseBuilder::new(update.raw_queries(), response_edns);
                 let mut response_header =
                     Header::new(update.id(), MessageType::Response, OpCode::Update);
                 response_header.set_response_code(response_code);
-
-                let mut response = response.build_no_records(response_header);
-                if let Some(resp_edns) = response_edns {
-                    response.set_edns(resp_edns);
-                }
-
-                return response_handle.send_response(response).await;
+                return response_handle
+                    .send_response(response.build_no_records(response_header))
+                    .await;
             }
         };
 
@@ -300,12 +292,8 @@ impl Catalog {
     ) -> ResponseInfo {
         let Ok(request_info) = request.request_info() else {
             // Wrong number of queries
-            let response = MessageResponseBuilder::new(request.raw_queries());
-            let mut response = response.error_msg(request.header(), ResponseCode::FormErr);
-            if let Some(resp_edns) = response_edns {
-                response.set_edns(resp_edns);
-            }
-
+            let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                .error_msg(request.header(), ResponseCode::FormErr);
             match response_handle.send_response(response).await {
                 Err(error) => {
                     error!(%error, "failed to send response");
@@ -318,12 +306,8 @@ impl Catalog {
 
         let Some(authorities) = authorities else {
             // There are no authorities registered that can handle the request
-            let response = MessageResponseBuilder::new(request.raw_queries());
-            let mut response = response.error_msg(request.header(), ResponseCode::Refused);
-            if let Some(resp_edns) = response_edns {
-                response.set_edns(resp_edns);
-            }
-
+            let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                .error_msg(request.header(), ResponseCode::Refused);
             match response_handle.send_response(response).await {
                 Err(error) => {
                     error!(%error, "failed to send response");
@@ -438,17 +422,14 @@ async fn lookup<R: ResponseHandler + Unpin>(
         )
         .await;
 
-        let mut message_response = MessageResponseBuilder::new(request.raw_queries()).build(
-            response_header,
-            sections.answers.iter(),
-            sections.ns.iter(),
-            sections.soa.iter(),
-            sections.additionals.iter(),
-        );
-        if let Some(resp_edns) = response_edns {
-            message_response.set_edns(resp_edns);
-        }
-
+        let message_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+            .build(
+                response_header,
+                sections.answers.iter(),
+                sections.ns.iter(),
+                sections.soa.iter(),
+                sections.additionals.iter(),
+            );
         match response_handle.send_response(message_response).await {
             Err(error) => {
                 error!(%error, "error sending response");
