@@ -113,8 +113,8 @@ impl SqliteAuthority {
         let root_zone_dir = root_dir.map(PathBuf::from).unwrap_or_default();
 
         // to be compatible with previous versions, the extension might be zone, not jrnl
-        let journal_path = root_zone_dir.join(&config.journal_file_path);
-        let zone_path = root_zone_dir.join(&config.zone_file_path);
+        let journal_path = root_zone_dir.join(&config.journal_path);
+        let zone_path = root_zone_dir.join(&config.zone_path);
 
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
         let mut authority = if journal_path.exists() {
@@ -146,7 +146,7 @@ impl SqliteAuthority {
             info!("loading zone file: {zone_path:?}");
 
             let file_config = FileConfig {
-                zone_file_path: config.zone_file_path.clone(),
+                zone_path: config.zone_path.clone(),
             };
 
             let in_memory = FileAuthority::try_from_config_internal(
@@ -1109,9 +1109,9 @@ impl DnssecAuthority for SqliteAuthority {
 #[serde(deny_unknown_fields)]
 pub struct SqliteConfig {
     /// path to initial zone file
-    pub zone_file_path: PathBuf,
+    pub zone_path: PathBuf,
     /// path to the sqlite journal file
-    pub journal_file_path: PathBuf,
+    pub journal_path: PathBuf,
     /// Are updates allowed to this zone
     #[serde(default)]
     pub allow_update: bool,

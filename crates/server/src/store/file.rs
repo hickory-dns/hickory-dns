@@ -105,29 +105,18 @@ impl FileAuthority {
         #[cfg(feature = "metrics")] is_internal_load: bool,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
-        let zone_path = root_dir_path.join(&config.zone_file_path);
+        let zone_path = root_dir_path.join(&config.zone_path);
 
         info!("loading zone file: {:?}", zone_path);
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        let buf = fs::read_to_string(&zone_path).map_err(|e| {
-            format!(
-                "failed to read {}: {:?}",
-                config.zone_file_path.display(),
-                e
-            )
-        })?;
+        let buf = fs::read_to_string(&zone_path)
+            .map_err(|e| format!("failed to read {}: {:?}", config.zone_path.display(), e))?;
 
         let (origin, records) = Parser::new(buf, Some(zone_path), Some(origin))
             .parse()
-            .map_err(|e| {
-                format!(
-                    "failed to parse {}: {:?}",
-                    config.zone_file_path.display(),
-                    e
-                )
-            })?;
+            .map_err(|e| format!("failed to parse {}: {:?}", config.zone_path.display(), e))?;
 
         info!(
             "zone file loaded: {} with {} records",
@@ -327,7 +316,7 @@ impl DnssecAuthority for FileAuthority {
 #[serde(deny_unknown_fields)]
 pub struct FileConfig {
     /// path to the zone file
-    pub zone_file_path: PathBuf,
+    pub zone_path: PathBuf,
 }
 
 #[cfg(test)]
@@ -347,13 +336,11 @@ mod tests {
 
         #[cfg(feature = "__dnssec")]
         let config = FileConfig {
-            zone_file_path: PathBuf::from(
-                "../../tests/test-data/test_configs/dnssec/example.com.zone",
-            ),
+            zone_path: PathBuf::from("../../tests/test-data/test_configs/dnssec/example.com.zone"),
         };
         #[cfg(not(feature = "__dnssec"))]
         let config = FileConfig {
-            zone_file_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
+            zone_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
         };
         let authority = FileAuthority::try_from_config(
             Name::from_str("example.com.").unwrap(),
