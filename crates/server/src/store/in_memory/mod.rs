@@ -505,10 +505,10 @@ impl Authority for InMemoryAuthority {
         };
 
         // map the answer to a result
-        let answer = answer.map_or(
-            LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
-            |rr_set| LookupControlFlow::Continue(Ok(LookupRecords::new(lookup_options, rr_set))),
-        );
+        let answer = LookupControlFlow::Continue(match answer {
+            Some(rr_set) => Ok(LookupRecords::new(lookup_options, rr_set)),
+            None => Err(LookupError::from(ResponseCode::NXDomain)),
+        });
 
         let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
 
