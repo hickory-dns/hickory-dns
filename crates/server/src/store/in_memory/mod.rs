@@ -7,9 +7,11 @@
 
 //! In-memory zone data authority
 
-#[cfg(all(feature = "__dnssec", feature = "testing"))]
-use std::ops::Deref;
-use std::{collections::BTreeMap, ops::DerefMut, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tracing::debug;
@@ -160,9 +162,8 @@ impl InMemoryAuthority {
     }
 
     /// Get all the records
-    pub async fn records(&self) -> BTreeMap<RrKey, Arc<RecordSet>> {
-        let records = RwLockReadGuard::map(self.inner.read().await, |i| &i.records);
-        records.clone()
+    pub async fn records(&self) -> impl Deref<Target = BTreeMap<RrKey, Arc<RecordSet>>> + '_ {
+        RwLockReadGuard::map(self.inner.read().await, |i| &i.records)
     }
 
     /// Get a mutable reference to the records
