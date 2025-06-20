@@ -515,12 +515,10 @@ impl Authority for InMemoryAuthority {
                     {
                         LookupError::NameExists
                     } else {
-                        let code = if self.origin().zone_of(name) {
-                            ResponseCode::NXDomain
-                        } else {
-                            ResponseCode::Refused
-                        };
-                        LookupError::from(code)
+                        LookupError::from(match self.origin().zone_of(name) {
+                            true => ResponseCode::NXDomain,
+                            false => ResponseCode::Refused,
+                        })
                     },
                 ));
             }
