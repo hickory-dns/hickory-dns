@@ -317,10 +317,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
     if args.nsid_hostname {
         let hostname =
             hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
-        // TODO: After MSRV 1.74 we could use OsString::into_encoded_bytes() here to
-        //   allow using a non-UTF-8 hostname in the NSID payload.
-        let hostname = hostname.to_str().ok_or("hostname was not valid UTF-8")?;
-        let payload = NSIDPayload::new(hostname.as_bytes())
+        let payload = NSIDPayload::new(hostname.into_encoded_bytes())
             .map_err(|e| format!("invalid NSID payload: {e}"))?;
         catalog.set_nsid(Some(payload));
     }
