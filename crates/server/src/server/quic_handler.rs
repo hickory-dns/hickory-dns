@@ -64,14 +64,8 @@ pub(crate) async fn quic_handler(
         let stream = Arc::new(Mutex::new(request_stream));
         let responder = QuicResponseHandle(stream.clone());
 
-        super::handle_request(
-            request.freeze(),
-            src_addr,
-            Protocol::Quic,
-            responder,
-            &cx,
-        )
-        .await;
+        cx.handle_request(request.freeze(), src_addr, Protocol::Quic, responder)
+            .await;
 
         max_requests -= 1;
         if max_requests == 0 {
