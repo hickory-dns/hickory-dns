@@ -106,7 +106,6 @@ sqlite = ["rusqlite", "hickory-server/sqlite"]
 
 [dependencies]
 async-trait.workspace = true
-bytes.workspace = true
 futures = { workspace = true, features = ["executor"] }
 once_cell.workspace = true
 rand.workspace = true

@@ -863,7 +863,6 @@ name = "hickory-integration"
 version = "0.26.0-alpha.1"
 dependencies = [
  "async-trait",
- "bytes",
  "data-encoding",
  "futures",
  "hickory-client",

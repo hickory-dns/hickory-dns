@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use bytes::Bytes;
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
     op::{Message, MessageType, Query, ResponseCode},
     rr::{LowerName, Name, RData, Record, RecordSet, RecordType, rdata::A},
-    serialize::binary::{BinDecodable, BinEncodable},
+    serialize::binary::BinEncodable,
     xfer::Protocol,
 };
 #[cfg(feature = "__dnssec")]
@@ -13,7 +12,7 @@ use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
         Authority, Catalog, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        LookupRecords, MessageRequest, UpdateResult, ZoneType,
+        LookupRecords, UpdateResult, ZoneType,
     },
     server::{Request, RequestInfo, ResponseInfo},
 };
@@ -330,13 +329,8 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
     question.set_authentic_data(true);
 
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
     let response_handler = TestResponseHandler::new();
 
     let res = catalog
