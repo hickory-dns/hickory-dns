@@ -14,6 +14,8 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "__tls")]
+use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
 use futures_util::{FutureExt, StreamExt};
 use hickory_proto::ProtoErrorKind;
@@ -23,6 +25,8 @@ use rustls::{ServerConfig, server::ResolvesServerCert};
 #[cfg(feature = "__tls")]
 use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
+#[cfg(feature = "__tls")]
+use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
@@ -132,98 +136,12 @@ impl<T: RequestHandler> Server<T> {
         handshake_timeout: Duration,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
-        use crate::proto::rustls::tls_from_stream;
-        use tokio_rustls::TlsAcceptor;
-
-        debug!("registered tcp: {:?}", listener);
-
-        let tls_acceptor = TlsAcceptor::from(tls_config);
-
-        // for each incoming request...
-        let cx = self.context.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(error) => {
-                            debug!(%error, "error receiving TLS tcp_stream error");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = cx.shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
-                    );
-                    continue;
-                }
-
-                let cx = cx.clone();
-                let tls_acceptor = tls_acceptor.clone();
-                // kick out to a different task immediately, let them do the TLS handshake
-                inner_join_set.spawn(async move {
-                    debug!("starting TLS request from: {}", src_addr);
-
-                    // perform the TLS
-                    let Ok(tls_stream) =
-                        timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
-                    else {
-                        warn!("tls timeout expired during handshake");
-                        return;
-                    };
-
-                    let tls_stream = match tls_stream {
-                        Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
-                            return;
-                        }
-                    };
-                    debug!("accepted TLS request from: {}", src_addr);
-                    let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TLS request_stream src: {:?} error: {}",
-                                    src_addr, e
-                                );
-
-                                // kill this connection
-                                return;
-                            }
-                        };
-
-                        cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
-                            .await;
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if cx.shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
-
+        self.join_set.spawn(handle_tls(
+            listener,
+            tls_config,
+            handshake_timeout,
+            self.context.clone(),
+        ));
         Ok(())
     }
 
@@ -665,6 +583,96 @@ async fn handle_tcp(
 
                 // we don't spawn here to limit clients from getting too many resources
                 cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                    .await;
+            }
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    if cx.shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        Err(ProtoError::from("unexpected close of socket"))
+    }
+}
+
+#[cfg(feature = "__tls")]
+async fn handle_tls(
+    listener: net::TcpListener,
+    tls_config: Arc<ServerConfig>,
+    handshake_timeout: Duration,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    debug!(?listener, "registered tls");
+    let tls_acceptor = TlsAcceptor::from(tls_config);
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let (tcp_stream, src_addr) = tokio::select! {
+            tcp_stream = listener.accept() => match tcp_stream {
+                Ok((t, s)) => (t, s),
+                Err(error) => {
+                    debug!(%error, "error receiving TLS tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                },
+            },
+            _ = cx.shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(
+                %src_addr, %error,
+                "address can not be responded to (TLS)",
+            );
+            continue;
+        }
+
+        let cx = cx.clone();
+        let tls_acceptor = tls_acceptor.clone();
+        // kick out to a different task immediately, let them do the TLS handshake
+        inner_join_set.spawn(async move {
+            debug!(%src_addr, "starting TLS request");
+
+            // perform the TLS
+            let Ok(tls_stream) = timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            else {
+                warn!("tls timeout expired during handshake");
+                return;
+            };
+
+            let tls_stream = match tls_stream {
+                Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
+                Err(error) => {
+                    debug!(%src_addr, %error, "tls handshake error");
+                    return;
+                }
+            };
+            debug!(%src_addr, "accepted TLS request");
+            let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
+            let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
+            while let Some(message) = timeout_stream.next().await {
+                let message = match message {
+                    Ok(message) => message,
+                    Err(error) => {
+                        debug!(
+                            %src_addr, %error,
+                            "error in TLS request stream",
+                        );
+
+                        // kill this connection
+                        return;
+                    }
+                };
+
+                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
                     .await;
             }
         });
