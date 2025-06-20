@@ -101,11 +101,12 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `queries` - queries (from the Request) to associate with the Response
-    pub(crate) fn new(queries: &'q Queries) -> Self {
+    /// * `edns` - Optional Edns data to associate with the Response
+    pub(crate) fn new(queries: &'q Queries, edns: Option<Edns>) -> Self {
         MessageResponseBuilder {
             queries,
             signature: MessageSignature::default(),
-            edns: None,
+            edns,
         }
     }
 
@@ -137,7 +138,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// }
     /// ```
     pub fn from_message_request(message: &'q MessageRequest) -> Self {
-        Self::new(message.raw_queries())
+        Self::new(message.raw_queries(), None)
     }
 
     /// Associate EDNS with the Response
@@ -366,7 +367,7 @@ mod tests {
 
         eprintln!("queries: {:?}", msg.queries());
 
-        MessageResponseBuilder::new(msg.raw_queries())
+        MessageResponseBuilder::new(msg.raw_queries(), None)
             .build_no_records(Header::response_from_request(msg.header()))
             .destructive_emit(&mut encoder)
             .unwrap();
