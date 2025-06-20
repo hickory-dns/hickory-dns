@@ -91,73 +91,12 @@ impl<T: RequestHandler> ServerFuture<T> {
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
-        debug!("registering udp: {:?}", socket);
-
-        // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-        //   the address used is acquired from the inbound queries
-        let (mut stream, stream_handle) =
-            UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
-        let shutdown = self.shutdown_token.clone();
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
-        // this spawns a ForEach future which handles all the requests into a Handler.
-        self.join_set.spawn({
-            async move {
-                let mut inner_join_set = JoinSet::new();
-                loop {
-                    let message = tokio::select! {
-                        message = stream.next() => match message {
-                            None => break,
-                            Some(message) => message,
-                        },
-                        _ = shutdown.cancelled() => break,
-                    };
-
-                    let message = match message {
-                        Err(error) => {
-                            warn!(%error, "error receiving message on udp_socket");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        }
-                        Ok(message) => message,
-                    };
-
-                    let src_addr = message.addr();
-                    debug!("received udp request from: {}", src_addr);
-
-                    // verify that the src address is safe for responses
-                    if let Err(e) = sanitize_src_address(src_addr) {
-                        warn!(
-                            "address can not be responded to {src_addr}: {e}",
-                            src_addr = src_addr,
-                            e = e
-                        );
-                        continue;
-                    }
-
-                    let handler = handler.clone();
-                    let access = access.clone();
-                    let stream_handle = stream_handle.with_remote_addr(src_addr);
-
-                    inner_join_set.spawn(async move {
-                        handle_raw_request(message, Protocol::Udp, &access, handler, stream_handle)
-                            .await;
-                    });
-
-                    reap_tasks(&mut inner_join_set);
-                }
-
-                if shutdown.is_cancelled() {
-                    Ok(())
-                } else {
-                    // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-                    Err(ProtoError::from("unexpected close of UDP socket"))
-                }
-            }
-        });
+        self.join_set.spawn(handle_udp(
+            socket,
+            self.shutdown_token.clone(),
+            self.handler.clone(),
+            self.access.clone(),
+        ));
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
@@ -769,6 +708,72 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// one will be chosen as the returned error for this future.
     pub async fn block_until_done(&mut self) -> Result<(), ProtoError> {
         block_until_done(&mut self.join_set).await
+    }
+}
+
+async fn handle_udp(
+    socket: net::UdpSocket,
+    shutdown: CancellationToken,
+    handler: Arc<impl RequestHandler>,
+    access: Arc<AccessControl>,
+) -> Result<(), ProtoError> {
+    debug!("registering udp: {:?}", socket);
+
+    // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
+    //   the address used is acquired from the inbound queries
+    let (mut stream, stream_handle) =
+        UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let message = tokio::select! {
+            message = stream.next() => match message {
+                None => break,
+                Some(message) => message,
+            },
+            _ = shutdown.cancelled() => break,
+        };
+
+        let message = match message {
+            Err(error) => {
+                warn!(%error, "error receiving message on udp_socket");
+                if is_unrecoverable_socket_error(&error) {
+                    break;
+                }
+                continue;
+            }
+            Ok(message) => message,
+        };
+
+        let src_addr = message.addr();
+        debug!("received udp request from: {}", src_addr);
+
+        // verify that the src address is safe for responses
+        if let Err(e) = sanitize_src_address(src_addr) {
+            warn!(
+                "address can not be responded to {src_addr}: {e}",
+                src_addr = src_addr,
+                e = e
+            );
+            continue;
+        }
+
+        let handler = handler.clone();
+        let access = access.clone();
+        let stream_handle = stream_handle.with_remote_addr(src_addr);
+
+        inner_join_set.spawn(async move {
+            handle_raw_request(message, Protocol::Udp, &access, handler, stream_handle).await;
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    if shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+        Err(ProtoError::from("unexpected close of UDP socket"))
     }
 }
 
