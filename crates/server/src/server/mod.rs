@@ -972,16 +972,13 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     }
 
     // Attempt to decode the message
-    match MessageRequest::read(&mut decoder) {
-        Ok(message) => {
-            let request = Request {
-                message,
-                raw: message_bytes,
-                src: src_addr,
-                protocol,
-            };
-            inner_handle_request(request, request_handler, response_handler).await;
-        }
+    let request = match MessageRequest::read(&mut decoder) {
+        Ok(message) => Request {
+            message,
+            raw: message_bytes,
+            src: src_addr,
+            protocol,
+        },
         Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
             // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
             let (header, error) = kind
@@ -999,22 +996,21 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
                 response_handler,
             )
             .await;
-        }
-        Err(error) => info!(
-            "request:Failed src:{proto}://{addr}#{port} error:{error}",
-            proto = protocol,
-            addr = src_addr.ip(),
-            port = src_addr.port(),
-        ),
-    }
-}
 
-// method to handle the request
-async fn inner_handle_request(
-    request: Request,
-    request_handler: Arc<impl RequestHandler>,
-    response_handler: impl ResponseHandler,
-) {
+            return;
+        }
+        Err(error) => {
+            info!(
+                "request:Failed src:{proto}://{addr}#{port} error:{error}",
+                proto = protocol,
+                addr = src_addr.ip(),
+                port = src_addr.port(),
+            );
+
+            return;
+        }
+    };
+
     if request.message.message_type() == MessageType::Response {
         // Don't process response messages to avoid DoS attacks from reflection.
         return;
