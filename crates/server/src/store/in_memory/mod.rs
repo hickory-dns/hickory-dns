@@ -418,118 +418,99 @@ impl Authority for InMemoryAuthority {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
-        let (result, additionals) = match query_type {
-            RecordType::AXFR | RecordType::ANY => {
-                let result = AnyRecords::new(
+        if let RecordType::AXFR | RecordType::ANY = query_type {
+            return LookupControlFlow::Continue(Ok(AuthLookup::answers(
+                LookupRecords::AnyRecords(AnyRecords::new(
                     lookup_options,
                     inner.records.values().cloned().collect(),
                     query_type,
                     name.clone(),
-                );
-                (
-                    LookupControlFlow::Continue(Ok(LookupRecords::AnyRecords(result))),
-                    None,
-                )
-            }
-            _ => {
-                // perform the lookup
-                let answer = inner.inner_lookup(name, query_type, lookup_options);
+                )),
+                None,
+            )));
+        }
+        let answer = inner.inner_lookup(name, query_type, lookup_options);
 
-                // evaluate any cnames for additional inclusion
-                let additionals_root_chain_type: Option<(_, _)> = answer
-                    .as_ref()
-                    .and_then(|a| maybe_next_name(a, query_type))
-                    .and_then(|(search_name, search_type)| {
-                        inner
-                            .additional_search(
-                                name,
-                                query_type,
-                                search_name,
-                                search_type,
-                                lookup_options,
-                            )
-                            .map(|adds| (adds, search_type))
-                    });
+        // evaluate any cnames for additional inclusion
+        let additionals_root_chain_type: Option<(_, _)> = answer
+            .as_ref()
+            .and_then(|a| maybe_next_name(a, query_type))
+            .and_then(|(search_name, search_type)| {
+                inner
+                    .additional_search(name, query_type, search_name, search_type, lookup_options)
+                    .map(|adds| (adds, search_type))
+            });
 
-                // if the chain started with an ANAME, take the A or AAAA record from the list
-                let (additionals, answer) = match (additionals_root_chain_type, answer, query_type)
-                {
-                    (Some((additionals, RecordType::ANAME)), Some(answer), RecordType::A)
-                    | (Some((additionals, RecordType::ANAME)), Some(answer), RecordType::AAAA) => {
-                        // This should always be true...
-                        debug_assert_eq!(answer.record_type(), RecordType::ANAME);
+        // if the chain started with an ANAME, take the A or AAAA record from the list
+        let (additionals, answer) = match (additionals_root_chain_type, answer, query_type) {
+            (Some((additionals, RecordType::ANAME)), Some(answer), RecordType::A)
+            | (Some((additionals, RecordType::ANAME)), Some(answer), RecordType::AAAA) => {
+                // This should always be true...
+                debug_assert_eq!(answer.record_type(), RecordType::ANAME);
 
-                        // in the case of ANAME the final record should be the A or AAAA record
-                        let (rdatas, a_aaaa_ttl) = {
-                            let last_record = additionals.last();
-                            let a_aaaa_ttl = last_record.map_or(u32::MAX, |r| r.ttl());
+                // in the case of ANAME the final record should be the A or AAAA record
+                let (rdatas, a_aaaa_ttl) = {
+                    let last_record = additionals.last();
+                    let a_aaaa_ttl = last_record.map_or(u32::MAX, |r| r.ttl());
 
-                            // grap the rdatas
-                            let rdatas: Option<Vec<RData>> = last_record
-                                .and_then(|record| match record.record_type() {
-                                    RecordType::A | RecordType::AAAA => {
-                                        // the RRSIGS will be useless since we're changing the record type
-                                        Some(record.records_without_rrsigs())
-                                    }
-                                    _ => None,
-                                })
-                                .map(|records| {
-                                    records.map(Record::data).cloned().collect::<Vec<_>>()
-                                });
+                    // grap the rdatas
+                    let rdatas: Option<Vec<RData>> = last_record
+                        .and_then(|record| match record.record_type() {
+                            RecordType::A | RecordType::AAAA => {
+                                // the RRSIGS will be useless since we're changing the record type
+                                Some(record.records_without_rrsigs())
+                            }
+                            _ => None,
+                        })
+                        .map(|records| records.map(Record::data).cloned().collect::<Vec<_>>());
 
-                            (rdatas, a_aaaa_ttl)
-                        };
-
-                        // now build up a new RecordSet
-                        //   the name comes from the ANAME record
-                        //   according to the rfc the ttl is from the ANAME
-                        //   TODO: technically we should take the min of the potential CNAME chain
-                        let ttl = answer.ttl().min(a_aaaa_ttl);
-                        let mut new_answer = RecordSet::new(answer.name().clone(), query_type, ttl);
-
-                        for rdata in rdatas.into_iter().flatten() {
-                            new_answer.add_rdata(rdata);
-                        }
-
-                        // if DNSSEC is enabled, and the request had the DO set, sign the recordset
-                        #[cfg(feature = "__dnssec")]
-                        // ANAME's are constructed on demand, so need to be signed before return
-                        if lookup_options.dnssec_ok() {
-                            InnerInMemory::sign_rrset(
-                                &mut new_answer,
-                                &inner.secure_keys,
-                                inner.minimum_ttl(self.origin()),
-                                self.class(),
-                            )
-                            // rather than failing the request, we'll just warn
-                            .map_err(|error| warn!(%error, "failed to sign ANAME record"))
-                            .ok();
-                        }
-
-                        // prepend answer to additionals here (answer is the ANAME record)
-                        let additionals = std::iter::once(answer).chain(additionals).collect();
-
-                        // return the new answer
-                        //   because the searched set was an Arc, we need to arc too
-                        (Some(additionals), Some(Arc::new(new_answer)))
-                    }
-                    (Some((additionals, _)), answer, _) => (Some(additionals), answer),
-                    (None, answer, _) => (None, answer),
+                    (rdatas, a_aaaa_ttl)
                 };
 
-                // map the answer to a result
-                let answer = answer.map_or(
-                    LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
-                    |rr_set| {
-                        LookupControlFlow::Continue(Ok(LookupRecords::new(lookup_options, rr_set)))
-                    },
-                );
+                // now build up a new RecordSet
+                //   the name comes from the ANAME record
+                //   according to the rfc the ttl is from the ANAME
+                //   TODO: technically we should take the min of the potential CNAME chain
+                let ttl = answer.ttl().min(a_aaaa_ttl);
+                let mut new_answer = RecordSet::new(answer.name().clone(), query_type, ttl);
 
-                let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
+                for rdata in rdatas.into_iter().flatten() {
+                    new_answer.add_rdata(rdata);
+                }
 
-                (answer, additionals)
+                // if DNSSEC is enabled, and the request had the DO set, sign the recordset
+                #[cfg(feature = "__dnssec")]
+                // ANAME's are constructed on demand, so need to be signed before return
+                if lookup_options.dnssec_ok() {
+                    InnerInMemory::sign_rrset(
+                        &mut new_answer,
+                        &inner.secure_keys,
+                        inner.minimum_ttl(self.origin()),
+                        self.class(),
+                    )
+                    // rather than failing the request, we'll just warn
+                    .map_err(|error| warn!(%error, "failed to sign ANAME record"))
+                    .ok();
+                }
+
+                // prepend answer to additionals here (answer is the ANAME record)
+                let additionals = std::iter::once(answer).chain(additionals).collect();
+
+                // return the new answer
+                //   because the searched set was an Arc, we need to arc too
+                (Some(additionals), Some(Arc::new(new_answer)))
             }
+            (Some((additionals, _)), answer, _) => (Some(additionals), answer),
+            (None, answer, _) => (None, answer),
         };
+
+        // map the answer to a result
+        let answer = answer.map_or(
+            LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
+            |rr_set| LookupControlFlow::Continue(Ok(LookupRecords::new(lookup_options, rr_set))),
+        );
+
+        let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
 
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
@@ -537,7 +518,7 @@ impl Authority for InMemoryAuthority {
         //   generally return NoError and no results when other types exist at the same name. bah.
         // TODO: can we get rid of this?
         use LookupControlFlow::*;
-        let result = match result {
+        let result = match answer {
             Continue(Err(LookupError::ResponseCode(ResponseCode::NXDomain))) => {
                 if inner
                     .records
