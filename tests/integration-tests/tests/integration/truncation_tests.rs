@@ -6,7 +6,7 @@ use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, Rr
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsRequest, FirstAnswer};
-use hickory_server::ServerFuture;
+use hickory_server::Server;
 use hickory_server::authority::{AxfrPolicy, Catalog, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
@@ -29,7 +29,7 @@ async fn test_truncation() {
     println!("udp_socket on port: {nameserver}");
 
     // Create and start the server.
-    let mut server = ServerFuture::new(new_large_catalog(128));
+    let mut server = Server::new(new_large_catalog(128));
     server.register_socket(udp_socket);
 
     // Create the UDP client.

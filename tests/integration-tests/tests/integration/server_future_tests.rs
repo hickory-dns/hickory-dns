@@ -33,7 +33,7 @@ use hickory_proto::rustls::{default_provider, tls_client_connect_with_bind_addr}
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
-use hickory_server::ServerFuture;
+use hickory_server::Server;
 use hickory_server::authority::{Authority, Catalog};
 use test_support::subscribe;
 
@@ -345,7 +345,7 @@ fn new_catalog() -> Catalog {
 
 async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog);
+    let mut server = Server::new(catalog);
     server.register_socket(udp_socket);
 
     while server_continue.load(Ordering::Relaxed) {
@@ -357,7 +357,7 @@ async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBoo
 
 async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog);
+    let mut server = Server::new(catalog);
     server.register_listener(tcp_listener, Duration::from_secs(30));
 
     while server_continue.load(Ordering::Relaxed) {
@@ -375,7 +375,7 @@ async fn server_thread_tls(
     cert_chain: Arc<dyn ResolvesServerCert>,
 ) {
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog);
+    let mut server = Server::new(catalog);
 
     // let pkcs12 = Pkcs12::from_der(&pkcs12_der)
     //     .expect("bad pkcs12 der")

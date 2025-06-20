@@ -31,7 +31,7 @@ use hickory_proto::{
 };
 use hickory_resolver::Name;
 use hickory_server::{
-    ServerFuture,
+    Server,
     authority::{AxfrPolicy, Catalog, MessageResponseBuilder, ZoneType},
     dnssec::NxProofKind,
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
@@ -356,17 +356,14 @@ fn print_response(response: &DnsResponse) {
     }
 }
 
-async fn setup_client_server<H>(
-    handler: H,
-    public_key: &PublicKeyBuf,
-) -> (DnssecClient, ServerFuture<H>)
+async fn setup_client_server<H>(handler: H, public_key: &PublicKeyBuf) -> (DnssecClient, Server<H>)
 where
     H: RequestHandler,
 {
     // Server setup
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
-    let mut server = ServerFuture::new(handler);
+    let mut server = Server::new(handler);
     server.register_socket(udp_socket);
 
     // Client setup
