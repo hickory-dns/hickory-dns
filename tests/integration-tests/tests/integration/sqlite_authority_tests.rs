@@ -6,8 +6,6 @@ use std::str::FromStr;
 #[cfg(feature = "__dnssec")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(feature = "__dnssec")]
-use bytes::Bytes;
 use hickory_proto::rr::LowerName;
 use rusqlite::*;
 
@@ -21,9 +19,9 @@ use hickory_proto::op::{
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
+use hickory_proto::serialize::binary::BinEncodable;
 use hickory_proto::xfer::Protocol;
-use hickory_server::authority::{Authority, LookupError, LookupOptions, MessageRequest, ZoneType};
+use hickory_server::authority::{Authority, LookupError, LookupOptions, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "__dnssec")]
@@ -224,8 +222,7 @@ async fn test_authority() {
 #[cfg(feature = "__dnssec")]
 #[tokio::test]
 async fn test_authorize() {
-    use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
-    use hickory_server::authority::MessageRequest;
+    use hickory_proto::serialize::binary::BinEncodable;
 
     subscribe();
 
@@ -236,13 +233,8 @@ async fn test_authorize() {
     message.add_query(Query::default());
 
     let bytes = message.to_bytes().unwrap();
-    let message = MessageRequest::from_bytes(&bytes).unwrap();
-    let request = Request::new(
-        message,
-        Bytes::from(bytes),
-        SocketAddr::from(([127, 0, 0, 1], 53)),
-        Protocol::Udp,
-    );
+    let request =
+        Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     assert_eq!(
         authority.authorize(&request).await,
@@ -906,13 +898,8 @@ async fn test_update_tsig_valid() {
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
     let bytes = message.to_bytes().unwrap();
-    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
-    let request = Request::new(
-        req_message,
-        Bytes::from(bytes),
-        SocketAddr::from(([127, 0, 0, 1], 53)),
-        Protocol::Udp,
-    );
+    let request =
+        Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should succeed.
     assert!(authority.update(&request).await.unwrap());
@@ -966,13 +953,8 @@ async fn test_update_tsig_invalid_unknown_signer() {
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
     let bytes = message.to_bytes().unwrap();
-    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
-    let request = Request::new(
-        req_message,
-        Bytes::from(bytes),
-        SocketAddr::from(([127, 0, 0, 1], 53)),
-        Protocol::Udp,
-    );
+    let request =
+        Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been refused.
     assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
@@ -1012,13 +994,8 @@ async fn test_update_tsig_invalid_sig() {
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
     let bytes = message.to_bytes().unwrap();
-    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
-    let request = Request::new(
-        req_message,
-        Bytes::from(bytes),
-        SocketAddr::from(([127, 0, 0, 1], 53)),
-        Protocol::Udp,
-    );
+    let request =
+        Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been refused.
     assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));
@@ -1052,13 +1029,8 @@ async fn test_update_tsig_invalid_stale_sig() {
     // TODO(@cpu): add and use a MessageRequestBuilder type?
     // Round-trip the Message bytes into a MessageRequest.
     let bytes = message.to_bytes().unwrap();
-    let req_message = MessageRequest::from_bytes(&bytes).unwrap();
-    let request = Request::new(
-        req_message,
-        Bytes::from(bytes),
-        SocketAddr::from(([127, 0, 0, 1], 53)),
-        Protocol::Udp,
-    );
+    let request =
+        Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been refused.
     assert_eq!(authority.update(&request).await, Err(ResponseCode::Refused));

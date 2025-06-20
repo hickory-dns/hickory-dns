@@ -3,7 +3,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
-use bytes::Bytes;
 use futures_executor::block_on;
 
 use hickory_proto::{
@@ -12,11 +11,10 @@ use hickory_proto::{
         Name, RData, Record, RecordType,
         rdata::{A as A4, AAAA},
     },
-    serialize::binary::BinDecodable,
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{AuthLookup, Authority, LookupError, LookupOptions, MessageRequest},
+    authority::{AuthLookup, Authority, LookupError, LookupOptions},
     server::Request,
     server::RequestInfo,
 };
@@ -470,13 +468,12 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let mut message = Message::query();
     message.add_query(Query::new());
     let bytes = message.to_vec().unwrap();
-    let update = MessageRequest::from_bytes(&bytes).unwrap();
-    let request = Request::new(
-        update,
-        Bytes::from(bytes),
+    let request = Request::from_bytes(
+        bytes,
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
-    );
+    )
+    .unwrap();
 
     // this is expected to fail, i.e. updates are not allowed
     assert!(block_on(authority.update(&request)).is_err());

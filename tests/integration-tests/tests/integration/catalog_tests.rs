@@ -1,17 +1,21 @@
 use std::{str::FromStr, sync::Arc};
 
-use bytes::Bytes;
 use hickory_proto::{
-    op::*,
-    rr::rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
-    rr::{rdata::*, *},
-    serialize::binary::{BinDecodable, BinEncodable},
+    op::{Edns, Message, MessageType, Query, ResponseCode},
+    rr::{
+        DNSClass, LowerName, Name, RData, Record, RecordType,
+        rdata::{
+            A, AAAA, CNAME, NS, SOA,
+            opt::{EdnsCode, EdnsOption, NSIDPayload},
+        },
+    },
+    serialize::binary::BinEncodable,
     xfer::Protocol,
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
-    authority::{Authority, Catalog, MessageRequest, ZoneType},
+    authority::{Authority, Catalog, ZoneType},
     server::{Request, RequestHandler},
     store::in_memory::InMemoryAuthority,
 };
@@ -140,13 +144,8 @@ async fn test_catalog_lookup() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -179,13 +178,8 @@ async fn test_catalog_lookup() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -230,13 +224,8 @@ async fn test_catalog_lookup_soa() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -302,13 +291,8 @@ async fn test_catalog_nx_soa() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -358,13 +342,8 @@ async fn test_non_authoritive_nx_refused() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -418,13 +397,8 @@ async fn test_axfr() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -541,13 +515,8 @@ async fn test_axfr_refused() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -680,13 +649,7 @@ fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
     question.set_edns(question_edns);
 
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    )
+    Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap()
 }
 
 // TODO: add this test
@@ -716,13 +679,8 @@ async fn test_cname_additionals() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -770,13 +728,8 @@ async fn test_multiple_cname_additionals() {
 
     // temp request
     let question_bytes = question.to_bytes().unwrap();
-    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-    let question_req = Request::new(
-        question_req,
-        Bytes::from(question_bytes),
-        ([127, 0, 0, 1], 5553).into(),
-        Protocol::Udp,
-    );
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -869,13 +822,9 @@ mod dnssec {
             .enable_dnssec();
 
         let question_bytes = question.to_bytes().unwrap();
-        let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
-        let question_req = Request::new(
-            question_req,
-            Bytes::from(question_bytes),
-            ([127, 0, 0, 1], 5553).into(),
-            Protocol::Udp,
-        );
+        let question_req =
+            Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp)
+                .unwrap();
 
         let response_handler = TestResponseHandler::new();
         catalog

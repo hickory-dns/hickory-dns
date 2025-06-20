@@ -16,6 +16,7 @@ use crate::{
     proto::{
         ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
+        serialize::binary::{BinDecodable, BinDecoder},
         xfer::Protocol,
     },
     server::ResponseHandler,
@@ -26,24 +27,27 @@ use crate::{
 pub struct Request {
     /// Message with the associated query or update data
     pub(crate) message: MessageRequest,
-    pub(crate) raw: Bytes,
+    pub(super) raw: Bytes,
     /// Source address of the Client
-    src: SocketAddr,
+    pub(super) src: SocketAddr,
     /// Protocol of the request
-    protocol: Protocol,
+    pub(super) protocol: Protocol,
 }
 
 impl Request {
-    /// Build a new requests with the inbound message, its raw bytes, source address, and protocol.
-    ///
-    /// This will return an error on bad verification.
-    pub fn new(message: MessageRequest, raw: Bytes, src: SocketAddr, protocol: Protocol) -> Self {
-        Self {
-            message,
-            raw,
+    /// Construct a new Request from the raw bytes, source address, and protocol
+    pub fn from_bytes(
+        raw: Vec<u8>,
+        src: SocketAddr,
+        protocol: Protocol,
+    ) -> Result<Self, ProtoError> {
+        let mut decoder = BinDecoder::new(&raw);
+        Ok(Self {
+            message: MessageRequest::read(&mut decoder)?,
+            raw: Bytes::from(raw),
             src,
             protocol,
-        }
+        })
     }
 
     /// Return just the header and request information from the Request Message

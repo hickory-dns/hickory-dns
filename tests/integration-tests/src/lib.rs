@@ -14,7 +14,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
 use futures::{
     Future, FutureExt, future,
     stream::{Stream, StreamExt},
@@ -30,7 +29,7 @@ use hickory_proto::{
     xfer::{DnsClientStream, Protocol, SerialMessage, StreamReceiver},
 };
 use hickory_server::{
-    authority::{Catalog, MessageRequest, MessageResponse},
+    authority::{Catalog, MessageResponse},
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
 };
 
@@ -146,11 +145,8 @@ impl Stream for TestClientStream {
             // already handled above, here to make sure the poll() pops the next message
             Poll::Ready(Some(message)) => {
                 let (bytes, _) = message.into_parts();
-                let mut decoder = BinDecoder::new(&bytes);
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
-
-                let message = MessageRequest::read(&mut decoder).expect("could not decode message");
-                let request = Request::new(message, Bytes::from(bytes), src_addr, Protocol::Udp);
+                let request = Request::from_bytes(bytes, src_addr, Protocol::Udp).unwrap();
 
                 let response_handler = TestResponseHandler::new();
                 block_on(
