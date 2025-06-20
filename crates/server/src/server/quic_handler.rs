@@ -9,11 +9,9 @@ use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::Bytes;
 use futures_util::lock::Mutex;
-use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 use crate::{
-    access::AccessControl,
     authority::MessageResponse,
     proto::{
         ProtoError,
@@ -22,23 +20,18 @@ use crate::{
         xfer::Protocol,
     },
     server::{
-        ResponseInfo,
+        ResponseInfo, ServerContext,
         request_handler::RequestHandler,
         response_handler::{ResponseHandler, encode_fallback_servfail_response},
     },
 };
 
-pub(crate) async fn quic_handler<T>(
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
+pub(crate) async fn quic_handler(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
-    shutdown: CancellationToken,
-) -> Result<(), ProtoError>
-where
-    T: RequestHandler,
-{
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
     // TODO: we should make this configurable
     let mut max_requests = 100u32;
 
@@ -55,7 +48,7 @@ where
                     break;
                 }
             },
-            _ = shutdown.cancelled() => {
+            _ = cx.shutdown.cancelled() => {
                 // A graceful shutdown was initiated.
                 break;
             },
@@ -67,8 +60,7 @@ where
             "Received bytes {} from {src_addr} {request:?}",
             request.len()
         );
-        let handler = handler.clone();
-        let access = access.clone();
+
         let stream = Arc::new(Mutex::new(request_stream));
         let responder = QuicResponseHandle(stream.clone());
 
@@ -76,9 +68,8 @@ where
             request.freeze(),
             src_addr,
             Protocol::Quic,
-            &access,
-            handler,
             responder,
+            &cx,
         )
         .await;
 

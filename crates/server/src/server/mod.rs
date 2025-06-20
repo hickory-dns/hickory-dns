@@ -63,10 +63,8 @@ pub use timeout_stream::TimeoutStream;
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
 pub struct Server<T: RequestHandler> {
-    handler: Arc<T>,
+    context: Arc<ServerContext<T>>,
     join_set: JoinSet<Result<(), ProtoError>>,
-    shutdown_token: CancellationToken,
-    access: Arc<AccessControl>,
 }
 
 impl<T: RequestHandler> Server<T> {
@@ -82,21 +80,19 @@ impl<T: RequestHandler> Server<T> {
         access.insert_allow(allowed_networks);
 
         Self {
-            handler: Arc::new(handler),
+            context: Arc::new(ServerContext {
+                handler,
+                access,
+                shutdown: CancellationToken::new(),
+            }),
             join_set: JoinSet::new(),
-            shutdown_token: CancellationToken::new(),
-            access: Arc::new(access),
         }
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
-        self.join_set.spawn(handle_udp(
-            socket,
-            self.shutdown_token.clone(),
-            self.handler.clone(),
-            self.access.clone(),
-        ));
+        self.join_set
+            .spawn(handle_udp(socket, self.context.clone()));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -114,11 +110,8 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
         debug!("register tcp: {:?}", listener);
 
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
         // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
+        let cx = self.context.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
@@ -133,7 +126,7 @@ impl<T: RequestHandler> Server<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.cancelled() => {
+                    _ = cx.shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -149,10 +142,8 @@ impl<T: RequestHandler> Server<T> {
                     continue;
                 }
 
-                let handler = handler.clone();
-                let access = access.clone();
-
                 // and spawn to the io_loop
+                let cx = cx.clone();
                 inner_join_set.spawn(async move {
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
@@ -174,21 +165,15 @@ impl<T: RequestHandler> Server<T> {
                         };
 
                         // we don't spawn here to limit clients from getting too many resources
-                        handle_raw_request(
-                            message,
-                            Protocol::Tcp,
-                            &access,
-                            handler.clone(),
-                            stream_handle.clone(),
-                        )
-                        .await;
+                        handle_raw_request(message, Protocol::Tcp, stream_handle.clone(), &cx)
+                            .await;
                     }
                 });
 
                 reap_tasks(&mut inner_join_set);
             }
 
-            if shutdown.is_cancelled() {
+            if cx.shutdown.is_cancelled() {
                 Ok(())
             } else {
                 Err(ProtoError::from("unexpected close of socket"))
@@ -219,15 +204,12 @@ impl<T: RequestHandler> Server<T> {
         use crate::proto::rustls::tls_from_stream;
         use tokio_rustls::TlsAcceptor;
 
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = TlsAcceptor::from(tls_config);
 
         // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
+        let cx = self.context.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
@@ -242,7 +224,7 @@ impl<T: RequestHandler> Server<T> {
                             continue;
                         },
                     },
-                    _ = shutdown.cancelled() => {
+                    _ = cx.shutdown.cancelled() => {
                         // A graceful shutdown was initiated. Break out of the loop.
                         break;
                     },
@@ -258,10 +240,8 @@ impl<T: RequestHandler> Server<T> {
                     continue;
                 }
 
-                let handler = handler.clone();
-                let access = access.clone();
+                let cx = cx.clone();
                 let tls_acceptor = tls_acceptor.clone();
-
                 // kick out to a different task immediately, let them do the TLS handshake
                 inner_join_set.spawn(async move {
                     debug!("starting TLS request from: {}", src_addr);
@@ -298,21 +278,15 @@ impl<T: RequestHandler> Server<T> {
                             }
                         };
 
-                        handle_raw_request(
-                            message,
-                            Protocol::Tls,
-                            &access,
-                            handler.clone(),
-                            stream_handle.clone(),
-                        )
-                        .await;
+                        handle_raw_request(message, Protocol::Tls, stream_handle.clone(), &cx)
+                            .await;
                     }
                 });
 
                 reap_tasks(&mut inner_join_set);
             }
 
-            if shutdown.is_cancelled() {
+            if cx.shutdown.is_cancelled() {
                 Ok(())
             } else {
                 Err(ProtoError::from("unexpected close of socket"))
@@ -376,20 +350,17 @@ impl<T: RequestHandler> Server<T> {
 
         let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
         let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-
-        let handler = self.handler.clone();
-        let access = self.access.clone();
         debug!("registered https: {listener:?}");
 
         let tls_acceptor =
             TlsAcceptor::from(Arc::new(tls_server_config(b"h2", server_cert_resolver)?));
 
         // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
+        let cx = self.context.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
-                let shutdown = shutdown.clone();
+                let shutdown = cx.shutdown.clone();
                 let (tcp_stream, src_addr) = tokio::select! {
                     tcp_stream = listener.accept() => match tcp_stream {
                         Ok((t, s)) => (t, s),
@@ -413,12 +384,10 @@ impl<T: RequestHandler> Server<T> {
                     continue;
                 }
 
-                let handler = handler.clone();
-                let access = access.clone();
+                let cx = cx.clone();
                 let tls_acceptor = tls_acceptor.clone();
                 let dns_hostname = dns_hostname.clone();
                 let http_endpoint = http_endpoint.clone();
-
                 inner_join_set.spawn(async move {
                     debug!("starting HTTPS request from: {src_addr}");
 
@@ -440,22 +409,13 @@ impl<T: RequestHandler> Server<T> {
                     };
                     debug!("accepted HTTPS request from: {src_addr}");
 
-                    h2_handler(
-                        access,
-                        handler,
-                        tls_stream,
-                        src_addr,
-                        dns_hostname,
-                        http_endpoint,
-                        shutdown.clone(),
-                    )
-                    .await;
+                    h2_handler(tls_stream, src_addr, dns_hostname, http_endpoint, cx).await;
                 });
 
                 reap_tasks(&mut inner_join_set);
             }
 
-            if shutdown.is_cancelled() {
+            if cx.shutdown.is_cancelled() {
                 Ok(())
             } else {
                 Err(ProtoError::from("unexpected close of socket"))
@@ -493,18 +453,15 @@ impl<T: RequestHandler> Server<T> {
 
         let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
 
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
         debug!("registered quic: {:?}", socket);
         let mut server = QuicServer::with_socket(socket, server_cert_resolver)?;
 
         // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
+        let cx = self.context.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
-                let shutdown = shutdown.clone();
+                let shutdown = cx.shutdown.clone();
                 let (streams, src_addr) = tokio::select! {
                     result = server.next() => match result {
                         Ok(Some(c)) => c,
@@ -530,23 +487,13 @@ impl<T: RequestHandler> Server<T> {
                     continue;
                 }
 
-                let handler = handler.clone();
-                let access = access.clone();
+                let cx = cx.clone();
                 let dns_hostname = dns_hostname.clone();
-
                 inner_join_set.spawn(async move {
                     debug!("starting quic stream request from: {src_addr}");
 
                     // TODO: need to consider timeout of total connect...
-                    let result = quic_handler(
-                        access,
-                        handler,
-                        streams,
-                        src_addr,
-                        dns_hostname,
-                        shutdown.clone(),
-                    )
-                    .await;
+                    let result = quic_handler(streams, src_addr, dns_hostname, cx).await;
 
                     if let Err(error) = result {
                         warn!(%error, %src_addr, "quic stream processing failed")
@@ -589,18 +536,15 @@ impl<T: RequestHandler> Server<T> {
 
         let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
 
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
         debug!("registered h3: {:?}", socket);
         let mut server = H3Server::with_socket(socket, server_cert_resolver)?;
 
         // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
+        let cx = self.context.clone();
         self.join_set.spawn(async move {
             let mut inner_join_set = JoinSet::new();
             loop {
-                let shutdown = shutdown.clone();
+                let shutdown = cx.shutdown.clone();
                 let (streams, src_addr) = tokio::select! {
                     result = server.accept() => match result {
                         Ok(Some(c)) => c,
@@ -626,23 +570,13 @@ impl<T: RequestHandler> Server<T> {
                     continue;
                 }
 
-                let handler = handler.clone();
-                let access = access.clone();
+                let cx = cx.clone();
                 let dns_hostname = dns_hostname.clone();
-
                 inner_join_set.spawn(async move {
                     debug!("starting h3 stream request from: {src_addr}");
 
                     // TODO: need to consider timeout of total connect...
-                    let result = h3_handler(
-                        access,
-                        handler,
-                        streams,
-                        src_addr,
-                        dns_hostname,
-                        shutdown.clone(),
-                    )
-                    .await;
+                    let result = h3_handler(streams, src_addr, dns_hostname, cx).await;
 
                     if let Err(error) = result {
                         warn!(%error, %src_addr, "h3 stream processing failed")
@@ -661,7 +595,7 @@ impl<T: RequestHandler> Server<T> {
     /// Triggers a graceful shutdown the server. All background tasks will stop accepting
     /// new connections and the returned future will complete once all tasks have terminated.
     pub async fn shutdown_gracefully(&mut self) -> Result<(), ProtoError> {
-        self.shutdown_token.cancel();
+        self.context.shutdown.cancel();
 
         // Wait for the server to complete.
         block_until_done(&mut self.join_set).await
@@ -672,7 +606,7 @@ impl<T: RequestHandler> Server<T> {
     /// Once cancellation is requested, all background tasks will stop accepting new connections,
     /// and `block_until_done()` will complete once all tasks have terminated.
     pub fn shutdown_token(&self) -> &CancellationToken {
-        &self.shutdown_token
+        &self.context.shutdown
     }
 
     /// This will run until all background tasks complete. If one or more tasks return an error,
@@ -684,9 +618,7 @@ impl<T: RequestHandler> Server<T> {
 
 async fn handle_udp(
     socket: net::UdpSocket,
-    shutdown: CancellationToken,
-    handler: Arc<impl RequestHandler>,
-    access: Arc<AccessControl>,
+    cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), ProtoError> {
     debug!("registering udp: {:?}", socket);
 
@@ -702,7 +634,7 @@ async fn handle_udp(
                 None => break,
                 Some(message) => message,
             },
-            _ = shutdown.cancelled() => break,
+            _ = cx.shutdown.cancelled() => break,
         };
 
         let message = match message {
@@ -729,18 +661,16 @@ async fn handle_udp(
             continue;
         }
 
-        let handler = handler.clone();
-        let access = access.clone();
+        let cx = cx.clone();
         let stream_handle = stream_handle.with_remote_addr(src_addr);
-
         inner_join_set.spawn(async move {
-            handle_raw_request(message, Protocol::Udp, &access, handler, stream_handle).await;
+            handle_raw_request(message, Protocol::Udp, stream_handle, &cx).await;
         });
 
         reap_tasks(&mut inner_join_set);
     }
 
-    if shutdown.is_cancelled() {
+    if cx.shutdown.is_cancelled() {
         Ok(())
     } else {
         // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
@@ -783,12 +713,11 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
     {}
 }
 
-pub(crate) async fn handle_raw_request<T: RequestHandler>(
+async fn handle_raw_request(
     message: SerialMessage,
     protocol: Protocol,
-    access: &AccessControl,
-    request_handler: Arc<T>,
     response_handler: BufDnsStreamHandle,
+    cx: &ServerContext<impl RequestHandler>,
 ) {
     let (message, src_addr) = message.into_parts();
     let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
@@ -797,9 +726,8 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
         Bytes::from(message),
         src_addr,
         protocol,
-        access,
-        request_handler,
         response_handler,
+        cx,
     )
     .await;
 }
@@ -906,16 +834,15 @@ impl ResponseHandlerMetrics {
     }
 }
 
-pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
+async fn handle_request<R: ResponseHandler>(
     message_bytes: Bytes,
     src_addr: SocketAddr,
     protocol: Protocol,
-    access: &AccessControl,
-    request_handler: Arc<T>,
     response_handler: R,
+    cx: &ServerContext<impl RequestHandler>,
 ) {
     let mut decoder = BinDecoder::new(&message_bytes);
-    if !access.allow(src_addr.ip()) {
+    if !cx.access.allow(src_addr.ip()) {
         info!(
             "request:Refused src:{proto}://{addr}#{port}",
             proto = protocol,
@@ -1033,7 +960,13 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         metrics: ResponseHandlerMetrics::default(),
     };
 
-    request_handler.handle_request(&request, reporter).await;
+    cx.handler.handle_request(&request, reporter).await;
+}
+
+struct ServerContext<T: RequestHandler> {
+    handler: T,
+    access: AccessControl,
+    shutdown: CancellationToken,
 }
 
 // method to return an error to the client
