@@ -165,7 +165,7 @@ impl<T: RequestHandler> Server<T> {
                         };
 
                         // we don't spawn here to limit clients from getting too many resources
-                        handle_raw_request(message, Protocol::Tcp, stream_handle.clone(), &cx)
+                        cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
                             .await;
                     }
                 });
@@ -278,7 +278,7 @@ impl<T: RequestHandler> Server<T> {
                             }
                         };
 
-                        handle_raw_request(message, Protocol::Tls, stream_handle.clone(), &cx)
+                        cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
                             .await;
                     }
                 });
@@ -664,7 +664,8 @@ async fn handle_udp(
         let cx = cx.clone();
         let stream_handle = stream_handle.with_remote_addr(src_addr);
         inner_join_set.spawn(async move {
-            handle_raw_request(message, Protocol::Udp, stream_handle, &cx).await;
+            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+                .await;
         });
 
         reap_tasks(&mut inner_join_set);
@@ -711,25 +712,6 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
         .flatten()
         .is_some()
     {}
-}
-
-async fn handle_raw_request(
-    message: SerialMessage,
-    protocol: Protocol,
-    response_handler: BufDnsStreamHandle,
-    cx: &ServerContext<impl RequestHandler>,
-) {
-    let (message, src_addr) = message.into_parts();
-    let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
-
-    handle_request(
-        Bytes::from(message),
-        src_addr,
-        protocol,
-        response_handler,
-        cx,
-    )
-    .await;
 }
 
 #[cfg(feature = "__tls")]
@@ -834,139 +816,153 @@ impl ResponseHandlerMetrics {
     }
 }
 
-async fn handle_request<R: ResponseHandler>(
-    message_bytes: Bytes,
-    src_addr: SocketAddr,
-    protocol: Protocol,
-    response_handler: R,
-    cx: &ServerContext<impl RequestHandler>,
-) {
-    let mut decoder = BinDecoder::new(&message_bytes);
-    if !cx.access.allow(src_addr.ip()) {
-        info!(
-            "request:Refused src:{proto}://{addr}#{port}",
-            proto = protocol,
-            addr = src_addr.ip(),
-            port = src_addr.port(),
-        );
+struct ServerContext<T> {
+    handler: T,
+    access: AccessControl,
+    shutdown: CancellationToken,
+}
 
-        let Ok(header) = Header::read(&mut decoder) else {
-            // This will only fail if the message is less than twelve bytes long. Such messages are
-            // definitely not valid DNS queries, so it should be fine to return without sending a
-            // response.
-            return;
-        };
-        let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
-            Ok(queries) => queries,
-            Err(_) => Queries::empty(),
-        };
-        error_response_handler(
-            protocol,
-            src_addr,
-            header,
-            queries,
-            ResponseCode::Refused,
-            Box::new(ProtoErrorKind::RequestRefused.into()),
-            response_handler,
-        )
-        .await;
+impl<T: RequestHandler> ServerContext<T> {
+    async fn handle_raw_request(
+        &self,
+        message: SerialMessage,
+        protocol: Protocol,
+        response_handler: BufDnsStreamHandle,
+    ) {
+        let (message, src_addr) = message.into_parts();
+        let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
 
-        return;
+        self.handle_request(Bytes::from(message), src_addr, protocol, response_handler)
+            .await;
     }
 
-    // Attempt to decode the message
-    let request = match MessageRequest::read(&mut decoder) {
-        Ok(message) => Request {
-            message,
-            raw: message_bytes,
-            src: src_addr,
-            protocol,
-        },
-        Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
-            // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
-            let (header, error) = kind
-                .into_form_error()
-                .expect("as form_error already confirmed this is a FormError");
-            let queries = Queries::empty();
+    async fn handle_request(
+        &self,
+        message_bytes: Bytes,
+        src_addr: SocketAddr,
+        protocol: Protocol,
+        response_handler: impl ResponseHandler,
+    ) {
+        let mut decoder = BinDecoder::new(&message_bytes);
+        if !self.access.allow(src_addr.ip()) {
+            info!(
+                "request:Refused src:{proto}://{addr}#{port}",
+                proto = protocol,
+                addr = src_addr.ip(),
+                port = src_addr.port(),
+            );
 
+            let Ok(header) = Header::read(&mut decoder) else {
+                // This will only fail if the message is less than twelve bytes long. Such messages are
+                // definitely not valid DNS queries, so it should be fine to return without sending a
+                // response.
+                return;
+            };
+            let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
+                Ok(queries) => queries,
+                Err(_) => Queries::empty(),
+            };
             error_response_handler(
                 protocol,
                 src_addr,
                 header,
                 queries,
-                ResponseCode::FormErr,
-                error,
+                ResponseCode::Refused,
+                Box::new(ProtoErrorKind::RequestRefused.into()),
                 response_handler,
             )
             .await;
 
             return;
         }
-        Err(error) => {
-            info!(
-                "request:Failed src:{proto}://{addr}#{port} error:{error}",
-                proto = protocol,
-                addr = src_addr.ip(),
-                port = src_addr.port(),
-            );
 
+        // Attempt to decode the message
+        let request = match MessageRequest::read(&mut decoder) {
+            Ok(message) => Request {
+                message,
+                raw: message_bytes,
+                src: src_addr,
+                protocol,
+            },
+            Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
+                // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
+                let (header, error) = kind
+                    .into_form_error()
+                    .expect("as form_error already confirmed this is a FormError");
+                let queries = Queries::empty();
+
+                error_response_handler(
+                    protocol,
+                    src_addr,
+                    header,
+                    queries,
+                    ResponseCode::FormErr,
+                    error,
+                    response_handler,
+                )
+                .await;
+
+                return;
+            }
+            Err(error) => {
+                info!(
+                    "request:Failed src:{proto}://{addr}#{port} error:{error}",
+                    proto = protocol,
+                    addr = src_addr.ip(),
+                    port = src_addr.port(),
+                );
+                return;
+            }
+        };
+
+        if request.message.message_type() == MessageType::Response {
+            // Don't process response messages to avoid DoS attacks from reflection.
             return;
         }
-    };
 
-    if request.message.message_type() == MessageType::Response {
-        // Don't process response messages to avoid DoS attacks from reflection.
-        return;
-    }
+        let id = request.message.id();
+        let qflags = request.message.header().flags();
+        let qop_code = request.message.op_code();
+        let message_type = request.message.message_type();
+        let is_dnssec = request
+            .message
+            .edns()
+            .is_some_and(|edns| edns.flags().dnssec_ok);
 
-    let id = request.message.id();
-    let qflags = request.message.header().flags();
-    let qop_code = request.message.op_code();
-    let message_type = request.message.message_type();
-    let is_dnssec = request
-        .message
-        .edns()
-        .is_some_and(|edns| edns.flags().dnssec_ok);
-
-    debug!(
-        "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
-        id = id,
-        proto = request.protocol(),
-        addr = request.src().ip(),
-        port = request.src().port(),
-        message_type = message_type,
-        is_dnssec = is_dnssec,
-        op = qop_code,
-        qflags = qflags
-    );
-    for query in request.queries().iter() {
         debug!(
-            "query:{query}:{qtype}:{class}",
-            query = query.name(),
-            qtype = query.query_type(),
-            class = query.query_class()
+            "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
+            id = id,
+            proto = request.protocol(),
+            addr = request.src().ip(),
+            port = request.src().port(),
+            message_type = message_type,
+            is_dnssec = is_dnssec,
+            op = qop_code,
+            qflags = qflags
         );
+        for query in request.queries().iter() {
+            debug!(
+                "query:{query}:{qtype}:{class}",
+                query = query.name(),
+                qtype = query.query_type(),
+                class = query.query_class()
+            );
+        }
+
+        // The reporter will handle making sure to log the result of the request
+        let queries = request.queries().to_vec();
+        let reporter = ReportingResponseHandler {
+            request_header: *request.header(),
+            queries,
+            protocol: request.protocol(),
+            src_addr: request.src(),
+            handler: response_handler,
+            #[cfg(feature = "metrics")]
+            metrics: ResponseHandlerMetrics::default(),
+        };
+
+        self.handler.handle_request(&request, reporter).await;
     }
-
-    // The reporter will handle making sure to log the result of the request
-    let queries = request.queries().to_vec();
-    let reporter = ReportingResponseHandler {
-        request_header: *request.header(),
-        queries,
-        protocol: request.protocol(),
-        src_addr: request.src(),
-        handler: response_handler,
-        #[cfg(feature = "metrics")]
-        metrics: ResponseHandlerMetrics::default(),
-    };
-
-    cx.handler.handle_request(&request, reporter).await;
-}
-
-struct ServerContext<T: RequestHandler> {
-    handler: T,
-    access: AccessControl,
-    shutdown: CancellationToken,
 }
 
 // method to return an error to the client

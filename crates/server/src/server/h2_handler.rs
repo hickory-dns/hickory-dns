@@ -77,7 +77,8 @@ pub(crate) async fn h2_handler(
                 }
             };
 
-            super::handle_request(body.freeze(), src_addr, Protocol::Https, responder, &cx).await
+            cx.handle_request(body.freeze(), src_addr, Protocol::Https, responder)
+                .await
         });
 
         // we'll continue handling requests from here.
