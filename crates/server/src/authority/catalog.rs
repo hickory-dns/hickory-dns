@@ -21,12 +21,12 @@ use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
 use crate::{
     authority::{
         AuthLookup, AuthorityObject, EmptyLookup, LookupControlFlow, LookupError, LookupObject,
-        LookupOptions, LookupRecords, MessageResponse, MessageResponseBuilder, ZoneType,
+        LookupOptions, LookupRecords, MessageResponseBuilder, ZoneType,
         authority_object::DnssecSummary,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
-        rr::{LowerName, Record, RecordSet, RecordType},
+        rr::{LowerName, RecordSet, RecordType},
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
@@ -35,25 +35,6 @@ use crate::{
 #[derive(Default)]
 pub struct Catalog {
     authorities: HashMap<LowerName, Vec<Arc<dyn AuthorityObject>>>,
-}
-
-async fn send_response<'a, R: ResponseHandler>(
-    response_edns: Option<Edns>,
-    mut response: MessageResponse<
-        '_,
-        'a,
-        impl Iterator<Item = &'a Record> + Send + 'a,
-        impl Iterator<Item = &'a Record> + Send + 'a,
-        impl Iterator<Item = &'a Record> + Send + 'a,
-        impl Iterator<Item = &'a Record> + Send + 'a,
-    >,
-    mut response_handle: R,
-) -> io::Result<ResponseInfo> {
-    if let Some(resp_edns) = response_edns {
-        response.set_edns(resp_edns);
-    }
-
-    response_handle.send_response(response).await
 }
 
 #[async_trait::async_trait]
@@ -237,7 +218,7 @@ impl Catalog {
         &self,
         update: &Request,
         response_edns: Option<Edns>,
-        response_handle: R,
+        mut response_handle: R,
     ) -> io::Result<ResponseInfo> {
         // 2.3 - Zone Section
         //
@@ -279,12 +260,12 @@ impl Catalog {
                     Header::new(update.id(), MessageType::Response, OpCode::Update);
                 response_header.set_response_code(response_code);
 
-                return send_response(
-                    response_edns,
-                    response.build_no_records(response_header),
-                    response_handle,
-                )
-                .await;
+                let mut response = response.build_no_records(response_header);
+                if let Some(resp_edns) = response_edns {
+                    response.set_edns(resp_edns);
+                }
+
+                return response_handle.send_response(response).await;
             }
         };
 
@@ -315,19 +296,17 @@ impl Catalog {
         &self,
         request: &Request,
         response_edns: Option<Edns>,
-        response_handle: R,
+        mut response_handle: R,
     ) -> ResponseInfo {
         let Ok(request_info) = request.request_info() else {
             // Wrong number of queries
             let response = MessageResponseBuilder::new(request.raw_queries());
-            let result = send_response(
-                response_edns,
-                response.error_msg(request.header(), ResponseCode::FormErr),
-                response_handle,
-            )
-            .await;
+            let mut response = response.error_msg(request.header(), ResponseCode::FormErr);
+            if let Some(resp_edns) = response_edns {
+                response.set_edns(resp_edns);
+            }
 
-            match result {
+            match response_handle.send_response(response).await {
                 Err(error) => {
                     error!(%error, "failed to send response");
                     return ResponseInfo::serve_failed(request);
@@ -340,15 +319,12 @@ impl Catalog {
         let Some(authorities) = authorities else {
             // There are no authorities registered that can handle the request
             let response = MessageResponseBuilder::new(request.raw_queries());
+            let mut response = response.error_msg(request.header(), ResponseCode::Refused);
+            if let Some(resp_edns) = response_edns {
+                response.set_edns(resp_edns);
+            }
 
-            let result = send_response(
-                response_edns,
-                response.error_msg(request.header(), ResponseCode::Refused),
-                response_handle,
-            )
-            .await;
-
-            match result {
+            match response_handle.send_response(response).await {
                 Err(error) => {
                     error!(%error, "failed to send response");
                     return ResponseInfo::serve_failed(request);
@@ -393,7 +369,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     authorities: &[Arc<dyn AuthorityObject>],
     request: &Request,
     response_edns: Option<Edns>,
-    response_handle: R,
+    mut response_handle: R,
 ) -> Result<ResponseInfo, LookupError> {
     let edns = request.edns();
     let lookup_options = lookup_options_for_edns(edns);
@@ -462,17 +438,18 @@ async fn lookup<R: ResponseHandler + Unpin>(
         )
         .await;
 
-        let message_response = MessageResponseBuilder::new(request.raw_queries()).build(
+        let mut message_response = MessageResponseBuilder::new(request.raw_queries()).build(
             response_header,
             sections.answers.iter(),
             sections.ns.iter(),
             sections.soa.iter(),
             sections.additionals.iter(),
         );
+        if let Some(resp_edns) = response_edns {
+            message_response.set_edns(resp_edns);
+        }
 
-        let result = send_response(response_edns, message_response, response_handle).await;
-
-        match result {
+        match response_handle.send_response(message_response).await {
             Err(error) => {
                 error!(%error, "error sending response");
                 return Err(LookupError::Io(error));
