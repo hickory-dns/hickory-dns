@@ -9,14 +9,16 @@
 
 use std::{
     collections::BTreeMap,
+    fs,
     ops::{Deref, DerefMut},
+    path::Path,
     sync::Arc,
 };
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use tracing::debug;
 #[cfg(feature = "__dnssec")]
 use tracing::warn;
+use tracing::{debug, info};
 
 use crate::{
     authority::{
@@ -26,6 +28,7 @@ use crate::{
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
+        serialize::txt::Parser,
     },
     server::{Request, RequestInfo},
 };
@@ -811,4 +814,25 @@ fn maybe_next_name(
         // other additional collectors can be added here can be added here
         _ => None,
     }
+}
+
+// internal load for e.g. sqlite db creation
+pub(crate) fn zone_from_path(
+    zone_path: &Path,
+    origin: Name,
+) -> Result<BTreeMap<RrKey, RecordSet>, String> {
+    info!("loading zone file: {zone_path:?}");
+
+    // TODO: this should really use something to read line by line or some other method to
+    //  keep the usage down. and be a custom lexer...
+    let buf = fs::read_to_string(zone_path)
+        .map_err(|e| format!("failed to read {}: {e:?}", zone_path.display()))?;
+
+    let (origin, records) = Parser::new(buf, Some(zone_path.to_owned()), Some(origin))
+        .parse()
+        .map_err(|e| format!("failed to parse {}: {e:?}", zone_path.display()))?;
+
+    info!("zone file loaded: {origin} with {} records", records.len());
+    debug!("zone: {records:#?}");
+    Ok(records)
 }
