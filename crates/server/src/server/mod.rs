@@ -194,83 +194,14 @@ impl<T: RequestHandler> Server<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        use crate::server::h2_handler::h2_handler;
-        use tokio_rustls::TlsAcceptor;
-
-        let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-        let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-        debug!("registered https: {listener:?}");
-
-        let tls_acceptor =
-            TlsAcceptor::from(Arc::new(tls_server_config(b"h2", server_cert_resolver)?));
-
-        // for each incoming request...
-        let cx = self.context.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let shutdown = cx.shutdown.clone();
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(error) => {
-                            debug!(%error, "error receiving HTTPS tcp_stream error");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(error) = sanitize_src_address(src_addr) {
-                    warn!(%error, %src_addr, "address can not be responded to");
-                    continue;
-                }
-
-                let cx = cx.clone();
-                let tls_acceptor = tls_acceptor.clone();
-                let dns_hostname = dns_hostname.clone();
-                let http_endpoint = http_endpoint.clone();
-                inner_join_set.spawn(async move {
-                    debug!("starting HTTPS request from: {src_addr}");
-
-                    // TODO: need to consider timeout of total connect...
-                    // take the created stream...
-                    let Ok(tls_stream) =
-                        timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
-                    else {
-                        warn!("https timeout expired during handshake");
-                        return;
-                    };
-
-                    let tls_stream = match tls_stream {
-                        Ok(tls_stream) => tls_stream,
-                        Err(e) => {
-                            debug!("https handshake src: {src_addr} error: {e}");
-                            return;
-                        }
-                    };
-                    debug!("accepted HTTPS request from: {src_addr}");
-
-                    h2_handler(tls_stream, src_addr, dns_hostname, http_endpoint, cx).await;
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if cx.shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
-
+        self.join_set.spawn(h2_handler::handle_h2(
+            listener,
+            handshake_timeout,
+            server_cert_resolver,
+            dns_hostname,
+            http_endpoint,
+            self.context.clone(),
+        ));
         Ok(())
     }
 
