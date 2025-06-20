@@ -178,22 +178,8 @@ impl SqliteAuthority {
         };
 
         #[cfg(feature = "__dnssec")]
-        {
-            for tsig_config in &config.tsig_keys {
-                let key_data = fs::read(&tsig_config.key_file).map_err(|e| {
-                    format!("error reading TSIG key file: {}: {e}", tsig_config.key_file)
-                })?;
-                let signer_name = Name::from_str(&tsig_config.name).unwrap_or(zone_name.clone());
-                authority.tsig_signers.push(
-                    TSigner::new(
-                        key_data,
-                        tsig_config.algorithm.clone(),
-                        signer_name,
-                        tsig_config.fudge,
-                    )
-                    .map_err(|e| format!("invalid TSIG key configuration: {e}"))?,
-                );
-            }
+        for config in &config.tsig_keys {
+            authority.tsig_signers.push(config.to_signer(&zone_name)?);
         }
 
         Ok(authority)
@@ -1136,6 +1122,18 @@ pub struct TsigKeyConfig {
     /// RFC 8945 recommends a fudge value of 300 seconds (the default if not specified).
     #[serde(default = "default_fudge")]
     pub fudge: u16,
+}
+
+#[cfg(feature = "__dnssec")]
+impl TsigKeyConfig {
+    fn to_signer(&self, zone_name: &Name) -> Result<TSigner, String> {
+        let key_data = fs::read(&self.key_file)
+            .map_err(|e| format!("error reading TSIG key file: {}: {e}", self.key_file))?;
+        let signer_name = Name::from_str(&self.name).unwrap_or(zone_name.clone());
+
+        TSigner::new(key_data, self.algorithm.clone(), signer_name, self.fudge)
+            .map_err(|e| format!("invalid TSIG key configuration: {e}"))
+    }
 }
 
 /// Default TSIG fudge value (seconds).
