@@ -104,19 +104,17 @@ impl FileAuthority {
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
         #[cfg(feature = "metrics")] is_internal_load: bool,
     ) -> Result<Self, String> {
-        let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_default();
-        let zone_path = root_dir_path.join(&config.zone_path);
-
-        info!("loading zone file: {:?}", zone_path);
+        let zone_path = rooted(&config.zone_path, root_dir);
+        info!("loading zone file: {zone_path:?}");
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
         let buf = fs::read_to_string(&zone_path)
-            .map_err(|e| format!("failed to read {}: {:?}", config.zone_path.display(), e))?;
+            .map_err(|e| format!("failed to read {}: {e:?}", zone_path.display()))?;
 
-        let (origin, records) = Parser::new(buf, Some(zone_path), Some(origin))
+        let (origin, records) = Parser::new(buf, Some(zone_path.clone()), Some(origin))
             .parse()
-            .map_err(|e| format!("failed to parse {}: {:?}", config.zone_path.display(), e))?;
+            .map_err(|e| format!("failed to parse {}: {e:?}", zone_path.display()))?;
 
         info!(
             "zone file loaded: {} with {} records",
@@ -312,11 +310,18 @@ impl DnssecAuthority for FileAuthority {
 }
 
 /// Configuration for file based zones
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Clone, Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct FileConfig {
     /// path to the zone file
     pub zone_path: PathBuf,
+}
+
+pub(crate) fn rooted(zone_file: &Path, root_dir: Option<&Path>) -> PathBuf {
+    match root_dir {
+        Some(root) => root.join(zone_file),
+        None => zone_file.to_owned(),
+    }
 }
 
 #[cfg(test)]

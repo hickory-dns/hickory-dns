@@ -35,7 +35,7 @@ use crate::{
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
     server::{Request, RequestInfo},
-    store::in_memory::InMemoryAuthority,
+    store::{file::rooted, in_memory::InMemoryAuthority},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -110,11 +110,9 @@ impl SqliteAuthority {
 
         let zone_name = origin;
 
-        let root_zone_dir = root_dir.map(PathBuf::from).unwrap_or_default();
-
         // to be compatible with previous versions, the extension might be zone, not jrnl
-        let journal_path = root_zone_dir.join(&config.journal_path);
-        let zone_path = root_zone_dir.join(&config.zone_path);
+        let zone_path = rooted(&config.zone_path, root_dir);
+        let journal_path = rooted(&config.journal_path, root_dir);
 
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
         let mut authority = if journal_path.exists() {
