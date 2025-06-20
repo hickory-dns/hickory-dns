@@ -198,10 +198,9 @@ impl MdnsStream {
         let ip_addr = multicast_addr.ip();
         // it's an error to not use a proper mDNS address
         if !ip_addr.is_multicast() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("expected multicast address for binding: {ip_addr}"),
-            ));
+            return Err(io::Error::other(format!(
+                "expected multicast address for binding: {ip_addr}"
+            )));
         }
 
         // binding the UdpSocket to the multicast address tells the OS to filter all packets on this socket to just this

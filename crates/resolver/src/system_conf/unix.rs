@@ -36,12 +36,8 @@ fn read_resolv_conf<P: AsRef<Path>>(path: P) -> Result<(ResolverConfig, Resolver
 pub fn parse_resolv_conf<T: AsRef<[u8]>>(
     data: T,
 ) -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
-    let parsed_conf = resolv_conf::Config::parse(&data).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("Error parsing resolv.conf: {e}"),
-        )
-    })?;
+    let parsed_conf = resolv_conf::Config::parse(&data)
+        .map_err(|e| io::Error::other(format!("Error parsing resolv.conf: {e}")))?;
     into_resolver_config(parsed_conf)
 }
 
@@ -71,10 +67,7 @@ fn into_resolver_config(
         })
         .collect::<Vec<_>>();
     if nameservers.is_empty() {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "no nameservers found in config",
-        ))?;
+        Err(io::Error::other("no nameservers found in config"))?;
     }
 
     // search
@@ -85,12 +78,10 @@ fn into_resolver_config(
             continue;
         }
 
-        search.push(Name::from_str_relaxed(search_domain).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Error parsing resolv.conf: {e}"),
-            )
-        })?);
+        search.push(
+            Name::from_str_relaxed(search_domain)
+                .map_err(|e| io::Error::other(format!("Error parsing resolv.conf: {e}")))?,
+        );
     }
 
     let config = ResolverConfig::from_parts(domain, search, nameservers);

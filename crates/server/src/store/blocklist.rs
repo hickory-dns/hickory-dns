@@ -401,8 +401,7 @@ impl Authority for BlocklistAuthority {
         _name: &LowerName,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        LookupControlFlow::Continue(Err(LookupError::from(io::Error::new(
-            io::ErrorKind::Other,
+        LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the blocklist",
         ))))
     }
@@ -413,8 +412,7 @@ impl Authority for BlocklistAuthority {
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        LookupControlFlow::Continue(Err(LookupError::from(io::Error::new(
-            io::ErrorKind::Other,
+        LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the forwarder",
         ))))
     }

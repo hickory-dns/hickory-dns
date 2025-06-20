@@ -194,7 +194,7 @@ impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match e.kind() {
             ErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::new(io::ErrorKind::Other, e),
+            _ => Self::other(e),
         }
     }
 }

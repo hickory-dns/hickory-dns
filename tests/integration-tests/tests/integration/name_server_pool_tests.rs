@@ -270,7 +270,7 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let io_error = std::io::Error::new(std::io::ErrorKind::Other, "Some I/O Error");
+    let io_error = std::io::Error::other("Some I/O Error");
     let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(io_error));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
@@ -394,7 +394,7 @@ fn test_tcp_fallback_on_io_error() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let io_error = std::io::Error::new(std::io::ErrorKind::Other, "Some I/O Error");
+    let io_error = std::io::Error::other("Some I/O Error");
     let udp_message: Result<DnsResponse, _> = Err(ProtoError::from(io_error));
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
@@ -652,13 +652,7 @@ fn test_user_provided_server_order() {
     // Specify different IP addresses for each name server to ensure that they
     // are considered separately.
     let mut preferred_server_responses = to_dns_response(preferred_server_records.clone());
-    preferred_server_responses.insert(
-        0,
-        Err(ProtoError::from(io::Error::new(
-            io::ErrorKind::Other,
-            "fail",
-        ))),
-    );
+    preferred_server_responses.insert(0, Err(ProtoError::from(io::Error::other("fail"))));
     let preferred_nameserver = mock_udp_nameserver_with_addr(
         preferred_server_responses,
         Ipv4Addr::new(128, 0, 0, 1).into(),
