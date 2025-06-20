@@ -1,4 +1,3 @@
-[![minimum rustc: 1.70](https://img.shields.io/badge/minimum%20rustc-1.70-green?logo=rust)](https://www.whatrustisit.com)
 [![Build Status](https://github.com/hickory-dns/hickory-dns/workflows/test/badge.svg?branch=main)](https://github.com/hickory-dns/hickory-dns/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/hickory-dns/hickory-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/hickory-dns/hickory-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
@@ -105,10 +104,6 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
 - [RFC 8162](https://tools.ietf.org/html/rfc8162): Domain Names For S/MIME
-
-## Minimum Rust Version
-
-- The current minimum rustc version for this project is `1.70`
 
 ## Testing
 
