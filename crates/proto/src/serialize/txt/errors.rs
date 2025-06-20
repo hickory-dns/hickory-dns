@@ -229,7 +229,7 @@ impl From<ParseError> for io::Error {
     fn from(e: ParseError) -> Self {
         match e.kind() {
             ParseErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::new(io::ErrorKind::Other, e),
+            _ => Self::other(e),
         }
     }
 }

@@ -139,6 +139,6 @@ impl From<h3::error::StreamError> for Error {
 
 impl From<Error> for io::Error {
     fn from(err: Error) -> Self {
-        Self::new(io::ErrorKind::Other, format!("https: {err}"))
+        Self::other(format!("https: {err}"))
     }
 }

@@ -130,7 +130,7 @@ impl ResponseHandler for ResponseHandle {
 
         self.stream_handle
             .send(SerialMessage::new(buffer, self.dst))
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))?;
+            .map_err(|_| io::Error::other("unknown"))?;
 
         Ok(info)
     }

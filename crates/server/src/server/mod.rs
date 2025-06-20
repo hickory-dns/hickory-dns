@@ -835,12 +835,7 @@ fn tls_server_config(
 ) -> io::Result<ServerConfig> {
     let mut config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
         .with_safe_default_protocol_versions()
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error creating TLS acceptor: {e}"),
-            )
-        })?
+        .map_err(|e| io::Error::other(format!("error creating TLS acceptor: {e}")))?
         .with_no_client_auth()
         .with_cert_resolver(server_cert_resolver);
 

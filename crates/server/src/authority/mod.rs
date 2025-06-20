@@ -140,7 +140,7 @@ impl From<io::Error> for LookupError {
 
 impl From<LookupError> for io::Error {
     fn from(e: LookupError) -> Self {
-        Self::new(io::ErrorKind::Other, Box::new(e))
+        Self::other(Box::new(e))
     }
 }
 
