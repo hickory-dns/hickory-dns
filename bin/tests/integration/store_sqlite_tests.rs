@@ -15,18 +15,18 @@ use hickory_server::{
 };
 
 fn sqlite(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
-    let journal_path = PathBuf::from("target/tests")
+    let journal_file_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
         .join("authority_battery.jrnl");
-    fs::create_dir_all(journal_path.parent().unwrap()).ok();
+    fs::create_dir_all(journal_file_path.parent().unwrap()).ok();
 
     // cleanup anything from previous test
-    fs::remove_file(&journal_path).ok();
+    fs::remove_file(&journal_file_path).ok();
 
     let config = SqliteConfig {
         zone_file_path: master_file_path.to_owned(),
-        journal_file_path: journal_path.to_str().unwrap().to_string(),
+        journal_file_path,
         allow_update: true,
         #[cfg(feature = "__dnssec")]
         tsig_keys: Vec::new(),
@@ -47,18 +47,18 @@ fn sqlite(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAutho
 
 #[cfg_attr(not(feature = "__dnssec"), allow(unused))]
 fn sqlite_update(master_file_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
-    let journal_path = PathBuf::from("target/tests")
+    let journal_file_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
         .join("authority_battery.jrnl");
-    fs::create_dir_all(journal_path.parent().unwrap()).ok();
+    fs::create_dir_all(journal_file_path.parent().unwrap()).ok();
 
     // cleanup anything from previous test
-    fs::remove_file(&journal_path).ok();
+    fs::remove_file(&journal_file_path).ok();
 
     let config = SqliteConfig {
         zone_file_path: master_file_path.to_owned(),
-        journal_file_path: journal_path.to_str().unwrap().to_string(),
+        journal_file_path,
         allow_update: true,
         #[cfg(feature = "__dnssec")]
         tsig_keys: Vec::new(),
