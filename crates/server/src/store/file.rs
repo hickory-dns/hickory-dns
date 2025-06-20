@@ -8,7 +8,6 @@
 //! Zone file based serving with Dynamic DNS and journaling support
 
 use std::{
-    collections::BTreeMap,
     fs,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -22,7 +21,7 @@ use crate::store::metrics::StoreMetrics;
 use crate::{
     authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     proto::{
-        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+        rr::{LowerName, Name, RecordType},
         serialize::txt::Parser,
     },
     server::{Request, RequestInfo},
@@ -60,29 +59,17 @@ impl FileAuthority {
     /// # Return value
     ///
     /// The new `Authority`.
-    pub fn new(
-        origin: Name,
-        records: BTreeMap<RrKey, RecordSet>,
-        zone_type: ZoneType,
-        allow_axfr: bool,
-        #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
-    ) -> Result<Self, String> {
-        Ok(Self {
+    pub async fn new(in_memory: InMemoryAuthority) -> Self {
+        Self {
             #[cfg(feature = "metrics")]
             metrics: {
                 let new = StoreMetrics::new("file");
+                let records = in_memory.records().await;
                 new.persistent.zone_records.increment(records.len() as f64);
                 new
             },
-            in_memory: InMemoryAuthority::new(
-                origin,
-                records,
-                zone_type,
-                allow_axfr,
-                #[cfg(feature = "__dnssec")]
-                nx_proof_kind,
-            )?,
-        })
+            in_memory,
+        }
     }
 
     /// Read the Authority for the origin from the specified configuration
