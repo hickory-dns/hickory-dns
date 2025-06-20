@@ -504,45 +504,38 @@ impl Authority for InMemoryAuthority {
             (None, answer, _) => (None, answer),
         };
 
-        // map the answer to a result
-        let answer = LookupControlFlow::Continue(match answer {
-            Some(rr_set) => Ok(LookupRecords::new(lookup_options, rr_set)),
-            None => Err(LookupError::from(ResponseCode::NXDomain)),
-        });
-
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
         // TODO: can we get rid of this?
         use LookupControlFlow::*;
-        let result = match answer {
-            Continue(Err(LookupError::ResponseCode(ResponseCode::NXDomain))) => {
-                if inner
-                    .records
-                    .keys()
-                    .any(|key| key.name() == name || name.zone_of(key.name()))
-                {
-                    return Continue(Err(LookupError::NameExists));
-                } else {
-                    let code = if self.origin().zone_of(name) {
-                        ResponseCode::NXDomain
+        let answers = match answer {
+            Some(rr_set) => LookupRecords::new(lookup_options, rr_set),
+            None => {
+                return Continue(Err(
+                    if inner
+                        .records
+                        .keys()
+                        .any(|key| key.name() == name || name.zone_of(key.name()))
+                    {
+                        LookupError::NameExists
                     } else {
-                        ResponseCode::Refused
-                    };
-                    return Continue(Err(LookupError::from(code)));
-                }
+                        let code = if self.origin().zone_of(name) {
+                            ResponseCode::NXDomain
+                        } else {
+                            ResponseCode::Refused
+                        };
+                        LookupError::from(code)
+                    },
+                ));
             }
-            Continue(Err(e)) => return Continue(Err(e)),
-            o => o,
         };
 
-        result.map(|answers| {
-            AuthLookup::answers(
-                answers,
-                additionals.map(|a| LookupRecords::many(lookup_options, a)),
-            )
-        })
+        LookupControlFlow::Continue(Ok(AuthLookup::answers(
+            answers,
+            additionals.map(|a| LookupRecords::many(lookup_options, a)),
+        )))
     }
 
     async fn search(
