@@ -145,7 +145,7 @@ zone = \"example.com\"
 zone_type = \"Primary\"
 [zones.stores]
 type = \"file\"
-zone_file_path = \"example.com.zone\"
+zone_path = \"example.com.zone\"
 
 \
          [[zones.keys]]

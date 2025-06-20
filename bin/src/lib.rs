@@ -323,9 +323,7 @@ where
                             "having `file` and `[zones.store]` item with type `file` is ambiguous",
                         ))
                     } else {
-                        let store = ServerStoreConfig::File(FileConfig {
-                            zone_file_path: file,
-                        });
+                        let store = ServerStoreConfig::File(FileConfig { zone_path: file });
 
                         if server_config.stores.len() == 1
                             && matches!(&server_config.stores[0], ServerStoreConfig::Default)
@@ -554,9 +552,9 @@ impl ServerZoneConfig {
     /// file is the actual source of truth for the zone.
     pub fn file(&self) -> Option<&Path> {
         self.stores.iter().find_map(|store| match store {
-            ServerStoreConfig::File(file_config) => Some(&*file_config.zone_file_path),
+            ServerStoreConfig::File(file_config) => Some(&*file_config.zone_path),
             #[cfg(feature = "sqlite")]
-            ServerStoreConfig::Sqlite(sqlite_config) => Some(&*sqlite_config.zone_file_path),
+            ServerStoreConfig::Sqlite(sqlite_config) => Some(&*sqlite_config.zone_path),
             ServerStoreConfig::Default => None,
         })
     }
@@ -791,7 +789,7 @@ mod tests {
 
     #[cfg(feature = "resolver")]
     #[test]
-    fn file_store_zone_file_path() {
+    fn file_store_zone_path() {
         match toml::from_str::<Config>(
             r#"[[zones]]
                zone = "localhost"
@@ -799,7 +797,7 @@ mod tests {
 
                [zones.stores]
                type = "file"
-               zone_file_path = "default/localhost.zone""#,
+               zone_path = "default/localhost.zone""#,
         ) {
             Ok(val) => {
                 let ZoneTypeConfig::Primary(config) = &val.zones[0].zone_type_config else {
@@ -809,7 +807,7 @@ mod tests {
                 assert_eq!(config.stores.len(), 1);
                 assert!(matches!(
                         &config.stores[0],
-                    ServerStoreConfig::File(FileConfig { zone_file_path }) if zone_file_path == Path::new("default/localhost.zone"),
+                    ServerStoreConfig::File(FileConfig { zone_path }) if zone_path == Path::new("default/localhost.zone"),
                 ));
             }
             Err(e) => panic!("expected successful parse: {e:?}"),

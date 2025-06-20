@@ -44,8 +44,8 @@ zone_type = "Primary"
 ## An ordered list of stores
 [zones.stores]
 type = "sqlite"
-zone_file_path = "example.com.zone"
-journal_file_path = "example.com_dnssec_update_2.jrnl"
+zone_path = "example.com.zone"
+journal_path = "example.com_dnssec_update_2.jrnl"
 allow_update = true
 
 [[zones.keys]]

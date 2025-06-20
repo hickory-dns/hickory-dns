@@ -10,9 +10,9 @@ use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};
 use test_support::subscribe;
 
-fn file(master_file_path: &Path, _module: &str, _test_name: &str) -> FileAuthority {
+fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileAuthority {
     let config = FileConfig {
-        zone_file_path: master_file_path.to_owned(),
+        zone_path: zone_path.to_owned(),
     };
 
     FileAuthority::try_from_config(
@@ -35,7 +35,7 @@ dnssec_battery!(file, crate::store_file_tests::file);
 fn test_all_lines_are_loaded() {
     subscribe();
     let config = FileConfig {
-        zone_file_path: PathBuf::from("../tests/test-data/test_configs/default/nonewline.zone"),
+        zone_path: PathBuf::from("../tests/test-data/test_configs/default/nonewline.zone"),
     };
 
     let mut authority = FileAuthority::try_from_config(
@@ -59,7 +59,7 @@ fn test_all_lines_are_loaded() {
 fn test_implicit_in_class() {
     subscribe();
     let config = FileConfig {
-        zone_file_path: PathBuf::from("../tests/test-data/test_configs/default/implicitclass.zone"),
+        zone_path: PathBuf::from("../tests/test-data/test_configs/default/implicitclass.zone"),
     };
 
     let authority = FileAuthority::try_from_config(
@@ -78,7 +78,7 @@ fn test_implicit_in_class() {
 async fn test_ttl_wildcard() {
     subscribe();
     let config = FileConfig {
-        zone_file_path: PathBuf::from("../tests/test-data/test_configs/default/test.local.zone"),
+        zone_path: PathBuf::from("../tests/test-data/test_configs/default/test.local.zone"),
     };
 
     let zone_name = LowerName::from_str("test.local.").unwrap();
