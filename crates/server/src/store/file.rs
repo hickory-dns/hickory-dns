@@ -17,7 +17,9 @@ use serde::Deserialize;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{
+        AuthorityObject, LookupControlFlow, LookupObject, LookupOptions, UpdateResult, ZoneType,
+    },
     proto::rr::{LowerName, Name, RecordType},
     server::{Request, RequestInfo},
     store::in_memory::{InMemoryAuthority, zone_from_path},
@@ -115,9 +117,7 @@ impl DerefMut for FileAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for FileAuthority {
-    type Lookup = <InMemoryAuthority as Authority>::Lookup;
-
+impl AuthorityObject for FileAuthority {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -159,7 +159,7 @@ impl Authority for FileAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
@@ -183,7 +183,7 @@ impl Authority for FileAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let search = self.in_memory.search(request_info, lookup_options).await;
 
         #[cfg(feature = "metrics")]
@@ -193,7 +193,7 @@ impl Authority for FileAuthority {
     }
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.ns(lookup_options).await
     }
 
@@ -209,7 +209,7 @@ impl Authority for FileAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
 
@@ -218,7 +218,7 @@ impl Authority for FileAuthority {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.get_nsec3_records(info, lookup_options).await
     }
 
@@ -226,12 +226,15 @@ impl Authority for FileAuthority {
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupControlFlow<Self::Lookup> {
+    async fn soa(&self) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.soa().await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
+    async fn soa_secure(
+        &self,
+        lookup_options: LookupOptions,
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.soa_secure(lookup_options).await
     }
 
@@ -309,7 +312,7 @@ mod tests {
         )
         .expect("failed to load file");
 
-        let lookup = block_on(Authority::lookup(
+        let lookup = block_on(AuthorityObject::lookup(
             &authority,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
@@ -327,7 +330,7 @@ mod tests {
             _ => panic!("wrong rdata type returned"),
         }
 
-        let include_lookup = block_on(Authority::lookup(
+        let include_lookup = block_on(AuthorityObject::lookup(
             &authority,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
             RecordType::A,

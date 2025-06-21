@@ -7,12 +7,12 @@
 
 //! Object-safe authority and lookup traits
 
-use tracing::debug;
+use std::fmt;
 
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
-    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     proto::rr::{LowerName, Record, RecordType},
     server::{Request, RequestInfo},
 };
@@ -27,7 +27,9 @@ pub trait AuthorityObject: Send + Sync {
     fn is_axfr_allowed(&self) -> bool;
 
     /// Whether the authority can perform DNSSEC validation
-    fn can_validate_dnssec(&self) -> bool;
+    fn can_validate_dnssec(&self) -> bool {
+        false
+    }
 
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &Request) -> UpdateResult<bool>;
@@ -82,13 +84,15 @@ pub trait AuthorityObject: Send + Sync {
     /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
     /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
     /// authority in question.
-    async fn consult(
+   async fn consult(
         &self,
-        name: &LowerName,
-        rtype: RecordType,
-        lookup_options: LookupOptions,
+        _name: &LowerName,
+        _rtype: RecordType,
+        _lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+        last_result
+    }
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -159,157 +163,6 @@ pub trait AuthorityObject: Send + Sync {
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 }
 
-#[async_trait::async_trait]
-impl<A, L> AuthorityObject for A
-where
-    A: Authority<Lookup = L> + Send + Sync + 'static,
-    L: LookupObject + Send + Sync + 'static,
-{
-    /// What type is this zone
-    fn zone_type(&self) -> ZoneType {
-        Authority::zone_type(self)
-    }
-
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        Authority::is_axfr_allowed(self)
-    }
-
-    /// Whether the authority can perform DNSSEC validation
-    fn can_validate_dnssec(&self) -> bool {
-        Authority::can_validate_dnssec(self)
-    }
-
-    /// Perform a dynamic update of a zone
-    async fn update(&self, update: &Request) -> UpdateResult<bool> {
-        Authority::update(self, update).await
-    }
-
-    /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName {
-        Authority::origin(self)
-    }
-
-    /// Looks up all Resource Records matching the given `Name` and `RecordType`.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The name to look up.
-    /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
-    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             precede and follow all other records.
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
-    ///
-    /// # Return value
-    ///
-    /// A LookupControlFlow containing the lookup that should be returned to the client.
-    async fn lookup(
-        &self,
-        name: &LowerName,
-        rtype: RecordType,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::lookup(self, name, rtype, lookup_options)
-            .await
-            .map_dyn()
-    }
-
-    /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`.
-    /// This will be called in a chained authority configuration after an authority in the chain
-    /// has returned a lookup with a LookupControlFlow::Continue action. Every other authority in
-    /// the chain will be called via this consult method, until one either returns a
-    /// LookupControlFlow::Break action, or all authorities have been consulted.  The authority that
-    /// generated the primary lookup (the one returned via 'lookup') will not be consulted.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The name to look up.
-    /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
-    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             precede and follow all other records.
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
-    /// * `last_result` - The lookup returned by a previous authority in a chained configuration.
-    ///                   If a subsequent authority does not modify this lookup, it will be returned
-    ///                   to the client after consulting all authorities in the chain.
-    ///
-    /// # Return value
-    ///
-    /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
-    /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
-    /// authority in question.
-    async fn consult(
-        &self,
-        name: &LowerName,
-        rtype: RecordType,
-        lookup_options: LookupOptions,
-        last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::consult(self, name, rtype, lookup_options, last_result).await
-    }
-
-    /// Using the specified query, perform a lookup against this zone.
-    ///
-    /// # Arguments
-    ///
-    /// * `request_info` - the query to perform the lookup with.
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
-    ///
-    /// # Return value
-    ///
-    /// A LookupControlFlow containing the lookup that should be returned to the client.
-    async fn search(
-        &self,
-        request_info: RequestInfo<'_>,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        debug!("performing {} on {}", request_info.query, self.origin());
-        Authority::search(self, request_info, lookup_options)
-            .await
-            .map_dyn()
-    }
-
-    /// Return the NSEC records based on the given name
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
-    ///            this
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///                      algorithms, etc.)
-    async fn get_nsec_records(
-        &self,
-        name: &LowerName,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::get_nsec_records(self, name, lookup_options)
-            .await
-            .map_dyn()
-    }
-
-    /// Return the NSEC3 records based on the given query information.
-    #[cfg(feature = "__dnssec")]
-    async fn get_nsec3_records(
-        &self,
-        info: Nsec3QueryInfo<'_>,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::get_nsec3_records(self, info, lookup_options)
-            .await
-            .map_dyn()
-    }
-
-    /// Returns the kind of non-existence proof used for this zone.
-    #[cfg(feature = "__dnssec")]
-    fn nx_proof_kind(&self) -> Option<&NxProofKind> {
-        Authority::nx_proof_kind(self)
-    }
-}
-
 /// DNSSEC status of an answer
 #[derive(Clone, Copy, Debug)]
 pub enum DnssecSummary {
@@ -322,7 +175,7 @@ pub enum DnssecSummary {
 }
 
 /// An Object Safe Lookup for Authority
-pub trait LookupObject: Send {
+pub trait LookupObject: fmt::Debug + Send {
     /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
     fn is_empty(&self) -> bool;
 

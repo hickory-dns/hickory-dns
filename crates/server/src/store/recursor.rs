@@ -28,7 +28,7 @@ use tracing::{debug, info};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
+        AuthorityObject, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
         ZoneType,
     },
     error::ConfigError,
@@ -100,9 +100,7 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
-    type Lookup = RecursiveLookup;
-
+impl<P: RuntimeProvider> AuthorityObject for RecursiveAuthority<P> {
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -136,7 +134,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         debug!("recursive lookup: {} {}", name, rtype);
 
         let query = Query::query(name.into(), rtype);
@@ -162,18 +160,18 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
             .min()
             .unwrap_or_default();
         let valid_until = now + Duration::from_secs(min_ttl.into());
-        LookupControlFlow::Continue(Ok(RecursiveLookup(Lookup::new_with_deadline(
+        LookupControlFlow::Continue(Ok(Box::new(RecursiveLookup(Lookup::new_with_deadline(
             query,
             records,
             valid_until,
-        ))))
+        )))))
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -186,7 +184,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the recursor",
         ))))
@@ -197,7 +195,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the recursor",
         ))))
@@ -210,6 +208,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
 }
 
 /// A Lookup object for the recursive resolver
+#[derive(Debug)]
 pub struct RecursiveLookup(Lookup);
 
 impl LookupObject for RecursiveLookup {

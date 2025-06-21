@@ -22,7 +22,7 @@ use crate::store::metrics::QueryStoreMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
+        AuthorityObject, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
         ZoneType,
     },
     proto::{
@@ -210,9 +210,7 @@ impl ForwardAuthority<TokioRuntimeProvider> {
 }
 
 #[async_trait::async_trait]
-impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
-    type Lookup = ForwardLookup;
-
+impl<P: ConnectionProvider> AuthorityObject for ForwardAuthority<P> {
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -247,7 +245,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         // TODO: make this an error?
         debug_assert!(self.origin.zone_of(name));
 
@@ -267,14 +265,14 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         #[cfg(feature = "metrics")]
         self.metrics.increment_lookup(&lookup);
 
-        lookup
+        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -287,7 +285,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the forwarder",
         ))))
@@ -298,7 +296,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the forwarder",
         ))))
@@ -313,6 +311,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 /// A structure that holds the results of a forwarding lookup.
 ///
 /// This exposes an iterator interface for consumption downstream.
+#[derive(Debug)]
 pub struct ForwardLookup(pub ResolverLookup);
 
 impl LookupObject for ForwardLookup {

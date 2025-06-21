@@ -27,7 +27,7 @@ use tracing::{info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
+        AuthorityObject, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
         ZoneType,
     },
     proto::{
@@ -311,9 +311,7 @@ impl BlocklistAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for BlocklistAuthority {
-    type Lookup = BlocklistLookup;
-
+impl AuthorityObject for BlocklistAuthority {
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
     }
@@ -337,7 +335,7 @@ impl Authority for BlocklistAuthority {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         use LookupControlFlow::*;
 
         trace!("blocklist lookup: {name} {rtype}");
@@ -381,7 +379,7 @@ impl Authority for BlocklistAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.lookup(
             request_info.query.name(),
             request_info.query.query_type(),
@@ -394,7 +392,7 @@ impl Authority for BlocklistAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the blocklist",
         ))))
@@ -405,7 +403,7 @@ impl Authority for BlocklistAuthority {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the forwarder",
         ))))
@@ -487,6 +485,7 @@ impl Default for BlocklistConfig {
 }
 
 /// A lookup object that is returned when a blocklist entry is matched.
+#[derive(Debug)]
 pub struct BlocklistLookup(Lookup);
 
 impl LookupObject for BlocklistLookup {

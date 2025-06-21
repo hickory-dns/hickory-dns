@@ -22,8 +22,8 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, UpdateResult, ZoneType,
+        AnyRecords, AuthLookup, AuthorityObject, LookupControlFlow, LookupError, LookupObject,
+        LookupOptions, LookupRecords, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -315,9 +315,7 @@ impl InMemoryAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for InMemoryAuthority {
-    type Lookup = AuthLookup;
-
+impl AuthorityObject for InMemoryAuthority {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type
@@ -414,7 +412,7 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
@@ -572,14 +570,16 @@ impl Authority for InMemoryAuthority {
             o => o,
         };
 
-        result.map(|answers| AuthLookup::answers(answers, additionals))
+        result.map(|answers| {
+            Box::new(AuthLookup::answers(answers, additionals)) as Box<dyn LookupObject>
+        })
     }
 
     async fn search(
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -656,7 +656,7 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let inner = self.inner.read().await;
 
         // TODO: need a BorrowdRrKey
@@ -718,7 +718,7 @@ impl Authority for InMemoryAuthority {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let inner = self.inner.read().await;
         LookupControlFlow::Continue(
             inner

@@ -25,10 +25,11 @@ use serde::Deserialize;
 use tracing::debug;
 use tracing::{error, info, warn};
 
+use crate::authority::LookupObject;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{AuthorityObject, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
@@ -940,9 +941,7 @@ impl DerefMut for SqliteAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for SqliteAuthority {
-    type Lookup = <InMemoryAuthority as Authority>::Lookup;
-
+impl AuthorityObject for SqliteAuthority {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -1009,7 +1008,7 @@ impl Authority for SqliteAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
@@ -1022,7 +1021,7 @@ impl Authority for SqliteAuthority {
         &self,
         request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         let search = self.in_memory.search(request_info, lookup_options).await;
 
         #[cfg(feature = "metrics")]
@@ -1043,7 +1042,7 @@ impl Authority for SqliteAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
 
@@ -1052,7 +1051,7 @@ impl Authority for SqliteAuthority {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<Box<dyn LookupObject>> {
         self.in_memory.get_nsec3_records(info, lookup_options).await
     }
 
