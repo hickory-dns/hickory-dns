@@ -9,36 +9,90 @@ use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::Bytes;
 use futures_util::lock::Mutex;
-use tokio_util::sync::CancellationToken;
+use rustls::server::ResolvesServerCert;
+use tokio::{net, task::JoinSet};
 use tracing::{debug, error, warn};
 
+use super::{
+    ResponseInfo, ServerContext, reap_tasks,
+    request_handler::RequestHandler,
+    response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    sanitize_src_address,
+};
 use crate::{
-    access::AccessControl,
     authority::MessageResponse,
     proto::{
         ProtoError,
-        quic::{DoqErrorCode, QuicStream, QuicStreams},
+        quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
         rr::Record,
         xfer::Protocol,
     },
-    server::{
-        ResponseInfo,
-        request_handler::RequestHandler,
-        response_handler::{ResponseHandler, encode_fallback_servfail_response},
-    },
 };
 
-pub(crate) async fn quic_handler<T>(
-    access: Arc<AccessControl>,
-    handler: Arc<T>,
+pub(super) async fn handle_quic(
+    socket: net::UdpSocket,
+    server_cert_resolver: Arc<dyn ResolvesServerCert>,
+    dns_hostname: Option<String>,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+
+    debug!("registered quic: {:?}", socket);
+    let mut server = QuicServer::with_socket(socket, server_cert_resolver)?;
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let shutdown = cx.shutdown.clone();
+        let (streams, src_addr) = tokio::select! {
+            result = server.next() => match result {
+                Ok(Some(c)) => c,
+                Ok(None) => continue,
+                Err(error) => {
+                    debug!(%error, "error receiving quic connection");
+                    continue;
+                }
+            },
+            _ = shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(
+                %error, %src_addr,
+                "address can not be responded to",
+            );
+            continue;
+        }
+
+        let cx = cx.clone();
+        let dns_hostname = dns_hostname.clone();
+        inner_join_set.spawn(async move {
+            debug!("starting quic stream request from: {src_addr}");
+
+            // TODO: need to consider timeout of total connect...
+            let result = quic_handler(streams, src_addr, dns_hostname, cx).await;
+
+            if let Err(error) = result {
+                warn!(%error, %src_addr, "quic stream processing failed")
+            }
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    Ok(())
+}
+
+pub(crate) async fn quic_handler(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
-    shutdown: CancellationToken,
-) -> Result<(), ProtoError>
-where
-    T: RequestHandler,
-{
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
     // TODO: we should make this configurable
     let mut max_requests = 100u32;
 
@@ -55,7 +109,7 @@ where
                     break;
                 }
             },
-            _ = shutdown.cancelled() => {
+            _ = cx.shutdown.cancelled() => {
                 // A graceful shutdown was initiated.
                 break;
             },
@@ -67,20 +121,12 @@ where
             "Received bytes {} from {src_addr} {request:?}",
             request.len()
         );
-        let handler = handler.clone();
-        let access = access.clone();
+
         let stream = Arc::new(Mutex::new(request_stream));
         let responder = QuicResponseHandle(stream.clone());
 
-        super::handle_request(
-            request.freeze(),
-            src_addr,
-            Protocol::Quic,
-            &access,
-            handler,
-            responder,
-        )
-        .await;
+        cx.handle_request(request.freeze(), src_addr, Protocol::Quic, responder)
+            .await;
 
         max_requests -= 1;
         if max_requests == 0 {

@@ -14,6 +14,8 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "__tls")]
+use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
 use futures_util::{FutureExt, StreamExt};
 use hickory_proto::ProtoErrorKind;
@@ -23,6 +25,8 @@ use rustls::{ServerConfig, server::ResolvesServerCert};
 #[cfg(feature = "__tls")]
 use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
+#[cfg(feature = "__tls")]
+use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
@@ -62,14 +66,12 @@ pub use timeout_stream::TimeoutStream;
 
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
-pub struct ServerFuture<T: RequestHandler> {
-    handler: Arc<T>,
+pub struct Server<T: RequestHandler> {
+    context: Arc<ServerContext<T>>,
     join_set: JoinSet<Result<(), ProtoError>>,
-    shutdown_token: CancellationToken,
-    access: Arc<AccessControl>,
 }
 
-impl<T: RequestHandler> ServerFuture<T> {
+impl<T: RequestHandler> Server<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self::with_access(handler, &[], &[])
@@ -82,89 +84,19 @@ impl<T: RequestHandler> ServerFuture<T> {
         access.insert_allow(allowed_networks);
 
         Self {
-            handler: Arc::new(handler),
+            context: Arc::new(ServerContext {
+                handler,
+                access,
+                shutdown: CancellationToken::new(),
+            }),
             join_set: JoinSet::new(),
-            shutdown_token: CancellationToken::new(),
-            access: Arc::new(access),
         }
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
-        debug!("registering udp: {:?}", socket);
-
-        // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-        //   the address used is acquired from the inbound queries
-        let (mut stream, stream_handle) =
-            UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
-        let shutdown = self.shutdown_token.clone();
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
-        // this spawns a ForEach future which handles all the requests into a Handler.
-        self.join_set.spawn({
-            async move {
-                let mut inner_join_set = JoinSet::new();
-                loop {
-                    let message = tokio::select! {
-                        message = stream.next() => match message {
-                            None => break,
-                            Some(message) => message,
-                        },
-                        _ = shutdown.cancelled() => break,
-                    };
-
-                    let message = match message {
-                        Err(error) => {
-                            warn!(%error, "error receiving message on udp_socket");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        }
-                        Ok(message) => message,
-                    };
-
-                    let src_addr = message.addr();
-                    debug!("received udp request from: {}", src_addr);
-
-                    // verify that the src address is safe for responses
-                    if let Err(e) = sanitize_src_address(src_addr) {
-                        warn!(
-                            "address can not be responded to {src_addr}: {e}",
-                            src_addr = src_addr,
-                            e = e
-                        );
-                        continue;
-                    }
-
-                    let handler = handler.clone();
-                    let access = access.clone();
-                    let stream_handle = stream_handle.with_remote_addr(src_addr);
-
-                    inner_join_set.spawn(async move {
-                        handle_raw_request(message, Protocol::Udp, &access, handler, stream_handle)
-                            .await;
-                    });
-
-                    reap_tasks(&mut inner_join_set);
-                }
-
-                if shutdown.is_cancelled() {
-                    Ok(())
-                } else {
-                    // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-                    Err(ProtoError::from("unexpected close of UDP socket"))
-                }
-            }
-        });
-    }
-
-    /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket) -> io::Result<()> {
-        socket.set_nonblocking(true)?;
-        self.register_socket(net::UdpSocket::from_std(socket)?);
-        Ok(())
+        self.join_set
+            .spawn(handle_udp(socket, self.context.clone()));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -180,110 +112,8 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
-        debug!("register tcp: {:?}", listener);
-
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
-        // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(error) => {
-                            debug!(%error, "error receiving TCP tcp_stream error");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
-                    );
-                    continue;
-                }
-
-                let handler = handler.clone();
-                let access = access.clone();
-
-                // and spawn to the io_loop
-                inner_join_set.spawn(async move {
-                    debug!("accepted request from: {}", src_addr);
-                    // take the created stream...
-                    let (buf_stream, stream_handle) =
-                        TcpStream::from_stream(AsyncIoTokioAsStd(tcp_stream), src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
-
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TCP request_stream src: {} error: {}",
-                                    src_addr, e
-                                );
-                                // we're going to bail on this connection...
-                                return;
-                            }
-                        };
-
-                        // we don't spawn here to limit clients from getting too many resources
-                        handle_raw_request(
-                            message,
-                            Protocol::Tcp,
-                            &access,
-                            handler.clone(),
-                            stream_handle.clone(),
-                        )
-                        .await;
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
-    }
-
-    /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
-    ///  IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    pub fn register_listener_std(
-        &mut self,
-        listener: std::net::TcpListener,
-        timeout: Duration,
-    ) -> io::Result<()> {
-        listener.set_nonblocking(true)?;
-        self.register_listener(net::TcpListener::from_std(listener)?, timeout);
-        Ok(())
+        self.join_set
+            .spawn(handle_tcp(listener, timeout, self.context.clone()));
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -306,109 +136,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         handshake_timeout: Duration,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
-        use crate::proto::rustls::tls_from_stream;
-        use tokio_rustls::TlsAcceptor;
-
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
-        debug!("registered tcp: {:?}", listener);
-
-        let tls_acceptor = TlsAcceptor::from(tls_config);
-
-        // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(error) => {
-                            debug!(%error, "error receiving TLS tcp_stream error");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
-                    );
-                    continue;
-                }
-
-                let handler = handler.clone();
-                let access = access.clone();
-                let tls_acceptor = tls_acceptor.clone();
-
-                // kick out to a different task immediately, let them do the TLS handshake
-                inner_join_set.spawn(async move {
-                    debug!("starting TLS request from: {}", src_addr);
-
-                    // perform the TLS
-                    let Ok(tls_stream) =
-                        timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
-                    else {
-                        warn!("tls timeout expired during handshake");
-                        return;
-                    };
-
-                    let tls_stream = match tls_stream {
-                        Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
-                        Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
-                            return;
-                        }
-                    };
-                    debug!("accepted TLS request from: {}", src_addr);
-                    let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TLS request_stream src: {:?} error: {}",
-                                    src_addr, e
-                                );
-
-                                // kill this connection
-                                return;
-                            }
-                        };
-
-                        handle_raw_request(
-                            message,
-                            Protocol::Tls,
-                            &access,
-                            handler.clone(),
-                            stream_handle.clone(),
-                        )
-                        .await;
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
-
+        self.join_set.spawn(handle_tls(
+            listener,
+            tls_config,
+            handshake_timeout,
+            self.context.clone(),
+        ));
         Ok(())
     }
 
@@ -461,97 +194,14 @@ impl<T: RequestHandler> ServerFuture<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        use crate::server::h2_handler::h2_handler;
-        use tokio_rustls::TlsAcceptor;
-
-        let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-        let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-        debug!("registered https: {listener:?}");
-
-        let tls_acceptor =
-            TlsAcceptor::from(Arc::new(tls_server_config(b"h2", server_cert_resolver)?));
-
-        // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let shutdown = shutdown.clone();
-                let (tcp_stream, src_addr) = tokio::select! {
-                    tcp_stream = listener.accept() => match tcp_stream {
-                        Ok((t, s)) => (t, s),
-                        Err(error) => {
-                            debug!(%error, "error receiving HTTPS tcp_stream error");
-                            if is_unrecoverable_socket_error(&error) {
-                                break;
-                            }
-                            continue;
-                        },
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                if let Err(error) = sanitize_src_address(src_addr) {
-                    warn!(%error, %src_addr, "address can not be responded to");
-                    continue;
-                }
-
-                let handler = handler.clone();
-                let access = access.clone();
-                let tls_acceptor = tls_acceptor.clone();
-                let dns_hostname = dns_hostname.clone();
-                let http_endpoint = http_endpoint.clone();
-
-                inner_join_set.spawn(async move {
-                    debug!("starting HTTPS request from: {src_addr}");
-
-                    // TODO: need to consider timeout of total connect...
-                    // take the created stream...
-                    let Ok(tls_stream) =
-                        timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
-                    else {
-                        warn!("https timeout expired during handshake");
-                        return;
-                    };
-
-                    let tls_stream = match tls_stream {
-                        Ok(tls_stream) => tls_stream,
-                        Err(e) => {
-                            debug!("https handshake src: {src_addr} error: {e}");
-                            return;
-                        }
-                    };
-                    debug!("accepted HTTPS request from: {src_addr}");
-
-                    h2_handler(
-                        access,
-                        handler,
-                        tls_stream,
-                        src_addr,
-                        dns_hostname,
-                        http_endpoint,
-                        shutdown.clone(),
-                    )
-                    .await;
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            if shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                Err(ProtoError::from("unexpected close of socket"))
-            }
-        });
-
+        self.join_set.spawn(h2_handler::handle_h2(
+            listener,
+            handshake_timeout,
+            server_cert_resolver,
+            dns_hostname,
+            http_endpoint,
+            self.context.clone(),
+        ));
         Ok(())
     }
 
@@ -578,77 +228,13 @@ impl<T: RequestHandler> ServerFuture<T> {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
-        use crate::proto::quic::QuicServer;
-        use crate::server::quic_handler::quic_handler;
-
-        let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
-        debug!("registered quic: {:?}", socket);
-        let mut server = QuicServer::with_socket(socket, server_cert_resolver)?;
-
-        // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let shutdown = shutdown.clone();
-                let (streams, src_addr) = tokio::select! {
-                    result = server.next() => match result {
-                        Ok(Some(c)) => c,
-                        Ok(None) => continue,
-                        Err(error) => {
-                            debug!(%error, "error receiving quic connection");
-                            continue;
-                        }
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
-                if let Err(error) = sanitize_src_address(src_addr) {
-                    warn!(
-                        %error, %src_addr,
-                        "address can not be responded to",
-                    );
-                    continue;
-                }
-
-                let handler = handler.clone();
-                let access = access.clone();
-                let dns_hostname = dns_hostname.clone();
-
-                inner_join_set.spawn(async move {
-                    debug!("starting quic stream request from: {src_addr}");
-
-                    // TODO: need to consider timeout of total connect...
-                    let result = quic_handler(
-                        access,
-                        handler,
-                        streams,
-                        src_addr,
-                        dns_hostname,
-                        shutdown.clone(),
-                    )
-                    .await;
-
-                    if let Err(error) = result {
-                        warn!(%error, %src_addr, "quic stream processing failed")
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            Ok(())
-        });
-
+        let cx = self.context.clone();
+        self.join_set.spawn(quic_handler::handle_quic(
+            socket,
+            server_cert_resolver,
+            dns_hostname,
+            cx,
+        ));
         Ok(())
     }
 
@@ -674,87 +260,22 @@ impl<T: RequestHandler> ServerFuture<T> {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
-        use crate::proto::h3::h3_server::H3Server;
-        use crate::server::h3_handler::h3_handler;
-
-        let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-
-        let handler = self.handler.clone();
-        let access = self.access.clone();
-
-        debug!("registered h3: {:?}", socket);
-        let mut server = H3Server::with_socket(socket, server_cert_resolver)?;
-
-        // for each incoming request...
-        let shutdown = self.shutdown_token.clone();
-        self.join_set.spawn(async move {
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let shutdown = shutdown.clone();
-                let (streams, src_addr) = tokio::select! {
-                    result = server.accept() => match result {
-                        Ok(Some(c)) => c,
-                        Ok(None) => continue,
-                        Err(error) => {
-                            debug!(%error, "error receiving h3 connection");
-                            continue;
-                        }
-                    },
-                    _ = shutdown.cancelled() => {
-                        // A graceful shutdown was initiated. Break out of the loop.
-                        break;
-                    },
-                };
-
-                // verify that the src address is safe for responses
-                // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
-                if let Err(error) = sanitize_src_address(src_addr) {
-                    warn!(
-                        %error, %src_addr,
-                        "address can not be responded to",
-                    );
-                    continue;
-                }
-
-                let handler = handler.clone();
-                let access = access.clone();
-                let dns_hostname = dns_hostname.clone();
-
-                inner_join_set.spawn(async move {
-                    debug!("starting h3 stream request from: {src_addr}");
-
-                    // TODO: need to consider timeout of total connect...
-                    let result = h3_handler(
-                        access,
-                        handler,
-                        streams,
-                        src_addr,
-                        dns_hostname,
-                        shutdown.clone(),
-                    )
-                    .await;
-
-                    if let Err(error) = result {
-                        warn!(%error, %src_addr, "h3 stream processing failed")
-                    }
-                });
-
-                reap_tasks(&mut inner_join_set);
-            }
-
-            Ok(())
-        });
-
+        self.join_set.spawn(h3_handler::handle_h3(
+            socket,
+            server_cert_resolver,
+            dns_hostname,
+            self.context.clone(),
+        ));
         Ok(())
     }
 
     /// Triggers a graceful shutdown the server. All background tasks will stop accepting
     /// new connections and the returned future will complete once all tasks have terminated.
     pub async fn shutdown_gracefully(&mut self) -> Result<(), ProtoError> {
-        self.shutdown_token.cancel();
+        self.context.shutdown.cancel();
 
         // Wait for the server to complete.
-        block_until_done(&mut self.join_set).await
+        self.block_until_done().await
     }
 
     /// Returns a reference to the [`CancellationToken`] used to gracefully shut down the server.
@@ -762,41 +283,250 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Once cancellation is requested, all background tasks will stop accepting new connections,
     /// and `block_until_done()` will complete once all tasks have terminated.
     pub fn shutdown_token(&self) -> &CancellationToken {
-        &self.shutdown_token
+        &self.context.shutdown
     }
 
     /// This will run until all background tasks complete. If one or more tasks return an error,
     /// one will be chosen as the returned error for this future.
     pub async fn block_until_done(&mut self) -> Result<(), ProtoError> {
-        block_until_done(&mut self.join_set).await
+        if self.join_set.is_empty() {
+            warn!("block_until_done called with no pending tasks");
+            return Ok(());
+        }
+
+        let mut out = Ok(());
+        while let Some(join_result) = self.join_set.join_next().await {
+            match join_result {
+                Ok(Ok(())) => continue,
+                Ok(Err(e)) => out = Err(e),
+                Err(e) => return Err(ProtoError::from(format!("internal error in spawn: {e}"))),
+            }
+        }
+
+        out
     }
 }
 
-async fn block_until_done(
-    join_set: &mut JoinSet<Result<(), ProtoError>>,
+async fn handle_udp(
+    socket: net::UdpSocket,
+    cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), ProtoError> {
-    if join_set.is_empty() {
-        warn!("block_until_done called with no pending tasks");
-        return Ok(());
+    debug!("registering udp: {:?}", socket);
+
+    // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
+    //   the address used is acquired from the inbound queries
+    let (mut stream, stream_handle) =
+        UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let message = tokio::select! {
+            message = stream.next() => match message {
+                None => break,
+                Some(message) => message,
+            },
+            _ = cx.shutdown.cancelled() => break,
+        };
+
+        let message = match message {
+            Err(error) => {
+                warn!(%error, "error receiving message on udp_socket");
+                if is_unrecoverable_socket_error(&error) {
+                    break;
+                }
+                continue;
+            }
+            Ok(message) => message,
+        };
+
+        let src_addr = message.addr();
+        debug!("received udp request from: {}", src_addr);
+
+        // verify that the src address is safe for responses
+        if let Err(e) = sanitize_src_address(src_addr) {
+            warn!(
+                "address can not be responded to {src_addr}: {e}",
+                src_addr = src_addr,
+                e = e
+            );
+            continue;
+        }
+
+        let cx = cx.clone();
+        let stream_handle = stream_handle.with_remote_addr(src_addr);
+        inner_join_set.spawn(async move {
+            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+                .await;
+        });
+
+        reap_tasks(&mut inner_join_set);
     }
 
-    // Now wait for all of the tasks to complete.
-    let mut out = Ok(());
-    while let Some(join_result) = join_set.join_next().await {
-        match join_result {
-            Ok(result) => {
-                match result {
-                    Ok(_) => (),
-                    Err(e) => {
-                        // Save the last error.
-                        out = Err(e);
-                    }
-                }
-            }
-            Err(e) => return Err(ProtoError::from(format!("Internal error in spawn: {e}"))),
-        }
+    if cx.shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+        Err(ProtoError::from("unexpected close of UDP socket"))
     }
-    out
+}
+
+async fn handle_tcp(
+    listener: net::TcpListener,
+    timeout: Duration,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    debug!("register tcp: {listener:?}");
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let (tcp_stream, src_addr) = tokio::select! {
+            tcp_stream = listener.accept() => match tcp_stream {
+                Ok((t, s)) => (t, s),
+                Err(error) => {
+                    debug!(%error, "error receiving TCP tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                },
+            },
+            _ = cx.shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(
+                %src_addr, %error,
+                "address can not be responded to (TCP)",
+            );
+            continue;
+        }
+
+        // and spawn to the io_loop
+        let cx = cx.clone();
+        inner_join_set.spawn(async move {
+            debug!(%src_addr, "accepted TCP request");
+            // take the created stream...
+            let (buf_stream, stream_handle) =
+                TcpStream::from_stream(AsyncIoTokioAsStd(tcp_stream), src_addr);
+            let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+
+            while let Some(message) = timeout_stream.next().await {
+                let message = match message {
+                    Ok(message) => message,
+                    Err(error) => {
+                        debug!(%src_addr, %error, "error in TCP request stream");
+                        // we're going to bail on this connection...
+                        return;
+                    }
+                };
+
+                // we don't spawn here to limit clients from getting too many resources
+                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                    .await;
+            }
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    if cx.shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        Err(ProtoError::from("unexpected close of socket"))
+    }
+}
+
+#[cfg(feature = "__tls")]
+async fn handle_tls(
+    listener: net::TcpListener,
+    tls_config: Arc<ServerConfig>,
+    handshake_timeout: Duration,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    debug!(?listener, "registered tls");
+    let tls_acceptor = TlsAcceptor::from(tls_config);
+
+    let mut inner_join_set = JoinSet::new();
+    loop {
+        let (tcp_stream, src_addr) = tokio::select! {
+            tcp_stream = listener.accept() => match tcp_stream {
+                Ok((t, s)) => (t, s),
+                Err(error) => {
+                    debug!(%error, "error receiving TLS tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                },
+            },
+            _ = cx.shutdown.cancelled() => {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            },
+        };
+
+        // verify that the src address is safe for responses
+        if let Err(error) = sanitize_src_address(src_addr) {
+            warn!(
+                %src_addr, %error,
+                "address can not be responded to (TLS)",
+            );
+            continue;
+        }
+
+        let cx = cx.clone();
+        let tls_acceptor = tls_acceptor.clone();
+        // kick out to a different task immediately, let them do the TLS handshake
+        inner_join_set.spawn(async move {
+            debug!(%src_addr, "starting TLS request");
+
+            // perform the TLS
+            let Ok(tls_stream) = timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            else {
+                warn!("tls timeout expired during handshake");
+                return;
+            };
+
+            let tls_stream = match tls_stream {
+                Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
+                Err(error) => {
+                    debug!(%src_addr, %error, "tls handshake error");
+                    return;
+                }
+            };
+            debug!(%src_addr, "accepted TLS request");
+            let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
+            let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
+            while let Some(message) = timeout_stream.next().await {
+                let message = match message {
+                    Ok(message) => message,
+                    Err(error) => {
+                        debug!(
+                            %src_addr, %error,
+                            "error in TLS request stream",
+                        );
+
+                        // kill this connection
+                        return;
+                    }
+                };
+
+                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
+                    .await;
+            }
+        });
+
+        reap_tasks(&mut inner_join_set);
+    }
+
+    if cx.shutdown.is_cancelled() {
+        Ok(())
+    } else {
+        Err(ProtoError::from("unexpected close of socket"))
+    }
 }
 
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
@@ -805,27 +535,6 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
         .flatten()
         .is_some()
     {}
-}
-
-pub(crate) async fn handle_raw_request<T: RequestHandler>(
-    message: SerialMessage,
-    protocol: Protocol,
-    access: &AccessControl,
-    request_handler: Arc<T>,
-    response_handler: BufDnsStreamHandle,
-) {
-    let (message, src_addr) = message.into_parts();
-    let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
-
-    handle_request(
-        Bytes::from(message),
-        src_addr,
-        protocol,
-        access,
-        request_handler,
-        response_handler,
-    )
-    .await;
 }
 
 #[cfg(feature = "__tls")]
@@ -930,134 +639,153 @@ impl ResponseHandlerMetrics {
     }
 }
 
-pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
-    message_bytes: Bytes,
-    src_addr: SocketAddr,
-    protocol: Protocol,
-    access: &AccessControl,
-    request_handler: Arc<T>,
-    response_handler: R,
-) {
-    let mut decoder = BinDecoder::new(&message_bytes);
-    if !access.allow(src_addr.ip()) {
-        info!(
-            "request:Refused src:{proto}://{addr}#{port}",
-            proto = protocol,
-            addr = src_addr.ip(),
-            port = src_addr.port(),
-        );
+struct ServerContext<T> {
+    handler: T,
+    access: AccessControl,
+    shutdown: CancellationToken,
+}
 
-        let Ok(header) = Header::read(&mut decoder) else {
-            // This will only fail if the message is less than twelve bytes long. Such messages are
-            // definitely not valid DNS queries, so it should be fine to return without sending a
-            // response.
-            return;
-        };
-        let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
-            Ok(queries) => queries,
-            Err(_) => Queries::empty(),
-        };
-        error_response_handler(
-            protocol,
-            src_addr,
-            header,
-            queries,
-            ResponseCode::Refused,
-            Box::new(ProtoErrorKind::RequestRefused.into()),
-            response_handler,
-        )
-        .await;
+impl<T: RequestHandler> ServerContext<T> {
+    async fn handle_raw_request(
+        &self,
+        message: SerialMessage,
+        protocol: Protocol,
+        response_handler: BufDnsStreamHandle,
+    ) {
+        let (message, src_addr) = message.into_parts();
+        let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
 
-        return;
+        self.handle_request(Bytes::from(message), src_addr, protocol, response_handler)
+            .await;
     }
 
-    // Attempt to decode the message
-    let request = match MessageRequest::read(&mut decoder) {
-        Ok(message) => Request {
-            message,
-            raw: message_bytes,
-            src: src_addr,
-            protocol,
-        },
-        Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
-            // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
-            let (header, error) = kind
-                .into_form_error()
-                .expect("as form_error already confirmed this is a FormError");
-            let queries = Queries::empty();
+    async fn handle_request(
+        &self,
+        message_bytes: Bytes,
+        src_addr: SocketAddr,
+        protocol: Protocol,
+        response_handler: impl ResponseHandler,
+    ) {
+        let mut decoder = BinDecoder::new(&message_bytes);
+        if !self.access.allow(src_addr.ip()) {
+            info!(
+                "request:Refused src:{proto}://{addr}#{port}",
+                proto = protocol,
+                addr = src_addr.ip(),
+                port = src_addr.port(),
+            );
 
+            let Ok(header) = Header::read(&mut decoder) else {
+                // This will only fail if the message is less than twelve bytes long. Such messages are
+                // definitely not valid DNS queries, so it should be fine to return without sending a
+                // response.
+                return;
+            };
+            let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
+                Ok(queries) => queries,
+                Err(_) => Queries::empty(),
+            };
             error_response_handler(
                 protocol,
                 src_addr,
                 header,
                 queries,
-                ResponseCode::FormErr,
-                error,
+                ResponseCode::Refused,
+                Box::new(ProtoErrorKind::RequestRefused.into()),
                 response_handler,
             )
             .await;
 
             return;
         }
-        Err(error) => {
-            info!(
-                "request:Failed src:{proto}://{addr}#{port} error:{error}",
-                proto = protocol,
-                addr = src_addr.ip(),
-                port = src_addr.port(),
-            );
 
+        // Attempt to decode the message
+        let request = match MessageRequest::read(&mut decoder) {
+            Ok(message) => Request {
+                message,
+                raw: message_bytes,
+                src: src_addr,
+                protocol,
+            },
+            Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
+                // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
+                let (header, error) = kind
+                    .into_form_error()
+                    .expect("as form_error already confirmed this is a FormError");
+                let queries = Queries::empty();
+
+                error_response_handler(
+                    protocol,
+                    src_addr,
+                    header,
+                    queries,
+                    ResponseCode::FormErr,
+                    error,
+                    response_handler,
+                )
+                .await;
+
+                return;
+            }
+            Err(error) => {
+                info!(
+                    "request:Failed src:{proto}://{addr}#{port} error:{error}",
+                    proto = protocol,
+                    addr = src_addr.ip(),
+                    port = src_addr.port(),
+                );
+                return;
+            }
+        };
+
+        if request.message.message_type() == MessageType::Response {
+            // Don't process response messages to avoid DoS attacks from reflection.
             return;
         }
-    };
 
-    if request.message.message_type() == MessageType::Response {
-        // Don't process response messages to avoid DoS attacks from reflection.
-        return;
-    }
+        let id = request.message.id();
+        let qflags = request.message.header().flags();
+        let qop_code = request.message.op_code();
+        let message_type = request.message.message_type();
+        let is_dnssec = request
+            .message
+            .edns()
+            .is_some_and(|edns| edns.flags().dnssec_ok);
 
-    let id = request.message.id();
-    let qflags = request.message.header().flags();
-    let qop_code = request.message.op_code();
-    let message_type = request.message.message_type();
-    let is_dnssec = request
-        .message
-        .edns()
-        .is_some_and(|edns| edns.flags().dnssec_ok);
-
-    debug!(
-        "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
-        id = id,
-        proto = request.protocol(),
-        addr = request.src().ip(),
-        port = request.src().port(),
-        message_type = message_type,
-        is_dnssec = is_dnssec,
-        op = qop_code,
-        qflags = qflags
-    );
-    for query in request.queries().iter() {
         debug!(
-            "query:{query}:{qtype}:{class}",
-            query = query.name(),
-            qtype = query.query_type(),
-            class = query.query_class()
+            "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",
+            id = id,
+            proto = request.protocol(),
+            addr = request.src().ip(),
+            port = request.src().port(),
+            message_type = message_type,
+            is_dnssec = is_dnssec,
+            op = qop_code,
+            qflags = qflags
         );
+        for query in request.queries().iter() {
+            debug!(
+                "query:{query}:{qtype}:{class}",
+                query = query.name(),
+                qtype = query.query_type(),
+                class = query.query_class()
+            );
+        }
+
+        // The reporter will handle making sure to log the result of the request
+        let queries = request.queries().to_vec();
+        let reporter = ReportingResponseHandler {
+            request_header: *request.header(),
+            queries,
+            protocol: request.protocol(),
+            src_addr: request.src(),
+            handler: response_handler,
+            #[cfg(feature = "metrics")]
+            metrics: ResponseHandlerMetrics::default(),
+        };
+
+        self.handler.handle_request(&request, reporter).await;
     }
-
-    // The reporter will handle making sure to log the result of the request
-    let queries = request.queries().to_vec();
-    let reporter = ReportingResponseHandler {
-        request_header: *request.header(),
-        queries,
-        protocol: request.protocol(),
-        src_addr: request.src(),
-        handler: response_handler,
-        #[cfg(feature = "metrics")]
-        metrics: ResponseHandlerMetrics::default(),
-    };
-
-    request_handler.handle_request(&request, reporter).await;
 }
 
 // method to return an error to the client
@@ -1176,7 +904,7 @@ mod tests {
 
         let endpoints2 = endpoints.clone();
         let (abortable, abort_handle) = future::abortable(async move {
-            let mut server_future = ServerFuture::new(Catalog::new());
+            let mut server_future = Server::new(Catalog::new());
             endpoints2.register(&mut server_future).await;
             server_future.block_until_done().await
         });
@@ -1190,7 +918,7 @@ mod tests {
     #[tokio::test]
     async fn graceful_shutdown() {
         subscribe();
-        let mut server_future = ServerFuture::new(Catalog::new());
+        let mut server_future = Server::new(Catalog::new());
         let endpoints = Endpoints::new().await;
         endpoints.register(&mut server_future).await;
 
@@ -1229,9 +957,7 @@ mod tests {
     #[derive(Clone)]
     struct Endpoints {
         udp_addr: SocketAddr,
-        udp_std_addr: SocketAddr,
         tcp_addr: SocketAddr,
-        tcp_std_addr: SocketAddr,
         #[cfg(feature = "__tls")]
         rustls_addr: SocketAddr,
         #[cfg(feature = "__https")]
@@ -1245,9 +971,7 @@ mod tests {
     impl Endpoints {
         async fn new() -> Self {
             let udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-            let udp_std = UdpSocket::bind("127.0.0.1:0").await.unwrap();
             let tcp = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let tcp_std = TcpListener::bind("127.0.0.1:0").await.unwrap();
             #[cfg(feature = "__tls")]
             let rustls = TcpListener::bind("127.0.0.1:0").await.unwrap();
             #[cfg(feature = "__https")]
@@ -1259,9 +983,7 @@ mod tests {
 
             Self {
                 udp_addr: udp.local_addr().unwrap(),
-                udp_std_addr: udp_std.local_addr().unwrap(),
                 tcp_addr: tcp.local_addr().unwrap(),
-                tcp_std_addr: tcp_std.local_addr().unwrap(),
                 #[cfg(feature = "__tls")]
                 rustls_addr: rustls.local_addr().unwrap(),
                 #[cfg(feature = "__https")]
@@ -1273,21 +995,12 @@ mod tests {
             }
         }
 
-        async fn register<T: RequestHandler>(&self, server: &mut ServerFuture<T>) {
+        async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
             server.register_socket(UdpSocket::bind(self.udp_addr).await.unwrap());
-            server
-                .register_socket_std(std::net::UdpSocket::bind(self.udp_std_addr).unwrap())
-                .unwrap();
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Duration::from_secs(1),
             );
-            server
-                .register_listener_std(
-                    std::net::TcpListener::bind(self.tcp_std_addr).unwrap(),
-                    Duration::from_secs(1),
-                )
-                .unwrap();
 
             #[cfg(feature = "__tls")]
             {
@@ -1344,9 +1057,7 @@ mod tests {
 
         async fn rebind_all(&self) {
             UdpSocket::bind(self.udp_addr).await.unwrap();
-            UdpSocket::bind(self.udp_std_addr).await.unwrap();
             TcpListener::bind(self.tcp_addr).await.unwrap();
-            TcpListener::bind(self.tcp_std_addr).await.unwrap();
             #[cfg(feature = "__tls")]
             TcpListener::bind(self.rustls_addr).await.unwrap();
             #[cfg(feature = "__https")]
