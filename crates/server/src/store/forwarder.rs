@@ -34,7 +34,7 @@ use crate::{
     resolver::{
         Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
-        lookup::Lookup as ResolverLookup,
+        lookup::Lookup,
         name_server::ConnectionProvider,
     },
     server::Request,
@@ -334,7 +334,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 /// A structure that holds the results of a forwarding lookup.
 ///
 /// This exposes an iterator interface for consumption downstream.
-pub struct ForwardLookup(pub ResolverLookup);
+pub struct ForwardLookup(pub Lookup);
 
 impl LookupObject for ForwardLookup {
     fn is_empty(&self) -> bool {
