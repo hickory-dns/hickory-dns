@@ -275,7 +275,7 @@ impl<T: RequestHandler> Server<T> {
         self.context.shutdown.cancel();
 
         // Wait for the server to complete.
-        block_until_done(&mut self.join_set).await
+        self.block_until_done().await
     }
 
     /// Returns a reference to the [`CancellationToken`] used to gracefully shut down the server.
@@ -289,7 +289,28 @@ impl<T: RequestHandler> Server<T> {
     /// This will run until all background tasks complete. If one or more tasks return an error,
     /// one will be chosen as the returned error for this future.
     pub async fn block_until_done(&mut self) -> Result<(), ProtoError> {
-        block_until_done(&mut self.join_set).await
+        if self.join_set.is_empty() {
+            warn!("block_until_done called with no pending tasks");
+            return Ok(());
+        }
+
+        let mut out = Ok(());
+        while let Some(join_result) = self.join_set.join_next().await {
+            match join_result {
+                Ok(result) => {
+                    match result {
+                        Ok(_) => (),
+                        Err(e) => {
+                            // Save the last error.
+                            out = Err(e);
+                        }
+                    }
+                }
+                Err(e) => return Err(ProtoError::from(format!("Internal error in spawn: {e}"))),
+            }
+        }
+
+        out
     }
 }
 
@@ -513,33 +534,6 @@ async fn handle_tls(
     } else {
         Err(ProtoError::from("unexpected close of socket"))
     }
-}
-
-async fn block_until_done(
-    join_set: &mut JoinSet<Result<(), ProtoError>>,
-) -> Result<(), ProtoError> {
-    if join_set.is_empty() {
-        warn!("block_until_done called with no pending tasks");
-        return Ok(());
-    }
-
-    // Now wait for all of the tasks to complete.
-    let mut out = Ok(());
-    while let Some(join_result) = join_set.join_next().await {
-        match join_result {
-            Ok(result) => {
-                match result {
-                    Ok(_) => (),
-                    Err(e) => {
-                        // Save the last error.
-                        out = Err(e);
-                    }
-                }
-            }
-            Err(e) => return Err(ProtoError::from(format!("Internal error in spawn: {e}"))),
-        }
-    }
-    out
 }
 
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
