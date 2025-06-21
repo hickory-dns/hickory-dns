@@ -28,8 +28,8 @@ use tracing::{debug, info};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        UpdateResult, ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
+        ZoneType,
     },
     error::ConfigError,
     proto::{
@@ -102,7 +102,7 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
 
 #[async_trait::async_trait]
 impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
-    type Lookup = RecursiveLookup;
+    type Lookup = Lookup;
 
     /// Always External
     fn zone_type(&self) -> ZoneType {
@@ -166,11 +166,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
             .min()
             .unwrap_or_default();
         let valid_until = now + Duration::from_secs(min_ttl.into());
-        LookupControlFlow::Continue(Ok(RecursiveLookup(Lookup::new_with_deadline(
-            query,
-            records,
-            valid_until,
-        ))))
+        LookupControlFlow::Continue(Ok(Lookup::new_with_deadline(query, records, valid_until)))
     }
 
     async fn search(
@@ -219,23 +215,6 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
 
     #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
-        None
-    }
-}
-
-/// A Lookup object for the recursive resolver
-pub struct RecursiveLookup(Lookup);
-
-impl LookupObject for RecursiveLookup {
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        Box::new(self.0.record_iter())
-    }
-
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
     }
 }
