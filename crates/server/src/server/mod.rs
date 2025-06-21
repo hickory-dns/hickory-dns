@@ -297,16 +297,9 @@ impl<T: RequestHandler> Server<T> {
         let mut out = Ok(());
         while let Some(join_result) = self.join_set.join_next().await {
             match join_result {
-                Ok(result) => {
-                    match result {
-                        Ok(_) => (),
-                        Err(e) => {
-                            // Save the last error.
-                            out = Err(e);
-                        }
-                    }
-                }
-                Err(e) => return Err(ProtoError::from(format!("Internal error in spawn: {e}"))),
+                Ok(Ok(())) => continue,
+                Ok(Err(e)) => out = Err(e),
+                Err(e) => return Err(ProtoError::from(format!("internal error in spawn: {e}"))),
             }
         }
 
