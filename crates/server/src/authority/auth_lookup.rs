@@ -98,9 +98,11 @@ impl LookupObject for AuthLookup {
         Box::new(boxed_iter)
     }
 
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
-        let additionals = Self::take_additionals(self);
-        additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
+    fn take_additionals(&mut self) -> Option<AuthLookup> {
+        Self::take_additionals(self).map(|additionals| AuthLookup::Records {
+            answers: additionals,
+            additionals: None,
+        })
     }
 }
 
@@ -408,7 +410,7 @@ impl LookupObject for LookupRecords {
         Box::new(self.iter())
     }
 
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+    fn take_additionals(&mut self) -> Option<AuthLookup> {
         None
     }
 }

@@ -150,9 +150,9 @@ pub trait Authority: Send + Sync {
         _name: &LowerName,
         _rtype: RecordType,
         _lookup_options: LookupOptions,
-        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+        last_result: LookupControlFlow<AuthLookup>,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         (last_result, None)
@@ -394,26 +394,6 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
                 Err(e) => LookupControlFlow::Break(Err(e)),
             },
             Self::Skip => LookupControlFlow::<U, E>::Skip,
-        }
-    }
-
-    /// Maps inner Ok(T) to Ok(Box&lt;dyn LookupObject&gt;), passing inner Err and Skip values unchanged.
-    pub fn map_dyn(self) -> LookupControlFlow<Box<dyn LookupObject>, E> {
-        match self {
-            Self::Continue(cont) => match cont {
-                Ok(lookup) => {
-                    LookupControlFlow::Continue(Ok(Box::new(lookup) as Box<dyn LookupObject>))
-                }
-                Err(e) => LookupControlFlow::Continue(Err(e)),
-            },
-            Self::Break(b) => match b {
-                Ok(lookup) => {
-                    LookupControlFlow::Break(Ok(Box::new(lookup) as Box<dyn LookupObject>))
-                }
-                Err(e) => LookupControlFlow::Break(Err(e)),
-            },
-
-            Self::Skip => LookupControlFlow::<Box<dyn LookupObject>, E>::Skip,
         }
     }
 
