@@ -358,6 +358,21 @@ pub enum DnssecSummary {
     Insecure,
 }
 
+#[cfg(feature = "resolver")]
+impl LookupObject for crate::resolver::lookup::Lookup {
+    fn is_empty(&self) -> bool {
+        self.records().is_empty()
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
+        Box::new(self.record_iter())
+    }
+
+    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+        None
+    }
+}
+
 /// An Object Safe Lookup for Authority
 pub trait LookupObject: Send {
     /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
