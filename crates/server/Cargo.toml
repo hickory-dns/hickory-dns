@@ -28,7 +28,7 @@ license.workspace = true
 [features]
 backtrace = ["hickory-proto/backtrace"]
 # Recursive Resolution is Experimental!
-recursor = ["dep:hickory-recursor", "dep:hickory-resolver"]
+recursor = ["dep:hickory-recursor", "resolver"]
 resolver = ["dep:hickory-resolver"]
 sqlite = ["rusqlite"]
 blocklist = ["resolver"]
