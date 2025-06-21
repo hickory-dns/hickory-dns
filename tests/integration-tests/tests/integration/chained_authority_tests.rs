@@ -12,8 +12,8 @@ use hickory_proto::{
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupObject,
-        LookupOptions, LookupRecords, UpdateResult, ZoneType,
+        AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, UpdateResult, ZoneType,
     },
     server::{Request, ResponseInfo},
 };
@@ -258,15 +258,22 @@ impl Authority for TestAuthority {
         name: &LowerName,
         _rtype: RecordType,
         lookup_options: LookupOptions,
-        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+        last_result: LookupControlFlow<AuthLookup>,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let Some(res) = inner_lookup(name, &self.consult_records, &lookup_options) else {
             return (last_result, None);
         };
-        (res.map_dyn(), None)
+
+        (
+            res.map(|answers| AuthLookup::Records {
+                answers,
+                additionals: None,
+            }),
+            None,
+        )
     }
 }
 

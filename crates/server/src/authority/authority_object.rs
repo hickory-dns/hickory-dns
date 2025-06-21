@@ -13,7 +13,7 @@ use tracing::debug;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Proof};
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
         ZoneType,
     },
     proto::op::message::ResponseSigner,
@@ -62,7 +62,7 @@ pub trait AuthorityObject: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+    ) -> LookupControlFlow<AuthLookup>;
 
     /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`.
     /// This will be called in a chained authority configuration after an authority in the chain
@@ -98,9 +98,9 @@ pub trait AuthorityObject: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+        last_result: LookupControlFlow<AuthLookup>,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     );
 
@@ -122,12 +122,12 @@ pub trait AuthorityObject: Send + Sync {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     );
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Box<dyn LookupObject>> {
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
         self.lookup(self.origin(), RecordType::NS, lookup_options)
             .await
     }
@@ -144,7 +144,7 @@ pub trait AuthorityObject: Send + Sync {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+    ) -> LookupControlFlow<AuthLookup>;
 
     /// Return the NSEC3 records based on the given query information.
     #[cfg(feature = "__dnssec")]
@@ -152,23 +152,20 @@ pub trait AuthorityObject: Send + Sync {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>>;
+    ) -> LookupControlFlow<AuthLookup>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupControlFlow<Box<dyn LookupObject>> {
+    async fn soa(&self) -> LookupControlFlow<AuthLookup> {
         // SOA should be origin|SOA
         self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
             .await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(
-        &self,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
@@ -228,10 +225,8 @@ impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::lookup(self, name, rtype, lookup_options)
-            .await
-            .map_dyn()
+    ) -> LookupControlFlow<AuthLookup> {
+        Authority::lookup(self, name, rtype, lookup_options).await
     }
 
     /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`.
@@ -268,9 +263,9 @@ impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+        last_result: LookupControlFlow<AuthLookup>,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         Authority::consult(self, name, rtype, lookup_options, last_result).await
@@ -294,7 +289,7 @@ impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {
@@ -302,8 +297,7 @@ impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
             Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
         debug!("performing {} on {}", request_info.query, self.origin());
-        let (res, signer) = Authority::search(self, request, lookup_options).await;
-        (res.map_dyn(), signer)
+        Authority::search(self, request, lookup_options).await
     }
 
     /// Return the NSEC records based on the given name
@@ -318,10 +312,8 @@ impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::get_nsec_records(self, name, lookup_options)
-            .await
-            .map_dyn()
+    ) -> LookupControlFlow<AuthLookup> {
+        Authority::get_nsec_records(self, name, lookup_options).await
     }
 
     /// Return the NSEC3 records based on the given query information.
@@ -330,10 +322,8 @@ impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        Authority::get_nsec3_records(self, info, lookup_options)
-            .await
-            .map_dyn()
+    ) -> LookupControlFlow<AuthLookup> {
+        Authority::get_nsec3_records(self, info, lookup_options).await
     }
 
     /// Returns the kind of non-existence proof used for this zone.
@@ -364,7 +354,7 @@ impl LookupObject for crate::resolver::lookup::Lookup {
         Box::new(self.record_iter())
     }
 
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+    fn take_additionals(&mut self) -> Option<AuthLookup> {
         None
     }
 }
@@ -380,7 +370,7 @@ pub trait LookupObject: Send {
     /// For CNAME and similar records, this is an additional set of lookup records
     ///
     /// it is acceptable for this to return None after the first call.
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>>;
+    fn take_additionals(&mut self) -> Option<AuthLookup>;
 
     /// Whether the records have been DNSSEC validated or not
     #[cfg(feature = "__dnssec")]
@@ -423,7 +413,7 @@ impl LookupObject for EmptyLookup {
         Box::new([].iter())
     }
 
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+    fn take_additionals(&mut self) -> Option<AuthLookup> {
         None
     }
 }

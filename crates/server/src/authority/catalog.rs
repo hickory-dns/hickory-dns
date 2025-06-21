@@ -17,9 +17,8 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, AuthorityObject, EmptyLookup, LookupControlFlow, LookupError, LookupObject,
-        LookupOptions, LookupRecords, MessageResponseBuilder, ZoneType,
-        authority_object::DnssecSummary,
+        AuthLookup, AuthorityObject, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        LookupRecords, MessageResponseBuilder, ZoneType, authority_object::DnssecSummary,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
@@ -539,7 +538,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
 
 /// Build Header and LookupSections (answers) given a query response from an authority
 async fn build_response(
-    result: Result<Box<dyn LookupObject>, LookupError>,
+    result: Result<AuthLookup, LookupError>,
     authority: &dyn AuthorityObject,
     request_id: u16,
     request_header: &Header,
@@ -581,7 +580,7 @@ async fn build_response(
 
 /// Prepare a response for an authoritative zone
 async fn build_authoritative_response(
-    response: Result<Box<dyn LookupObject>, LookupError>,
+    response: Result<AuthLookup, LookupError>,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     lookup_options: LookupOptions,
@@ -604,10 +603,10 @@ async fn build_authoritative_response(
         Err(LookupError::ResponseCode(ResponseCode::Refused)) => {
             response_header.set_response_code(ResponseCode::Refused);
             return LookupSections {
-                answers: Box::<AuthLookup>::default(),
-                ns: Box::<AuthLookup>::default(),
-                soa: Box::<AuthLookup>::default(),
-                additionals: Box::<AuthLookup>::default(),
+                answers: AuthLookup::default(),
+                ns: AuthLookup::default(),
+                soa: AuthLookup::default(),
+                additionals: AuthLookup::default(),
             };
         }
         Err(e) => {
@@ -761,29 +760,29 @@ async fn build_authoritative_response(
     // everything is done, return results.
     let (answers, additionals) = match answers {
         Some(mut answers) => match answers.take_additionals() {
-            Some(additionals) => (answers, additionals),
-            None => (
+            Some(additionals) => (
                 answers,
-                Box::<AuthLookup>::default() as Box<dyn LookupObject>,
+                AuthLookup::Records {
+                    answers: additionals,
+                    additionals: None,
+                },
             ),
+            None => (answers, AuthLookup::default()),
         },
-        None => (
-            Box::<AuthLookup>::default() as Box<dyn LookupObject>,
-            Box::<AuthLookup>::default() as Box<dyn LookupObject>,
-        ),
+        None => (AuthLookup::default(), AuthLookup::default()),
     };
 
     LookupSections {
         answers,
-        ns: ns.unwrap_or_else(|| Box::<AuthLookup>::default()),
-        soa: soa.unwrap_or_else(|| Box::<AuthLookup>::default()),
+        ns: ns.unwrap_or_default(),
+        soa: soa.unwrap_or_default(),
         additionals,
     }
 }
 
 /// Prepare a response for a forwarded zone.
 async fn build_forwarded_response(
-    response: Result<Box<dyn LookupObject>, LookupError>,
+    response: Result<AuthLookup, LookupError>,
     request_header: &Header,
     response_header: &mut Header,
     can_validate_dnssec: bool,
@@ -794,8 +793,8 @@ async fn build_forwarded_response(
     response_header.set_authoritative(false);
 
     enum Answer {
-        Normal(Box<dyn LookupObject>),
-        NoRecords(Box<AuthLookup>),
+        Normal(AuthLookup),
+        NoRecords(AuthLookup),
     }
 
     let (mut answers, authorities) = match response {
@@ -807,13 +806,13 @@ async fn build_forwarded_response(
             response_header.set_response_code(ResponseCode::Refused);
 
             return LookupSections {
-                answers: Box::new(EmptyLookup),
-                ns: Box::new(EmptyLookup),
-                soa: Box::new(EmptyLookup),
-                additionals: Box::new(EmptyLookup),
+                answers: AuthLookup::default(),
+                ns: AuthLookup::default(),
+                soa: AuthLookup::default(),
+                additionals: AuthLookup::default(),
             };
         }
-        Ok(l) => (Answer::Normal(l), Box::<AuthLookup>::default()),
+        Ok(l) => (Answer::Normal(l), AuthLookup::default()),
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
             debug!(error = ?e, "error resolving");
 
@@ -845,12 +844,12 @@ async fn build_forwarded_response(
                     })
                     .collect();
 
-                Box::new(AuthLookup::answers(
+                AuthLookup::answers(
                     LookupRecords::many(LookupOptions::default(), authorities),
                     None,
-                ))
+                )
             } else {
-                Box::<AuthLookup>::default()
+                AuthLookup::default()
             };
 
             if let Some(soa) = e.into_soa() {
@@ -858,12 +857,9 @@ async fn build_forwarded_response(
                 let record_set = Arc::new(RecordSet::from(soa));
                 let records = LookupRecords::new(LookupOptions::default(), record_set);
 
-                (
-                    Answer::NoRecords(Box::new(AuthLookup::SOA(records))),
-                    authorities,
-                )
+                (Answer::NoRecords(AuthLookup::SOA(records)), authorities)
             } else {
-                (Answer::Normal(Box::new(EmptyLookup)), authorities)
+                (Answer::Normal(AuthLookup::default()), authorities)
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
@@ -880,41 +876,29 @@ async fn build_forwarded_response(
                         let records = LookupRecords::new(LookupOptions::default(), record_set);
 
                         (
-                            Answer::NoRecords(Box::new(AuthLookup::SOA(records))),
-                            Box::<AuthLookup>::default(),
+                            Answer::NoRecords(AuthLookup::SOA(records)),
+                            AuthLookup::default(),
                         )
                     } else {
-                        (
-                            Answer::Normal(Box::new(EmptyLookup)),
-                            Box::<AuthLookup>::default(),
-                        )
+                        (Answer::Normal(AuthLookup::default()), AuthLookup::default())
                     }
                 }
                 _ => {
                     response_header.set_response_code(ResponseCode::ServFail);
                     debug!(error = ?e, "error resolving");
-                    (
-                        Answer::Normal(Box::new(EmptyLookup)),
-                        Box::<AuthLookup>::default(),
-                    )
+                    (Answer::Normal(AuthLookup::default()), AuthLookup::default())
                 }
             },
             _ => {
                 response_header.set_response_code(ResponseCode::ServFail);
                 debug!(error = ?e, "error resolving");
-                (
-                    Answer::Normal(Box::new(EmptyLookup)),
-                    Box::<AuthLookup>::default(),
-                )
+                (Answer::Normal(AuthLookup::default()), AuthLookup::default())
             }
         },
         Err(e) => {
             response_header.set_response_code(ResponseCode::ServFail);
             debug!(error = ?e, "error resolving");
-            (
-                Answer::Normal(Box::new(EmptyLookup)),
-                Box::<AuthLookup>::default(),
-            )
+            (Answer::Normal(AuthLookup::default()), AuthLookup::default())
         }
     };
 
@@ -952,7 +936,7 @@ async fn build_forwarded_response(
                 DnssecSummary::Bogus if !request_header.checking_disabled() => {
                     response_header.set_response_code(ResponseCode::ServFail);
                     // do not return Bogus records when CD=0
-                    *answers = Box::new(EmptyLookup);
+                    *answers = AuthLookup::default();
                 }
                 _ => {}
             },
@@ -964,7 +948,7 @@ async fn build_forwarded_response(
                 DnssecSummary::Bogus if !request_header.checking_disabled() => {
                     response_header.set_response_code(ResponseCode::ServFail);
                     // do not return Bogus records when CD=0
-                    *soa = Box::<AuthLookup>::default();
+                    *soa = AuthLookup::default();
                     trace!("clearing SOA record from response");
                 }
                 _ => {}
@@ -986,10 +970,7 @@ async fn build_forwarded_response(
             })
             .collect();
 
-        Box::new(AuthLookup::answers(
-            LookupRecords::many(LookupOptions::default(), auth),
-            None,
-        ))
+        AuthLookup::answers(LookupRecords::many(LookupOptions::default(), auth), None)
     } else {
         authorities
     };
@@ -998,21 +979,21 @@ async fn build_forwarded_response(
         Answer::Normal(answers) => LookupSections {
             answers,
             ns: authorities,
-            soa: Box::<AuthLookup>::default(),
-            additionals: Box::<AuthLookup>::default(),
+            soa: AuthLookup::default(),
+            additionals: AuthLookup::default(),
         },
         Answer::NoRecords(soa) => LookupSections {
-            answers: Box::new(EmptyLookup),
+            answers: AuthLookup::default(),
             ns: authorities,
             soa,
-            additionals: Box::<AuthLookup>::default(),
+            additionals: AuthLookup::default(),
         },
     }
 }
 
 struct LookupSections {
-    answers: Box<dyn LookupObject>,
-    ns: Box<dyn LookupObject>,
-    soa: Box<dyn LookupObject>,
-    additionals: Box<dyn LookupObject>,
+    answers: AuthLookup,
+    ns: AuthLookup,
+    soa: AuthLookup,
+    additionals: AuthLookup,
 }

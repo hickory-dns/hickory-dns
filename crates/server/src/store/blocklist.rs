@@ -27,7 +27,7 @@ use tracing::{info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
         LookupOptions, UpdateResult, ZoneType,
     },
     proto::{
@@ -360,9 +360,9 @@ impl Authority for BlocklistAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-        last_result: LookupControlFlow<Box<dyn LookupObject>>,
+        last_result: LookupControlFlow<AuthLookup>,
     ) -> (
-        LookupControlFlow<Box<dyn LookupObject>>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         match self.consult_action {
@@ -376,7 +376,7 @@ impl Authority for BlocklistAuthority {
 
         let lookup = self.lookup(name, rtype, lookup_options).await;
         if lookup.is_break() {
-            (lookup.map_dyn(), None)
+            (lookup, None)
         } else {
             (last_result, None)
         }
