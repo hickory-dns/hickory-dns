@@ -23,18 +23,16 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{
-        AuthLookup, Authority, DnssecAuthority, LookupOptions, MessageRequest, UpdateResult,
-    },
+    authority::{Authority, DnssecAuthority, LookupOptions, MessageRequest, UpdateResult},
     server::Request,
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-fn update_authority<A: Authority<Lookup = AuthLookup>>(
+fn update_authority(
     mut message: Message,
     key: &SigSigner,
-    authority: &mut A,
+    authority: &mut impl Authority,
 ) -> UpdateResult<bool> {
     message.finalize(key, 1).expect("failed to sign message");
     let bytes = message.to_bytes().unwrap();
@@ -48,7 +46,7 @@ fn update_authority<A: Authority<Lookup = AuthLookup>>(
     block_on(authority.update(&request)).0
 }
 
-pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {
+pub fn test_create(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("create.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -95,7 +93,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
     }
 }
 
-pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {
+pub fn test_create_multi(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("create-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -140,7 +138,7 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
     }
 }
 
-pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {
+pub fn test_append(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("append.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -228,7 +226,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
     }
 }
 
-pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {
+pub fn test_append_multi(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("append-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -305,10 +303,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
     }
 }
 
-pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
-    mut authority: A,
-    keys: &[SigSigner],
-) {
+pub fn test_compare_and_swap(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -380,10 +375,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(
     }
 }
 
-pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
-    mut authority: A,
-    keys: &[SigSigner],
-) {
+pub fn test_compare_and_swap_multi(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -466,10 +458,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
     }
 }
 
-pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
-    mut authority: A,
-    keys: &[SigSigner],
-) {
+pub fn test_delete_by_rdata(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("test-delete-by-rdata.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -530,10 +519,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(
     }
 }
 
-pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
-    mut authority: A,
-    keys: &[SigSigner],
-) {
+pub fn test_delete_by_rdata_multi(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("test-delete-by-rdata-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -613,7 +599,7 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
     }
 }
 
-pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {
+pub fn test_delete_rrset(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -674,7 +660,7 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
     }
 }
 
-pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {
+pub fn test_delete_all(mut authority: impl Authority, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())

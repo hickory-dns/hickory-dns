@@ -24,7 +24,7 @@ use hickory_proto::{
 use hickory_server::authority::DnssecAuthority;
 
 pub(super) async fn load_keys(
-    authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
+    authority: &mut impl DnssecAuthority,
     zone_name: &Name,
     keys: &[KeyConfig],
 ) -> Result<(), String> {
@@ -116,7 +116,7 @@ impl KeyConfig {
 
     pub async fn load(
         &self,
-        authority: &mut impl DnssecAuthority<Lookup = impl Send + Sync + Sized + 'static>,
+        authority: &mut impl DnssecAuthority,
         zone_name: Name,
     ) -> Result<(), String> {
         info!(

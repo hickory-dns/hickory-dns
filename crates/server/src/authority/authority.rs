@@ -12,9 +12,11 @@ use serde::Deserialize;
 use std::fmt;
 
 use crate::{
-    authority::{LookupError, LookupObject, UpdateResult, ZoneType},
-    proto::op::message::ResponseSigner,
-    proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
+    authority::{AuthLookup, LookupError, LookupObject, UpdateResult, ZoneType},
+    proto::{
+        op::message::ResponseSigner,
+        rr::{LowerName, RecordSet, RecordType, RrsetRecords},
+    },
     server::Request,
 };
 #[cfg(feature = "__dnssec")]
@@ -72,9 +74,6 @@ impl LookupOptions {
 /// Authority implementations can be used with a `Catalog`
 #[async_trait::async_trait]
 pub trait Authority: Send + Sync {
-    /// Result of a lookup
-    type Lookup: Send + Sync + Sized + 'static;
-
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
@@ -115,7 +114,7 @@ pub trait Authority: Send + Sync {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup>;
+    ) -> LookupControlFlow<AuthLookup>;
 
     /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`.
     /// This will be called in a chained authority configuration after an authority in the chain
@@ -177,12 +176,12 @@ pub trait Authority: Send + Sync {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     );
 
     /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
         self.lookup(self.origin(), RecordType::NS, lookup_options)
             .await
     }
@@ -199,7 +198,7 @@ pub trait Authority: Send + Sync {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup>;
+    ) -> LookupControlFlow<AuthLookup>;
 
     /// Return the NSEC3 records based on the information available for a query.
     #[cfg(feature = "__dnssec")]
@@ -207,20 +206,20 @@ pub trait Authority: Send + Sync {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup>;
+    ) -> LookupControlFlow<AuthLookup>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupControlFlow<Self::Lookup> {
+    async fn soa(&self) -> LookupControlFlow<AuthLookup> {
         // SOA should be origin|SOA
         self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
             .await
     }
 
     /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
