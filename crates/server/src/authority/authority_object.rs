@@ -179,11 +179,7 @@ pub trait AuthorityObject: Send + Sync {
 }
 
 #[async_trait::async_trait]
-impl<A, L> AuthorityObject for A
-where
-    A: Authority<Lookup = L> + Send + Sync + 'static,
-    L: LookupObject + Send + Sync + 'static,
-{
+impl<A: Authority + Send + Sync + 'static> AuthorityObject for A {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         Authority::zone_type(self)

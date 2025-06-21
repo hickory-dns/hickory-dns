@@ -317,8 +317,6 @@ impl InMemoryAuthority {
 
 #[async_trait::async_trait]
 impl Authority for InMemoryAuthority {
-    type Lookup = AuthLookup;
-
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type
@@ -418,7 +416,7 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
@@ -545,7 +543,7 @@ impl Authority for InMemoryAuthority {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {
@@ -639,7 +637,7 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
 
         // TODO: need a BorrowdRrKey
@@ -692,7 +690,7 @@ impl Authority for InMemoryAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::default()))
     }
 
@@ -701,7 +699,7 @@ impl Authority for InMemoryAuthority {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
         LookupControlFlow::Continue(
             inner

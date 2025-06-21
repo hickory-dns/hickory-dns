@@ -312,8 +312,6 @@ impl BlocklistAuthority {
 
 #[async_trait::async_trait]
 impl Authority for BlocklistAuthority {
-    type Lookup = AuthLookup;
-
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
     }
@@ -340,7 +338,7 @@ impl Authority for BlocklistAuthority {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         use LookupControlFlow::*;
 
         trace!("blocklist lookup: {name} {rtype}");
@@ -389,7 +387,7 @@ impl Authority for BlocklistAuthority {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {
@@ -411,7 +409,7 @@ impl Authority for BlocklistAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the blocklist",
         ))))
@@ -422,7 +420,7 @@ impl Authority for BlocklistAuthority {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the forwarder",
         ))))

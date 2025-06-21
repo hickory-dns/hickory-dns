@@ -210,8 +210,6 @@ impl ForwardAuthority<TokioRuntimeProvider> {
 
 #[async_trait::async_trait]
 impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
-    type Lookup = AuthLookup;
-
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -256,7 +254,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         // TODO: make this an error?
         debug_assert!(self.origin.zone_of(name));
 
@@ -284,7 +282,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {
@@ -306,7 +304,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the forwarder",
         ))))
@@ -317,7 +315,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the forwarder",
         ))))

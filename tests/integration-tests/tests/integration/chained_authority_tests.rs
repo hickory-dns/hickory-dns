@@ -172,8 +172,6 @@ impl TestAuthority {
 
 #[async_trait::async_trait]
 impl Authority for TestAuthority {
-    type Lookup = AuthLookup;
-
     fn origin(&self) -> &LowerName {
         &self.origin
     }
@@ -198,7 +196,7 @@ impl Authority for TestAuthority {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::Empty))
     }
 
@@ -207,7 +205,7 @@ impl Authority for TestAuthority {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::Empty))
     }
 
@@ -221,7 +219,7 @@ impl Authority for TestAuthority {
         name: &LowerName,
         _query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         let Some(res) = inner_lookup(name, &self.lookup_records, &lookup_options) else {
             panic!("reached end of records without a match");
         };
@@ -237,7 +235,7 @@ impl Authority for TestAuthority {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {

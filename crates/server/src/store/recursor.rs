@@ -102,8 +102,6 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
 
 #[async_trait::async_trait]
 impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
-    type Lookup = AuthLookup;
-
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -140,7 +138,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         debug!("recursive lookup: {} {}", name, rtype);
 
         let query = Query::query(name.into(), rtype);
@@ -178,7 +176,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {
@@ -200,7 +198,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "Getting NSEC records is unimplemented for the recursor",
         ))))
@@ -211,7 +209,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
             "getting NSEC3 records is unimplemented for the recursor",
         ))))

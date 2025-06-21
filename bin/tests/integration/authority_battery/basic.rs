@@ -14,13 +14,13 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{AuthLookup, Authority, LookupError, LookupOptions, MessageRequest},
+    authority::{Authority, LookupError, LookupOptions, MessageRequest},
     server::Request,
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_a_lookup(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -48,7 +48,7 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 #[allow(clippy::unreadable_literal)]
-pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_soa(authority: impl Authority) {
     let lookup = block_on(authority.soa()).unwrap();
 
     match lookup
@@ -73,7 +73,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
     }
 }
 
-pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_ns(authority: impl Authority) {
     let lookup = block_on(authority.ns(LookupOptions::default())).unwrap();
 
     match lookup
@@ -87,7 +87,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
     }
 }
 
-pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_ns_lookup(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -128,7 +128,7 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(A4::new(127, 0, 0, 2), *a);
 }
 
-pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_mx(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -190,7 +190,7 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
-pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_mx_to_null(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -222,7 +222,7 @@ pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(Name::from_str(".").unwrap(), *mx.exchange());
 }
 
-pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_cname(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -251,7 +251,7 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
 }
 
-pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_cname_alias(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -292,7 +292,7 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_cname_chain(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -347,7 +347,7 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
 /// In this the ANAME , should, return A and AAAA records in additional section
 /// the answer should be the A record
-pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_aname(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -397,7 +397,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 /// In this test the A record that the ANAME resolves to should be returned as the answer,
 ///
 /// The additionals should include the ANAME.
-pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_aname_a_lookup(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -440,7 +440,7 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 /// In this test the A record that the ANAME resolves to should be returned as the answer, not at the apex
 ///
 /// The additionals should include the ANAME, this one should include the CNAME chain as well.
-pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_aname_chain(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -499,7 +499,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_update_errors(authority: impl Authority) {
     let mut message = Message::query();
     message.add_query(Query::new());
     let bytes = message.to_vec().unwrap();
@@ -515,7 +515,7 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 #[allow(clippy::uninlined_format_args)]
-pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_dots_in_name(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -602,7 +602,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert!(lookup.is_nx_domain());
 }
 
-pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_wildcard(authority: impl Authority) {
     // check direct lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -671,7 +671,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
     );
 }
 
-pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_wildcard_subdomain(authority: impl Authority) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -710,7 +710,7 @@ pub fn test_wildcard_subdomain<A: Authority<Lookup = AuthLookup>>(authority: A) 
     );
 }
 
-pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_wildcard_chain(authority: impl Authority) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -754,7 +754,7 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_srv(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -816,7 +816,7 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
-pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+pub fn test_invalid_lookup(authority: impl Authority) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,

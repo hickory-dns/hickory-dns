@@ -27,8 +27,8 @@ use tracing::{debug, error, info, warn};
 use crate::store::metrics::StoreMetrics;
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
-        ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        UpdateResult, ZoneType,
     },
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
@@ -1020,8 +1020,6 @@ impl DerefMut for SqliteAuthority {
 
 #[async_trait::async_trait]
 impl Authority for SqliteAuthority {
-    type Lookup = <InMemoryAuthority as Authority>::Lookup;
-
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -1101,7 +1099,7 @@ impl Authority for SqliteAuthority {
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
 
         #[cfg(feature = "metrics")]
@@ -1115,7 +1113,7 @@ impl Authority for SqliteAuthority {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (
-        LookupControlFlow<Self::Lookup>,
+        LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
         let request_info = match request.request_info() {
@@ -1159,7 +1157,7 @@ impl Authority for SqliteAuthority {
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         self.in_memory.get_nsec_records(name, lookup_options).await
     }
 
@@ -1168,7 +1166,7 @@ impl Authority for SqliteAuthority {
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> LookupControlFlow<AuthLookup> {
         self.in_memory.get_nsec3_records(info, lookup_options).await
     }
 
