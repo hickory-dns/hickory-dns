@@ -279,7 +279,7 @@ impl BlocklistAuthority {
     /// Generate a BlocklistLookup to return on a blocklist match.  This will return a lookup with
     /// either an A or AAAA record and, if the user has configured a block message, a TXT record
     /// with the contents of that message.
-    fn blocklist_response(&self, name: Name, rtype: RecordType) -> BlocklistLookup {
+    fn blocklist_response(&self, name: Name, rtype: RecordType) -> Lookup {
         let mut records = vec![];
 
         match rtype {
@@ -303,17 +303,17 @@ impl BlocklistAuthority {
             ));
         }
 
-        BlocklistLookup(Lookup::new_with_deadline(
+        Lookup::new_with_deadline(
             Query::query(name.clone(), rtype),
             records.into(),
             Instant::now() + Duration::from_secs(u64::from(self.ttl)),
-        ))
+        )
     }
 }
 
 #[async_trait::async_trait]
 impl Authority for BlocklistAuthority {
-    type Lookup = BlocklistLookup;
+    type Lookup = Lookup;
 
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -499,23 +499,6 @@ impl Default for BlocklistConfig {
             block_message: None,
             consult_action: BlocklistConsultAction::default(),
         }
-    }
-}
-
-/// A lookup object that is returned when a blocklist entry is matched.
-pub struct BlocklistLookup(Lookup);
-
-impl LookupObject for BlocklistLookup {
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        Box::new(self.0.record_iter())
-    }
-
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
-        None
     }
 }
 
