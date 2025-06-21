@@ -28,8 +28,8 @@ use tracing::{debug, info};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
-        ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        UpdateResult, ZoneType,
     },
     error::ConfigError,
     proto::{
@@ -102,7 +102,7 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
 
 #[async_trait::async_trait]
 impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
-    type Lookup = Lookup;
+    type Lookup = AuthLookup;
 
     /// Always External
     fn zone_type(&self) -> ZoneType {
@@ -166,7 +166,11 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
             .min()
             .unwrap_or_default();
         let valid_until = now + Duration::from_secs(min_ttl.into());
-        LookupControlFlow::Continue(Ok(Lookup::new_with_deadline(query, records, valid_until)))
+        LookupControlFlow::Continue(Ok(AuthLookup::from(Lookup::new_with_deadline(
+            query,
+            records,
+            valid_until,
+        ))))
     }
 
     async fn search(

@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use crate::authority::{LookupObject, LookupOptions};
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
+#[cfg(feature = "resolver")]
+use crate::resolver::lookup::{Lookup, LookupRecordIter};
 
 /// The result of a lookup on an Authority
 #[derive(Debug)]
@@ -25,6 +27,9 @@ pub enum AuthLookup {
         /// Optional set of LookupRecords
         additionals: Option<LookupRecords>,
     },
+    /// Records resulting from a resolver lookup
+    #[cfg(feature = "resolver")]
+    Resolved(Lookup),
     /// Soa only differs from Records in that the lifetime on the name is from the authority, and not the query
     SOA(LookupRecords),
     /// An axfr starts with soa, chained to all the records, then another soa...
@@ -99,6 +104,13 @@ impl LookupObject for AuthLookup {
     }
 }
 
+#[cfg(feature = "resolver")]
+impl From<Lookup> for AuthLookup {
+    fn from(lookup: Lookup) -> Self {
+        Self::Resolved(lookup)
+    }
+}
+
 impl Default for AuthLookup {
     fn default() -> Self {
         Self::Empty
@@ -116,6 +128,8 @@ impl<'a> IntoIterator for &'a AuthLookup {
             AuthLookup::Records { answers: r, .. } | AuthLookup::SOA(r) => {
                 AuthLookupIter::Records(r.into_iter())
             }
+            #[cfg(feature = "resolver")]
+            AuthLookup::Resolved(lookup) => AuthLookupIter::Resolved(lookup.record_iter()),
             AuthLookup::AXFR {
                 start_soa,
                 records,
@@ -133,6 +147,9 @@ pub enum AuthLookupIter<'r> {
     Empty,
     /// An iteration over a set of Records
     Records(LookupRecordsIter<'r>),
+    /// An iteration over resolved records
+    #[cfg(feature = "resolver")]
+    Resolved(LookupRecordIter<'r>),
     /// An iteration over an AXFR
     AXFR(Chain<Chain<LookupRecordsIter<'r>, LookupRecordsIter<'r>>, LookupRecordsIter<'r>>),
 }
@@ -144,6 +161,8 @@ impl<'r> Iterator for AuthLookupIter<'r> {
         match self {
             AuthLookupIter::Empty => None,
             AuthLookupIter::Records(i) => i.next(),
+            #[cfg(feature = "resolver")]
+            AuthLookupIter::Resolved(i) => i.next(),
             AuthLookupIter::AXFR(i) => i.next(),
         }
     }

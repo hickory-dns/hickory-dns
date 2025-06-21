@@ -8,10 +8,7 @@ use hickory_proto::{
     rr::{Name, RecordType},
     runtime::TokioRuntimeProvider,
 };
-use hickory_server::{
-    authority::{Authority, LookupObject},
-    store::forwarder::ForwardAuthority,
-};
+use hickory_server::{authority::Authority, store::forwarder::ForwardAuthority};
 use test_support::subscribe;
 
 #[test]
