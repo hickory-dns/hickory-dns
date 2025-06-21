@@ -27,12 +27,11 @@ use tracing::{info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        UpdateResult, ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject,
+        LookupOptions, UpdateResult, ZoneType,
     },
     proto::{
-        op::message::ResponseSigner,
-        op::{Query, ResponseCode},
+        op::{Query, ResponseCode, message::ResponseSigner},
         rr::{
             LowerName, Name, RData, Record, RecordType,
             rdata::{A, AAAA, TXT},
@@ -313,7 +312,7 @@ impl BlocklistAuthority {
 
 #[async_trait::async_trait]
 impl Authority for BlocklistAuthority {
-    type Lookup = Lookup;
+    type Lookup = AuthLookup;
 
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -347,7 +346,9 @@ impl Authority for BlocklistAuthority {
         trace!("blocklist lookup: {name} {rtype}");
 
         if self.is_blocked(name) {
-            return Break(Ok(self.blocklist_response(Name::from(name), rtype)));
+            return Break(Ok(AuthLookup::from(
+                self.blocklist_response(Name::from(name), rtype),
+            )));
         }
 
         trace!("query '{name}' is not in blocklist; returning Skip...");

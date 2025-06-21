@@ -12,7 +12,7 @@ use hickory_proto::{
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
-        Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupObject,
+        AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupObject,
         LookupOptions, LookupRecords, UpdateResult, ZoneType,
     },
     server::{Request, ResponseInfo},
@@ -172,7 +172,7 @@ impl TestAuthority {
 
 #[async_trait::async_trait]
 impl Authority for TestAuthority {
-    type Lookup = LookupRecords;
+    type Lookup = AuthLookup;
 
     fn origin(&self) -> &LowerName {
         &self.origin
@@ -199,7 +199,7 @@ impl Authority for TestAuthority {
         _name: &LowerName,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        LookupControlFlow::Continue(Ok(LookupRecords::Empty))
+        LookupControlFlow::Continue(Ok(AuthLookup::Empty))
     }
 
     #[cfg(feature = "__dnssec")]
@@ -208,7 +208,7 @@ impl Authority for TestAuthority {
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<Self::Lookup> {
-        LookupControlFlow::Continue(Ok(LookupRecords::Empty))
+        LookupControlFlow::Continue(Ok(AuthLookup::Empty))
     }
 
     #[cfg(feature = "__dnssec")]
@@ -225,7 +225,11 @@ impl Authority for TestAuthority {
         let Some(res) = inner_lookup(name, &self.lookup_records, &lookup_options) else {
             panic!("reached end of records without a match");
         };
-        res
+
+        res.map(|answers| AuthLookup::Records {
+            answers,
+            additionals: None,
+        })
     }
 
     async fn search(

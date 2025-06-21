@@ -22,19 +22,17 @@ use crate::store::metrics::QueryStoreMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
-        ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        UpdateResult, ZoneType,
     },
     proto::{
-        op::ResponseCode,
-        op::message::ResponseSigner,
+        op::{ResponseCode, message::ResponseSigner},
         rr::{LowerName, Name, RecordType},
         runtime::TokioRuntimeProvider,
     },
     resolver::{
         Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
-        lookup::Lookup,
         name_server::ConnectionProvider,
     },
     server::Request,
@@ -212,7 +210,7 @@ impl ForwardAuthority<TokioRuntimeProvider> {
 
 #[async_trait::async_trait]
 impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
-    type Lookup = Lookup;
+    type Lookup = AuthLookup;
 
     /// Always External
     fn zone_type(&self) -> ZoneType {
@@ -271,7 +269,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 
         use LookupControlFlow::*;
         let lookup = match self.resolver.lookup(name, rtype).await {
-            Ok(lookup) => Continue(Ok(lookup)),
+            Ok(lookup) => Continue(Ok(AuthLookup::from(lookup))),
             Err(e) => Continue(Err(LookupError::from(e))),
         };
 
