@@ -10,7 +10,7 @@ use hickory_proto::rr::Name;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
-    authority::ZoneType,
+    authority::{AxfrPolicy, ZoneType},
     store::sqlite::{SqliteAuthority, SqliteConfig},
 };
 
@@ -35,7 +35,7 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
     block_on(SqliteAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         true,
         None,
         &config,
@@ -67,7 +67,7 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAutho
     block_on(SqliteAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         true,
         None,
         &config,

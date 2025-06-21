@@ -21,20 +21,21 @@ use std::{
 
 use futures_util::lock::Mutex;
 use serde::Deserialize;
-#[cfg(feature = "__dnssec")]
-use tracing::debug;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::store::metrics::StoreMetrics;
 use crate::{
-    authority::{Authority, LookupControlFlow, LookupOptions, UpdateResult, ZoneType},
+    authority::{
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ResponseSigner,
+        UpdateResult, ZoneType,
+    },
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
-    server::{Request, RequestInfo},
+    server::Request,
     store::{
         file::rooted,
         in_memory::{InMemoryAuthority, zone_from_path},
@@ -44,9 +45,14 @@ use crate::{
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
+    proto::ProtoError,
     proto::dnssec::{
         DnsSecResult, SigSigner, Verifier,
-        rdata::{DNSSECRData, key::KEY, tsig::TsigAlgorithm},
+        rdata::{
+            DNSSECRData, TSIG,
+            key::KEY,
+            tsig::{TsigAlgorithm, TsigError, make_tsig_record},
+        },
         tsig::TSigner,
     },
     proto::op::MessageSignature,
@@ -65,6 +71,7 @@ pub use persistence::Journal;
 pub struct SqliteAuthority {
     in_memory: InMemoryAuthority,
     journal: Mutex<Option<Journal>>,
+    axfr_policy: AxfrPolicy,
     allow_update: bool,
     is_dnssec_enabled: bool,
     #[cfg(feature = "metrics")]
@@ -79,6 +86,7 @@ impl SqliteAuthority {
     /// # Arguments
     ///
     /// * `in_memory` - InMemoryAuthority for all records.
+    /// * `axfr_policy` - A policy for determining if AXFR requests are allowed.
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
     ///   (see `add_zone_signing_key()`)
@@ -86,10 +94,16 @@ impl SqliteAuthority {
     /// # Return value
     ///
     /// The new `Authority`.
-    pub fn new(in_memory: InMemoryAuthority, allow_update: bool, is_dnssec_enabled: bool) -> Self {
+    pub fn new(
+        in_memory: InMemoryAuthority,
+        axfr_policy: AxfrPolicy,
+        allow_update: bool,
+        is_dnssec_enabled: bool,
+    ) -> Self {
         Self {
             in_memory,
             journal: Mutex::new(None),
+            axfr_policy,
             allow_update,
             is_dnssec_enabled,
             #[cfg(feature = "metrics")]
@@ -103,7 +117,7 @@ impl SqliteAuthority {
     pub async fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
-        allow_axfr: bool,
+        axfr_policy: AxfrPolicy,
         enable_dnssec: bool,
         root_dir: Option<&Path>,
         config: &SqliteConfig,
@@ -125,11 +139,12 @@ impl SqliteAuthority {
             let in_memory = InMemoryAuthority::empty(
                 zone_name.clone(),
                 zone_type,
-                allow_axfr,
+                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             );
-            let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
+            let mut authority =
+                Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
 
             authority
                 .recover_with_journal(&journal)
@@ -151,12 +166,13 @@ impl SqliteAuthority {
                 zone_name.clone(),
                 records,
                 zone_type,
-                allow_axfr,
+                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             )?;
 
-            let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
+            let mut authority =
+                Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
             info!("creating new journal: {journal_path:?}");
@@ -272,6 +288,12 @@ impl SqliteAuthority {
     #[cfg(all(any(test, feature = "testing"), feature = "__dnssec"))]
     pub fn set_tsig_signers(&mut self, signers: Vec<TSigner>) {
         self.tsig_signers = signers;
+    }
+
+    /// Set the AXFR policy for testing purposes
+    #[cfg(feature = "testing")]
+    pub fn set_axfr_policy(&mut self, policy: AxfrPolicy) {
+        self.axfr_policy = policy;
     }
 
     /// Get serial
@@ -505,7 +527,10 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "__dnssec")]
-    pub async fn authorize(&self, request: &Request) -> UpdateResult<()> {
+    pub async fn authorize_update(
+        &self,
+        request: &Request,
+    ) -> (UpdateResult<()>, Option<ResponseSigner>) {
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -521,13 +546,42 @@ impl SqliteAuthority {
                 "update attempted on non-updatable Authority: {}",
                 self.origin()
             );
-            return Err(ResponseCode::Refused);
+            return (Err(ResponseCode::Refused), None);
         }
 
         match request.signature() {
-            MessageSignature::Sig0(sig0) => self.authorized_sig0(sig0, request).await,
-            MessageSignature::Tsig(tsig) => self.authorized_tsig(tsig, request).await,
-            MessageSignature::Unsigned => Err(ResponseCode::Refused),
+            MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, request).await, None),
+            MessageSignature::Tsig(tsig) => {
+                let (resp, signer) = self.authorized_tsig(tsig, request).await;
+                (resp, Some(signer))
+            }
+            MessageSignature::Unsigned => (Err(ResponseCode::Refused), None),
+        }
+    }
+
+    /// Checks that an AXFR `Request` has a valid signature, or returns an error
+    async fn authorize_axfr(
+        &self,
+        _request: &Request,
+    ) -> (Result<(), ResponseCode>, Option<ResponseSigner>) {
+        match self.axfr_policy {
+            // Deny without checking any signatures.
+            AxfrPolicy::Deny => (Err(ResponseCode::NotAuth), None),
+            // Allow without checking any signatures.
+            AxfrPolicy::AllowAll => (Ok(()), None),
+            // Allow only if a valid signature is present.
+            #[cfg(feature = "__dnssec")]
+            AxfrPolicy::AllowSigned => match _request.signature() {
+                MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, _request).await, None),
+                MessageSignature::Tsig(tsig) => {
+                    let (resp, signer) = self.authorized_tsig(tsig, _request).await;
+                    (resp, Some(signer))
+                }
+                MessageSignature::Unsigned => {
+                    warn!("AXFR request was not signed");
+                    (Err(ResponseCode::NotAuth), None)
+                }
+            },
         }
     }
 
@@ -896,32 +950,109 @@ impl SqliteAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_tsig(&self, tsig: &Record, request: &Request) -> UpdateResult<()> {
-        debug!("authorizing with: {tsig:?}");
-        let Some(signer) = self
-            .tsig_signers
-            .iter()
-            .find(|signer| signer.signer_name() == tsig.name())
-        else {
-            warn!("no TSIG key name matched: id {}", request.id());
-            return Err(ResponseCode::Refused);
-        };
-
-        let Ok((_, _, range)) = signer.verify_message_byte(request.as_slice(), None, true) else {
-            warn!("invalid TSIG signature: id {}", request.id());
-            return Err(ResponseCode::Refused);
-        };
-
+    async fn authorized_tsig(
+        &self,
+        tsig: &Record,
+        request: &Request,
+    ) -> (UpdateResult<()>, ResponseSigner) {
+        let req_id = request.header().id();
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|t| t.as_secs())
             .unwrap_or_default();
+
+        debug!("authorizing with: {tsig:?}");
+        let Some(tsigner) = self
+            .tsig_signers
+            .iter()
+            .find(|tsigner| tsigner.signer_name() == tsig.name())
+        else {
+            warn!("no TSIG key name matched: id {req_id}");
+            // "If a non-forwarding server does not recognize the key or algorithm used by the
+            // client (or recognizes the algorithm but does not implement it), the server MUST
+            // generate an error response with RCODE 9 (NOTAUTH) and TSIG ERROR 17 (BADKEY).
+            // This response MUST be unsigned"
+            //
+            // Note that this doesn't specify what TSIG algorithm, fudge, or key name we
+            // should use in the response since we didn't recognize the key name as one
+            // of our configured signers. We choose a stand-in algorithm and reflect the
+            // unknown key name in absence of further direction.
+            let unknown_key = tsig.name().clone();
+            let unknown_key_signer = Box::new(move |_: &[u8]| {
+                let err_tsig = TSIG::new(
+                    TsigAlgorithm::HmacSha256,
+                    now,
+                    300,
+                    Vec::new(),
+                    req_id,
+                    Some(TsigError::BadKey),
+                    Vec::new(),
+                );
+                Ok(MessageSignature::Tsig(make_tsig_record(
+                    unknown_key,
+                    err_tsig,
+                )))
+            });
+            return (Err(ResponseCode::NotAuth), unknown_key_signer);
+        };
+
+        let Ok((_, _, range)) = tsigner.verify_message_byte(request.as_slice(), None, true) else {
+            warn!("invalid TSIG signature: id {req_id}");
+            // "If the MAC fails to verify, the server MUST generate an error response as specified in
+            // Section 5.3.2 with RCODE 9 (NOTAUTH) and TSIG ERROR 16 (BADSIG). This response MUST
+            // be unsigned"
+            let signer_name = tsigner.signer_name().clone();
+            let tsigner = tsigner.clone();
+            let err_signer = Box::new(move |_: &[u8]| {
+                let mut err_tsig = tsigner.stub_tsig(req_id, now);
+                err_tsig.set_error(TsigError::BadSig);
+                Ok(MessageSignature::Tsig(make_tsig_record(
+                    signer_name,
+                    err_tsig,
+                )))
+            });
+            return (Err(ResponseCode::NotAuth), err_signer);
+        };
+
+        let mut error = None;
+        let mut response = Ok(());
+
         if !range.contains(&now) {
-            warn!("expired TSIG signature: id {}", request.id());
-            return Err(ResponseCode::Refused);
+            warn!("expired TSIG signature: id {req_id}");
+            // "A response indicating a BADTIME error MUST be signed by the same key as the request."
+            response = Err(ResponseCode::NotAuth);
+            error = Some(TsigError::BadTime);
         }
 
-        Ok(())
+        // Unwrap safety: verify_message_byte() has already successfully extracted & parsed the
+        // TSIG RR.
+        let req_tsig = tsig
+            .data()
+            .as_dnssec()
+            .and_then(DNSSECRData::as_tsig)
+            .unwrap();
+        let req_mac = req_tsig.mac().to_vec();
+        let tsigner = tsigner.clone();
+        let response_signer = Box::new(move |encoded_resp: &[u8]| {
+            let mut tbs_tsig = tsigner.stub_tsig(req_id, now);
+            if let Some(error) = error {
+                tbs_tsig.set_error(error);
+            }
+
+            let tbs_tsig_encoded =
+                tsigner.encode_response_tbs(&req_mac, encoded_resp, &tbs_tsig)?;
+            let resp_tsig = tbs_tsig.set_mac(
+                tsigner
+                    .sign(&tbs_tsig_encoded)
+                    .map_err(|e| ProtoError::from(e.to_string()))?,
+            );
+            Ok(MessageSignature::Tsig(make_tsig_record(
+                tsigner.signer_name().clone(),
+                resp_tsig,
+            )))
+        });
+
+        (response, response_signer)
     }
 }
 
@@ -948,9 +1079,9 @@ impl Authority for SqliteAuthority {
         self.in_memory.zone_type()
     }
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        self.in_memory.is_axfr_allowed()
+    /// Return a policy that can be used to determine how AXFR requests should be handled.
+    fn axfr_policy(&self) -> AxfrPolicy {
+        self.axfr_policy
     }
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -968,19 +1099,29 @@ impl Authority for SqliteAuthority {
     ///
     /// See [RFC 2136](https://datatracker.ietf.org/doc/html/rfc2136#section-3) section 3.4 for
     /// details.
-    async fn update(&self, _request: &Request) -> UpdateResult<bool> {
+    async fn update(&self, _request: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.
-            self.authorize(_request).await?;
-            self.verify_prerequisites(_request.prerequisites()).await?;
-            self.pre_scan(_request.updates()).await?;
-            self.update_records(_request.updates(), true).await
+            let signer = match self.authorize_update(_request).await {
+                (Err(e), signer) => return (Err(e), signer),
+                (_, signer) => signer,
+            };
+
+            if let Err(code) = self.verify_prerequisites(_request.prerequisites()).await {
+                return (Err(code), signer);
+            }
+
+            if let Err(code) = self.pre_scan(_request.updates()).await {
+                return (Err(code), signer);
+            }
+
+            (self.update_records(_request.updates(), true).await, signer)
         }
         #[cfg(not(feature = "__dnssec"))]
         {
             // if we don't have dnssec, we can't do updates.
-            Err(ResponseCode::NotImp)
+            (Err(ResponseCode::NotImp), None)
         }
     }
 
@@ -1020,15 +1161,34 @@ impl Authority for SqliteAuthority {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
-        let search = self.in_memory.search(request_info, lookup_options).await;
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+        };
+        let signer = if request_info.query.query_type() == RecordType::AXFR {
+            let (resp, signer) = self.authorize_axfr(request).await;
+            if let Err(code) = resp {
+                warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
+                return (
+                    LookupControlFlow::Continue(Err(LookupError::ResponseCode(code))),
+                    signer,
+                );
+            }
+            debug!(axfr_policy=?self.axfr_policy, "authorized AXFR");
+            signer
+        } else {
+            None
+        };
+
+        let (search, _) = self.in_memory.search(request, lookup_options).await;
 
         #[cfg(feature = "metrics")]
         self.metrics.query.increment_lookup(&search);
 
-        search
+        (search, signer)
     }
 
     /// Return the NSEC records based on the given name

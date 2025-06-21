@@ -22,15 +22,15 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, UpdateResult, ZoneType,
+        AnyRecords, AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
+        LookupOptions, LookupRecords, ResponseSigner, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
         serialize::txt::Parser,
     },
-    server::{Request, RequestInfo},
+    server::Request,
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -53,7 +53,7 @@ pub struct InMemoryAuthority {
     origin: LowerName,
     class: DNSClass,
     zone_type: ZoneType,
-    allow_axfr: bool,
+    axfr_policy: AxfrPolicy,
     inner: RwLock<InnerInMemory>,
     #[cfg(feature = "__dnssec")]
     nx_proof_kind: Option<NxProofKind>,
@@ -68,7 +68,7 @@ impl InMemoryAuthority {
     ///   record.
     /// * `records` - The map of the initial set of records in the zone.
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
-    /// * `allow_axfr` - Whether AXFR is allowed.
+    /// * `axfr_policy` - A policy for determining if AXFR is allowed.
     /// * `nx_proof_kind` - The kind of non-existence proof to be used by the server.
     ///
     /// # Return value
@@ -78,13 +78,13 @@ impl InMemoryAuthority {
         origin: Name,
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
-        allow_axfr: bool,
+        axfr_policy: AxfrPolicy,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         let mut this = Self::empty(
             origin.clone(),
             zone_type,
-            allow_axfr,
+            axfr_policy,
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
         );
@@ -127,14 +127,14 @@ impl InMemoryAuthority {
     pub fn empty(
         origin: Name,
         zone_type: ZoneType,
-        allow_axfr: bool,
+        axfr_policy: AxfrPolicy,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             zone_type,
-            allow_axfr,
+            axfr_policy,
             inner: RwLock::new(InnerInMemory::default()),
 
             #[cfg(feature = "__dnssec")]
@@ -147,10 +147,10 @@ impl InMemoryAuthority {
         self.class
     }
 
-    /// Allow AXFR's (zone transfers)
+    /// Set the AXFR policy for testing purposes
     #[cfg(any(test, feature = "testing"))]
-    pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
-        self.allow_axfr = allow_axfr;
+    pub fn set_axfr_policy(&mut self, policy: AxfrPolicy) {
+        self.axfr_policy = policy;
     }
 
     /// Clears all records (including SOA, etc)
@@ -323,9 +323,9 @@ impl Authority for InMemoryAuthority {
         self.zone_type
     }
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        self.allow_axfr
+    /// Return the policy for determining if AXFR requests are allowed
+    fn axfr_policy(&self) -> AxfrPolicy {
+        self.axfr_policy
     }
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -385,8 +385,8 @@ impl Authority for InMemoryAuthority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
@@ -577,9 +577,13 @@ impl Authority for InMemoryAuthority {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+        };
         debug!("searching InMemoryAuthority for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -589,27 +593,32 @@ impl Authority for InMemoryAuthority {
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
-            if !self.is_axfr_allowed() {
-                return LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused)));
+            if !matches!(self.axfr_policy, AxfrPolicy::AllowAll) {
+                return (
+                    LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused))),
+                    None,
+                );
             }
 
             match self.zone_type() {
                 ZoneType::Primary | ZoneType::Secondary => (),
                 // TODO: Forward?
                 _ => {
-                    return LookupControlFlow::Continue(Err(LookupError::from(
-                        ResponseCode::NXDomain,
-                    )));
+                    return (
+                        LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
+                        None,
+                    );
                 }
             }
         }
 
         // perform the actual lookup
         match record_type {
-            RecordType::SOA => {
+            RecordType::SOA => (
                 self.lookup(self.origin(), record_type, lookup_options)
-                    .await
-            }
+                    .await,
+                None,
+            ),
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
                 use LookupControlFlow::Continue;
@@ -632,14 +641,20 @@ impl Authority for InMemoryAuthority {
                     LookupRecords::Empty
                 };
 
-                LookupControlFlow::Continue(Ok(AuthLookup::AXFR {
-                    start_soa,
-                    end_soa,
-                    records,
-                }))
+                (
+                    LookupControlFlow::Continue(Ok(AuthLookup::AXFR {
+                        start_soa,
+                        end_soa,
+                        records,
+                    })),
+                    None,
+                )
             }
             // A standard Lookup path
-            _ => self.lookup(lookup_name, record_type, lookup_options).await,
+            _ => (
+                self.lookup(lookup_name, record_type, lookup_options).await,
+                None,
+            ),
         }
     }
 

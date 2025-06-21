@@ -88,8 +88,9 @@ zone_type = "Primary"
 ## file: this is relative to the directory above
 file = "example.com.zone"
 
-## if false, AXFRs requests will result in Refused responses
-# allow_axfr = false
+## if "Deny", AXFRs requests will result in Refused responses
+## if "AllowAll", all AXFR requests (signed or unsigned) are allowed.
+axfr_policy = "Deny"
 
 ## if true, looks to see if a chained pem file exists at $file.pem (see
 ## supported_algorithms below).

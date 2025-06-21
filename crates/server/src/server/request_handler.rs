@@ -7,10 +7,11 @@
 
 //! Request Handler for incoming requests
 
+use bytes::Bytes;
 use std::net::SocketAddr;
 
-use bytes::Bytes;
-
+#[cfg(feature = "testing")]
+use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
     authority::MessageRequest,
     proto::{
@@ -45,6 +46,25 @@ impl Request {
         Ok(Self {
             message: MessageRequest::read(&mut decoder)?,
             raw: Bytes::from(raw),
+            src,
+            protocol,
+        })
+    }
+
+    /// Construct a new Request from the encoding of a MessageRequest, source address, and protocol
+    #[cfg(feature = "testing")]
+    pub fn from_message(
+        message: MessageRequest,
+        src: SocketAddr,
+        protocol: Protocol,
+    ) -> Result<Self, ProtoError> {
+        let mut encoded = Vec::new();
+        let mut encoder = BinEncoder::new(&mut encoded);
+        message.emit(&mut encoder)?;
+
+        Ok(Self {
+            message,
+            raw: Bytes::from(encoded),
             src,
             protocol,
         })

@@ -22,8 +22,8 @@ use crate::store::metrics::QueryStoreMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
-        ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        ResponseSigner, UpdateResult, ZoneType,
     },
     proto::{
         op::ResponseCode,
@@ -36,7 +36,7 @@ use crate::{
         lookup::Lookup as ResolverLookup,
         name_server::ConnectionProvider,
     },
-    server::{Request, RequestInfo},
+    server::Request,
 };
 
 /// A builder to construct a [`ForwardAuthority`].
@@ -218,9 +218,9 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         ZoneType::External
     }
 
-    /// Always false for Forward zones
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    /// AXFR requests are always denied for Forward zones
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
     /// Whether the authority can perform DNSSEC validation
@@ -228,8 +228,8 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         self.resolver.options().validate
     }
 
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
@@ -272,15 +272,22 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
-        self.lookup(
-            request_info.query.name(),
-            request_info.query.query_type(),
-            lookup_options,
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+        };
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                lookup_options,
+            )
+            .await,
+            None,
         )
-        .await
     }
 
     async fn get_nsec_records(

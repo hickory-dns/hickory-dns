@@ -28,8 +28,8 @@ use tracing::{debug, info};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions, UpdateResult,
-        ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        ResponseSigner, UpdateResult, ZoneType,
     },
     error::ConfigError,
     proto::{
@@ -40,7 +40,7 @@ use crate::{
     },
     recursor::{DnssecPolicy, Recursor},
     resolver::{TtlConfig, lookup::Lookup},
-    server::{Request, RequestInfo},
+    server::Request,
 };
 
 /// An authority that performs recursive resolutions.
@@ -108,17 +108,17 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         ZoneType::External
     }
 
-    /// Always false for Forward zones
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    /// Always deny for Forward zones
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
     fn can_validate_dnssec(&self) -> bool {
         self.recursor.is_validating()
     }
 
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
@@ -171,15 +171,22 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
-        self.lookup(
-            request_info.query.name(),
-            request_info.query.query_type(),
-            lookup_options,
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+        };
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                lookup_options,
+            )
+            .await,
+            None,
         )
-        .await
     }
 
     async fn get_nsec_records(

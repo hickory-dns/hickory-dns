@@ -8,18 +8,20 @@
 //! All authority related types
 
 use cfg_if::cfg_if;
+use serde::Deserialize;
 use std::fmt;
 
 use crate::{
     authority::{LookupError, LookupObject, UpdateResult, ZoneType},
+    proto::ProtoError,
+    proto::op::MessageSignature,
     proto::rr::{LowerName, RecordSet, RecordType, RrsetRecords},
-    server::{Request, RequestInfo},
+    server::Request,
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
     proto::{
-        ProtoError,
         dnssec::{DnsSecResult, Nsec3HashAlgorithm, SigSigner, crypto::Digest, rdata::key::KEY},
         rr::Name,
     },
@@ -76,8 +78,8 @@ pub trait Authority: Send + Sync {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool;
+    /// Return the policy for determining if AXFR requests are allowed
+    fn axfr_policy(&self) -> AxfrPolicy;
 
     /// Whether the authority can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool {
@@ -85,7 +87,7 @@ pub trait Authority: Send + Sync {
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&self, update: &Request) -> UpdateResult<bool>;
+    async fn update(&self, update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>);
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
@@ -137,14 +139,21 @@ pub trait Authority: Send + Sync {
     /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
     /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
     /// authority in question.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client. If it is
+    /// `None` and an earlier authority provided `Some`, it will be ignored. If it is `Some` it
+    /// will be used to replace any previous `ResponseSigner`.
     async fn consult(
         &self,
         _name: &LowerName,
         _rtype: RecordType,
         _lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
-        last_result
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<ResponseSigner>,
+    ) {
+        (last_result, None)
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -158,11 +167,13 @@ pub trait Authority: Send + Sync {
     /// # Return value
     ///
     /// A LookupControlFlow containing the lookup that should be returned to the client.
+    ///
+    /// An optional `ResponseSigner` to use to sign the response returned to the client.
     async fn search(
         &self,
-        request: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup>;
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>);
 
     /// Get the NS, NameServer, record for the zone
     async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<Self::Lookup> {
@@ -227,13 +238,28 @@ pub trait DnssecAuthority: Authority {
     async fn secure_zone(&self) -> DnsSecResult<()>;
 }
 
+/// AxfrPolicy describes how to handle AXFR requests
+///
+/// By default, all AXFR requests are denied.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum AxfrPolicy {
+    /// Deny all AXFR requests.
+    #[default]
+    Deny,
+    /// Allow all AXFR requests, regardless of whether they are signed.
+    AllowAll,
+    /// Allow all AXFR requests that have a valid SIG(0) or TSIG signature.
+    #[cfg(feature = "__dnssec")]
+    AllowSigned,
+}
+
 /// Result of a Lookup in the Catalog and Authority
 ///
 /// * **All authorities should default to using LookupControlFlow::Continue to wrap their responses.**
 ///   These responses may be passed to other authorities for analysis or requery purposes.
 /// * Authorities may use LookupControlFlow::Break to indicate the response must be returned
 ///   immediately to the client, without consulting any other authorities.  For example, if the
-///   the user configures a blocklist authority, it would not be appropriate to pass the query to
+///   user configures a blocklist authority, it would not be appropriate to pass the query to
 ///   any additional authorities to try to resolve, as that might be used to leak information to a
 ///   hostile party, and so a blocklist (or similar) authority should wrap responses for any
 ///   blocklist hits in LookupControlFlow::Break.
@@ -438,3 +464,7 @@ impl Nsec3QueryInfo<'_> {
         Ok(LowerName::new(&zone.prepend_label(label)?))
     }
 }
+
+/// A `ResponseSigner` takes a serialized response and produces a `MessageSignature` for it
+pub type ResponseSigner =
+    Box<dyn FnOnce(&[u8]) -> Result<MessageSignature, ProtoError> + Send + Sync>;

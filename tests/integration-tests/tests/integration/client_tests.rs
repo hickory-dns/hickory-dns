@@ -43,7 +43,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::authority::{Authority, Catalog};
+use hickory_server::authority::{Authority, AxfrPolicy, Catalog};
 use test_support::subscribe;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -431,7 +431,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
-    let mut authority = SqliteAuthority::new(authority, true, false);
+    let mut authority = SqliteAuthority::new(authority, AxfrPolicy::Deny, true, false);
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 

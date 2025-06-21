@@ -7,7 +7,7 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsRequest, FirstAnswer};
 use hickory_server::ServerFuture;
-use hickory_server::authority::{Catalog, ZoneType};
+use hickory_server::authority::{AxfrPolicy, Catalog, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;
@@ -101,7 +101,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         Name::root(),
         records,
         ZoneType::Primary,
-        false,
+        AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     )

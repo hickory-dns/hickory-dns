@@ -11,10 +11,10 @@ use hickory_proto::{
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
-        Authority, Catalog, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        LookupRecords, UpdateResult, ZoneType,
+        Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupObject,
+        LookupOptions, LookupRecords, ResponseSigner, UpdateResult, ZoneType,
     },
-    server::{Request, RequestInfo, ResponseInfo},
+    server::{Request, ResponseInfo},
 };
 use test_support::subscribe;
 
@@ -182,13 +182,12 @@ impl Authority for TestAuthority {
         self.zone_type
     }
 
-    /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        false
+    fn axfr_policy(&self) -> AxfrPolicy {
+        AxfrPolicy::Deny
     }
 
-    async fn update(&self, _update: &Request) -> UpdateResult<bool> {
-        Err(ResponseCode::NotImp)
+    async fn update(&self, _update: &Request) -> (UpdateResult<bool>, Option<ResponseSigner>) {
+        (Err(ResponseCode::NotImp), None)
     }
 
     async fn get_nsec_records(
@@ -227,15 +226,22 @@ impl Authority for TestAuthority {
 
     async fn search(
         &self,
-        request_info: RequestInfo<'_>,
+        request: &Request,
         lookup_options: LookupOptions,
-    ) -> LookupControlFlow<Self::Lookup> {
-        self.lookup(
-            request_info.query.name(),
-            request_info.query.query_type(),
-            lookup_options,
+    ) -> (LookupControlFlow<Self::Lookup>, Option<ResponseSigner>) {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+        };
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                lookup_options,
+            )
+            .await,
+            None,
         )
-        .await
     }
 
     async fn consult(
@@ -244,11 +250,14 @@ impl Authority for TestAuthority {
         _rtype: RecordType,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<Box<dyn LookupObject>>,
-    ) -> LookupControlFlow<Box<dyn LookupObject>> {
+    ) -> (
+        LookupControlFlow<Box<dyn LookupObject>>,
+        Option<ResponseSigner>,
+    ) {
         let Some(res) = inner_lookup(name, &self.consult_records, &lookup_options) else {
-            return last_result;
+            return (last_result, None);
         };
-        res.map_dyn()
+        (res.map_dyn(), None)
     }
 }
 
