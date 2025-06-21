@@ -22,13 +22,13 @@ use crate::store::metrics::QueryStoreMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        UpdateResult, ZoneType,
+        Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, UpdateResult,
+        ZoneType,
     },
     proto::{
         op::ResponseCode,
         op::message::ResponseSigner,
-        rr::{LowerName, Name, Record, RecordType},
+        rr::{LowerName, Name, RecordType},
         runtime::TokioRuntimeProvider,
     },
     resolver::{
@@ -212,7 +212,7 @@ impl ForwardAuthority<TokioRuntimeProvider> {
 
 #[async_trait::async_trait]
 impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
-    type Lookup = ForwardLookup;
+    type Lookup = Lookup;
 
     /// Always External
     fn zone_type(&self) -> ZoneType {
@@ -271,7 +271,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 
         use LookupControlFlow::*;
         let lookup = match self.resolver.lookup(name, rtype).await {
-            Ok(lookup) => Continue(Ok(ForwardLookup(lookup))),
+            Ok(lookup) => Continue(Ok(lookup)),
             Err(e) => Continue(Err(LookupError::from(e))),
         };
 
@@ -327,25 +327,6 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 
     #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
-        None
-    }
-}
-
-/// A structure that holds the results of a forwarding lookup.
-///
-/// This exposes an iterator interface for consumption downstream.
-pub struct ForwardLookup(pub Lookup);
-
-impl LookupObject for ForwardLookup {
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        Box::new(self.0.record_iter())
-    }
-
-    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
     }
 }
