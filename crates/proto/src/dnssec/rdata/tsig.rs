@@ -15,6 +15,7 @@ use core::{convert::TryInto, fmt};
 use serde::{Deserialize, Serialize};
 
 use super::DNSSECRData;
+use crate::dnssec::tsig::TSigner;
 use crate::op::MessageSignature;
 use crate::{
     dnssec::{DnsSecError, DnsSecErrorKind, ring_like::hmac},
@@ -155,6 +156,18 @@ pub struct TSIG {
 }
 
 impl TSIG {
+    pub(crate) fn stub(oid: u16, time: u64, signer: &TSigner) -> Self {
+        TSIG::new(
+            signer.algorithm().clone(),
+            time,
+            signer.fudge(),
+            Vec::new(),
+            oid,
+            None,
+            Vec::new(),
+        )
+    }
+
     /// Constructs a new TSIG
     ///
     /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.1)
