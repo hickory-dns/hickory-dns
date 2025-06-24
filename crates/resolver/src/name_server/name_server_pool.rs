@@ -256,7 +256,8 @@ mod tests {
     fn test_failed_then_success_pool() {
         subscribe();
 
-        let config1 = NameServerConfig::udp(IpAddr::from([127, 0, 0, 252]));
+        let mut config1 = NameServerConfig::udp(IpAddr::from([127, 0, 0, 252]));
+        config1.trust_negative_responses = false;
         let config2 = NameServerConfig::udp(IpAddr::from([8, 8, 8, 8]));
 
         let mut resolver_config = ResolverConfig::default();

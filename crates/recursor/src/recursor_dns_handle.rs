@@ -70,7 +70,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         conn_provider: P,
     ) -> Self {
         assert!(!roots.is_empty(), "roots must not be empty");
-        let servers = roots.iter().copied().map(udp_and_tcp).collect::<Vec<_>>();
+        let servers = roots
+            .iter()
+            .copied()
+            .map(NameServerConfig::udp_and_tcp)
+            .collect::<Vec<_>>();
 
         debug!(
             "Using cache sizes {}/{}",
@@ -454,7 +458,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             match glue_ips.get(&ns_data.0) {
                 Some(glue) if !glue.is_empty() => {
-                    config_group.extend(glue.iter().copied().map(udp_and_tcp));
+                    config_group.extend(glue.iter().copied().map(NameServerConfig::udp_and_tcp));
                 }
                 _ => {
                     debug!("glue not found for {ns_data}");
@@ -594,7 +598,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             } else {
                                 Some(ip)
                             }
-                        }).map(udp_and_tcp));
+                        }).map(NameServerConfig::udp_and_tcp));
                 }
                 Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
@@ -608,12 +612,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     fn recursor_opts(&self) -> ResolverOpts {
         recursor_opts(self.avoid_local_udp_ports.clone(), self.case_randomization)
     }
-}
-
-fn udp_and_tcp(ip: IpAddr) -> NameServerConfig {
-    let mut server = NameServerConfig::udp_and_tcp(ip);
-    server.trust_negative_responses = true;
-    server
 }
 
 fn recursor_opts(
