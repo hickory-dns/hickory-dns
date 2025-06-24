@@ -186,8 +186,8 @@ pub struct NameServerConfig {
     /// response code, the query will still be retried regardless of this
     /// configuration setting.)
     ///
-    /// Defaults to false.
-    #[cfg_attr(feature = "serde", serde(default))]
+    /// Defaults to `true`.
+    #[cfg_attr(feature = "serde", serde(default = "default_trust_negative_responses"))]
     pub trust_negative_responses: bool,
     /// Connection protocols configured for this server.
     pub connections: Vec<ConnectionConfig>,
@@ -198,7 +198,7 @@ impl NameServerConfig {
     pub fn udp_and_tcp(ip: IpAddr) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::udp(), ConnectionConfig::tcp()],
         }
     }
@@ -207,7 +207,7 @@ impl NameServerConfig {
     pub fn udp(ip: IpAddr) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::udp()],
         }
     }
@@ -216,7 +216,7 @@ impl NameServerConfig {
     pub fn tcp(ip: IpAddr) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::tcp()],
         }
     }
@@ -226,7 +226,7 @@ impl NameServerConfig {
     pub fn tls(ip: IpAddr, server_name: Arc<str>) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::tls(server_name)],
         }
     }
@@ -236,7 +236,7 @@ impl NameServerConfig {
     pub fn https(ip: IpAddr, server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::https(server_name, path)],
         }
     }
@@ -246,7 +246,7 @@ impl NameServerConfig {
     pub fn quic(ip: IpAddr, server_name: Arc<str>) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::quic(server_name)],
         }
     }
@@ -256,7 +256,7 @@ impl NameServerConfig {
     pub fn h3(ip: IpAddr, server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
         Self {
             ip,
-            trust_negative_responses: false,
+            trust_negative_responses: true,
             connections: vec![ConnectionConfig::h3(server_name, path)],
         }
     }
@@ -273,6 +273,11 @@ impl NameServerConfig {
             connections,
         }
     }
+}
+
+#[cfg(feature = "serde")]
+fn default_trust_negative_responses() -> bool {
+    true
 }
 
 /// Configuration for a connection to a nameserver
