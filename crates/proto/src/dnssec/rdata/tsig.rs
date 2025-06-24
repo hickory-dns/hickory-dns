@@ -154,71 +154,6 @@ pub struct TSIG {
     other: Vec<u8>,
 }
 
-/// Algorithm used to authenticate communication
-///
-/// [RFC8945 Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-6)
-/// ```text
-///      +==========================+================+=================+
-///      | Algorithm Name           | Implementation | Use             |
-///      +==========================+================+=================+
-///      | HMAC-MD5.SIG-ALG.REG.INT | MAY            | MUST NOT        |
-///      +--------------------------+----------------+-----------------+
-///      | gss-tsig                 | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha1                | MUST           | NOT RECOMMENDED |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha224              | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha256              | MUST           | RECOMMENDED     |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha256-128          | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha384              | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha384-192          | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha512              | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-///      | hmac-sha512-256          | MAY            | MAY             |
-///      +--------------------------+----------------+-----------------+
-/// ```
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum TsigAlgorithm {
-    /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "HMAC-MD5.SIG-ALG.REG.INT"))]
-    HmacMd5,
-    /// gss-tsig (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "gss-tsig"))]
-    Gss,
-    /// hmac-sha1 (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha1"))]
-    HmacSha1,
-    /// hmac-sha224 (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha224"))]
-    HmacSha224,
-    /// hmac-sha256
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha256"))]
-    HmacSha256,
-    /// hmac-sha256-128 (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha256-128"))]
-    HmacSha256_128,
-    /// hmac-sha384
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha384"))]
-    HmacSha384,
-    /// hmac-sha384-192 (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha384-192"))]
-    HmacSha384_192,
-    /// hmac-sha512
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha512"))]
-    HmacSha512,
-    /// hmac-sha512-256 (not supported for cryptographic operations)
-    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha512-256"))]
-    HmacSha512_256,
-    /// Unknown algorithm
-    Unknown(Name),
-}
-
 impl TSIG {
     /// Constructs a new TSIG
     ///
@@ -508,6 +443,71 @@ impl fmt::Display for TSIG {
             other = sshfp::HEX.encode(&self.other),
         )
     }
+}
+
+/// Algorithm used to authenticate communication
+///
+/// [RFC8945 Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-6)
+/// ```text
+///      +==========================+================+=================+
+///      | Algorithm Name           | Implementation | Use             |
+///      +==========================+================+=================+
+///      | HMAC-MD5.SIG-ALG.REG.INT | MAY            | MUST NOT        |
+///      +--------------------------+----------------+-----------------+
+///      | gss-tsig                 | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha1                | MUST           | NOT RECOMMENDED |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha224              | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha256              | MUST           | RECOMMENDED     |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha256-128          | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha384              | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha384-192          | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha512              | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+///      | hmac-sha512-256          | MAY            | MAY             |
+///      +--------------------------+----------------+-----------------+
+/// ```
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum TsigAlgorithm {
+    /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "HMAC-MD5.SIG-ALG.REG.INT"))]
+    HmacMd5,
+    /// gss-tsig (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "gss-tsig"))]
+    Gss,
+    /// hmac-sha1 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha1"))]
+    HmacSha1,
+    /// hmac-sha224 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha224"))]
+    HmacSha224,
+    /// hmac-sha256
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha256"))]
+    HmacSha256,
+    /// hmac-sha256-128 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha256-128"))]
+    HmacSha256_128,
+    /// hmac-sha384
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha384"))]
+    HmacSha384,
+    /// hmac-sha384-192 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha384-192"))]
+    HmacSha384_192,
+    /// hmac-sha512
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha512"))]
+    HmacSha512,
+    /// hmac-sha512-256 (not supported for cryptographic operations)
+    #[cfg_attr(feature = "serde", serde(rename = "hmac-sha512-256"))]
+    HmacSha512_256,
+    /// Unknown algorithm
+    Unknown(Name),
 }
 
 impl TsigAlgorithm {
