@@ -189,16 +189,8 @@ impl MessageSigner for TSigner {
         debug!("signing message: {:?}", message);
         let current_time = current_time as u64;
 
-        let pre_tsig = TSIG::new(
-            self.0.algorithm.clone(),
-            current_time,
-            self.0.fudge,
-            Vec::new(),
-            message.id(),
-            None,
-            Vec::new(),
-        );
-        let mut signature: Vec<u8> = self
+        let pre_tsig = TSIG::stub(message.id(), current_time, self);
+        let mut signature = self
             .sign_message(message, &pre_tsig)
             .map_err(|err| ProtoError::from(err.to_string()))?;
         let tsig = make_tsig_record(
