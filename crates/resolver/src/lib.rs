@@ -212,7 +212,7 @@ pub use resolver::LookupFuture;
 pub use resolver::TokioResolver;
 pub use resolver::{Resolver, ResolverBuilder};
 mod cache;
-pub use cache::{ResponseCache, TtlBounds, TtlConfig};
+pub use cache::{MAX_TTL, ResponseCache, TtlBounds, TtlConfig};
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
