@@ -486,16 +486,12 @@ pub struct ResolverOpts {
     /// Optional maximum TTL for positive responses.
     ///
     /// If this is set, any positive responses with a TTL higher than this value will have a TTL of
-    /// `positive_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`] seconds.
-    ///
-    /// [`MAX_TTL`]: ../dns_lru/const.MAX_TTL.html
+    /// `positive_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`](crate::MAX_TTL) seconds.
     pub positive_max_ttl: Option<Duration>,
     /// Optional maximum TTL for negative (`NXDOMAIN`) responses.
     ///
     /// If this is set, any negative responses with a TTL higher than this value will have a TTL of
-    /// `negative_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`] seconds.
-    ///
-    /// [`MAX_TTL`]: ../dns_lru/const.MAX_TTL.html
+    /// `negative_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`](crate::MAX_TTL) seconds.
     pub negative_max_ttl: Option<Duration>,
     /// Number of concurrent requests per query
     ///

@@ -363,7 +363,7 @@ mod ttl_config_deserialize {
 /// [RFC 2181, section 8](https://tools.ietf.org/html/rfc2181#section-8) says
 /// that the maximum TTL value is 2147483647, but implementations may place an
 /// upper bound on received TTLs.
-pub(crate) const MAX_TTL: u32 = 86400_u32;
+pub const MAX_TTL: u32 = 86400_u32;
 
 #[cfg(test)]
 mod tests {
