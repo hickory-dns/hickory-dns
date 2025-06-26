@@ -623,7 +623,10 @@ fn recursor_opts(
     let mut options = ResolverOpts::default();
     options.ndots = 0;
     options.edns0 = true;
-    options.validate = false; // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
+    #[cfg(feature = "__dnssec")]
+    {
+        options.validate = false; // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
+    }
     options.preserve_intermediates = true;
     options.recursion_desired = false;
     options.num_concurrent_reqs = 1;

@@ -101,7 +101,14 @@ impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
-        self.inner.options.validate
+        #[cfg(feature = "__dnssec")]
+        {
+            self.inner.options.validate
+        }
+        #[cfg(not(feature = "__dnssec"))]
+        {
+            false
+        }
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
