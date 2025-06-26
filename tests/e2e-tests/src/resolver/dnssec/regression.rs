@@ -11,7 +11,6 @@ use dns_test::{
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/3090
 #[test]
-#[ignore]
 fn infinite_recursion_with_unsigned_ds_record() -> Result<()> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);

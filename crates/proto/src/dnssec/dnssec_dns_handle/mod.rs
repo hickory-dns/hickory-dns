@@ -652,13 +652,17 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // Decide if we're:
             //    1) "insecure", the zone has a valid NSEC for the DS record in the parent zone
             //    2) "bogus", the parent zone has a valid DS record, but the child zone didn't have the RRSIGs/DNSKEYs
-            let mut search_name = rrset.name().clone();
-            if rrset.record_type() == RecordType::NSEC3 {
-                // No need to look for a zone cut at an NSEC3 owner name. Look at its parent
-                // instead, which ought to be a zone apex.
-                search_name = search_name.base_name();
+            //       or the parent zone has a DS record without covering RRSIG records.
+            if rrset.record_type() != RecordType::DS {
+                let mut search_name = rrset.name().clone();
+                if rrset.record_type() == RecordType::NSEC3 {
+                    // No need to look for a zone cut at an NSEC3 owner name. Look at its parent
+                    // instead, which ought to be a zone apex.
+                    search_name = search_name.base_name();
+                }
+
+                self.find_ds_records(search_name, options).await?; // insecure will return early here
             }
-            self.find_ds_records(search_name, options).await?; // insecure will return early here
 
             return Err(ProofError::new(
                 Proof::Bogus,
