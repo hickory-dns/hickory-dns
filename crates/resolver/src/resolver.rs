@@ -445,30 +445,20 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         let options = Arc::new(options);
         let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
         let client = RetryDnsHandle::new(pool, options.attempts);
-        let either;
-        if options.validate {
-            #[cfg(feature = "__dnssec")]
-            {
-                let trust_anchor =
-                    trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
 
-                either = LookupEither::Secure(
-                    DnssecDnsHandle::with_trust_anchor(client, trust_anchor)
-                        .nsec3_iteration_limits(
-                            nsec3_soft_iteration_limit,
-                            nsec3_hard_iteration_limit,
-                        ),
-                );
-            }
+        #[cfg(feature = "__dnssec")]
+        let either = if options.validate {
+            let trust_anchor = trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
 
-            #[cfg(not(feature = "__dnssec"))]
-            {
-                tracing::warn!("validate option is only available with dnssec features");
-                either = LookupEither::Retry(client);
-            }
+            LookupEither::Secure(
+                DnssecDnsHandle::with_trust_anchor(client, trust_anchor)
+                    .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit),
+            )
         } else {
-            either = LookupEither::Retry(client);
-        }
+            LookupEither::Retry(client)
+        };
+        #[cfg(not(feature = "__dnssec"))]
+        let either = LookupEither::Retry(client);
 
         let cache = ResponseCache::new(options.cache_size, TtlConfig::from_opts(&options));
         let client_cache = CachingClient::with_cache(cache, either, options.preserve_intermediates);

@@ -465,6 +465,7 @@ pub struct ResolverOpts {
     /// Enable edns, for larger records
     pub edns0: bool,
     /// Use DNSSEC to validate the request
+    #[cfg(feature = "__dnssec")]
     pub validate: bool,
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
     pub ip_strategy: LookupIpStrategy,
@@ -556,6 +557,7 @@ impl Default for ResolverOpts {
             attempts: default_attempts(),
             check_names: default_check_names(),
             edns0: false,
+            #[cfg(feature = "__dnssec")]
             validate: false,
             ip_strategy: LookupIpStrategy::default(),
             cache_size: default_cache_size(),

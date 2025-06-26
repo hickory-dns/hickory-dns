@@ -226,7 +226,14 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
 
     /// Whether the authority can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool {
-        self.resolver.options().validate
+        #[cfg(feature = "__dnssec")]
+        {
+            self.resolver.options().validate
+        }
+        #[cfg(not(feature = "__dnssec"))]
+        {
+            false
+        }
     }
 
     async fn update(
