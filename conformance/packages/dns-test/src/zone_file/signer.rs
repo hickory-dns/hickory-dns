@@ -265,7 +265,7 @@ impl<'a> Signer<'a> {
         )?;
 
         let signzone_cmd = self.sign_zone_cmd(zone, [zsk_filename, ksk_filename].iter().cloned());
-        let signzone = format!("cd {ZONES_DIR} && {}", signzone_cmd);
+        let signzone = format!("cd {ZONES_DIR} && {signzone_cmd}");
         self.container.status_ok(&["sh", "-c", &signzone])?;
 
         // TODO do we want to make the hashing algorithm configurable?
@@ -341,10 +341,10 @@ impl<'a> Signer<'a> {
                 let mut args = vec![String::from("ldns-signzone"), "-A".to_string()];
 
                 if let Some(expiration) = self.settings.expiration {
-                    args.push(format!("-e {}", expiration));
+                    args.push(format!("-e {expiration}"));
                 }
                 if let Some(inception) = self.settings.inception {
-                    args.push(format!("-i {}", inception));
+                    args.push(format!("-i {inception}"));
                 }
 
                 // NSEC3 related options
@@ -366,7 +366,7 @@ impl<'a> Signer<'a> {
                     }
 
                     if let Some(salt) = salt {
-                        args.push(format!("-s {}", salt));
+                        args.push(format!("-s {salt}"));
                     }
                 }
                 args.push(ZONE_FILENAME.to_string());
@@ -382,10 +382,10 @@ impl<'a> Signer<'a> {
                 args.push("-O full".to_string());
 
                 if let Some(expiration) = self.settings.expiration {
-                    args.push(format!("-e {}", expiration));
+                    args.push(format!("-e {expiration}"));
                 }
                 if let Some(inception) = self.settings.inception {
-                    args.push(format!("-s {}", inception));
+                    args.push(format!("-s {inception}"));
                 }
 
                 // Set -3 for NSEC3, optionally followed by a salt.
