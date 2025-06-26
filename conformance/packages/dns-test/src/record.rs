@@ -1330,7 +1330,7 @@ impl fmt::Display for UnknownRdata {
 
         write!(f, "{zone}\t{ttl}\t{CLASS}\tTYPE{type}\t\\# {}", rdata.len())?;
         for byte in rdata {
-            write!(f, " {:02x}", byte)?;
+            write!(f, " {byte:02x}")?;
         }
         Ok(())
     }
