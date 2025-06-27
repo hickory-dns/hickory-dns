@@ -22,6 +22,35 @@ pub enum DnssecSummary {
     Insecure,
 }
 
+impl DnssecSummary {
+    /// Whether the records have been DNSSEC validated or not
+    #[cfg(feature = "__dnssec")]
+    pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
+        let mut all_secure = None;
+        for record in records {
+            match record.proof() {
+                Proof::Secure => {
+                    all_secure.get_or_insert(true);
+                }
+                Proof::Bogus => return Self::Bogus,
+                _ => all_secure = Some(false),
+            }
+        }
+
+        if all_secure.unwrap_or(false) {
+            Self::Secure
+        } else {
+            Self::Insecure
+        }
+    }
+
+    /// Whether the records have been DNSSEC validated or not
+    #[cfg(not(feature = "__dnssec"))]
+    fn from_records<'a>(_: impl Iterator<Item = &'a Record>) -> Self {
+        Self::Insecure
+    }
+}
+
 #[cfg(feature = "resolver")]
 impl LookupObject for crate::resolver::lookup::Lookup {
     fn is_empty(&self) -> bool {
@@ -49,33 +78,6 @@ pub trait LookupObject: Send {
     ///
     /// it is acceptable for this to return None after the first call.
     fn take_additionals(&mut self) -> Option<AuthLookup>;
-
-    /// Whether the records have been DNSSEC validated or not
-    #[cfg(feature = "__dnssec")]
-    fn dnssec_summary(&self) -> DnssecSummary {
-        let mut all_secure = None;
-        for record in self.iter() {
-            match record.proof() {
-                Proof::Secure => {
-                    all_secure.get_or_insert(true);
-                }
-                Proof::Bogus => return DnssecSummary::Bogus,
-                _ => all_secure = Some(false),
-            }
-        }
-
-        if all_secure.unwrap_or(false) {
-            DnssecSummary::Secure
-        } else {
-            DnssecSummary::Insecure
-        }
-    }
-
-    /// Whether the records have been DNSSEC validated or not
-    #[cfg(not(feature = "__dnssec"))]
-    fn dnssec_summary(&self) -> DnssecSummary {
-        DnssecSummary::Insecure
-    }
 }
 
 /// A lookup that returns no records
