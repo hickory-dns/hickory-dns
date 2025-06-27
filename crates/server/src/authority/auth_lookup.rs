@@ -9,7 +9,7 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use crate::authority::{LookupObject, LookupOptions};
+use crate::authority::LookupOptions;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 #[cfg(feature = "resolver")]
 use crate::resolver::lookup::{Lookup, LookupRecordIter};
@@ -85,24 +85,6 @@ impl AuthLookup {
             Self::Records { additionals, .. } => additionals.take(),
             _ => None,
         }
-    }
-}
-
-impl LookupObject for AuthLookup {
-    fn is_empty(&self) -> bool {
-        Self::is_empty(self)
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        let boxed_iter = Self::iter(self);
-        Box::new(boxed_iter)
-    }
-
-    fn take_additionals(&mut self) -> Option<AuthLookup> {
-        Self::take_additionals(self).map(|additionals| AuthLookup::Records {
-            answers: additionals,
-            additionals: None,
-        })
     }
 }
 
@@ -398,19 +380,5 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
 impl From<AnyRecords> for LookupRecords {
     fn from(rrset_records: AnyRecords) -> Self {
         Self::AnyRecords(rrset_records)
-    }
-}
-
-impl LookupObject for LookupRecords {
-    fn is_empty(&self) -> bool {
-        Self::was_empty(self)
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        Box::new(self.iter())
-    }
-
-    fn take_additionals(&mut self) -> Option<AuthLookup> {
-        None
     }
 }

@@ -9,7 +9,7 @@
 
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::Proof;
-use crate::{authority::AuthLookup, proto::rr::Record};
+use crate::proto::rr::Record;
 
 /// DNSSEC status of an answer
 #[derive(Clone, Copy, Debug)]
@@ -49,33 +49,4 @@ impl DnssecSummary {
     fn from_records<'a>(_: impl Iterator<Item = &'a Record>) -> Self {
         Self::Insecure
     }
-}
-
-#[cfg(feature = "resolver")]
-impl LookupObject for crate::resolver::lookup::Lookup {
-    fn is_empty(&self) -> bool {
-        self.records().is_empty()
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        Box::new(self.record_iter())
-    }
-
-    fn take_additionals(&mut self) -> Option<AuthLookup> {
-        None
-    }
-}
-
-/// An Object Safe Lookup for Authority
-pub trait LookupObject: Send {
-    /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
-    fn is_empty(&self) -> bool;
-
-    /// Conversion to an iterator
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a>;
-
-    /// For CNAME and similar records, this is an additional set of lookup records
-    ///
-    /// it is acceptable for this to return None after the first call.
-    fn take_additionals(&mut self) -> Option<AuthLookup>;
 }
