@@ -17,8 +17,8 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
-        MessageResponseBuilder, ZoneType, authority_object::DnssecSummary,
+        AuthLookup, Authority, DnssecSummary, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, MessageResponseBuilder, ZoneType,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
