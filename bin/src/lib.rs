@@ -35,6 +35,7 @@ use rustls::{
 };
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
+use tracing::{debug, info, warn};
 
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::default_provider;
@@ -47,7 +48,6 @@ use hickory_server::proto::runtime::TokioRuntimeProvider;
 use hickory_server::store::blocklist::BlocklistAuthority;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
-use hickory_server::store::file::FileConfig;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "resolver")]
@@ -60,10 +60,9 @@ use hickory_server::store::recursor::RecursiveConfig;
 use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
     ConfigError,
-    authority::{AuthorityObject, AxfrPolicy, ZoneType},
-    store::file::FileAuthority,
+    authority::{Authority, AxfrPolicy, ZoneType},
+    store::file::{FileAuthority, FileConfig},
 };
-use tracing::{debug, info, warn};
 
 #[cfg(feature = "prometheus-metrics")]
 mod prometheus_server;
@@ -357,7 +356,7 @@ pub struct ZoneConfig {
 
 impl ZoneConfig {
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn AuthorityObject>>, String> {
+    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn Authority>>, String> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -367,7 +366,7 @@ impl ZoneConfig {
 
         // load the zone and insert any configured authorities in the catalog.
 
-        let mut authorities: Vec<Arc<dyn AuthorityObject>> = vec![];
+        let mut authorities: Vec<Arc<dyn Authority>> = vec![];
         match &self.zone_type_config {
             ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
                 debug!(
@@ -377,7 +376,7 @@ impl ZoneConfig {
 
                 let axfr_policy = server_config.axfr_policy();
                 for store in &server_config.stores {
-                    let authority: Arc<dyn AuthorityObject> = match store {
+                    let authority: Arc<dyn Authority> = match store {
                         #[cfg(feature = "sqlite")]
                         ServerStoreConfig::Sqlite(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
@@ -433,7 +432,7 @@ impl ZoneConfig {
                     allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
-                    let authority: Arc<dyn AuthorityObject> = match store {
+                    let authority: Arc<dyn Authority> = match store {
                         #[cfg(feature = "blocklist")]
                         ExternalStoreConfig::Blocklist(config) => {
                             Arc::new(BlocklistAuthority::try_from_config(

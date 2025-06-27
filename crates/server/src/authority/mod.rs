@@ -32,7 +32,7 @@ pub use self::auth_lookup::{
 pub use self::authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions};
 #[cfg(feature = "__dnssec")]
 pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
-pub use self::authority_object::{AuthorityObject, DnssecSummary, EmptyLookup, LookupObject};
+pub use self::authority_object::{DnssecSummary, EmptyLookup, LookupObject};
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
