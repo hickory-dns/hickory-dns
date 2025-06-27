@@ -79,21 +79,3 @@ pub trait LookupObject: Send {
     /// it is acceptable for this to return None after the first call.
     fn take_additionals(&mut self) -> Option<AuthLookup>;
 }
-
-/// A lookup that returns no records
-#[derive(Clone, Copy, Debug)]
-pub struct EmptyLookup;
-
-impl LookupObject for EmptyLookup {
-    fn is_empty(&self) -> bool {
-        true
-    }
-
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        Box::new([].iter())
-    }
-
-    fn take_additionals(&mut self) -> Option<AuthLookup> {
-        None
-    }
-}
