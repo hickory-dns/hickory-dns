@@ -223,11 +223,7 @@ impl Authority for TestAuthority {
         let Some(res) = inner_lookup(name, &self.lookup_records, &lookup_options) else {
             panic!("reached end of records without a match");
         };
-
-        res.map(|answers| AuthLookup::Records {
-            answers,
-            additionals: None,
-        })
+        res
     }
 
     async fn search(
@@ -266,14 +262,7 @@ impl Authority for TestAuthority {
         let Some(res) = inner_lookup(name, &self.consult_records, &lookup_options) else {
             return (last_result, None);
         };
-
-        (
-            res.map(|answers| AuthLookup::Records {
-                answers,
-                additionals: None,
-            }),
-            None,
-        )
+        (res, None)
     }
 }
 
@@ -302,7 +291,7 @@ fn inner_lookup(
     name: &LowerName,
     records: &TestRecords,
     lookup_options: &LookupOptions,
-) -> Option<LookupControlFlow<LookupRecords>> {
+) -> Option<LookupControlFlow<AuthLookup>> {
     let ascii_name = &Name::from(name).to_ascii()[..];
 
     for record in records.iter() {
@@ -319,7 +308,10 @@ fn inner_lookup(
                 1,
             );
 
-            let lookup = LookupRecords::new(*lookup_options, rset.into());
+            let lookup = AuthLookup::Records {
+                answers: LookupRecords::new(*lookup_options, rset.into()),
+                additionals: None,
+            };
 
             use LookupControlFlow::*;
             match response_type {

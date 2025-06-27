@@ -12,7 +12,7 @@ use serde::Deserialize;
 use std::fmt;
 
 use crate::{
-    authority::{AuthLookup, LookupError, LookupObject, UpdateResult, ZoneType},
+    authority::{AuthLookup, LookupError, UpdateResult, ZoneType},
     proto::{
         op::message::ResponseSigner,
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
@@ -325,9 +325,9 @@ impl<T, E> LookupControlFlow<T, E> {
     }
 }
 
-impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
+impl<E: std::fmt::Display> LookupControlFlow<AuthLookup, E> {
     /// Return inner Ok variant or panic with a custom error message.
-    pub fn expect(self, msg: &str) -> T {
+    pub fn expect(self, msg: &str) -> AuthLookup {
         match self {
             Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
             _ => {
@@ -349,7 +349,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
     }
 
     /// Return inner Ok variant or panic
-    pub fn unwrap(self) -> T {
+    pub fn unwrap(self) -> AuthLookup {
         match self {
             Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
             Self::Continue(Err(e)) | Self::Break(Err(e)) => {
@@ -372,18 +372,15 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
     }
 
     /// Return inner Ok Variant or default value
-    pub fn unwrap_or_default(self) -> T
-    where
-        T: Default,
-    {
+    pub fn unwrap_or_default(self) -> AuthLookup {
         match self {
             Self::Continue(Ok(ok)) | Self::Break(Ok(ok)) => ok,
-            _ => T::default(),
+            _ => AuthLookup::default(),
         }
     }
 
     /// Maps inner Ok(T) to Ok(U), passing inner Err and Skip values unchanged.
-    pub fn map<U, F: FnOnce(T) -> U>(self, op: F) -> LookupControlFlow<U, E> {
+    pub fn map<U, F: FnOnce(AuthLookup) -> U>(self, op: F) -> LookupControlFlow<U, E> {
         match self {
             Self::Continue(cont) => match cont {
                 Ok(t) => LookupControlFlow::Continue(Ok(op(t))),
@@ -398,7 +395,7 @@ impl<T: LookupObject + 'static, E: std::fmt::Display> LookupControlFlow<T, E> {
     }
 
     /// Maps inner Err(T) to Err(U), passing Ok and Skip values unchanged.
-    pub fn map_err<U, F: FnOnce(E) -> U>(self, op: F) -> LookupControlFlow<T, U> {
+    pub fn map_err<U, F: FnOnce(E) -> U>(self, op: F) -> LookupControlFlow<AuthLookup, U> {
         match self {
             Self::Continue(cont) => match cont {
                 Ok(lookup) => LookupControlFlow::Continue(Ok(lookup)),

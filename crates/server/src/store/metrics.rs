@@ -1,4 +1,4 @@
-use crate::authority::{LookupControlFlow, LookupObject};
+use crate::authority::{AuthLookup, LookupControlFlow};
 use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 
 pub(super) struct StoreMetrics {
@@ -113,10 +113,7 @@ impl QueryStoreMetrics {
         }
     }
 
-    pub(super) fn increment_lookup<T: LookupObject>(
-        &self,
-        lookup_control_flow: &LookupControlFlow<T>,
-    ) {
+    pub(super) fn increment_lookup(&self, lookup_control_flow: &LookupControlFlow<AuthLookup>) {
         let is_success = match lookup_control_flow {
             LookupControlFlow::Continue(res) => res.is_ok(),
             LookupControlFlow::Break(res) => res.is_ok(),
