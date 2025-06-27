@@ -16,6 +16,7 @@ use crate::resolver::lookup::{Lookup, LookupRecordIter};
 
 /// The result of a lookup on an Authority
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum AuthLookup {
     /// No records
     Empty,
