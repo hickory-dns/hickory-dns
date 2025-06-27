@@ -177,10 +177,9 @@ pub struct NameServerConfig {
     pub ip: IpAddr,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
-    /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
+    /// When this is `true`, and an empty `NXDOMAIN` response
     /// with an empty answers set is received, the
-    /// query will not be retried against other configured name servers if
-    /// the response has the Authoritative flag set.
+    /// query will not be retried against other configured name servers.
     ///
     /// (On a response with any other error
     /// response code, the query will still be retried regardless of this
