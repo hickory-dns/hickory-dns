@@ -177,13 +177,11 @@ pub struct NameServerConfig {
     pub ip: IpAddr,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
-    /// When this is `true`, and an empty `NXDOMAIN` response
-    /// with an empty answers set is received, the
-    /// query will not be retried against other configured name servers.
+    /// When this is `true`, and an empty `NXDOMAIN` response with an empty answers set is
+    /// received, the query will not be retried against other configured name servers.
     ///
-    /// (On a response with any other error
-    /// response code, the query will still be retried regardless of this
-    /// configuration setting.)
+    /// (On a response with any other error response code, the query will still be retried
+    /// regardless of this configuration setting.)
     ///
     /// Defaults to `true`.
     #[cfg_attr(feature = "serde", serde(default = "default_trust_negative_responses"))]
