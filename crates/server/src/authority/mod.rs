@@ -12,6 +12,8 @@ use std::{io, sync::Arc};
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::Proof;
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{Record, rdata::SOA};
 use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
@@ -21,7 +23,6 @@ use crate::recursor::ErrorKind;
 mod auth_lookup;
 #[allow(clippy::module_inception)]
 mod authority;
-pub(crate) mod authority_object;
 mod catalog;
 pub(crate) mod message_request;
 mod message_response;
@@ -32,7 +33,6 @@ pub use self::auth_lookup::{
 pub use self::authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions};
 #[cfg(feature = "__dnssec")]
 pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
-pub use self::authority_object::DnssecSummary;
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
@@ -141,6 +141,46 @@ impl From<io::Error> for LookupError {
 impl From<LookupError> for io::Error {
     fn from(e: LookupError) -> Self {
         Self::other(Box::new(e))
+    }
+}
+
+/// DNSSEC status of an answer
+#[derive(Clone, Copy, Debug)]
+pub enum DnssecSummary {
+    /// All records have been DNSSEC validated
+    Secure,
+    /// At least one record is in the Bogus state
+    Bogus,
+    /// Insecure / Indeterminate (e.g. "Island of security")
+    Insecure,
+}
+
+impl DnssecSummary {
+    /// Whether the records have been DNSSEC validated or not
+    #[cfg(feature = "__dnssec")]
+    pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
+        let mut all_secure = None;
+        for record in records {
+            match record.proof() {
+                Proof::Secure => {
+                    all_secure.get_or_insert(true);
+                }
+                Proof::Bogus => return Self::Bogus,
+                _ => all_secure = Some(false),
+            }
+        }
+
+        if all_secure.unwrap_or(false) {
+            Self::Secure
+        } else {
+            Self::Insecure
+        }
+    }
+
+    /// Whether the records have been DNSSEC validated or not
+    #[cfg(not(feature = "__dnssec"))]
+    fn from_records<'a>(_: impl Iterator<Item = &'a Record>) -> Self {
+        Self::Insecure
     }
 }
 
