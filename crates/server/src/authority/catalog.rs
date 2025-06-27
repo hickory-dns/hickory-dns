@@ -17,8 +17,8 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions,
-        LookupRecords, MessageResponseBuilder, ZoneType, authority_object::DnssecSummary,
+        AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
+        MessageResponseBuilder, ZoneType, authority_object::DnssecSummary,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
@@ -930,7 +930,7 @@ async fn build_forwarded_response(
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
         match &mut answers {
-            Answer::Normal(answers) => match answers.dnssec_summary() {
+            Answer::Normal(answers) => match DnssecSummary::from_records(answers.iter()) {
                 DnssecSummary::Secure => {
                     trace!("setting ad header");
                     response_header.set_authentic_data(true);
@@ -942,7 +942,7 @@ async fn build_forwarded_response(
                 }
                 _ => {}
             },
-            Answer::NoRecords(soa) => match authorities.dnssec_summary() {
+            Answer::NoRecords(soa) => match DnssecSummary::from_records(authorities.iter()) {
                 DnssecSummary::Secure => {
                     trace!("setting ad header");
                     response_header.set_authentic_data(true);
