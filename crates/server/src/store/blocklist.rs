@@ -27,8 +27,8 @@ use tracing::{info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
-        LookupOptions, UpdateResult, ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        UpdateResult, ZoneType,
     },
     proto::{
         op::{Query, ResponseCode, message::ResponseSigner},
@@ -159,7 +159,7 @@ impl BlocklistAuthority {
     /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::Path, str::FromStr, sync::Arc};
     /// use hickory_proto::rr::{LowerName, RecordType};
     /// use hickory_resolver::Name;
-    /// use hickory_server::{authority::{AuthorityObject, LookupControlFlow, LookupOptions, ZoneType}, store::blocklist::*};
+    /// use hickory_server::{authority::{Authority, LookupControlFlow, LookupOptions, ZoneType}, store::blocklist::*};
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -186,7 +186,7 @@ impl BlocklistAuthority {
     ///     }
     ///
     ///     let origin = blocklist.origin().clone();
-    ///     let authority = Arc::new(blocklist) as Arc<dyn AuthorityObject>;
+    ///     let authority = Arc::new(blocklist) as Arc<dyn Authority>;
     ///
     ///     // In this example, malc0de.com only exists in the blocklist2.txt file we added to the
     ///     // authority after instantiating it.  The following simulates a lookup against the blocklist
@@ -512,7 +512,7 @@ mod test {
 
     use super::*;
     use crate::{
-        authority::{AuthorityObject, LookupOptions},
+        authority::LookupOptions,
         proto::rr::domain::Name,
         proto::rr::{
             LowerName, RData, RecordType,
@@ -689,7 +689,7 @@ mod test {
     }
 
     async fn basic_test(
-        ao: &Arc<dyn AuthorityObject>,
+        ao: &Arc<dyn Authority>,
         query: &'static str,
         q_type: RecordType,
         r_type: TestResult,
@@ -746,7 +746,7 @@ mod test {
         }
     }
 
-    fn authority(config: &BlocklistConfig) -> Arc<dyn AuthorityObject> {
+    fn authority(config: &BlocklistConfig) -> Arc<dyn Authority> {
         let authority = BlocklistAuthority::try_from_config(
             Name::root(),
             config,

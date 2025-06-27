@@ -17,13 +17,15 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, AuthorityObject, LookupControlFlow, LookupError, LookupObject, LookupOptions,
+        AuthLookup, Authority, LookupControlFlow, LookupError, LookupObject, LookupOptions,
         LookupRecords, MessageResponseBuilder, ZoneType, authority_object::DnssecSummary,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
-        rr::rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
-        rr::{LowerName, RecordSet, RecordType},
+        rr::{
+            LowerName, RecordSet, RecordType,
+            rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
+        },
         serialize::binary::{BinEncoder, EncodeMode},
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
@@ -35,7 +37,7 @@ use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
 #[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
-    authorities: HashMap<LowerName, Vec<Arc<dyn AuthorityObject>>>,
+    authorities: HashMap<LowerName, Vec<Arc<dyn Authority>>>,
 }
 
 #[async_trait::async_trait]
@@ -176,12 +178,12 @@ impl Catalog {
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `authorities` - a vec of authority objects
-    pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn AuthorityObject>>) {
+    pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn Authority>>) {
         self.authorities.insert(name, authorities);
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn AuthorityObject>>> {
+    pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn Authority>>> {
         self.authorities.remove(name)
     }
 
@@ -392,7 +394,7 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<(dyn AuthorityObject + 'static)>>> {
+    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<(dyn Authority + 'static)>>> {
         debug!("searching authorities for: {name}");
         self.authorities.get(name).or_else(|| {
             if !name.is_root() {
@@ -407,7 +409,7 @@ impl Catalog {
 
 async fn lookup<R: ResponseHandler + Unpin>(
     request_info: RequestInfo<'_>,
-    authorities: &[Arc<dyn AuthorityObject>],
+    authorities: &[Arc<dyn Authority>],
     request: &Request,
     response_edns: Option<Edns>,
     mut response_handle: R,
@@ -539,7 +541,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
 /// Build Header and LookupSections (answers) given a query response from an authority
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
-    authority: &dyn AuthorityObject,
+    authority: &dyn Authority,
     request_id: u16,
     request_header: &Header,
     query: &LowerQuery,
@@ -581,7 +583,7 @@ async fn build_response(
 /// Prepare a response for an authoritative zone
 async fn build_authoritative_response(
     response: Result<AuthLookup, LookupError>,
-    authority: &dyn AuthorityObject,
+    authority: &dyn Authority,
     response_header: &mut Header,
     lookup_options: LookupOptions,
     _request_id: u16,
