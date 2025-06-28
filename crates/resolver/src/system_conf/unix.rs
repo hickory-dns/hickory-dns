@@ -59,12 +59,7 @@ fn into_resolver_config(
     let nameservers = parsed_config
         .nameservers
         .iter()
-        .map(|ip| {
-            // Convert the IP address to a NameServerConfig
-            let mut server = NameServerConfig::udp_and_tcp(ip.into());
-            server.trust_negative_responses = false;
-            server
-        })
+        .map(|ip| NameServerConfig::udp_and_tcp(ip.into()))
         .collect::<Vec<_>>();
     if nameservers.is_empty() {
         Err(io::Error::other("no nameservers found in config"))?;

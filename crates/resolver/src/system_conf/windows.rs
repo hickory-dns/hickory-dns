@@ -34,9 +34,7 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
             }
         }
 
-        let mut config = NameServerConfig::udp_and_tcp(ip);
-        config.trust_negative_responses = false;
-        name_servers.push(config);
+        name_servers.push(NameServerConfig::udp_and_tcp(ip));
     }
 
     let search_list = get_search_list()
