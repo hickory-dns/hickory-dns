@@ -2,7 +2,9 @@
 
 Hickory DNS Util is a support library for the Hickory DNS libraries.
 
-## resolve
+## `dns`
+
+## `resolve`
 
 Useful for testing hickory-resolver and it's features via an independent CLI
 

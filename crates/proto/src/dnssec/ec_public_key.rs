@@ -9,7 +9,7 @@ use super::Algorithm;
 use crate::error::*;
 
 #[allow(unreachable_pub)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ECPublicKey {
     buf: [u8; MAX_LEN],
     len: usize,

@@ -239,11 +239,11 @@ impl PublicKey for Ec {
     }
 
     fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        // TODO: assert_eq!(algorithm, self.algorithm); once *ring* allows this.
+        // TODO: assert_eq!(algorithm, self.algorithm); once `ring` allows this.
         let alg = match self.algorithm {
             Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
             Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
-            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
+            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by `Ec`".into()),
         };
         let public_key = signature::UnparsedPublicKey::new(alg, self.prefixed_bytes());
         public_key.verify(message, signature).map_err(Into::into)
@@ -300,9 +300,9 @@ impl PublicKey for Ed25519<'_> {
 
 /// Rsa public key
 pub struct Rsa<'k> {
-    raw: &'k [u8],
-    pkey: RSAPublicKey<'k>,
-    algorithm: Algorithm,
+    pub raw: &'k [u8],
+    pub pkey: RSAPublicKey<'k>,
+    pub algorithm: Algorithm,
 }
 
 impl<'k> Rsa<'k> {
@@ -466,7 +466,7 @@ impl SigningKey for RsaSigningKey {
 
 /// Hashing wrapper type.
 #[derive(Clone, Copy, Debug)]
-pub struct Digest(digest::Digest);
+pub struct Digest(pub digest::Digest);
 
 impl Digest {
     /// Hashes the given `data` `iterations` times with the given `salt` and `r#type`.

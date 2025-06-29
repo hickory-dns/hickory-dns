@@ -228,7 +228,7 @@ struct FetchKeysOpt {
     output_dir: Option<PathBuf>,
 }
 
-/// Run the resolve program
+/// Run the program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::parse();
