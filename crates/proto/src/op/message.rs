@@ -64,8 +64,8 @@ use crate::{
 /// question.
 /// ```
 ///
-/// By default Message is a Query. Use the Message::as_update() to create and update, or
-///  Message::new_update()
+/// By default Message is a Query. Use the `Message::as_update()` to create and update, or
+///  `Message::new_update()`
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Message {

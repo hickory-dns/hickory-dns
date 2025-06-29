@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! The resolve program
+//! The program
 
 // BINARY WARNINGS
 #![warn(
@@ -69,7 +69,7 @@ struct Opts {
     error: bool,
 }
 
-/// Run the resolve program
+/// Run the program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut opts = Opts::parse();

@@ -7,9 +7,10 @@
 
 use crate::error::*;
 
-pub(crate) struct RSAPublicKey<'a> {
-    n: &'a [u8],
-    e: &'a [u8],
+#[derive(Debug)]
+pub struct RSAPublicKey<'a> {
+    pub n: &'a [u8],
+    pub e: &'a [u8],
 }
 
 impl<'a> RSAPublicKey<'a> {
