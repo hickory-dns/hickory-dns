@@ -9,19 +9,22 @@ use hickory_proto::{
 };
 
 fuzz_target!(|data: &[u8]| {
-    if let Ok(original) = Message::from_bytes(data) {
-        let reencoded = original.to_bytes().unwrap();
-        match Message::from_bytes(&reencoded) {
-            Ok(reparsed) => {
-                if !messages_equal(&original, &reparsed) {
-                    assert_eq!(original, reparsed);
-                }
-            }
-            Err(e) => {
-                eprintln!("{original:?}");
-                panic!("Message failed to deserialize: {e:?}");
-            }
+    let Ok(original) = Message::from_bytes(data) else {
+        // If we can't parse the original message, we can't re-encode it.
+        return;
+    };
+
+    let reencoded = original.to_bytes().unwrap();
+    let reparsed = match Message::from_bytes(&reencoded) {
+        Ok(reparsed) => reparsed,
+        Err(e) => {
+            eprintln!("{original:?}");
+            panic!("Message failed to deserialize: {e:?}");
         }
+    };
+
+    if !messages_equal(&original, &reparsed) {
+        assert_eq!(original, reparsed);
     }
 });
 
