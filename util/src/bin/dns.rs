@@ -92,11 +92,6 @@ struct Opts {
     #[clap(long)]
     do_not_verify_nameserver_cert: bool,
 
-    // TODO: zone is required for all update operations...
-    /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
-    #[clap(short = 'z', long)]
-    zone: Option<Name>,
-
     /// The Class of the record
     #[clap(long, default_value_t = DNSClass::IN)]
     class: DNSClass,
@@ -218,6 +213,10 @@ struct CreateOpt {
     /// Time to live value for the record
     ttl: u32,
 
+    /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
+    #[clap(short = 'z', long)]
+    zone: Name,
+
     /// Record data to associate
     #[clap(required = true)]
     rdata: Vec<String>,
@@ -227,13 +226,13 @@ impl CreateOpt {
     async fn run(
         self,
         class: DNSClass,
-        zone: Name,
         mut client: impl ClientHandle,
     ) -> Result<DnsResponse, ProtoError> {
         let Self {
             name,
             ty,
             ttl,
+            zone,
             rdata,
         } = self;
         let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
@@ -260,6 +259,10 @@ struct AppendOpt {
     /// Time to live value for the record
     ttl: u32,
 
+    /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
+    #[clap(short = 'z', long)]
+    zone: Name,
+
     /// Record data to associate
     #[clap(required = true)]
     rdata: Vec<String>,
@@ -269,7 +272,6 @@ impl AppendOpt {
     async fn run(
         self,
         class: DNSClass,
-        zone: Name,
         mut client: impl ClientHandle,
     ) -> Result<DnsResponse, ProtoError> {
         let Self {
@@ -277,6 +279,7 @@ impl AppendOpt {
             name,
             ty,
             ttl,
+            zone,
             rdata,
         } = self;
         let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
@@ -296,6 +299,10 @@ struct DeleteRecordOpt {
     #[clap(name = "TYPE")]
     ty: RecordType,
 
+    /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
+    #[clap(short = 'z', long)]
+    zone: Name,
+
     /// Record data to associate
     #[clap(required = true)]
     rdata: Vec<String>,
@@ -305,10 +312,14 @@ impl DeleteRecordOpt {
     async fn run(
         self,
         class: DNSClass,
-        zone: Name,
         mut client: impl ClientHandle,
     ) -> Result<DnsResponse, ProtoError> {
-        let Self { name, ty, rdata } = self;
+        let Self {
+            name,
+            ty,
+            zone,
+            rdata,
+        } = self;
         let ttl = 0;
         let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
 
@@ -321,6 +332,10 @@ impl DeleteRecordOpt {
 #[cfg(feature = "__dnssec")]
 #[derive(Debug, Args)]
 struct FetchKeysOpt {
+    /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
+    #[clap(short = 'z', long)]
+    zone: Name,
+
     /// If specified, files of Keys not in the Hickory TrustAnchor will be written to this path
     output_dir: Option<PathBuf>,
 }
@@ -330,16 +345,13 @@ impl FetchKeysOpt {
     async fn run(
         self,
         class: DNSClass,
-        zone: Option<Name>,
         mut client: impl ClientHandle,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let Self { output_dir } = self;
-
-        let zone = zone.unwrap_or_else(Name::root);
-        let record_type = RecordType::DNSKEY;
+        let Self { zone, output_dir } = self;
 
         println!("; querying {zone} for key-signing-dnskeys, KSKs");
 
+        let record_type = RecordType::DNSKEY;
         let response = client.query(zone, class, record_type).await?;
         let response = response.into_message();
 
@@ -455,7 +467,7 @@ async fn udp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     let stream = UdpClientStream::builder(nameserver, provider).build();
     let (client, bg) = Client::connect(stream).await?;
     let handle = tokio::spawn(bg);
-    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
     Ok(())
@@ -470,7 +482,7 @@ async fn tcp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     let (client, bg) = client.await?;
 
     let handle = tokio::spawn(bg);
-    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
     Ok(())
@@ -508,7 +520,7 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     let (client, bg) = Client::new(stream, sender, None).await?;
 
     let handle = tokio::spawn(bg);
-    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
     Ok(())
@@ -558,7 +570,7 @@ async fn https(
     .await?;
 
     let handle = tokio::spawn(bg);
-    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
     Ok(())
@@ -597,7 +609,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     let handle = tokio::spawn(bg);
-    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
     Ok(())
@@ -639,7 +651,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     let handle = tokio::spawn(bg);
-    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
     Ok(())
@@ -647,28 +659,18 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
 async fn handle_request(
     class: DNSClass,
-    zone: Option<Name>,
     command: Command,
     client: impl ClientHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let response = match command {
         Command::Query(opt) => opt.run(class, client).await?,
         Command::Notify(opt) => opt.run(class, client).await?,
-        Command::Create(opt) => {
-            let zone = zone.expect("zone is required for dynamic update operations");
-            opt.run(class, zone, client).await?
-        }
-        Command::Append(opt) => {
-            let zone = zone.expect("zone is required for dynamic update operations");
-            opt.run(class, zone, client).await?
-        }
-        Command::DeleteRecord(opt) => {
-            let zone = zone.expect("zone is required for dynamic update operations");
-            opt.run(class, zone, client).await?
-        }
+        Command::Create(opt) => opt.run(class, client).await?,
+        Command::Append(opt) => opt.run(class, client).await?,
+        Command::DeleteRecord(opt) => opt.run(class, client).await?,
         #[cfg(feature = "__dnssec")]
         Command::FetchKeys(opt) => {
-            opt.run(class, zone, client).await?;
+            opt.run(class, client).await?;
             return Ok(());
         }
     };
