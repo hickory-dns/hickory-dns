@@ -41,11 +41,13 @@ use hickory_proto::rustls::client_config;
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
+    ProtoError,
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
     runtime::{RuntimeProvider, TokioRuntimeProvider},
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,
+    xfer::DnsResponse,
 };
 
 /// A CLI interface for the hickory-client.
@@ -151,6 +153,18 @@ struct QueryOpt {
     ty: RecordType,
 }
 
+impl QueryOpt {
+    async fn run(
+        self,
+        class: DNSClass,
+        mut client: impl ClientHandle,
+    ) -> Result<DnsResponse, ProtoError> {
+        let Self { name, ty } = self;
+        println!("; sending query: {name} {class} {ty}");
+        client.query(name, class, ty).await
+    }
+}
+
 /// Notify a nameserver that a record has been updated
 #[derive(Debug, Args)]
 
@@ -164,6 +178,25 @@ struct NotifyOpt {
 
     /// Optional record data to associate
     rdata: Vec<String>,
+}
+
+impl NotifyOpt {
+    async fn run(
+        self,
+        class: DNSClass,
+        mut client: impl ClientHandle,
+    ) -> Result<DnsResponse, ProtoError> {
+        let Self { name, ty, rdata } = self;
+        let rdata = if rdata.is_empty() {
+            None
+        } else {
+            let ttl = 0;
+            Some(record_set_from(name.clone(), class, ty, ttl, rdata))
+        };
+
+        println!("; sending notify: {name} {class} {ty}");
+        client.notify(name, class, ty, rdata).await
+    }
 }
 
 /// Create a new record in the target zone
@@ -182,6 +215,26 @@ struct CreateOpt {
     /// Record data to associate
     #[clap(required = true)]
     rdata: Vec<String>,
+}
+
+impl CreateOpt {
+    async fn run(
+        self,
+        class: DNSClass,
+        zone: Name,
+        mut client: impl ClientHandle,
+    ) -> Result<DnsResponse, ProtoError> {
+        let Self {
+            name,
+            ty,
+            ttl,
+            rdata,
+        } = self;
+        let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
+
+        println!("; sending create: {name} {class} {ty} in {zone}");
+        client.create(rdata, zone).await
+    }
 }
 
 /// Append record data to a record set
@@ -206,6 +259,27 @@ struct AppendOpt {
     rdata: Vec<String>,
 }
 
+impl AppendOpt {
+    async fn run(
+        self,
+        class: DNSClass,
+        zone: Name,
+        mut client: impl ClientHandle,
+    ) -> Result<DnsResponse, ProtoError> {
+        let Self {
+            must_exist,
+            name,
+            ty,
+            ttl,
+            rdata,
+        } = self;
+        let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
+
+        println!("; sending append: {name} {class} {ty} in {zone} and must_exist({must_exist})");
+        client.append(rdata, zone, must_exist).await
+    }
+}
+
 /// Delete a single record from a zone, the data must match the record
 #[derive(Debug, Args)]
 struct DeleteRecordOpt {
@@ -221,11 +295,135 @@ struct DeleteRecordOpt {
     rdata: Vec<String>,
 }
 
+impl DeleteRecordOpt {
+    async fn run(
+        self,
+        class: DNSClass,
+        zone: Name,
+        mut client: impl ClientHandle,
+    ) -> Result<DnsResponse, ProtoError> {
+        let Self { name, ty, rdata } = self;
+        let ttl = 0;
+        let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
+
+        println!("; sending delete-record: {name} {class} {ty} from {zone}");
+        client.delete_by_rdata(rdata, zone).await
+    }
+}
+
 /// Fetch the dnskeys (key-signing-keys) from a zone, if zone is not specified it defaults to the Root, `.`
 #[derive(Debug, Args)]
 struct FetchKeysOpt {
     /// If specified, files of Keys not in the Hickory TrustAnchor will be written to this path
     output_dir: Option<PathBuf>,
+}
+
+impl FetchKeysOpt {
+    async fn run(
+        self,
+        class: DNSClass,
+        zone: Option<Name>,
+        mut client: impl ClientHandle,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let Self { output_dir } = self;
+
+        #[cfg(feature = "__dnssec")]
+        {
+            let zone = zone.unwrap_or_else(Name::root);
+            let record_type = RecordType::DNSKEY;
+
+            println!("; querying {zone} for key-signing-dnskeys, KSKs");
+
+            let response = client.query(zone, class, record_type).await?;
+            let response = response.into_message();
+
+            println!("; received response");
+            println!("{response}");
+
+            #[cfg(not(feature = "__dnssec"))]
+            {
+                println!("; WARNING, `dnssec-ring` feature not enabled, operations are limited");
+            }
+
+            #[cfg(feature = "__dnssec")]
+            {
+                use hickory_proto::{
+                    dnssec::{Algorithm, PublicKey, TrustAnchors, Verifier},
+                    rr::Record,
+                };
+                use std::{fs::OpenOptions, io::Write};
+
+                let trust_anchor = TrustAnchors::default();
+
+                for dnskey in response
+                    .answers()
+                    .iter()
+                    .filter_map(Record::try_borrow::<DNSKEY>)
+                    .filter(|dnskey| dnskey.data().secure_entry_point() && dnskey.data().zone_key())
+                {
+                    let key_tag = dnskey.data().calculate_key_tag().expect("key_tag failed");
+                    let algorithm = dnskey.data().algorithm();
+                    let in_trust_anchor = trust_anchor.contains(dnskey.data().public_key());
+
+                    if !dnskey.data().algorithm().is_supported() {
+                        println!(
+                            "; ignoring {key_tag}, unsupported algorithm {algorithm}: {}",
+                            dnskey.data()
+                        );
+
+                        continue;
+                    }
+
+                    println!(
+                        "; found dnskey: {key_tag}, {algorithm}, in Hickory TrustAnchor: {in_trust_anchor}",
+                    );
+                    let Some(path) = &output_dir else {
+                        continue;
+                    };
+
+                    // only write unknown files
+                    if in_trust_anchor {
+                        println!("; skipping key in TrustAnchor");
+                        continue;
+                    }
+
+                    #[allow(deprecated)]
+                    let extension = match dnskey.data().algorithm() {
+                        Algorithm::RSASHA1
+                        | Algorithm::RSASHA1NSEC3SHA1
+                        | Algorithm::RSASHA256
+                        | Algorithm::RSASHA512 => String::from("rsa"),
+                        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+                            String::from("ecdsa")
+                        }
+                        Algorithm::ED25519 => String::from("ed25519"),
+                        Algorithm::Unknown(v) => format!("unknown_{v}"),
+                        alg => panic!("unknown Algorithm {alg:?}"),
+                    };
+
+                    let mut path = path.clone();
+                    path.push(format!("{key_tag}"));
+                    path.set_extension(extension);
+
+                    let mut file = OpenOptions::new();
+                    let mut file = file
+                        .write(true)
+                        .read(false)
+                        .truncate(true)
+                        .create(true)
+                        .open(&path)
+                        .expect("couldn't open file for writing");
+
+                    file.write_all(dnskey.data().public_key().public_bytes())
+                        .expect("failed to write to file");
+                    println!("; wrote dnskey {key_tag} to: {}", path.display());
+                }
+            }
+
+            // potentially does more than just fetch the records
+            return Ok(());
+        }
+    }
 }
 
 /// Run the resolve program
@@ -463,162 +661,25 @@ async fn handle_request(
     class: DNSClass,
     zone: Option<Name>,
     command: Command,
-    mut client: impl ClientHandle,
+    client: impl ClientHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let response = match command {
-        Command::Query(query) => {
-            let name = query.name;
-            let ty = query.ty;
-            println!("; sending query: {name} {class} {ty}");
-            client.query(name, class, ty).await?
-        }
-        Command::Notify(opt) => {
-            let name = opt.name;
-            let ty = opt.ty;
-            let ttl = 0;
-            let rdata = opt.rdata;
-
-            let rdata = if rdata.is_empty() {
-                None
-            } else {
-                Some(record_set_from(name.clone(), class, ty, ttl, rdata))
-            };
-
-            println!("; sending notify: {name} {class} {ty}");
-            client.notify(name, class, ty, rdata).await?
-        }
+        Command::Query(opt) => opt.run(class, client).await?,
+        Command::Notify(opt) => opt.run(class, client).await?,
         Command::Create(opt) => {
             let zone = zone.expect("zone is required for dynamic update operations");
-            let name = opt.name;
-            let ty = opt.ty;
-            let ttl = opt.ttl;
-            let rdata = opt.rdata;
-
-            let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
-
-            println!("; sending create: {name} {class} {ty} in {zone}");
-            client.create(rdata, zone).await?
+            opt.run(class, zone, client).await?
         }
         Command::Append(opt) => {
             let zone = zone.expect("zone is required for dynamic update operations");
-            let name = opt.name;
-            let ty = opt.ty;
-            let ttl = opt.ttl;
-            let rdata = opt.rdata;
-            let must_exist = opt.must_exist;
-
-            let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
-
-            println!(
-                "; sending append: {name} {class} {ty} in {zone} and must_exist({must_exist})"
-            );
-            client.append(rdata, zone, must_exist).await?
+            opt.run(class, zone, client).await?
         }
         Command::DeleteRecord(opt) => {
             let zone = zone.expect("zone is required for dynamic update operations");
-            let name = opt.name;
-            let ty = opt.ty;
-            let ttl = 0;
-            let rdata = opt.rdata;
-
-            let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
-
-            println!("; sending delete-record: {name} {class} {ty} from {zone}");
-            client.delete_by_rdata(rdata, zone).await?
+            opt.run(class, zone, client).await?
         }
-        Command::FetchKeys(_opt) => {
-            let zone = zone.unwrap_or_else(Name::root);
-            let record_type = RecordType::DNSKEY;
-
-            println!("; querying {zone} for key-signing-dnskeys, KSKs");
-
-            let response = client.query(zone, class, record_type).await?;
-            let response = response.into_message();
-
-            println!("; received response");
-            println!("{response}");
-
-            #[cfg(not(feature = "__dnssec"))]
-            {
-                println!("; WARNING, `dnssec-ring` feature not enabled, operations are limited");
-            }
-
-            #[cfg(feature = "__dnssec")]
-            {
-                use hickory_proto::{
-                    dnssec::{Algorithm, PublicKey, TrustAnchors, Verifier},
-                    rr::Record,
-                };
-                use std::{fs::OpenOptions, io::Write};
-
-                let trust_anchor = TrustAnchors::default();
-
-                for dnskey in response
-                    .answers()
-                    .iter()
-                    .filter_map(Record::try_borrow::<DNSKEY>)
-                    .filter(|dnskey| dnskey.data().secure_entry_point() && dnskey.data().zone_key())
-                {
-                    let key_tag = dnskey.data().calculate_key_tag().expect("key_tag failed");
-                    let algorithm = dnskey.data().algorithm();
-                    let in_trust_anchor = trust_anchor.contains(dnskey.data().public_key());
-
-                    if !dnskey.data().algorithm().is_supported() {
-                        println!(
-                            "; ignoring {key_tag}, unsupported algorithm {algorithm}: {}",
-                            dnskey.data()
-                        );
-
-                        continue;
-                    }
-
-                    println!(
-                        "; found dnskey: {key_tag}, {algorithm}, in Hickory TrustAnchor: {in_trust_anchor}",
-                    );
-                    let Some(path) = &_opt.output_dir else {
-                        continue;
-                    };
-
-                    // only write unknown files
-                    if in_trust_anchor {
-                        println!("; skipping key in TrustAnchor");
-                        continue;
-                    }
-
-                    #[allow(deprecated)]
-                    let extension = match dnskey.data().algorithm() {
-                        Algorithm::RSASHA1
-                        | Algorithm::RSASHA1NSEC3SHA1
-                        | Algorithm::RSASHA256
-                        | Algorithm::RSASHA512 => String::from("rsa"),
-                        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-                            String::from("ecdsa")
-                        }
-                        Algorithm::ED25519 => String::from("ed25519"),
-                        Algorithm::Unknown(v) => format!("unknown_{v}"),
-                        alg => panic!("unknown Algorithm {alg:?}"),
-                    };
-
-                    let mut path = path.clone();
-                    path.push(format!("{key_tag}"));
-                    path.set_extension(extension);
-
-                    let mut file = OpenOptions::new();
-                    let mut file = file
-                        .write(true)
-                        .read(false)
-                        .truncate(true)
-                        .create(true)
-                        .open(&path)
-                        .expect("couldn't open file for writing");
-
-                    file.write_all(dnskey.data().public_key().public_bytes())
-                        .expect("failed to write to file");
-                    println!("; wrote dnskey {key_tag} to: {}", path.display());
-                }
-            }
-
-            // potentially does more than just fetch the records
+        Command::FetchKeys(opt) => {
+            opt.run(class, zone, client).await?;
             return Ok(());
         }
     };
