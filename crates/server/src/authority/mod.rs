@@ -26,6 +26,8 @@ mod authority;
 mod catalog;
 pub(crate) mod message_request;
 mod message_response;
+#[cfg(feature = "metrics")]
+mod metrics;
 
 pub use self::auth_lookup::{
     AnyRecords, AuthLookup, AuthLookupIter, LookupRecords, LookupRecordsIter,
