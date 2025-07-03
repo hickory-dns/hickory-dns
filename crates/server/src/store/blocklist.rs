@@ -430,6 +430,11 @@ impl Authority for BlocklistAuthority {
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "blocklist"
+    }
 }
 
 /// Consult action enum.  Controls how consult lookups are handled.

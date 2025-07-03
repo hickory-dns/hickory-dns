@@ -712,6 +712,11 @@ impl Authority for InMemoryAuthority {
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         self.nx_proof_kind.as_ref()
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "in-memory"
+    }
 }
 
 #[cfg(feature = "__dnssec")]

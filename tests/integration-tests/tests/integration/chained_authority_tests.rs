@@ -264,6 +264,11 @@ impl Authority for TestAuthority {
         };
         (res, None)
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "test"
+    }
 }
 
 #[derive(Debug)]

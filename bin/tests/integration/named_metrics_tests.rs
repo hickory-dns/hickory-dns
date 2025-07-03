@@ -120,28 +120,29 @@ fn test_prometheus_endpoint_startup() {
             Some(14f64),
         );
 
+        // check zone lookup metrics
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_SUCCESS,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_FAILED,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_SUCCESS,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_FAILED,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
             Some(0f64),
         );
 
@@ -275,6 +276,32 @@ fn test_request_response() {
             verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
         });
 
+        // check zone lookup metrics
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
+            Some(0f64),
+        );
+
         let record_types = [
             "a",
             "aaaa",
@@ -341,32 +368,6 @@ fn test_request_response() {
                 )
             }
         });
-
-        // check store lookups
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_SUCCESS,
-            Some(1f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_FAILED,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_SUCCESS,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_FAILED,
-            Some(0f64),
-        );
     })
 }
 
@@ -578,7 +579,27 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
     })
 }
 
-const STORE_FILE_SUCCESS: [(&str, &str); 2] = [("store", "file"), ("success", "true")];
-const STORE_FILE_FAILED: [(&str, &str); 2] = [("store", "file"), ("success", "false")];
-const STORE_FORWARDER_SUCCESS: [(&str, &str); 2] = [("store", "forwarder"), ("success", "true")];
-const STORE_FORWARDER_FAILED: [(&str, &str); 2] = [("store", "forwarder"), ("success", "false")];
+const AUTHORITATIVE_PRIMARY_FILE_SUCCESS: [(&str, &str); 4] = [
+    ("type", "authoritative"),
+    ("role", "primary"),
+    ("authority", "file"),
+    ("success", "true"),
+];
+const AUTHORITATIVE_PRIMARY_FILE_FAILED: [(&str, &str); 4] = [
+    ("type", "authoritative"),
+    ("role", "primary"),
+    ("authority", "file"),
+    ("success", "false"),
+];
+const EXTERNAL_FORWARDED_FORWARDER_SUCCESS: [(&str, &str); 4] = [
+    ("type", "external"),
+    ("role", "forwarded"),
+    ("authority", "forwarder"),
+    ("success", "true"),
+];
+const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
+    ("type", "external"),
+    ("role", "forwarded"),
+    ("authority", "forwarder"),
+    ("success", "false"),
+];

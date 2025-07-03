@@ -1174,6 +1174,11 @@ impl Authority for SqliteAuthority {
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         self.in_memory.nx_proof_kind()
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "sqlite"
+    }
 }
 
 #[cfg(feature = "__dnssec")]
