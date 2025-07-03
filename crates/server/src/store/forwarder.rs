@@ -16,8 +16,6 @@ use std::sync::Arc;
 use serde::Deserialize;
 use tracing::{debug, info};
 
-#[cfg(feature = "metrics")]
-use crate::store::metrics::QueryStoreMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
@@ -153,8 +151,6 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         Ok(ForwardAuthority {
             origin: origin.into(),
             resolver,
-            #[cfg(feature = "metrics")]
-            metrics: QueryStoreMetrics::new("forwarder"),
         })
     }
 }
@@ -165,8 +161,6 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
 pub struct ForwardAuthority<P: ConnectionProvider = TokioRuntimeProvider> {
     origin: LowerName,
     resolver: Resolver<P>,
-    #[cfg(feature = "metrics")]
-    metrics: QueryStoreMetrics,
 }
 
 impl<P: ConnectionProvider> ForwardAuthority<P> {
@@ -266,15 +260,10 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         name.set_fqdn(false);
 
         use LookupControlFlow::*;
-        let lookup = match self.resolver.lookup(name, rtype).await {
+        match self.resolver.lookup(name, rtype).await {
             Ok(lookup) => Continue(Ok(AuthLookup::from(lookup))),
             Err(e) => Continue(Err(LookupError::from(e))),
-        };
-
-        #[cfg(feature = "metrics")]
-        self.metrics.increment_lookup(&lookup);
-
-        lookup
+        }
     }
 
     async fn search(
