@@ -1,19 +1,7 @@
-use crate::authority::{AuthLookup, LookupControlFlow};
-use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
+#[cfg(feature = "__dnssec")]
+use metrics::{Counter, counter, describe_counter};
 
-pub(super) struct StoreMetrics {
-    pub(crate) query: QueryStoreMetrics,
-    pub(crate) persistent: PersistentStoreMetrics,
-}
-
-impl StoreMetrics {
-    pub(super) fn new(store: &'static str) -> Self {
-        Self {
-            query: QueryStoreMetrics::new(store),
-            persistent: PersistentStoreMetrics::new(store),
-        }
-    }
-}
+use metrics::{Gauge, Unit, describe_gauge, gauge};
 
 pub(super) struct PersistentStoreMetrics {
     pub(super) zone_records: Gauge,
@@ -82,48 +70,5 @@ impl PersistentStoreMetrics {
     #[cfg(feature = "__dnssec")]
     pub(super) fn updated(&self) {
         self.zone_records_updated.increment(1);
-    }
-}
-
-pub(super) struct QueryStoreMetrics {
-    pub(super) zone_record_lookups_success: Counter,
-    pub(super) zone_record_lookups_error: Counter,
-}
-
-impl QueryStoreMetrics {
-    pub(crate) fn new(store: &'static str) -> Self {
-        let zone_record_lookups_name = "hickory_zone_record_lookups_total";
-        let store_key = "store";
-        let success_key = "success";
-
-        let zone_record_lookups_success =
-            counter!(zone_record_lookups_name, store_key => store, success_key => "true");
-        let zone_record_lookups_error =
-            counter!(zone_record_lookups_name, store_key => store, success_key => "false");
-
-        describe_counter!(
-            zone_record_lookups_name,
-            Unit::Count,
-            "number of occurred dns zone record lookups"
-        );
-
-        Self {
-            zone_record_lookups_success,
-            zone_record_lookups_error,
-        }
-    }
-
-    pub(super) fn increment_lookup(&self, lookup_control_flow: &LookupControlFlow<AuthLookup>) {
-        let is_success = match lookup_control_flow {
-            LookupControlFlow::Continue(res) => res.is_ok(),
-            LookupControlFlow::Break(res) => res.is_ok(),
-            LookupControlFlow::Skip => false,
-        };
-
-        if is_success {
-            self.zone_record_lookups_success.increment(1)
-        } else {
-            self.zone_record_lookups_error.increment(1)
-        }
     }
 }

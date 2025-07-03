@@ -24,7 +24,7 @@ use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "metrics")]
-use crate::store::metrics::StoreMetrics;
+use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
@@ -75,7 +75,7 @@ pub struct SqliteAuthority {
     allow_update: bool,
     is_dnssec_enabled: bool,
     #[cfg(feature = "metrics")]
-    metrics: StoreMetrics,
+    metrics: PersistentStoreMetrics,
     #[cfg(feature = "__dnssec")]
     tsig_signers: Vec<TSigner>,
 }
@@ -107,7 +107,7 @@ impl SqliteAuthority {
             allow_update,
             is_dnssec_enabled,
             #[cfg(feature = "metrics")]
-            metrics: StoreMetrics::new("sqlite"),
+            metrics: PersistentStoreMetrics::new("sqlite"),
             #[cfg(feature = "__dnssec")]
             tsig_signers: Vec::new(),
         }
@@ -226,7 +226,7 @@ impl SqliteAuthority {
                 match self.update_records(&[record], false).await {
                     Ok(_) => {
                         #[cfg(feature = "metrics")]
-                        self.metrics.persistent.zone_records.increment(1);
+                        self.metrics.zone_records.increment(1);
                     }
                     Err(error) => return Err(PersistenceErrorKind::Recovery(error.to_str()).into()),
                 }
@@ -258,7 +258,7 @@ impl SqliteAuthority {
                     journal.insert_record(serial, record)?;
 
                     #[cfg(feature = "metrics")]
-                    self.metrics.persistent.zone_records.increment(1);
+                    self.metrics.zone_records.increment(1);
                 }
             }
 
@@ -781,9 +781,9 @@ impl SqliteAuthority {
                     #[cfg(all(feature = "metrics", feature = "__dnssec"))]
                     if auto_signing_and_increment {
                         if upserted {
-                            self.metrics.persistent.added();
+                            self.metrics.added();
                         } else {
-                            self.metrics.persistent.updated();
+                            self.metrics.updated();
                         }
                     }
 
@@ -828,7 +828,7 @@ impl SqliteAuthority {
 
                                 #[cfg(all(feature = "metrics", feature = "__dnssec"))]
                                 if auto_signing_and_increment {
-                                    self.metrics.persistent.deleted()
+                                    self.metrics.deleted()
                                 }
                             }
                         }
@@ -846,7 +846,7 @@ impl SqliteAuthority {
 
                                 #[cfg(all(feature = "metrics", feature = "__dnssec"))]
                                 if auto_signing_and_increment {
-                                    self.metrics.persistent.deleted()
+                                    self.metrics.deleted()
                                 }
                             } else {
                                 info!("expected empty rdata: {rr:?}");
@@ -871,7 +871,7 @@ impl SqliteAuthority {
 
                         #[cfg(all(feature = "metrics", feature = "__dnssec"))]
                         if auto_signing_and_increment {
-                            self.metrics.persistent.deleted()
+                            self.metrics.deleted()
                         }
                     }
                 }
@@ -1100,12 +1100,7 @@ impl Authority for SqliteAuthority {
         rtype: RecordType,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
-
-        #[cfg(feature = "metrics")]
-        self.metrics.query.increment_lookup(&lookup);
-
-        lookup
+        self.in_memory.lookup(name, rtype, lookup_options).await
     }
 
     async fn search(
@@ -1138,9 +1133,6 @@ impl Authority for SqliteAuthority {
         };
 
         let (search, _) = self.in_memory.search(request, lookup_options).await;
-
-        #[cfg(feature = "metrics")]
-        self.metrics.query.increment_lookup(&search);
 
         (search, signer)
     }
