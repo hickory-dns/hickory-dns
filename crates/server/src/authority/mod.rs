@@ -191,7 +191,7 @@ mod zone_type {
     use serde::{Deserialize, Serialize};
 
     /// The type of zone stored in a Catalog
-    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
+    #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Copy)]
     pub enum ZoneType {
         /// This authority for a zone
         Primary,

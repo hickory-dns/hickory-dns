@@ -248,6 +248,11 @@ impl Authority for FileAuthority {
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         self.in_memory.nx_proof_kind()
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "file"
+    }
 }
 
 #[cfg(feature = "__dnssec")]

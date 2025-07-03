@@ -5,16 +5,64 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+
+use crate::authority::{AuthLookup, Authority, LookupControlFlow, ZoneType};
+
 use hickory_proto::op::LowerQuery;
 use hickory_proto::rr::{DNSClass, Record, RecordType};
 use metrics::{Counter, Unit, counter, describe_counter};
 
 pub(super) struct CatalogMetrics {
+    zone_store_metrics: HashMap<(&'static str, ZoneType), ZoneLookupMetrics>,
     request_metrics: DnsClassesRecordTypesMetrics,
     response_metrics: DnsClassesRecordTypesMetrics,
 }
 
 impl CatalogMetrics {
+    pub(super) fn add_authority(&mut self, authority: &dyn Authority) {
+        match self
+            .zone_store_metrics
+            .entry((authority.metrics_label(), authority.zone_type()))
+        {
+            Entry::Occupied(_) => {
+                /* already present, for the label and zone type combination => use existing */
+            }
+            Entry::Vacant(v) => {
+                v.insert(ZoneLookupMetrics::new(
+                    authority.metrics_label(),
+                    authority.zone_type(),
+                ));
+            }
+        }
+    }
+
+    pub(super) fn update_zone_lookup(
+        &self,
+        authority: &dyn Authority,
+        lookup: &LookupControlFlow<AuthLookup>,
+    ) {
+        // metrics per store are added/removed with the Authority in the Catalog (requires mut)
+        let Some(zone_store_metrics) = self
+            .zone_store_metrics
+            .get(&(authority.metrics_label(), authority.zone_type()))
+        else {
+            return;
+        };
+
+        let is_success = match lookup {
+            LookupControlFlow::Continue(res) => res.is_ok(),
+            LookupControlFlow::Break(res) => res.is_ok(),
+            LookupControlFlow::Skip => false,
+        };
+
+        match is_success {
+            true => zone_store_metrics.success.increment(1),
+            false => zone_store_metrics.failed.increment(1),
+        }
+    }
+
     pub(super) fn update_request_response<'a>(
         &self,
         query: &LowerQuery,
@@ -37,9 +85,44 @@ impl CatalogMetrics {
 impl Default for CatalogMetrics {
     fn default() -> Self {
         Self {
+            zone_store_metrics: HashMap::new(),
             request_metrics: DnsClassesRecordTypesMetrics::new("request"),
             response_metrics: DnsClassesRecordTypesMetrics::new("response"),
         }
+    }
+}
+
+struct ZoneLookupMetrics {
+    success: Counter,
+    failed: Counter,
+}
+
+impl ZoneLookupMetrics {
+    pub(crate) fn new(authority: &'static str, zone_type: ZoneType) -> Self {
+        let zone_lookups_name = "hickory_zone_lookups_total";
+        let type_key = "type";
+        let role_key = "role";
+        let authority_key = "authority";
+        let success_key = "success";
+
+        // tags are statically derived from the Authority ZoneType which is a 1:1 relationship
+        let new = match zone_type {
+            ZoneType::Primary => Self {
+                success: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "primary", success_key => "true"),
+                failed: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "primary", success_key => "false"),
+            },
+            ZoneType::Secondary => Self {
+                success: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "secondary", success_key => "true"),
+                failed: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "secondary", success_key => "false"),
+            },
+            ZoneType::External => Self {
+                success: counter!(zone_lookups_name, authority_key => authority, type_key => "external", role_key => "forwarded", success_key => "true"),
+                failed: counter!(zone_lookups_name, authority_key => authority, type_key => "external", role_key => "forwarded", success_key => "false"),
+            },
+        };
+
+        describe_counter!(zone_lookups_name, Unit::Count, "number of zone lookups");
+        new
     }
 }
 

@@ -325,6 +325,11 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "forwarder"
+    }
 }
 
 /// Configuration for file based zones

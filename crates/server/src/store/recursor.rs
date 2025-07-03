@@ -219,6 +219,11 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
     fn nx_proof_kind(&self) -> Option<&NxProofKind> {
         None
     }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "recursive"
+    }
 }
 
 /// Configuration for file based zones
