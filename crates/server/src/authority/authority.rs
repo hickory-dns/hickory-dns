@@ -227,6 +227,10 @@ pub trait Authority: Send + Sync {
     /// Returns the kind of non-existence proof used for this zone.
     #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
+
+    /// Returns the authority metrics label.
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str;
 }
 
 /// Extension to Authority to allow for DNSSEC features

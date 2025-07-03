@@ -185,11 +185,18 @@ impl Catalog {
     /// * `name` - zone name, e.g. example.com.
     /// * `authorities` - a vec of authority objects
     pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn Authority>>) {
+        #[cfg(feature = "metrics")]
+        for authority in authorities.iter() {
+            self.metrics.add_authority(authority.as_ref())
+        }
+
         self.authorities.insert(name, authorities);
     }
 
     /// Remove a zone from the catalog
     pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn Authority>>> {
+        // NOTE: metrics are not removed to avoid dropping counters that are potentially still
+        // being used by other authorities having the same labels
         self.authorities.remove(name)
     }
 
@@ -443,6 +450,8 @@ async fn lookup<R: ResponseHandler + Unpin>(
         // Wait so we can determine if we need to fire a request to the next authority in a chained
         // configuration if the current authority declines to answer.
         let (mut result, mut signer) = authority.search(request, lookup_options).await;
+        #[cfg(feature = "metrics")]
+        metrics.update_zone_lookup(authority.as_ref(), &result);
 
         if let LookupControlFlow::Skip = result {
             trace!("catalog::lookup::authority did not handle request");

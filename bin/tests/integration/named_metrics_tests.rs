@@ -13,6 +13,7 @@ use std::time::Duration;
 use std::{env, path::Path};
 use test_support::subscribe;
 
+use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
 use hickory_client::client::{Client, ClientHandle};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::{
@@ -20,6 +21,7 @@ use hickory_proto::dnssec::{
     rdata::DNSKEY,
 };
 use hickory_proto::op::MessageSigner;
+use hickory_proto::rr::RData::PTR;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::A;
@@ -32,8 +34,6 @@ use prometheus_parse::{Scrape, Value};
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use tokio::runtime::Runtime;
 use tokio::time::sleep;
-
-use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
 
 #[test]
 fn test_prometheus_endpoint_startup() {
@@ -82,13 +82,13 @@ fn test_prometheus_endpoint_startup() {
             metrics,
             "hickory_zones_total",
             &store_file_primary,
-            Some(5f64),
+            Some(4f64),
         );
         verify_metric(
             metrics,
             "hickory_zones_total",
             &store_file_secondary,
-            Some(0f64),
+            Some(1f64),
         );
 
         #[cfg(feature = "sqlite")]
@@ -120,28 +120,29 @@ fn test_prometheus_endpoint_startup() {
             Some(14f64),
         );
 
+        // check zone lookup metrics
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_SUCCESS,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_FAILED,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_SUCCESS,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_FAILED,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
             Some(0f64),
         );
 
@@ -200,13 +201,29 @@ fn test_request_response() {
                 assert_eq!(*addr, A::new(127, 0, 0, 1));
             };
 
+            let response = client
+                .query(
+                    Name::from_str("1.0.0.127.in-addr.arpa").unwrap(),
+                    DNSClass::IN,
+                    RecordType::PTR,
+                )
+                .await
+                .unwrap();
+
+            if let PTR(ptr) = response.answers()[0].data() {
+                assert_eq!(
+                    *ptr,
+                    hickory_proto::rr::rdata::name::PTR("localhost.".parse().unwrap())
+                );
+            };
+
             fetch_parse_check_metrics(&socket_ports).await
         });
 
         // check request
         let request_operations = ["notify", "query", "status", "unknown", "update"];
         request_operations.iter().for_each(|op| {
-            let value = if *op == "query" { 1f64 } else { 0f64 };
+            let value = if *op == "query" { 2f64 } else { 0f64 };
             let op = [("operation", *op)];
             verify_metric(
                 metrics,
@@ -218,14 +235,14 @@ fn test_request_response() {
 
         let flags = ["aa", "ad", "cd", "ra", "rd", "tc"];
         flags.iter().for_each(|flag| {
-            let value = if *flag == "rd" { 1f64 } else { 0f64 };
+            let value = if *flag == "rd" { 2f64 } else { 0f64 };
             let flag = [("flag", *flag)];
             verify_metric(metrics, "hickory_request_flags_total", &flag, Some(value))
         });
 
         let protocols = ["tcp", "udp"];
         protocols.iter().for_each(|proto| {
-            let value = if *proto == "tcp" { 1f64 } else { 0f64 };
+            let value = if *proto == "tcp" { 2f64 } else { 0f64 };
             let proto = [("protocol", *proto)];
             verify_metric(
                 metrics,
@@ -260,20 +277,57 @@ fn test_request_response() {
             "yx_rrset",
         ];
         response_codes.iter().for_each(|code| {
-            let value = if *code == "no_error" { 1f64 } else { 0f64 };
+            let value = if *code == "no_error" { 2f64 } else { 0f64 };
             let code = [("code", *code)];
             verify_metric(metrics, "hickory_response_codes_total", &code, Some(value))
         });
 
         flags.iter().for_each(|flag| {
             let value = if ["aa", "rd"].contains(flag) {
-                1f64
+                2f64
             } else {
                 0f64
             };
             let flag = [("flag", *flag)];
             verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
         });
+
+        // check zone lookup metrics
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &[
+                ("type", "authoritative"),
+                ("role", "secondary"),
+                ("authority", "file"),
+                ("success", "true"),
+            ],
+            Some(1f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
+            Some(0f64),
+        );
+        verify_metric(
+            metrics,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
+            Some(0f64),
+        );
 
         let record_types = [
             "a",
@@ -316,7 +370,11 @@ fn test_request_response() {
             "zero",
         ];
         record_types.iter().for_each(|r#type| {
-            let value = if *r#type == "a" { 1f64 } else { 0f64 };
+            let value = if ["a", "ptr"].contains(r#type) {
+                1f64
+            } else {
+                0f64
+            };
             let r#type = [("type", *r#type)];
             for direction in ["request", "response"] {
                 verify_metric(
@@ -330,7 +388,7 @@ fn test_request_response() {
 
         let dns_classes = ["in", "ch", "hs", "none", "any", "unknown"];
         dns_classes.iter().for_each(|class| {
-            let value = if *class == "in" { 1f64 } else { 0f64 };
+            let value = if *class == "in" { 2f64 } else { 0f64 };
             let class = [("class", *class)];
             for direction in ["request", "response"] {
                 verify_metric(
@@ -341,32 +399,6 @@ fn test_request_response() {
                 )
             }
         });
-
-        // check store lookups
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_SUCCESS,
-            Some(1f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_FAILED,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_SUCCESS,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_FAILED,
-            Some(0f64),
-        );
     })
 }
 
@@ -578,7 +610,27 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
     })
 }
 
-const STORE_FILE_SUCCESS: [(&str, &str); 2] = [("store", "file"), ("success", "true")];
-const STORE_FILE_FAILED: [(&str, &str); 2] = [("store", "file"), ("success", "false")];
-const STORE_FORWARDER_SUCCESS: [(&str, &str); 2] = [("store", "forwarder"), ("success", "true")];
-const STORE_FORWARDER_FAILED: [(&str, &str); 2] = [("store", "forwarder"), ("success", "false")];
+const AUTHORITATIVE_PRIMARY_FILE_SUCCESS: [(&str, &str); 4] = [
+    ("type", "authoritative"),
+    ("role", "primary"),
+    ("authority", "file"),
+    ("success", "true"),
+];
+const AUTHORITATIVE_PRIMARY_FILE_FAILED: [(&str, &str); 4] = [
+    ("type", "authoritative"),
+    ("role", "primary"),
+    ("authority", "file"),
+    ("success", "false"),
+];
+const EXTERNAL_FORWARDED_FORWARDER_SUCCESS: [(&str, &str); 4] = [
+    ("type", "external"),
+    ("role", "forwarded"),
+    ("authority", "forwarder"),
+    ("success", "true"),
+];
+const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
+    ("type", "external"),
+    ("role", "forwarded"),
+    ("authority", "forwarder"),
+    ("success", "false"),
+];
