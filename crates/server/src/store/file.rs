@@ -15,7 +15,7 @@ use std::{
 use serde::Deserialize;
 
 #[cfg(feature = "metrics")]
-use crate::store::metrics::StoreMetrics;
+use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType,
@@ -41,7 +41,8 @@ use crate::{
 pub struct FileAuthority {
     in_memory: InMemoryAuthority,
     #[cfg(feature = "metrics")]
-    metrics: StoreMetrics,
+    #[allow(unused)]
+    metrics: PersistentStoreMetrics,
 }
 
 impl FileAuthority {
@@ -63,9 +64,9 @@ impl FileAuthority {
         Self {
             #[cfg(feature = "metrics")]
             metrics: {
-                let new = StoreMetrics::new("file");
+                let new = PersistentStoreMetrics::new("file");
                 let records = in_memory.records().await;
-                new.persistent.zone_records.increment(records.len() as f64);
+                new.zone_records.increment(records.len() as f64);
                 new
             },
             in_memory,
@@ -89,8 +90,8 @@ impl FileAuthority {
         Ok(Self {
             #[cfg(feature = "metrics")]
             metrics: {
-                let new = StoreMetrics::new("file");
-                new.persistent.zone_records.increment(records.len() as f64);
+                let new = PersistentStoreMetrics::new("file");
+                new.zone_records.increment(records.len() as f64);
                 new
             },
             in_memory: InMemoryAuthority::new(
@@ -166,12 +167,7 @@ impl Authority for FileAuthority {
         rtype: RecordType,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        let lookup = self.in_memory.lookup(name, rtype, lookup_options).await;
-
-        #[cfg(feature = "metrics")]
-        self.metrics.query.increment_lookup(&lookup);
-
-        lookup
+        self.in_memory.lookup(name, rtype, lookup_options).await
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -193,12 +189,7 @@ impl Authority for FileAuthority {
         LookupControlFlow<AuthLookup>,
         Option<Box<dyn ResponseSigner>>,
     ) {
-        let (search, signer) = self.in_memory.search(request, lookup_options).await;
-
-        #[cfg(feature = "metrics")]
-        self.metrics.query.increment_lookup(&search);
-
-        (search, signer)
+        self.in_memory.search(request, lookup_options).await
     }
 
     /// Get the NS, NameServer, record for the zone
