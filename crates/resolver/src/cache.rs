@@ -9,7 +9,7 @@ use std::{
 
 use moka::{Expiry, sync::Cache};
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 use crate::config;
 use crate::proto::{
@@ -270,7 +270,7 @@ pub struct TtlBounds {
     /// `positive_min_ttl` instead.
     #[cfg_attr(
         feature = "serde",
-        serde(default, deserialize_with = "duration_deserialize")
+        serde(default, deserialize_with = "config::duration_opt::deserialize")
     )]
     positive_min_ttl: Option<Duration>,
 
@@ -280,7 +280,7 @@ pub struct TtlBounds {
     /// `negative_min_ttl` instead.
     #[cfg_attr(
         feature = "serde",
-        serde(default, deserialize_with = "duration_deserialize")
+        serde(default, deserialize_with = "config::duration_opt::deserialize")
     )]
     negative_min_ttl: Option<Duration>,
 
@@ -290,7 +290,7 @@ pub struct TtlBounds {
     /// `positive_max_ttl` instead.
     #[cfg_attr(
         feature = "serde",
-        serde(default, deserialize_with = "duration_deserialize")
+        serde(default, deserialize_with = "config::duration_opt::deserialize")
     )]
     positive_max_ttl: Option<Duration>,
 
@@ -300,22 +300,9 @@ pub struct TtlBounds {
     /// `negative_max_ttl` instead.
     #[cfg_attr(
         feature = "serde",
-        serde(default, deserialize_with = "duration_deserialize")
+        serde(default, deserialize_with = "config::duration_opt::deserialize")
     )]
     negative_max_ttl: Option<Duration>,
-}
-
-/// This is an alternate deserialization function for an optional [`Duration`] that expects a single
-/// number, representing the number of seconds, instead of a struct with `secs` and `nanos` fields.
-#[cfg(feature = "serde")]
-fn duration_deserialize<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(
-        Option::<u32>::deserialize(deserializer)?
-            .map(|seconds| Duration::from_secs(seconds.into())),
-    )
 }
 
 #[cfg(feature = "serde")]
