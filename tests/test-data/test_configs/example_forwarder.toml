@@ -47,3 +47,8 @@ connections = [
     { protocol = { type = "udp" } },
     { protocol = { type = "tcp" } },
 ]
+
+[zones.stores.options]
+timeout = 20
+positive_max_ttl = 3600
+negative_max_ttl = 3600

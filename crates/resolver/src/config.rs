@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(any(feature = "__https", feature = "__h3"))]
 use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
@@ -455,7 +455,14 @@ pub struct ResolverOpts {
     #[cfg_attr(feature = "serde", serde(default = "default_ndots"))]
     pub ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
-    #[cfg_attr(feature = "serde", serde(default = "default_timeout"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            default = "default_timeout",
+            serialize_with = "duration_serialize",
+            deserialize_with = "duration_deserialize"
+        )
+    )]
     pub timeout: Duration,
     /// Number of retries after lookup failure before giving up. Defaults to 2
     #[cfg_attr(feature = "serde", serde(default = "default_attempts"))]
@@ -480,21 +487,49 @@ pub struct ResolverOpts {
     ///
     /// If this is set, any positive responses with a TTL lower than this value will have a TTL of
     /// `positive_min_ttl` instead. Otherwise, this will default to 0 seconds.
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "duration_opt_serialize",
+            deserialize_with = "duration_opt_deserialize"
+        )
+    )]
     pub positive_min_ttl: Option<Duration>,
     /// Optional minimum TTL for negative (`NXDOMAIN`) responses.
     ///
     /// If this is set, any negative responses with a TTL lower than this value will have a TTL of
     /// `negative_min_ttl` instead. Otherwise, this will default to 0 seconds.
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "duration_opt_serialize",
+            deserialize_with = "duration_opt_deserialize"
+        )
+    )]
     pub negative_min_ttl: Option<Duration>,
     /// Optional maximum TTL for positive responses.
     ///
     /// If this is set, any positive responses with a TTL higher than this value will have a TTL of
     /// `positive_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`](crate::MAX_TTL) seconds.
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "duration_opt_serialize",
+            deserialize_with = "duration_opt_deserialize"
+        )
+    )]
     pub positive_max_ttl: Option<Duration>,
     /// Optional maximum TTL for negative (`NXDOMAIN`) responses.
     ///
     /// If this is set, any negative responses with a TTL higher than this value will have a TTL of
     /// `negative_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`](crate::MAX_TTL) seconds.
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "duration_opt_serialize",
+            deserialize_with = "duration_opt_deserialize"
+        )
+    )]
     pub negative_max_ttl: Option<Duration>,
     /// Number of concurrent requests per query
     ///
@@ -817,6 +852,65 @@ impl<'a> ServerGroup<'a> {
             )
         })
     }
+}
+
+/// This is an alternate serialization function for a [`Duration`] that emits a single number,
+/// representing the number of seconds, instead of a struct with `secs` and `nanos` fields.
+#[cfg(feature = "serde")]
+fn duration_serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    duration.as_secs().serialize(serializer)
+}
+
+/// This is an alternate deserialization function for a [`Duration`] that expects a single number,
+/// representing the number of seconds, instead of a struct with `secs` and `nanos` fields.
+#[cfg(feature = "serde")]
+pub(crate) fn duration_deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Duration::from_secs(u32::deserialize(deserializer)?.into()))
+}
+
+/// This is an alternate serialization function for an optional [`Duration`] that emits a single
+/// number, representing the number of seconds, instead of a struct with `secs` and `nanos` fields.
+#[cfg(feature = "serde")]
+fn duration_opt_serialize<S>(duration: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    struct Wrapper<'a>(&'a Duration);
+
+    impl<'a> Serialize for Wrapper<'a> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            duration_serialize(self.0, serializer)
+        }
+    }
+
+    match duration {
+        Some(duration) => serializer.serialize_some(&Wrapper(duration)),
+        None => serializer.serialize_none(),
+    }
+}
+
+/// This is an alternate deserialization function for an optional [`Duration`] that expects a single
+/// number, representing the number of seconds, instead of a struct with `secs` and `nanos` fields.
+#[cfg(feature = "serde")]
+pub(crate) fn duration_opt_deserialize<'de, D>(
+    deserializer: D,
+) -> Result<Option<Duration>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(
+        Option::<u32>::deserialize(deserializer)?
+            .map(|seconds| Duration::from_secs(seconds.into())),
+    )
 }
 
 #[cfg(all(test, feature = "serde"))]
