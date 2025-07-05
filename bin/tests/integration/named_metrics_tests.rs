@@ -120,28 +120,29 @@ fn test_prometheus_endpoint_startup() {
             Some(14f64),
         );
 
+        // check zone lookup metrics
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_SUCCESS,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_FAILED,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_SUCCESS,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_FAILED,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
             Some(0f64),
         );
 
@@ -275,31 +276,98 @@ fn test_request_response() {
             verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
         });
 
-        // check store lookups
+        // check zone lookup metrics
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_SUCCESS,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
             Some(1f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FILE_FAILED,
+            "hickory_zone_lookups_total",
+            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_SUCCESS,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_record_lookups_total",
-            &STORE_FORWARDER_FAILED,
+            "hickory_zone_lookups_total",
+            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
             Some(0f64),
         );
+
+        let record_types = [
+            "a",
+            "aaaa",
+            "aname",
+            "any",
+            "axfr",
+            "caa",
+            "cdnskey",
+            "cds",
+            "cert",
+            "cname",
+            "csync",
+            "dnskey",
+            "ds",
+            "hinfo",
+            "https",
+            "ixfr",
+            "key",
+            "mx",
+            "naptr",
+            "ns",
+            "nsec",
+            "nsec3",
+            "nsec3param",
+            "null",
+            "openpgpkey",
+            "opt",
+            "ptr",
+            "rrsig",
+            "sig",
+            "soa",
+            "srv",
+            "sshfp",
+            "svcb",
+            "tlsa",
+            "tsig",
+            "txt",
+            "unknown",
+            "zero",
+        ];
+        record_types.iter().for_each(|r#type| {
+            let value = if *r#type == "a" { 1f64 } else { 0f64 };
+            let r#type = [("type", *r#type)];
+            for direction in ["request", "response"] {
+                verify_metric(
+                    metrics,
+                    format!("hickory_{direction}_record_types_total").as_str(),
+                    &r#type,
+                    Some(value),
+                )
+            }
+        });
+
+        let dns_classes = ["in", "ch", "hs", "none", "any", "unknown"];
+        dns_classes.iter().for_each(|class| {
+            let value = if *class == "in" { 1f64 } else { 0f64 };
+            let class = [("class", *class)];
+            for direction in ["request", "response"] {
+                verify_metric(
+                    metrics,
+                    format!("hickory_{direction}_dns_classes_total").as_str(),
+                    &class,
+                    Some(value),
+                )
+            }
+        });
     })
 }
 
@@ -511,7 +579,27 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
     })
 }
 
-const STORE_FILE_SUCCESS: [(&str, &str); 2] = [("store", "file"), ("success", "true")];
-const STORE_FILE_FAILED: [(&str, &str); 2] = [("store", "file"), ("success", "false")];
-const STORE_FORWARDER_SUCCESS: [(&str, &str); 2] = [("store", "forwarder"), ("success", "true")];
-const STORE_FORWARDER_FAILED: [(&str, &str); 2] = [("store", "forwarder"), ("success", "false")];
+const AUTHORITATIVE_PRIMARY_FILE_SUCCESS: [(&str, &str); 4] = [
+    ("type", "authoritative"),
+    ("role", "primary"),
+    ("authority", "file"),
+    ("success", "true"),
+];
+const AUTHORITATIVE_PRIMARY_FILE_FAILED: [(&str, &str); 4] = [
+    ("type", "authoritative"),
+    ("role", "primary"),
+    ("authority", "file"),
+    ("success", "false"),
+];
+const EXTERNAL_FORWARDED_FORWARDER_SUCCESS: [(&str, &str); 4] = [
+    ("type", "external"),
+    ("role", "forwarded"),
+    ("authority", "forwarder"),
+    ("success", "true"),
+];
+const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
+    ("type", "external"),
+    ("role", "forwarded"),
+    ("authority", "forwarder"),
+    ("success", "false"),
+];
