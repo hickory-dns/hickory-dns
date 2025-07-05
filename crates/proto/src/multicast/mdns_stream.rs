@@ -334,7 +334,7 @@ impl NextRandomUdpSocket {
                 socket.set_multicast_loop_v4(true)?;
                 socket.set_multicast_if_v4(&self.ipv4_if.unwrap_or(Ipv4Addr::UNSPECIFIED))?;
                 if let Some(ttl) = self.packet_ttl {
-                    socket.set_ttl(ttl)?;
+                    socket.set_ttl_v4(ttl)?;
                     socket.set_multicast_ttl_v4(ttl)?;
                 }
             }
