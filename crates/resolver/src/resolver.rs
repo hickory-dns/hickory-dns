@@ -781,7 +781,7 @@ pub(crate) mod testing {
     }
 
     /// Test Resolver created from system configuration with host lookups.
-    #[cfg(feature = "system-config")]
+    #[cfg(all(unix, feature = "system-config"))]
     pub(crate) async fn hosts_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::builder(handle)
             .expect("failed to create resolver")
