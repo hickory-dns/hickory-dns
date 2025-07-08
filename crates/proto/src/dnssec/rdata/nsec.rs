@@ -71,8 +71,8 @@ impl NSEC {
         }
     }
 
-    /// Constructs a new NSEC RData, this will add the NSEC itself as covered, generally
-    ///   correct for NSEC records generated at their own name
+    /// Constructs a new NSEC RData, this will add the NSEC itself and its RRSIG as covered,
+    ///   generally correct for NSEC records generated at their own name
     ///
     /// # Arguments
     ///
@@ -88,7 +88,9 @@ impl NSEC {
     ) -> Self {
         Self::new(
             next_domain_name,
-            type_bit_maps.into_iter().chain([RecordType::NSEC]),
+            type_bit_maps
+                .into_iter()
+                .chain([RecordType::NSEC, RecordType::RRSIG]),
         )
     }
 
