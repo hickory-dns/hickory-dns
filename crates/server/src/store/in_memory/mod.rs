@@ -192,7 +192,7 @@ impl InMemoryAuthority {
         self.inner.read().await.serial(self.origin())
     }
 
-    #[cfg(any(feature = "__dnssec", feature = "sqlite"))]
+    #[cfg(feature = "sqlite")]
     pub(crate) async fn increment_soa_serial(&self) -> u32 {
         self.inner
             .write()

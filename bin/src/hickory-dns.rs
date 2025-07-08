@@ -812,9 +812,11 @@ impl ConfigMetrics {
         match &zone.zone_type_config {
             ZoneTypeConfig::Primary(server_config) => self.increment_stores(server_config, true),
             ZoneTypeConfig::Secondary(server_config) => self.increment_stores(server_config, false),
-            ZoneTypeConfig::External { stores } => {
+            #[cfg_attr(not(feature = "resolver"), allow(unused_variables))]
+            ZoneTypeConfig::External { stores } =>
+            {
+                #[cfg(feature = "resolver")]
                 for store in stores {
-                    #[cfg(feature = "resolver")]
                     if let ExternalStoreConfig::Forward(_) = store {
                         self.zones_forwarder.increment(1)
                     }
