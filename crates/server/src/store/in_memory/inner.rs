@@ -530,12 +530,12 @@ impl InnerInMemory {
             for key in self.records.keys() {
                 match &mut nsec_info {
                     None => nsec_info = Some((&key.name, BTreeSet::from([key.record_type]))),
-                    Some((name, vec)) if LowerName::new(name) == key.name => {
-                        vec.insert(key.record_type);
+                    Some((name, set)) if LowerName::new(name) == key.name => {
+                        set.insert(key.record_type);
                     }
-                    Some((name, vec)) => {
+                    Some((name, set)) => {
                         // names aren't equal, create the NSEC record
-                        let rdata = NSEC::new_cover_self(key.name.clone().into(), mem::take(vec));
+                        let rdata = NSEC::new_cover_self(key.name.clone().into(), mem::take(set));
                         let record = Record::from_rdata(name.clone(), ttl, rdata);
                         records.push(record.into_record_of_rdata());
 
@@ -546,9 +546,9 @@ impl InnerInMemory {
             }
 
             // the last record
-            if let Some((name, vec)) = nsec_info {
+            if let Some((name, set)) = nsec_info {
                 // names aren't equal, create the NSEC record
-                let rdata = NSEC::new_cover_self(origin.clone().into(), vec);
+                let rdata = NSEC::new_cover_self(origin.clone().into(), set);
                 let record = Record::from_rdata(name.clone(), ttl, rdata);
                 records.push(record.into_record_of_rdata());
             }
