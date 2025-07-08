@@ -529,7 +529,23 @@ impl InnerInMemory {
 
         {
             let mut nsec_info: Option<(&Name, BTreeSet<RecordType>)> = None;
+            let mut delegation_points = HashSet::<LowerName>::new();
             for key in self.records.keys() {
+                if !origin.zone_of(key.name()) {
+                    // Non-authoritative record outside of zone
+                    continue;
+                }
+                if delegation_points
+                    .iter()
+                    .any(|name| name.zone_of(&key.name) && name != &key.name)
+                {
+                    // Non-authoritative record below zone cut
+                    continue;
+                }
+                if key.record_type == RecordType::NS && &key.name != origin {
+                    delegation_points.insert(key.name.clone());
+                }
+
                 match &mut nsec_info {
                     None => nsec_info = Some((&key.name, BTreeSet::from([key.record_type]))),
                     Some((name, set)) if LowerName::new(name) == key.name => {
