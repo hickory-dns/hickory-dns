@@ -1,8 +1,11 @@
-#[cfg(feature = "__dnssec")]
-use std::collections::{BTreeSet, HashMap, hash_map::Entry};
 use std::{
     collections::{BTreeMap, HashSet},
     sync::Arc,
+};
+#[cfg(feature = "__dnssec")]
+use std::{
+    collections::{BTreeSet, HashMap, hash_map::Entry},
+    mem,
 };
 
 use cfg_if::cfg_if;
@@ -502,7 +505,6 @@ impl InnerInMemory {
     fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
         // only create nsec records for secure zones
 
-        use std::mem;
         if self.secure_keys.is_empty() {
             return;
         }
@@ -535,9 +537,7 @@ impl InnerInMemory {
                     }
                     Some((name, set)) => {
                         // names aren't equal, create the NSEC record
-                        let rdata = NSEC::new_cover_self(key.name.clone().into(), mem::take(set));
-                        let record = Record::from_rdata(name.clone(), ttl, rdata);
-                        records.push(record.into_record_of_rdata());
+                        records.push(finish_nsec_record(name, &key.name, set, ttl));
 
                         // new record...
                         nsec_info = Some((&key.name, BTreeSet::from([key.record_type])))
@@ -546,11 +546,8 @@ impl InnerInMemory {
             }
 
             // the last record
-            if let Some((name, set)) = nsec_info {
-                // names aren't equal, create the NSEC record
-                let rdata = NSEC::new_cover_self(origin.clone().into(), set);
-                let record = Record::from_rdata(name.clone(), ttl, rdata);
-                records.push(record.into_record_of_rdata());
+            if let Some((name, set)) = &mut nsec_info {
+                records.push(finish_nsec_record(name, origin, set, ttl));
             }
         }
 
@@ -828,4 +825,16 @@ impl InnerInMemory {
 
         Ok(None)
     }
+}
+
+/// Helper to construct an NSEC record and reset the running list of record types.
+#[cfg(feature = "__dnssec")]
+fn finish_nsec_record(
+    name: &Name,
+    next_name: &Name,
+    record_type_set: &mut BTreeSet<RecordType>,
+    ttl: u32,
+) -> Record {
+    let rdata = NSEC::new_cover_self(next_name.clone(), mem::take(record_type_set));
+    Record::from_rdata(name.clone(), ttl, RData::DNSSEC(DNSSECRData::NSEC(rdata)))
 }
