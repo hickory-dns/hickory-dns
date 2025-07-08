@@ -18,16 +18,28 @@ use futures::{
     Future, FutureExt, future,
     stream::{Stream, StreamExt},
 };
+#[cfg(feature = "__dnssec")]
+use tokio::net::UdpSocket;
 use tokio::time::{Duration, Instant, Sleep};
 
+#[cfg(feature = "__dnssec")]
+use hickory_client::client::DnssecClient;
 use hickory_proto::{
     BufDnsStreamHandle, ProtoError,
     op::Message,
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
-    xfer::{DnsClientStream, Protocol, SerialMessage, StreamReceiver},
+    xfer::{DnsClientStream, DnsResponse, Protocol, SerialMessage, StreamReceiver},
 };
+#[cfg(feature = "__dnssec")]
+use hickory_proto::{
+    dnssec::{PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey},
+    runtime::TokioRuntimeProvider,
+    udp::UdpClientStream,
+};
+#[cfg(feature = "__dnssec")]
+use hickory_server::Server;
 use hickory_server::{
     authority::{Catalog, MessageResponse},
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
@@ -35,6 +47,7 @@ use hickory_server::{
 
 pub mod example_authority;
 pub mod mock_client;
+pub mod mock_request_handler;
 
 pub struct TestClientStream {
     catalog: Arc<Mutex<Catalog>>,
@@ -241,6 +254,59 @@ impl Stream for NeverReturnsClientStream {
 impl fmt::Debug for NeverReturnsClientStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TestClientStream catalog")
+    }
+}
+
+/// Generate an Ed25519 key pair.
+#[cfg(feature = "__dnssec")]
+pub fn generate_key() -> (Box<dyn SigningKey>, PublicKeyBuf) {
+    let signing_key =
+        Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
+    let public_key = signing_key.to_public_key().unwrap();
+    (Box::new(signing_key), public_key)
+}
+
+/// Creates a server using a request handler, and creates a validating client connected to the
+/// server.
+#[cfg(feature = "__dnssec")]
+pub async fn setup_dnssec_client_server<H>(
+    handler: H,
+    public_key: &PublicKeyBuf,
+) -> (DnssecClient, Server<H>)
+where
+    H: RequestHandler,
+{
+    // Server setup
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let local_addr = udp_socket.local_addr().unwrap();
+    let mut server = Server::new(handler);
+    server.register_socket(udp_socket);
+
+    // Client setup
+    let mut trust_anchor = TrustAnchors::empty();
+    trust_anchor.insert(public_key);
+    let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
+    let (client, bg) = DnssecClient::builder(stream)
+        .trust_anchor(trust_anchor)
+        .build()
+        .await
+        .unwrap();
+    tokio::spawn(bg);
+
+    (client, server)
+}
+
+/// Prints a response in textual form.
+pub fn print_response(response: &DnsResponse) {
+    for (section_heading, section) in [
+        ("; Answers", response.answers()),
+        ("; Authorities", response.name_servers()),
+        ("; Additionals", response.additionals()),
+    ] {
+        println!("{section_heading}");
+        for record in section {
+            println!("{record}");
+        }
     }
 }
 

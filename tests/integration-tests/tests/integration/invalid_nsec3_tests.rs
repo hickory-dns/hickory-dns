@@ -10,36 +10,33 @@ use std::{
     time::Duration,
 };
 
-use async_trait::async_trait;
-use hickory_client::client::{ClientHandle, DnssecClient};
+use hickory_client::client::ClientHandle;
+use hickory_integration::{
+    generate_key,
+    mock_request_handler::{MockHandler, fetch_dnskey},
+    print_response, setup_dnssec_client_server,
+};
 use hickory_proto::{
     ProtoErrorKind,
     dnssec::{
-        Algorithm, DigestType, Nsec3HashAlgorithm, Proof, PublicKeyBuf, SigSigner, SigningKey,
-        TrustAnchors,
+        Algorithm, DigestType, Nsec3HashAlgorithm, Proof, SigSigner, SigningKey,
         crypto::Ed25519SigningKey,
         rdata::{DNSKEY, DNSSECRData, DS},
     },
-    op::{Header, MessageType, ResponseCode},
+    op::ResponseCode,
     rr::{
-        DNSClass, LowerName, RData, Record, RecordType,
+        DNSClass, RData, Record, RecordType,
         rdata::{A, AAAA, HINFO, MX, NS, SOA},
     },
-    runtime::TokioRuntimeProvider,
-    udp::UdpClientStream,
     xfer::DnsResponse,
 };
 use hickory_resolver::Name;
 use hickory_server::{
-    Server,
-    authority::{AxfrPolicy, Catalog, MessageResponseBuilder, ZoneType},
+    authority::{AxfrPolicy, Catalog, ZoneType},
     dnssec::NxProofKind,
-    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     store::in_memory::InMemoryAuthority,
 };
 use test_support::subscribe;
-use tokio::{net::UdpSocket, spawn};
-use tracing::error;
 
 /// Based on RFC 5155 section B.1.
 #[tokio::test]
@@ -48,7 +45,7 @@ async fn name_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("a.c.x.w.example.", None).unwrap();
     let query_type = RecordType::A;
@@ -99,7 +96,7 @@ async fn no_data_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("ns1.example.", None).unwrap();
     let query_type = RecordType::MX;
@@ -131,7 +128,7 @@ async fn no_data_error_empty_non_terminal() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("y.w.example.", None).unwrap();
     let query_type = RecordType::A;
@@ -164,7 +161,7 @@ async fn referral_opt_out_unsigned() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("mc.c.example.", None).unwrap();
     let query_type = RecordType::MX;
@@ -213,7 +210,7 @@ async fn wildcard_expansion() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("a.z.w.example.", None).unwrap();
     let query_type = RecordType::MX;
@@ -246,7 +243,7 @@ async fn wildcard_no_data_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("a.z.w.example.", None).unwrap();
     let query_type = RecordType::AAAA;
@@ -298,7 +295,7 @@ async fn ds_child_zone_no_data_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_client_server(catalog, &public_key).await;
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
 
     let query_name = Name::parse("example.", None).unwrap();
     let query_type = RecordType::DS;
@@ -321,162 +318,6 @@ async fn ds_child_zone_no_data_error() {
         "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom",
     )
     .await;
-}
-
-fn generate_key() -> (Box<dyn SigningKey>, PublicKeyBuf) {
-    let signing_key =
-        Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
-    let public_key = signing_key.to_public_key().unwrap();
-    (Box::new(signing_key), public_key)
-}
-
-async fn fetch_dnskey(client: &mut DnssecClient) -> DnsResponse {
-    let dnskey_response = client
-        .query(
-            Name::parse("example.", None).unwrap(),
-            DNSClass::IN,
-            RecordType::DNSKEY,
-        )
-        .await
-        .unwrap();
-    assert_eq!(dnskey_response.response_code(), ResponseCode::NoError);
-    dnskey_response
-}
-
-fn print_response(response: &DnsResponse) {
-    for (section_heading, section) in [
-        ("; Answers", response.answers()),
-        ("; Authorities", response.name_servers()),
-        ("; Additionals", response.additionals()),
-    ] {
-        println!("{section_heading}");
-        for record in section {
-            println!("{record}");
-        }
-    }
-}
-
-async fn setup_client_server<H>(handler: H, public_key: &PublicKeyBuf) -> (DnssecClient, Server<H>)
-where
-    H: RequestHandler,
-{
-    // Server setup
-    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
-    let local_addr = udp_socket.local_addr().unwrap();
-    let mut server = Server::new(handler);
-    server.register_socket(udp_socket);
-
-    // Client setup
-    let mut trust_anchor = TrustAnchors::empty();
-    trust_anchor.insert(public_key);
-    let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
-    let (client, bg) = DnssecClient::builder(stream)
-        .trust_anchor(trust_anchor)
-        .build()
-        .await
-        .unwrap();
-    spawn(bg);
-
-    (client, server)
-}
-
-/// Replacement for `Catalog` that returns one of two canned responses.
-struct MockHandler {
-    query_name: LowerName,
-    query_type: RecordType,
-    response: DnsResponse,
-    dnskey_name: LowerName,
-    dnskey_response: DnsResponse,
-}
-
-impl MockHandler {
-    fn new(
-        query_name: LowerName,
-        query_type: RecordType,
-        response: DnsResponse,
-        dnskey_response: DnsResponse,
-    ) -> Self {
-        let dnskey_name = Name::parse("example.", None).unwrap().into();
-        Self {
-            query_name,
-            query_type,
-            response,
-            dnskey_name,
-            dnskey_response,
-        }
-    }
-}
-
-#[async_trait]
-impl RequestHandler for MockHandler {
-    async fn handle_request<R: ResponseHandler>(
-        &self,
-        request: &Request,
-        mut response_handle: R,
-    ) -> ResponseInfo {
-        let request_info = request.request_info().unwrap();
-        if request_info.query.name() == &self.query_name
-            && request_info.query.query_type() == self.query_type
-        {
-            send_response(response_handle, request, &self.response).await
-        } else if request_info.query.name() == &self.dnskey_name
-            && request_info.query.query_type() == RecordType::DNSKEY
-        {
-            send_response(response_handle, request, &self.dnskey_response).await
-        } else {
-            error!(query = ?request_info.query, "unexpected request");
-            let response_builder = MessageResponseBuilder::from_message_request(request);
-            let mut response_header = Header::response_from_request(request.header());
-            response_header.set_response_code(ResponseCode::ServFail);
-            let result = response_handle
-                .send_response(response_builder.build_no_records(response_header))
-                .await;
-            if let Err(e) = result {
-                error!(error = %e, "error responding to request");
-            }
-            response_header.into()
-        }
-    }
-}
-
-/// Helper for implementation of `RequestHandler`.
-///
-/// Turns a `DnsResponse` into a `MessageResponse`, performs error handling, and produces a
-/// `ResponseInfo`.
-async fn send_response(
-    mut response_handle: impl ResponseHandler,
-    request: &Request,
-    response: &DnsResponse,
-) -> ResponseInfo {
-    let mut response_header = *response.header();
-    response_header.set_id(request.id());
-
-    let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
-    if let Some(edns) = response.extensions() {
-        message_response_builder.edns(edns.clone());
-    }
-    let message_response = message_response_builder.build(
-        response_header,
-        response.answers(),
-        response.name_servers(),
-        [],
-        response.additionals(),
-    );
-
-    let result = response_handle.send_response(message_response).await;
-    match result {
-        Ok(info) => info,
-        Err(e) => {
-            error!(error = %e, "error responding to request");
-            let mut header = Header::new(
-                request.id(),
-                MessageType::Response,
-                request.header().op_code(),
-            );
-            header.set_response_code(ResponseCode::ServFail);
-            ResponseInfo::from(header)
-        }
-    }
 }
 
 /// Modifies a response to remove a specific NSEC3 record, and confirms that the validating client
@@ -516,7 +357,7 @@ async fn test_exclude_nsec3(
         modified_response,
         dnskey_response.clone(),
     );
-    let (mut client, _mock_server) = setup_client_server(mock, public_key).await;
+    let (mut client, _mock_server) = setup_dnssec_client_server(mock, public_key).await;
 
     let error = client
         .query(query_name.clone(), DNSClass::IN, query_type)
