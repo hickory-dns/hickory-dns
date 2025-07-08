@@ -818,6 +818,8 @@ impl ConfigMetrics {
                     if let ExternalStoreConfig::Forward(_) = store {
                         self.zones_forwarder.increment(1)
                     }
+                    #[cfg(not(feature = "resolver"))]
+                    let _ = store;
                 }
             }
         }
