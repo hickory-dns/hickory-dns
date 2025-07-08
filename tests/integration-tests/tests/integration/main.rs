@@ -4,6 +4,7 @@ mod client_future_tests;
 mod client_tests;
 mod dnssec_client_handle_tests;
 mod invalid_nsec3_tests;
+mod invalid_nsec_tests;
 mod lookup_tests;
 mod name_server_pool_tests;
 mod retry_dns_handle_tests;
