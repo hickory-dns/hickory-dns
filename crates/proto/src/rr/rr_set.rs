@@ -402,19 +402,12 @@ impl RecordSet {
             _ => (), // move on to the delete
         }
 
-        // remove the records, first collect all the indexes, then remove the records
-        let to_remove: Vec<usize> = self
-            .records
-            .iter()
-            .enumerate()
-            .filter(|&(_, rr)| rr.data() == record.data())
-            .map(|(i, _)| i)
-            .collect::<Vec<usize>>();
+        // remove the records
+        let old_size = self.records.len();
+        self.records.retain(|rr| rr.data() != record.data());
+        let removed = self.records.len() < old_size;
 
-        let mut removed = false;
-        for i in to_remove {
-            self.records.remove(i);
-            removed = true;
+        if removed {
             self.updated(serial);
         }
 

@@ -511,16 +511,8 @@ impl InnerInMemory {
         debug!("generating nsec records: {}", origin);
 
         // first remove all existing nsec records
-        let delete_keys: Vec<RrKey> = self
-            .records
-            .keys()
-            .filter(|k| k.record_type == RecordType::NSEC)
-            .cloned()
-            .collect();
-
-        for key in delete_keys {
-            self.records.remove(&key);
-        }
+        self.records
+            .retain(|k, _| k.record_type != RecordType::NSEC);
 
         // now go through and generate the nsec records
         let ttl = self.minimum_ttl(origin);
@@ -591,16 +583,8 @@ impl InnerInMemory {
         debug!("generating nsec3 records: {origin}");
 
         // first remove all existing nsec records
-        let delete_keys = self
-            .records
-            .keys()
-            .filter(|k| k.record_type == RecordType::NSEC3)
-            .cloned()
-            .collect::<Vec<_>>();
-
-        for key in delete_keys {
-            self.records.remove(&key);
-        }
+        self.records
+            .retain(|k, _| k.record_type != RecordType::NSEC3);
 
         // now go through and generate the nsec3 records
         let ttl = self.minimum_ttl(origin);
