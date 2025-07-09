@@ -808,25 +808,24 @@ impl SqliteAuthority {
                                 "deleting all records at name (not SOA or NS at origin): {rr_name:?}"
                             );
                             let origin = self.origin();
-                            let to_delete = self
-                                .in_memory
-                                .records()
-                                .await
-                                .keys()
-                                .filter(|k| {
-                                    !((k.record_type == RecordType::SOA
+
+                            let mut records = self.in_memory.records_mut().await;
+                            let old_size = records.len();
+                            records.retain(|k, _| {
+                                k.name != rr_name
+                                    || ((k.record_type == RecordType::SOA
                                         || k.record_type == RecordType::NS)
                                         && k.name != *origin)
-                                })
-                                .filter(|k| k.name == rr_name)
-                                .cloned()
-                                .collect::<Vec<RrKey>>();
+                            });
+                            let new_size = records.len();
+                            drop(records);
 
-                            for delete in to_delete {
-                                self.in_memory.records_mut().await.remove(&delete);
+                            if new_size < old_size {
                                 updated = true;
+                            }
 
-                                #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                            #[cfg(all(feature = "metrics", feature = "__dnssec"))]
+                            for _ in 0..old_size - new_size {
                                 if auto_signing_and_increment {
                                     self.metrics.deleted()
                                 }
