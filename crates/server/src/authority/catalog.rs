@@ -783,13 +783,7 @@ async fn build_authoritative_response(
     // everything is done, return results.
     let (answers, additionals) = match answers {
         Some(mut answers) => match answers.take_additionals() {
-            Some(additionals) => (
-                answers,
-                AuthLookup::Records {
-                    answers: additionals,
-                    additionals: None,
-                },
-            ),
+            Some(additionals) => (answers, AuthLookup::records(additionals, None)),
             None => (answers, AuthLookup::default()),
         },
         None => (AuthLookup::default(), AuthLookup::default()),

@@ -313,10 +313,8 @@ fn inner_lookup(
                 1,
             );
 
-            let lookup = AuthLookup::Records {
-                answers: LookupRecords::new(*lookup_options, rset.into()),
-                additionals: None,
-            };
+            let lookup =
+                AuthLookup::records(LookupRecords::new(*lookup_options, rset.into()), None);
 
             use LookupControlFlow::*;
             match response_type {
