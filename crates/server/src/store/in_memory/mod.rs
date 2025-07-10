@@ -429,6 +429,7 @@ impl Authority for InMemoryAuthority {
                     name.clone(),
                 )),
                 None,
+                None,
             )));
         }
         let answer = inner.inner_lookup(name, query_type, lookup_options);
@@ -534,6 +535,7 @@ impl Authority for InMemoryAuthority {
 
         LookupControlFlow::Continue(Ok(AuthLookup::records(
             answers,
+            None,
             additionals.map(|a| LookupRecords::many(lookup_options, a)),
         )))
     }

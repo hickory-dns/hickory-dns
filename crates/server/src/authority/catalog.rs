@@ -783,7 +783,7 @@ async fn build_authoritative_response(
     // everything is done, return results.
     let (answers, additionals) = match answers {
         Some(mut answers) => match answers.take_additionals() {
-            Some(additionals) => (answers, AuthLookup::records(additionals, None)),
+            Some(additionals) => (answers, AuthLookup::records(additionals, None, None)),
             None => (answers, AuthLookup::default()),
         },
         None => (AuthLookup::default(), AuthLookup::default()),
@@ -863,6 +863,7 @@ async fn build_forwarded_response(
 
                 AuthLookup::records(
                     LookupRecords::many(LookupOptions::default(), authorities),
+                    None,
                     None,
                 )
             } else {
@@ -987,7 +988,11 @@ async fn build_forwarded_response(
             })
             .collect();
 
-        AuthLookup::records(LookupRecords::many(LookupOptions::default(), auth), None)
+        AuthLookup::records(
+            LookupRecords::many(LookupOptions::default(), auth),
+            None,
+            None,
+        )
     } else {
         authorities
     };

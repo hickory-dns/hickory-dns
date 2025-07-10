@@ -314,7 +314,7 @@ fn inner_lookup(
             );
 
             let lookup =
-                AuthLookup::records(LookupRecords::new(*lookup_options, rset.into()), None);
+                AuthLookup::records(LookupRecords::new(*lookup_options, rset.into()), None, None);
 
             use LookupControlFlow::*;
             match response_type {

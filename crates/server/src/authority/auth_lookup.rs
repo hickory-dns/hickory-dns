@@ -20,12 +20,13 @@ use crate::resolver::lookup::{Lookup, LookupRecordIter};
 pub enum AuthLookup {
     /// No records
     Empty,
-    // TODO: change the result of a lookup to a set of chained iterators...
     /// Records
     Records {
-        /// Authoritative answers
+        /// Records for the Answer section
         answers: LookupRecords,
-        /// Optional set of LookupRecords
+        /// Records for the Authority section (optional)
+        authorities: Option<LookupRecords>,
+        /// Records for the Additional section (optional)
         additionals: Option<LookupRecords>,
     },
     /// Records resulting from a resolver lookup
@@ -45,10 +46,15 @@ pub enum AuthLookup {
 }
 
 impl AuthLookup {
-    /// Construct an answer from a set of records, optionally with an additional section
-    pub fn records(answers: LookupRecords, additionals: Option<LookupRecords>) -> Self {
+    /// Construct an answer from a set of records for each section
+    pub fn records(
+        answers: LookupRecords,
+        authorities: Option<LookupRecords>,
+        additionals: Option<LookupRecords>,
+    ) -> Self {
         Self::Records {
             answers,
+            authorities,
             additionals,
         }
     }
@@ -80,7 +86,23 @@ impl AuthLookup {
         }
     }
 
-    /// Returns the additional records, if present.
+    /// Returns the records for the Authority section, if present.
+    pub fn authorities(&self) -> Option<&LookupRecords> {
+        let Self::Records { authorities, .. } = self else {
+            return None;
+        };
+        authorities.as_ref()
+    }
+
+    /// Takes the records for the Authority section, leaving behind None.
+    pub fn take_authorities(&mut self) -> Option<LookupRecords> {
+        let Self::Records { authorities, .. } = self else {
+            return None;
+        };
+        authorities.take()
+    }
+
+    /// Returns the records for the Additional section, if present.
     pub fn additionals(&self) -> Option<&LookupRecords> {
         let Self::Records { additionals, .. } = self else {
             return None;
@@ -88,12 +110,12 @@ impl AuthLookup {
         additionals.as_ref()
     }
 
-    /// Takes the additional records, leaving behind None
+    /// Takes the records for the Additional section, leaving behind None.
     pub fn take_additionals(&mut self) -> Option<LookupRecords> {
-        match self {
-            Self::Records { additionals, .. } => additionals.take(),
-            _ => None,
-        }
+        let Self::Records { additionals, .. } = self else {
+            return None;
+        };
+        additionals.take()
     }
 }
 
@@ -165,6 +187,7 @@ impl From<LookupRecords> for AuthLookup {
     fn from(lookup: LookupRecords) -> Self {
         Self::Records {
             answers: lookup,
+            authorities: None,
             additionals: None,
         }
     }
