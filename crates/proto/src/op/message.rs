@@ -140,68 +140,68 @@ impl Message {
         msg
     }
 
-    /// Sets the `Header` with provided
+    /// Sets the [`Header`]
     pub fn set_header(&mut self, header: Header) -> &mut Self {
         self.header = header;
         self
     }
 
-    /// see `Header::set_id`
+    /// See [`Header::set_id()`]
     #[allow(dead_code)] // Complicated feature combination
     pub(crate) fn set_id(&mut self, id: u16) -> &mut Self {
         self.header.set_id(id);
         self
     }
 
-    /// see `Header::set_op_code`
+    /// See [`Header::set_op_code()`]
     pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
         self.header.set_op_code(op_code);
         self
     }
 
-    /// see `Header::set_authoritative`
+    /// See [`Header::set_authoritative()`]
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.header.set_authoritative(authoritative);
         self
     }
 
-    /// see `Header::set_truncated`
+    /// See [`Header::set_truncated()`]
     pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
         self.header.set_truncated(truncated);
         self
     }
 
-    /// see `Header::set_recursion_desired`
+    /// See [`Header::set_recursion_desired()`]
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.header.set_recursion_desired(recursion_desired);
         self
     }
 
-    /// see `Header::set_recursion_available`
+    /// See [`Header::set_recursion_available()`]
     pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
         self.header.set_recursion_available(recursion_available);
         self
     }
 
-    /// see `Header::set_authentic_data`
+    /// See [`Header::set_authentic_data()`]
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.header.set_authentic_data(authentic_data);
         self
     }
 
-    /// see `Header::set_checking_disabled`
+    /// See [`Header::set_checking_disabled()`]
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.header.set_checking_disabled(checking_disabled);
         self
     }
 
-    /// see `Header::set_response_code`
+    /// See [`Header::set_response_code()`]
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.header.set_response_code(response_code);
         self
     }
 
-    /// see `Header::set_query_count`
+    /// See [`Header::set_query_count()`]
     ///
     /// this count will be ignored during serialization,
     /// where the length of the associated records will be used instead.
@@ -210,7 +210,7 @@ impl Message {
         self
     }
 
-    /// see `Header::set_answer_count`
+    /// See [`Header::set_answer_count()`]
     ///
     /// this count will be ignored during serialization,
     /// where the length of the associated records will be used instead.
@@ -219,7 +219,7 @@ impl Message {
         self
     }
 
-    /// See [`Header::set_authority_count`]
+    /// See [`Header::set_authority_count()`]
     ///
     /// this count will be ignored during serialization,
     /// where the length of the associated records will be used instead.
@@ -228,7 +228,7 @@ impl Message {
         self
     }
 
-    /// see `Header::set_additional_count`
+    /// See [`Header::set_additional_count()`]
     ///
     /// this count will be ignored during serialization,
     /// where the length of the associated records will be used instead.
@@ -256,13 +256,13 @@ impl Message {
         self
     }
 
-    /// Add an answer to the Message
+    /// Add a record to the Answer section.
     pub fn add_answer(&mut self, record: Record) -> &mut Self {
         self.answers.push(record);
         self
     }
 
-    /// Add all the records from the iterator to the answers section of the Message
+    /// Add all the records from the iterator to the Answer section of the message.
     pub fn add_answers<R, I>(&mut self, records: R) -> &mut Self
     where
         R: IntoIterator<Item = Record, IntoIter = I>,
@@ -275,11 +275,11 @@ impl Message {
         self
     }
 
-    /// Sets the answers to the specified set of Records.
+    /// Sets the Answer section to the specified set of records.
     ///
     /// # Panics
     ///
-    /// Will panic if answer records are already associated to the message.
+    /// Will panic if the Answer section is already non-empty.
     pub fn insert_answers(&mut self, records: Vec<Record>) {
         assert!(self.answers.is_empty());
         self.answers = records;
@@ -314,13 +314,13 @@ impl Message {
         self.authorities = records;
     }
 
-    /// Add an additional Record to the message
+    /// Add a record to the Additional section.
     pub fn add_additional(&mut self, record: Record) -> &mut Self {
         self.additionals.push(record);
         self
     }
 
-    /// Add all the records from the iterator to the additionals section of the Message
+    /// Add all the records from the iterator to the Additional section of the message.
     pub fn add_additionals<R, I>(&mut self, records: R) -> &mut Self
     where
         R: IntoIterator<Item = Record, IntoIter = I>,
@@ -333,7 +333,7 @@ impl Message {
         self
     }
 
-    /// Sets the additional to the specified set of Records.
+    /// Sets the Additional to the specified set of records.
     ///
     /// # Panics
     ///
@@ -418,47 +418,47 @@ impl Message {
         &self.header
     }
 
-    /// see `Header::id()`
+    /// See [`Header::id()`]
     pub fn id(&self) -> u16 {
         self.header.id()
     }
 
-    /// see `Header::message_type()`
+    /// See [`Header::message_type()`]
     pub fn message_type(&self) -> MessageType {
         self.header.message_type()
     }
 
-    /// see `Header::op_code()`
+    /// See [`Header::op_code()`]
     pub fn op_code(&self) -> OpCode {
         self.header.op_code()
     }
 
-    /// see `Header::authoritative()`
+    /// See [`Header::authoritative()`]
     pub fn authoritative(&self) -> bool {
         self.header.authoritative()
     }
 
-    /// see `Header::truncated()`
+    /// See [`Header::truncated()`]
     pub fn truncated(&self) -> bool {
         self.header.truncated()
     }
 
-    /// see `Header::recursion_desired()`
+    /// See [`Header::recursion_desired()`]
     pub fn recursion_desired(&self) -> bool {
         self.header.recursion_desired()
     }
 
-    /// see `Header::recursion_available()`
+    /// See [`Header::recursion_available()`]
     pub fn recursion_available(&self) -> bool {
         self.header.recursion_available()
     }
 
-    /// see `Header::authentic_data()`
+    /// See [`Header::authentic_data()`]
     pub fn authentic_data(&self) -> bool {
         self.header.authentic_data()
     }
 
-    /// see `Header::checking_disabled()`
+    /// See [`Header::checking_disabled()`]
     pub fn checking_disabled(&self) -> bool {
         self.header.checking_disabled()
     }
@@ -500,7 +500,7 @@ impl Message {
         &mut self.answers
     }
 
-    /// Removes all the answers from the Message
+    /// Removes the Answer section records from the message
     pub fn take_answers(&mut self) -> Vec<Record> {
         mem::take(&mut self.answers)
     }
@@ -537,7 +537,7 @@ impl Message {
         &mut self.additionals
     }
 
-    /// Remove the additional Records from the Message
+    /// Remove the Additional section records from the message
     pub fn take_additionals(&mut self) -> Vec<Record> {
         mem::take(&mut self.additionals)
     }
@@ -866,7 +866,7 @@ impl From<Message> for MessageParts {
 pub struct HeaderCounts {
     /// The number of queries in the Message
     pub query_count: usize,
-    /// The number of answers in the Message
+    /// The number of answer records in the Message
     pub answer_count: usize,
     /// The number of authority records in the Message
     pub authority_count: usize,
