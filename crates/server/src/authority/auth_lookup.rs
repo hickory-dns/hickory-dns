@@ -45,8 +45,8 @@ pub enum AuthLookup {
 }
 
 impl AuthLookup {
-    /// Construct an answer with additional section
-    pub fn answers(answers: LookupRecords, additionals: Option<LookupRecords>) -> Self {
+    /// Construct an answer from a set of records, optionally with an additional section
+    pub fn records(answers: LookupRecords, additionals: Option<LookupRecords>) -> Self {
         Self::Records {
             answers,
             additionals,

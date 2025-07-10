@@ -421,7 +421,7 @@ impl Authority for InMemoryAuthority {
 
         // Collect the records from each rr_set
         if let RecordType::AXFR | RecordType::ANY = query_type {
-            return LookupControlFlow::Continue(Ok(AuthLookup::answers(
+            return LookupControlFlow::Continue(Ok(AuthLookup::records(
                 LookupRecords::AnyRecords(AnyRecords::new(
                     lookup_options,
                     inner.records.values().cloned().collect(),
@@ -532,7 +532,7 @@ impl Authority for InMemoryAuthority {
             }
         };
 
-        LookupControlFlow::Continue(Ok(AuthLookup::answers(
+        LookupControlFlow::Continue(Ok(AuthLookup::records(
             answers,
             additionals.map(|a| LookupRecords::many(lookup_options, a)),
         )))

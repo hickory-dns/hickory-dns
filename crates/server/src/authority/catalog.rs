@@ -867,7 +867,7 @@ async fn build_forwarded_response(
                     })
                     .collect();
 
-                AuthLookup::answers(
+                AuthLookup::records(
                     LookupRecords::many(LookupOptions::default(), authorities),
                     None,
                 )
@@ -993,7 +993,7 @@ async fn build_forwarded_response(
             })
             .collect();
 
-        AuthLookup::answers(LookupRecords::many(LookupOptions::default(), auth), None)
+        AuthLookup::records(LookupRecords::many(LookupOptions::default(), auth), None)
     } else {
         authorities
     };
