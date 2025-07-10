@@ -80,6 +80,14 @@ impl AuthLookup {
         }
     }
 
+    /// Returns the additional records, if present.
+    pub fn additionals(&self) -> Option<&LookupRecords> {
+        let Self::Records { additionals, .. } = self else {
+            return None;
+        };
+        additionals.as_ref()
+    }
+
     /// Takes the additional records, leaving behind None
     pub fn take_additionals(&mut self) -> Option<LookupRecords> {
         match self {

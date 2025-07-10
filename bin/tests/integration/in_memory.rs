@@ -69,7 +69,7 @@ fn test_cname_loop() {
         0,
     );
 
-    let mut lookup = runtime
+    let lookup = runtime
         .block_on(auth.lookup(
             &Name::from_str("foo.example.com.").unwrap().into(),
             RecordType::A,
@@ -87,11 +87,11 @@ fn test_cname_loop() {
     );
 
     assert!(
-        lookup.take_additionals().is_none(),
+        lookup.additionals().is_none(),
         "Should be no additional records."
     );
 
-    let mut lookup = runtime
+    let lookup = runtime
         .block_on(auth.lookup(
             &Name::from_str("bar.example.com.").unwrap().into(),
             RecordType::A,
@@ -108,9 +108,7 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
-    let additionals = lookup
-        .take_additionals()
-        .expect("Should be additional records");
+    let additionals = lookup.additionals().expect("Should be additional records");
     let additionals: Vec<&Record> = additionals.iter().collect();
     assert_eq!(additionals.len(), 1);
     let record = additionals[0];
@@ -120,7 +118,7 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
-    let mut lookup = runtime
+    let lookup = runtime
         .block_on(auth.lookup(
             &Name::from_str("baz.example.com.").unwrap().into(),
             RecordType::A,
@@ -137,9 +135,7 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap()))
     );
 
-    let additionals = lookup
-        .take_additionals()
-        .expect("Should be additional records");
+    let additionals = lookup.additionals().expect("Should be additional records");
     let additionals: Vec<&Record> = additionals.iter().collect();
     assert_eq!(additionals.len(), 2);
     let record = additionals[0];
