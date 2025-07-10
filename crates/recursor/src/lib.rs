@@ -99,7 +99,7 @@ fn maybe_strip_dnssec_records(
     };
 
     response.answers_mut().retain(predicate);
-    response.name_servers_mut().retain(predicate);
+    response.authorities_mut().retain(predicate);
     response.additionals_mut().retain(predicate);
 
     response

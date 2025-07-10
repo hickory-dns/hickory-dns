@@ -567,7 +567,7 @@ impl ProtoError {
 
                     // Collect any referral nameservers and associated glue records
                     let mut referral_name_servers = vec![];
-                    for ns in response.name_servers().iter().filter(|ns| ns.record_type() == RecordType::NS) {
+                    for ns in response.authorities().iter().filter(|ns| ns.record_type() == RecordType::NS) {
                         let glue = response
                             .additionals()
                             .iter()
@@ -591,8 +591,8 @@ impl ProtoError {
                         None
                     };
 
-                    let authorities = if ! response.name_servers().is_empty() {
-                        Some(response.name_servers().to_owned().into())
+                    let authorities = if !response.authorities().is_empty() {
+                        Some(response.authorities().to_owned().into())
                     } else {
                         None
                     };

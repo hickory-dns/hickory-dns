@@ -21,17 +21,17 @@ use crate::{
 ///
 /// This can be constructed via [`MessageResponseBuilder`].
 #[derive(Debug)]
-pub struct MessageResponse<'q, 'a, Answers, NameServers, Soa, Additionals>
+pub struct MessageResponse<'q, 'a, Answers, Authorities, Soa, Additionals>
 where
     Answers: Iterator<Item = &'a Record> + Send + 'a,
-    NameServers: Iterator<Item = &'a Record> + Send + 'a,
+    Authorities: Iterator<Item = &'a Record> + Send + 'a,
     Soa: Iterator<Item = &'a Record> + Send + 'a,
     Additionals: Iterator<Item = &'a Record> + Send + 'a,
 {
     header: Header,
     queries: &'q Queries,
     answers: Answers,
-    name_servers: NameServers,
+    authorities: Authorities,
     soa: Soa,
     additionals: Additionals,
     signature: MessageSignature,
@@ -76,14 +76,14 @@ where
         mut self,
         encoder: &mut BinEncoder<'_>,
     ) -> Result<ResponseInfo, ProtoError> {
-        // soa records are part of the nameserver section
-        let mut name_servers = self.name_servers.chain(self.soa);
+        // soa records are part of the authority section
+        let mut authorities = self.authorities.chain(self.soa);
 
         message::emit_message_parts(
             &self.header,
             &mut self.queries.as_emit_and_count(),
             &mut self.answers,
-            &mut name_servers,
+            &mut authorities,
             &mut self.additionals,
             self.edns.as_ref(),
             &self.signature,
@@ -157,7 +157,7 @@ impl<'q> MessageResponseBuilder<'q> {
         self,
         header: Header,
         answers: A,
-        name_servers: N,
+        authorities: N,
         soa: S,
         additionals: D,
     ) -> MessageResponse<'q, 'a, A::IntoIter, N::IntoIter, S::IntoIter, D::IntoIter>
@@ -175,7 +175,7 @@ impl<'q> MessageResponseBuilder<'q> {
             header,
             queries: self.queries,
             answers: answers.into_iter(),
-            name_servers: name_servers.into_iter(),
+            authorities: authorities.into_iter(),
             soa: soa.into_iter(),
             additionals: additionals.into_iter(),
             signature: self.signature,
@@ -199,7 +199,7 @@ impl<'q> MessageResponseBuilder<'q> {
             header,
             queries: self.queries,
             answers: Box::new(None.into_iter()),
-            name_servers: Box::new(None.into_iter()),
+            authorities: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
             signature: self.signature,
@@ -227,7 +227,7 @@ impl<'q> MessageResponseBuilder<'q> {
             header,
             queries: self.queries,
             answers: Box::new(None.into_iter()),
-            name_servers: Box::new(None.into_iter()),
+            authorities: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
             signature: self.signature,
@@ -267,7 +267,7 @@ mod tests {
                 header: Header::new(10, MessageType::Response, OpCode::Query),
                 queries: &Queries::empty(),
                 answers: iter::repeat(&answer),
-                name_servers: iter::once(&answer),
+                authorities: iter::once(&answer),
                 soa: iter::once(&answer),
                 additionals: iter::once(&answer),
                 signature: MessageSignature::default(),
@@ -282,8 +282,8 @@ mod tests {
         let response = Message::from_vec(&buf).expect("failed to decode");
         assert!(response.header().truncated());
         assert!(response.answer_count() > 1);
-        // should never have written the name server field...
-        assert_eq!(response.name_server_count(), 0);
+        // should never have written the authority section...
+        assert_eq!(response.authority_count(), 0);
     }
 
     #[test]
@@ -305,7 +305,7 @@ mod tests {
                 header: Header::new(10, MessageType::Response, OpCode::Query),
                 queries: &Queries::empty(),
                 answers: iter::empty(),
-                name_servers: iter::repeat(&answer),
+                authorities: iter::repeat(&answer),
                 soa: iter::repeat(&answer),
                 additionals: iter::repeat(&answer),
                 signature: MessageSignature::default(),
@@ -320,7 +320,7 @@ mod tests {
         let response = Message::from_vec(&buf).expect("failed to decode");
         assert!(response.header().truncated());
         assert_eq!(response.answer_count(), 0);
-        assert!(response.name_server_count() > 1);
+        assert!(response.authority_count() > 1);
     }
 
     // https://github.com/hickory-dns/hickory-dns/issues/2210

@@ -300,7 +300,7 @@ where
 pub fn print_response(response: &DnsResponse) {
     for (section_heading, section) in [
         ("; Answers", response.answers()),
-        ("; Authorities", response.name_servers()),
+        ("; Authorities", response.authorities()),
         ("; Additionals", response.additionals()),
     ] {
         println!("{section_heading}");

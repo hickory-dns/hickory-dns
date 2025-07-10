@@ -121,15 +121,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         // group the record sets by name and type
         //  each rrset type needs to validated independently
         let answers = message.take_answers();
-        let nameservers = message.take_name_servers();
+        let authorities = message.take_authorities();
         let additionals = message.take_additionals();
 
         let answers = self.verify_rrsets(answers, options).await;
-        let nameservers = self.verify_rrsets(nameservers, options).await;
+        let authorities = self.verify_rrsets(authorities, options).await;
         let additionals = self.verify_rrsets(additionals, options).await;
 
         message.insert_answers(answers);
-        message.insert_name_servers(nameservers);
+        message.insert_authorities(authorities);
         message.insert_additionals(additionals);
 
         Ok(message)
@@ -877,8 +877,8 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
                             msg.set_response_code(*response_code);
 
                             if let Some(authorities) = authorities {
-                                for ns in authorities.iter() {
-                                    msg.add_name_server(ns.clone());
+                                for record in authorities.iter() {
+                                    msg.add_authority(record.clone());
                                 }
                             }
 
@@ -922,9 +922,9 @@ fn check_nsec(
         return Ok(verified_message);
     }
 
-    if !verified_message.name_servers().is_empty()
+    if !verified_message.authorities().is_empty()
         && verified_message
-            .name_servers()
+            .authorities()
             .iter()
             .all(|x| x.proof() == Proof::Insecure)
     {
@@ -933,7 +933,7 @@ fn check_nsec(
 
     // get SOA name
     let soa_name = if let Some(soa_name) = verified_message
-        .name_servers()
+        .authorities()
         .iter()
         // there should only be one
         .find(|rr| rr.record_type() == RecordType::SOA)
@@ -947,11 +947,11 @@ fn check_nsec(
     };
 
     let nsec3s = verified_message
-        .name_servers()
+        .authorities()
         .iter()
         .filter_map(|rr| {
             if verified_message
-                .name_servers()
+                .authorities()
                 .iter()
                 .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
             {
@@ -966,11 +966,11 @@ fn check_nsec(
         .collect::<Vec<_>>();
 
     let nsecs = verified_message
-        .name_servers()
+        .authorities()
         .iter()
         .filter_map(|rr| {
             if verified_message
-                .name_servers()
+                .authorities()
                 .iter()
                 .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
             {

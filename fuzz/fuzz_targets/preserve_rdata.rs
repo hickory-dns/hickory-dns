@@ -28,10 +28,10 @@ fuzz_target!(|data: &[u8]| {
 fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
     let query_count = u16::from_be_bytes(reencoded[4..6].try_into().unwrap());
     let answer_count = u16::from_be_bytes(reencoded[6..8].try_into().unwrap());
-    let name_server_count = u16::from_be_bytes(reencoded[8..10].try_into().unwrap());
+    let authority_count = u16::from_be_bytes(reencoded[8..10].try_into().unwrap());
     let additional_records_count = u16::from_be_bytes(reencoded[10..12].try_into().unwrap());
 
-    let rr_count = answer_count + name_server_count + additional_records_count;
+    let rr_count = answer_count + authority_count + additional_records_count;
     let mut original_rrs = match split_rrs(original, query_count, rr_count) {
         Ok(original_rrs) => original_rrs,
         Err(error_message) => {

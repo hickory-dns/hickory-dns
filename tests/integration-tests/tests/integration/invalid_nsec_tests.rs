@@ -250,13 +250,13 @@ async fn test_exclude_nsec(
     nsec_owner_name: Name,
 ) {
     let mut modified_response = original_response.clone();
-    modified_response.name_servers_mut().retain(|record| {
+    modified_response.authorities_mut().retain(|record| {
         record.name() != &nsec_owner_name || record.record_type() != RecordType::NSEC
     });
-    let new_count = modified_response.name_servers().len().try_into().unwrap();
-    modified_response.set_name_server_count(new_count);
+    let new_count = modified_response.authorities().len().try_into().unwrap();
+    modified_response.set_authority_count(new_count);
     assert!(
-        modified_response.name_servers().len() < original_response.name_servers().len(),
+        modified_response.authorities().len() < original_response.authorities().len(),
         "failed to remove expected NSEC record at {nsec_owner_name}: {modified_response:?}"
     );
 

@@ -95,7 +95,7 @@ impl UpdateMessage for Message {
     }
 
     fn add_update(&mut self, record: Record) {
-        self.add_name_server(record);
+        self.add_authority(record);
     }
 
     fn add_updates<R, I>(&mut self, records: R)
@@ -103,7 +103,7 @@ impl UpdateMessage for Message {
         R: IntoIterator<Item = Record, IntoIter = I>,
         I: Iterator<Item = Record>,
     {
-        self.add_name_servers(records);
+        self.add_authorities(records);
     }
 
     fn add_additional(&mut self, record: Record) {
@@ -119,7 +119,7 @@ impl UpdateMessage for Message {
     }
 
     fn updates(&self) -> &[Record] {
-        self.name_servers()
+        self.authorities()
     }
 
     fn additionals(&self) -> &[Record] {
@@ -583,7 +583,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     if let Some(soa) = last_soa {
         // for IXFR, old SOA is put as authority to indicate last known version
         let record = Record::from_rdata(soa.mname().clone(), 0, RData::SOA(soa));
-        message.add_name_server(record);
+        message.add_authority(record);
     }
 
     // Extended dns

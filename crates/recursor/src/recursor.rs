@@ -470,7 +470,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                         backtrack: None,
                     })
                 } else if response.answers().is_empty()
-                    && !response.name_servers().is_empty()
+                    && !response.authorities().is_empty()
                     && response.response_code() == ResponseCode::NoError
                 {
                     let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
@@ -480,7 +480,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                         .map(|record| Box::new(record.to_owned()));
                     no_records.authorities = Some(
                         response
-                            .name_servers()
+                            .authorities()
                             .iter()
                             .filter_map(|x| match x.record_type() {
                                 RecordType::SOA => None,
@@ -579,7 +579,7 @@ mod for_dnssec {
                 let mut msg = Message::query();
 
                 msg.add_answers(response.answers().iter().cloned());
-                msg.add_name_servers(response.name_servers().iter().cloned());
+                msg.add_authorities(response.authorities().iter().cloned());
                 msg.add_additionals(response.additionals().iter().cloned());
 
                 DnsResponse::from_message(msg)
