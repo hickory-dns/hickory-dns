@@ -85,7 +85,7 @@ pub fn create_records(records: &mut InMemoryAuthority) {
         0,
     );
 
-    let www_name: Name = Name::parse("www.test.com.", None).unwrap();
+    let www_name = Name::parse("www.test.com.", None).unwrap();
     records.upsert_mut(
         Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
             .set_dns_class(DNSClass::IN)
@@ -107,7 +107,7 @@ pub fn create_records(records: &mut InMemoryAuthority) {
 }
 
 pub fn create_test() -> InMemoryAuthority {
-    let origin: Name = Name::parse("test.com.", None).unwrap();
+    let origin = Name::parse("test.com.", None).unwrap();
 
     let mut records = InMemoryAuthority::empty(
         origin.clone(),
@@ -157,7 +157,7 @@ async fn test_catalog_lookup() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert!(result.header().authoritative());
 
-    let answers: &[Record] = result.answers();
+    let answers = result.answers();
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
@@ -191,7 +191,7 @@ async fn test_catalog_lookup() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert!(result.header().authoritative());
 
-    let answers: &[Record] = result.answers();
+    let answers = result.answers();
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
@@ -237,7 +237,7 @@ async fn test_catalog_lookup_soa() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert!(result.header().authoritative());
 
-    let answers: &[Record] = result.answers();
+    let answers = result.answers();
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::SOA);
@@ -304,7 +304,7 @@ async fn test_catalog_nx_soa() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert!(result.header().authoritative());
 
-    let authorities: &[Record] = result.authorities();
+    let authorities = result.authorities();
 
     assert_eq!(authorities.len(), 1);
     assert_eq!(authorities.first().unwrap().record_type(), RecordType::SOA);
@@ -406,14 +406,14 @@ async fn test_axfr_allow_all() {
         .await;
     let result = response_handler.into_message().await;
 
-    let mut answers: Vec<Record> = result.answers().to_vec();
+    let mut answers = result.answers().to_vec();
 
     assert_eq!(answers.first().expect("no records found?"), &soa);
     assert_eq!(answers.last().expect("no records found?"), &soa);
 
     answers.sort();
 
-    let www_name: Name = Name::parse("www.test.com.", None).unwrap();
+    let www_name = Name::parse("www.test.com.", None).unwrap();
     let mut expected_set = vec![
         Record::from_rdata(
             origin.clone().into(),
@@ -728,7 +728,7 @@ async fn test_cname_additionals() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let answers: &[Record] = result.answers();
+    let answers = result.answers();
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
@@ -736,7 +736,7 @@ async fn test_cname_additionals() {
         &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
-    let additionals: &[Record] = result.additionals();
+    let additionals = result.additionals();
     assert!(!additionals.is_empty());
     assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
@@ -777,7 +777,7 @@ async fn test_multiple_cname_additionals() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let answers: &[Record] = result.answers();
+    let answers = result.answers();
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
@@ -786,7 +786,7 @@ async fn test_multiple_cname_additionals() {
     );
 
     // we should have the intermediate record
-    let additionals: &[Record] = result.additionals();
+    let additionals = result.additionals();
     assert!(!additionals.is_empty());
     assert_eq!(
         additionals.first().unwrap().record_type(),
@@ -798,7 +798,7 @@ async fn test_multiple_cname_additionals() {
     );
 
     // final record should be the actual
-    let additionals: &[Record] = result.additionals();
+    let additionals = result.additionals();
     assert!(!additionals.is_empty());
     assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
     assert_eq!(
