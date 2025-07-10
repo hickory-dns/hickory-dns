@@ -174,7 +174,7 @@ async fn referral_opt_out_unsigned() {
     assert_eq!(response.answer_count(), 0);
     assert!(
         response
-            .name_servers()
+            .authorities()
             .iter()
             .any(|record| record.record_type().is_ns())
     );
@@ -334,12 +334,12 @@ async fn test_exclude_nsec3(
 
     let mut modified_response = original_response.clone();
     modified_response
-        .name_servers_mut()
+        .authorities_mut()
         .retain(|record| record.name() != &nsec3_name);
-    let new_count = modified_response.name_servers().len().try_into().unwrap();
-    modified_response.set_name_server_count(new_count);
+    let new_count = modified_response.authorities().len().try_into().unwrap();
+    modified_response.set_authority_count(new_count);
     assert!(
-        modified_response.name_servers().len() < original_response.name_servers().len(),
+        modified_response.authorities().len() < original_response.authorities().len(),
         "failed to remove expected NSEC3 record and signature at {nsec3_owner_name}: {modified_response:?}"
     );
 

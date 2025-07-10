@@ -67,7 +67,7 @@ pub struct Header {
     response_code: ResponseCode,
     query_count: u16,
     answer_count: u16,
-    name_server_count: u16,
+    authority_count: u16,
     additional_count: u16,
 }
 
@@ -87,7 +87,7 @@ impl Header {
             response_code: ResponseCode::NoError,
             query_count: 0,
             answer_count: 0,
-            name_server_count: 0,
+            authority_count: 0,
             additional_count: 0,
         }
     }
@@ -124,7 +124,7 @@ impl Header {
             response_code: ResponseCode::default(),
             query_count: 0,
             answer_count: 0,
-            name_server_count: 0,
+            authority_count: 0,
             additional_count: 0,
         }
     }
@@ -225,9 +225,9 @@ impl Header {
         self
     }
 
-    /// Number of name server records in the message
-    pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
-        self.name_server_count = name_server_count;
+    /// Number of authority records in the message
+    pub fn set_authority_count(&mut self, authority_count: u16) -> &mut Self {
+        self.authority_count = authority_count;
         self
     }
 
@@ -390,10 +390,10 @@ impl Header {
     ///
     /// # Return value
     ///
-    /// For query responses this is the number of authorities, or nameservers, in the name server
+    /// For query responses this is the number of authorities, or nameservers, in the authority
     ///  section, for updates this is the number of update records being sent.
-    pub fn name_server_count(&self) -> u16 {
-        self.name_server_count
+    pub fn authority_count(&self) -> u16 {
+        self.authority_count
     }
 
     /// ```text
@@ -447,7 +447,7 @@ impl BinEncodable for Header {
 
         encoder.emit_u16(self.query_count)?;
         encoder.emit_u16(self.answer_count)?;
-        encoder.emit_u16(self.name_server_count)?;
+        encoder.emit_u16(self.authority_count)?;
         encoder.emit_u16(self.additional_count)?;
 
         Ok(())
@@ -485,7 +485,7 @@ impl<'r> BinDecodable<'r> for Header {
             decoder.read_u16()?.unverified(/*this must be verified when reading queries*/);
         let answer_count =
             decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
-        let name_server_count =
+        let authority_count =
             decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
         let additional_count =
             decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
@@ -505,7 +505,7 @@ impl<'r> BinDecodable<'r> for Header {
             response_code,
             query_count,
             answer_count,
-            name_server_count,
+            authority_count,
             additional_count,
         })
     }
@@ -522,7 +522,7 @@ impl fmt::Display for Header {
             code = self.response_code,
             op_code = self.op_code,
             answers = self.answer_count,
-            authorities = self.name_server_count,
+            authorities = self.authority_count,
             additionals = self.additional_count,
         )
     }
@@ -620,7 +620,7 @@ mod tests {
             response_code: ResponseCode::NXDomain,
             query_count: 0x8877,
             answer_count: 0x6655,
-            name_server_count: 0x4433,
+            authority_count: 0x4433,
             additional_count: 0x2211,
         };
 
@@ -644,7 +644,7 @@ mod tests {
             response_code: ResponseCode::NXDomain,
             query_count: 0x8877,
             answer_count: 0x6655,
-            name_server_count: 0x4433,
+            authority_count: 0x4433,
             additional_count: 0x2211,
         };
 

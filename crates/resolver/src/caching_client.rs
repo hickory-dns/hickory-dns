@@ -296,7 +296,7 @@ where
             let mut response = response.into_message();
             let answers = response.take_answers();
             let additionals = response.take_additionals();
-            let name_servers = response.take_name_servers();
+            let authorities = response.take_authorities();
 
             // set of names that still require resolution
             // TODO: this needs to be enhanced for SRV
@@ -307,7 +307,7 @@ where
                 .into_iter()
                 // Chained records will generally exist in the additionals section
                 .chain(additionals)
-                .chain(name_servers)
+                .chain(authorities)
                 .filter_map(|mut r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());

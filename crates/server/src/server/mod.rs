@@ -587,7 +587,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
 
         let rflags = response_info.flags();
         let answer_count = response_info.answer_count();
-        let authority_count = response_info.name_server_count();
+        let authority_count = response_info.authority_count();
         let additional_count = response_info.additional_count();
         let response_code = response_info.response_code();
 

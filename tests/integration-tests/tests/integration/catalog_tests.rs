@@ -166,8 +166,8 @@ async fn test_catalog_lookup() {
         &RData::A(A::new(93, 184, 215, 14))
     );
 
-    let ns = result.name_servers();
-    assert!(ns.is_empty());
+    let authorities = result.authorities();
+    assert!(authorities.is_empty());
 
     // other zone
     let mut question = Message::query();
@@ -255,7 +255,7 @@ async fn test_catalog_lookup_soa() {
     );
 
     // assert SOA requests get NS records
-    let mut ns: Vec<Record> = result.name_servers().to_vec();
+    let mut ns = result.authorities().to_vec();
     ns.sort();
 
     assert_eq!(ns.len(), 2);
@@ -304,12 +304,12 @@ async fn test_catalog_nx_soa() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert!(result.header().authoritative());
 
-    let ns: &[Record] = result.name_servers();
+    let authorities: &[Record] = result.authorities();
 
-    assert_eq!(ns.len(), 1);
-    assert_eq!(ns.first().unwrap().record_type(), RecordType::SOA);
+    assert_eq!(authorities.len(), 1);
+    assert_eq!(authorities.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
-        ns.first().unwrap().data(),
+        authorities.first().unwrap().data(),
         &RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
@@ -355,7 +355,7 @@ async fn test_non_authoritive_nx_refused() {
     assert_eq!(result.message_type(), MessageType::Response);
     assert!(!result.header().authoritative());
 
-    assert_eq!(result.name_servers().len(), 0);
+    assert_eq!(result.authorities().len(), 0);
     assert_eq!(result.answers().len(), 0);
     assert_eq!(result.additionals().len(), 0);
 }
@@ -526,7 +526,7 @@ async fn test_axfr_deny_all() {
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert!(result.answers().is_empty());
-    assert!(result.name_servers().is_empty());
+    assert!(result.authorities().is_empty());
     assert!(result.additionals().is_empty());
 }
 
@@ -563,7 +563,7 @@ async fn test_axfr_deny_unsigned() {
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert!(result.answers().is_empty());
-    assert!(result.name_servers().is_empty());
+    assert!(result.authorities().is_empty());
     assert!(result.additionals().is_empty());
 }
 
@@ -923,13 +923,13 @@ mod dnssec {
             assert!(result.answers().is_empty());
 
             result
-                .name_servers()
+                .authorities()
                 .iter()
                 .find(|e| e.record_type() == RecordType::SOA)
                 .expect("authority section to contains SOA");
 
             let nsec3 = result
-                .name_servers()
+                .authorities()
                 .iter()
                 .find(|e| e.record_type() == RecordType::NSEC3)
                 .expect("result to contain NSEC3");

@@ -93,7 +93,7 @@ async fn send_response(
     let message_response = message_response_builder.build(
         response_header,
         response.answers(),
-        response.name_servers(),
+        response.authorities(),
         [],
         response.additionals(),
     );

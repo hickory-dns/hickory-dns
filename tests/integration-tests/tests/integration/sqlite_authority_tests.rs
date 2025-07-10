@@ -1219,7 +1219,7 @@ fn test_update_message(name: Name) -> Message {
     message
         .set_op_code(OpCode::Update)
         .add_query(q)
-        .add_name_server(add_rec);
+        .add_authority(add_rec);
     message
 }
 

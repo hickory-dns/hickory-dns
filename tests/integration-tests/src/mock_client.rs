@@ -216,13 +216,13 @@ pub fn build_request(query: Query) -> DnsRequest {
 pub fn message(
     query: Query,
     answers: Vec<Record>,
-    name_servers: Vec<Record>,
+    authorities: Vec<Record>,
     additionals: Vec<Record>,
 ) -> Message {
     let mut message = Message::query();
     message.add_query(query);
     message.insert_answers(answers);
-    message.insert_name_servers(name_servers);
+    message.insert_authorities(authorities);
     message.insert_additionals(additionals);
     message
 }

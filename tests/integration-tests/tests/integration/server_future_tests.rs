@@ -111,11 +111,11 @@ async fn test_server_unknown_type() {
         RecordType::Unknown(65535)
     );
     assert!(client_result.answers().is_empty());
-    assert!(!client_result.name_servers().is_empty());
+    assert!(!client_result.authorities().is_empty());
     // SOA should be the first record in the response
     assert_eq!(
         client_result
-            .name_servers()
+            .authorities()
             .first()
             .expect("no SOA present")
             .record_type(),
