@@ -58,7 +58,7 @@ fn bench_emit_message(b: &mut Bencher) {
         .set_checking_disabled(true)
         .set_response_code(ResponseCode::ServFail);
     message.add_answer(stub_record());
-    message.add_name_server(stub_record());
+    message.add_authority(stub_record());
     message.add_additional(stub_record());
     b.iter(|| {
         let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
@@ -79,7 +79,7 @@ fn bench_emit_message_no_reservation(b: &mut Bencher) {
         .set_checking_disabled(true)
         .set_response_code(ResponseCode::ServFail);
     message.add_answer(stub_record());
-    message.add_name_server(stub_record());
+    message.add_authority(stub_record());
     message.add_additional(stub_record());
     b.iter(|| {
         let mut byte_vec: Vec<u8> = Vec::with_capacity(0);
@@ -101,7 +101,7 @@ fn bench_parse_message(b: &mut Bencher) {
         .set_response_code(ResponseCode::ServFail);
 
     message.add_answer(stub_record());
-    message.add_name_server(stub_record());
+    message.add_authority(stub_record());
     message.add_additional(stub_record());
     let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
     {

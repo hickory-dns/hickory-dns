@@ -72,7 +72,7 @@ pub struct Message {
     header: Header,
     queries: Vec<Query>,
     answers: Vec<Record>,
-    name_servers: Vec<Record>,
+    authorities: Vec<Record>,
     additionals: Vec<Record>,
     signature: MessageSignature,
     edns: Option<Edns>,
@@ -109,7 +109,7 @@ impl Message {
             header: Header::new(id, message_type, op_code),
             queries: Vec::new(),
             answers: Vec::new(),
-            name_servers: Vec::new(),
+            authorities: Vec::new(),
             additionals: Vec::new(),
             signature: MessageSignature::default(),
             edns: None,
@@ -124,7 +124,7 @@ impl Message {
         header
             .set_additional_count(0)
             .set_answer_count(0)
-            .set_name_server_count(0);
+            .set_authority_count(0);
 
         let mut msg = Self::new(0, MessageType::Query, OpCode::Query);
         msg.header = header;
@@ -219,12 +219,12 @@ impl Message {
         self
     }
 
-    /// see `Header::set_name_server_count`
+    /// See [`Header::set_authority_count`]
     ///
     /// this count will be ignored during serialization,
     /// where the length of the associated records will be used instead.
-    pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
-        self.header.set_name_server_count(name_server_count);
+    pub fn set_authority_count(&mut self, authority_count: u16) -> &mut Self {
+        self.header.set_authority_count(authority_count);
         self
     }
 
@@ -285,33 +285,33 @@ impl Message {
         self.answers = records;
     }
 
-    /// Add a name server record to the Message
-    pub fn add_name_server(&mut self, record: Record) -> &mut Self {
-        self.name_servers.push(record);
+    /// Add a record to the Authority section.
+    pub fn add_authority(&mut self, record: Record) -> &mut Self {
+        self.authorities.push(record);
         self
     }
 
-    /// Add all the records in the Iterator to the name server section of the message
-    pub fn add_name_servers<R, I>(&mut self, records: R) -> &mut Self
+    /// Add all the records from the Iterator to the Authority section of the message.
+    pub fn add_authorities<R, I>(&mut self, records: R) -> &mut Self
     where
         R: IntoIterator<Item = Record, IntoIter = I>,
         I: Iterator<Item = Record>,
     {
         for record in records {
-            self.add_name_server(record);
+            self.add_authority(record);
         }
 
         self
     }
 
-    /// Sets the name_servers to the specified set of Records.
+    /// Sets the Authority section to the specified set of records.
     ///
     /// # Panics
     ///
-    /// Will panic if name_servers records are already associated to the message.
-    pub fn insert_name_servers(&mut self, records: Vec<Record>) {
-        assert!(self.name_servers.is_empty());
-        self.name_servers = records;
+    /// Will panic if the Authority section is already non-empty.
+    pub fn insert_authorities(&mut self, records: Vec<Record>) {
+        assert!(self.authorities.is_empty());
+        self.authorities = records;
     }
 
     /// Add an additional Record to the message
@@ -406,7 +406,7 @@ impl Message {
             header,
             queries: self.queries.clone(),
             answers: self.answers.clone(),
-            name_servers: self.name_servers.clone(),
+            authorities: self.authorities.clone(),
             additionals: self.additionals.clone(),
             signature: self.signature.clone(),
             edns: self.edns.clone(),
@@ -510,18 +510,18 @@ impl Message {
     ///                 May optionally carry the SOA RR for the authoritative
     ///                 data in the answer section.
     /// ```
-    pub fn name_servers(&self) -> &[Record] {
-        &self.name_servers
+    pub fn authorities(&self) -> &[Record] {
+        &self.authorities
     }
 
-    /// Provides mutable access to `name_servers`
-    pub fn name_servers_mut(&mut self) -> &mut Vec<Record> {
-        &mut self.name_servers
+    /// Provides mutable access to `authorities`
+    pub fn authorities_mut(&mut self) -> &mut Vec<Record> {
+        &mut self.authorities
     }
 
-    /// Remove the name servers from the Message
-    pub fn take_name_servers(&mut self) -> Vec<Record> {
-        mem::take(&mut self.name_servers)
+    /// Remove the Authority section records from the message
+    pub fn take_authorities(&mut self) -> Vec<Record> {
+        mem::take(&mut self.authorities)
     }
 
     /// ```text
@@ -546,7 +546,7 @@ impl Message {
     pub fn all_sections(&self) -> impl Iterator<Item = &Record> {
         self.answers
             .iter()
-            .chain(self.name_servers().iter())
+            .chain(self.authorities.iter())
             .chain(self.additionals.iter())
     }
 
@@ -643,7 +643,7 @@ impl Message {
             HeaderCounts {
                 query_count: self.queries.len(),
                 answer_count: self.answers.len(),
-                nameserver_count: self.name_servers.len(),
+                authority_count: self.authorities.len(),
                 additional_count: self.additionals.len(),
             },
         );
@@ -785,7 +785,7 @@ impl From<MessageParts> for Message {
             header,
             queries,
             answers,
-            name_servers,
+            authorities,
             additionals,
             signature,
             edns,
@@ -794,7 +794,7 @@ impl From<MessageParts> for Message {
             header,
             queries,
             answers,
-            name_servers,
+            authorities,
             additionals,
             signature,
             edns,
@@ -826,8 +826,8 @@ pub struct MessageParts {
     pub queries: Vec<Query>,
     /// message answers
     pub answers: Vec<Record>,
-    /// message name_servers
-    pub name_servers: Vec<Record>,
+    /// message authorities
+    pub authorities: Vec<Record>,
     /// message additional records
     pub additionals: Vec<Record>,
     /// message signature
@@ -842,7 +842,7 @@ impl From<Message> for MessageParts {
             header,
             queries,
             answers,
-            name_servers,
+            authorities,
             additionals,
             signature,
             edns,
@@ -851,7 +851,7 @@ impl From<Message> for MessageParts {
             header,
             queries,
             answers,
-            name_servers,
+            authorities,
             additionals,
             signature,
             edns,
@@ -868,8 +868,8 @@ pub struct HeaderCounts {
     pub query_count: usize,
     /// The number of answers in the Message
     pub answer_count: usize,
-    /// The number of nameservers or authorities in the Message
-    pub nameserver_count: usize,
+    /// The number of authority records in the Message
+    pub authority_count: usize,
     /// The number of additional records in the Message
     pub additional_count: usize,
 }
@@ -882,7 +882,7 @@ pub fn update_header_counts(
 ) -> Header {
     assert!(counts.query_count <= u16::MAX as usize);
     assert!(counts.answer_count <= u16::MAX as usize);
-    assert!(counts.nameserver_count <= u16::MAX as usize);
+    assert!(counts.authority_count <= u16::MAX as usize);
     assert!(counts.additional_count <= u16::MAX as usize);
 
     // TODO: should the function just take by value?
@@ -890,7 +890,7 @@ pub fn update_header_counts(
     header
         .set_query_count(counts.query_count as u16)
         .set_answer_count(counts.answer_count as u16)
-        .set_name_server_count(counts.nameserver_count as u16)
+        .set_authority_count(counts.authority_count as u16)
         .set_additional_count(counts.additional_count as u16)
         .set_truncated(is_truncated);
 
@@ -970,7 +970,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     header: &Header,
     queries: &mut Q,
     answers: &mut A,
-    name_servers: &mut N,
+    authorities: &mut N,
     additionals: &mut D,
     edns: Option<&Edns>,
     signature: &MessageSignature,
@@ -989,7 +989,7 @@ where
     // TODO: need to do something on max records
     //  return offset of last emitted record.
     let answer_count = count_was_truncated(answers.emit(encoder))?;
-    let nameserver_count = count_was_truncated(name_servers.emit(encoder))?;
+    let authority_count = count_was_truncated(authorities.emit(encoder))?;
     let mut additional_count = count_was_truncated(additionals.emit(encoder))?;
 
     if let Some(mut edns) = edns.cloned() {
@@ -1025,11 +1025,11 @@ where
     let counts = HeaderCounts {
         query_count,
         answer_count: answer_count.0,
-        nameserver_count: nameserver_count.0,
+        authority_count: authority_count.0,
         additional_count: additional_count.0,
     };
     let was_truncated =
-        header.truncated() || answer_count.1 || nameserver_count.1 || additional_count.1;
+        header.truncated() || answer_count.1 || authority_count.1 || additional_count.1;
 
     let final_header = update_header_counts(header, was_truncated, counts);
     place.replace(encoder, final_header)?;
@@ -1042,7 +1042,7 @@ impl BinEncodable for Message {
             &self.header,
             &mut self.queries.iter(),
             &mut self.answers.iter(),
-            &mut self.name_servers.iter(),
+            &mut self.authorities.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
             &self.signature,
@@ -1069,11 +1069,11 @@ impl<'r> BinDecodable<'r> for Message {
 
         // get all counts before header moves
         let answer_count = header.answer_count() as usize;
-        let name_server_count = header.name_server_count() as usize;
+        let authority_count = header.authority_count() as usize;
         let additional_count = header.additional_count() as usize;
 
         let (answers, _, _) = Self::read_records(decoder, answer_count, false)?;
-        let (name_servers, _, _) = Self::read_records(decoder, name_server_count, false)?;
+        let (authorities, _, _) = Self::read_records(decoder, authority_count, false)?;
         let (additionals, edns, signature) = Self::read_records(decoder, additional_count, true)?;
 
         // need to grab error code from EDNS (which might have a higher value)
@@ -1086,7 +1086,7 @@ impl<'r> BinDecodable<'r> for Message {
             header,
             queries,
             answers,
-            name_servers,
+            authorities,
             additionals,
             signature,
             edns,
@@ -1126,8 +1126,8 @@ impl fmt::Display for Message {
         {
             writeln!(f, "; answers {}", self.answer_count())?;
             write_slice(self.answers(), f)?;
-            writeln!(f, "; nameservers {}", self.name_server_count())?;
-            write_slice(self.name_servers(), f)?;
+            writeln!(f, "; authorities {}", self.authority_count())?;
+            write_slice(self.authorities(), f)?;
             writeln!(f, "; additionals {}", self.additional_count())?;
             write_slice(self.additionals(), f)?;
         }
@@ -1214,7 +1214,7 @@ mod tests {
             .set_response_code(ResponseCode::ServFail);
 
         message.add_answer(Record::stub());
-        message.add_name_server(Record::stub());
+        message.add_authority(Record::stub());
         message.add_additional(Record::stub());
         message.update_counts();
 
@@ -1248,7 +1248,7 @@ mod tests {
             .set_response_code(ResponseCode::ServFail);
 
         message.add_answer(Record::stub());
-        message.add_name_server(Record::stub());
+        message.add_authority(Record::stub());
         message.add_additional(Record::stub());
 
         // at here, we don't call update_counts and we even set wrong count,
@@ -1256,7 +1256,7 @@ mod tests {
         // are correct after the message is emitted and read.
         message.set_query_count(1);
         message.set_answer_count(5);
-        message.set_name_server_count(5);
+        message.set_authority_count(5);
         // message.set_additional_count(1);
 
         let got = get_message_after_emitting_and_reading(message);
@@ -1264,7 +1264,7 @@ mod tests {
         // make comparison
         assert_eq!(got.query_count(), 0);
         assert_eq!(got.answer_count(), 1);
-        assert_eq!(got.name_server_count(), 1);
+        assert_eq!(got.authority_count(), 1);
         assert_eq!(got.additional_count(), 1);
     }
 

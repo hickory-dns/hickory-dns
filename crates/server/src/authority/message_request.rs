@@ -21,7 +21,7 @@ pub struct MessageRequest {
     header: Header,
     queries: Queries,
     answers: Vec<Record>,
-    name_servers: Vec<Record>,
+    authorities: Vec<Record>,
     additionals: Vec<Record>,
     signature: MessageSignature,
     edns: Option<Edns>,
@@ -37,7 +37,7 @@ impl MessageRequest {
             header,
             queries: Queries::new(vec![query.into()]),
             answers: Vec::new(),
-            name_servers: Vec::new(),
+            authorities: Vec::new(),
             additionals: Vec::new(),
             signature: MessageSignature::Unsigned,
             edns: None,
@@ -121,8 +121,8 @@ impl MessageRequest {
     ///                 May optionally carry the SOA RR for the authoritative
     ///                 data in the answer section.
     /// ```
-    pub fn name_servers(&self) -> &[Record] {
-        &self.name_servers
+    pub fn authorities(&self) -> &[Record] {
+        &self.authorities
     }
 
     /// ```text
@@ -202,12 +202,12 @@ impl<'q> BinDecodable<'q> for MessageRequest {
             // get all counts before header moves
             let query_count = header.query_count() as usize;
             let answer_count = header.answer_count() as usize;
-            let name_server_count = header.name_server_count() as usize;
+            let authority_count = header.authority_count() as usize;
             let additional_count = header.additional_count() as usize;
 
             let queries = Queries::read(decoder, query_count)?;
             let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
-            let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
+            let (authorities, _, _) = Message::read_records(decoder, authority_count, false)?;
             let (additionals, edns, signature) =
                 Message::read_records(decoder, additional_count, true)?;
 
@@ -221,7 +221,7 @@ impl<'q> BinDecodable<'q> for MessageRequest {
                 header,
                 queries,
                 answers,
-                name_servers,
+                authorities,
                 additionals,
                 signature,
                 edns,
@@ -365,7 +365,7 @@ impl BinEncodable for MessageRequest {
             //   in cases where that's necessary, like SIG0 validation
             &mut self.queries.queries.iter(),
             &mut self.answers.iter(),
-            &mut self.name_servers.iter(),
+            &mut self.authorities.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
             &self.signature,
@@ -384,10 +384,10 @@ pub trait UpdateRequest {
     /// Zone being updated, this should be the query of a Message
     fn zone(&self) -> Result<&LowerQuery, ProtoError>;
 
-    /// Prerequisites map to the answers of a Message
+    /// Prerequisites map to the Answer section of a Message
     fn prerequisites(&self) -> &[Record];
 
-    /// Records to update map to the name_servers of a Message
+    /// Records to update map to the Authority section of a Message
     fn updates(&self) -> &[Record];
 
     /// Additional records
@@ -412,7 +412,7 @@ impl UpdateRequest for MessageRequest {
     }
 
     fn updates(&self) -> &[Record] {
-        self.name_servers()
+        self.authorities()
     }
 
     fn additionals(&self) -> &[Record] {

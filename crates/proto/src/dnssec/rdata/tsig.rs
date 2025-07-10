@@ -745,9 +745,9 @@ pub fn signed_bitmessage_to_buf(
         Query::read(&mut decoder)?;
     }
 
-    // Advance past answer and name server records together.
-    let answer_ns_count = header.answer_count() as usize + header.name_server_count() as usize;
-    let (_, _, sig) = Message::read_records(&mut decoder, answer_ns_count, false)?;
+    // Advance past answer and authority records together.
+    let answer_authority_count = header.answer_count() as usize + header.authority_count() as usize;
+    let (_, _, sig) = Message::read_records(&mut decoder, answer_authority_count, false)?;
     debug_assert_eq!(sig, MessageSignature::Unsigned);
 
     // Advance past additional records, up to the final TSIG record.

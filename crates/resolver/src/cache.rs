@@ -119,7 +119,7 @@ impl Entry {
                 let mut response = response.clone();
                 for section_fn in [
                     Message::answers_mut,
-                    Message::name_servers_mut,
+                    Message::authorities_mut,
                     Message::additionals_mut,
                 ] {
                     for record in section_fn(&mut response) {

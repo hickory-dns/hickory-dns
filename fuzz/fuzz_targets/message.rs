@@ -63,7 +63,7 @@ fn messages_equal(original: &Message, reparsed: &Message) -> bool {
     if !records_equal(original.answers(), reparsed.answers()) {
         return false;
     }
-    if !records_equal(original.name_servers(), reparsed.name_servers()) {
+    if !records_equal(original.authorities(), reparsed.authorities()) {
         return false;
     }
     if !records_equal(original.additionals(), reparsed.additionals()) {
