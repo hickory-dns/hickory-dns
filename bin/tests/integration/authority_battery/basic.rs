@@ -102,7 +102,7 @@ pub fn test_ns_lookup(authority: impl Authority) {
         .0
         .unwrap();
 
-    let additionals = dbg!(lookup.additionals().expect("no additionals in response"));
+    let additionals = lookup.additionals().expect("no additionals in response");
 
     let ns = lookup
         .into_iter()
@@ -139,7 +139,7 @@ pub fn test_mx(authority: impl Authority) {
         .0
         .unwrap();
 
-    let additionals = dbg!(lookup.additionals().expect("no additionals in response"));
+    let additionals = lookup.additionals().expect("no additionals in response");
 
     let mx = lookup
         .into_iter()
@@ -350,8 +350,6 @@ pub fn test_aname(authority: impl Authority) {
         .0
         .unwrap();
 
-    let additionals = lookup.additionals().expect("no additionals from ANAME");
-
     let aname = lookup
         .into_iter()
         .next()
@@ -363,16 +361,18 @@ pub fn test_aname(authority: impl Authority) {
     assert_eq!(Name::from_str("www.example.com.").unwrap(), aname.0);
 
     // check that additionals contain the info
-    let a = additionals
-        .iter()
+    let a = lookup
+        .additionals()
+        .expect("no additionals from ANAME")
         .find(|r| r.record_type() == RecordType::A)
         .map(Record::data)
         .and_then(RData::as_a)
         .expect("A not found");
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 
-    let aaaa = additionals
-        .iter()
+    let aaaa = lookup
+        .additionals()
+        .unwrap()
         .find(|r| r.record_type() == RecordType::AAAA)
         .map(Record::data)
         .and_then(RData::as_aaaa)
@@ -758,7 +758,7 @@ pub fn test_srv(authority: impl Authority) {
         .0
         .unwrap();
 
-    let additionals = dbg!(lookup.additionals().expect("no additionals in response"));
+    let additionals = lookup.additionals().expect("no additionals in response");
 
     let srv = lookup
         .into_iter()

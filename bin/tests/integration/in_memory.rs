@@ -108,8 +108,10 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
-    let additionals = lookup.additionals().expect("Should be additional records");
-    let additionals: Vec<&Record> = additionals.iter().collect();
+    let additionals: Vec<&Record> = lookup
+        .additionals()
+        .expect("Should be additional records")
+        .collect();
     assert_eq!(additionals.len(), 1);
     let record = additionals[0];
     assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
@@ -135,8 +137,10 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap()))
     );
 
-    let additionals = lookup.additionals().expect("Should be additional records");
-    let additionals: Vec<&Record> = additionals.iter().collect();
+    let additionals: Vec<&Record> = lookup
+        .additionals()
+        .expect("Should be additional records")
+        .collect();
     assert_eq!(additionals.len(), 2);
     let record = additionals[0];
     assert_eq!(record.name(), &Name::from_str("boz.example.com.").unwrap());
