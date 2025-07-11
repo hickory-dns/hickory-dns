@@ -10,7 +10,10 @@ use std::slice::Iter;
 use std::sync::Arc;
 
 use crate::authority::LookupOptions;
-use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
+use crate::proto::{
+    op::Message,
+    rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords},
+};
 #[cfg(feature = "resolver")]
 use crate::resolver::lookup::{Lookup, LookupRecordIter};
 
@@ -42,6 +45,8 @@ pub enum AuthLookup {
         /// The last SOA record of an AXFR (matches the first)
         end_soa: LookupRecords,
     },
+    /// A response message
+    Response(Message),
 }
 
 impl AuthLookup {
@@ -80,10 +85,23 @@ impl AuthLookup {
         }
     }
 
-    /// Returns the additional records, if present.
-    pub fn additionals(&self) -> Option<&LookupRecords> {
+    /// Iterates over the records from the Authority section, if present.
+    pub fn authorities(&self) -> Option<LookupRecordsIter<'_>> {
         match self {
-            Self::Records { additionals, .. } => additionals.as_ref(),
+            Self::Response(message) => {
+                Some(LookupRecordsIter::SliceIter(message.authorities().iter()))
+            }
+            _ => None,
+        }
+    }
+
+    /// Iterates over the records from the Additional section, if present.
+    pub fn additionals(&self) -> Option<LookupRecordsIter<'_>> {
+        match self {
+            Self::Records { additionals, .. } => additionals.as_ref().map(|l| l.iter()),
+            Self::Response(message) => {
+                Some(LookupRecordsIter::SliceIter(message.additionals().iter()))
+            }
             _ => None,
         }
     }
@@ -92,6 +110,7 @@ impl AuthLookup {
     pub fn take_additionals(&mut self) -> Option<LookupRecords> {
         match self {
             Self::Records { additionals, .. } => additionals.take(),
+            Self::Response(message) => Some(LookupRecords::Section(message.take_additionals())),
             _ => None,
         }
     }
@@ -128,6 +147,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
                 records,
                 end_soa,
             } => AuthLookupIter::AXFR(start_soa.into_iter().chain(records).chain(end_soa)),
+            AuthLookup::Response(message) => AuthLookupIter::Response(message.answers().iter()),
         }
     }
 }
@@ -145,6 +165,8 @@ pub enum AuthLookupIter<'r> {
     Resolved(LookupRecordIter<'r>),
     /// An iteration over an AXFR
     AXFR(Chain<Chain<LookupRecordsIter<'r>, LookupRecordsIter<'r>>, LookupRecordsIter<'r>>),
+    /// An iterator over the answer section of a response message
+    Response(Iter<'r, Record>),
 }
 
 impl<'r> Iterator for AuthLookupIter<'r> {
@@ -157,6 +179,7 @@ impl<'r> Iterator for AuthLookupIter<'r> {
             #[cfg(feature = "resolver")]
             AuthLookupIter::Resolved(i) => i.next(),
             AuthLookupIter::AXFR(i) => i.next(),
+            AuthLookupIter::Response(i) => i.next(),
         }
     }
 }
@@ -291,6 +314,8 @@ pub enum LookupRecords {
     // TODO: need a better option for very large zone xfrs...
     /// A generic lookup response where anything is desired
     AnyRecords(AnyRecords),
+    /// A section from a response message
+    Section(Vec<Record>),
 }
 
 impl LookupRecords {
@@ -346,6 +371,7 @@ impl<'a> IntoIterator for &'a LookupRecords {
                 None,
             ),
             LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
+            LookupRecords::Section(vec) => LookupRecordsIter::SliceIter(vec.iter()),
         }
     }
 }
@@ -359,6 +385,8 @@ pub enum LookupRecordsIter<'r> {
     RecordsIter(RrsetRecords<'r>),
     /// An iteration over many rrsets
     ManyRecordsIter(Vec<RrsetRecords<'r>>, Option<RrsetRecords<'r>>),
+    /// An iteration over a slice of records
+    SliceIter(Iter<'r, Record>),
     /// An empty set
     #[default]
     Empty,
@@ -372,6 +400,7 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
             LookupRecordsIter::Empty => None,
             LookupRecordsIter::AnyRecordsIter(current) => current.next(),
             LookupRecordsIter::RecordsIter(current) => current.next(),
+            LookupRecordsIter::SliceIter(current) => current.next(),
             LookupRecordsIter::ManyRecordsIter(set, current) => loop {
                 if let Some(o) = current.as_mut().and_then(Iterator::next) {
                     return Some(o);

@@ -17,7 +17,7 @@ use std::{
     io::{self, Read},
     net::IpAddr,
     path::{Path, PathBuf},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use ipnet::IpNet;
@@ -40,7 +40,7 @@ use crate::{
         serialize::txt::{ParseError, Parser},
     },
     recursor::{DnssecPolicy, Recursor},
-    resolver::{TtlConfig, lookup::Lookup},
+    resolver::TtlConfig,
     server::Request,
 };
 
@@ -153,22 +153,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
             Ok(response) => response,
             Err(error) => return LookupControlFlow::Continue(Err(LookupError::from(error))),
         };
-        let records = response
-            .answers()
-            .iter()
-            .cloned()
-            .collect::<Arc<[Record]>>();
-        let min_ttl = records
-            .iter()
-            .map(|record| record.ttl())
-            .min()
-            .unwrap_or_default();
-        let valid_until = now + Duration::from_secs(min_ttl.into());
-        LookupControlFlow::Continue(Ok(AuthLookup::from(Lookup::new_with_deadline(
-            query,
-            records,
-            valid_until,
-        ))))
+        LookupControlFlow::Continue(Ok(AuthLookup::Response(response)))
     }
 
     async fn search(
