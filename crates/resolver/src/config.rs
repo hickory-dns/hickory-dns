@@ -162,6 +162,12 @@ impl ResolverConfig {
     pub fn name_servers(&self) -> &[NameServerConfig] {
         &self.name_servers
     }
+
+    /// Clear the name servers
+    pub fn clear_system_defaults(&mut self) {
+        self.domain = Some(Name::root()); // Set to root domain ('.')
+        self.search.clear();              // Remove all search domains
+    }
 }
 
 /// Configuration for the NameServer
