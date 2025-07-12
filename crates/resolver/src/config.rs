@@ -25,17 +25,18 @@ use crate::proto::rustls::client_config;
 use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
+#[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
-    // base search domain
+    /// Base search domain
     #[cfg_attr(feature = "serde", serde(default))]
-    domain: Option<Name>,
-    // search domains
+    pub domain: Option<Name>,
+    /// Search domains
     #[cfg_attr(feature = "serde", serde(default))]
-    search: Vec<Name>,
-    // nameservers to use for resolution.
-    name_servers: Vec<NameServerConfig>,
+    pub search: Vec<Name>,
+    /// Name servers to use for resolution
+    pub name_servers: Vec<NameServerConfig>,
 }
 
 impl ResolverConfig {
