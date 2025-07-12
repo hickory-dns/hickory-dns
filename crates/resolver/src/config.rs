@@ -924,3 +924,30 @@ mod tests {
         assert_eq!(code.trust_anchor, json.trust_anchor);
     }
 }
+
+mod system_defaults {
+    use super::*;
+
+    #[test]
+    fn test_clear_system_defaults() {
+        let mut config = ResolverConfig::default();
+        // Set a domain and add a search domain
+        let domain = Name::from_ascii("example.com.").unwrap();
+        config.set_domain(domain);
+        let search = Name::from_ascii("search.example.com.").unwrap();
+        config.add_search(search);
+
+        // Verify initial state
+        assert!(config.domain().is_some());
+        assert_eq!(config.domain().unwrap().to_string(), "example.com.");
+        assert_eq!(config.search().len(), 2); // domain + search domain
+
+        // Clear system defaults
+        config.clear_system_defaults();
+
+        // Verify the domain is now root and search is cleared
+        assert!(config.domain().is_some());
+        assert_eq!(config.domain().unwrap().to_string(), ".");
+        assert_eq!(config.search().len(), 0);
+    }
+}
