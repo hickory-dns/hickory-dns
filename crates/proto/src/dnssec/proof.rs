@@ -292,6 +292,7 @@ pub enum ProofErrorKind {
 }
 
 /// The error type for dnssec errors that get returned in the crate
+#[non_exhaustive]
 #[derive(Debug, Clone, Error)]
 pub struct ProofError {
     /// The proof derived from the failed state
