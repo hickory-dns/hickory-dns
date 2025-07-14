@@ -7,7 +7,7 @@
 
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
-use alloc::{borrow::ToOwned, boxed::Box, string::ToString, sync::Arc, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use core::{clone::Clone, pin::Pin};
 use std::{
     collections::{HashMap, HashSet},
@@ -116,7 +116,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             Ok(response) => response,
             // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
             // DNSSEC handler chain can validate negative responses.
-            Err(err) => match err.kind() {
+            Err(err) => match *err.kind {
                 ProtoErrorKind::NoRecordsFound(NoRecords {
                     query,
                     authorities,
@@ -125,8 +125,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }) => {
                     debug!("translating NoRecordsFound to DnsResponse for {query}");
                     let mut msg = Message::query();
-                    msg.add_query(*query.clone());
-                    msg.set_response_code(*response_code);
+                    msg.add_query(*query);
+                    msg.set_response_code(response_code);
 
                     if let Some(authorities) = authorities {
                         for record in authorities.iter() {
@@ -143,7 +143,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         }
                     }
                 }
-                _ => return Err(ProtoError::from(err.to_string())),
+                _ => return Err(err),
             },
         };
 
