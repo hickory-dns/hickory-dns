@@ -77,7 +77,7 @@ fn test_cname_loop() {
         ))
         .unwrap();
 
-    let records: Vec<&Record> = lookup.iter().collect();
+    let records = lookup.iter().collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     let record = records[0];
     assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
@@ -99,7 +99,7 @@ fn test_cname_loop() {
         ))
         .unwrap();
 
-    let records: Vec<&Record> = lookup.iter().collect();
+    let records = lookup.iter().collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     let record = records[0];
     assert_eq!(record.name(), &Name::from_str("bar.example.com.").unwrap());
@@ -108,10 +108,10 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
-    let additionals: Vec<&Record> = lookup
+    let additionals = lookup
         .additionals()
         .expect("Should be additional records")
-        .collect();
+        .collect::<Vec<_>>();
     assert_eq!(additionals.len(), 1);
     let record = additionals[0];
     assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
@@ -128,7 +128,7 @@ fn test_cname_loop() {
         ))
         .unwrap();
 
-    let records: Vec<&Record> = lookup.iter().collect();
+    let records = lookup.iter().collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     let record = records[0];
     assert_eq!(record.name(), &Name::from_str("baz.example.com.").unwrap());
@@ -137,10 +137,10 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap()))
     );
 
-    let additionals: Vec<&Record> = lookup
+    let additionals = lookup
         .additionals()
         .expect("Should be additional records")
-        .collect();
+        .collect::<Vec<_>>();
     assert_eq!(additionals.len(), 2);
     let record = additionals[0];
     assert_eq!(record.name(), &Name::from_str("boz.example.com.").unwrap());
