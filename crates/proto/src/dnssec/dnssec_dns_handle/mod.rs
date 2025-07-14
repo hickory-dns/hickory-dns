@@ -16,7 +16,7 @@ use std::{
 
 use futures_util::{
     future::{self, TryFutureExt},
-    stream::{self, Stream, TryStreamExt},
+    stream::{self, Stream, StreamExt},
 };
 use tracing::{debug, error, trace, warn};
 
@@ -106,9 +106,59 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         self
     }
 
+    async fn handle_response(
+        self,
+        result: Result<DnsResponse, ProtoError>,
+        query: Query,
+        options: DnsRequestOptions,
+    ) -> Result<DnsResponse, ProtoError> {
+        let response = match result {
+            Ok(response) => response,
+            // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
+            // DNSSEC handler chain can validate negative responses.
+            Err(err) => match err.kind() {
+                ProtoErrorKind::NoRecordsFound(NoRecords {
+                    query,
+                    authorities,
+                    response_code,
+                    ..
+                }) => {
+                    debug!("translating NoRecordsFound to DnsResponse for {query}");
+                    let mut msg = Message::query();
+                    msg.add_query(*query.clone());
+                    msg.set_response_code(*response_code);
+
+                    if let Some(authorities) = authorities {
+                        for record in authorities.iter() {
+                            msg.add_authority(record.clone());
+                        }
+                    }
+
+                    match DnsResponse::from_message(msg) {
+                        Ok(response) => response,
+                        Err(err) => {
+                            return Err(ProtoError::from(format!(
+                                "unable to construct DnsResponse: {err:?}"
+                            )));
+                        }
+                    }
+                }
+                _ => return Err(ProtoError::from(err.to_string())),
+            },
+        };
+
+        let response = self.verify_response(response, options).await?;
+        check_nsec(
+            response,
+            &query,
+            self.nsec3_soft_iteration_limit,
+            self.nsec3_hard_iteration_limit,
+        )
+    }
+
     /// Extracts the different sections of a message and verifies the RRSIGs
     async fn verify_response(
-        self,
+        &self,
         mut message: DnsResponse,
         options: DnsRequestOptions,
     ) -> Result<DnsResponse, ProtoError> {
@@ -801,58 +851,11 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         request.set_checking_disabled(false);
         let options = *request.options();
 
-        let soft_iteration_limit = self.nsec3_soft_iteration_limit;
-        let hard_iteration_limit = self.nsec3_hard_iteration_limit;
-
-        Box::pin(
-            self.handle
-                .send(request)
-                .or_else(move |res| {
-                    // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
-                    // DNSSEC handler chain can validate negative responses.
-                    match res.kind() {
-                        ProtoErrorKind::NoRecordsFound(NoRecords {
-                            query,
-                            authorities,
-                            response_code,
-                            ..
-                        }) => {
-                            let mut msg = Message::query();
-
-                            debug!("translating NoRecordsFound to DnsResponse for {query}");
-
-                            msg.add_query(*query.clone());
-
-                            msg.set_response_code(*response_code);
-
-                            if let Some(authorities) = authorities {
-                                for record in authorities.iter() {
-                                    msg.add_authority(record.clone());
-                                }
-                            }
-
-                            match DnsResponse::from_message(msg) {
-                                Ok(res) => future::ok(res),
-                                Err(_e) => future::err(ProtoError::from(
-                                    "unable to construct DnsResponse: {_e:?}",
-                                )),
-                            }
-                        }
-                        _ => future::err(ProtoError::from(res.to_string())),
-                    }
-                })
-                .and_then(move |message_response| {
-                    handle.clone().verify_response(message_response, options)
-                })
-                .and_then(move |verified_message| {
-                    future::ready(check_nsec(
-                        verified_message,
-                        &query,
-                        soft_iteration_limit,
-                        hard_iteration_limit,
-                    ))
-                }),
-        )
+        Box::pin(self.handle.send(request).then(move |result| {
+            handle
+                .clone()
+                .handle_response(result, query.clone(), options)
+        }))
     }
 }
 
