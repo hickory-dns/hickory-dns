@@ -690,82 +690,31 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         //        dns over TLS will mitigate this.
         //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
         let verifications = rrsigs
-        .iter()
-        .enumerate()
-        .filter_map(|(i, rrsig)| {
-            let query = Query::query(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
+            .iter()
+            .enumerate()
+            .filter_map(|(i, rrsig)| {
+                let query =
+                    Query::query(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
 
-            if i > MAX_RRSIGS_PER_RRSET {
-                warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
-                return None;
-            }
+                if i > MAX_RRSIGS_PER_RRSET {
+                    warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
+                    return None;
+                }
 
-            // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
-            Some(self
-                .lookup(query.clone(), options)
-                .first_answer()
-                .map_err(|proto| {
-                    ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
-                })
-                .map_ok(move |message| {
-                    let mut tag_count = HashMap::<u16, usize>::new();
-
-                    // DNSKEYs were already validated by the inner query in the above lookup
-                    let dnskeys = message
-                        .answers()
-                        .iter()
-                        .filter_map(|r| {
-                            let dnskey = r.try_borrow::<DNSKEY>()?;
-
-                            let tag = match dnskey.data().calculate_key_tag() {
-                                Ok(tag) => tag,
-                                Err(e) => {
-                                    warn!("unable to calculate key tag: {e:?}; skipping key");
-                                    return None;
-                                }
-                            };
-
-                            match tag_count.get_mut(&tag) {
-                                Some(n_keys) => {
-                                    *n_keys += 1;
-                                    if *n_keys > MAX_KEY_TAG_COLLISIONS {
-                                        warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
-                                        return None;
-                                    }
-                                }
-                                None => _ = tag_count.insert(tag, 1),
-                            }
-
-                            Some(dnskey)
-                        });
-
-                    let mut all_insecure = None;
-                    for dnskey in dnskeys {
-                        match dnskey.proof() {
-                            Proof::Secure => {
-                                all_insecure = Some(false);
-                                if let Ok(proof) =
-                                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, rrset, current_time)
-                                {
-                                    return Some((proof.0, proof.1, Some(i)));
-                                }
-                            }
-                            Proof::Insecure => {
-                                all_insecure.get_or_insert(true);
-                            }
-                            _ => all_insecure = Some(false),
-                        }
-                    }
-
-                    if all_insecure.unwrap_or(false) {
-                        // inherit Insecure state
-                        Some((Proof::Insecure, None, None))
-                    } else {
-                        None
-                    }
-                }))
-        })
-        .collect::<Vec<_>>();
+                // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
+                Some(
+                    self.lookup(query.clone(), options)
+                        .first_answer()
+                        .map_err(|proto| {
+                            ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
+                        })
+                        .map_ok(move |message| {
+                            verify_rrsig_with_keys(message, rrsig, rrset, current_time)
+                                .map(|(proof, adjusted_ttl)| (proof, adjusted_ttl, Some(i)))
+                        }),
+                )
+            })
+            .collect::<Vec<_>>();
 
         // if there are no available verifications, then we are in a failed state.
         if verifications.is_empty() {
@@ -904,6 +853,66 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
                     ))
                 }),
         )
+    }
+}
+
+fn verify_rrsig_with_keys(
+    dnskey_message: DnsResponse,
+    rrsig: &RecordRef<'_, RRSIG>,
+    rrset: &Rrset<'_>,
+    current_time: u32,
+) -> Option<(Proof, Option<u32>)> {
+    let mut tag_count = HashMap::<u16, usize>::new();
+
+    // DNSKEYs were already validated by the inner query in the above lookup
+    let dnskeys = dnskey_message.answers().iter().filter_map(|r| {
+        let dnskey = r.try_borrow::<DNSKEY>()?;
+
+        let tag = match dnskey.data().calculate_key_tag() {
+            Ok(tag) => tag,
+            Err(e) => {
+                warn!("unable to calculate key tag: {e:?}; skipping key");
+                return None;
+            }
+        };
+
+        match tag_count.get_mut(&tag) {
+            Some(n_keys) => {
+                *n_keys += 1;
+                if *n_keys > MAX_KEY_TAG_COLLISIONS {
+                    warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
+                    return None;
+                }
+            }
+            None => _ = tag_count.insert(tag, 1),
+        }
+
+        Some(dnskey)
+    });
+
+    let mut all_insecure = None;
+    for dnskey in dnskeys {
+        match dnskey.proof() {
+            Proof::Secure => {
+                all_insecure = Some(false);
+                if let Ok(proof) =
+                    verify_rrset_with_dnskey(dnskey, dnskey.proof(), rrsig, rrset, current_time)
+                {
+                    return Some((proof.0, proof.1));
+                }
+            }
+            Proof::Insecure => {
+                all_insecure.get_or_insert(true);
+            }
+            _ => all_insecure = Some(false),
+        }
+    }
+
+    if all_insecure.unwrap_or(false) {
+        // inherit Insecure state
+        Some((Proof::Insecure, None))
+    } else {
+        None
     }
 }
 
