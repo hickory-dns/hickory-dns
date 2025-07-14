@@ -320,7 +320,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_dnskey_rrset(
         &self,
         rrset: &Rrset<'_>,
-        rrsigs: &Vec<RecordRef<'_, RRSIG>>,
+        rrsigs: &[RecordRef<'_, RRSIG>],
         current_time: u32,
         options: DnsRequestOptions,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
@@ -639,7 +639,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_default_rrset(
         &self,
         rrset: &Rrset<'_>,
-        rrsigs: &Vec<RecordRef<'_, RRSIG>>,
+        rrsigs: &[RecordRef<'_, RRSIG>],
         current_time: u32,
         options: DnsRequestOptions,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
