@@ -243,7 +243,7 @@ where
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
-    test(secure_client);
+    test(secure_client).await;
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
 }
@@ -279,7 +279,7 @@ where
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::new(client);
 
-    test(secure_client);
+    test(secure_client).await;
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
 }
@@ -316,7 +316,7 @@ where
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::new(client);
 
-    test(secure_client);
+    test(secure_client).await;
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
 }
