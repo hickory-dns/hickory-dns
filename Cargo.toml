@@ -66,7 +66,7 @@ pin-project-lite = "0.2"
 
 
 # cryptography
-aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
+aws-lc-rs = { version = "1.13.2", default-features = false, features = ["prebuilt-nasm"] }
 rustls = { version = "0.23.23", default-features = false, features = ["logging", "std", "tls12"] }
 rustls-platform-verifier = "0.5"
 rustls-pki-types = "1.10"
