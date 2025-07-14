@@ -67,7 +67,7 @@ pin-project-lite = "0.2"
 
 # cryptography
 aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
-rustls = { version = "0.23.23", default-features = false, features = ["logging", "std", "tls12"] }
+rustls = { version = "0.23.29", default-features = false, features = ["logging", "std", "tls12"] }
 rustls-platform-verifier = "0.5"
 rustls-pki-types = "1.10"
 tokio-rustls = { version = "0.26", default-features = false }
