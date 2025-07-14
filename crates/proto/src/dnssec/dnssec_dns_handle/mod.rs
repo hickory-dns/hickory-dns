@@ -106,13 +106,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         self
     }
 
-    async fn handle_response(
+    async fn verify_response(
         self,
         result: Result<DnsResponse, ProtoError>,
         query: Query,
         options: DnsRequestOptions,
     ) -> Result<DnsResponse, ProtoError> {
-        let response = match result {
+        let mut message = match result {
             Ok(response) => response,
             // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
             // DNSSEC handler chain can validate negative responses.
@@ -147,21 +147,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             },
         };
 
-        let response = self.verify_response(response, options).await?;
-        check_nsec(
-            response,
-            &query,
-            self.nsec3_soft_iteration_limit,
-            self.nsec3_hard_iteration_limit,
-        )
-    }
-
-    /// Extracts the different sections of a message and verifies the RRSIGs
-    async fn verify_response(
-        &self,
-        mut message: DnsResponse,
-        options: DnsRequestOptions,
-    ) -> Result<DnsResponse, ProtoError> {
         debug!(
             "validating message_response: {}, with {} trust_anchors",
             message.id(),
@@ -182,7 +167,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
 
-        Ok(message)
+        check_nsec(
+            message,
+            &query,
+            self.nsec3_soft_iteration_limit,
+            self.nsec3_hard_iteration_limit,
+        )
     }
 
     /// This pulls all answers returned in a Message response and returns a future which will
@@ -854,7 +844,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         Box::pin(self.handle.send(request).then(move |result| {
             handle
                 .clone()
-                .handle_response(result, query.clone(), options)
+                .verify_response(result, query.clone(), options)
         }))
     }
 }
