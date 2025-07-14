@@ -408,13 +408,9 @@ impl<T> Proven<T> {
 impl<T> Proven<Option<T>> {
     /// If the inner type is an Option this will transpose them so that it's an option wrapped Proven
     pub fn transpose(self) -> Option<Proven<T>> {
-        if let Some(value) = self.value {
-            Some(Proven {
-                proof: self.proof,
-                value,
-            })
-        } else {
-            None
-        }
+        Some(Proven {
+            proof: self.proof,
+            value: self.value?,
+        })
     }
 }
