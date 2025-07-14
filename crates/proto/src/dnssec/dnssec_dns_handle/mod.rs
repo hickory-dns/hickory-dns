@@ -23,7 +23,7 @@ use tracing::{debug, error, trace, warn};
 use crate::{
     dnssec::{
         Proof, ProofError, ProofErrorKind, TrustAnchors, Verifier,
-        rdata::{DNSKEY, DS, RRSIG},
+        rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
@@ -35,8 +35,6 @@ use self::rrset::Rrset;
 
 mod nsec3_validation;
 use nsec3_validation::verify_nsec3;
-
-use super::rdata::{DNSSECRData, NSEC};
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
