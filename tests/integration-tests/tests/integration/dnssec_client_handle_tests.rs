@@ -95,11 +95,11 @@ where
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
-// TODO: NSEC response code wrong in Hickory DNS? Issue #53
-// #[test]
-// fn test_nsec_query_type_nonet() {
-//   with_nonet(test_nsec_query_type);
-// }
+#[tokio::test]
+async fn test_nsec_query_type_nonet() {
+    subscribe();
+    with_nonet(test_nsec_query_type).await;
+}
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
@@ -284,7 +284,6 @@ where
     join.join().unwrap();
 }
 
-// TODO: just make this a Tokio test?
 async fn with_tcp<F, Fut>(test: F)
 where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
