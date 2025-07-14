@@ -343,7 +343,7 @@ impl Message {
         self.additionals = records;
     }
 
-    /// Add the EDNS section to the Message
+    /// Add the EDNS OPT pseudo-RR to the Message
     pub fn set_edns(&mut self, edns: Edns) -> &mut Self {
         self.edns = Some(edns);
         self
@@ -578,13 +578,13 @@ impl Message {
     /// ```
     /// # Return value
     ///
-    /// Optionally returns a reference to EDNS section
+    /// Optionally returns a reference to EDNS OPT pseudo-RR
     #[deprecated(note = "Please use `extensions()`")]
     pub fn edns(&self) -> Option<&Edns> {
         self.edns.as_ref()
     }
 
-    /// Optionally returns mutable reference to EDNS section
+    /// Optionally returns mutable reference to EDNS OPT pseudo-RR
     #[deprecated(
         note = "Please use `extensions_mut()`. You can chain `.get_or_insert_with(Edns::new)` to recover original behavior of adding Edns if not present"
     )]
@@ -595,19 +595,19 @@ impl Message {
         self.edns.as_mut().unwrap()
     }
 
-    /// Returns reference of Edns section
+    /// Returns reference of EDNS OPT pseudo-RR
     pub fn extensions(&self) -> &Option<Edns> {
         &self.edns
     }
 
-    /// Returns mutable reference of Edns section
+    /// Returns mutable reference of EDNS OPT pseudo-RR
     pub fn extensions_mut(&mut self) -> &mut Option<Edns> {
         &mut self.edns
     }
 
     /// # Return value
     ///
-    /// the max payload value as it's defined in the EDNS section.
+    /// the max payload value as it's defined in the EDNS OPT pseudo-RR.
     pub fn max_payload(&self) -> u16 {
         let max_size = self.edns.as_ref().map_or(512, Edns::max_payload);
         if max_size < 512 { 512 } else { max_size }
