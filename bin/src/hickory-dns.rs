@@ -774,7 +774,7 @@ impl ConfigMetrics {
         describe_gauge!(
             "hickory_config_info",
             Unit::Count,
-            "hickory config metadata"
+            "Hickory DNS configuration metadata."
         );
         hickory_config_info.set(1);
 
@@ -786,7 +786,7 @@ impl ConfigMetrics {
         describe_counter!(
             zones_total_name,
             Unit::Count,
-            "number of dns zones in storages"
+            "Number of DNS zones in stores."
         );
 
         #[cfg(feature = "resolver")]

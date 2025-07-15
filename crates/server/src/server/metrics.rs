@@ -105,7 +105,7 @@ impl Default for ProtocolMetrics {
                 describe_counter!(
                     request_protocols_name,
                     Unit::Count,
-                    "number of dns requests operations"
+                    "Number of requests by transport protocol."
                 );
                 new
             },
@@ -159,7 +159,7 @@ impl Default for OpCodeMetrics {
                 describe_counter!(
                     request_operations_name,
                     Unit::Count,
-                    "number of dns request operations"
+                    "Number of requests by opcode."
                 );
                 new
             },
@@ -218,7 +218,7 @@ impl Default for ResponseCodeMetrics {
                 describe_counter!(
                     response_codes_name,
                     Unit::Count,
-                    "number of dns response codes"
+                    "Number of responses by response code."
                 );
                 new
             },
