@@ -14,6 +14,8 @@ use std::{
 
 use futures_util::{Future, FutureExt, StreamExt, future::Shared};
 use hickory_resolver::name_server::NameServerPool;
+#[cfg(feature = "metrics")]
+use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::info;
 
@@ -46,14 +48,27 @@ pub(crate) struct RecursorPool<P: ConnectionProvider> {
     zone: Name,
     ns: NameServerPool<P>,
     active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
+    #[cfg(feature = "metrics")]
+    outgoing_query_counter: Counter,
 }
 
 impl<P: ConnectionProvider> RecursorPool<P> {
     pub(crate) fn from(zone: Name, ns: NameServerPool<P>) -> Self {
+        #[cfg(feature = "metrics")]
+        let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
+        #[cfg(feature = "metrics")]
+        describe_counter!(
+            "hickory_recursor_outgoing_queries_total",
+            Unit::Count,
+            "Number of outgoing queries made during resolution."
+        );
+
         Self {
             zone,
             ns,
             active_requests: Arc::new(Mutex::new(HashMap::default())),
+            #[cfg(feature = "metrics")]
+            outgoing_query_counter,
         }
     }
 
@@ -96,6 +111,9 @@ impl<P: ConnectionProvider> RecursorPool<P> {
                     .map(|(next, _)| next)
                     .boxed()
                     .shared();
+
+                #[cfg(feature = "metrics")]
+                self.outgoing_query_counter.increment(1);
 
                 SharedLookup(lookup)
             })

@@ -48,6 +48,7 @@ metrics = { version = "0.24.1" }
 metrics-exporter-prometheus = { version = "0.17", default-features = false, features = ["http-listener"] }
 metrics-process = "2.4.0"
 # metrics tests
+metrics-util = { version = "0.20.0", default-features = false }
 reqwest = { version = "0.12.12", default-features = false }
 prometheus-parse = "0.2.5"
 
