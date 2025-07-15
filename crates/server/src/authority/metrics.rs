@@ -123,7 +123,7 @@ impl ZoneLookupMetrics {
             },
         };
 
-        describe_counter!(zone_lookups_name, Unit::Count, "number of zone lookups");
+        describe_counter!(zone_lookups_name, Unit::Count, "Number of zone lookups.");
         new
     }
 }

@@ -22,7 +22,7 @@ impl PersistentStoreMetrics {
         describe_gauge!(
             zone_records_name,
             Unit::Count,
-            "number of dns zone records in persisted storages"
+            "Number of resource records in zone stores."
         );
 
         #[cfg(feature = "__dnssec")]
@@ -39,7 +39,7 @@ impl PersistentStoreMetrics {
             describe_counter!(
                 zone_records_modified_name,
                 Unit::Count,
-                "number of dns zone records that had been modified"
+                "Number of modifications to resource records in zone stores."
             );
 
             (records_added, records_deleted, records_updated)
