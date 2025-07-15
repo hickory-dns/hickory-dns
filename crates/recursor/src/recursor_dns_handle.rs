@@ -12,6 +12,8 @@ use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
+#[cfg(feature = "metrics")]
+use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use prefix_trie::PrefixSet;
 use tracing::{debug, info, trace, warn};
@@ -41,6 +43,8 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     roots: RecursorPool<P>,
     name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<P>>>>,
     response_cache: ResponseCache,
+    #[cfg(feature = "metrics")]
+    cache_metrics: RecursorCacheMetrics,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
@@ -120,6 +124,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             roots,
             name_server_cache,
             response_cache,
+            #[cfg(feature = "metrics")]
+            cache_metrics: RecursorCacheMetrics::new(),
             recursion_limit,
             ns_recursion_limit,
             security_aware,
@@ -142,6 +148,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         cname_limit: Arc<AtomicU8>,
     ) -> Result<Message, Error> {
         if let Some(result) = self.response_cache.get(&query, request_time) {
+            #[cfg(feature = "metrics")]
+            self.cache_metrics.cache_hit_counter.increment(1);
+
             let response = self
                 .resolve_cnames(
                     result?,
@@ -158,6 +167,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 response,
                 query,
             ));
+        } else {
+            #[cfg(feature = "metrics")]
+            self.cache_metrics.cache_miss_counter.increment(1);
         }
 
         // Recursively search for authoritative name servers for the queried record to build an NS
@@ -544,6 +556,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         &self.response_cache
     }
 
+    #[cfg(all(feature = "__dnssec", feature = "metrics"))]
+    pub(crate) fn cache_metrics(&self) -> &RecursorCacheMetrics {
+        &self.cache_metrics
+    }
+
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
         &self,
         zone: &Name,
@@ -632,6 +649,35 @@ fn recursor_opts(
     options.case_randomization = case_randomization;
 
     options
+}
+
+#[cfg(feature = "metrics")]
+#[derive(Clone)]
+pub(super) struct RecursorCacheMetrics {
+    pub(super) cache_hit_counter: Counter,
+    pub(super) cache_miss_counter: Counter,
+}
+
+#[cfg(feature = "metrics")]
+impl RecursorCacheMetrics {
+    fn new() -> Self {
+        let cache_hit_counter = counter!("hickory_recursor_cache_hit_total");
+        describe_counter!(
+            "hickory_recursor_cache_hit_total",
+            Unit::Count,
+            "Number of recursive requests answered from the cache."
+        );
+        let cache_miss_counter = counter!("hickory_recursor_cache_miss_total");
+        describe_counter!(
+            "hickory_recursor_cache_miss_total",
+            Unit::Count,
+            "Number of recursive requests that could not be answered from the cache."
+        );
+        Self {
+            cache_hit_counter,
+            cache_miss_counter,
+        }
+    }
 }
 
 /// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion

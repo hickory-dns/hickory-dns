@@ -14,6 +14,8 @@ use std::{
 
 use ipnet::IpNet;
 
+#[cfg(all(feature = "__dnssec", feature = "metrics"))]
+use crate::recursor_dns_handle::RecursorCacheMetrics;
 use crate::{
     DnssecPolicy, Error,
     proto::{
@@ -229,6 +231,8 @@ impl<P: ConnectionProvider> Recursor<P> {
 
                 RecursorMode::Validating {
                     response_cache,
+                    #[cfg(feature = "metrics")]
+                    cache_metrics: handle.cache_metrics().clone(),
                     handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                         .nsec3_iteration_limits(
                             nsec3_soft_iteration_limit,
@@ -429,8 +433,15 @@ impl<P: ConnectionProvider> Recursor<P> {
             RecursorMode::Validating {
                 handle,
                 response_cache,
+                #[cfg(feature = "metrics")]
+                cache_metrics,
             } => {
                 if let Some(Ok(response)) = response_cache.get(&query, request_time) {
+                    // Increment metrics on cache hits only. We will check the cache a second time
+                    // inside resolve(), thus we only track cache misses there.
+                    #[cfg(feature = "metrics")]
+                    cache_metrics.cache_hit_counter.increment(1);
+
                     let none_indeterminate = response
                         .all_sections()
                         .all(|record| !record.proof().is_indeterminate());
@@ -514,6 +525,8 @@ enum RecursorMode<P: ConnectionProvider> {
         handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
         // This is a handle to the response cache in `RecursorDnsHandle`, not a whole separate cache.
         response_cache: ResponseCache,
+        #[cfg(feature = "metrics")]
+        cache_metrics: RecursorCacheMetrics,
     },
 }
 
