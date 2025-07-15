@@ -158,11 +158,13 @@ impl DNSClassMetrics {
         Self {
             r#in: {
                 let new = counter!(dns_class_name.clone(), key => "in");
-                describe_counter!(
-                    dns_class_name.clone(),
-                    Unit::Count,
-                    format!("number of {} dns classes", direction)
-                );
+                let description = match direction {
+                    Direction::Request => "Number of requests by DNS class.",
+                    Direction::Response => {
+                        "Total number of resource records in responses by DNS class."
+                    }
+                };
+                describe_counter!(dns_class_name.clone(), Unit::Count, description);
                 new
             },
             ch: counter!(dns_class_name.clone(), key => "ch"),
@@ -236,11 +238,13 @@ impl RecordTypeMetrics {
         Self {
             a: {
                 let new = counter!(record_type_name.clone(), key => "a");
-                describe_counter!(
-                    record_type_name.clone(),
-                    Unit::Count,
-                    format!("number of {direction} record types")
-                );
+                let description = match direction {
+                    Direction::Request => "Number of requests by query type.",
+                    Direction::Response => {
+                        "Total number of resource records in responses by record type."
+                    }
+                };
+                describe_counter!(record_type_name.clone(), Unit::Count, description);
                 new
             },
             aaaa: counter!(record_type_name.clone(), key => "aaaa"),

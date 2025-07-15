@@ -45,7 +45,7 @@ impl FlagMetrics {
                 describe_counter!(
                     flags_name.clone(),
                     Unit::Count,
-                    "number of dns request flags"
+                    format!("Number of {direction}s by header flags.")
                 );
                 new
             },
