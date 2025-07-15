@@ -751,9 +751,14 @@ struct ConfigMetrics {
 #[cfg(feature = "metrics")]
 impl ConfigMetrics {
     fn new(config: &Config) -> Self {
-        let hickory_info = gauge!("hickory_info", "version" => hickory_client::version());
-        describe_gauge!("hickory_info", Unit::Count, "hickory service metadata");
-        hickory_info.set(1);
+        let hickory_build_info =
+            gauge!("hickory_build_info", "version" => hickory_client::version());
+        describe_gauge!(
+            "hickory_build_info",
+            Unit::Count,
+            "hickory service metadata"
+        );
+        hickory_build_info.set(1);
 
         let hickory_config_info = gauge!("hickory_config_info",
             "directory" => config.directory().to_string_lossy().to_string(),

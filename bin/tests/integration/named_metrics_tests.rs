@@ -70,7 +70,7 @@ fn test_prometheus_endpoint_startup() {
             ("deny_networks", "0"), // move to separate counter hickory_config_deny_networks_total ?
             ("zones", "6"),         // redundant ?
         ];
-        verify_metric(metrics, "hickory_info", &info, Some(1f64));
+        verify_metric(metrics, "hickory_build_info", &info, Some(1f64));
         verify_metric(metrics, "hickory_config_info", &config_info, Some(1f64));
 
         let store_forwarder = [("store", "forwarder")];
