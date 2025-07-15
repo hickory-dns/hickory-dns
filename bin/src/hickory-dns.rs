@@ -756,7 +756,7 @@ impl ConfigMetrics {
         describe_gauge!(
             "hickory_build_info",
             Unit::Count,
-            "hickory service metadata"
+            "A metric with a constant '1' labeled by the version from which Hickory DNS was built."
         );
         hickory_build_info.set(1);
 
