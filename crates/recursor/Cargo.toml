@@ -31,6 +31,7 @@ license.workspace = true
 
 [features]
 backtrace = ["dep:backtrace", "hickory-proto/backtrace", "hickory-resolver/backtrace"]
+metrics = ["dep:metrics"]
 
 dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-resolver/dnssec-aws-lc-rs", "__dnssec"]
 dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring", "__dnssec"]
@@ -98,6 +99,7 @@ enum-as-inner.workspace = true
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 ipnet.workspace = true
 lru-cache.workspace = true
+metrics = { workspace = true, optional = true }
 parking_lot.workspace = true
 prefix-trie.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
@@ -108,6 +110,8 @@ hickory-proto.workspace = true
 hickory-resolver = { workspace = true, features = ["tokio"] }
 
 [dev-dependencies]
+futures-util = { workspace = true, features = ["io"] }
+metrics-util = { workspace = true, features = ["debugging"] }
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 test-support.workspace = true

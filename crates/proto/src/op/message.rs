@@ -147,8 +147,7 @@ impl Message {
     }
 
     /// See [`Header::set_id()`]
-    #[allow(dead_code)] // Complicated feature combination
-    pub(crate) fn set_id(&mut self, id: u16) -> &mut Self {
+    pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.header.set_id(id);
         self
     }
