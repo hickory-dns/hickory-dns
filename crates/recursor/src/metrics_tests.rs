@@ -56,15 +56,17 @@ fn test_recursor_metrics() {
             let recursor = Recursor::builder_with_provider(provider)
                 .build(&[ROOT_IP.into()])
                 .unwrap();
-            let response = recursor
-                .resolve(
-                    Query::query(query_name, RecordType::A),
-                    Instant::now(),
-                    false,
-                )
-                .await
-                .unwrap();
-            assert_eq!(response.response_code(), ResponseCode::NoError);
+            for _ in 0..3 {
+                let response = recursor
+                    .resolve(
+                        Query::query(query_name.clone(), RecordType::A),
+                        Instant::now(),
+                        false,
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.response_code(), ResponseCode::NoError);
+            }
         });
     });
 
@@ -80,6 +82,26 @@ fn test_recursor_metrics() {
     assert_eq!(unit_opt, &Some(Unit::Count));
     assert!(description_opt.is_some());
     assert_eq!(value, &DebugValue::Counter(3));
+
+    let (unit_opt, description_opt, value) = map
+        .get(&CompositeKey::new(
+            MetricKind::Counter,
+            Key::from_name("hickory_recursor_cache_hit_total"),
+        ))
+        .unwrap();
+    assert_eq!(unit_opt, &Some(Unit::Count));
+    assert!(description_opt.is_some());
+    assert_eq!(value, &DebugValue::Counter(2));
+
+    let (unit_opt, description_opt, value) = map
+        .get(&CompositeKey::new(
+            MetricKind::Counter,
+            Key::from_name("hickory_recursor_cache_miss_total"),
+        ))
+        .unwrap();
+    assert_eq!(unit_opt, &Some(Unit::Count));
+    assert!(description_opt.is_some());
+    assert_eq!(value, &DebugValue::Counter(1));
 }
 
 /// Request handling functionality that can be plugged into [`MockProvider`].
