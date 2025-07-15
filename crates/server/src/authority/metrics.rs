@@ -5,8 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    fmt,
+};
 
 use crate::authority::{AuthLookup, Authority, LookupControlFlow, ZoneType};
 
@@ -86,8 +88,8 @@ impl Default for CatalogMetrics {
     fn default() -> Self {
         Self {
             zone_store_metrics: HashMap::new(),
-            request_metrics: DnsClassesRecordTypesMetrics::new("request"),
-            response_metrics: DnsClassesRecordTypesMetrics::new("response"),
+            request_metrics: DnsClassesRecordTypesMetrics::new(Direction::Request),
+            response_metrics: DnsClassesRecordTypesMetrics::new(Direction::Response),
         }
     }
 }
@@ -132,7 +134,7 @@ struct DnsClassesRecordTypesMetrics {
 }
 
 impl DnsClassesRecordTypesMetrics {
-    fn new(direction: &'static str) -> Self {
+    fn new(direction: Direction) -> Self {
         Self {
             dns_classes: DNSClassMetrics::new(direction),
             record_type: RecordTypeMetrics::new(direction),
@@ -150,7 +152,7 @@ struct DNSClassMetrics {
 }
 
 impl DNSClassMetrics {
-    fn new(direction: &'static str) -> Self {
+    fn new(direction: Direction) -> Self {
         let dns_class_name = format!("hickory_{direction}_dns_classes_total");
         let key = "class";
         Self {
@@ -227,7 +229,7 @@ struct RecordTypeMetrics {
 }
 
 impl RecordTypeMetrics {
-    fn new(direction: &'static str) -> Self {
+    fn new(direction: Direction) -> Self {
         let record_type_name = format!("hickory_{direction}_record_types_total");
         let key = "type";
 
@@ -322,5 +324,21 @@ impl RecordTypeMetrics {
             RecordType::ZERO => self.zero.increment(1),
             RecordType::Unknown(_) | _ => self.unknown.increment(1),
         }
+    }
+}
+
+/// Indicates whether metrics handles are for requests or responses.
+#[derive(Clone, Copy)]
+pub(crate) enum Direction {
+    Request,
+    Response,
+}
+
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Request => "request",
+            Self::Response => "response",
+        })
     }
 }

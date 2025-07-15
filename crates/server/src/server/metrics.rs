@@ -2,6 +2,8 @@ use hickory_proto::op::{Header, OpCode, ResponseCode};
 use hickory_proto::xfer::Protocol;
 use metrics::{Counter, Unit, counter, describe_counter};
 
+use crate::authority::metrics::Direction;
+
 #[derive(Clone)]
 pub(super) struct ResponseHandlerMetrics {
     pub(super) proto: ProtocolMetrics,
@@ -16,9 +18,9 @@ impl Default for ResponseHandlerMetrics {
         Self {
             proto: ProtocolMetrics::default(),
             operation: OpCodeMetrics::default(),
-            request_flags: FlagMetrics::new("request"),
+            request_flags: FlagMetrics::new(Direction::Request),
             response_code: ResponseCodeMetrics::default(),
-            response_flags: FlagMetrics::new("response"),
+            response_flags: FlagMetrics::new(Direction::Response),
         }
     }
 }
@@ -34,7 +36,7 @@ pub(super) struct FlagMetrics {
 }
 
 impl FlagMetrics {
-    fn new(direction: &'static str) -> Self {
+    fn new(direction: Direction) -> Self {
         let flags_name = format!("hickory_{direction}_flags_total");
         let key = "flag";
         Self {
