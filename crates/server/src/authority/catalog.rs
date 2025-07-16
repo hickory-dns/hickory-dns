@@ -14,12 +14,10 @@ use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
 use crate::authority::metrics::CatalogMetrics;
-#[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, Authority, DnssecSummary, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, MessageResponseBuilder, ZoneType,
+        AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
+        MessageResponseBuilder, ZoneType,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
@@ -30,6 +28,11 @@ use crate::{
         serialize::binary::{BinEncoder, EncodeMode},
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
+};
+#[cfg(feature = "__dnssec")]
+use crate::{
+    authority::{DnssecSummary, Nsec3QueryInfo},
+    dnssec::NxProofKind,
 };
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
@@ -573,6 +576,7 @@ async fn build_response(
                 result,
                 request_header,
                 &mut response_header,
+                #[cfg(feature = "__dnssec")]
                 authority.can_validate_dnssec(),
                 query,
                 lookup_options,
@@ -791,7 +795,7 @@ async fn build_forwarded_response(
     response: Result<AuthLookup, LookupError>,
     request_header: &Header,
     response_header: &mut Header,
-    can_validate_dnssec: bool,
+    #[cfg(feature = "__dnssec")] can_validate_dnssec: bool,
     query: &LowerQuery,
     lookup_options: LookupOptions,
 ) -> LookupSections {
@@ -803,6 +807,7 @@ async fn build_forwarded_response(
         NoRecords(AuthLookup),
     }
 
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
     let (mut answers, authorities) = match response {
         Ok(_) | Err(_) if !request_header.recursion_desired() => {
             info!(
@@ -908,6 +913,8 @@ async fn build_forwarded_response(
         }
     };
 
+    // If DNSSEC is disabled, we ignore the CD bit and do not set the AD bit.
+    #[cfg(feature = "__dnssec")]
     if can_validate_dnssec {
         // section 3.2.2 ("the CD bit") of RFC4035 is a bit underspecified because it does not use
         // RFC2119 vocabulary ("MUST", "MAY", etc.) in some sentences that describe the resolver's
