@@ -158,13 +158,6 @@ mod zone_type {
         /// A cached zone that queries other nameservers
         External,
     }
-
-    impl ZoneType {
-        /// Is this an authoritative Authority, i.e. it owns the records of the zone.
-        pub fn is_authoritative(self) -> bool {
-            matches!(self, Self::Primary | Self::Secondary)
-        }
-    }
 }
 
 pub use zone_type::ZoneType;
