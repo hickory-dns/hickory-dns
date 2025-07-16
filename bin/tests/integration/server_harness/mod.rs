@@ -315,7 +315,7 @@ pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algori
 
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
-    client.lookup_options.set_dnssec_ok(true);
+    client.lookup_options.dnssec_ok = true;
 
     let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY).unwrap();
 
