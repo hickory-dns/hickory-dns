@@ -797,6 +797,20 @@ async fn build_forwarded_response(
 ) -> LookupSections {
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
+    if !request_header.recursion_desired() {
+        info!(
+            id = request_header.id(),
+            "request disabled recursion, returning REFUSED"
+        );
+
+        response_header.set_response_code(ResponseCode::Refused);
+        return LookupSections {
+            answers: AuthLookup::default(),
+            ns: AuthLookup::default(),
+            soa: AuthLookup::default(),
+            additionals: AuthLookup::default(),
+        };
+    }
 
     enum Answer {
         Normal(AuthLookup),
@@ -805,20 +819,6 @@ async fn build_forwarded_response(
 
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
     let (mut answers, authorities) = match response {
-        Ok(_) | Err(_) if !request_header.recursion_desired() => {
-            info!(
-                id = request_header.id(),
-                "request disabled recursion, returning REFUSED"
-            );
-            response_header.set_response_code(ResponseCode::Refused);
-
-            return LookupSections {
-                answers: AuthLookup::default(),
-                ns: AuthLookup::default(),
-                soa: AuthLookup::default(),
-                additionals: AuthLookup::default(),
-            };
-        }
         Ok(l) => (Answer::Normal(l), AuthLookup::default()),
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
             debug!(error = ?e, "error resolving");
