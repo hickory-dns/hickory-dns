@@ -192,7 +192,7 @@ pub trait Authority: Send + Sync {
     ///            this
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
-    async fn get_nsec_records(
+    async fn nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
@@ -200,7 +200,7 @@ pub trait Authority: Send + Sync {
 
     /// Return the NSEC3 records based on the information available for a query.
     #[cfg(feature = "__dnssec")]
-    async fn get_nsec3_records(
+    async fn nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
@@ -438,7 +438,7 @@ impl Nsec3QueryInfo<'_> {
 
     /// Computes the hashed owner name from a given name. That is, the hash of the given name,
     /// followed by the zone name.
-    pub(crate) fn get_hashed_owner_name(
+    pub(crate) fn hashed_owner_name(
         &self,
         name: &LowerName,
         zone: &Name,

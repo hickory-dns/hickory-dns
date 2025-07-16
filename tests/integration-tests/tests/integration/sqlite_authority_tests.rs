@@ -1303,7 +1303,7 @@ async fn test_get_nsec() {
     let lower_name = LowerName::from(name.clone());
 
     let results = authority
-        .get_nsec_records(&lower_name, LookupOptions::for_dnssec())
+        .nsec_records(&lower_name, LookupOptions::for_dnssec())
         .await
         .unwrap();
 
