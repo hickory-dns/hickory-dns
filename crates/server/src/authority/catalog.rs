@@ -32,7 +32,11 @@ use crate::{
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
-use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
+use crate::{
+    proto::{ProtoError, ProtoErrorKind},
+    recursor,
+    recursor::ErrorKind,
+};
 
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
@@ -860,38 +864,32 @@ async fn build_forwarded_response(
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
-        Err(LookupError::RecursiveError(e)) => match e.kind() {
-            ErrorKind::Proto(e) => match e.kind() {
-                ProtoErrorKind::Nsec {
-                    response, proof, ..
-                } if proof.is_insecure() => {
-                    response_header.set_response_code(response.response_code());
+        Err(LookupError::RecursiveError(recursor::Error {
+            kind:
+                ErrorKind::Proto(ProtoError {
+                    kind:
+                        ProtoErrorKind::Nsec {
+                            response, proof, ..
+                        },
+                    ..
+                }),
+            ..
+        })) if proof.is_insecure() => {
+            response_header.set_response_code(response.response_code());
 
-                    if let Some(soa) = response.soa() {
-                        let soa = soa.to_owned().into_record_of_rdata();
-                        let record_set = Arc::new(RecordSet::from(soa));
-                        let records = LookupRecords::new(LookupOptions::default(), record_set);
+            if let Some(soa) = response.soa() {
+                let soa = soa.to_owned().into_record_of_rdata();
+                let record_set = Arc::new(RecordSet::from(soa));
+                let records = LookupRecords::new(LookupOptions::default(), record_set);
 
-                        (
-                            Answer::NoRecords(AuthLookup::SOA(records)),
-                            AuthLookup::default(),
-                        )
-                    } else {
-                        (Answer::Normal(AuthLookup::default()), AuthLookup::default())
-                    }
-                }
-                _ => {
-                    response_header.set_response_code(ResponseCode::ServFail);
-                    debug!(error = ?e, "error resolving");
-                    (Answer::Normal(AuthLookup::default()), AuthLookup::default())
-                }
-            },
-            _ => {
-                response_header.set_response_code(ResponseCode::ServFail);
-                debug!(error = ?e, "error resolving");
+                (
+                    Answer::NoRecords(AuthLookup::SOA(records)),
+                    AuthLookup::default(),
+                )
+            } else {
                 (Answer::Normal(AuthLookup::default()), AuthLookup::default())
             }
-        },
+        }
         Err(e) => {
             response_header.set_response_code(ResponseCode::ServFail);
             debug!(error = ?e, "error resolving");
