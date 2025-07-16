@@ -135,8 +135,8 @@ fn parse_implementation(env_var: &str) -> Implementation {
             let Ok([_, url, dnssec_feature]) = <[&str; 3]>::try_from(tokens) else {
                 panic!(
                     "the syntax of {env_var} is 'hickory $URL $DNSSEC_FEATURE', e.g. \
-                    'hickory /tmp/hickory aws-lc-rs' or \
-                    'hickory https://github.com/owner/repo ring'"
+                    'hickory /tmp/hickory dnssec-aws-lc-rs' or \
+                    'hickory https://github.com/owner/repo dnssec-ring'"
                 )
             };
             Implementation::Hickory {
