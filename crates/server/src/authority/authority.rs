@@ -61,15 +61,6 @@ impl LookupOptions {
         Self { dnssec_ok }
     }
 
-    /// Specify that this lookup should return DNSSEC related records as well, e.g. RRSIG
-    #[allow(clippy::needless_update)]
-    pub fn set_dnssec_ok(self, val: bool) -> Self {
-        Self {
-            dnssec_ok: val,
-            ..self
-        }
-    }
-
     /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
     pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
         cfg_if! {
