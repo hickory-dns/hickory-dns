@@ -554,8 +554,6 @@ async fn build_response(
     let lookup_options = LookupOptions::from_edns(edns);
 
     let mut response_header = Header::response_from_request(request_header);
-    response_header.set_authoritative(authority.zone_type().is_authoritative());
-
     let sections = match authority.zone_type() {
         ZoneType::Primary | ZoneType::Secondary => {
             build_authoritative_response(
@@ -594,11 +592,12 @@ async fn build_authoritative_response(
     _request_id: u16,
     query: &LowerQuery,
 ) -> LookupSections {
+    response_header.set_authoritative(true);
+
     // In this state we await the records, on success we transition to getting
     // NS records, which indicate an authoritative response.
     //
     // On Errors, the transition depends on the type of error.
-
     let answers = match response {
         Ok(records) => {
             response_header.set_response_code(ResponseCode::NoError);
