@@ -14,6 +14,8 @@ use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
 use crate::authority::metrics::CatalogMetrics;
+#[cfg(feature = "__dnssec")]
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::DnssecSummary};
 use crate::{
     authority::{
         AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
@@ -28,11 +30,6 @@ use crate::{
         serialize::binary::{BinEncoder, EncodeMode},
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
-};
-#[cfg(feature = "__dnssec")]
-use crate::{
-    authority::{DnssecSummary, Nsec3QueryInfo},
-    dnssec::NxProofKind,
 };
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
