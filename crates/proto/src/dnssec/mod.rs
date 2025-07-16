@@ -13,12 +13,12 @@ use core::fmt;
 
 #[cfg(feature = "backtrace")]
 use backtrace::Backtrace;
-use rdata::tsig::TsigAlgorithm;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::error::{ProtoError, ProtoErrorKind};
+use crate::rr::Record;
 #[cfg(feature = "backtrace")]
 use crate::trace;
 
@@ -34,6 +34,7 @@ mod nsec3;
 pub mod proof;
 pub mod public_key;
 pub mod rdata;
+use rdata::tsig::TsigAlgorithm;
 mod rsa_public_key;
 mod signer;
 mod supported_algorithm;
@@ -274,6 +275,39 @@ impl Clone for DnsSecErrorKind {
             Timeout => Timeout,
             TsigUnsupportedMacAlgorithm(alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
             TsigWrongKey => TsigWrongKey,
+        }
+    }
+}
+
+/// DNSSEC status of an answer
+#[derive(Clone, Copy, Debug)]
+pub enum DnssecSummary {
+    /// All records have been DNSSEC validated
+    Secure,
+    /// At least one record is in the Bogus state
+    Bogus,
+    /// Insecure / Indeterminate (e.g. "Island of security")
+    Insecure,
+}
+
+impl DnssecSummary {
+    /// Whether the records have been DNSSEC validated or not
+    pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
+        let mut all_secure = None;
+        for record in records {
+            match record.proof() {
+                Proof::Secure => {
+                    all_secure.get_or_insert(true);
+                }
+                Proof::Bogus => return Self::Bogus,
+                _ => all_secure = Some(false),
+            }
+        }
+
+        if all_secure.unwrap_or(false) {
+            Self::Secure
+        } else {
+            Self::Insecure
         }
     }
 }

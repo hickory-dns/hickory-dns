@@ -12,8 +12,6 @@ use std::{io, sync::Arc};
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::Proof;
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{Record, rdata::SOA};
 use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
@@ -143,41 +141,6 @@ impl From<io::Error> for LookupError {
 impl From<LookupError> for io::Error {
     fn from(e: LookupError) -> Self {
         Self::other(Box::new(e))
-    }
-}
-
-/// DNSSEC status of an answer
-#[cfg(feature = "__dnssec")]
-#[derive(Clone, Copy, Debug)]
-pub enum DnssecSummary {
-    /// All records have been DNSSEC validated
-    Secure,
-    /// At least one record is in the Bogus state
-    Bogus,
-    /// Insecure / Indeterminate (e.g. "Island of security")
-    Insecure,
-}
-
-#[cfg(feature = "__dnssec")]
-impl DnssecSummary {
-    /// Whether the records have been DNSSEC validated or not
-    pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
-        let mut all_secure = None;
-        for record in records {
-            match record.proof() {
-                Proof::Secure => {
-                    all_secure.get_or_insert(true);
-                }
-                Proof::Bogus => return Self::Bogus,
-                _ => all_secure = Some(false),
-            }
-        }
-
-        if all_secure.unwrap_or(false) {
-            Self::Secure
-        } else {
-            Self::Insecure
-        }
     }
 }
 
