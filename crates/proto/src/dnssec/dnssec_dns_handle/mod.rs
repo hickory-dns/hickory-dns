@@ -114,7 +114,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             Ok(response) => response,
             // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
             // DNSSEC handler chain can validate negative responses.
-            Err(err) => match *err.kind {
+            Err(err) => match err.kind {
                 ProtoErrorKind::NoRecordsFound(NoRecords {
                     query,
                     authorities,
