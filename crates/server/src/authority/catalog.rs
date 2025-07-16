@@ -608,12 +608,7 @@ async fn build_authoritative_response(
         // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
         Err(LookupError::ResponseCode(ResponseCode::Refused)) => {
             response_header.set_response_code(ResponseCode::Refused);
-            return LookupSections {
-                answers: AuthLookup::default(),
-                ns: AuthLookup::default(),
-                soa: AuthLookup::default(),
-                additionals: AuthLookup::default(),
-            };
+            return LookupSections::default();
         }
         Err(e) => {
             if e.is_nx_domain() {
@@ -804,12 +799,7 @@ async fn build_forwarded_response(
         );
 
         response_header.set_response_code(ResponseCode::Refused);
-        return LookupSections {
-            answers: AuthLookup::default(),
-            ns: AuthLookup::default(),
-            soa: AuthLookup::default(),
-            additionals: AuthLookup::default(),
-        };
+        return LookupSections::default();
     }
 
     enum Answer {
@@ -988,18 +978,17 @@ async fn build_forwarded_response(
         Answer::Normal(answers) => LookupSections {
             answers,
             ns: authorities,
-            soa: AuthLookup::default(),
-            additionals: AuthLookup::default(),
+            ..LookupSections::default()
         },
         Answer::NoRecords(soa) => LookupSections {
-            answers: AuthLookup::default(),
             ns: authorities,
             soa,
-            additionals: AuthLookup::default(),
+            ..LookupSections::default()
         },
     }
 }
 
+#[derive(Default)]
 struct LookupSections {
     answers: AuthLookup,
     ns: AuthLookup,
