@@ -10,7 +10,6 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{borrow::Borrow, collections::HashMap, io, sync::Arc};
 
-use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
@@ -431,7 +430,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> Result<ResponseInfo, LookupError> {
     let edns = request.edns();
-    let lookup_options = lookup_options_for_edns(edns);
+    let lookup_options = LookupOptions::from_edns(edns);
     let request_id = request.id();
 
     // log algorithms being requested
@@ -473,7 +472,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                     .consult(
                         request_info.query.name(),
                         request_info.query.query_type(),
-                        lookup_options_for_edns(response_edns.as_ref()),
+                        LookupOptions::from_edns(response_edns.as_ref()),
                         result,
                     )
                     .await;
@@ -543,22 +542,6 @@ async fn lookup<R: ResponseHandler + Unpin>(
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
-#[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
-fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
-    let edns = match edns {
-        Some(edns) => edns,
-        None => return LookupOptions::default(),
-    };
-
-    cfg_if! {
-        if #[cfg(feature = "__dnssec")] {
-            LookupOptions::for_dnssec(edns.flags().dnssec_ok)
-        } else {
-            LookupOptions::default()
-        }
-    }
-}
-
 /// Build Header and LookupSections (answers) given a query response from an authority
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
@@ -568,7 +551,7 @@ async fn build_response(
     query: &LowerQuery,
     edns: Option<&Edns>,
 ) -> (Header, LookupSections) {
-    let lookup_options = lookup_options_for_edns(edns);
+    let lookup_options = LookupOptions::from_edns(edns);
 
     let mut response_header = Header::response_from_request(request_header);
     response_header.set_authoritative(authority.zone_type().is_authoritative());
