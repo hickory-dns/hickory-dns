@@ -435,7 +435,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     let request_id = request.id();
 
     // log algorithms being requested
-    if lookup_options.dnssec_ok() {
+    if lookup_options.dnssec_ok {
         info!("request: {request_id} lookup_options: {lookup_options:?}");
     }
 
@@ -712,7 +712,7 @@ async fn build_authoritative_response(
             (None, None)
         }
     } else {
-        let nsecs = if lookup_options.dnssec_ok() {
+        let nsecs = if lookup_options.dnssec_ok {
             #[cfg(feature = "__dnssec")]
             {
                 // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
@@ -980,7 +980,7 @@ async fn build_forwarded_response(
     }
 
     // Strip out DNSSEC records unless the DO bit is set.
-    let authorities = if !lookup_options.dnssec_ok() {
+    let authorities = if !lookup_options.dnssec_ok {
         let auth = authorities
             .into_iter()
             .filter_map(|rrset| {

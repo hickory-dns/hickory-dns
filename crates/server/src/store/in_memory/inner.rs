@@ -260,7 +260,7 @@ impl InnerInMemory {
             cfg_if! {
                 if #[cfg(feature = "__dnssec")] {
                     let (records_tmp, rrsigs_tmp) = rrset
-                        .records(lookup_options.dnssec_ok())
+                        .records(lookup_options.dnssec_ok)
                         .partition(|r| r.record_type() != RecordType::RRSIG);
                     records = records_tmp;
                     _rrsigs = rrsigs_tmp;
