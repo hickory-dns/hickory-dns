@@ -483,7 +483,7 @@ impl Authority for InMemoryAuthority {
                 // if DNSSEC is enabled, and the request had the DO set, sign the recordset
                 #[cfg(feature = "__dnssec")]
                 // ANAME's are constructed on demand, so need to be signed before return
-                if lookup_options.dnssec_ok() {
+                if lookup_options.dnssec_ok {
                     InnerInMemory::sign_rrset(
                         &mut new_answer,
                         &inner.secure_keys,

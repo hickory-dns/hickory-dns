@@ -146,7 +146,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
 
         let result = self
             .recursor
-            .resolve(query.clone(), now, lookup_options.dnssec_ok())
+            .resolve(query.clone(), now, lookup_options.dnssec_ok)
             .await;
 
         let response = match result {
