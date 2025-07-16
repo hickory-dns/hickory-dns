@@ -659,7 +659,7 @@ async fn build_authoritative_response(
                         });
 
                     match authority
-                        .get_nsec3_records(
+                        .nsec3_records(
                             Nsec3QueryInfo {
                                 qname: query.name(),
                                 qtype: query.query_type(),
@@ -705,14 +705,14 @@ async fn build_authoritative_response(
                         // run the nsec lookup future, and then transition to get soa
                         let future = match nx_proof_kind {
                             NxProofKind::Nsec => {
-                                authority.get_nsec_records(query.name(), lookup_options)
+                                authority.nsec_records(query.name(), lookup_options)
                             }
                             NxProofKind::Nsec3 {
                                 algorithm,
                                 salt,
                                 iterations,
                                 opt_out: _,
-                            } => authority.get_nsec3_records(
+                            } => authority.nsec3_records(
                                 Nsec3QueryInfo {
                                     qname: query.name(),
                                     qtype: query.query_type(),

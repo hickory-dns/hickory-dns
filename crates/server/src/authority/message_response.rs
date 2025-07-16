@@ -62,7 +62,7 @@ where
     }
 
     /// Gets a reference to the EDNS options for the Response.
-    pub fn get_edns(&self) -> &Option<Edns> {
+    pub fn edns(&self) -> &Option<Edns> {
         &self.edns
     }
 
