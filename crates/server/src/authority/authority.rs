@@ -29,12 +29,12 @@ use crate::{
     },
 };
 
-/// LookupOptions that specify different options from the client to include or exclude various records in the response.
-///
-/// For example, `dnssec_ok` (DO) will include `RRSIG` in the response.
+/// Options from the client to include or exclude various records in the response.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LookupOptions {
-    dnssec_ok: bool,
+    /// Whether the client is interested in `RRSIG` records (DNSSEC DO bit).
+    pub dnssec_ok: bool,
 }
 
 /// Lookup Options for the request to the authority
@@ -54,16 +54,11 @@ impl LookupOptions {
         }
     }
 
-    /// If true this lookup should return DNSSEC related records as well, e.g. RRSIG
-    pub fn dnssec_ok(&self) -> bool {
-        self.dnssec_ok
-    }
-
     /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
     pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
         cfg_if! {
             if #[cfg(feature = "__dnssec")] {
-                record_set.records(self.dnssec_ok())
+                record_set.records(self.dnssec_ok)
             } else {
                 record_set.records_without_rrsigs()
             }
