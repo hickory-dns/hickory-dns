@@ -33,7 +33,7 @@ $ cargo run --example explore
 By default, this will use `unbound` as the resolver. You can switch the resolver to `hickory-dns` using the `DNS_TEST_SUBJECT` environment variable:
 
 ``` shell
-$ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns" cargo run --example explore
+$ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns dnssec-aws-lc-rs" cargo run --example explore
 ```
 
 ### Environment variables
@@ -123,7 +123,7 @@ $ cargo test -p conformance-tests -- --include-ignored
 To run the conformance tests against `hickory-dns` run:
 
 ``` console
-$ DNS_TEST_SUBJECT="hickory /path/to/repository" cargo test -p conformance-tests
+$ DNS_TEST_SUBJECT="hickory /path/to/repository dnssec-aws-lc-rs" cargo test -p conformance-tests
 ```
 
 ### Test organization
