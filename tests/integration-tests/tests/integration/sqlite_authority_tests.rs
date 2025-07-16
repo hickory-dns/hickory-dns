@@ -1237,7 +1237,7 @@ async fn test_zone_signing() {
         .lookup(
             authority.origin(),
             RecordType::AXFR,
-            LookupOptions::for_dnssec(true),
+            LookupOptions::for_dnssec(),
         )
         .await
         .unwrap();
@@ -1253,7 +1253,7 @@ async fn test_zone_signing() {
         .lookup(
             authority.origin(),
             RecordType::AXFR,
-            LookupOptions::for_dnssec(true),
+            LookupOptions::for_dnssec(),
         )
         .await
         .unwrap();
@@ -1270,7 +1270,7 @@ async fn test_zone_signing() {
             .lookup(
                 authority.origin(),
                 RecordType::AXFR,
-                LookupOptions::for_dnssec(true),
+                LookupOptions::for_dnssec(),
             )
             .await
             .unwrap();
@@ -1303,7 +1303,7 @@ async fn test_get_nsec() {
     let lower_name = LowerName::from(name.clone());
 
     let results = authority
-        .get_nsec_records(&lower_name, LookupOptions::for_dnssec(true))
+        .get_nsec_records(&lower_name, LookupOptions::for_dnssec())
         .await
         .unwrap();
 
