@@ -508,23 +508,32 @@ fn test_recursor() {
     named_test_harness("example_recursor.toml", |socket_ports| {
         let io_loop = Runtime::new().unwrap();
         let metrics = io_loop.block_on(async {
-            let mut client = create_local_client(&socket_ports, None).await;
-            let response = client
-                .query(Name::from_str(".").unwrap(), DNSClass::IN, RecordType::SOA)
-                .await
-                .unwrap();
-            dbg!(&response);
-            assert!(
-                response
-                    .answers()
-                    .iter()
-                    .any(|record| record.data().is_soa())
-            );
+            for _ in 0..4 {
+                let mut client = create_local_client(&socket_ports, None).await;
+                let response = client
+                    .query(Name::from_str(".").unwrap(), DNSClass::IN, RecordType::SOA)
+                    .await
+                    .unwrap();
+                dbg!(&response);
+                assert!(
+                    response
+                        .answers()
+                        .iter()
+                        .any(|record| record.data().is_soa())
+                );
+            }
 
             fetch_parse_check_metrics(&socket_ports).await
         });
 
         verify_metric(&metrics, "hickory_iterative_queries_total", &[], Some(2.0));
+        verify_metric(&metrics, "hickory_recursor_cache_hit_total", &[], Some(3.0));
+        verify_metric(
+            &metrics,
+            "hickory_recursor_cache_miss_total",
+            &[],
+            Some(1.0),
+        );
     });
 }
 
