@@ -147,6 +147,7 @@ impl From<LookupError> for io::Error {
 }
 
 /// DNSSEC status of an answer
+#[cfg(feature = "__dnssec")]
 #[derive(Clone, Copy, Debug)]
 pub enum DnssecSummary {
     /// All records have been DNSSEC validated
@@ -157,9 +158,9 @@ pub enum DnssecSummary {
     Insecure,
 }
 
+#[cfg(feature = "__dnssec")]
 impl DnssecSummary {
     /// Whether the records have been DNSSEC validated or not
-    #[cfg(feature = "__dnssec")]
     pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
         let mut all_secure = None;
         for record in records {
@@ -177,12 +178,6 @@ impl DnssecSummary {
         } else {
             Self::Insecure
         }
-    }
-
-    /// Whether the records have been DNSSEC validated or not
-    #[cfg(not(feature = "__dnssec"))]
-    fn from_records<'a>(_: impl Iterator<Item = &'a Record>) -> Self {
-        Self::Insecure
     }
 }
 
