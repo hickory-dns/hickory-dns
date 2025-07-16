@@ -48,17 +48,19 @@ impl LookupOptions {
 
         cfg_if! {
             if #[cfg(feature = "__dnssec")] {
-                LookupOptions::for_dnssec(edns.flags().dnssec_ok)
+                LookupOptions {
+                    dnssec_ok: edns.flags().dnssec_ok,
+                }
             } else {
                 LookupOptions::default()
             }
         }
     }
 
-    /// Return a new LookupOptions
+    /// Create [`LookupOptions`] with `dnssec_ok` enabled.
     #[cfg(feature = "__dnssec")]
-    pub fn for_dnssec(dnssec_ok: bool) -> Self {
-        Self { dnssec_ok }
+    pub fn for_dnssec() -> Self {
+        Self { dnssec_ok: true }
     }
 
     /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
