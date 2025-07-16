@@ -34,7 +34,7 @@ pub fn test_a_lookup(authority: impl Authority, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
         .0
         .unwrap();
 
@@ -54,7 +54,7 @@ pub fn test_a_lookup(authority: impl Authority, keys: &[DNSKEY]) {
 
 #[allow(clippy::unreadable_literal)]
 pub fn test_soa(authority: impl Authority, keys: &[DNSKEY]) {
-    let lookup = block_on(authority.soa_secure(LookupOptions::for_dnssec(true))).unwrap();
+    let lookup = block_on(authority.soa_secure(LookupOptions::for_dnssec())).unwrap();
 
     let (soa_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -86,7 +86,7 @@ pub fn test_soa(authority: impl Authority, keys: &[DNSKEY]) {
 }
 
 pub fn test_ns(authority: impl Authority, keys: &[DNSKEY]) {
-    let lookup = block_on(authority.ns(LookupOptions::for_dnssec(true))).unwrap();
+    let lookup = block_on(authority.ns(LookupOptions::for_dnssec())).unwrap();
 
     let (ns_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -121,7 +121,7 @@ pub fn test_aname_lookup(authority: impl Authority, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
         .0
         .unwrap();
 
@@ -154,7 +154,7 @@ pub fn test_wildcard(authority: impl Authority, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
         .0
         .expect("lookup of www.wildcard.example.com. failed");
 
@@ -193,7 +193,7 @@ pub fn test_wildcard_subdomain(authority: impl Authority, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec(true)))
+    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
         .0
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
@@ -228,7 +228,7 @@ pub fn test_nsec_nodata(authority: impl Authority, _: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec(true)))
+        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
@@ -257,7 +257,7 @@ pub fn test_nsec_nxdomain_start(authority: impl Authority, _: &[DNSKEY]) {
     // tests between the SOA and first record in the zone, where bbb is the first zone record
     let name = Name::from_str("aaa.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec(true)))
+        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
@@ -288,7 +288,7 @@ pub fn test_nsec_nxdomain_middle(authority: impl Authority, _: &[DNSKEY]) {
     // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
     let name = Name::from_str("ccc.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec(true)))
+        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
@@ -318,7 +318,7 @@ pub fn test_nsec_nxdomain_wraps_end(authority: impl Authority, _: &[DNSKEY]) {
     // wraps back to the beginning of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec(true)))
+        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
