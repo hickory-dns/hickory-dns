@@ -40,21 +40,15 @@ pub struct LookupOptions {
 
 impl LookupOptions {
     /// Create [`LookupOptions`] from the given EDNS options.
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
     pub fn from_edns(edns: Option<&Edns>) -> Self {
-        let edns = match edns {
-            Some(edns) => edns,
-            None => return LookupOptions::default(),
-        };
-
-        cfg_if! {
-            if #[cfg(feature = "__dnssec")] {
-                LookupOptions {
-                    dnssec_ok: edns.flags().dnssec_ok,
-                }
-            } else {
-                LookupOptions::default()
-            }
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
+        let mut new = Self::default();
+        #[cfg(feature = "__dnssec")]
+        if let Some(edns) = edns {
+            new.dnssec_ok = edns.flags().dnssec_ok;
         }
+        new
     }
 
     /// Create [`LookupOptions`] with `dnssec_ok` enabled.
