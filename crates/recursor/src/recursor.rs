@@ -476,7 +476,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                     };
 
                     Err(Error {
-                        kind: Box::new(ErrorKind::Proto(proto_err)),
+                        kind: ErrorKind::Proto(proto_err),
                         #[cfg(feature = "backtrace")]
                         backtrack: None,
                     })
