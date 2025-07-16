@@ -7,14 +7,15 @@
 
 //! All authority related types
 
+use std::fmt;
+
 use cfg_if::cfg_if;
 use serde::Deserialize;
-use std::fmt;
 
 use crate::{
     authority::{AuthLookup, LookupError, UpdateResult, ZoneType},
     proto::{
-        op::message::ResponseSigner,
+        op::{Edns, message::ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     },
     server::Request,
@@ -37,8 +38,23 @@ pub struct LookupOptions {
     pub dnssec_ok: bool,
 }
 
-/// Lookup Options for the request to the authority
 impl LookupOptions {
+    /// Create [`LookupOptions`] from the given EDNS options.
+    pub fn from_edns(edns: Option<&Edns>) -> Self {
+        let edns = match edns {
+            Some(edns) => edns,
+            None => return LookupOptions::default(),
+        };
+
+        cfg_if! {
+            if #[cfg(feature = "__dnssec")] {
+                LookupOptions::for_dnssec(edns.flags().dnssec_ok)
+            } else {
+                LookupOptions::default()
+            }
+        }
+    }
+
     /// Return a new LookupOptions
     #[cfg(feature = "__dnssec")]
     pub fn for_dnssec(dnssec_ok: bool) -> Self {
