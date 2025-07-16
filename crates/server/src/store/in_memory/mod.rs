@@ -633,7 +633,7 @@ impl Authority for InMemoryAuthority {
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     #[cfg(feature = "__dnssec")]
-    async fn get_nsec_records(
+    async fn nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
@@ -686,7 +686,7 @@ impl Authority for InMemoryAuthority {
     }
 
     #[cfg(not(feature = "__dnssec"))]
-    async fn get_nsec_records(
+    async fn nsec_records(
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
@@ -695,7 +695,7 @@ impl Authority for InMemoryAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn get_nsec3_records(
+    async fn nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,

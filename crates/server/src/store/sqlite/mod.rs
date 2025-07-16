@@ -1144,21 +1144,21 @@ impl Authority for SqliteAuthority {
     ///            this
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
-    async fn get_nsec_records(
+    async fn nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.get_nsec_records(name, lookup_options).await
+        self.in_memory.nsec_records(name, lookup_options).await
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn get_nsec3_records(
+    async fn nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.get_nsec3_records(info, lookup_options).await
+        self.in_memory.nsec3_records(info, lookup_options).await
     }
 
     #[cfg(feature = "__dnssec")]

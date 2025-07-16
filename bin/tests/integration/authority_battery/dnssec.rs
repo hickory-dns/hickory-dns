@@ -228,7 +228,7 @@ pub fn test_nsec_nodata(authority: impl Authority, _: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
+        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
@@ -257,7 +257,7 @@ pub fn test_nsec_nxdomain_start(authority: impl Authority, _: &[DNSKEY]) {
     // tests between the SOA and first record in the zone, where bbb is the first zone record
     let name = Name::from_str("aaa.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
+        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
@@ -288,7 +288,7 @@ pub fn test_nsec_nxdomain_middle(authority: impl Authority, _: &[DNSKEY]) {
     // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
     let name = Name::from_str("ccc.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
+        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
@@ -318,7 +318,7 @@ pub fn test_nsec_nxdomain_wraps_end(authority: impl Authority, _: &[DNSKEY]) {
     // wraps back to the beginning of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
     let lookup =
-        block_on(authority.get_nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
+        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
