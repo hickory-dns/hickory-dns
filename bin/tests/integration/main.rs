@@ -4,7 +4,7 @@ mod config_tests;
 mod forwarder;
 mod in_memory;
 mod named_https_tests;
-#[cfg(feature = "metrics")]
+#[cfg(feature = "prometheus-metrics")]
 mod named_metrics_tests;
 mod named_quic_tests;
 mod named_rustls_tests;
