@@ -36,17 +36,19 @@
 //! addition there may be additional options supported which the host system does not. Example:
 //!
 //! ```rust,no_run
-//! # #[tokio::main()]
-//! # async fn main() {
-//! # #[cfg(all(feature = "tokio", feature = "system-config"))]
+//! # fn main() {
+//! # #[cfg(all(unix, feature = "tokio", feature = "system-config"))]
 //! # {
 //! # use std::net::*;
-//! # use hickory_resolver::Resolver;
+//! # use tokio::runtime::Runtime;
+//! # Runtime::new().unwrap().block_on(async {
+//! use hickory_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
 //! let resolver = Resolver::builder_tokio().unwrap().build();
 //! # #[cfg(unix)]
 //! let response = resolver.lookup_ip("www.example.com.").await.unwrap();
+//! # })
 //! # }
 //! # }
 //! ```
@@ -108,15 +110,14 @@
 //! #     ResolverConfig::default(),
 //! #     TokioRuntimeProvider::default()
 //! # ).build();
-//! #
-//! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
+//! # io_loop.block_on(async {
+//! let ips = resolver.lookup_ip("www.example.com.").await.unwrap();
 //!
-//! let result = io_loop.block_on(async {
-//!     let ip = ips.iter().next().unwrap();
-//!     TcpStream::connect((ip, 443))
-//! })
+//! let ip = ips.iter().next().unwrap();
+//! let result = TcpStream::connect((ip, 443))
 //! .and_then(|conn| Ok(conn) /* do something with the connection... */)
 //! .unwrap();
+//! # });
 //! # }
 //! # }
 //! ```
