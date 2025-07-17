@@ -18,7 +18,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::future::{FutureExt, TryFutureExt};
+use futures_util::future::FutureExt;
 use futures_util::ready;
 use futures_util::stream::Stream;
 use h2::client::{Connection, SendRequest};
@@ -532,11 +532,11 @@ where
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
-                    tokio::spawn(
-                        connection
-                            .map_err(|e| warn!("h2 connection failed: {e}"))
-                            .map(|_: Result<(), ()>| ()),
-                    );
+                    tokio::spawn(async {
+                        if let Err(e) = connection.await {
+                            warn!("h2 connection failed: {e}");
+                        }
+                    });
 
                     Self::Connected(Some(HttpsClientStream {
                         name_server_name: Arc::clone(name_server_name),

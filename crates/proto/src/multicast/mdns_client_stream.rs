@@ -12,7 +12,6 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use std::net::{Ipv4Addr, SocketAddr};
 
-use futures_util::future::{FutureExt, TryFutureExt};
 use futures_util::stream::{Stream, StreamExt, TryStreamExt};
 
 use crate::BufDnsStreamHandle;
@@ -66,11 +65,11 @@ impl MdnsClientStream {
         let (stream_future, sender) =
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
-        let stream_future = stream_future
-            .map_ok(move |mdns_stream| Self { mdns_stream })
-            .map_err(ProtoError::from);
-
-        let new_future = Box::new(stream_future);
+        let new_future = Box::pin(async {
+            Ok(Self {
+                mdns_stream: stream_future.await?,
+            })
+        });
         let new_future = MdnsClientConnect(new_future);
 
         (new_future, sender)
@@ -110,13 +109,13 @@ impl Stream for MdnsClientStream {
 
 /// A future that resolves to an MdnsClientStream
 pub struct MdnsClientConnect(
-    Box<dyn Future<Output = Result<MdnsClientStream, ProtoError>> + Send + Unpin>,
+    Pin<Box<dyn Future<Output = Result<MdnsClientStream, ProtoError>> + Send>>,
 );
 
 impl Future for MdnsClientConnect {
     type Output = Result<MdnsClientStream, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll_unpin(cx)
+        self.0.as_mut().poll(cx)
     }
 }
