@@ -855,6 +855,16 @@ fn verify_rrsig_with_keys(
 ) -> Option<(Proof, Option<u32>)> {
     let mut tag_count = HashMap::<u16, usize>::new();
 
+    if (rrset.record_type() == RecordType::NSEC || rrset.record_type() == RecordType::NSEC3)
+        && rrset.name().num_labels() != rrsig.data().input().num_labels
+    {
+        warn!(
+            "{} record signature claims to be expanded from a wildcard",
+            rrset.record_type()
+        );
+        return None;
+    }
+
     // DNSKEYs were already validated by the inner query in the above lookup
     let dnskeys = dnskey_message.answers().iter().filter_map(|r| {
         let dnskey = r.try_borrow::<DNSKEY>()?;
