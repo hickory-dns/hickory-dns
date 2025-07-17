@@ -97,12 +97,11 @@
 //! # fn main() {
 //! # #[cfg(feature = "tokio")]
 //! # {
-//! # use std::net::*;
+//! # use std::net::TcpStream;
 //! # use tokio::runtime::Runtime;
 //! # use hickory_resolver::Resolver;
 //! # use hickory_resolver::proto::runtime::TokioRuntimeProvider;
-//! # use hickory_resolver::config::*;
-//! # use futures_util::TryFutureExt;
+//! # use hickory_resolver::config::ResolverConfig;
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
 //! #
@@ -114,9 +113,8 @@
 //! let ips = resolver.lookup_ip("www.example.com.").await.unwrap();
 //!
 //! let ip = ips.iter().next().unwrap();
-//! let result = TcpStream::connect((ip, 443))
-//! .and_then(|conn| Ok(conn) /* do something with the connection... */)
-//! .unwrap();
+//! let conn = TcpStream::connect((ip, 443)).unwrap();
+//! /* do something with the connection... */
 //! # });
 //! # }
 //! # }
