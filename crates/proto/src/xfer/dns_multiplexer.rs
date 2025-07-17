@@ -48,7 +48,7 @@ struct ActiveRequest {
     // the completion is the channel for a response to the original request
     completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
-    timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
+    timeout: Pin<Box<dyn Future<Output = ()> + Send>>,
     verifier: Option<MessageVerifier>,
 }
 
@@ -56,7 +56,7 @@ impl ActiveRequest {
     fn new(
         completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
-        timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
+        timeout: Pin<Box<dyn Future<Output = ()> + Send>>,
         verifier: Option<MessageVerifier>,
     ) -> Self {
         Self {
@@ -308,8 +308,7 @@ where
         let (complete, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         // send the message
-        let active_request =
-            ActiveRequest::new(complete, request.id(), Box::new(timeout), verifier);
+        let active_request = ActiveRequest::new(complete, request.id(), timeout, verifier);
 
         match request.to_vec() {
             Ok(buffer) => {
