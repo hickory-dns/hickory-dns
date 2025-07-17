@@ -7,15 +7,16 @@
 
 //! This module contains all the types for demuxing DNS oriented streams.
 
-use alloc::boxed::Box;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
 use futures_channel::mpsc;
-use futures_util::future::FutureExt;
-use futures_util::stream::{Peekable, Stream, StreamExt};
+use futures_util::{
+    future::{BoxFuture, FutureExt},
+    stream::{Peekable, Stream, StreamExt},
+};
 use tracing::debug;
 
 #[cfg(all(feature = "__https", feature = "tokio"))]
@@ -50,7 +51,7 @@ pub enum Connecting<R: RuntimeProvider> {
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                Pin<Box<dyn Future<Output = Result<TcpClientStream<R::Tcp>, ProtoError>> + Send>>,
+                BoxFuture<'static, Result<TcpClientStream<R::Tcp>, ProtoError>>,
                 TcpClientStream<<R as RuntimeProvider>::Tcp>,
             >,
             DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>>,
@@ -61,16 +62,9 @@ pub enum Connecting<R: RuntimeProvider> {
     Tls(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                Pin<
-                    Box<
-                        dyn Future<
-                                Output = Result<
-                                    TlsClientStream<<R as RuntimeProvider>::Tcp>,
-                                    ProtoError,
-                                >,
-                            > + Send
-                            + 'static,
-                    >,
+                BoxFuture<
+                    'static,
+                    Result<TlsClientStream<<R as RuntimeProvider>::Tcp>, ProtoError>,
                 >,
                 TlsClientStream<<R as RuntimeProvider>::Tcp>,
             >,

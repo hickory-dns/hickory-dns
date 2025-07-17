@@ -12,7 +12,10 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use std::net::{Ipv4Addr, SocketAddr};
 
-use futures_util::stream::{Stream, StreamExt, TryStreamExt};
+use futures_util::{
+    future::BoxFuture,
+    stream::{Stream, StreamExt, TryStreamExt},
+};
 
 use crate::BufDnsStreamHandle;
 use crate::error::ProtoError;
@@ -108,9 +111,7 @@ impl Stream for MdnsClientStream {
 }
 
 /// A future that resolves to an MdnsClientStream
-pub struct MdnsClientConnect(
-    Pin<Box<dyn Future<Output = Result<MdnsClientStream, ProtoError>> + Send>>,
-);
+pub struct MdnsClientConnect(BoxFuture<'static, Result<MdnsClientStream, ProtoError>>);
 
 impl Future for MdnsClientConnect {
     type Output = Result<MdnsClientStream, ProtoError>;

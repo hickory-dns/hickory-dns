@@ -1,14 +1,12 @@
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use std::pin::Pin;
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::TryStreamExt;
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use futures::future::BoxFuture;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
@@ -59,12 +57,11 @@ impl TestClientConnection {
         }
     }
 
-    #[allow(clippy::type_complexity)]
     fn to_multiplexer(
         &self,
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<
-        Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
+        BoxFuture<'static, Result<TestClientStream, ProtoError>>,
         TestClientStream,
     > {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());

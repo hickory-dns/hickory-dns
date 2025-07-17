@@ -13,8 +13,12 @@ use core::task::{Context, Poll};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use futures_util::stream::{Stream, StreamExt};
-use futures_util::{FutureExt, future, ready};
+use futures_util::{
+    FutureExt,
+    future::{self, BoxFuture},
+    ready,
+    stream::{Stream, StreamExt},
+};
 use once_cell::sync::Lazy;
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
@@ -49,31 +53,29 @@ pub struct MdnsStream {
     /// In one-shot multicast, this will not join the multicast group
     multicast: Option<Arc<UdpSocket>>,
     /// Receiving portion of the MdnsStream
-    rcving_mcast: Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>,
+    rcving_mcast: Option<BoxFuture<'static, io::Result<SerialMessage>>>,
 }
 
 impl MdnsStream {
     /// associates the socket to the well-known ipv4 multicast address
-    #[allow(clippy::type_complexity)]
     pub fn new_ipv4(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<Self, io::Error>> + Send>>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast address
-    #[allow(clippy::type_complexity)]
     pub fn new_ipv6(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<Self, io::Error>> + Send>>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
@@ -105,7 +107,6 @@ impl MdnsStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
-    #[allow(clippy::type_complexity)]
     pub fn new(
         multicast_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
@@ -113,7 +114,7 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<Self, io::Error>> + Send>>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(multicast_addr);

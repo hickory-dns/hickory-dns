@@ -7,7 +7,7 @@
 
 //! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::sync::Arc;
 use core::{
     borrow::Borrow,
     fmt::{self, Display},
@@ -24,7 +24,7 @@ use std::{
 use futures_channel::mpsc;
 use futures_util::{
     FutureExt,
-    future::Future,
+    future::{BoxFuture, Future},
     ready,
     stream::{Stream, StreamExt},
 };
@@ -48,7 +48,7 @@ struct ActiveRequest {
     // the completion is the channel for a response to the original request
     completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
-    timeout: Pin<Box<dyn Future<Output = ()> + Send>>,
+    timeout: BoxFuture<'static, ()>,
     verifier: Option<MessageVerifier>,
 }
 
@@ -56,7 +56,7 @@ impl ActiveRequest {
     fn new(
         completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
-        timeout: Pin<Box<dyn Future<Output = ()> + Send>>,
+        timeout: BoxFuture<'static, ()>,
         verifier: Option<MessageVerifier>,
     ) -> Self {
         Self {
@@ -430,11 +430,13 @@ where
 
 #[cfg(test)]
 mod test {
-    use alloc::vec::Vec;
+    use alloc::{boxed::Box, vec::Vec};
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
-    use futures_util::future;
-    use futures_util::stream::TryStreamExt;
+    use futures_util::{
+        future::{self, BoxFuture},
+        stream::TryStreamExt,
+    };
     use test_support::subscribe;
 
     use super::*;
@@ -456,7 +458,7 @@ mod test {
         fn new(
             mut messages: Vec<Message>,
             addr: SocketAddr,
-        ) -> Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>> {
+        ) -> BoxFuture<'static, Result<Self, ProtoError>> {
             messages.reverse(); // so we can pop() and get messages in order
             Box::pin(future::ok(Self {
                 messages,

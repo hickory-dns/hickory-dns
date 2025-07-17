@@ -12,7 +12,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::{FutureExt, Stream, future};
+use futures_util::{
+    FutureExt, Stream,
+    future::{self, BoxFuture},
+};
 use hickory_proto::rr::rdata;
 use tracing::debug;
 
@@ -487,7 +490,7 @@ where
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    query: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
+    query: BoxFuture<'static, Result<Lookup, ProtoError>>,
 }
 
 impl<C> LookupFuture<C>
@@ -538,7 +541,7 @@ where
             ProtoError::from(ProtoErrorKind::Message("can not lookup for no names"))
         });
 
-        let query: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>> = match name {
+        let query = match name {
             Ok(name) => {
                 let query = Query::query(name, record_type);
 

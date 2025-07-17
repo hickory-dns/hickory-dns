@@ -18,9 +18,11 @@ use std::io;
 use std::net::SocketAddr;
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::future::FutureExt;
-use futures_util::ready;
-use futures_util::stream::Stream;
+use futures_util::{
+    future::{BoxFuture, FutureExt},
+    ready,
+    stream::Stream,
+};
 use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
 use rustls::ClientConfig;
@@ -411,38 +413,29 @@ where
     S: DnsTcpStream,
 {
     TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<S>> + Send>>,
+        connect: BoxFuture<'static, io::Result<S>>,
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
         // TODO: also abstract away Tokio TLS in RuntimeProvider.
-        tls: Pin<
-            Box<
-                dyn Future<
-                        Output = Result<
-                            Result<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, io::Error>,
-                            error::Elapsed,
-                        >,
-                    > + Send,
-            >,
+        tls: BoxFuture<
+            'static,
+            Result<Result<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, io::Error>, error::Elapsed>,
         >,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
         query_path: Arc<str>,
     },
     H2Handshake {
-        handshake: Pin<
-            Box<
-                dyn Future<
-                        Output = Result<
-                            (
-                                SendRequest<Bytes>,
-                                Connection<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, Bytes>,
-                            ),
-                            h2::Error,
-                        >,
-                    > + Send,
+        handshake: BoxFuture<
+            'static,
+            Result<
+                (
+                    SendRequest<Bytes>,
+                    Connection<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, Bytes>,
+                ),
+                h2::Error,
             >,
         >,
         name_server_name: Arc<str>,
@@ -560,9 +553,7 @@ where
 }
 
 /// A future that resolves to
-pub struct HttpsClientResponse(
-    Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
-);
+pub struct HttpsClientResponse(BoxFuture<'static, Result<DnsResponse, ProtoError>>);
 
 impl Future for HttpsClientResponse {
     type Output = Result<DnsResponse, ProtoError>;

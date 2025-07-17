@@ -16,7 +16,10 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
 
-use futures_util::{FutureExt, future, future::Either};
+use futures_util::{
+    FutureExt,
+    future::{self, BoxFuture, Either},
+};
 use tracing::debug;
 
 use crate::proto::ProtoError;
@@ -98,7 +101,7 @@ pub struct LookupIpFuture<C: DnsHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     options: DnsRequestOptions,
-    query: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
+    query: BoxFuture<'static, Result<Lookup, ProtoError>>,
     hosts: Arc<Hosts>,
     finally_ip_addr: Option<RData>,
 }
