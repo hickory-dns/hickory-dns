@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
 };
 
-use futures::{Future, FutureExt, TryFutureExt};
 use test_support::subscribe;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
@@ -150,28 +149,27 @@ async fn test_query_https() {
     test_query(&mut client).await;
 }
 
-fn test_query(client: &mut Client) -> impl Future<Output = ()> {
+async fn test_query(client: &mut Client) {
     let name = Name::from_ascii("WWW.example.com.").unwrap();
 
-    client
+    let response = client
         .query(name.clone(), DNSClass::IN, RecordType::A)
-        .map_ok(move |response| {
-            println!("response records: {response:?}");
-            assert!(
-                response
-                    .queries()
-                    .first()
-                    .expect("expected query")
-                    .name()
-                    .eq_case(&name)
-            );
+        .await
+        .expect("query failed");
+    println!("response records: {response:?}");
+    assert!(
+        response
+            .queries()
+            .first()
+            .expect("expected query")
+            .name()
+            .eq_case(&name)
+    );
 
-            assert!(!response.answers().is_empty());
-        })
-        .map(|r: Result<_, _>| r.expect("query failed"))
+    assert!(!response.answers().is_empty());
 }
 
-fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
+async fn test_query_edns(client: &mut Client) {
     let name = Name::from_ascii("WWW.example.com.").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
@@ -191,36 +189,35 @@ fn test_query_edns(client: &mut Client) -> impl Future<Output = ()> {
     .as_mut()
     .map(|edns| edns.set_max_payload(1232).set_version(0));
 
-    client
+    let response = client
         .send(DnsRequest::from(msg))
         .first_answer()
-        .map_ok(move |response| {
-            println!("response records: {response:?}");
-            assert!(
-                response
-                    .queries()
-                    .first()
-                    .expect("expected query")
-                    .name()
-                    .eq_case(&name)
-            );
+        .await
+        .expect("query failed");
+    println!("response records: {response:?}");
+    assert!(
+        response
+            .queries()
+            .first()
+            .expect("expected query")
+            .name()
+            .eq_case(&name)
+    );
 
-            assert!(!response.answers().is_empty());
-            assert!(response.extensions().is_some());
-            let subnet_option = response
-                .extensions()
-                .as_ref()
-                .unwrap()
-                .option(EdnsCode::Subnet)
-                .unwrap();
-            let EdnsOption::Subnet(client_subnet) = subnet_option else {
-                panic!("incorrect option type: {subnet_option:?}");
-            };
-            assert_eq!(client_subnet.addr(), IpAddr::V4(Ipv4Addr::new(1, 2, 0, 0)));
-            assert_eq!(client_subnet.source_prefix(), 16);
-            // ignore scope_prefix
-        })
-        .map(|r: Result<_, _>| r.expect("query failed"))
+    assert!(!response.answers().is_empty());
+    assert!(response.extensions().is_some());
+    let subnet_option = response
+        .extensions()
+        .as_ref()
+        .unwrap()
+        .option(EdnsCode::Subnet)
+        .unwrap();
+    let EdnsOption::Subnet(client_subnet) = subnet_option else {
+        panic!("incorrect option type: {subnet_option:?}");
+    };
+    assert_eq!(client_subnet.addr(), IpAddr::V4(Ipv4Addr::new(1, 2, 0, 0)));
+    assert_eq!(client_subnet.source_prefix(), 16);
+    // ignore scope_prefix
 }
 
 #[tokio::test]
