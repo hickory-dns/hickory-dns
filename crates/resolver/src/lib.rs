@@ -92,32 +92,24 @@
 //! to a server, for example:
 //!
 //! ```rust,no_run
-//! # fn main() {
 //! # #[cfg(feature = "tokio")]
-//! # {
-//! # use std::net::*;
+//! # #[tokio::main]
+//! # async fn main() {
+//! # use std::net::TcpStream;
 //! # use tokio::runtime::Runtime;
 //! # use hickory_resolver::Resolver;
 //! # use hickory_resolver::proto::runtime::TokioRuntimeProvider;
-//! # use hickory_resolver::config::*;
-//! # use futures_util::TryFutureExt;
-//! #
-//! # let mut io_loop = Runtime::new().unwrap();
+//! # use hickory_resolver::config::ResolverConfig;
 //! #
 //! # let resolver = Resolver::builder_with_config(
 //! #     ResolverConfig::default(),
 //! #     TokioRuntimeProvider::default()
 //! # ).build();
 //! #
-//! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
-//!
-//! let result = io_loop.block_on(async {
-//!     let ip = ips.iter().next().unwrap();
-//!     TcpStream::connect((ip, 443))
-//! })
-//! .and_then(|conn| Ok(conn) /* do something with the connection... */)
-//! .unwrap();
-//! # }
+//! let ips = resolver.lookup_ip("www.example.com.").await.unwrap();
+//! let ip = ips.iter().next().unwrap();
+//! let conn = TcpStream::connect((ip, 443)).unwrap();
+//! /* do something with the connection... */
 //! # }
 //! ```
 //!
