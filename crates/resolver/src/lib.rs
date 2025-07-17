@@ -36,9 +36,9 @@
 //! addition there may be additional options supported which the host system does not. Example:
 //!
 //! ```rust,no_run
-//! # #[tokio::main]
+//! # #[tokio::main()]
 //! # async fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(all(feature = "tokio", feature = "system-config"))]
 //! # {
 //! # use std::net::*;
 //! # use hickory_resolver::Resolver;
