@@ -15,7 +15,8 @@ use std::{
 };
 
 use futures::{
-    Future, FutureExt, future,
+    Future, FutureExt,
+    future::{self, BoxFuture},
     stream::{Stream, StreamExt},
 };
 #[cfg(feature = "__dnssec")]
@@ -55,11 +56,10 @@ pub struct TestClientStream {
 }
 
 impl TestClientStream {
-    #[allow(clippy::type_complexity)]
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
+        BoxFuture<'static, Result<Self, ProtoError>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
@@ -199,9 +199,8 @@ pub struct NeverReturnsClientStream {
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
-    #[allow(clippy::type_complexity)]
     pub fn new() -> (
-        Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
+        BoxFuture<'static, Result<Self, ProtoError>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());

@@ -12,8 +12,11 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
-use futures::stream::{Stream, once};
-use futures::{AsyncRead, AsyncWrite, future};
+use futures::{
+    AsyncRead, AsyncWrite,
+    future::{self, BoxFuture},
+    stream::{Stream, once},
+};
 
 use hickory_proto::ProtoError;
 use hickory_proto::op::{Message, Query};
@@ -239,7 +242,7 @@ pub trait OnSend: Clone + Send + Sync + 'static {
     fn on_send<E>(
         &self,
         response: Result<DnsResponse, E>,
-    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, E>> + Send>>
+    ) -> BoxFuture<'static, Result<DnsResponse, E>>
     where
         E: From<ProtoError> + Send + 'static,
     {

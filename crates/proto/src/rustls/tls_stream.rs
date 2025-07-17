@@ -10,10 +10,10 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
-use core::pin::Pin;
 use std::io;
 use std::net::SocketAddr;
 
+use futures_util::future::BoxFuture;
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -79,15 +79,9 @@ pub fn tls_connect<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>,
-                        io::Error,
-                    >,
-                > + Send,
-        >,
+    BoxFuture<
+        'static,
+        Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, io::Error>,
     >,
     BufDnsStreamHandle,
 ) {
@@ -109,15 +103,9 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>,
-                        io::Error,
-                    >,
-                > + Send,
-        >,
+    BoxFuture<
+        'static,
+        Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, io::Error>,
     >,
     BufDnsStreamHandle,
 ) {
@@ -153,16 +141,7 @@ pub fn tls_connect_with_future<S, F>(
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
-                        io::Error,
-                    >,
-                > + Send,
-        >,
-    >,
+    BoxFuture<'static, Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, io::Error>>,
     BufDnsStreamHandle,
 )
 where
