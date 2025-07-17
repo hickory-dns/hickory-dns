@@ -16,7 +16,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use async_trait::async_trait;
 use futures_util::stream::Stream;
-use futures_util::{TryFutureExt, future::Future, ready};
+use futures_util::{future::Future, ready};
 use tracing::{debug, trace, warn};
 
 use crate::runtime::{RuntimeProvider, Time};
@@ -108,6 +108,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ///
     /// A tuple of a Future of a Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
+    #[allow(clippy::type_complexity)]
     pub fn new(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
@@ -115,7 +116,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
         os_port_selection: bool,
         provider: P,
     ) -> (
-        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
+        Pin<Box<dyn Future<Output = Result<Self, io::Error>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
@@ -131,10 +132,12 @@ impl<P: RuntimeProvider> UdpStream<P> {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream = Box::new(next_socket.map_ok(move |socket| Self {
-            socket,
-            outbound_messages,
-        }));
+        let stream = Box::pin(async {
+            Ok(Self {
+                socket: next_socket.await?,
+                outbound_messages,
+            })
+        });
 
         (stream, message_sender)
     }
