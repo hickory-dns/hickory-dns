@@ -14,7 +14,6 @@ use core::pin::Pin;
 use std::io;
 use std::net::SocketAddr;
 
-use futures_util::TryFutureExt;
 use rustls::{ClientConfig, pki_types::ServerName};
 
 use crate::error::ProtoError;
@@ -42,7 +41,7 @@ pub fn tls_client_connect<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send + Unpin>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     tls_client_connect_with_bind_addr(name_server, None, server_name, client_config, provider)
@@ -63,17 +62,16 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send + Unpin>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) =
         tls_connect_with_bind_addr(name_server, bind_addr, server_name, client_config, provider);
 
-    let new_future = Box::pin(
-        stream_future
-            .map_ok(TcpClientStream::from_stream)
-            .map_err(ProtoError::from),
-    );
+    let new_future = Box::pin(async {
+        let tcp_stream = stream_future.await?;
+        Ok(TcpClientStream::from_stream(tcp_stream))
+    });
 
     (new_future, sender)
 }
@@ -91,7 +89,7 @@ pub fn tls_client_connect_with_future<S, F>(
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send + Unpin>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 )
 where
@@ -101,11 +99,10 @@ where
     let (stream_future, sender) =
         tls_connect_with_future(future, socket_addr, server_name, client_config);
 
-    let new_future = Box::pin(
-        stream_future
-            .map_ok(TcpClientStream::from_stream)
-            .map_err(ProtoError::from),
-    );
+    let new_future = Box::pin(async {
+        let tcp_stream = stream_future.await?;
+        Ok(TcpClientStream::from_stream(tcp_stream))
+    });
 
     (new_future, sender)
 }
