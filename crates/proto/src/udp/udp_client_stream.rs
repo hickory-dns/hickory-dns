@@ -188,7 +188,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         let avoid_local_ports = self.avoid_local_ports.clone();
         let os_port_selection = self.os_port_selection;
 
-        P::Timer::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
+        P::Timer::timeout(
             self.timeout,
             Box::pin(async move {
                 let socket = NextRandomUdpSocket::new(

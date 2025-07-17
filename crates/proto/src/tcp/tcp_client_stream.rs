@@ -7,13 +7,12 @@
 
 use alloc::boxed::Box;
 use core::fmt::{self, Display};
-use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 use std::net::SocketAddr;
 
-use futures_util::{StreamExt, stream::Stream};
+use futures_util::{StreamExt, future::BoxFuture, stream::Stream};
 use tracing::warn;
 
 use crate::BufDnsStreamHandle;
@@ -39,14 +38,13 @@ where
 
 impl<S: DnsTcpStream> TcpClientStream<S> {
     /// Create a new TcpClientStream
-    #[allow(clippy::type_complexity)]
     pub fn new<P: RuntimeProvider<Tcp = S>>(
         peer_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
         timeout: Option<Duration>,
         provider: P,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send + 'static>>,
+        BoxFuture<'static, Result<Self, ProtoError>>,
         BufDnsStreamHandle,
     ) {
         let (sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);

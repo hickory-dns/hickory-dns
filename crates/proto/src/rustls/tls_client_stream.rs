@@ -10,10 +10,10 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
-use core::pin::Pin;
 use std::io;
 use std::net::SocketAddr;
 
+use futures_util::future::BoxFuture;
 use rustls::{ClientConfig, pki_types::ServerName};
 
 use crate::error::ProtoError;
@@ -41,7 +41,7 @@ pub fn tls_client_connect<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
+    BoxFuture<'static, Result<TlsClientStream<P::Tcp>, ProtoError>>,
     BufDnsStreamHandle,
 ) {
     tls_client_connect_with_bind_addr(name_server, None, server_name, client_config, provider)
@@ -62,7 +62,7 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<P::Tcp>, ProtoError>> + Send>>,
+    BoxFuture<'static, Result<TlsClientStream<P::Tcp>, ProtoError>>,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) =
@@ -79,14 +79,13 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
 ///
 /// * `future` - A future producing DnsTcpStream
 /// * `dns_name` - The DNS name associated with a certificate
-#[allow(clippy::type_complexity)]
 pub fn tls_client_connect_with_future<S, F>(
     future: F,
     socket_addr: SocketAddr,
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
+    BoxFuture<'static, Result<TlsClientStream<S>, ProtoError>>,
     BufDnsStreamHandle,
 )
 where

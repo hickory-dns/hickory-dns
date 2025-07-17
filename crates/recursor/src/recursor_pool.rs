@@ -12,7 +12,10 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{Future, FutureExt, StreamExt, future::Shared};
+use futures_util::{
+    Future, FutureExt, StreamExt,
+    future::{BoxFuture, Shared},
+};
 use hickory_resolver::name_server::NameServerPool;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
@@ -26,11 +29,8 @@ use crate::proto::{
 };
 use crate::resolver::{Name, name_server::ConnectionProvider};
 
-#[allow(clippy::type_complexity)]
 #[derive(Clone)]
-pub(crate) struct SharedLookup(
-    Shared<Pin<Box<dyn Future<Output = Option<Result<DnsResponse, ProtoError>>> + Send + 'static>>>,
-);
+pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, ProtoError>>>>);
 
 impl Future for SharedLookup {
     type Output = Result<DnsResponse, ProtoError>;

@@ -16,8 +16,10 @@ use core::task::{Context, Poll};
 use std::net::SocketAddr;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use futures_util::future::FutureExt;
-use futures_util::stream::Stream;
+use futures_util::{
+    future::{BoxFuture, FutureExt},
+    stream::Stream,
+};
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
@@ -450,9 +452,7 @@ impl Default for H3ClientStreamBuilder {
 }
 
 /// A future that resolves to an H3ClientStream
-pub struct H3ClientConnect(
-    Pin<Box<dyn Future<Output = Result<H3ClientStream, ProtoError>> + Send>>,
-);
+pub struct H3ClientConnect(BoxFuture<'static, Result<H3ClientStream, ProtoError>>);
 
 impl Future for H3ClientConnect {
     type Output = Result<H3ClientStream, ProtoError>;
@@ -463,7 +463,7 @@ impl Future for H3ClientConnect {
 }
 
 /// A future that resolves to
-pub struct H3ClientResponse(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>);
+pub struct H3ClientResponse(BoxFuture<'static, Result<DnsResponse, ProtoError>>);
 
 impl Future for H3ClientResponse {
     type Output = Result<DnsResponse, ProtoError>;

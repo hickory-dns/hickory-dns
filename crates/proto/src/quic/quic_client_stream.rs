@@ -14,7 +14,10 @@ use core::{
 };
 use std::{io, net::SocketAddr};
 
-use futures_util::{future::FutureExt, stream::Stream};
+use futures_util::{
+    future::{BoxFuture, FutureExt},
+    stream::Stream,
+};
 use quinn::{
     ClientConfig, Connection, Endpoint, TransportConfig, VarInt, crypto::rustls::QuicClientConfig,
 };
@@ -354,9 +357,7 @@ impl Default for QuicClientStreamBuilder {
 }
 
 /// A future that resolves to an QuicClientStream
-pub struct QuicClientConnect(
-    Pin<Box<dyn Future<Output = Result<QuicClientStream, ProtoError>> + Send>>,
-);
+pub struct QuicClientConnect(BoxFuture<'static, Result<QuicClientStream, ProtoError>>);
 
 impl Future for QuicClientConnect {
     type Output = Result<QuicClientStream, ProtoError>;
@@ -367,9 +368,7 @@ impl Future for QuicClientConnect {
 }
 
 /// A future that resolves to
-pub struct QuicClientResponse(
-    Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
-);
+pub struct QuicClientResponse(BoxFuture<'static, Result<DnsResponse, ProtoError>>);
 
 impl Future for QuicClientResponse {
     type Output = Result<DnsResponse, ProtoError>;
