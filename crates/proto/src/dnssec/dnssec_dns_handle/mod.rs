@@ -15,7 +15,7 @@ use std::{
 };
 
 use futures_util::{
-    future::{self, TryFutureExt},
+    future::{self, FutureExt},
     stream::{self, Stream, StreamExt},
 };
 use tracing::{debug, error, trace, warn};
@@ -743,12 +743,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 Some(
                     self.lookup(query.clone(), options)
                         .first_answer()
-                        .map_err(|proto| {
-                            ProofError::new(Proof::Bogus, ProofErrorKind::Proto { query, proto })
-                        })
-                        .map_ok(move |message| {
-                            verify_rrsig_with_keys(message, rrsig, rrset, current_time)
-                                .map(|(proof, adjusted_ttl)| (proof, adjusted_ttl, Some(i)))
+                        .map(move |result| match result {
+                            Ok(message) => {
+                                if let Some((proof, adjusted_ttl)) =
+                                    verify_rrsig_with_keys(message, rrsig, rrset, current_time)
+                                {
+                                    Ok(Some((proof, adjusted_ttl, Some(i))))
+                                } else {
+                                    Ok(None)
+                                }
+                            }
+                            Err(proto) => Err(ProofError::new(
+                                Proof::Bogus,
+                                ProofErrorKind::Proto { query, proto },
+                            )),
                         }),
                 )
             })
