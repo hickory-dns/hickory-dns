@@ -116,7 +116,6 @@ mod tokio_runtime {
     use alloc::sync::Arc;
     use std::sync::Mutex;
 
-    use futures_util::FutureExt;
     #[cfg(feature = "__quic")]
     use quinn::Runtime;
     use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
@@ -211,10 +210,7 @@ mod tokio_runtime {
 
     /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
     fn reap_tasks(join_set: &mut JoinSet<Result<(), ProtoError>>) {
-        while FutureExt::now_or_never(join_set.join_next())
-            .flatten()
-            .is_some()
-        {}
+        while join_set.try_join_next().is_some() {}
     }
 
     #[cfg(feature = "__quic")]
