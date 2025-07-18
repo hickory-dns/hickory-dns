@@ -106,18 +106,6 @@ impl<'r> BinDecodable<'r> for AAAA {
     }
 }
 
-/// Read the RData from the given Decoder
-#[deprecated(note = "use the BinDecodable::read method instead")]
-pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<AAAA> {
-    <AAAA as BinDecodable>::read(decoder)
-}
-
-/// Write the RData from the given Decoder
-#[deprecated(note = "use the BinEncodable::emit method instead")]
-pub fn emit(encoder: &mut BinEncoder<'_>, address: &Ipv6Addr) -> ProtoResult<()> {
-    BinEncodable::emit(&AAAA::from(*address), encoder)
-}
-
 impl From<Ipv6Addr> for AAAA {
     fn from(aaaa: Ipv6Addr) -> Self {
         Self(aaaa)
