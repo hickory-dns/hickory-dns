@@ -70,7 +70,7 @@ pub enum ErrorKind {
 #[non_exhaustive]
 pub struct Error {
     /// Kind of error that occurred
-    pub kind: Box<ErrorKind>,
+    pub kind: ErrorKind,
     /// Backtrace to the source of the error
     #[cfg(feature = "backtrace")]
     pub backtrack: Option<ExtBacktrace>,
@@ -84,12 +84,12 @@ impl Error {
 
     /// Take kind from the Error
     pub fn into_kind(self) -> ErrorKind {
-        *self.kind
+        self.kind
     }
 
     /// Returns true if the domain does not exist
     pub fn is_nx_domain(&self) -> bool {
-        match &*self.kind {
+        match &self.kind {
             ErrorKind::Proto(proto) => proto.is_nx_domain(),
             ErrorKind::Negative(fwd) => fwd.is_nx_domain(),
             _ => false,
@@ -98,7 +98,7 @@ impl Error {
 
     /// Returns true if no records were returned
     pub fn is_no_records_found(&self) -> bool {
-        match &*self.kind {
+        match &self.kind {
             ErrorKind::Proto(proto) => proto.is_no_records_found(),
             ErrorKind::Negative(fwd) => fwd.is_no_records_found(),
             _ => false,
@@ -107,7 +107,7 @@ impl Error {
 
     /// Returns true if a query timed out
     pub fn is_timeout(&self) -> bool {
-        let proto_error = match &*self.kind {
+        let proto_error = match &self.kind {
             ErrorKind::Proto(proto) => proto,
             _ => return false,
         };
@@ -116,7 +116,7 @@ impl Error {
 
     /// Returns the SOA record, if the error contains one
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
-        match *self.kind {
+        match self.kind {
             ErrorKind::Proto(proto) => proto.into_soa(),
             ErrorKind::Negative(fwd) => fwd.soa,
             _ => None,
@@ -125,7 +125,7 @@ impl Error {
 
     /// Return additional records
     pub fn authorities(self) -> Option<Arc<[Record]>> {
-        match *self.kind {
+        match self.kind {
             ErrorKind::Negative(fwd) => fwd.authorities,
             _ => None,
         }
@@ -168,10 +168,8 @@ where
     E: Into<ErrorKind>,
 {
     fn from(error: E) -> Self {
-        let kind: ErrorKind = error.into();
-
         Self {
-            kind: Box::new(kind),
+            kind: error.into(),
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
@@ -245,7 +243,7 @@ impl Clone for ErrorKind {
 
 impl From<Error> for ProtoError {
     fn from(e: Error) -> Self {
-        match *e.kind {
+        match e.kind {
             ErrorKind::Negative(fwd) => NoRecords::from(fwd).into(),
             _ => ProtoError::from(e.to_string()),
         }

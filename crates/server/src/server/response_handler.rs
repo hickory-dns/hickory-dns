@@ -76,7 +76,7 @@ impl ResponseHandle {
         match self.protocol {
             Protocol::Udp => {
                 // Use EDNS, if available.
-                if let Some(edns) = response.get_edns() {
+                if let Some(edns) = response.edns() {
                     edns.max_payload()
                 } else {
                     // No EDNS, use the recommended max from RFC6891.

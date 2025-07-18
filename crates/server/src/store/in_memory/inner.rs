@@ -62,7 +62,7 @@ impl InnerInMemory {
             ..
         } = info;
 
-        let rr_key = RrKey::new(info.get_hashed_owner_name(qname, zone)?, RecordType::NSEC3);
+        let rr_key = RrKey::new(info.hashed_owner_name(qname, zone)?, RecordType::NSEC3);
         let qname_match = self.records.get(&rr_key);
 
         if has_wildcard_match {
@@ -108,7 +108,7 @@ impl InnerInMemory {
         if wildcard_match {
             let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
             let rr_key = RrKey::new(
-                info.get_hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
+                info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
                 RecordType::NSEC3,
             );
 
@@ -260,7 +260,7 @@ impl InnerInMemory {
             cfg_if! {
                 if #[cfg(feature = "__dnssec")] {
                     let (records_tmp, rrsigs_tmp) = rrset
-                        .records(lookup_options.dnssec_ok())
+                        .records(lookup_options.dnssec_ok)
                         .partition(|r| r.record_type() != RecordType::RRSIG);
                     records = records_tmp;
                     _rrsigs = rrsigs_tmp;
@@ -780,7 +780,7 @@ impl InnerInMemory {
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
     ) -> Result<Option<Arc<RecordSet>>, ProtoError> {
-        let owner_name = info.get_hashed_owner_name(name, zone)?;
+        let owner_name = info.hashed_owner_name(name, zone)?;
         let records = self
             .records
             .values()
@@ -812,7 +812,7 @@ impl InnerInMemory {
 
         while !closest_encloser.is_root() {
             let rr_key = RrKey::new(
-                info.get_hashed_owner_name(&closest_encloser, zone)?,
+                info.hashed_owner_name(&closest_encloser, zone)?,
                 RecordType::NSEC3,
             );
             if let Some(rrs) = self.records.get(&rr_key) {

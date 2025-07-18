@@ -133,7 +133,7 @@ impl Entry {
                 if let ProtoErrorKind::NoRecordsFound(NoRecords {
                     negative_ttl: Some(ttl),
                     ..
-                }) = e.kind.as_mut()
+                }) = &mut e.kind
                 {
                     *ttl = ttl.saturating_sub(elapsed);
                 }

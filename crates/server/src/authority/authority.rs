@@ -7,14 +7,15 @@
 
 //! All authority related types
 
+use std::fmt;
+
 use cfg_if::cfg_if;
 use serde::Deserialize;
-use std::fmt;
 
 use crate::{
     authority::{AuthLookup, LookupError, UpdateResult, ZoneType},
     proto::{
-        op::message::ResponseSigner,
+        op::{Edns, message::ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     },
     server::Request,
@@ -29,41 +30,38 @@ use crate::{
     },
 };
 
-/// LookupOptions that specify different options from the client to include or exclude various records in the response.
-///
-/// For example, `dnssec_ok` (DO) will include `RRSIG` in the response.
+/// Options from the client to include or exclude various records in the response.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LookupOptions {
-    dnssec_ok: bool,
+    /// Whether the client is interested in `RRSIG` records (DNSSEC DO bit).
+    pub dnssec_ok: bool,
 }
 
-/// Lookup Options for the request to the authority
 impl LookupOptions {
-    /// Return a new LookupOptions
-    #[cfg(feature = "__dnssec")]
-    pub fn for_dnssec(dnssec_ok: bool) -> Self {
-        Self { dnssec_ok }
-    }
-
-    /// Specify that this lookup should return DNSSEC related records as well, e.g. RRSIG
-    #[allow(clippy::needless_update)]
-    pub fn set_dnssec_ok(self, val: bool) -> Self {
-        Self {
-            dnssec_ok: val,
-            ..self
+    /// Create [`LookupOptions`] from the given EDNS options.
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
+    pub fn from_edns(edns: Option<&Edns>) -> Self {
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
+        let mut new = Self::default();
+        #[cfg(feature = "__dnssec")]
+        if let Some(edns) = edns {
+            new.dnssec_ok = edns.flags().dnssec_ok;
         }
+        new
     }
 
-    /// If true this lookup should return DNSSEC related records as well, e.g. RRSIG
-    pub fn dnssec_ok(&self) -> bool {
-        self.dnssec_ok
+    /// Create [`LookupOptions`] with `dnssec_ok` enabled.
+    #[cfg(feature = "__dnssec")]
+    pub fn for_dnssec() -> Self {
+        Self { dnssec_ok: true }
     }
 
     /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
     pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
         cfg_if! {
             if #[cfg(feature = "__dnssec")] {
-                record_set.records(self.dnssec_ok())
+                record_set.records(self.dnssec_ok)
             } else {
                 record_set.records_without_rrsigs()
             }
@@ -194,7 +192,7 @@ pub trait Authority: Send + Sync {
     ///            this
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
-    async fn get_nsec_records(
+    async fn nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
@@ -202,7 +200,7 @@ pub trait Authority: Send + Sync {
 
     /// Return the NSEC3 records based on the information available for a query.
     #[cfg(feature = "__dnssec")]
-    async fn get_nsec3_records(
+    async fn nsec3_records(
         &self,
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
@@ -440,7 +438,7 @@ impl Nsec3QueryInfo<'_> {
 
     /// Computes the hashed owner name from a given name. That is, the hash of the given name,
     /// followed by the zone name.
-    pub(crate) fn get_hashed_owner_name(
+    pub(crate) fn hashed_owner_name(
         &self,
         name: &LowerName,
         zone: &Name,

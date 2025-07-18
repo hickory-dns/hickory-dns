@@ -287,7 +287,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
             let rrset = self.rrset?;
             #[cfg(feature = "__dnssec")]
             {
-                self.records = Some(rrset.records(self.lookup_options.dnssec_ok()));
+                self.records = Some(rrset.records(self.lookup_options.dnssec_ok));
             }
             #[cfg(not(feature = "__dnssec"))]
             {

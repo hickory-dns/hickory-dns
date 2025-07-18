@@ -192,7 +192,7 @@ impl Authority for TestAuthority {
         (Err(ResponseCode::NotImp), None)
     }
 
-    async fn get_nsec_records(
+    async fn nsec_records(
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
@@ -201,7 +201,7 @@ impl Authority for TestAuthority {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn get_nsec3_records(
+    async fn nsec3_records(
         &self,
         _info: Nsec3QueryInfo<'_>,
         _lookup_options: LookupOptions,

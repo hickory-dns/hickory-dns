@@ -12,8 +12,6 @@ use std::{io, sync::Arc};
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::Proof;
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::{Record, rdata::SOA};
 use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
@@ -146,46 +144,6 @@ impl From<LookupError> for io::Error {
     }
 }
 
-/// DNSSEC status of an answer
-#[derive(Clone, Copy, Debug)]
-pub enum DnssecSummary {
-    /// All records have been DNSSEC validated
-    Secure,
-    /// At least one record is in the Bogus state
-    Bogus,
-    /// Insecure / Indeterminate (e.g. "Island of security")
-    Insecure,
-}
-
-impl DnssecSummary {
-    /// Whether the records have been DNSSEC validated or not
-    #[cfg(feature = "__dnssec")]
-    pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
-        let mut all_secure = None;
-        for record in records {
-            match record.proof() {
-                Proof::Secure => {
-                    all_secure.get_or_insert(true);
-                }
-                Proof::Bogus => return Self::Bogus,
-                _ => all_secure = Some(false),
-            }
-        }
-
-        if all_secure.unwrap_or(false) {
-            Self::Secure
-        } else {
-            Self::Insecure
-        }
-    }
-
-    /// Whether the records have been DNSSEC validated or not
-    #[cfg(not(feature = "__dnssec"))]
-    fn from_records<'a>(_: impl Iterator<Item = &'a Record>) -> Self {
-        Self::Insecure
-    }
-}
-
 #[allow(deprecated)]
 mod zone_type {
     use serde::{Deserialize, Serialize};
@@ -199,13 +157,6 @@ mod zone_type {
         Secondary,
         /// A cached zone that queries other nameservers
         External,
-    }
-
-    impl ZoneType {
-        /// Is this an authoritative Authority, i.e. it owns the records of the zone.
-        pub fn is_authoritative(self) -> bool {
-            matches!(self, Self::Primary | Self::Secondary)
-        }
     }
 }
 

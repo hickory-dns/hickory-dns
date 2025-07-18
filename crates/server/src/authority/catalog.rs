@@ -10,17 +10,16 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{borrow::Borrow, collections::HashMap, io, sync::Arc};
 
-use cfg_if::cfg_if;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
 use crate::authority::metrics::CatalogMetrics;
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
+use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::DnssecSummary};
 use crate::{
     authority::{
-        AuthLookup, Authority, DnssecSummary, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, MessageResponseBuilder, ZoneType,
+        AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
+        MessageResponseBuilder, ZoneType,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
@@ -33,7 +32,11 @@ use crate::{
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
-use crate::{proto::ProtoErrorKind, recursor::ErrorKind};
+use crate::{
+    proto::{ProtoError, ProtoErrorKind},
+    recursor,
+    recursor::ErrorKind,
+};
 
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
@@ -431,11 +434,11 @@ async fn lookup<R: ResponseHandler + Unpin>(
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> Result<ResponseInfo, LookupError> {
     let edns = request.edns();
-    let lookup_options = lookup_options_for_edns(edns);
+    let lookup_options = LookupOptions::from_edns(edns);
     let request_id = request.id();
 
     // log algorithms being requested
-    if lookup_options.dnssec_ok() {
+    if lookup_options.dnssec_ok {
         info!("request: {request_id} lookup_options: {lookup_options:?}");
     }
 
@@ -473,7 +476,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                     .consult(
                         request_info.query.name(),
                         request_info.query.query_type(),
-                        lookup_options_for_edns(response_edns.as_ref()),
+                        LookupOptions::from_edns(response_edns.as_ref()),
                         result,
                     )
                     .await;
@@ -543,22 +546,6 @@ async fn lookup<R: ResponseHandler + Unpin>(
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
-#[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
-fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
-    let edns = match edns {
-        Some(edns) => edns,
-        None => return LookupOptions::default(),
-    };
-
-    cfg_if! {
-        if #[cfg(feature = "__dnssec")] {
-            LookupOptions::for_dnssec(edns.flags().dnssec_ok)
-        } else {
-            LookupOptions::default()
-        }
-    }
-}
-
 /// Build Header and LookupSections (answers) given a query response from an authority
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
@@ -568,11 +555,9 @@ async fn build_response(
     query: &LowerQuery,
     edns: Option<&Edns>,
 ) -> (Header, LookupSections) {
-    let lookup_options = lookup_options_for_edns(edns);
+    let lookup_options = LookupOptions::from_edns(edns);
 
     let mut response_header = Header::response_from_request(request_header);
-    response_header.set_authoritative(authority.zone_type().is_authoritative());
-
     let sections = match authority.zone_type() {
         ZoneType::Primary | ZoneType::Secondary => {
             build_authoritative_response(
@@ -590,6 +575,7 @@ async fn build_response(
                 result,
                 request_header,
                 &mut response_header,
+                #[cfg(feature = "__dnssec")]
                 authority.can_validate_dnssec(),
                 query,
                 lookup_options,
@@ -610,11 +596,12 @@ async fn build_authoritative_response(
     _request_id: u16,
     query: &LowerQuery,
 ) -> LookupSections {
+    response_header.set_authoritative(true);
+
     // In this state we await the records, on success we transition to getting
     // NS records, which indicate an authoritative response.
     //
     // On Errors, the transition depends on the type of error.
-
     let answers = match response {
         Ok(records) => {
             response_header.set_response_code(ResponseCode::NoError);
@@ -625,12 +612,7 @@ async fn build_authoritative_response(
         // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
         Err(LookupError::ResponseCode(ResponseCode::Refused)) => {
             response_header.set_response_code(ResponseCode::Refused);
-            return LookupSections {
-                answers: AuthLookup::default(),
-                ns: AuthLookup::default(),
-                soa: AuthLookup::default(),
-                additionals: AuthLookup::default(),
-            };
+            return LookupSections::default();
         }
         Err(e) => {
             if e.is_nx_domain() {
@@ -676,7 +658,7 @@ async fn build_authoritative_response(
                         });
 
                     match authority
-                        .get_nsec3_records(
+                        .nsec3_records(
                             Nsec3QueryInfo {
                                 qname: query.name(),
                                 qtype: query.query_type(),
@@ -712,7 +694,7 @@ async fn build_authoritative_response(
             (None, None)
         }
     } else {
-        let nsecs = if lookup_options.dnssec_ok() {
+        let nsecs = if lookup_options.dnssec_ok {
             #[cfg(feature = "__dnssec")]
             {
                 // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
@@ -722,14 +704,14 @@ async fn build_authoritative_response(
                         // run the nsec lookup future, and then transition to get soa
                         let future = match nx_proof_kind {
                             NxProofKind::Nsec => {
-                                authority.get_nsec_records(query.name(), lookup_options)
+                                authority.nsec_records(query.name(), lookup_options)
                             }
                             NxProofKind::Nsec3 {
                                 algorithm,
                                 salt,
                                 iterations,
                                 opt_out: _,
-                            } => authority.get_nsec3_records(
+                            } => authority.nsec3_records(
                                 Nsec3QueryInfo {
                                     qname: query.name(),
                                     qtype: query.query_type(),
@@ -808,33 +790,29 @@ async fn build_forwarded_response(
     response: Result<AuthLookup, LookupError>,
     request_header: &Header,
     response_header: &mut Header,
-    can_validate_dnssec: bool,
+    #[cfg(feature = "__dnssec")] can_validate_dnssec: bool,
     query: &LowerQuery,
     lookup_options: LookupOptions,
 ) -> LookupSections {
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
+    if !request_header.recursion_desired() {
+        info!(
+            id = request_header.id(),
+            "request disabled recursion, returning REFUSED"
+        );
+
+        response_header.set_response_code(ResponseCode::Refused);
+        return LookupSections::default();
+    }
 
     enum Answer {
         Normal(AuthLookup),
         NoRecords(AuthLookup),
     }
 
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
     let (mut answers, authorities) = match response {
-        Ok(_) | Err(_) if !request_header.recursion_desired() => {
-            info!(
-                id = request_header.id(),
-                "request disabled recursion, returning REFUSED"
-            );
-            response_header.set_response_code(ResponseCode::Refused);
-
-            return LookupSections {
-                answers: AuthLookup::default(),
-                ns: AuthLookup::default(),
-                soa: AuthLookup::default(),
-                additionals: AuthLookup::default(),
-            };
-        }
         Ok(l) => (Answer::Normal(l), AuthLookup::default()),
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
             debug!(error = ?e, "error resolving");
@@ -886,38 +864,32 @@ async fn build_forwarded_response(
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
-        Err(LookupError::RecursiveError(e)) => match e.kind() {
-            ErrorKind::Proto(e) => match e.kind() {
-                ProtoErrorKind::Nsec {
-                    response, proof, ..
-                } if proof.is_insecure() => {
-                    response_header.set_response_code(response.response_code());
+        Err(LookupError::RecursiveError(recursor::Error {
+            kind:
+                ErrorKind::Proto(ProtoError {
+                    kind:
+                        ProtoErrorKind::Nsec {
+                            response, proof, ..
+                        },
+                    ..
+                }),
+            ..
+        })) if proof.is_insecure() => {
+            response_header.set_response_code(response.response_code());
 
-                    if let Some(soa) = response.soa() {
-                        let soa = soa.to_owned().into_record_of_rdata();
-                        let record_set = Arc::new(RecordSet::from(soa));
-                        let records = LookupRecords::new(LookupOptions::default(), record_set);
+            if let Some(soa) = response.soa() {
+                let soa = soa.to_owned().into_record_of_rdata();
+                let record_set = Arc::new(RecordSet::from(soa));
+                let records = LookupRecords::new(LookupOptions::default(), record_set);
 
-                        (
-                            Answer::NoRecords(AuthLookup::SOA(records)),
-                            AuthLookup::default(),
-                        )
-                    } else {
-                        (Answer::Normal(AuthLookup::default()), AuthLookup::default())
-                    }
-                }
-                _ => {
-                    response_header.set_response_code(ResponseCode::ServFail);
-                    debug!(error = ?e, "error resolving");
-                    (Answer::Normal(AuthLookup::default()), AuthLookup::default())
-                }
-            },
-            _ => {
-                response_header.set_response_code(ResponseCode::ServFail);
-                debug!(error = ?e, "error resolving");
+                (
+                    Answer::NoRecords(AuthLookup::SOA(records)),
+                    AuthLookup::default(),
+                )
+            } else {
                 (Answer::Normal(AuthLookup::default()), AuthLookup::default())
             }
-        },
+        }
         Err(e) => {
             response_header.set_response_code(ResponseCode::ServFail);
             debug!(error = ?e, "error resolving");
@@ -925,6 +897,8 @@ async fn build_forwarded_response(
         }
     };
 
+    // If DNSSEC is disabled, we ignore the CD bit and do not set the AD bit.
+    #[cfg(feature = "__dnssec")]
     if can_validate_dnssec {
         // section 3.2.2 ("the CD bit") of RFC4035 is a bit underspecified because it does not use
         // RFC2119 vocabulary ("MUST", "MAY", etc.) in some sentences that describe the resolver's
@@ -980,7 +954,7 @@ async fn build_forwarded_response(
     }
 
     // Strip out DNSSEC records unless the DO bit is set.
-    let authorities = if !lookup_options.dnssec_ok() {
+    let authorities = if !lookup_options.dnssec_ok {
         let auth = authorities
             .into_iter()
             .filter_map(|rrset| {
@@ -1002,18 +976,17 @@ async fn build_forwarded_response(
         Answer::Normal(answers) => LookupSections {
             answers,
             ns: authorities,
-            soa: AuthLookup::default(),
-            additionals: AuthLookup::default(),
+            ..LookupSections::default()
         },
         Answer::NoRecords(soa) => LookupSections {
-            answers: AuthLookup::default(),
             ns: authorities,
             soa,
-            additionals: AuthLookup::default(),
+            ..LookupSections::default()
         },
     }
 }
 
+#[derive(Default)]
 struct LookupSections {
     answers: AuthLookup,
     ns: AuthLookup,

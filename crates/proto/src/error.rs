@@ -455,7 +455,7 @@ pub struct ForwardNSData {
 #[non_exhaustive]
 pub struct ProtoError {
     /// Kind of error that occurred
-    pub kind: Box<ProtoErrorKind>,
+    pub kind: ProtoErrorKind,
     /// Backtrace to the source of the error
     #[cfg(feature = "backtrace")]
     pub backtrack: Option<ExtBacktrace>,
@@ -471,20 +471,20 @@ impl ProtoError {
     /// If this is a ProtoErrorKind::Busy
     #[inline]
     pub fn is_busy(&self) -> bool {
-        matches!(*self.kind, ProtoErrorKind::Busy)
+        matches!(self.kind, ProtoErrorKind::Busy)
     }
 
     /// Returns true if this error represents NoConnections
     #[inline]
     pub fn is_no_connections(&self) -> bool {
-        matches!(*self.kind, ProtoErrorKind::NoConnections)
+        matches!(self.kind, ProtoErrorKind::NoConnections)
     }
 
     /// Returns true if the domain does not exist
     #[inline]
     pub fn is_nx_domain(&self) -> bool {
         matches!(
-            *self.kind,
+            self.kind,
             ProtoErrorKind::NoRecordsFound(NoRecords {
                 response_code: ResponseCode::NXDomain,
                 ..
@@ -495,13 +495,13 @@ impl ProtoError {
     /// Returns true if the error represents NoRecordsFound
     #[inline]
     pub fn is_no_records_found(&self) -> bool {
-        matches!(*self.kind, ProtoErrorKind::NoRecordsFound { .. })
+        matches!(self.kind, ProtoErrorKind::NoRecordsFound { .. })
     }
 
     /// Returns the SOA record, if the error contains one
     #[inline]
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
-        match *self.kind {
+        match self.kind {
             ProtoErrorKind::NoRecordsFound(NoRecords { soa, .. }) => soa,
             _ => None,
         }
@@ -511,7 +511,7 @@ impl ProtoError {
     #[inline]
     #[cfg(feature = "std")]
     pub fn is_io(&self) -> bool {
-        matches!(*self.kind, ProtoErrorKind::Io(..))
+        matches!(self.kind, ProtoErrorKind::Io(..))
     }
 
     #[cfg(feature = "std")]
@@ -682,15 +682,10 @@ impl fmt::Display for ProtoError {
     }
 }
 
-impl<E> From<E> for ProtoError
-where
-    E: Into<ProtoErrorKind>,
-{
+impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
     fn from(error: E) -> Self {
-        let kind: ProtoErrorKind = error.into();
-
         Self {
-            kind: Box::new(kind),
+            kind: error.into(),
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
