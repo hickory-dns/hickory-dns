@@ -1435,9 +1435,9 @@ mod tests {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
-            Box::pin(once(
-                future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed(),
-            ))
+            Box::pin(once(future::ready(
+                self.messages.lock().unwrap().pop().unwrap_or_else(empty),
+            )))
         }
     }
 

@@ -307,7 +307,7 @@ impl Stream for MdnsStream {
                     ))
                 };
 
-                self.rcving_mcast = Some(Box::pin(receive_future.boxed()));
+                self.rcving_mcast = Some(Box::pin(receive_future));
             }
         }
     }
