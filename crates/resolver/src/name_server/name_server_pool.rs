@@ -14,7 +14,6 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use futures_util::future::FutureExt;
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use hickory_proto::NoRecords;
 use hickory_proto::op::ResponseCode;
@@ -188,10 +187,11 @@ impl<P: ConnectionProvider> PoolState<P> {
 
             let mut requests = par_conns
                 .into_iter()
-                .map(|conn| {
+                .map(|conn| async {
                     conn.send(request.clone())
                         .first_answer()
-                        .map(|result| result.map_err(|e| (conn, e)))
+                        .await
+                        .map_err(|e| (conn, e))
                 })
                 .collect::<FuturesUnordered<_>>();
 
