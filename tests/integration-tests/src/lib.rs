@@ -101,12 +101,10 @@ impl TestResponseHandler {
         })
     }
 
-    pub fn into_message(self) -> impl Future<Output = Message> {
-        let bytes = self.into_inner();
-        bytes.map(|b| {
-            let mut decoder = BinDecoder::new(&b);
-            Message::read(&mut decoder).expect("could not decode message")
-        })
+    pub async fn into_message(self) -> Message {
+        let bytes = self.into_inner().await;
+        let mut decoder = BinDecoder::new(&bytes);
+        Message::read(&mut decoder).expect("could not decode message")
     }
 }
 
