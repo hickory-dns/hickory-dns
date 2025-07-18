@@ -13,8 +13,12 @@ use core::task::{Context, Poll};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use futures_util::stream::{Stream, StreamExt};
-use futures_util::{FutureExt, TryFutureExt, future, ready};
+use futures_util::{
+    FutureExt,
+    future::{self, BoxFuture},
+    ready,
+    stream::{Stream, StreamExt},
+};
 use once_cell::sync::Lazy;
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
@@ -49,7 +53,7 @@ pub struct MdnsStream {
     /// In one-shot multicast, this will not join the multicast group
     multicast: Option<Arc<UdpSocket>>,
     /// Receiving portion of the MdnsStream
-    rcving_mcast: Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>,
+    rcving_mcast: Option<BoxFuture<'static, io::Result<SerialMessage>>>,
 }
 
 impl MdnsStream {
@@ -59,7 +63,7 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
@@ -71,7 +75,7 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
@@ -110,13 +114,13 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(multicast_addr);
         let multicast_socket = match Self::join_multicast(&multicast_addr, mdns_query_type) {
             Ok(socket) => socket,
-            Err(err) => return (Box::new(future::err(err)), message_sender),
+            Err(err) => return (Box::pin(future::err(err)), message_sender),
         };
 
         // TODO: allow the bind address to be specified...
@@ -137,33 +141,30 @@ impl MdnsStream {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream = {
-            Box::new(
-                next_socket
-                    .map(move |socket| match socket {
-                        Ok(Some(socket)) => {
-                            socket.set_nonblocking(true)?;
-                            Ok(Some(UdpSocket::from_std(socket)?))
-                        }
-                        Ok(None) => Ok(None),
-                        Err(err) => Err(err),
-                    })
-                    .map_ok(move |socket| {
-                        let datagram =
-                            socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
-                        let multicast = multicast_socket.map(|multicast_socket| {
-                            Arc::new(UdpSocket::from_std(multicast_socket).expect("bad handle?"))
-                        });
+        let stream = Box::pin(async move {
+            let datagram = if let Some(socket) = next_socket.await? {
+                socket.set_nonblocking(true)?;
+                Some(UdpStream::from_parts(
+                    UdpSocket::from_std(socket)?,
+                    outbound_messages,
+                ))
+            } else {
+                None
+            };
 
-                        Self {
-                            multicast_addr,
-                            datagram,
-                            multicast,
-                            rcving_mcast: None,
-                        }
-                    }),
-            )
-        };
+            let multicast = if let Some(multicast_socket) = multicast_socket {
+                Some(Arc::new(UdpSocket::from_std(multicast_socket)?))
+            } else {
+                None
+            };
+
+            Ok(Self {
+                multicast_addr,
+                datagram,
+                multicast,
+                rcving_mcast: None,
+            })
+        });
 
         (stream, message_sender)
     }
@@ -306,7 +307,7 @@ impl Stream for MdnsStream {
                     ))
                 };
 
-                self.rcving_mcast = Some(Box::pin(receive_future.boxed()));
+                self.rcving_mcast = Some(Box::pin(receive_future));
             }
         }
     }

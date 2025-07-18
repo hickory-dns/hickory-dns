@@ -9,11 +9,10 @@
 
 use std::{
     borrow::Cow,
-    future::Future,
-    pin::Pin,
     time::{Duration, Instant},
 };
 
+use futures_util::future::BoxFuture;
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -103,7 +102,7 @@ where
         &self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>> {
+    ) -> BoxFuture<'static, Result<Lookup, ProtoError>> {
         Box::pin(Self::inner_lookup(
             query,
             options,
@@ -422,7 +421,7 @@ enum Records {
     Exists(Vec<Record>),
     /// Future lookup for recursive cname records
     CnameChain {
-        next: Pin<Box<dyn Future<Output = Result<Lookup, ProtoError>> + Send>>,
+        next: BoxFuture<'static, Result<Lookup, ProtoError>>,
     },
 }
 

@@ -15,8 +15,11 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use async_trait::async_trait;
-use futures_util::stream::Stream;
-use futures_util::{TryFutureExt, future::Future, ready};
+use futures_util::{
+    future::{BoxFuture, Future},
+    ready,
+    stream::Stream,
+};
 use tracing::{debug, trace, warn};
 
 use crate::runtime::{RuntimeProvider, Time};
@@ -115,7 +118,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
         os_port_selection: bool,
         provider: P,
     ) -> (
-        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
@@ -131,10 +134,12 @@ impl<P: RuntimeProvider> UdpStream<P> {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream = Box::new(next_socket.map_ok(move |socket| Self {
-            socket,
-            outbound_messages,
-        }));
+        let stream = Box::pin(async {
+            Ok(Self {
+                socket: next_socket.await?,
+                outbound_messages,
+            })
+        });
 
         (stream, message_sender)
     }

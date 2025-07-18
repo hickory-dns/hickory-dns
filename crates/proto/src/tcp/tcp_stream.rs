@@ -17,7 +17,7 @@ use std::net::SocketAddr;
 
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
-use futures_util::{self, FutureExt, future::Future, ready};
+use futures_util::{self, future::Future, ready};
 use tracing::debug;
 
 use crate::BufDnsStreamHandle;
@@ -161,25 +161,22 @@ impl<S: DnsTcpStream> TcpStream<S> {
         timeout: Duration,
         outbound_messages: StreamReceiver,
     ) -> Result<Self, io::Error> {
-        S::Time::timeout(timeout, future)
-            .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
-                tcp_stream
-                    .and_then(|tcp_stream| tcp_stream)
-                    .map(|tcp_stream| {
-                        debug!("TCP connection established to: {}", name_server);
-                        Self {
-                            socket: tcp_stream,
-                            outbound_messages,
-                            send_state: None,
-                            read_state: ReadTcpState::LenBytes {
-                                pos: 0,
-                                bytes: [0u8; 2],
-                            },
-                            peer_addr: name_server,
-                        }
-                    })
+        let tcp_stream = S::Time::timeout(timeout, future).await;
+        tcp_stream
+            .and_then(|tcp_stream| tcp_stream)
+            .map(|tcp_stream| {
+                debug!("TCP connection established to: {}", name_server);
+                Self {
+                    socket: tcp_stream,
+                    outbound_messages,
+                    send_state: None,
+                    read_state: ReadTcpState::LenBytes {
+                        pos: 0,
+                        bytes: [0u8; 2],
+                    },
+                    peer_addr: name_server,
+                }
             })
-            .await
     }
 }
 

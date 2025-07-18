@@ -26,7 +26,7 @@ use std::io;
 #[cfg(feature = "std")]
 use futures_channel::mpsc;
 #[cfg(feature = "std")]
-use futures_util::{ready, stream::Stream};
+use futures_util::{future::BoxFuture, ready, stream::Stream};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -126,9 +126,7 @@ where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
-        Self::new(DnsResponseStreamInner::Boxed(
-            f as Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
-        ))
+        Self::new(DnsResponseStreamInner::Boxed(f))
     }
 }
 
@@ -137,13 +135,11 @@ enum DnsResponseStreamInner {
     Timeout(TimeoutFuture),
     Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
     Error(Option<ProtoError>),
-    Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
+    Boxed(BoxFuture<'static, Result<DnsResponse, ProtoError>>),
 }
 
 #[cfg(feature = "std")]
-type TimeoutFuture = Pin<
-    Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send + 'static>,
->;
+type TimeoutFuture = BoxFuture<'static, Result<Result<DnsResponse, ProtoError>, io::Error>>;
 
 // TODO: this needs to have the IP addr of the remote system...
 // TODO: see https://github.com/hickory-dns/hickory-dns/issues/383 for removing vec of messages and instead returning a Stream

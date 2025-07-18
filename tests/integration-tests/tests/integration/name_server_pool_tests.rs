@@ -1,7 +1,6 @@
-use std::future::{Future, poll_fn};
+use std::future::poll_fn;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr};
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{
     Arc,
@@ -9,7 +8,7 @@ use std::sync::{
 };
 use std::task::Poll;
 
-use futures::executor::block_on;
+use futures::{executor::block_on, future::BoxFuture};
 
 use hickory_integration::mock_client::*;
 use hickory_proto::op::{Query, ResponseCode};
@@ -751,7 +750,7 @@ impl OnSend for OnSendBarrier {
     fn on_send<E>(
         &self,
         response: Result<DnsResponse, E>,
-    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, E>> + Send>>
+    ) -> BoxFuture<'static, Result<DnsResponse, E>>
     where
         E: From<ProtoError> + Send + 'static,
     {
