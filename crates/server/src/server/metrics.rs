@@ -214,7 +214,7 @@ impl Default for ResponseCodeMetrics {
         let key = "code";
         Self {
             no_error: {
-                let new = counter!(response_codes_name, "code" => "no_error");
+                let new = counter!(response_codes_name, key => "no_error");
                 describe_counter!(
                     response_codes_name,
                     Unit::Count,

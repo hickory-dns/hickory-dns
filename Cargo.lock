@@ -951,6 +951,7 @@ dependencies = [
  "hickory-resolver",
  "ipnet",
  "lru-cache",
+ "metrics",
  "parking_lot",
  "prefix-trie",
  "serde",
