@@ -713,6 +713,7 @@ pub(crate) mod testing {
 
     /// Test IP lookup from URLs with DNSSEC validation.
     #[cfg(feature = "__dnssec")]
+    #[allow(clippy::print_stdout)]
     pub(crate) async fn sec_lookup_test<R: ConnectionProvider>(handle: R) {
         let mut resolver_builder =
             Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
@@ -726,6 +727,10 @@ pub(crate) mod testing {
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
+        println!(
+            "{:?}",
+            response.as_lookup().record_iter().collect::<Vec<_>>()
+        );
         assert!(
             response
                 .as_lookup()
@@ -735,8 +740,8 @@ pub(crate) mod testing {
     }
 
     /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
-    #[allow(deprecated)]
     #[cfg(feature = "__dnssec")]
+    #[allow(clippy::print_stdout)]
     pub(crate) async fn sec_lookup_fails_test<R: ConnectionProvider>(handle: R) {
         let mut resolver_builder =
             Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
@@ -748,6 +753,10 @@ pub(crate) mod testing {
         let response = resolver.lookup_ip("hickory-dns.org.").await;
 
         let lookup_ip = response.unwrap();
+        println!(
+            "{:?}",
+            lookup_ip.as_lookup().record_iter().collect::<Vec<_>>()
+        );
         for record in lookup_ip.as_lookup().record_iter() {
             assert!(record.proof().is_insecure());
         }
