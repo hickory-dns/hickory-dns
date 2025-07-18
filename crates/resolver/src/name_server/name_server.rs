@@ -179,7 +179,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 Ok(response)
             }
             Err(error) => {
-                debug!(config = ?self.config, "name_server connection failure: {}", error);
+                debug!(ip = %self.ip, config = ?self.config, %error, "failed to connect to name server");
 
                 // this transitions the state to failure
                 self.set_status(Status::Failed);
