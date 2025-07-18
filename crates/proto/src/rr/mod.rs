@@ -33,8 +33,6 @@ pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub(crate) use self::record_type_set::RecordTypeSet;
 pub use self::resource::Record;
-#[allow(deprecated)]
-pub use self::rr_set::IntoRecordSet;
 pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
 pub use lower_name::LowerName;

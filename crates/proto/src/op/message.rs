@@ -348,34 +348,6 @@ impl Message {
         self
     }
 
-    /// Add a SIG0 record, i.e. sign this message
-    ///
-    /// This must be used only after all records have been associated. Generally this will be
-    /// handled by the client and not need to be used directly
-    ///
-    /// # Panics
-    ///
-    /// If the `Record` has a type other than `RecordType::SIG`.
-    #[cfg(feature = "__dnssec")]
-    #[deprecated(note = "Please use `set_signature`")]
-    pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        self.set_signature(MessageSignature::Sig0(record))
-    }
-
-    /// Add a TSIG record, i.e. sign this message
-    ///
-    /// This must be used only after all records have been associated. Generally this will be
-    /// handled by the client and not need to be used directly
-    ///
-    /// # Panics
-    ///
-    /// If the `Record` has a type other than `RecordType::TSIG`.
-    #[cfg(feature = "__dnssec")]
-    #[deprecated(note = "Please use `set_signature`")]
-    pub fn add_tsig(&mut self, record: Record) -> &mut Self {
-        self.set_signature(MessageSignature::Tsig(record))
-    }
-
     /// Set the signature record for the message.
     ///
     /// This must be used only after all records have been associated. Generally this will be
@@ -578,23 +550,6 @@ impl Message {
     /// # Return value
     ///
     /// Optionally returns a reference to EDNS OPT pseudo-RR
-    #[deprecated(note = "Please use `extensions()`")]
-    pub fn edns(&self) -> Option<&Edns> {
-        self.edns.as_ref()
-    }
-
-    /// Optionally returns mutable reference to EDNS OPT pseudo-RR
-    #[deprecated(
-        note = "Please use `extensions_mut()`. You can chain `.get_or_insert_with(Edns::new)` to recover original behavior of adding Edns if not present"
-    )]
-    pub fn edns_mut(&mut self) -> &mut Edns {
-        if self.edns.is_none() {
-            self.set_edns(Edns::new());
-        }
-        self.edns.as_mut().unwrap()
-    }
-
-    /// Returns reference of EDNS OPT pseudo-RR
     pub fn extensions(&self) -> &Option<Edns> {
         &self.edns
     }

@@ -30,10 +30,6 @@ use hickory_proto::{
     },
 };
 
-#[doc(hidden)]
-#[deprecated(since = "0.25.0", note = "use `Client` instead")]
-pub type ClientFuture = Client;
-
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol

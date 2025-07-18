@@ -195,8 +195,6 @@
 pub use hickory_proto as proto;
 // reexports from proto
 pub use proto::rr::{IntoName, Name};
-#[cfg(feature = "tokio")]
-use proto::runtime::TokioRuntimeProvider;
 
 pub mod caching_client;
 pub mod config;
@@ -216,15 +214,6 @@ pub use cache::{MAX_TTL, ResponseCache, TtlBounds, TtlConfig};
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
-
-#[doc(hidden)]
-#[deprecated(since = "0.25.0", note = "use `Resolver` instead")]
-pub type AsyncResolver<P> = Resolver<P>;
-
-#[doc(hidden)]
-#[deprecated(since = "0.25.0", note = "use `TokioResolver` instead")]
-#[cfg(feature = "tokio")]
-pub type TokioAsyncResolver = Resolver<TokioRuntimeProvider>;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

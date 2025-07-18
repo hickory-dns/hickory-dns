@@ -13,17 +13,13 @@ use core::{cmp::Ordering, convert::TryFrom, fmt};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
-    rr::{Name, RData, RecordData, RecordSet, RecordType, dns_class::DNSClass},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
-};
-
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{Proof, Proven};
-
-#[allow(deprecated)]
-use crate::rr::IntoRecordSet;
+use crate::{
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    rr::{Name, RData, RecordData, RecordType, dns_class::DNSClass},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+};
 
 #[cfg(feature = "mdns")]
 /// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
@@ -362,13 +358,6 @@ impl<R: RecordData> From<Record<R>> for RecordParts<R> {
             #[cfg(feature = "__dnssec")]
             proof,
         }
-    }
-}
-
-#[allow(deprecated)]
-impl IntoRecordSet for Record {
-    fn into_record_set(self) -> RecordSet {
-        RecordSet::from(self)
     }
 }
 
