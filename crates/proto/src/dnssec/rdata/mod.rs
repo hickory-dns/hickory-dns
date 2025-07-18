@@ -49,10 +49,6 @@ pub use self::rrsig::RRSIG;
 pub use self::sig::{SIG, SigInput};
 pub use self::tsig::TSIG;
 
-/// The type of the resource record, for DNSSEC-specific records.
-#[deprecated(note = "All RecordType definitions have been moved into RecordType")]
-pub type DNSSECRecordType = RecordType;
-
 /// Record data enum variants for DNSSEC-specific records.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]

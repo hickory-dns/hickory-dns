@@ -160,12 +160,6 @@ impl RecordSet {
         }
     }
 
-    /// Returns an iterator over the records in the set
-    #[deprecated(note = "see `records_without_rrsigs`")]
-    pub fn iter(&self) -> Iter<'_, Record> {
-        self.records.iter()
-    }
-
     /// Returns true if there are no records in this set
     pub fn is_empty(&self) -> bool {
         self.records.is_empty()
@@ -467,20 +461,6 @@ impl From<Record> for RecordSet {
             rrsigs: vec![],
             serial: 0,
         }
-    }
-}
-
-/// Types which implement this can be converted into a RecordSet
-#[deprecated(note = "use From/Into")]
-pub trait IntoRecordSet: Sized {
-    /// Performs the conversion to a RecordSet
-    fn into_record_set(self) -> RecordSet;
-}
-
-#[allow(deprecated)]
-impl IntoRecordSet for RecordSet {
-    fn into_record_set(self) -> Self {
-        self
     }
 }
 

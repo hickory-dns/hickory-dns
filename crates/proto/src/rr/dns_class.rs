@@ -69,26 +69,6 @@ impl FromStr for DNSClass {
 }
 
 impl DNSClass {
-    /// Convert from `u16` to `DNSClass`
-    ///
-    /// ```
-    /// use hickory_proto::rr::dns_class::DNSClass;
-    ///
-    /// let var = DNSClass::from_u16(1).unwrap();
-    /// assert_eq!(DNSClass::IN, var);
-    /// ```
-    #[deprecated(note = "use u16::into instead, this is now infallible")]
-    pub fn from_u16(value: u16) -> ProtoResult<Self> {
-        match value {
-            1 => Ok(Self::IN),
-            3 => Ok(Self::CH),
-            4 => Ok(Self::HS),
-            254 => Ok(Self::NONE),
-            255 => Ok(Self::ANY),
-            _ => Ok(Self::Unknown(value)),
-        }
-    }
-
     /// Return the OPT version from value
     pub fn for_opt(value: u16) -> Self {
         // From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`

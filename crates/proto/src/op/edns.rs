@@ -155,12 +155,6 @@ impl Edns {
         self.max_payload = max_payload.max(512);
         self
     }
-
-    /// Set the specified EDNS option
-    #[deprecated(note = "Please use options_mut().insert() to modify")]
-    pub fn set_option(&mut self, option: EdnsOption) {
-        self.options.insert(option);
-    }
 }
 
 // FIXME: this should be a TryFrom
