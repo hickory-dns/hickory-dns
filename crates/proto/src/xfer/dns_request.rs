@@ -15,8 +15,6 @@ use crate::op::{Message, Query};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct DnsRequestOptions {
-    // /// If set, then the request will terminate early if all types have been received
-    // pub expected_record_types: Option<SmallVec<[RecordType; 2]>>,
     // TODO: add EDNS options here?
     /// When true, will add EDNS options to the request.
     pub use_edns: bool,
