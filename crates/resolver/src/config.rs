@@ -900,6 +900,7 @@ mod tests {
         assert_eq!(code.attempts, json.attempts);
         assert_eq!(code.check_names, json.check_names);
         assert_eq!(code.edns0, json.edns0);
+        #[cfg(feature = "__dnssec")]
         assert_eq!(code.validate, json.validate);
         assert_eq!(code.ip_strategy, json.ip_strategy);
         assert_eq!(code.cache_size, json.cache_size);
