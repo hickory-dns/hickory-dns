@@ -17,7 +17,7 @@ use std::{
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
-use futures_util::{FutureExt, StreamExt};
+use futures_util::StreamExt;
 use hickory_proto::ProtoErrorKind;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
@@ -531,10 +531,7 @@ async fn handle_tls(
 
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
 fn reap_tasks(join_set: &mut JoinSet<()>) {
-    while FutureExt::now_or_never(join_set.join_next())
-        .flatten()
-        .is_some()
-    {}
+    while join_set.try_join_next().is_some() {}
 }
 
 #[cfg(feature = "__tls")]
