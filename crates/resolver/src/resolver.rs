@@ -721,7 +721,7 @@ pub(crate) mod testing {
         let resolver = resolver_builder.build();
 
         let response = resolver
-            .lookup_ip("www.example.com.")
+            .lookup_ip("cloudflare.com.")
             .await
             .expect("failed to run lookup");
 
