@@ -165,12 +165,115 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
 
-        check_nsec(
+        self.check_nsec(
             message,
             &query,
             self.nsec3_soft_iteration_limit,
             self.nsec3_hard_iteration_limit,
         )
+    }
+
+    /// at this point all of the message is verified.
+    /// This is where NSEC and NSEC3 validation occurs
+    fn check_nsec(
+        &self,
+        verified_message: DnsResponse,
+        query: &Query,
+        nsec3_soft_iteration_limit: u16,
+        nsec3_hard_iteration_limit: u16,
+    ) -> Result<DnsResponse, ProtoError> {
+        if !verified_message.answers().is_empty() {
+            return Ok(verified_message);
+        }
+
+        if !verified_message.authorities().is_empty()
+            && verified_message
+                .authorities()
+                .iter()
+                .all(|x| x.proof() == Proof::Insecure)
+        {
+            return Ok(verified_message);
+        }
+
+        let nsec3s = verified_message
+            .authorities()
+            .iter()
+            .filter_map(|rr| {
+                if verified_message
+                    .authorities()
+                    .iter()
+                    .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
+                {
+                    rr.data()
+                        .as_dnssec()?
+                        .as_nsec3()
+                        .map(|data| (rr.name(), data))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let nsecs = verified_message
+            .authorities()
+            .iter()
+            .filter_map(|rr| {
+                if verified_message
+                    .authorities()
+                    .iter()
+                    .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
+                {
+                    rr.data()
+                        .as_dnssec()?
+                        .as_nsec()
+                        .map(|data| (rr.name(), data))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Both NSEC and NSEC3 records cannot coexist during
+        // transition periods, as per RFC 5515 10.4.3 and
+        // 10.5.2
+        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
+            (true, false) => verify_nsec3(
+                query,
+                find_soa_name(&verified_message)?,
+                verified_message.response_code(),
+                verified_message.answers(),
+                &nsec3s,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+            ),
+            (false, true) => {
+                verify_nsec(query, find_soa_name(&verified_message)?, nsecs.as_slice())
+            }
+            (true, true) => {
+                warn!(
+                    "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
+                );
+                Proof::Bogus
+            }
+            (false, false) => {
+                warn!(
+                    "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}"
+                );
+                Proof::Bogus
+            }
+        };
+
+        if !nsec_proof.is_secure() {
+            debug!("returning Nsec error for {} {nsec_proof}", query.name());
+            // TODO change this to remove the NSECs, like we do for the others?
+            return Err(ProtoError::from(ProtoErrorKind::Nsec {
+                query: Box::new(query.clone()),
+                response: Box::new(verified_message),
+                proof: nsec_proof,
+            }));
+        }
+
+        Ok(verified_message)
     }
 
     /// This pulls all answers returned in a Message response and returns a future which will
@@ -918,106 +1021,6 @@ fn verify_rrsig_with_keys(
     } else {
         None
     }
-}
-
-/// at this point all of the message is verified.
-/// This is where NSEC and NSEC3 validation occurs
-fn check_nsec(
-    verified_message: DnsResponse,
-    query: &Query,
-    nsec3_soft_iteration_limit: u16,
-    nsec3_hard_iteration_limit: u16,
-) -> Result<DnsResponse, ProtoError> {
-    if !verified_message.answers().is_empty() {
-        return Ok(verified_message);
-    }
-
-    if !verified_message.authorities().is_empty()
-        && verified_message
-            .authorities()
-            .iter()
-            .all(|x| x.proof() == Proof::Insecure)
-    {
-        return Ok(verified_message);
-    }
-
-    let nsec3s = verified_message
-        .authorities()
-        .iter()
-        .filter_map(|rr| {
-            if verified_message
-                .authorities()
-                .iter()
-                .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
-            {
-                rr.data()
-                    .as_dnssec()?
-                    .as_nsec3()
-                    .map(|data| (rr.name(), data))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let nsecs = verified_message
-        .authorities()
-        .iter()
-        .filter_map(|rr| {
-            if verified_message
-                .authorities()
-                .iter()
-                .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
-            {
-                rr.data()
-                    .as_dnssec()?
-                    .as_nsec()
-                    .map(|data| (rr.name(), data))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    // Both NSEC and NSEC3 records cannot coexist during
-    // transition periods, as per RFC 5515 10.4.3 and
-    // 10.5.2
-    let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
-        (true, false) => verify_nsec3(
-            query,
-            find_soa_name(&verified_message)?,
-            verified_message.response_code(),
-            verified_message.answers(),
-            &nsec3s,
-            nsec3_soft_iteration_limit,
-            nsec3_hard_iteration_limit,
-        ),
-        (false, true) => verify_nsec(query, find_soa_name(&verified_message)?, nsecs.as_slice()),
-        (true, true) => {
-            warn!(
-                "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
-            );
-            Proof::Bogus
-        }
-        (false, false) => {
-            warn!(
-                "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}"
-            );
-            Proof::Bogus
-        }
-    };
-
-    if !nsec_proof.is_secure() {
-        debug!("returning Nsec error for {} {nsec_proof}", query.name());
-        // TODO change this to remove the NSECs, like we do for the others?
-        return Err(ProtoError::from(ProtoErrorKind::Nsec {
-            query: Box::new(query.clone()),
-            response: Box::new(verified_message),
-            proof: nsec_proof,
-        }));
-    }
-
-    Ok(verified_message)
 }
 
 /// Find the SOA record in the response and return its name.
