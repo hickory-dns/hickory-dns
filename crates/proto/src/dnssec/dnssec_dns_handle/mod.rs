@@ -945,19 +945,7 @@ fn check_nsec(
     }
 
     // get SOA name
-    let soa_name = if let Some(soa_name) = verified_message
-        .authorities()
-        .iter()
-        // there should only be one
-        .find(|rr| rr.record_type() == RecordType::SOA)
-        .map(Record::name)
-    {
-        soa_name
-    } else {
-        return Err(ProtoError::from(
-            "could not validate negative response missing SOA",
-        ));
-    };
+    let soa_name = find_soa_name(&verified_message)?;
 
     let nsec3s = verified_message
         .authorities()
@@ -1036,6 +1024,23 @@ fn check_nsec(
     }
 
     Ok(verified_message)
+}
+
+/// Find the SOA record in the response and return its name.
+fn find_soa_name(verified_message: &DnsResponse) -> Result<&Name, ProtoError> {
+    if let Some(soa_name) = verified_message
+        .authorities()
+        .iter()
+        // there should only be one
+        .find(|rr| rr.record_type() == RecordType::SOA)
+        .map(Record::name)
+    {
+        Ok(soa_name)
+    } else {
+        Err(ProtoError::from(
+            "could not validate negative response missing SOA",
+        ))
+    }
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
