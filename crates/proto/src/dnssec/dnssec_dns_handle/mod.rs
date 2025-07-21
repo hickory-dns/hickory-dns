@@ -944,9 +944,6 @@ fn check_nsec(
         return Ok(verified_message);
     }
 
-    // get SOA name
-    let soa_name = find_soa_name(&verified_message)?;
-
     let nsec3s = verified_message
         .authorities()
         .iter()
@@ -991,14 +988,14 @@ fn check_nsec(
     let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
         (true, false) => verify_nsec3(
             query,
-            soa_name,
+            find_soa_name(&verified_message)?,
             verified_message.response_code(),
             verified_message.answers(),
             &nsec3s,
             nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit,
         ),
-        (false, true) => verify_nsec(query, soa_name, nsecs.as_slice()),
+        (false, true) => verify_nsec(query, find_soa_name(&verified_message)?, nsecs.as_slice()),
         (true, true) => {
             warn!(
                 "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
