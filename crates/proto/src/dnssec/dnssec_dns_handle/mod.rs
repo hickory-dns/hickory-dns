@@ -238,6 +238,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 Proof::Bogus
             }
             (false, false) => {
+                // Check if the zone is insecure first.
+                if let Err(err) = self.find_ds_records(query.name().clone(), options).await {
+                    if err.proof == Proof::Insecure {
+                        return Ok(message);
+                    }
+                }
+
                 warn!(
                     "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {message:?}"
                 );
