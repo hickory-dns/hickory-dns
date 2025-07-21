@@ -9,7 +9,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory returns a validation error due to the missing SOA record even though the zone is insecure"]
 fn no_soa_insecure() -> Result<()> {
     let target_fqdn = FQDN::TEST_DOMAIN;
     let network = Network::new()?;
