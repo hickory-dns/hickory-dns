@@ -3,10 +3,10 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Network, Resolver, Result,
-    client::{Client, DigSettings},
+    FQDN, Network, PEER, Resolver, Result,
+    client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer, Sign},
-    record::{Record, RecordType},
+    record::{A, Record, RecordType},
     zone_file::{Nsec, SignSettings},
 };
 
@@ -50,6 +50,30 @@ fn domain_exists_record_type_does_not_nsec3() -> Result<()> {
 #[test]
 fn domain_exists_record_type_does_not_nsec() -> Result<()> {
     domain_exists_record_type_does_not(Nsec::_1)
+}
+
+#[ignore = "NSEC validation is incorrect"]
+#[test]
+fn wildcard_exists_record_type_does_not_nsec_middle_chain() -> Result<()> {
+    wildcard_exists_record_type_does_not(Nsec::_1, "aaaaaa")
+}
+
+#[ignore = "NSEC validation is incorrect"]
+#[test]
+fn wildcard_exists_record_type_does_not_nsec_end_chain() -> Result<()> {
+    wildcard_exists_record_type_does_not(Nsec::_1, "zzzzzz")
+}
+
+#[test]
+fn wildcard_exists_record_type_does_not_nsec3() -> Result<()> {
+    wildcard_exists_record_type_does_not(
+        Nsec::_3 {
+            iterations: 0,
+            opt_out: false,
+            salt: None,
+        },
+        "query",
+    )
 }
 
 fn zone_exist_domain_does_not(nsec: Nsec) -> Result<()> {
@@ -166,6 +190,51 @@ fn domain_exists_record_type_does_not(nsec: Nsec) -> Result<()> {
     let soa = record.try_into_soa().unwrap();
 
     assert_eq!(leaf_zone, soa.zone);
+
+    Ok(())
+}
+
+fn wildcard_exists_record_type_does_not(nsec: Nsec, label: &str) -> Result<()> {
+    let network = Network::new()?;
+
+    let record_name = FQDN::TEST_DOMAIN.push_label("record");
+    let wildcard_name = FQDN::TEST_DOMAIN.push_label("*");
+    let query_name = FQDN::TEST_DOMAIN.push_label(label);
+
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    leaf_ns.add(Record::A(A {
+        fqdn: record_name,
+        ttl: 3600,
+        ipv4_addr: Ipv4Addr::new(10, 0, 0, 1),
+    }));
+    leaf_ns.add(Record::A(A {
+        fqdn: wildcard_name,
+        ttl: 3600,
+        ipv4_addr: Ipv4Addr::new(10, 0, 0, 2),
+    }));
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default().nsec(nsec),
+        },
+    )?;
+    let trust_anchor = trust_anchor.unwrap();
+
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::TXT, &query_name)?;
+
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(output.answer.is_empty(), "{:?}", output.answer);
 
     Ok(())
 }
