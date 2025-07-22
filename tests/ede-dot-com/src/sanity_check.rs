@@ -4,8 +4,8 @@ use dns_test::Result;
 
 // control subdomain; authentic data is expected
 #[test]
-fn valid() -> Result<()> {
-    let response = crate::compare("valid")?;
+fn valid_dnssec() -> Result<()> {
+    let response = crate::compare("valid", true)?;
 
     dbg!(&response);
 
@@ -16,13 +16,37 @@ fn valid() -> Result<()> {
 }
 
 #[test]
-fn hermetic_valid() -> Result<()> {
-    let response = crate::hermetic_compare("valid")?;
+fn hermetic_valid_dnssec() -> Result<()> {
+    let response = crate::hermetic_compare("valid", true)?;
 
     dbg!(&response);
 
     assert!(response.status.is_noerror());
     assert!(response.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn valid_no_dnssec() -> Result<()> {
+    let response = crate::compare("valid", false)?;
+
+    dbg!(&response);
+
+    assert!(response.status.is_noerror());
+    assert!(!response.flags.authenticated_data);
+
+    Ok(())
+}
+
+#[test]
+fn hermetic_valid_no_dnssec() -> Result<()> {
+    let response = crate::hermetic_compare("valid", false)?;
+
+    dbg!(&response);
+
+    assert!(response.status.is_noerror());
+    assert!(!response.flags.authenticated_data);
 
     Ok(())
 }
