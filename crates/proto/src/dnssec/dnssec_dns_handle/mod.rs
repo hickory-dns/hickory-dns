@@ -165,41 +165,25 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
 
-        self.check_nsec(
-            message,
-            &query,
-            self.nsec3_soft_iteration_limit,
-            self.nsec3_hard_iteration_limit,
-        )
-    }
-
-    /// at this point all of the message is verified.
-    /// This is where NSEC and NSEC3 validation occurs
-    fn check_nsec(
-        &self,
-        verified_message: DnsResponse,
-        query: &Query,
-        nsec3_soft_iteration_limit: u16,
-        nsec3_hard_iteration_limit: u16,
-    ) -> Result<DnsResponse, ProtoError> {
-        if !verified_message.answers().is_empty() {
-            return Ok(verified_message);
+        // NSEC and NSEC3 validation:
+        if !message.answers().is_empty() {
+            return Ok(message);
         }
 
-        if !verified_message.authorities().is_empty()
-            && verified_message
+        if !message.authorities().is_empty()
+            && message
                 .authorities()
                 .iter()
                 .all(|x| x.proof() == Proof::Insecure)
         {
-            return Ok(verified_message);
+            return Ok(message);
         }
 
-        let nsec3s = verified_message
+        let nsec3s = message
             .authorities()
             .iter()
             .filter_map(|rr| {
-                if verified_message
+                if message
                     .authorities()
                     .iter()
                     .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
@@ -214,11 +198,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             })
             .collect::<Vec<_>>();
 
-        let nsecs = verified_message
+        let nsecs = message
             .authorities()
             .iter()
             .filter_map(|rr| {
-                if verified_message
+                if message
                     .authorities()
                     .iter()
                     .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
@@ -238,26 +222,24 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         // 10.5.2
         let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
             (true, false) => verify_nsec3(
-                query,
-                find_soa_name(&verified_message)?,
-                verified_message.response_code(),
-                verified_message.answers(),
+                &query,
+                find_soa_name(&message)?,
+                message.response_code(),
+                message.answers(),
                 &nsec3s,
-                nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit,
+                self.nsec3_soft_iteration_limit,
+                self.nsec3_hard_iteration_limit,
             ),
-            (false, true) => {
-                verify_nsec(query, find_soa_name(&verified_message)?, nsecs.as_slice())
-            }
+            (false, true) => verify_nsec(&query, find_soa_name(&message)?, nsecs.as_slice()),
             (true, true) => {
                 warn!(
-                    "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{verified_message:?}"
+                    "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{message:?}"
                 );
                 Proof::Bogus
             }
             (false, false) => {
                 warn!(
-                    "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {verified_message:?}"
+                    "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {message:?}"
                 );
                 Proof::Bogus
             }
@@ -268,12 +250,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // TODO change this to remove the NSECs, like we do for the others?
             return Err(ProtoError::from(ProtoErrorKind::Nsec {
                 query: Box::new(query.clone()),
-                response: Box::new(verified_message),
+                response: Box::new(message),
                 proof: nsec_proof,
             }));
         }
 
-        Ok(verified_message)
+        Ok(message)
     }
 
     /// This pulls all answers returned in a Message response and returns a future which will
