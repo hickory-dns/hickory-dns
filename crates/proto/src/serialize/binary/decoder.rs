@@ -47,7 +47,7 @@ pub enum DecodeError {
     #[error("the index passed to BinDecoder::slice_from must be greater than the decoder position")]
     InvalidPreviousIndex,
 
-    /// Pointer points to an index within or after the current label
+    /// Pointer points to an index within or after the current name
     #[error("label points to data not prior to idx: {idx} ptr: {ptr}")]
     PointerNotPriorToLabel {
         /// index of the label containing this pointer

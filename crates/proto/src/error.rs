@@ -152,7 +152,7 @@ pub enum ProtoErrorKind {
     #[error("label bytes exceed 63: {0}")]
     LabelBytesTooLong(usize),
 
-    /// Label bytes exceeded the limit of 63
+    /// Pointer points to an index within or after the current name
     #[non_exhaustive]
     #[error("label points to data not prior to idx: {idx} ptr: {ptr}")]
     PointerNotPriorToLabel {
@@ -302,7 +302,7 @@ pub enum ProtoErrorKind {
     #[error("error writing to quic read: {0}")]
     QuinnReadError(#[from] quinn::ReadExactError),
 
-    /// A Quinn (QUIC) read error occurred
+    /// A Quinn (QUIC) stream error occurred
     #[cfg(feature = "__quic")]
     #[error("referenced a closed QUIC stream: {0}")]
     QuinnStreamError(#[from] quinn::ClosedStream),
