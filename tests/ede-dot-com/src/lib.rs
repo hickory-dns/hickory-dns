@@ -15,544 +15,614 @@ use dns_test::{
 mod sanity_check;
 
 #[test]
-fn allow_query_localhost() -> Result<()> {
-    compare("allow-query-localhost").map(drop)
+fn allow_query_localhost_dnssec() -> Result<()> {
+    compare("allow-query-localhost", true).map(drop)
 }
 
 #[test]
-fn hermetic_allow_query_localhost() -> Result<()> {
-    hermetic_compare("allow-query-localhost").map(drop)
+fn hermetic_allow_query_localhost_dnssec() -> Result<()> {
+    hermetic_compare("allow-query-localhost", true).map(drop)
 }
 
 #[test]
-fn allow_query_none() -> Result<()> {
-    compare("allow-query-none").map(drop)
+#[ignore = "hickory treats REFUSED responses as no data responses"]
+fn allow_query_localhost_no_dnssec() -> Result<()> {
+    compare("allow-query-localhost", false).map(drop)
 }
 
 #[test]
-fn hermetic_allow_query_none() -> Result<()> {
-    hermetic_compare("allow-query-none").map(drop)
+#[ignore = "hickory treats REFUSED responses as no data responses"]
+fn hermetic_allow_query_localhost_no_dnssec() -> Result<()> {
+    hermetic_compare("allow-query-localhost", false).map(drop)
+}
+
+#[test]
+fn allow_query_none_dnssec() -> Result<()> {
+    compare("allow-query-none", true).map(drop)
+}
+
+#[test]
+fn hermetic_allow_query_none_dnssec() -> Result<()> {
+    hermetic_compare("allow-query-none", true).map(drop)
+}
+
+#[test]
+#[ignore = "hickory treats REFUSED responses as no data responses"]
+fn allow_query_none_no_dnssec() -> Result<()> {
+    compare("allow-query-none", false).map(drop)
+}
+
+#[test]
+#[ignore = "hickory treats REFUSED responses as no data responses"]
+fn hermetic_allow_query_none_no_dnssec() -> Result<()> {
+    hermetic_compare("allow-query-none", false).map(drop)
 }
 
 #[test]
 fn bad_ksk() -> Result<()> {
-    compare("bad-ksk").map(drop)
+    compare("bad-ksk", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_ksk() -> Result<()> {
-    hermetic_compare("bad-ksk").map(drop)
+    hermetic_compare("bad-ksk", true).map(drop)
 }
 
 #[test]
 fn bad_nsec3_hash() -> Result<()> {
-    compare("bad-nsec3-hash").map(drop)
+    compare("bad-nsec3-hash", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_nsec3_hash() -> Result<()> {
-    hermetic_compare("bad-nsec3-hash").map(drop)
+    hermetic_compare("bad-nsec3-hash", true).map(drop)
 }
 
 #[test]
 fn bad_nsec3_next() -> Result<()> {
-    compare("bad-nsec3-next").map(drop)
+    compare("bad-nsec3-next", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_nsec3_next() -> Result<()> {
-    hermetic_compare("bad-nsec3-next").map(drop)
+    hermetic_compare("bad-nsec3-next", true).map(drop)
 }
 
 #[test]
 fn bad_nsec3_rrsig() -> Result<()> {
-    compare("bad-nsec3-rrsig").map(drop)
+    compare("bad-nsec3-rrsig", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_nsec3_rrsig() -> Result<()> {
-    hermetic_compare("bad-nsec3-rrsig").map(drop)
+    hermetic_compare("bad-nsec3-rrsig", true).map(drop)
 }
 
 #[test]
 fn bad_nsec3param_salt() -> Result<()> {
-    compare("bad-nsec3param-salt").map(drop)
+    compare("bad-nsec3param-salt", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_nsec3param_salt() -> Result<()> {
-    hermetic_compare("bad-nsec3param-salt").map(drop)
+    hermetic_compare("bad-nsec3param-salt", true).map(drop)
 }
 
 #[test]
 fn bad_rrsig_dnskey() -> Result<()> {
-    compare("bad-rrsig-dnskey").map(drop)
+    compare("bad-rrsig-dnskey", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_rrsig_dnskey() -> Result<()> {
-    hermetic_compare("bad-rrsig-dnskey").map(drop)
+    hermetic_compare("bad-rrsig-dnskey", true).map(drop)
 }
 
 #[test]
 fn bad_rrsig_ksk() -> Result<()> {
-    compare("bad-rrsig-ksk").map(drop)
+    compare("bad-rrsig-ksk", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_rrsig_ksk() -> Result<()> {
-    hermetic_compare("bad-rrsig-ksk").map(drop)
+    hermetic_compare("bad-rrsig-ksk", true).map(drop)
 }
 
 #[test]
 fn bad_zsk() -> Result<()> {
-    compare("bad-zsk").map(drop)
+    compare("bad-zsk", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_zsk() -> Result<()> {
-    hermetic_compare("bad-zsk").map(drop)
+    hermetic_compare("bad-zsk", true).map(drop)
 }
 
 #[test]
 fn bad_zsk_algo() -> Result<()> {
-    compare("bad-zsk-algo").map(drop)
+    compare("bad-zsk-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_bad_zsk_algo() -> Result<()> {
-    hermetic_compare("bad-zsk-algo").map(drop)
+    hermetic_compare("bad-zsk-algo", true).map(drop)
 }
 
 #[test]
 fn ds_bad_key_algo() -> Result<()> {
-    compare("ds-bad-key-algo").map(drop)
+    compare("ds-bad-key-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_ds_bad_key_algo() -> Result<()> {
-    hermetic_compare("ds-bad-key-algo").map(drop)
+    hermetic_compare("ds-bad-key-algo", true).map(drop)
 }
 
 #[test]
 fn ds_bad_tag() -> Result<()> {
-    compare("ds-bad-tag").map(drop)
+    compare("ds-bad-tag", true).map(drop)
 }
 
 #[test]
 fn hermetic_ds_bad_tag() -> Result<()> {
-    hermetic_compare("ds-bad-tag").map(drop)
+    hermetic_compare("ds-bad-tag", true).map(drop)
 }
 
 #[test]
 fn ds_bogus_digest_value() -> Result<()> {
-    compare("ds-bogus-digest-value").map(drop)
+    compare("ds-bogus-digest-value", true).map(drop)
 }
 
 #[test]
 fn hermetic_ds_bogus_digest_value() -> Result<()> {
-    hermetic_compare("ds-bogus-digest-value").map(drop)
+    hermetic_compare("ds-bogus-digest-value", true).map(drop)
 }
 
 #[test]
 fn ds_reserved_key_algo() -> Result<()> {
-    compare("ds-reserved-key-algo").map(drop)
+    compare("ds-reserved-key-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_ds_reserved_key_algo() -> Result<()> {
-    hermetic_compare("ds-reserved-key-algo").map(drop)
+    hermetic_compare("ds-reserved-key-algo", true).map(drop)
 }
 
 #[test]
 fn ds_unassigned_digest_algo() -> Result<()> {
-    compare("ds-unassigned-digest-algo").map(drop)
+    compare("ds-unassigned-digest-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_ds_unassigned_digest_algo() -> Result<()> {
-    hermetic_compare("ds-unassigned-digest-algo").map(drop)
+    hermetic_compare("ds-unassigned-digest-algo", true).map(drop)
 }
 
 #[test]
 fn ds_unassigned_key_algo() -> Result<()> {
-    compare("ds-unassigned-key-algo").map(drop)
+    compare("ds-unassigned-key-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_ds_unassigned_key_algo() -> Result<()> {
-    hermetic_compare("ds-unassigned-key-algo").map(drop)
+    hermetic_compare("ds-unassigned-key-algo", true).map(drop)
 }
 
 #[test]
 fn dsa() -> Result<()> {
-    compare("dsa").map(drop)
+    compare("dsa", true).map(drop)
 }
 
 #[test]
 fn hermetic_dsa() -> Result<()> {
-    hermetic_compare("dsa").map(drop)
+    hermetic_compare("dsa", true).map(drop)
 }
 
 #[test]
 #[ignore = "hickory doesn't support ED448"]
 fn ed448() -> Result<()> {
-    compare("ed448").map(drop)
+    compare("ed448", true).map(drop)
 }
 
 #[test]
 #[ignore = "hickory doesn't support ED448"]
 fn hermetic_ed448() -> Result<()> {
-    hermetic_compare("ed448").map(drop)
+    hermetic_compare("ed448", true).map(drop)
 }
 
 #[test]
 fn no_dnskey_256() -> Result<()> {
-    compare("no-dnskey-256").map(drop)
+    compare("no-dnskey-256", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_dnskey_256() -> Result<()> {
-    hermetic_compare("no-dnskey-256").map(drop)
+    hermetic_compare("no-dnskey-256", true).map(drop)
 }
 
 #[test]
 fn no_dnskey_256_257() -> Result<()> {
-    compare("no-dnskey-256-257").map(drop)
+    compare("no-dnskey-256-257", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_dnskey_256_257() -> Result<()> {
-    hermetic_compare("no-dnskey-256-257").map(drop)
+    hermetic_compare("no-dnskey-256-257", true).map(drop)
 }
 
 #[test]
 fn no_dnskey_257() -> Result<()> {
-    compare("no-dnskey-257").map(drop)
+    compare("no-dnskey-257", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_dnskey_257() -> Result<()> {
-    hermetic_compare("no-dnskey-257").map(drop)
+    hermetic_compare("no-dnskey-257", true).map(drop)
 }
 
 #[test]
 fn no_ds() -> Result<()> {
-    compare("no-ds").map(drop)
+    compare("no-ds", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_ds() -> Result<()> {
-    hermetic_compare("no-ds").map(drop)
+    hermetic_compare("no-ds", true).map(drop)
 }
 
 #[test]
 fn no_ksk() -> Result<()> {
-    compare("no-ksk").map(drop)
+    compare("no-ksk", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_ksk() -> Result<()> {
-    hermetic_compare("no-ksk").map(drop)
+    hermetic_compare("no-ksk", true).map(drop)
 }
 
 #[test]
 fn no_nsec3param_nsec3() -> Result<()> {
-    compare("no-nsec3param-nsec3").map(drop)
+    compare("no-nsec3param-nsec3", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_nsec3param_nsec3() -> Result<()> {
-    hermetic_compare("no-nsec3param-nsec3").map(drop)
+    hermetic_compare("no-nsec3param-nsec3", true).map(drop)
 }
 
 #[test]
 fn no_rrsig_dnskey() -> Result<()> {
-    compare("no-rrsig-dnskey").map(drop)
+    compare("no-rrsig-dnskey", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_rrsig_dnskey() -> Result<()> {
-    hermetic_compare("no-rrsig-dnskey").map(drop)
+    hermetic_compare("no-rrsig-dnskey", true).map(drop)
 }
 
 #[test]
 fn no_rrsig_ksk() -> Result<()> {
-    compare("no-rrsig-ksk").map(drop)
+    compare("no-rrsig-ksk", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_rrsig_ksk() -> Result<()> {
-    hermetic_compare("no-rrsig-ksk").map(drop)
+    hermetic_compare("no-rrsig-ksk", true).map(drop)
 }
 
 #[test]
 fn no_zsk() -> Result<()> {
-    compare("no-zsk").map(drop)
+    compare("no-zsk", true).map(drop)
 }
 
 #[test]
 fn hermetic_no_zsk() -> Result<()> {
-    hermetic_compare("no-zsk").map(drop)
+    hermetic_compare("no-zsk", true).map(drop)
 }
 
 #[test]
-fn not_auth() -> Result<()> {
-    compare("not-auth").map(drop)
+fn not_auth_dnssec() -> Result<()> {
+    compare("not-auth", true).map(drop)
 }
 
 #[test]
-fn hermetic_not_auth() -> Result<()> {
-    hermetic_compare("not-auth").map(drop)
+fn hermetic_not_auth_dnssec() -> Result<()> {
+    hermetic_compare("not-auth", true).map(drop)
+}
+
+#[test]
+#[ignore = "hickory treats REFUSED responses as no data responses"]
+fn not_auth_no_dnssec() -> Result<()> {
+    compare("not-auth", false).map(drop)
+}
+
+#[test]
+#[ignore = "hickory treats REFUSED responses as no data responses"]
+fn hermetic_not_auth_no_dnssec() -> Result<()> {
+    hermetic_compare("not-auth", false).map(drop)
 }
 
 #[test]
 fn nsec3_iter_1() -> Result<()> {
-    compare("nsec3-iter-1").map(drop)
+    compare("nsec3-iter-1", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_iter_1() -> Result<()> {
-    hermetic_compare("nsec3-iter-1").map(drop)
+    hermetic_compare("nsec3-iter-1", true).map(drop)
 }
 
 #[test]
 fn nsec3_iter_51() -> Result<()> {
-    compare("nsec3-iter-51").map(drop)
+    compare("nsec3-iter-51", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_iter_51() -> Result<()> {
-    hermetic_compare("nsec3-iter-51").map(drop)
+    hermetic_compare("nsec3-iter-51", true).map(drop)
 }
 
 #[test]
 fn nsec3_iter_101() -> Result<()> {
-    compare("nsec3-iter-101").map(drop)
+    compare("nsec3-iter-101", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_iter_101() -> Result<()> {
-    hermetic_compare("nsec3-iter-101").map(drop)
+    hermetic_compare("nsec3-iter-101", true).map(drop)
 }
 
 #[test]
 fn nsec3_iter_151() -> Result<()> {
-    compare("nsec3-iter-151").map(drop)
+    compare("nsec3-iter-151", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_iter_151() -> Result<()> {
-    hermetic_compare("nsec3-iter-151").map(drop)
+    hermetic_compare("nsec3-iter-151", true).map(drop)
 }
 
 #[test]
 fn nsec3_iter_200() -> Result<()> {
-    compare("nsec3-iter-200").map(drop)
+    compare("nsec3-iter-200", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_iter_200() -> Result<()> {
-    hermetic_compare("nsec3-iter-200").map(drop)
+    hermetic_compare("nsec3-iter-200", true).map(drop)
 }
 
 #[test]
 fn nsec3_missing() -> Result<()> {
-    compare("nsec3-missing").map(drop)
+    compare("nsec3-missing", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_missing() -> Result<()> {
-    hermetic_compare("nsec3-missing").map(drop)
+    hermetic_compare("nsec3-missing", true).map(drop)
 }
 
 #[test]
 fn nsec3_rrsig_missing() -> Result<()> {
-    compare("nsec3-rrsig-missing").map(drop)
+    compare("nsec3-rrsig-missing", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3_rrsig_missing() -> Result<()> {
-    hermetic_compare("nsec3-rrsig-missing").map(drop)
+    hermetic_compare("nsec3-rrsig-missing", true).map(drop)
 }
 
 #[test]
 fn nsec3param_missing() -> Result<()> {
-    compare("nsec3param-missing").map(drop)
+    compare("nsec3param-missing", true).map(drop)
 }
 
 #[test]
 fn hermetic_nsec3param_missing() -> Result<()> {
-    hermetic_compare("nsec3param-missing").map(drop)
+    hermetic_compare("nsec3param-missing", true).map(drop)
 }
 
 #[test]
 fn reserved_zsk_algo() -> Result<()> {
-    compare("reserved-zsk-algo").map(drop)
+    compare("reserved-zsk-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_reserved_zsk_algo() -> Result<()> {
-    hermetic_compare("reserved-zsk-algo").map(drop)
+    hermetic_compare("reserved-zsk-algo", true).map(drop)
 }
 
 #[test]
 fn rrsig_exp_a() -> Result<()> {
-    compare("rrsig-exp-a").map(drop)
+    compare("rrsig-exp-a", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_exp_a() -> Result<()> {
-    hermetic_compare("rrsig-exp-a").map(drop)
+    hermetic_compare("rrsig-exp-a", true).map(drop)
 }
 
 #[test]
 fn rrsig_exp_all() -> Result<()> {
-    compare("rrsig-exp-all").map(drop)
+    compare("rrsig-exp-all", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_exp_all() -> Result<()> {
-    hermetic_compare("rrsig-exp-all").map(drop)
+    hermetic_compare("rrsig-exp-all", true).map(drop)
 }
 
 #[test]
 fn rrsig_exp_before_a() -> Result<()> {
-    compare("rrsig-exp-before-a").map(drop)
+    compare("rrsig-exp-before-a", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_exp_before_a() -> Result<()> {
-    hermetic_compare("rrsig-exp-before-a").map(drop)
+    hermetic_compare("rrsig-exp-before-a", true).map(drop)
 }
 
 #[test]
 fn rrsig_exp_before_all() -> Result<()> {
-    compare("rrsig-exp-before-all").map(drop)
+    compare("rrsig-exp-before-all", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_exp_before_all() -> Result<()> {
-    hermetic_compare("rrsig-exp-before-all").map(drop)
+    hermetic_compare("rrsig-exp-before-all", true).map(drop)
 }
 
 #[test]
 fn rrsig_no_a() -> Result<()> {
-    compare("rrsig-no-a").map(drop)
+    compare("rrsig-no-a", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_no_a() -> Result<()> {
-    hermetic_compare("rrsig-no-a").map(drop)
+    hermetic_compare("rrsig-no-a", true).map(drop)
 }
 
 #[test]
 fn rrsig_no_all() -> Result<()> {
-    compare("rrsig-no-all").map(drop)
+    compare("rrsig-no-all", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_no_all() -> Result<()> {
-    hermetic_compare("rrsig-no-all").map(drop)
+    hermetic_compare("rrsig-no-all", true).map(drop)
 }
 
 #[test]
 fn rrsig_not_yet_a() -> Result<()> {
-    compare("rrsig-not-yet-a").map(drop)
+    compare("rrsig-not-yet-a", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_not_yet_a() -> Result<()> {
-    hermetic_compare("rrsig-not-yet-a").map(drop)
+    hermetic_compare("rrsig-not-yet-a", true).map(drop)
 }
 
 #[test]
 fn rrsig_not_yet_all() -> Result<()> {
-    compare("rrsig-not-yet-all").map(drop)
+    compare("rrsig-not-yet-all", true).map(drop)
 }
 
 #[test]
 fn hermetic_rrsig_not_yet_all() -> Result<()> {
-    hermetic_compare("rrsig-not-yet-all").map(drop)
+    hermetic_compare("rrsig-not-yet-all", true).map(drop)
 }
 
 #[test]
 fn rsamd5() -> Result<()> {
-    compare("rsamd5").map(drop)
+    compare("rsamd5", true).map(drop)
 }
 
 #[test]
 fn hermetic_rsamd5() -> Result<()> {
-    hermetic_compare("rsamd5").map(drop)
+    hermetic_compare("rsamd5", true).map(drop)
 }
 
 #[test]
 fn unassigned_zsk_algo() -> Result<()> {
-    compare("unassigned-zsk-algo").map(drop)
+    compare("unassigned-zsk-algo", true).map(drop)
 }
 
 #[test]
 fn hermetic_unassigned_zsk_algo() -> Result<()> {
-    hermetic_compare("unassigned-zsk-algo").map(drop)
+    hermetic_compare("unassigned-zsk-algo", true).map(drop)
 }
 
 #[test]
 fn unsigned() -> Result<()> {
-    compare("unsigned").map(drop)
+    compare("unsigned", true).map(drop)
 }
 
 #[test]
 fn hermetic_unsigned() -> Result<()> {
-    hermetic_compare("unsigned").map(drop)
+    hermetic_compare("unsigned", true).map(drop)
 }
 
 #[test]
-fn v4_doc() -> Result<()> {
-    compare("v4-doc").map(drop)
+fn v4_doc_dnssec() -> Result<()> {
+    compare("v4-doc", true).map(drop)
 }
 
 #[test]
-fn hermetic_v4_doc() -> Result<()> {
-    hermetic_compare("v4-doc").map(drop)
+fn hermetic_v4_doc_dnssec() -> Result<()> {
+    hermetic_compare("v4-doc", true).map(drop)
 }
 
 #[test]
-fn v6_doc() -> Result<()> {
-    compare("v6-doc").map(drop)
+fn v4_doc_no_dnssec() -> Result<()> {
+    compare("v4-doc", false).map(drop)
 }
 
 #[test]
-fn hermetic_v6_doc() -> Result<()> {
-    hermetic_compare("v6-doc").map(drop)
+fn hermetic_v4_doc_no_dnssec() -> Result<()> {
+    hermetic_compare("v4-doc", false).map(drop)
 }
 
 #[test]
-fn valid() -> Result<()> {
-    compare("valid").map(drop)
+fn v6_doc_dnssec() -> Result<()> {
+    compare("v6-doc", true).map(drop)
 }
 
 #[test]
-fn hermetic_valid() -> Result<()> {
-    hermetic_compare("valid").map(drop)
+fn hermetic_v6_doc_dnssec() -> Result<()> {
+    hermetic_compare("v6-doc", true).map(drop)
+}
+
+#[test]
+fn v6_doc_no_dnssec() -> Result<()> {
+    compare("v6-doc", false).map(drop)
+}
+
+#[test]
+fn hermetic_v6_doc_no_dnssec() -> Result<()> {
+    hermetic_compare("v6-doc", false).map(drop)
+}
+
+#[test]
+fn valid_dnssec() -> Result<()> {
+    compare("valid", true).map(drop)
+}
+
+#[test]
+fn hermetic_valid_dnssec() -> Result<()> {
+    hermetic_compare("valid", true).map(drop)
+}
+
+#[test]
+fn valid_no_dnssec() -> Result<()> {
+    compare("valid", false).map(drop)
+}
+
+#[test]
+fn hermetic_valid_no_dnssec() -> Result<()> {
+    hermetic_compare("valid", false).map(drop)
 }
 
 /// compares hickory's response to unbound's response, using internet nameservers
 ///
 /// this compares RCODE and flags but not EDE
-fn compare(subdomain: &str) -> Result<DigOutput> {
+fn compare(subdomain: &str, dnssec: bool) -> Result<DigOutput> {
     let network = Network::with_internet_access()?;
     let domain = FQDN(format!("{subdomain}.extended-dns-errors.com."))?;
 
-    let unbound = Resolver::new(&network, Root::public_dns())
-        .trust_anchor(&TrustAnchor::public_dns())
-        .start_with_subject(&Implementation::Unbound)?;
-
-    let hickory = Resolver::new(&network, Root::public_dns())
-        .trust_anchor(&TrustAnchor::public_dns())
-        .start_with_subject(&Implementation::hickory())?;
+    let mut unbound = Resolver::new(&network, Root::public_dns());
+    let mut hickory = Resolver::new(&network, Root::public_dns());
+    if dnssec {
+        unbound.trust_anchor(&TrustAnchor::public_dns());
+        hickory.trust_anchor(&TrustAnchor::public_dns());
+    }
+    let unbound = unbound.start_with_subject(&Implementation::Unbound)?;
+    let hickory = hickory.start_with_subject(&Implementation::hickory())?;
 
     let client = Client::new(&network)?;
-    let settings = *DigSettings::default().recurse().authentic_data();
+    let mut settings = *DigSettings::default().recurse();
+    if dnssec {
+        settings = *settings.authentic_data();
+    }
     // we expect this to never time out
     let hickory_response = client.dig(settings, hickory.ipv4_addr(), RecordType::A, &domain)?;
 
@@ -576,19 +646,24 @@ fn compare(subdomain: &str) -> Result<DigOutput> {
 /// compares hickory's response to unbound's response, using local nameservers
 ///
 /// this compares RCODE and flags but not EDE
-fn hermetic_compare(subdomain: &str) -> Result<DigOutput> {
+fn hermetic_compare(subdomain: &str, dnssec: bool) -> Result<DigOutput> {
     let network = Network::new()?;
     let (subdomain_fqdn, graph) = setup_hermetic_network(subdomain, &network)?;
 
-    let unbound = Resolver::new(&network, graph.root.clone())
-        .trust_anchor(graph.trust_anchor.as_ref().unwrap())
-        .start_with_subject(&Implementation::Unbound)?;
-    let hickory = Resolver::new(&network, graph.root.clone())
-        .trust_anchor(graph.trust_anchor.as_ref().unwrap())
-        .start_with_subject(&Implementation::hickory())?;
+    let mut unbound = Resolver::new(&network, graph.root.clone());
+    let mut hickory = Resolver::new(&network, graph.root.clone());
+    if dnssec {
+        unbound.trust_anchor(graph.trust_anchor.as_ref().unwrap());
+        hickory.trust_anchor(graph.trust_anchor.as_ref().unwrap());
+    }
+    let unbound = unbound.start_with_subject(&Implementation::Unbound)?;
+    let hickory = hickory.start_with_subject(&Implementation::hickory())?;
 
     let client = Client::new(&network)?;
-    let settings = *DigSettings::default().recurse().authentic_data();
+    let mut settings = *DigSettings::default().recurse();
+    if dnssec {
+        settings = *settings.authentic_data();
+    }
     let hickory_response = client.dig(
         settings,
         hickory.ipv4_addr(),
