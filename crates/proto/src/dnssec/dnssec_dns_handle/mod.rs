@@ -551,7 +551,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .first_answer()
             .await;
 
-        let error = match ds_message {
+        let error_opt = match ds_message {
             Ok(mut ds_message)
                 if ds_message
                     .answers()
@@ -593,7 +593,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 } else if !supported_records.is_empty() {
                     return Ok(supported_records);
                 } else {
-                    ProtoError::from(ProtoErrorKind::NoError)
+                    None
                 }
             }
             Ok(response) => {
@@ -602,7 +602,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .iter()
                     .any(|r| r.record_type() == RecordType::DS);
                 if any_ds_rr {
-                    ProtoError::from(ProtoErrorKind::NoError)
+                    None
                 } else {
                     // If the response was an authenticated proof of nonexistence, then we have an
                     // insecure zone.
@@ -613,25 +613,25 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     ));
                 }
             }
-            Err(error) => error,
+            Err(error) => Some(error),
         };
 
         // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
-        if let Some((query, _res, _proof)) = error
-            .kind()
-            .as_nsec()
-            .filter(|(_query, _res, proof)| proof.is_insecure())
+        if let Some((query, _resp, proof)) =
+            error_opt.as_ref().and_then(|error| error.kind().as_nsec())
         {
-            debug!(
-                "marking {} as insecure based on insecure NSEC/NSEC3 proof",
-                query.name()
-            );
-            return Err(ProofError::new(
-                Proof::Insecure,
-                ProofErrorKind::DsResponseNsec {
-                    name: query.name().to_owned(),
-                },
-            ));
+            if proof.is_insecure() {
+                debug!(
+                    "marking {} as insecure based on insecure NSEC/NSEC3 proof",
+                    query.name()
+                );
+                return Err(ProofError::new(
+                    Proof::Insecure,
+                    ProofErrorKind::DsResponseNsec {
+                        name: query.name().to_owned(),
+                    },
+                ));
+            }
         }
 
         Err(ProofError::ds_should_exist(zone))
