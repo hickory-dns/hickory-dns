@@ -328,10 +328,10 @@ fn test_tcp_fallback_only_on_truncated() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if *response_code == ResponseCode::ServFail => {}
+        ProtoErrorKind::ResponseCode(response_code) if *response_code == ResponseCode::ServFail => {
+        }
         kind => panic!(
-            "got unexpected kind of resolve error; expected `NoRecordsFound` error with SERVFAIL,
+            "got unexpected kind of resolve error; expected `ResponseCode` error with SERVFAIL,
             got {kind:#?}",
         ),
     }
@@ -418,10 +418,9 @@ fn test_tcp_fallback_on_io_error() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if *response_code == ResponseCode::NotImp => {}
+        ProtoErrorKind::ResponseCode(response_code) if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
-            "expected `NoRecordsFound` with `response_code: NotImp`,
+            "expected `ResponseCode` with `response_code: NotImp`,
             got {kind:#?}",
         ),
     }
@@ -459,10 +458,9 @@ fn test_tcp_fallback_on_no_connections() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if *response_code == ResponseCode::NotImp => {}
+        ProtoErrorKind::ResponseCode(response_code) if *response_code == ResponseCode::NotImp => {}
         kind => panic!(
-            "expected `NoRecordsFound` with `response_code: NotImp`,
+            "expected `ResponseCode` with `response_code: NotImp`,
             got {kind:#?}",
         ),
     }
@@ -723,10 +721,9 @@ fn test_return_error_from_highest_priority_nameserver() {
     eprintln!("error is: {error}");
 
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if response_code == expected_response_code => {}
+        ProtoErrorKind::ResponseCode(response_code) if response_code == expected_response_code => {}
         kind => panic!(
-            "got unexpected kind of resolve error; expected `NoRecordsFound` error with response \
+            "got unexpected kind of resolve error; expected error with response \
             code `{expected_response_code:?}`, got {kind:#?}",
         ),
     }

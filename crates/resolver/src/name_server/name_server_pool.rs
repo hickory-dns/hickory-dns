@@ -210,18 +210,17 @@ impl<P: ConnectionProvider> PoolState<P> {
                     Err((conn, e)) => (conn, e),
                 };
 
-                use ProtoErrorKind::*;
                 match e.kind() {
                     // We assume the response is spoofed, so ignore it and avoid UDP server for this
                     // request to try and avoid further spoofing.
-                    QueryCaseMismatch => skip_udp = true,
+                    ProtoErrorKind::QueryCaseMismatch => skip_udp = true,
                     // If the server is busy, try it again later if necessary.
-                    Busy => busy.push(conn),
+                    ProtoErrorKind::Busy => busy.push(conn),
                     // If the connection failed, try another one.
-                    Io(_) | NoConnections => {}
+                    ProtoErrorKind::Io(_) | ProtoErrorKind::NoConnections => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
-                    NoRecordsFound(NoRecords {
+                    ProtoErrorKind::NoRecordsFound(NoRecords {
                         response_code: ResponseCode::NXDomain,
                         ..
                     }) if !conn.trust_negative_responses() => {}

@@ -249,6 +249,10 @@ pub enum ProtoErrorKind {
     #[error("request refused")]
     RequestRefused,
 
+    /// Received an error response code from the server
+    #[error("error response: {0}")]
+    ResponseCode(ResponseCode),
+
     /// A ring error
     #[cfg(feature = "__dnssec")]
     #[error("ring error: {0}")]
@@ -538,20 +542,7 @@ impl ProtoError {
                 | code @ BADNAME
                 | code @ BADALG
                 | code @ BADTRUNC
-                | code @ BADCOOKIE => {
-                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
-                    let query = response.queries().iter().next().cloned().unwrap_or_default();
-                    let error_kind = ProtoErrorKind::NoRecordsFound(NoRecords {
-                        query: Box::new(query),
-                        ns: None,
-                        soa: soa.map(Box::new),
-                        negative_ttl: None,
-                        response_code: code,
-                        authorities: None,
-                    });
-
-                    Err(Self::from(error_kind))
-                }
+                | code @ BADCOOKIE => Err(Self::from(ProtoErrorKind::ResponseCode(code))),
                 // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
                 code @ NXDomain |
                 // No answers are available, CNAME referrals are not failures
@@ -787,6 +778,7 @@ impl Clone for ProtoErrorKind {
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             NoRecordsFound(ref inner) => NoRecordsFound(inner.clone()),
             RequestRefused => RequestRefused,
+            ResponseCode(code) => ResponseCode(code),
             #[cfg(feature = "__dnssec")]
             Nsec {
                 ref query,
