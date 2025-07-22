@@ -305,7 +305,6 @@ impl NameServerStats {
             | ProtoErrorKind::QuinnTlsConfigError(_) => self.record_connection_failure(),
             #[cfg(feature = "__tls")]
             ProtoErrorKind::RustlsError(_) => self.record_connection_failure(),
-            ProtoErrorKind::NoError => self.record_rtt(rtt),
             _ => {}
         }
     }
