@@ -688,7 +688,7 @@ positive_max_ttl = 3600
 positive_max_ttl = 3599"#;
         let error = toml::from_str::<TtlConfig>(input).unwrap_err();
         assert!(
-            error.message().contains("duplicate key `default`"),
+            error.message().contains("duplicate key"),
             "wrong error message: {error}"
         );
 
@@ -701,7 +701,7 @@ positive_max_ttl = 3600
 negative_min_ttl = 60"#;
         let error = toml::from_str::<TtlConfig>(input).unwrap_err();
         assert!(
-            error.message().contains("duplicate key `OPENPGPKEY`"),
+            error.message().contains("duplicate key"),
             "wrong error message: {error}"
         );
 

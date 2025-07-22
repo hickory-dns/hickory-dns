@@ -274,7 +274,7 @@ define_test_config!(example_forwarder);
 struct TableMutator<'a> {
     original: &'a Table,
     yielded_base_case: bool,
-    key_iter: Keys<'a>,
+    key_iter: Keys<'a, String, Value>,
     nested_table_mutator: Option<(&'a str, Box<TableMutator<'a>>)>,
     nested_array_mutator: Option<(&'a str, Box<ArrayMutator<'a>>)>,
 }
