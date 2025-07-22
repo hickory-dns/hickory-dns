@@ -25,13 +25,11 @@ fn hermetic_allow_query_localhost_dnssec() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory treats REFUSED responses as no data responses"]
 fn allow_query_localhost_no_dnssec() -> Result<()> {
     compare("allow-query-localhost", false).map(drop)
 }
 
 #[test]
-#[ignore = "hickory treats REFUSED responses as no data responses"]
 fn hermetic_allow_query_localhost_no_dnssec() -> Result<()> {
     hermetic_compare("allow-query-localhost", false).map(drop)
 }
@@ -47,13 +45,11 @@ fn hermetic_allow_query_none_dnssec() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory treats REFUSED responses as no data responses"]
 fn allow_query_none_no_dnssec() -> Result<()> {
     compare("allow-query-none", false).map(drop)
 }
 
 #[test]
-#[ignore = "hickory treats REFUSED responses as no data responses"]
 fn hermetic_allow_query_none_no_dnssec() -> Result<()> {
     hermetic_compare("allow-query-none", false).map(drop)
 }
@@ -331,13 +327,11 @@ fn hermetic_not_auth_dnssec() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory treats REFUSED responses as no data responses"]
 fn not_auth_no_dnssec() -> Result<()> {
     compare("not-auth", false).map(drop)
 }
 
 #[test]
-#[ignore = "hickory treats REFUSED responses as no data responses"]
 fn hermetic_not_auth_no_dnssec() -> Result<()> {
     hermetic_compare("not-auth", false).map(drop)
 }

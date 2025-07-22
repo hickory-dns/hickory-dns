@@ -521,8 +521,8 @@ impl ProtoError {
         debug!("response: {}", *response);
 
         match response.response_code() {
+                Refused => Err(Self::from(ProtoErrorKind::RequestRefused)),
                 code @ ServFail
-                | code @ Refused
                 | code @ FormErr
                 | code @ NotImp
                 | code @ YXDomain
