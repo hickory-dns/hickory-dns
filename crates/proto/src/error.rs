@@ -187,10 +187,6 @@ pub enum ProtoErrorKind {
     #[error("no connections available")]
     NoConnections,
 
-    /// No error was specified
-    #[error("no error specified")]
-    NoError,
-
     /// Not all records were able to be written
     #[non_exhaustive]
     #[error("not all records could be written, wrote: {count}")]
@@ -788,7 +784,6 @@ impl Clone for ProtoErrorKind {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             NoConnections => NoConnections,
-            NoError => NoError,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             NoRecordsFound(ref inner) => NoRecordsFound(inner.clone()),
             RequestRefused => RequestRefused,
