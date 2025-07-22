@@ -920,9 +920,6 @@ fn verify_rrsig_with_keys(
     }
 }
 
-/// TODO: I've noticed upstream resolvers don't always return NSEC responses
-///   this causes bottom up evaluation to fail
-///
 /// at this point all of the message is verified.
 /// This is where NSEC and NSEC3 validation occurs
 fn check_nsec(
