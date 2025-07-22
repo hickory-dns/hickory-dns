@@ -92,7 +92,7 @@ bitflags = "2.4.1"
 bytes = "1"
 cfg-if = "1"
 clap = { version = "4.0", default-features = false }
-console = "0.15.0"
+console = "0.16"
 data-encoding = { version = "2.2.0", default-features = false }
 enum-as-inner = "0.6"
 hex = "0.4"
