@@ -35,17 +35,15 @@ fn get_levels(bin: &str, cli_level: Option<Level>) -> String {
 /// # Panic
 ///
 /// This will panic if the tracing subscriber can't be registered
-pub fn logger(bin: &str, level: Option<Level>) {
+pub fn logger(bin: &str, cli_level: Option<Level>) {
     // Setup tracing for logging based on input
     let subscriber = EnvFilter::builder()
         .with_default_directive(LevelFilter::OFF.into())
-        .parse(get_levels(bin, level))
+        .parse(get_levels(bin, cli_level))
         .expect("failed to configure tracing/logging");
 
-    let formatter = tracing_subscriber::fmt::layer().compact();
-
     tracing_subscriber::registry()
-        .with(formatter)
+        .with(tracing_subscriber::fmt::layer().compact())
         .with(subscriber)
         .init();
 }
