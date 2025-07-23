@@ -298,14 +298,13 @@ impl NameServerStats {
         match error.kind() {
             ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. }) => {
                 match response_code {
-                    ServFail | Refused => self.record_connection_failure(),
+                    ServFail => self.record_connection_failure(),
                     _ => self.record_rtt(rtt),
                 }
             }
-            ProtoErrorKind::Busy
-            | ProtoErrorKind::Io(_)
-            | ProtoErrorKind::Timeout
-            | ProtoErrorKind::RequestRefused => self.record_connection_failure(),
+            ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
+                self.record_connection_failure()
+            }
             #[cfg(feature = "__quic")]
             ProtoErrorKind::QuinnConfigError(_)
             | ProtoErrorKind::QuinnConnect(_)
