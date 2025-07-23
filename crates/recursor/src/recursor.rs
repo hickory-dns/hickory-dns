@@ -450,9 +450,9 @@ impl<P: ConnectionProvider> Recursor<P> {
                         .all_sections()
                         .all(|record| !record.proof().is_indeterminate());
 
-                    // if any cached record is indeterminate, fall through and perform
-                    // DNSSEC validation
-                    if none_indeterminate {
+                    // if the cached response is a referral, or if any record is indeterminate, fall
+                    // through and perform DNSSEC validation
+                    if response.authoritative() && none_indeterminate {
                         return Ok(super::maybe_strip_dnssec_records(
                             query_has_dnssec_ok,
                             response,

@@ -158,29 +158,32 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         cname_limit: Arc<AtomicU8>,
     ) -> Result<Message, Error> {
         if let Some(result) = self.response_cache.get(&query, request_time) {
-            #[cfg(feature = "metrics")]
-            self.cache_metrics.cache_hit_counter.increment(1);
+            let response = result?;
+            if response.authoritative() {
+                #[cfg(feature = "metrics")]
+                self.cache_metrics.cache_hit_counter.increment(1);
 
-            let response = self
-                .resolve_cnames(
-                    result?,
-                    query.clone(),
-                    request_time,
+                let response = self
+                    .resolve_cnames(
+                        response,
+                        query.clone(),
+                        request_time,
+                        query_has_dnssec_ok,
+                        depth,
+                        cname_limit,
+                    )
+                    .await?;
+
+                return Ok(super::maybe_strip_dnssec_records(
                     query_has_dnssec_ok,
-                    depth,
-                    cname_limit,
-                )
-                .await?;
-
-            return Ok(super::maybe_strip_dnssec_records(
-                query_has_dnssec_ok,
-                response,
-                query,
-            ));
-        } else {
-            #[cfg(feature = "metrics")]
-            self.cache_metrics.cache_miss_counter.increment(1);
+                    response,
+                    query,
+                ));
+            }
         }
+
+        #[cfg(feature = "metrics")]
+        self.cache_metrics.cache_miss_counter.increment(1);
 
         // Recursively search for authoritative name servers for the queried record to build an NS
         // pool to use for queries for a given zone. By searching for the query name, (e.g.

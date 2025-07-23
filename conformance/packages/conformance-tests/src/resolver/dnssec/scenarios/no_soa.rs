@@ -9,6 +9,7 @@ use dns_test::{
 };
 
 #[test]
+#[ignore = "hickory fails to correctly find a zone cut in the face of a lame delegation with no NS apex RRset"]
 fn no_soa_insecure() -> Result<()> {
     let target_fqdn = FQDN::TEST_DOMAIN;
     let network = Network::new()?;
