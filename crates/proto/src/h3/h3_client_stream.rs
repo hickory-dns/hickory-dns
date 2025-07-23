@@ -58,7 +58,12 @@ impl Display for H3ClientStream {
 impl H3ClientStream {
     /// Builder for H3ClientStream
     pub fn builder() -> H3ClientStreamBuilder {
-        H3ClientStreamBuilder::default()
+        H3ClientStreamBuilder {
+            crypto_config: client_config(),
+            transport_config: Arc::new(super::transport()),
+            bind_addr: None,
+            disable_grease: false,
+        }
     }
 
     async fn inner_send(
@@ -437,17 +442,6 @@ impl H3ClientStreamBuilder {
             shutdown_tx,
             is_shutdown: false,
         })
-    }
-}
-
-impl Default for H3ClientStreamBuilder {
-    fn default() -> Self {
-        Self {
-            crypto_config: client_config(),
-            transport_config: Arc::new(super::transport()),
-            bind_addr: None,
-            disable_grease: false,
-        }
     }
 }
 
