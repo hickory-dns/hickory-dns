@@ -20,7 +20,7 @@ fn get_levels(bin: &str, cli_level: Option<Level>) -> String {
     };
 
     let level_str = format!(
-        "{bin}={level},hickory_dns={level}",
+        "{bin}={level},hickory={level}",
         level = cli_level.to_string().to_lowercase(),
     );
 
