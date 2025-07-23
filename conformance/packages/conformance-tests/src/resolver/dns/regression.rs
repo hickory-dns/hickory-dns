@@ -7,7 +7,6 @@ use dns_test::{
 
 /// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3125
 #[test]
-#[ignore = "hickory returns no records because it reuses a referral response"]
 fn ns_query() -> Result<()> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
