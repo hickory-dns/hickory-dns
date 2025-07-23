@@ -278,7 +278,7 @@ impl QuicClientStreamBuilder {
         let crypto_config = if let Some(crypto_config) = self.crypto_config {
             crypto_config
         } else {
-            client_config()
+            client_config()?
         };
 
         let quic_connection = connect_quic(

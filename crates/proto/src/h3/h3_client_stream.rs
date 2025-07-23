@@ -403,7 +403,10 @@ impl H3ClientStreamBuilder {
             name_server,
             server_name.clone(),
             ALPN_H3,
-            self.crypto_config.unwrap_or_else(|| client_config()),
+            match self.crypto_config {
+                Some(crypto_config) => crypto_config,
+                None => client_config()?,
+            },
             self.transport_config,
             endpoint,
         )
@@ -504,7 +507,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -572,7 +575,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -644,7 +647,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let connect = H3ClientStream::builder()
@@ -708,7 +711,7 @@ mod tests {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
-        let mut client_config = client_config();
+        let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let h3 = H3ClientStream::builder()

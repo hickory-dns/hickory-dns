@@ -795,7 +795,7 @@ mod tests {
     }
 
     fn client_config_h2() -> ClientConfig {
-        let mut config = client_config();
+        let mut config = client_config().unwrap();
         config.alpn_protocols = vec![ALPN_H2.to_vec()];
         config
     }

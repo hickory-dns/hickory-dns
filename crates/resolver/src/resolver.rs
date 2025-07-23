@@ -461,7 +461,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             options.clone(),
             Arc::new(match tls {
                 Some(config) => config,
-                None => TlsConfig::new(),
+                None => TlsConfig::new()?,
             }),
             provider,
         );

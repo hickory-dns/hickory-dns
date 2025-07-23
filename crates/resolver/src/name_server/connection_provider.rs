@@ -262,11 +262,11 @@ pub struct TlsConfig {
 
 impl TlsConfig {
     /// Create a new `TlsConfig` with default settings.
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Result<Self, ProtoError> {
+        Ok(Self {
             #[cfg(feature = "__tls")]
-            config: client_config(),
-        }
+            config: client_config()?,
+        })
     }
 }
 
@@ -343,7 +343,7 @@ mod tests {
         subscribe();
 
         // AdGuard requires SNI.
-        let config = client_config();
+        let config = client_config().unwrap();
 
         let group = ServerGroup {
             ips: &[

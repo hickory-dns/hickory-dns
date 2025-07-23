@@ -732,7 +732,7 @@ mod tests {
             Arc::new(HashSet::new()),
             TtlConfig::default(),
             false,
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
         );
 
