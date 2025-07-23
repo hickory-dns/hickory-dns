@@ -434,9 +434,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let query = Query::query(zone.clone(), RecordType::NS);
 
         // Query for nameserver records via the pool for the parent zone.
-        let cached_response = self.filtered_cache_lookup(&query, request_time, false);
-        let lookup_res = match cached_response {
-            Some(res) => res,
+        let lookup_res = match self.response_cache.get(&query, request_time) {
+            Some(Ok(response)) => {
+                debug!("cached data {response:?}");
+                Ok(response)
+            }
+            Some(Err(e)) => Err(e.into()),
             None => {
                 self.lookup(query, nameserver_pool.clone(), request_time)
                     .await
