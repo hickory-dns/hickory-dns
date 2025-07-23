@@ -60,7 +60,7 @@ use hickory_proto::{
 /// This utility directly uses the hickory-client to perform actions with a single
 /// DNS server
 #[derive(Debug, Parser)]
-#[clap(name = "trust dns client", version)]
+#[clap(name = "hickory dns client", version)]
 struct Opts {
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
     #[clap(short = 'n', long)]
