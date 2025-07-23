@@ -505,7 +505,7 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
         .expect("tls_dns_name is required tls connections");
     println!("; using tls:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config();
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -554,7 +554,7 @@ async fn https(
         .expect("http_endpoint is required for https connections");
     println!("; using https:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config();
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -595,7 +595,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required quic connections");
     println!("; using quic:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config();
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }
@@ -637,7 +637,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("http_endpoint is required for H3 connections");
     println!("; using h3:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config();
+    let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
     }

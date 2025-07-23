@@ -115,7 +115,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
         &config,
         connection_config,
         Arc::new(options),
-        Arc::new(TlsConfig::new()),
+        Arc::new(TlsConfig::new().unwrap()),
         client,
         conn_provider,
     )

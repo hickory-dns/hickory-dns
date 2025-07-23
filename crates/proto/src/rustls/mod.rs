@@ -27,13 +27,13 @@ pub use self::tls_client_stream::{
 pub use self::tls_stream::{TlsStream, tls_connect, tls_connect_with_bind_addr, tls_from_stream};
 
 /// Make a new [`ClientConfig`] with the default settings
-pub fn client_config() -> ClientConfig {
+pub fn client_config() -> Result<ClientConfig, rustls::Error> {
     let builder = ClientConfig::builder_with_provider(Arc::new(default_provider()))
         .with_safe_default_protocol_versions()
         .unwrap();
 
     #[cfg(feature = "rustls-platform-verifier")]
-    let builder = builder.with_platform_verifier();
+    let builder = builder.with_platform_verifier()?;
     #[cfg(not(feature = "rustls-platform-verifier"))]
     let builder = builder.with_root_certificates({
         #[cfg_attr(not(feature = "webpki-roots"), allow(unused_mut))]
@@ -43,7 +43,7 @@ pub fn client_config() -> ClientConfig {
         root_store
     });
 
-    builder.with_no_client_auth()
+    Ok(builder.with_no_client_auth())
 }
 
 /// Instantiate a new [`CryptoProvider`] for use with rustls

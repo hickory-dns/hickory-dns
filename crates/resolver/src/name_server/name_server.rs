@@ -491,7 +491,7 @@ mod tests {
             &config,
             connection_config,
             Arc::new(ResolverOpts::default()),
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
         );
 
@@ -522,7 +522,7 @@ mod tests {
             &config,
             connection_config,
             Arc::new(options),
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
         );
 
@@ -589,7 +589,7 @@ mod tests {
             &config,
             connection_config,
             Arc::new(resolver_opts),
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new().unwrap()),
             provider,
         );
 

@@ -208,7 +208,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             Arc::new(avoid_local_udp_ports),
             ttl_config,
             case_randomization,
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new()?),
             conn_provider,
         );
 

@@ -271,7 +271,7 @@ mod tests {
         let pool = NameServerPool::tokio_from_config(
             &resolver_config,
             Arc::new(ResolverOpts::default()),
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::new(),
         );
 
@@ -327,7 +327,7 @@ mod tests {
             &tcp,
             connection_config,
             opts.clone(),
-            Arc::new(TlsConfig::new()),
+            Arc::new(TlsConfig::new().unwrap()),
             conn_provider,
         );
         let name_servers = vec![name_server];
