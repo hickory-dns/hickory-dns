@@ -335,7 +335,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Ok(response)
     }
 
-    /// Retrieve a response from the cache, optionally ignoring responses that lack DNSSEC records.
+    /// Retrieve a response from the cache, filtering out unsuitable cache entries.
+    ///
+    /// Any response that does not have the "Authoritative Answer" flag set is ignored.
+    ///
+    /// If `expect_dnssec_in_cached_response` is set, responses that lack DNSSEC records will be
+    /// ignored.
     fn filtered_cache_lookup(
         &self,
         query: &Query,
@@ -348,13 +353,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             None => return None,
         };
 
+        if !response.authoritative() {
+            return None;
+        }
+
         // We may have cached a referral (non-authoritative NS+A records) from a parent zone
         // while looking for the nameserver to send the query to. That parent zone response
         // likely won't include RRSIG records. If DO=1 we want to fall through and send the
         // query to the child zone to retrieve the missing RRSIG record.
-        //
-        // TODO(#3008): We should examine the authoritative answer flag in responses, and track
-        // whether cached responses are authoritative or not.
 
         #[cfg(feature = "__dnssec")]
         let any_matching_rrsig = response.all_sections().any(|record| {
