@@ -128,21 +128,9 @@ struct Opts {
     #[clap(long)]
     tcp: bool,
 
-    /// Enable debug and all logging
-    #[clap(long)]
-    debug: bool,
-
-    /// Enable info + warning + error logging
-    #[clap(long)]
-    info: bool,
-
-    /// Enable warning + error logging
-    #[clap(long)]
-    warn: bool,
-
-    /// Enable error logging
-    #[clap(long)]
-    error: bool,
+    /// Configure log verbosity.
+    #[clap(flatten)]
+    log_config: hickory_util::LogConfig,
 
     /// Set the time interval between requests (in seconds, useful with --file)
     #[clap(long, default_value = "1.0")]
@@ -249,19 +237,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::parse();
 
     // enable logging early
-    let log_level = if opts.debug {
-        Some(tracing::Level::DEBUG)
-    } else if opts.info {
-        Some(tracing::Level::INFO)
-    } else if opts.warn {
-        Some(tracing::Level::WARN)
-    } else if opts.error {
-        Some(tracing::Level::ERROR)
-    } else {
-        None
-    };
-
-    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), opts.log_config.level());
 
     // read system configuration
     let (sys_config, sys_options): (Option<ResolverConfig>, Option<ResolverOpts>) = if opts.system {
