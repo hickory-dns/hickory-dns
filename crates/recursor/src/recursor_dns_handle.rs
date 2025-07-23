@@ -369,12 +369,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         #[cfg(not(feature = "__dnssec"))]
         let any_matching_rrsig = false;
 
-        if !expect_dnssec_in_cached_response || any_matching_rrsig {
-            debug!("cached data {response:?}");
-            Some(Ok(response))
-        } else {
-            None
+        if expect_dnssec_in_cached_response && !any_matching_rrsig {
+            return None;
         }
+
+        debug!("cached data {response:?}");
+        Some(Ok(response))
     }
 
     async fn lookup(
