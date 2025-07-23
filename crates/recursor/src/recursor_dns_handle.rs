@@ -562,11 +562,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
     }
 
-    #[cfg(feature = "__dnssec")]
-    pub(crate) fn response_cache(&self) -> &ResponseCache {
-        &self.response_cache
-    }
-
     #[cfg(all(feature = "__dnssec", feature = "metrics"))]
     pub(crate) fn cache_metrics(&self) -> &RecursorCacheMetrics {
         &self.cache_metrics

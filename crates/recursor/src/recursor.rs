@@ -206,7 +206,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             allow_servers,
             deny_servers,
             Arc::new(avoid_local_udp_ports),
-            ttl_config,
+            ttl_config.clone(),
             case_randomization,
             Arc::new(TlsConfig::new()?),
             conn_provider,
@@ -224,7 +224,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                 nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit,
             } => {
-                let response_cache = handle.response_cache().clone();
+                let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config);
                 let trust_anchor = match trust_anchor {
                     Some(anchor) if anchor.is_empty() => {
                         return Err(Error::from("trust anchor must not be empty"));
@@ -234,7 +234,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                 };
 
                 RecursorMode::Validating {
-                    response_cache,
+                    validated_response_cache,
                     #[cfg(feature = "metrics")]
                     cache_metrics: handle.cache_metrics().clone(),
                     handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
@@ -436,11 +436,11 @@ impl<P: ConnectionProvider> Recursor<P> {
             #[cfg(feature = "__dnssec")]
             RecursorMode::Validating {
                 handle,
-                response_cache,
+                validated_response_cache,
                 #[cfg(feature = "metrics")]
                 cache_metrics,
             } => {
-                if let Some(Ok(response)) = response_cache.get(&query, request_time) {
+                if let Some(Ok(response)) = validated_response_cache.get(&query, request_time) {
                     // Increment metrics on cache hits only. We will check the cache a second time
                     // inside resolve(), thus we only track cache misses there.
                     #[cfg(feature = "metrics")]
@@ -507,7 +507,11 @@ impl<P: ConnectionProvider> Recursor<P> {
                     Err(Error::from(ProtoError::from(no_records)))
                 } else {
                     let message = response.into_message();
-                    response_cache.insert(query.clone(), Ok(message.clone()), request_time);
+                    validated_response_cache.insert(
+                        query.clone(),
+                        Ok(message.clone()),
+                        request_time,
+                    );
                     Ok(super::maybe_strip_dnssec_records(
                         query_has_dnssec_ok,
                         message,
@@ -527,8 +531,8 @@ enum RecursorMode<P: ConnectionProvider> {
     #[cfg(feature = "__dnssec")]
     Validating {
         handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
-        // This is a handle to the response cache in `RecursorDnsHandle`, not a whole separate cache.
-        response_cache: ResponseCache,
+        // This is a separate response cache from that inside `RecursorDnsHandle`.
+        validated_response_cache: ResponseCache,
         #[cfg(feature = "metrics")]
         cache_metrics: RecursorCacheMetrics,
     },
