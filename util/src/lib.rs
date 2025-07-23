@@ -82,18 +82,18 @@ pub struct LogConfig {
 
 impl LogConfig {
     pub fn level(&self) -> Option<Level> {
-        if self.trace {
-            Some(Level::TRACE)
+        Some(if self.trace {
+            Level::TRACE
         } else if self.debug {
-            Some(Level::DEBUG)
+            Level::DEBUG
         } else if self.info {
-            Some(Level::INFO)
+            Level::INFO
         } else if self.warn {
-            Some(Level::WARN)
+            Level::WARN
         } else if self.error {
-            Some(Level::ERROR)
+            Level::ERROR
         } else {
-            None
-        }
+            return None;
+        })
     }
 }
