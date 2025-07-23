@@ -59,6 +59,10 @@ pub fn logger(bin: &str, level: Option<Level>) {
 /// Common CLI configuration for tracing log levels
 #[derive(Debug, Parser)]
 pub struct LogConfig {
+    /// Enable trace + debug + info + warning + error logging
+    #[clap(long)]
+    trace: bool,
+
     /// Enable debug + info + warning + error logging
     #[clap(long)]
     debug: bool,
@@ -78,7 +82,9 @@ pub struct LogConfig {
 
 impl LogConfig {
     pub fn level(&self) -> Option<Level> {
-        if self.debug {
+        if self.trace {
+            Some(Level::TRACE)
+        } else if self.debug {
             Some(Level::DEBUG)
         } else if self.info {
             Some(Level::INFO)
