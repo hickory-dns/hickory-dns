@@ -21,7 +21,7 @@ use tokio::time::{Duration, Instant};
 use tracing::debug;
 
 use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts};
-use crate::name_server::connection_provider::ConnectionProvider;
+use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
     op::ResponseCode,
@@ -40,6 +40,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         server_config: &NameServerConfig,
         config: ConnectionConfig,
         options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
         connection_provider: P,
     ) -> Self {
         Self {
@@ -47,6 +48,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 server_config,
                 config,
                 options,
+                tls,
                 None,
                 connection_provider,
             )),
@@ -58,6 +60,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         server_config: &NameServerConfig,
         config: ConnectionConfig,
         options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
         client: P::Conn,
         connection_provider: P,
     ) -> Self {
@@ -66,6 +69,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 server_config,
                 config,
                 options,
+                tls,
                 Some(client),
                 connection_provider,
             )),
@@ -133,6 +137,7 @@ struct NameServerState<P: ConnectionProvider> {
     ip: IpAddr,
     config: ConnectionConfig,
     options: Arc<ResolverOpts>,
+    tls: Arc<TlsConfig>,
     client: AsyncMutex<Option<P::Conn>>,
     status: AtomicU8,
     stats: NameServerStats,
@@ -145,6 +150,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
         server_config: &NameServerConfig,
         config: ConnectionConfig,
         options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
         client: Option<P::Conn>,
         connection_provider: P,
     ) -> Self {
@@ -152,6 +158,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
             ip: server_config.ip,
             config,
             options,
+            tls,
             client: AsyncMutex::new(client),
             status: AtomicU8::new(Status::Init.into()),
             stats: NameServerStats::default(),
@@ -209,6 +216,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 self.ip,
                 &self.config,
                 &self.options,
+                &self.tls,
             )?)
             .await?;
 
@@ -482,6 +490,7 @@ mod tests {
             &config,
             connection_config,
             Arc::new(ResolverOpts::default()),
+            Arc::new(TlsConfig::new()),
             TokioRuntimeProvider::default(),
         );
 
@@ -512,6 +521,7 @@ mod tests {
             &config,
             connection_config,
             Arc::new(options),
+            Arc::new(TlsConfig::new()),
             TokioRuntimeProvider::default(),
         );
 
@@ -578,6 +588,7 @@ mod tests {
             &config,
             connection_config,
             Arc::new(resolver_opts),
+            Arc::new(TlsConfig::new()),
             provider,
         );
 

@@ -21,7 +21,7 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
-use crate::name_server::connection_provider::ConnectionProvider;
+use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::NameServer;
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer, Protocol};
@@ -37,15 +37,17 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
-        Self::from_config(config.name_servers(), options, conn_provider)
+        Self::from_config(config.name_servers(), options, tls, conn_provider)
     }
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         name_servers: &[NameServerConfig],
         options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
         let mut servers = Vec::with_capacity(name_servers.len());
@@ -55,6 +57,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                     server,
                     conn.clone(),
                     options.clone(),
+                    tls.clone(),
                     conn_provider.clone(),
                 ));
             }
@@ -268,6 +271,7 @@ mod tests {
         let pool = NameServerPool::tokio_from_config(
             &resolver_config,
             Arc::new(ResolverOpts::default()),
+            Arc::new(TlsConfig::new()),
             TokioRuntimeProvider::new(),
         );
 
@@ -319,7 +323,13 @@ mod tests {
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
         let connection_config = tcp.connections.first().unwrap().clone();
-        let name_server = NameServer::new(&tcp, connection_config, opts.clone(), conn_provider);
+        let name_server = NameServer::new(
+            &tcp,
+            connection_config,
+            opts.clone(),
+            Arc::new(TlsConfig::new()),
+            conn_provider,
+        );
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(name_servers.clone(), opts);
 
@@ -364,9 +374,10 @@ mod tests {
         pub(crate) fn tokio_from_config(
             config: &ResolverConfig,
             options: Arc<ResolverOpts>,
+            tls: Arc<TlsConfig>,
             provider: TokioRuntimeProvider,
         ) -> Self {
-            Self::from_config_with_provider(config, options, provider)
+            Self::from_config_with_provider(config, options, tls, provider)
         }
     }
 }

@@ -36,7 +36,7 @@ static GLOBAL_DNS_RESOLVER: Lazy<TokioResolver> = Lazy::new(|| {
             {
                 // use the system resolver configuration
                 TokioResolver::builder(TokioRuntimeProvider::default())
-                    .map(|builder| builder.build())
+                    .map(|builder| builder.build().unwrap())
             }
 
             // For other operating systems, we can use one of the preconfigured definitions

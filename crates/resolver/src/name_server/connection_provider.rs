@@ -37,6 +37,8 @@ use crate::proto::{
     udp::UdpClientStream,
     xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
 };
+#[cfg(feature = "__tls")]
+use hickory_proto::rustls::client_config;
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
 /// This trait is designed for customization.
@@ -54,6 +56,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         ip: IpAddr,
         config: &ConnectionConfig,
         options: &ResolverOpts,
+        tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error>;
 }
 
@@ -118,6 +121,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
         ip: IpAddr,
         config: &ConnectionConfig,
         options: &ResolverOpts,
+        #[cfg_attr(not(feature = "__tls"), allow(unused_variables))] tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error> {
         let remote_addr = SocketAddr::new(ip, config.port);
         let dns_connect = match (&config.protocol, self.quic_binder()) {
@@ -157,7 +161,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     ));
                 };
 
-                let mut tls_config = options.tls_config.clone();
+                let mut tls_config = tls.config.clone();
                 // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
                 tls_config.enable_sni = false;
 
@@ -176,7 +180,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             (ProtocolConfig::Https { server_name, path }, _) => {
                 Connecting::Https(DnsExchange::connect(HttpsClientConnect::new(
                     self.connect_tcp(remote_addr, None, None),
-                    Arc::new(options.tls_config.clone()),
+                    Arc::new(tls.config.clone()),
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
@@ -191,7 +195,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Connecting::Quic(DnsExchange::connect(
                     QuicClientStream::builder()
-                        .crypto_config(options.tls_config.clone())
+                        .crypto_config(tls.config.clone())
                         .build_with_future(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -215,7 +219,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Connecting::H3(DnsExchange::connect(
                     H3ClientStream::builder()
-                        .crypto_config(options.tls_config.clone())
+                        .crypto_config(tls.config.clone())
                         .disable_grease(*disable_grease)
                         .build_with_future(
                             binder.bind_quic(bind_addr, remote_addr)?,
@@ -245,6 +249,24 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             connect: dns_connect,
             spawner: self.create_handle(),
         })
+    }
+}
+
+/// TLS configuration for the connection provider.
+#[cfg_attr(not(feature = "__tls"), allow(missing_copy_implementations))]
+pub struct TlsConfig {
+    /// The TLS configuration to use for secure connections.
+    #[cfg(feature = "__tls")]
+    pub(crate) config: rustls::ClientConfig,
+}
+
+impl TlsConfig {
+    /// Create a new `TlsConfig` with default settings.
+    pub fn new() -> Self {
+        Self {
+            #[cfg(feature = "__tls")]
+            config: client_config(),
+        }
     }
 }
 
@@ -297,7 +319,7 @@ mod tests {
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         // Prefer IPv4 addresses for this test.
         builder.options_mut().server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
-        let resolver = builder.build();
+        let resolver = builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")
@@ -342,11 +364,11 @@ mod tests {
         let mut resolver_builder =
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
-        resolver_builder.options_mut().tls_config = tls_config;
         // Prefer IPv4 addresses for this test.
         resolver_builder.options_mut().server_ordering_strategy =
             ServerOrderingStrategy::UserProvidedOrder;
-        let resolver = resolver_builder.build();
+        resolver_builder = resolver_builder.with_tls_config(tls_config);
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")
@@ -383,7 +405,7 @@ mod tests {
         let mut resolver_builder =
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")
@@ -420,7 +442,7 @@ mod tests {
         let mut resolver_builder =
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")

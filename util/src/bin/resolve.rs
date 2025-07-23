@@ -310,7 +310,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut resolver_builder =
         TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
     *resolver_builder.options_mut() = options;
-    let resolver_arc = Arc::new(resolver_builder.build());
+    let resolver_arc = Arc::new(resolver_builder.build()?);
 
     if let Some(domainname) = &opts.domainname {
         log_query(domainname, opts.ty, &name_servers, &opts);

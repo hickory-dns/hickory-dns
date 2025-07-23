@@ -24,6 +24,7 @@ fn run() {
             TokioResolver::builder(TokioRuntimeProvider::default())
                 .expect("failed to create resolver")
                 .build()
+                .unwrap()
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

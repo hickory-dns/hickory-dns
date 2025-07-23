@@ -16,7 +16,6 @@ use futures_util::{
     FutureExt, Stream,
     future::{self, BoxFuture},
 };
-use hickory_proto::rr::rdata;
 use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
@@ -25,12 +24,13 @@ use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
+use crate::name_server::TlsConfig;
 use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::Query;
 use crate::proto::rr::domain::usage::ONION;
-use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
+use crate::proto::rr::{IntoName, Name, RData, Record, RecordType, rdata};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, RetryDnsHandle};
@@ -111,6 +111,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             config,
             options: ResolverOpts::default(),
             provider,
+            tls: None,
             #[cfg(feature = "__dnssec")]
             trust_anchor: None,
             #[cfg(feature = "__dnssec")]
@@ -375,6 +376,7 @@ pub struct ResolverBuilder<P> {
     options: ResolverOpts,
     provider: P,
 
+    tls: Option<TlsConfig>,
     #[cfg(feature = "__dnssec")]
     trust_anchor: Option<Arc<TrustAnchors>>,
     #[cfg(feature = "__dnssec")]
@@ -409,6 +411,13 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         self
     }
 
+    /// Set the TLS configuration to be used by the resolver.
+    #[cfg(feature = "__tls")]
+    pub fn with_tls_config(mut self, config: rustls::ClientConfig) -> Self {
+        self.tls = Some(TlsConfig { config });
+        self
+    }
+
     /// Set maximum limits on NSEC3 additional iterations.
     ///
     /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
@@ -426,12 +435,13 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
     }
 
     /// Construct the resolver.
-    pub fn build(self) -> Resolver<P> {
+    pub fn build(self) -> Result<Resolver<P>, ProtoError> {
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
         let Self {
             config,
             mut options,
             provider,
+            tls,
             #[cfg(feature = "__dnssec")]
             trust_anchor,
             #[cfg(feature = "__dnssec")]
@@ -446,7 +456,15 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         }
 
         let options = Arc::new(options);
-        let pool = NameServerPool::from_config_with_provider(&config, options.clone(), provider);
+        let pool = NameServerPool::from_config_with_provider(
+            &config,
+            options.clone(),
+            Arc::new(match tls {
+                Some(config) => config,
+                None => TlsConfig::new(),
+            }),
+            provider,
+        );
         let client = RetryDnsHandle::new(pool, options.attempts);
 
         #[cfg(feature = "__dnssec")]
@@ -471,12 +489,12 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             ResolveHosts::Never => Hosts::default(),
         });
 
-        Resolver {
+        Ok(Resolver {
             config,
             options,
             client_cache,
             hosts,
-        }
+        })
     }
 }
 
@@ -626,7 +644,9 @@ pub(crate) mod testing {
 
     /// Test IP lookup from URLs.
     pub(crate) async fn lookup_test<R: ConnectionProvider>(config: ResolverConfig, handle: R) {
-        let resolver = Resolver::<R>::builder_with_config(config, handle).build();
+        let resolver = Resolver::<R>::builder_with_config(config, handle)
+            .build()
+            .unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")
@@ -640,7 +660,8 @@ pub(crate) mod testing {
     pub(crate) async fn ip_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver =
             Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
-                .build();
+                .build()
+                .unwrap();
 
         let response = resolver
             .lookup_ip("10.1.0.2")
@@ -673,7 +694,8 @@ pub(crate) mod testing {
         use std::thread;
         let resolver =
             Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
-                .build();
+                .build()
+                .unwrap();
 
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
@@ -722,7 +744,7 @@ pub(crate) mod testing {
             Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().validate = true;
         resolver_builder.options_mut().try_tcp_on_error = true;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("cloudflare.com.")
@@ -750,7 +772,7 @@ pub(crate) mod testing {
             Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().validate = true;
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
         let response = resolver.lookup_ip("hickory-dns.org.").await;
@@ -770,7 +792,8 @@ pub(crate) mod testing {
     pub(crate) async fn system_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::builder(handle)
             .expect("failed to create resolver")
-            .build();
+            .build()
+            .unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")
@@ -797,7 +820,8 @@ pub(crate) mod testing {
     pub(crate) async fn hosts_lookup_test<R: ConnectionProvider>(handle: R) {
         let resolver = Resolver::<R>::builder(handle)
             .expect("failed to create resolver")
-            .build();
+            .build()
+            .unwrap();
 
         let response = resolver
             .lookup_ip("a.com")
@@ -830,7 +854,7 @@ pub(crate) mod testing {
             handle,
         );
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("www.example.com.")
@@ -861,7 +885,7 @@ pub(crate) mod testing {
         // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
         resolver_builder.options_mut().ndots = 2;
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         // notice this is not a FQDN, no trailing dot.
         let response = resolver
@@ -893,7 +917,7 @@ pub(crate) mod testing {
         // matches kubernetes default
         resolver_builder.options_mut().ndots = 5;
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         // notice this is not a FQDN, no trailing dot.
         let response = resolver
@@ -924,7 +948,7 @@ pub(crate) mod testing {
             handle,
         );
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         // notice no dots, should not trigger ndots rule
         let response = resolver
@@ -956,7 +980,7 @@ pub(crate) mod testing {
             handle,
         );
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         // notice no dots, should not trigger ndots rule
         let response = resolver
@@ -974,7 +998,8 @@ pub(crate) mod testing {
     pub(crate) async fn idna_test<R: ConnectionProvider>(handle: R) {
         let resolver =
             Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
-                .build();
+                .build()
+                .unwrap();
 
         let response = resolver
             .lookup_ip("中国.icom.museum.")
@@ -991,7 +1016,7 @@ pub(crate) mod testing {
         let mut resolver_builder =
             Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4thenIpv6;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("localhost")
@@ -1007,7 +1032,7 @@ pub(crate) mod testing {
         let mut resolver_builder =
             Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv6thenIpv4;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("localhost")
@@ -1029,7 +1054,7 @@ pub(crate) mod testing {
         let mut resolver_builder = Resolver::<R>::builder_with_config(config, handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
         resolver_builder.options_mut().ndots = 5;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("198.51.100.35")
@@ -1051,7 +1076,7 @@ pub(crate) mod testing {
         let mut resolver_builder = Resolver::<R>::builder_with_config(config, handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
         resolver_builder.options_mut().ndots = 5;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("2001:db8::c633:6423")
@@ -1073,7 +1098,7 @@ pub(crate) mod testing {
         let mut resolver_builder = Resolver::<R>::builder_with_config(config, handle);
         resolver_builder.options_mut().ip_strategy = LookupIpStrategy::Ipv4Only;
         resolver_builder.options_mut().ndots = 5;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().unwrap();
 
         let response = resolver
             .lookup_ip("2001:db8::198.51.100.35")
@@ -1291,7 +1316,9 @@ mod tests {
         let handle = TokioRuntimeProvider::default();
         let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_ascii("example.com.").unwrap());
-        let resolver = Resolver::builder_with_config(config, handle).build();
+        let resolver = Resolver::builder_with_config(config, handle)
+            .build()
+            .unwrap();
 
         assert_eq!(resolver.build_names(Name::from_str("").unwrap()).len(), 2);
         assert_eq!(resolver.build_names(Name::from_str(".").unwrap()).len(), 1);
@@ -1310,7 +1337,9 @@ mod tests {
         let handle = TokioRuntimeProvider::default();
         let mut config = ResolverConfig::udp_and_tcp(&GOOGLE);
         config.add_search(Name::from_ascii("example.com.").unwrap());
-        let resolver = Resolver::builder_with_config(config, handle).build();
+        let resolver = Resolver::builder_with_config(config, handle)
+            .build()
+            .unwrap();
         let tor_address = [
             Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion")
                 .unwrap(),
