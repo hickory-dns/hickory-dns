@@ -33,7 +33,6 @@ use rustls::{
     client::danger::{HandshakeSignatureValid, ServerCertVerified},
     pki_types::{CertificateDer, ServerName, UnixTime},
 };
-use tracing::Level;
 
 use hickory_client::client::{Client, ClientHandle};
 #[cfg(any(feature = "__tls", feature = "__https"))]
@@ -96,21 +95,9 @@ struct Opts {
     #[clap(long, default_value_t = DNSClass::IN)]
     class: DNSClass,
 
-    /// Enable debug and all logging
-    #[clap(long)]
-    debug: bool,
-
-    /// Enable info + warning + error logging
-    #[clap(long)]
-    info: bool,
-
-    /// Enable warning + error logging
-    #[clap(long)]
-    warn: bool,
-
-    /// Enable error logging
-    #[clap(long)]
-    error: bool,
+    /// Configure log verbosity.
+    #[clap(flatten)]
+    log_config: hickory_util::LogConfig,
 
     /// Command to execute
     #[clap(subcommand)]
@@ -432,19 +419,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::parse();
 
     // enable logging early
-    let log_level = if opts.debug {
-        Some(Level::DEBUG)
-    } else if opts.info {
-        Some(Level::INFO)
-    } else if opts.warn {
-        Some(Level::WARN)
-    } else if opts.error {
-        Some(Level::ERROR)
-    } else {
-        None
-    };
-
-    hickory_util::logger(env!("CARGO_BIN_NAME"), log_level);
+    hickory_util::logger(env!("CARGO_BIN_NAME"), opts.log_config.level());
 
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
     let provider = TokioRuntimeProvider::new();
