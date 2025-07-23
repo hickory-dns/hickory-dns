@@ -227,9 +227,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         debug!("found zone {} for {query}", ns.zone());
 
-        let response = self
-            .lookup(query.clone(), ns, request_time, query_has_dnssec_ok)
-            .await?;
+        let cached_response = self.filtered_cache_lookup(&query, request_time, query_has_dnssec_ok);
+        let response = match cached_response {
+            Some(result) => result?,
+            None => self.lookup(query.clone(), ns, request_time).await?,
+        };
 
         let response = self
             .resolve_cnames(
@@ -333,15 +335,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Ok(response)
     }
 
-    async fn lookup(
+    /// Retrieve a response from the cache, optionally ignoring responses that lack DNSSEC records.
+    fn filtered_cache_lookup(
         &self,
-        query: Query,
-        ns: RecursorPool<P>,
+        query: &Query,
         now: Instant,
         expect_dnssec_in_cached_response: bool,
-    ) -> Result<Message, Error> {
-        if let Some(response_res) = self.response_cache.get(&query, now) {
-            let response = response_res?;
+    ) -> Option<Result<Message, Error>> {
+        if let Some(response_res) = self.response_cache.get(query, now) {
+            let response = match response_res {
+                Ok(response) => response,
+                Err(e) => return Some(Err(e.into())),
+            };
 
             // We may have cached a referral (non-authoritative NS+A records) from a parent zone
             // while looking for the nameserver to send the query to. That parent zone response
@@ -366,10 +371,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             if !expect_dnssec_in_cached_response || any_matching_rrsig {
                 debug!("cached data {response:?}");
-                return Ok(response);
+                return Some(Ok(response));
             }
         }
+        None
+    }
 
+    async fn lookup(
+        &self,
+        query: Query,
+        ns: RecursorPool<P>,
+        now: Instant,
+    ) -> Result<Message, Error> {
         let response_future = ns.lookup(query.clone(), self.security_aware);
 
         // TODO: we are only expecting one response
@@ -421,9 +434,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let query = Query::query(zone.clone(), RecordType::NS);
 
         // Query for nameserver records via the pool for the parent zone.
-        let lookup_res = self
-            .lookup(query, nameserver_pool.clone(), request_time, false)
-            .await;
+        let cached_response = self.filtered_cache_lookup(&query, request_time, false);
+        let lookup_res = match cached_response {
+            Some(res) => res,
+            None => {
+                self.lookup(query, nameserver_pool.clone(), request_time)
+                    .await
+            }
+        };
         let response = match lookup_res {
             Ok(response) => response,
             // Short-circuit on NXDOMAIN, per RFC 8020.
