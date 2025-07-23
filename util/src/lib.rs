@@ -12,27 +12,21 @@ use tracing::Level;
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-fn get_env() -> String {
-    env::var("RUST_LOG").unwrap_or_default()
-}
+fn get_levels(bin: &str, cli_level: Option<Level>) -> String {
+    let env_level = env::var("RUST_LOG").ok();
 
-fn get_levels<T: ToString>(bin: &str, level: Option<T>) -> String {
-    let hickory_crates = level.map(|level| {
-        format!(
-            "{bin}={level},hickory_dns={level}",
-            bin = bin,
-            level = level.to_string().to_lowercase(),
-        )
-    });
+    let Some(cli_level) = cli_level else {
+        return env_level.unwrap_or_default();
+    };
 
-    if let Some(hickory_crates) = hickory_crates {
-        format!(
-            "{hickory_crates},{env}",
-            hickory_crates = hickory_crates,
-            env = get_env()
-        )
-    } else {
-        get_env()
+    let level_str = format!(
+        "{bin}={level},hickory_dns={level}",
+        level = cli_level.to_string().to_lowercase(),
+    );
+
+    match env_level {
+        Some(env_level) => format!("{level_str},{env_level}"),
+        None => level_str,
     }
 }
 
