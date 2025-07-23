@@ -53,7 +53,7 @@ impl H3ClientStream {
     /// Builder for H3ClientStream
     pub fn builder() -> H3ClientStreamBuilder {
         H3ClientStreamBuilder {
-            crypto_config: client_config(),
+            crypto_config: None,
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
             disable_grease: false,
@@ -298,7 +298,7 @@ impl Display for H3ClientStream {
 /// A H3 connection builder for DNS-over-HTTP/3
 #[derive(Clone)]
 pub struct H3ClientStreamBuilder {
-    crypto_config: rustls::ClientConfig,
+    crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
     disable_grease: bool,
@@ -307,7 +307,7 @@ pub struct H3ClientStreamBuilder {
 impl H3ClientStreamBuilder {
     /// Constructs a new H3ClientStreamBuilder with the associated ClientConfig
     pub fn crypto_config(mut self, crypto_config: rustls::ClientConfig) -> Self {
-        self.crypto_config = crypto_config;
+        self.crypto_config = Some(crypto_config);
         self
     }
 
@@ -403,7 +403,7 @@ impl H3ClientStreamBuilder {
             name_server,
             server_name.clone(),
             ALPN_H3,
-            self.crypto_config,
+            self.crypto_config.unwrap_or_else(|| client_config()),
             self.transport_config,
             endpoint,
         )
