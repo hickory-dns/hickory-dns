@@ -96,7 +96,9 @@ async fn run() {
         ResolverConfig::udp_and_tcp(&GOOGLE),
         PrintProvider::default(),
     )
-    .build();
+    .build()
+    .unwrap();
+
     lookup_test(resolver).await;
 
     #[cfg(feature = "__https")]
@@ -105,7 +107,8 @@ async fn run() {
             ResolverConfig::https(&CLOUDFLARE),
             PrintProvider::default(),
         )
-        .build();
+        .build()
+        .unwrap();
         lookup_test(resolver2).await;
     }
 

@@ -10,6 +10,7 @@ use std::{
 
 use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
+use hickory_resolver::name_server::TlsConfig;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
@@ -54,6 +55,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     allow_server_v6: PrefixSet<Ipv6Net>,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
+    tls: Arc<TlsConfig>,
     conn_provider: P,
 }
 
@@ -71,6 +73,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         avoid_local_udp_ports: Arc<HashSet<u16>>,
         ttl_config: TtlConfig,
         case_randomization: bool,
+        tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
         assert!(!roots.is_empty(), "roots must not be empty");
@@ -85,7 +88,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ns_cache_size, response_cache_size
         );
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
-        let roots = NameServerPool::from_config(&servers, Arc::new(opts), conn_provider.clone());
+        let roots = NameServerPool::from_config(
+            &servers,
+            Arc::new(opts),
+            tls.clone(),
+            conn_provider.clone(),
+        );
+
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config);
@@ -135,6 +144,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             allow_server_v6,
             avoid_local_udp_ports,
             case_randomization,
+            tls,
             conn_provider,
         }
     }
@@ -502,6 +512,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let ns = NameServerPool::from_config(
             &config_group,
             Arc::new(self.recursor_opts()),
+            self.tls.clone(),
             self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
@@ -695,8 +706,9 @@ mod tests {
     use ipnet::IpNet;
 
     use crate::{
-        proto::runtime::TokioRuntimeProvider, recursor_dns_handle::RecursorDnsHandle,
-        resolver::TtlConfig,
+        proto::runtime::TokioRuntimeProvider,
+        recursor_dns_handle::RecursorDnsHandle,
+        resolver::{TtlConfig, name_server::TlsConfig},
     };
 
     #[test]
@@ -720,6 +732,7 @@ mod tests {
             Arc::new(HashSet::new()),
             TtlConfig::default(),
             false,
+            Arc::new(TlsConfig::new()),
             TokioRuntimeProvider::default(),
         );
 

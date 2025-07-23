@@ -19,7 +19,8 @@ async fn tokio_main() {
             Arc::new(
                 TokioResolver::builder(TokioRuntimeProvider::default())
                     .expect("failed to create resolver")
-                    .build(),
+                    .build()
+                    .unwrap(),
             )
         }
 

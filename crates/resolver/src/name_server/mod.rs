@@ -8,7 +8,7 @@
 //! A module with associated items for working with nameservers
 
 mod connection_provider;
-pub use connection_provider::ConnectionProvider;
+pub use connection_provider::{ConnectionProvider, TlsConfig};
 #[allow(clippy::module_inception)]
 mod name_server;
 pub use name_server::NameServer;

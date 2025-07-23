@@ -144,7 +144,7 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         }
 
         *resolver_builder.options_mut() = options;
-        let resolver = resolver_builder.build();
+        let resolver = resolver_builder.build().map_err(|err| err.to_string())?;
 
         info!(%origin, "forward resolver configured");
 

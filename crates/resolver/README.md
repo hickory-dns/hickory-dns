@@ -44,7 +44,7 @@ let resolver = Resolver::builder_with_config(
     ResolverConfig::udp_and_tcp(&GOOGLE),
     TokioRuntimeProvider::default(),
 )
-.build();
+.build().unwrap();
 
 // On Unix/Posix systems, this will read the /etc/resolv.conf
 // let resolver = TokioResolver::builder(TokioRuntimeProvider::default()).unwrap().build();

@@ -23,7 +23,10 @@ use crate::{
         runtime::TokioRuntimeProvider,
     },
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{TtlConfig, name_server::ConnectionProvider},
+    resolver::{
+        TtlConfig,
+        name_server::{ConnectionProvider, TlsConfig},
+    },
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -205,6 +208,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             Arc::new(avoid_local_udp_ports),
             ttl_config,
             case_randomization,
+            Arc::new(TlsConfig::new()),
             conn_provider,
         );
 

@@ -28,7 +28,7 @@ use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use hickory_resolver::config::{ConnectionConfig, ResolverOpts};
-use hickory_resolver::name_server::ConnectionProvider;
+use hickory_resolver::name_server::{ConnectionProvider, TlsConfig};
 
 pub struct TcpPlaceholder;
 
@@ -136,6 +136,7 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
         _: IpAddr,
         _config: &ConnectionConfig,
         _options: &ResolverOpts,
+        _tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error> {
         println!("MockConnProvider::new_connection");
         Ok(Box::pin(future::ok(MockClientHandle::mock_on_send(

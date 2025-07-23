@@ -20,8 +20,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(any(feature = "__https", feature = "__h3"))]
 use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
 use crate::proto::rr::Name;
-#[cfg(feature = "__tls")]
-use crate::proto::rustls::client_config;
 use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
@@ -535,13 +533,6 @@ pub struct ResolverOpts {
     /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
     /// will be ignored.
     pub os_port_selection: bool,
-    /// Optional configuration for the TLS client.
-    ///
-    /// The correct ALPN for the corresponding protocol is automatically
-    /// inserted if none was specified.
-    #[cfg(feature = "__tls")]
-    #[cfg_attr(feature = "serde", serde(skip, default = "client_config"))]
-    pub tls_config: rustls::ClientConfig,
     /// Enable case randomization.
     ///
     /// Randomize the case of letters in query names, and require that responses preserve the case
@@ -586,8 +577,6 @@ impl Default for ResolverOpts {
             recursion_desired: default_recursion_desired(),
             avoid_local_udp_ports: Arc::default(),
             os_port_selection: false,
-            #[cfg(feature = "__tls")]
-            tls_config: client_config(),
             case_randomization: false,
             trust_anchor: None,
         }

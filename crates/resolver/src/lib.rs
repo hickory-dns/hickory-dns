@@ -45,7 +45,7 @@
 //! use hickory_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
-//! let resolver = Resolver::builder_tokio().unwrap().build();
+//! let resolver = Resolver::builder_tokio().unwrap().build().unwrap();
 //! # #[cfg(unix)]
 //! let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 //! # })
@@ -73,7 +73,7 @@
 //! let resolver = Resolver::builder_with_config(
 //!     ResolverConfig::udp_and_tcp(&GOOGLE),
 //!     TokioRuntimeProvider::default()
-//! ).build();
+//! ).build().unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -108,7 +108,7 @@
 //! # let resolver = Resolver::builder_with_config(
 //! #     ResolverConfig::default(),
 //! #     TokioRuntimeProvider::default()
-//! # ).build();
+//! # ).build().unwrap();
 //! # io_loop.block_on(async {
 //! let ips = resolver.lookup_ip("www.example.com.").await.unwrap();
 //!
