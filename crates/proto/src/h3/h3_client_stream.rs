@@ -49,12 +49,6 @@ pub struct H3ClientStream {
     is_shutdown: bool,
 }
 
-impl Display for H3ClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "H3({},{})", self.name_server, self.server_name)
-    }
-}
-
 impl H3ClientStream {
     /// Builder for H3ClientStream
     pub fn builder() -> H3ClientStreamBuilder {
@@ -292,6 +286,12 @@ impl Stream for H3ClientStream {
         }
 
         Poll::Ready(Some(Ok(())))
+    }
+}
+
+impl Display for H3ClientStream {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(formatter, "H3({},{})", self.name_server, self.server_name)
     }
 }
 
