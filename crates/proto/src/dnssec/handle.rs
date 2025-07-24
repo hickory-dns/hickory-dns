@@ -273,6 +273,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_rrsets(&self, records: Vec<Record>, options: DnsRequestOptions) -> Vec<Record> {
         let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
 
+        // use the same current time value for all rrsig + rrset pairs.
+        let current_time = current_time();
+
         for rrset in records
             .iter()
             .filter(|rr| {
@@ -342,7 +345,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             );
 
             // verify this rrset
-            let proof = self.verify_rrset(&rrset, rrsigs, options).await;
+            let proof = self
+                .verify_rrset(&rrset, rrsigs, options, current_time)
+                .await;
 
             let proof = match proof {
                 Ok(proof) => {
@@ -416,10 +421,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         rrset: &Rrset<'_>,
         rrsigs: Vec<RecordRef<'_, RRSIG>>,
         options: DnsRequestOptions,
+        current_time: u32,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
-        // use the same current time value for all rrsig + rrset pairs.
-        let current_time = current_time();
-
         // DNSKEYS have different logic for their verification
         if matches!(rrset.record_type, RecordType::DNSKEY) {
             let proof = self
