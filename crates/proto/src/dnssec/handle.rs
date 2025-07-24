@@ -149,15 +149,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             self.trust_anchor.len(),
         );
 
+        // use the same current time value for all rrsig + rrset pairs.
+        let current_time = current_time();
+
         // group the record sets by name and type
         //  each rrset type needs to validated independently
         let answers = message.take_answers();
         let authorities = message.take_authorities();
         let additionals = message.take_additionals();
 
-        let answers = self.verify_rrsets(answers, options).await;
-        let authorities = self.verify_rrsets(authorities, options).await;
-        let additionals = self.verify_rrsets(additionals, options).await;
+        let answers = self.verify_rrsets(answers, options, current_time).await;
+        let authorities = self.verify_rrsets(authorities, options, current_time).await;
+        let additionals = self.verify_rrsets(additionals, options, current_time).await;
 
         message.insert_answers(answers);
         message.insert_authorities(authorities);
@@ -270,11 +273,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
     /// This pulls all answers returned in a Message response and returns a future which will
     ///  validate all of them.
-    async fn verify_rrsets(&self, records: Vec<Record>, options: DnsRequestOptions) -> Vec<Record> {
+    async fn verify_rrsets(
+        &self,
+        records: Vec<Record>,
+        options: DnsRequestOptions,
+        current_time: u32,
+    ) -> Vec<Record> {
         let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
-
-        // use the same current time value for all rrsig + rrset pairs.
-        let current_time = current_time();
 
         for rrset in records
             .iter()
