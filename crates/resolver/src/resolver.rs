@@ -1198,6 +1198,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg(feature = "__dnssec")]
+    #[ignore = "flaky test against internet server"]
     async fn test_sec_lookup() {
         subscribe();
         let handle = TokioRuntimeProvider::default();
@@ -1206,6 +1207,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg(feature = "__dnssec")]
+    #[ignore = "flaky test against internet server"]
     async fn test_sec_lookup_fails() {
         subscribe();
         let handle = TokioRuntimeProvider::default();
