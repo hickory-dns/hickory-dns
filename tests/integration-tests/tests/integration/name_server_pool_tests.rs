@@ -327,8 +327,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
-        ProtoErrorKind::ResponseCode(response_code) if *response_code == ResponseCode::ServFail => {
-        }
+        ProtoErrorKind::ResponseCode(ResponseCode::ServFail) => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `ResponseCode` error with SERVFAIL,
             got {kind:#?}",
@@ -375,8 +374,10 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if *response_code == ResponseCode::NXDomain => {}
+        ProtoErrorKind::NoRecordsFound(NoRecords {
+            response_code: ResponseCode::NXDomain,
+            ..
+        }) => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NXDomain`,
             got {kind:#?}",
@@ -417,7 +418,7 @@ fn test_tcp_fallback_on_io_error() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::ResponseCode(response_code) if *response_code == ResponseCode::NotImp => {}
+        ProtoErrorKind::ResponseCode(ResponseCode::NotImp) => {}
         kind => panic!(
             "expected `ResponseCode` with `response_code: NotImp`,
             got {kind:#?}",
@@ -457,7 +458,7 @@ fn test_tcp_fallback_on_no_connections() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::ResponseCode(response_code) if *response_code == ResponseCode::NotImp => {}
+        ProtoErrorKind::ResponseCode(ResponseCode::NotImp) => {}
         kind => panic!(
             "expected `ResponseCode` with `response_code: NotImp`,
             got {kind:#?}",
@@ -507,8 +508,10 @@ fn test_trust_nx_responses_fails() {
     let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
     match response.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. })
-            if *response_code == ResponseCode::NXDomain => {}
+        ProtoErrorKind::NoRecordsFound(NoRecords {
+            response_code: ResponseCode::NXDomain,
+            ..
+        }) => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
             got {kind:#?}",
