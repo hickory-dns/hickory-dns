@@ -39,7 +39,7 @@ async fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example).await;
 }
 
-async fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H>)
+async fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H, TokioRuntimeProvider>)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -82,7 +82,7 @@ async fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example).await;
 }
 
-async fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H>)
+async fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H, TokioRuntimeProvider>)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -115,7 +115,7 @@ async fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type).await;
 }
 
-async fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H>)
+async fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H, TokioRuntimeProvider>)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -193,7 +193,7 @@ where
 
 async fn with_nonet<F, Fut>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>, TokioRuntimeProvider>) -> Fut,
     Fut: Future<Output = ()>,
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -250,7 +250,7 @@ where
 
 async fn with_udp<F, Fut>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>, TokioRuntimeProvider>) -> Fut,
     Fut: Future<Output = ()>,
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -286,7 +286,7 @@ where
 
 async fn with_tcp<F, Fut>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>, TokioRuntimeProvider>) -> Fut,
     Fut: Future<Output = ()>,
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

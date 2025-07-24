@@ -8,7 +8,7 @@
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
-use core::{clone::Clone, pin::Pin};
+use core::{clone::Clone, marker::PhantomData, pin::Pin};
 use std::{
     collections::{HashMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
@@ -28,6 +28,7 @@ use crate::{
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
     rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
+    runtime::RuntimeProvider,
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -41,17 +42,17 @@ use nsec3_validation::verify_nsec3;
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
 ///  message responses for Query operations. Update operation responses are not validated by
 ///  this process.
-#[derive(Clone)]
 #[must_use = "queries can only be sent through a DnsHandle"]
-pub struct DnssecDnsHandle<H> {
+pub struct DnssecDnsHandle<H, P> {
     handle: H,
     trust_anchor: Arc<TrustAnchors>,
     request_depth: usize,
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
+    _phantom: PhantomData<P>,
 }
 
-impl<H: DnsHandle> DnssecDnsHandle<H> {
+impl<H: DnsHandle, P: RuntimeProvider + Send + Sync + Unpin + 'static> DnssecDnsHandle<H, P> {
     /// Create a new DnssecDnsHandle wrapping the specified handle.
     ///
     /// This uses the compiled in TrustAnchor default trusted keys.
@@ -78,6 +79,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // [RFC 9276 Appendix A](https://www.rfc-editor.org/rfc/rfc9276.html#appendix-A)
             nsec3_soft_iteration_limit: 100,
             nsec3_hard_iteration_limit: 500,
+            _phantom: PhantomData,
         }
     }
 
@@ -894,12 +896,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             request_depth: self.request_depth + 1,
             nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
+            _phantom: PhantomData,
         }
     }
 }
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
-impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
+impl<H: DnsHandle, P: RuntimeProvider + Send + Sync + Unpin + 'static> DnsHandle
+    for DnssecDnsHandle<H, P>
+{
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -1216,6 +1221,19 @@ fn verify_rrset_with_dnskey(
                 },
             )
         })
+}
+
+impl<H: Clone, P> Clone for DnssecDnsHandle<H, P> {
+    fn clone(&self) -> Self {
+        Self {
+            handle: self.handle.clone(),
+            trust_anchor: self.trust_anchor.clone(),
+            request_depth: self.request_depth,
+            nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
+            nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
