@@ -230,7 +230,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         debug!("found zone {} for {query}", ns.zone());
 
-        let cached_response = self.filtered_cache_lookup(&query, request_time, query_has_dnssec_ok);
+        let cached_response = self.filtered_cache_lookup(&query, request_time);
         let response = match cached_response {
             Some(result) => result?,
             None => self.lookup(query.clone(), ns, request_time).await?,
@@ -338,18 +338,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Ok(response)
     }
 
-    /// Retrieve a response from the cache, filtering out unsuitable cache entries.
-    ///
-    /// Any response that does not have the "Authoritative Answer" flag set is ignored.
-    ///
-    /// If `expect_dnssec_in_cached_response` is set, responses that lack DNSSEC records will be
-    /// ignored.
-    fn filtered_cache_lookup(
-        &self,
-        query: &Query,
-        now: Instant,
-        expect_dnssec_in_cached_response: bool,
-    ) -> Option<Result<Message, Error>> {
+    /// Retrieve a response from the cache, filtering out non-authoritative responses.
+    fn filtered_cache_lookup(&self, query: &Query, now: Instant) -> Option<Result<Message, Error>> {
         let response = match self.response_cache.get(query, now) {
             Some(Ok(response)) => response,
             Some(Err(e)) => return Some(Err(e.into())),
@@ -357,28 +347,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         if !response.authoritative() {
-            return None;
-        }
-
-        // We may have cached a referral (non-authoritative NS+A records) from a parent zone
-        // while looking for the nameserver to send the query to. That parent zone response
-        // likely won't include RRSIG records. If DO=1 we want to fall through and send the
-        // query to the child zone to retrieve the missing RRSIG record.
-
-        #[cfg(feature = "__dnssec")]
-        let any_matching_rrsig = response.all_sections().any(|record| {
-            record.data().as_dnssec().is_some_and(|record| {
-                record.as_rrsig().is_some_and(|rrsig| {
-                    rrsig.input().type_covered == query.query_type()
-                        || rrsig.input().type_covered == RecordType::CNAME
-                })
-            }) && record.name() == query.name()
-        });
-
-        #[cfg(not(feature = "__dnssec"))]
-        let any_matching_rrsig = false;
-
-        if expect_dnssec_in_cached_response && !any_matching_rrsig {
             return None;
         }
 
