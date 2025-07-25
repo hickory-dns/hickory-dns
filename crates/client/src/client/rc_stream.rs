@@ -100,10 +100,10 @@ mod tests {
 
         let rc = rc_stream(once(future));
 
-        let i = block_on(rc.clone().first_answer()).ok().unwrap();
+        let i = block_on(rc.clone().first_answer()).unwrap();
         assert_eq!(i, 1);
 
-        let i = block_on(rc.first_answer()).ok().unwrap();
+        let i = block_on(rc.first_answer()).unwrap();
         assert_eq!(i, 1);
     }
 
@@ -113,10 +113,10 @@ mod tests {
 
         let rc = rc_stream(once(future));
 
-        let i = block_on(rc.clone().first_answer()).err().unwrap();
+        let i = block_on(rc.clone().first_answer()).unwrap_err();
         assert!(matches!(i.kind(), ProtoErrorKind::Busy));
 
-        let i = block_on(rc.first_answer()).err().unwrap();
+        let i = block_on(rc.first_answer()).unwrap_err();
         assert!(matches!(i.kind(), ProtoErrorKind::Busy));
     }
 }

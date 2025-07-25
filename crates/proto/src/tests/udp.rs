@@ -205,7 +205,7 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
     let stream = UdpClientStream::builder(server_addr, provider)
         .with_timeout(Some(Duration::from_millis(500)))
         .build();
-    let mut stream = stream.await.ok().unwrap();
+    let mut stream = stream.await.unwrap();
     let mut worked_once = false;
 
     for i in 0..send_recv_times {
