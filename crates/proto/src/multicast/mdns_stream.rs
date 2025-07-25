@@ -559,7 +559,7 @@ pub(crate) mod tests {
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
         let (stream, mut sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
-        let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
+        let mut stream = io_loop.block_on(stream).unwrap().into_future();
         let mut timeout = future::lazy(|_| tokio::time::sleep(Duration::from_millis(100)))
             .flatten()
             .boxed();
@@ -695,7 +695,7 @@ pub(crate) mod tests {
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
         let (stream, mut sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
-        let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
+        let mut stream = io_loop.block_on(stream).unwrap().into_future();
         let mut timeout = future::lazy(|_| tokio::time::sleep(Duration::from_millis(100)))
             .flatten()
             .boxed();
