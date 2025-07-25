@@ -3,7 +3,10 @@ use std::str::FromStr;
 use test_support::subscribe;
 use tokio::runtime::Runtime;
 
-use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::CNAME};
+use hickory_proto::{
+    rr::{Name, RData, Record, RecordType, rdata::CNAME},
+    runtime::TokioRuntimeProvider,
+};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
@@ -16,7 +19,7 @@ fn test_cname_loop() {
     subscribe();
 
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let mut auth = InMemoryAuthority::empty(
+    let mut auth = InMemoryAuthority::<TokioRuntimeProvider>::empty(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,

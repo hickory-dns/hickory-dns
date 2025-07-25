@@ -10,6 +10,7 @@
 use std::{
     collections::BTreeMap,
     fs,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
     path::Path,
     sync::Arc,
@@ -29,6 +30,7 @@ use crate::{
         op::ResponseCode,
         op::message::ResponseSigner,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
+        runtime::{RuntimeProvider, TokioRuntimeProvider},
         serialize::txt::Parser,
     },
     server::{Request, RequestInfo},
@@ -50,7 +52,7 @@ use inner::InnerInMemory;
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
-pub struct InMemoryAuthority {
+pub struct InMemoryAuthority<P = TokioRuntimeProvider> {
     origin: LowerName,
     class: DNSClass,
     zone_type: ZoneType,
@@ -58,9 +60,10 @@ pub struct InMemoryAuthority {
     inner: RwLock<InnerInMemory>,
     #[cfg(feature = "__dnssec")]
     nx_proof_kind: Option<NxProofKind>,
+    _phantom: PhantomData<P>,
 }
 
-impl InMemoryAuthority {
+impl<P: RuntimeProvider + Send + Sync> InMemoryAuthority<P> {
     /// Creates a new Authority.
     ///
     /// # Arguments
@@ -140,6 +143,8 @@ impl InMemoryAuthority {
 
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
+
+            _phantom: PhantomData,
         }
     }
 
@@ -316,7 +321,7 @@ impl InMemoryAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for InMemoryAuthority {
+impl<P: RuntimeProvider + Send + Sync> Authority for InMemoryAuthority<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type
@@ -739,7 +744,7 @@ impl Authority for InMemoryAuthority {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl DnssecAuthority for InMemoryAuthority {
+impl<P: RuntimeProvider + Send + Sync> DnssecAuthority for InMemoryAuthority<P> {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
