@@ -4,6 +4,7 @@ use futures_executor::block_on;
 
 use hickory_proto::rr::rdata::{A, AAAA, tlsa::*};
 use hickory_proto::rr::*;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
 #[cfg(feature = "__dnssec")]
@@ -67,7 +68,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     let (origin, records) = records.unwrap();
 
-    let authority = InMemoryAuthority::new(
+    let authority: InMemoryAuthority = InMemoryAuthority::new(
         origin,
         records,
         ZoneType::Primary,
@@ -456,7 +457,7 @@ a       A       127.0.0.1
     let (origin, records) = records.unwrap();
 
     assert!(
-        InMemoryAuthority::new(
+        InMemoryAuthority::<TokioRuntimeProvider>::new(
             origin,
             records,
             ZoneType::Primary,
@@ -494,7 +495,7 @@ b       A       127.0.0.2
     let (origin, records) = records.unwrap();
 
     assert!(
-        InMemoryAuthority::new(
+        InMemoryAuthority::<TokioRuntimeProvider>::new(
             origin,
             records,
             ZoneType::Primary,
@@ -531,7 +532,7 @@ a       A       127.0.0.1
     let (origin, records) = records.unwrap();
 
     assert!(
-        InMemoryAuthority::new(
+        InMemoryAuthority::<TokioRuntimeProvider>::new(
             origin,
             records,
             ZoneType::Primary,
