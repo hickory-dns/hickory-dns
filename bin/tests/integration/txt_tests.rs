@@ -61,8 +61,8 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 "#;
 
     let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu.").unwrap())).parse();
-    if records.is_err() {
-        panic!("failed to parse: {:?}", records.err())
+    if let Err(error) = records {
+        panic!("failed to parse: {error:?}")
     }
 
     let (origin, records) = records.unwrap();
@@ -437,8 +437,8 @@ a       A       127.0.0.1
 
     let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
 
-    if records.is_err() {
-        panic!("failed to parse: {:?}", records.err())
+    if let Err(error) = records {
+        panic!("failed to parse: {error:?}")
     }
 
     let (origin, records) = records.unwrap();
@@ -475,8 +475,8 @@ b       A       127.0.0.2
 
     let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
 
-    if records.is_err() {
-        panic!("failed to parse: {:?}", records.err())
+    if let Err(error) = records {
+        panic!("failed to parse: {error:?}")
     }
 
     let (origin, records) = records.unwrap();
@@ -512,8 +512,8 @@ a       A       127.0.0.1
 
     let records = Parser::new(ZONE, None, Some(Name::from_str("isi.edu").unwrap())).parse();
 
-    if records.is_err() {
-        panic!("failed to parse: {:?}", records.err())
+    if let Err(error) = records {
+        panic!("failed to parse: {error:?}")
     }
 
     let (origin, records) = records.unwrap();
@@ -541,8 +541,8 @@ fn test_named_root() {
 
     let records = Parser::new(ZONE, None, Some(Name::root())).parse();
 
-    if records.is_err() {
-        panic!("failed to parse: {:?}", records.err())
+    if let Err(error) = records {
+        panic!("failed to parse: {error:?}")
     }
 
     let (_, records) = records.unwrap();
