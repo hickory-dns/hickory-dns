@@ -9,10 +9,7 @@
 
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use core::{clone::Clone, marker::PhantomData, pin::Pin};
-use std::{
-    collections::{HashMap, HashSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{HashMap, HashSet};
 
 use futures_util::{
     future::{self, FutureExt},
@@ -28,7 +25,7 @@ use crate::{
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
     rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
-    runtime::RuntimeProvider,
+    runtime::{RuntimeProvider, Time},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -154,7 +151,7 @@ impl<H: DnsHandle, P: RuntimeProvider + Send + Sync + Unpin + 'static> DnssecDns
         );
 
         // use the same current time value for all rrsig + rrset pairs.
-        let current_time = current_time();
+        let current_time = P::Timer::current_time() as u32;
 
         // group the record sets by name and type
         //  each rrset type needs to validated independently
@@ -1434,14 +1431,6 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> 
             )
         }
     }
-}
-
-/// Returns the current system time as Unix timestamp in seconds.
-fn current_time() -> u32 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as u32
 }
 
 /// Logs a debug message and yields a Proof type for return
