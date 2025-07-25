@@ -12,8 +12,6 @@ use std::fs;
 use std::marker::PhantomData;
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
-#[cfg(feature = "__dnssec")]
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -59,6 +57,7 @@ use crate::{
             },
         },
         op::MessageSignature,
+        runtime::Time,
     },
 };
 #[cfg(feature = "__dnssec")]
@@ -965,10 +964,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         request: &Request,
     ) -> (UpdateResult<()>, Box<dyn ResponseSigner>) {
         let req_id = request.header().id();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|t| t.as_secs())
-            .unwrap_or_default();
+        let now = P::Timer::current_time();
         let cx = TSigResponseContext::new(req_id, now);
 
         debug!("authorizing with: {tsig:?}");
