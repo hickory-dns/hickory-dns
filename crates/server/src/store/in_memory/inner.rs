@@ -479,6 +479,7 @@ impl InnerInMemory {
         origin: &LowerName,
         dns_class: DNSClass,
         nx_proof_kind: Option<&NxProofKind>,
+        signature_inception: OffsetDateTime,
     ) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
@@ -498,7 +499,7 @@ impl InnerInMemory {
         self.increment_soa_serial(origin, dns_class);
 
         // TODO: should we auto sign here? or maybe up a level...
-        self.sign_zone(origin, dns_class)
+        self.sign_zone(origin, dns_class, signature_inception)
     }
 
     #[cfg(feature = "__dnssec")]
@@ -713,9 +714,8 @@ impl InnerInMemory {
         secure_keys: &[SigSigner],
         zone_ttl: u32,
         zone_class: DNSClass,
+        inception: OffsetDateTime,
     ) -> DnsSecResult<()> {
-        let inception = OffsetDateTime::now_utc();
-
         rr_set.clear_rrsigs();
         for signer in secure_keys {
             debug!(
@@ -745,7 +745,12 @@ impl InnerInMemory {
 
     /// Signs all records in the zone.
     #[cfg(feature = "__dnssec")]
-    fn sign_zone(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
+    fn sign_zone(
+        &mut self,
+        origin: &LowerName,
+        dns_class: DNSClass,
+        inception: OffsetDateTime,
+    ) -> DnsSecResult<()> {
         debug!("signing zone: {}", origin);
 
         let minimum_ttl = self.minimum_ttl(origin);
@@ -764,7 +769,7 @@ impl InnerInMemory {
         for rr_set_orig in records.values_mut() {
             // because the rrset is an Arc, it must be cloned before mutated
             let rr_set = Arc::make_mut(rr_set_orig);
-            Self::sign_rrset(rr_set, secure_keys, minimum_ttl, dns_class)?;
+            Self::sign_rrset(rr_set, secure_keys, minimum_ttl, dns_class, inception)?;
         }
 
         Ok(())
