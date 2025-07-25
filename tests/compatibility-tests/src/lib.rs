@@ -51,7 +51,7 @@ impl Drop for NamedProcess {
         self.thread_notice.store(true, Ordering::Release);
 
         println!("----> cleanup work dir: {}", self.working_dir);
-        fs::remove_dir_all(&self.working_dir).ok();
+        let _ = fs::remove_dir_all(&self.working_dir);
     }
 }
 

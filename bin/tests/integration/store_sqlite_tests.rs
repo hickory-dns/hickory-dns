@@ -19,10 +19,10 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
         .join(module.replace("::", "_"))
         .join(test_name)
         .join("authority_battery.jrnl");
-    fs::create_dir_all(journal_path.parent().unwrap()).ok();
+    let _ = fs::create_dir_all(journal_path.parent().unwrap());
 
     // cleanup anything from previous test
-    fs::remove_file(&journal_path).ok();
+    let _ = fs::remove_file(&journal_path);
 
     let config = SqliteConfig {
         zone_path: zone_path.to_owned(),
@@ -51,10 +51,10 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAutho
         .join(module.replace("::", "_"))
         .join(test_name)
         .join("authority_battery.jrnl");
-    fs::create_dir_all(journal_path.parent().unwrap()).ok();
+    let _ = fs::create_dir_all(journal_path.parent().unwrap());
 
     // cleanup anything from previous test
-    fs::remove_file(&journal_path).ok();
+    let _ = fs::remove_file(&journal_path);
 
     let config = SqliteConfig {
         zone_path: zone_path.to_owned(),

@@ -421,11 +421,10 @@ where
                         Poll::Pending => return Poll::Pending,
                     } {
                         // ignoring errors... best effort send...
-                        outbound_message
+                        let _ = outbound_message
                             .into_parts()
                             .1
-                            .send_response(error.clone().into())
-                            .ok();
+                            .send_response(error.clone().into());
                     }
 
                     return Poll::Ready(Err(error.clone()));
