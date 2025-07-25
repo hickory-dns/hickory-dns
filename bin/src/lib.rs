@@ -42,7 +42,7 @@ use hickory_proto::rustls::default_provider;
 use hickory_proto::{ProtoError, rr::Name};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-#[cfg(feature = "recursor")]
+#[cfg(any(feature = "recursor", feature = "sqlite"))]
 use hickory_server::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistAuthority;
@@ -400,17 +400,18 @@ impl ZoneConfig {
                         #[cfg(feature = "sqlite")]
                         ServerStoreConfig::Sqlite(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut authority = SqliteAuthority::try_from_config(
-                                zone_name.clone(),
-                                zone_type,
-                                axfr_policy,
-                                server_config.is_dnssec_enabled(),
-                                Some(zone_dir),
-                                config,
-                                #[cfg(feature = "__dnssec")]
-                                server_config.nx_proof_kind.clone(),
-                            )
-                            .await?;
+                            let mut authority =
+                                SqliteAuthority::<TokioRuntimeProvider>::try_from_config(
+                                    zone_name.clone(),
+                                    zone_type,
+                                    axfr_policy,
+                                    server_config.is_dnssec_enabled(),
+                                    Some(zone_dir),
+                                    config,
+                                    #[cfg(feature = "__dnssec")]
+                                    server_config.nx_proof_kind.clone(),
+                                )
+                                .await?;
 
                             #[cfg(feature = "__dnssec")]
                             dnssec::load_keys(&mut authority, &zone_name, &server_config.keys)
