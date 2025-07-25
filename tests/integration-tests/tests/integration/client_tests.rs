@@ -428,7 +428,8 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
-    let mut authority = SqliteAuthority::new(authority, AxfrPolicy::Deny, true, false);
+    let mut authority =
+        SqliteAuthority::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
