@@ -72,7 +72,7 @@ pub use persistence::Journal;
 /// start of authority for the zone, is a Secondary, or a cached zone.
 #[allow(dead_code)]
 pub struct SqliteAuthority<P = TokioRuntimeProvider> {
-    in_memory: InMemoryAuthority,
+    in_memory: InMemoryAuthority<P>,
     journal: Mutex<Option<Journal>>,
     axfr_policy: AxfrPolicy,
     allow_update: bool,
@@ -99,7 +99,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     ///
     /// The new `Authority`.
     pub fn new(
-        in_memory: InMemoryAuthority,
+        in_memory: InMemoryAuthority<P>,
         axfr_policy: AxfrPolicy,
         allow_update: bool,
         is_dnssec_enabled: bool,
@@ -1010,7 +1010,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
 }
 
 impl<P> Deref for SqliteAuthority<P> {
-    type Target = InMemoryAuthority;
+    type Target = InMemoryAuthority<P>;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory

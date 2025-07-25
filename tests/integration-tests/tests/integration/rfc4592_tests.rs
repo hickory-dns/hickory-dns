@@ -264,7 +264,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     const SERIAL: u32 = 1;
     const TTL: u32 = 3600;
 
-    let mut authority = InMemoryAuthority::empty(
+    let mut authority = InMemoryAuthority::<TokioRuntimeProvider>::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
