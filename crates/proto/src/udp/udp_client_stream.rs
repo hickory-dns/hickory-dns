@@ -14,7 +14,6 @@ use core::task::{Context, Poll};
 use core::time::Duration;
 use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
@@ -142,13 +141,9 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         }
 
         let case_randomization = request.options().case_randomization;
-        let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(now) => now.as_secs(),
-            Err(_) => return ProtoError::from("Current time is before the Unix epoch.").into(),
-        };
 
         // TODO: truncates u64 to u32, error on overflow?
-        let now = now as u32;
+        let now = P::Timer::current_time() as u32;
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
