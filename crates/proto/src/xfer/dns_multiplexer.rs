@@ -16,10 +16,7 @@ use core::{
     task::{Context, Poll},
     time::Duration,
 };
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{HashMap, hash_map::Entry};
 
 use futures_channel::mpsc;
 use futures_util::{
@@ -281,13 +278,8 @@ where
         let (mut request, _) = request.into_parts();
         request.set_id(query_id);
 
-        let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(now) => now.as_secs(),
-            Err(_) => return ProtoError::from("Current time is before the Unix epoch.").into(),
-        };
-
         // TODO: truncates u64 to u32, error on overflow?
-        let now = now as u32;
+        let now = S::Time::current_time() as u32;
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
