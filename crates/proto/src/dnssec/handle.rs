@@ -9,10 +9,7 @@
 
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use core::{clone::Clone, fmt::Display, pin::Pin};
-use std::{
-    collections::{HashMap, HashSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{HashMap, HashSet};
 
 use futures_util::{
     future::{self, FutureExt},
@@ -29,6 +26,7 @@ use crate::{
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query, ResponseCode},
     rr::{Name, RData, Record, RecordType, RecordTypeSet, SerialNumber, resource::RecordRef},
+    runtime::{RuntimeProvider, Time},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -150,7 +148,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         );
 
         // use the same current time value for all rrsig + rrset pairs.
-        let current_time = current_time();
+        let current_time = <H::Runtime as RuntimeProvider>::Timer::current_time() as u32;
 
         // group the record sets by name and type
         //  each rrset type needs to validated independently
@@ -1469,14 +1467,6 @@ fn find_nsec_covering_record<'a>(
             && test_name > nsec_name
             && (test_name < next_domain_name || next_domain_name == soa_name)
     })
-}
-
-/// Returns the current system time as Unix timestamp in seconds.
-fn current_time() -> u32 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as u32
 }
 
 /// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
