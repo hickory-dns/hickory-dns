@@ -176,9 +176,9 @@ impl QuicStream {
 
         // assert that the message id is 0, this is a bad dns-over-quic packet if not
         if message.id() != 0 {
-            self.reset(DoqErrorCode::ProtocolError)
-                .map_err(|_| debug!("stream already closed"))
-                .ok();
+            if let Err(error) = self.reset(DoqErrorCode::ProtocolError) {
+                debug!(%error, "stream already closed");
+            }
             return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
         }
 
@@ -203,9 +203,9 @@ impl QuicStream {
         if let Err(e) = self.receive_stream.read_exact(&mut bytes[..len]).await {
             debug!("received bad packet len: {} bytes: {:?}", len, bytes);
 
-            self.reset(DoqErrorCode::ProtocolError)
-                .map_err(|_| debug!("stream already closed"))
-                .ok();
+            if let Err(error) = self.reset(DoqErrorCode::ProtocolError) {
+                debug!(%error, "stream already closed");
+            }
             return Err(e.into());
         }
 

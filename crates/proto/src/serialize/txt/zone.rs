@@ -265,8 +265,8 @@ impl<'a> Parser<'a> {
                             Token::CharData(mut data) => {
                                 // if it's a number it's a ttl
                                 let result: ParseResult<u32> = Self::parse_time(&data);
-                                if result.is_ok() {
-                                    cx.ttl = result.ok();
+                                if let Ok(ttl) = result {
+                                    cx.ttl = Some(ttl);
                                     State::TtlClassType // hm, should this go to just ClassType?
                                 } else {
                                     // if can parse DNSClass, then class
