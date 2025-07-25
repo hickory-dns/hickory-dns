@@ -16,6 +16,8 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(feature = "__dnssec")]
+use time::OffsetDateTime;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 #[cfg(feature = "__dnssec")]
 use tracing::warn;
@@ -38,9 +40,12 @@ use crate::{
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo},
     dnssec::NxProofKind,
-    proto::dnssec::{
-        DnsSecResult, SigSigner,
-        rdata::{DNSKEY, DNSSECRData, key::KEY},
+    proto::{
+        dnssec::{
+            DnsSecResult, SigSigner,
+            rdata::{DNSKEY, DNSSECRData, key::KEY},
+        },
+        runtime::Time,
     },
 };
 
@@ -307,15 +312,28 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryAuthority<P> {
     #[cfg(feature = "__dnssec")]
     pub fn secure_zone_mut(&mut self) -> DnsSecResult<()> {
         let Self { origin, inner, .. } = self;
-        inner
-            .get_mut()
-            .secure_zone_mut(origin, self.class, self.nx_proof_kind.as_ref())
+        inner.get_mut().secure_zone_mut(
+            origin,
+            self.class,
+            self.nx_proof_kind.as_ref(),
+            Self::current_time()?,
+        )
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(not(feature = "__dnssec"))]
     pub fn secure_zone_mut(&mut self) -> Result<(), &str> {
         Err("DNSSEC was not enabled during compilation.")
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn current_time() -> DnsSecResult<OffsetDateTime> {
+        let timestamp_unsigned = P::Timer::current_time();
+        let timestamp_signed = timestamp_unsigned
+            .try_into()
+            .map_err(|_| "current time is out of range")?;
+        OffsetDateTime::from_unix_timestamp(timestamp_signed)
+            .map_err(|_| "current time is out of range".into())
     }
 }
 
@@ -487,15 +505,19 @@ impl<P: RuntimeProvider + Send + Sync> Authority for InMemoryAuthority<P> {
                 #[cfg(feature = "__dnssec")]
                 // ANAME's are constructed on demand, so need to be signed before return
                 if lookup_options.dnssec_ok {
-                    InnerInMemory::sign_rrset(
-                        &mut new_answer,
-                        &inner.secure_keys,
-                        inner.minimum_ttl(self.origin()),
-                        self.class(),
-                    )
-                    // rather than failing the request, we'll just warn
-                    .map_err(|error| warn!(%error, "failed to sign ANAME record"))
-                    .ok();
+                    let result = Self::current_time().and_then(|time| {
+                        InnerInMemory::sign_rrset(
+                            &mut new_answer,
+                            &inner.secure_keys,
+                            inner.minimum_ttl(self.origin()),
+                            self.class(),
+                            time,
+                        )
+                    });
+                    if let Err(error) = result {
+                        // rather than failing the request, we'll just warn
+                        warn!(%error, "failed to sign ANAME record")
+                    }
                 }
 
                 // prepend answer to additionals here (answer is the ANAME record)
@@ -757,7 +779,12 @@ impl<P: RuntimeProvider + Send + Sync> DnssecAuthority for InMemoryAuthority<P> 
     async fn secure_zone(&self) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
 
-        inner.secure_zone_mut(self.origin(), self.class, self.nx_proof_kind.as_ref())
+        inner.secure_zone_mut(
+            self.origin(),
+            self.class,
+            self.nx_proof_kind.as_ref(),
+            Self::current_time()?,
+        )
     }
 }
 
