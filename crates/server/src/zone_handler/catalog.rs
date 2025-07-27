@@ -19,7 +19,7 @@ use crate::zone_handler::metrics::CatalogMetrics;
 use crate::{dnssec::NxProofKind, proto::dnssec::DnssecSummary, zone_handler::Nsec3QueryInfo};
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{
-    proto::{ProtoError, ProtoErrorKind},
+    proto::{DnsError, ProtoError, ProtoErrorKind},
     recursor,
     recursor::ErrorKind,
 };
@@ -1082,9 +1082,9 @@ async fn build_forwarded_response(
             kind:
                 ErrorKind::Proto(ProtoError {
                     kind:
-                        ProtoErrorKind::Nsec {
+                        ProtoErrorKind::Dns(DnsError::Nsec {
                             response, proof, ..
-                        },
+                        }),
                     ..
                 }),
             ..

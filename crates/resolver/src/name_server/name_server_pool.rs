@@ -15,18 +15,16 @@ use std::sync::{
 use std::time::Duration;
 
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
-use hickory_proto::NoRecords;
-use hickory_proto::op::ResponseCode;
 use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::NameServer;
-use crate::proto::op::{DnsRequest, DnsResponse};
+use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, FirstAnswer, Protocol};
-use crate::proto::{ProtoError, ProtoErrorKind};
+use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
@@ -222,10 +220,10 @@ impl<P: ConnectionProvider> PoolState<P> {
                     ProtoErrorKind::Io(_) | ProtoErrorKind::NoConnections => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
-                    ProtoErrorKind::NoRecordsFound(NoRecords {
+                    ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                         response_code: ResponseCode::NXDomain,
                         ..
-                    }) if !conn.trust_negative_responses() => {}
+                    })) if !conn.trust_negative_responses() => {}
                     _ => return Err(e),
                 }
 

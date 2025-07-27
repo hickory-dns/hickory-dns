@@ -13,6 +13,7 @@ use std::{
 };
 
 use futures_util::future::BoxFuture;
+use hickory_proto::DnsError;
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -172,17 +173,17 @@ where
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
         let response_message = if let Ok(response) = response_message {
-            ProtoError::from_response(response)
+            DnsError::from_response(response).map_err(ProtoError::from)
         } else {
             response_message
         };
 
         // TODO: take all records and cache them?
         //  if it's DNSSEC they must be signed, otherwise?
-        let records: Result<Records, ProtoError> = match response_message {
+        let records = match response_message {
             // this is the only cacheable form
             Err(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound(no_records) => {
+                ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => {
                     let mut new = no_records.clone();
                     if is_dnssec {
                         new.negative_ttl = None;
@@ -455,11 +456,11 @@ mod tests {
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
-        if let ProtoErrorKind::NoRecordsFound(NoRecords {
+        if let ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             query,
             negative_ttl,
             ..
-        }) = block_on(CachingClient::inner_lookup(
+        })) = block_on(CachingClient::inner_lookup(
             Query::new(),
             DnsRequestOptions::default(),
             client,

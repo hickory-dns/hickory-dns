@@ -5,6 +5,7 @@ use std::{
 };
 
 use hickory_proto::{
+    DnsError,
     op::{DnsResponse, Query},
     rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
     runtime::TokioRuntimeProvider,
@@ -471,7 +472,7 @@ async fn test_forward_soa() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {
+    let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind() else {
         panic!("Unexpected kind: {e:?}");
     };
 
@@ -510,7 +511,7 @@ async fn test_forward_ns() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {
+    let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind() else {
         panic!("Unexpected kind: {e:?}");
     };
 

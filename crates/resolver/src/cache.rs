@@ -13,7 +13,7 @@ use serde::Deserialize;
 
 use crate::config;
 use crate::proto::{
-    NoRecords, ProtoError, ProtoErrorKind,
+    DnsError, NoRecords, ProtoError, ProtoErrorKind,
     op::{Message, Query},
     rr::RecordType,
 };
@@ -58,7 +58,7 @@ impl ResponseCache {
                     .clamp(positive_min_ttl, positive_max_ttl)
             }
             Err(e) => {
-                let ProtoErrorKind::NoRecordsFound(no_records) = e.kind() else {
+                let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind() else {
                     return;
                 };
                 let (negative_min_ttl, negative_max_ttl) = self
@@ -130,10 +130,10 @@ impl Entry {
             }
             Err(e) => {
                 let mut e = e.clone();
-                if let ProtoErrorKind::NoRecordsFound(NoRecords {
+                if let ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                     negative_ttl: Some(ttl),
                     ..
-                }) = &mut e.kind
+                })) = &mut e.kind
                 {
                     *ttl = ttl.saturating_sub(elapsed);
                 }

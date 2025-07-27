@@ -6,7 +6,7 @@ use std::sync::{
 use futures::{Stream, executor::block_on, future, stream};
 
 use hickory_proto::{
-    DnsHandle, ProtoError, RetryDnsHandle,
+    DnsError, DnsHandle, ProtoError, RetryDnsHandle,
     op::{DnsRequest, DnsResponse, Message, OpCode, ResponseCode},
     runtime::TokioRuntimeProvider,
     xfer::FirstAnswer,
@@ -62,12 +62,12 @@ fn dont_retry_on_negative_response() {
     subscribe();
     let mut response = Message::response(10, OpCode::Update);
     response.set_response_code(ResponseCode::NoError);
-    let error = ProtoError::from_response(DnsResponse::from_message(response).unwrap())
+    let error = DnsError::from_response(DnsResponse::from_message(response).unwrap())
         .expect_err("NODATA should be an error");
     let client = RetryDnsHandle::new(
         TestClient {
             retries: 1,
-            error_response: error,
+            error_response: error.into(),
             attempts: Arc::new(AtomicU16::new(0)),
         },
         2,

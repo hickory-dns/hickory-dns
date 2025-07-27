@@ -36,7 +36,7 @@ use tokio::task::JoinSet;
 use tokio::time::MissedTickBehavior;
 
 use hickory_proto::{
-    ProtoError, ProtoErrorKind,
+    DnsError, ProtoError, ProtoErrorKind,
     rr::{Record, RecordData, RecordType},
     runtime::TokioRuntimeProvider,
 };
@@ -162,7 +162,7 @@ fn print_ok(lookup: Lookup) {
 
 fn print_error(error: ProtoError) {
     let no_records = match error.kind() {
-        ProtoErrorKind::NoRecordsFound(no_records) => no_records,
+        ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
         _ => {
             println!("{error:?}");
             return;
