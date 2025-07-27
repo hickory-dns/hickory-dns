@@ -1219,7 +1219,7 @@ pub struct TsigKeyConfig {
     /// The key name
     pub name: String,
     /// A path to the unencoded symmetric HMAC key data
-    pub key_file: String,
+    pub key_file: PathBuf,
     /// The key algorithm
     pub algorithm: TsigAlgorithm,
     /// Allowed +/- difference (in seconds) between the time a TSIG request was signed
@@ -1237,8 +1237,12 @@ pub struct TsigKeyConfig {
 #[cfg(feature = "__dnssec")]
 impl TsigKeyConfig {
     fn to_signer(&self, zone_name: &Name) -> Result<TSigner, String> {
-        let key_data = fs::read(&self.key_file)
-            .map_err(|e| format!("error reading TSIG key file: {}: {e}", self.key_file))?;
+        let key_data = fs::read(&self.key_file).map_err(|e| {
+            format!(
+                "error reading TSIG key file: {}: {e}",
+                self.key_file.display()
+            )
+        })?;
         let signer_name = Name::from_str(&self.name).unwrap_or(zone_name.clone());
 
         TSigner::new(key_data, self.algorithm.clone(), signer_name, self.fudge)
