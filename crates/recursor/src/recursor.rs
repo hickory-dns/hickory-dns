@@ -32,7 +32,7 @@ use crate::{
 use crate::{
     ErrorKind,
     proto::{
-        NoRecords, ProtoError,
+        DnsError, NoRecords, ProtoError,
         dnssec::{DnssecDnsHandle, TrustAnchors},
         op::{DnsRequestOptions, ResponseCode},
         rr::RecordType,
@@ -473,14 +473,14 @@ impl<P: ConnectionProvider> Recursor<P> {
                 // to preserve SOA and DNSSEC records, and to keep those records in the authorities
                 // section of the response.
                 if response.response_code() == ResponseCode::NXDomain {
-                    let Err(proto_err) = ProtoError::from_response(response) else {
+                    let Err(dns_error) = DnsError::from_response(response) else {
                         return Err(Error::from(
                             "unable to build ProtoError from response {response:?}",
                         ));
                     };
 
                     Err(Error {
-                        kind: ErrorKind::Proto(proto_err),
+                        kind: ErrorKind::Proto(ProtoError::from(dns_error)),
                         #[cfg(feature = "backtrace")]
                         backtrack: None,
                     })

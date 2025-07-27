@@ -23,7 +23,7 @@ use crate::{
         nsec3::verify_nsec3,
         rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
     },
-    error::{NoRecords, ProtoError, ProtoErrorKind},
+    error::{DnsError, NoRecords, ProtoError, ProtoErrorKind},
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode},
     rr::{Name, RData, Record, RecordType, RecordTypeSet, SerialNumber, resource::RecordRef},
     runtime::{RuntimeProvider, Time},
@@ -111,12 +111,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
             // DNSSEC handler chain can validate negative responses.
             Err(err) => match err.kind {
-                ProtoErrorKind::NoRecordsFound(NoRecords {
+                ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                     query,
                     authorities,
                     response_code,
                     ..
-                }) => {
+                })) => {
                     debug!("translating NoRecordsFound to DnsResponse for {query}");
                     let mut msg = Message::query();
                     msg.add_query(*query);
@@ -259,7 +259,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         if !nsec_proof.is_secure() {
             debug!("returning Nsec error for {} {nsec_proof}", query.name());
             // TODO change this to remove the NSECs, like we do for the others?
-            return Err(ProtoError::from(ProtoErrorKind::Nsec {
+            return Err(ProtoError::from(DnsError::Nsec {
                 query: Box::new(query.clone()),
                 response: Box::new(message),
                 proof: nsec_proof,
@@ -717,8 +717,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         };
 
         // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
-        if let Some((query, _resp, proof)) =
-            error_opt.as_ref().and_then(|error| error.kind().as_nsec())
+        if let Some(ProtoErrorKind::Dns(DnsError::Nsec { query, proof, .. })) =
+            error_opt.as_ref().map(|e| e.kind())
         {
             if proof.is_insecure() {
                 debug!(

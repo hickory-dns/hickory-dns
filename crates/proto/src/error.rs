@@ -98,6 +98,10 @@ pub enum ProtoErrorKind {
         len: usize,
     },
 
+    /// Semantic DNS errors
+    #[error("DNS error: {0}")]
+    Dns(#[from] DnsError),
+
     /// Overlapping labels
     #[non_exhaustive]
     #[error("overlapping labels name {label} other {other}")]
@@ -106,19 +110,6 @@ pub enum ProtoErrorKind {
         label: usize,
         /// Start of the other label
         other: usize,
-    },
-
-    /// No Records and there is a corresponding DNSSEC Proof for NSEC
-    #[cfg(feature = "__dnssec")]
-    #[non_exhaustive]
-    #[error("DNSSEC Negative Record Response for {query}, {proof}")]
-    Nsec {
-        /// Query for which the NSEC was returned
-        query: Box<Query>,
-        /// Response for which the NSEC was returned
-        response: Box<DnsResponse>,
-        /// DNSSEC proof of the record
-        proof: Proof,
     },
 
     /// DNS protocol version doesn't have the expected version 3
@@ -199,10 +190,6 @@ pub enum ProtoErrorKind {
         count: usize,
     },
 
-    /// No records were found for a query
-    #[error("no records found for {:?}", .0.query)]
-    NoRecordsFound(NoRecords),
-
     /// An unknown algorithm type was found
     #[error("algorithm type value unknown: {0}")]
     UnknownAlgorithmTypeValue(u8),
@@ -252,10 +239,6 @@ pub enum ProtoErrorKind {
     /// A request was Refused due to some access check
     #[error("request refused")]
     RequestRefused,
-
-    /// Received an error response code from the server
-    #[error("error response: {0}")]
-    ResponseCode(ResponseCode),
 
     /// A ring error
     #[cfg(feature = "__dnssec")]
@@ -342,9 +325,416 @@ pub enum ProtoErrorKind {
     QueryCaseMismatch,
 }
 
-impl From<NoRecords> for ProtoErrorKind {
+/// The error type for errors that get returned in the crate
+#[derive(Error, Clone, Debug)]
+#[non_exhaustive]
+pub struct ProtoError {
+    /// Kind of error that occurred
+    pub kind: ProtoErrorKind,
+    /// Backtrace to the source of the error
+    #[cfg(feature = "backtrace")]
+    pub backtrack: Option<ExtBacktrace>,
+}
+
+impl ProtoError {
+    /// Get the kind of the error
+    #[inline]
+    pub fn kind(&self) -> &ProtoErrorKind {
+        &self.kind
+    }
+
+    /// If this is a ProtoErrorKind::Busy
+    #[inline]
+    pub fn is_busy(&self) -> bool {
+        matches!(self.kind, ProtoErrorKind::Busy)
+    }
+
+    /// Returns true if this error represents NoConnections
+    #[inline]
+    pub fn is_no_connections(&self) -> bool {
+        matches!(self.kind, ProtoErrorKind::NoConnections)
+    }
+
+    /// Returns true if the domain does not exist
+    #[inline]
+    pub fn is_nx_domain(&self) -> bool {
+        matches!(
+            self.kind,
+            ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+                response_code: ResponseCode::NXDomain,
+                ..
+            }))
+        )
+    }
+
+    /// Returns true if the error represents NoRecordsFound
+    #[inline]
+    pub fn is_no_records_found(&self) -> bool {
+        matches!(
+            self.kind,
+            ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })
+        )
+    }
+
+    /// Returns the SOA record, if the error contains one
+    #[inline]
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match self.kind {
+            ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
+            _ => None,
+        }
+    }
+
+    /// Returns true if this is a std::io::Error
+    #[inline]
+    #[cfg(feature = "std")]
+    pub fn is_io(&self) -> bool {
+        matches!(self.kind, ProtoErrorKind::Io(..))
+    }
+
+    #[cfg(feature = "std")]
+    pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
+        self
+    }
+
+    /// Compare two errors to see if one contains a server response.
+    pub fn cmp_specificity(&self, other: &Self) -> Ordering {
+        let kind = self.kind();
+        let other = other.kind();
+
+        match (kind, other) {
+            (
+                ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
+                ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
+            ) => {
+                return Ordering::Equal;
+            }
+            (ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }), _) => return Ordering::Greater,
+            (_, ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            #[cfg(feature = "std")]
+            (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
+            #[cfg(feature = "std")]
+            (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
+            #[cfg(feature = "std")]
+            (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return Ordering::Equal,
+            (ProtoErrorKind::Timeout, _) => return Ordering::Greater,
+            (_, ProtoErrorKind::Timeout) => return Ordering::Less,
+            _ => (),
+        }
+
+        Ordering::Equal
+    }
+
+    /// Whether the query should be retried after this error
+    pub fn should_retry(&self) -> bool {
+        !matches!(
+            self.kind(),
+            ProtoErrorKind::NoConnections | ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })
+        )
+    }
+
+    /// Whether this error should count as an attempt
+    pub fn attempted(&self) -> bool {
+        !matches!(self.kind(), ProtoErrorKind::Busy)
+    }
+}
+
+impl fmt::Display for ProtoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "backtrace")] {
+                if let Some(backtrace) = &self.backtrack {
+                    fmt::Display::fmt(&self.kind, f)?;
+                    fmt::Debug::fmt(backtrace, f)
+                } else {
+                    fmt::Display::fmt(&self.kind, f)
+                }
+            } else {
+                fmt::Display::fmt(&self.kind, f)
+            }
+        }
+    }
+}
+
+impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
+    fn from(error: E) -> Self {
+        Self {
+            kind: error.into(),
+            #[cfg(feature = "backtrace")]
+            backtrack: trace!(),
+        }
+    }
+}
+
+impl From<NoRecords> for ProtoError {
     fn from(no_records: NoRecords) -> Self {
-        Self::NoRecordsFound(no_records)
+        ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)).into()
+    }
+}
+
+impl From<DecodeError> for ProtoError {
+    fn from(err: DecodeError) -> Self {
+        match err {
+            DecodeError::PointerNotPriorToLabel { idx, ptr } => {
+                ProtoErrorKind::PointerNotPriorToLabel { idx, ptr }
+            }
+            DecodeError::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
+            DecodeError::UnrecognizedLabelCode(code) => ProtoErrorKind::UnrecognizedLabelCode(code),
+            DecodeError::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
+            DecodeError::LabelOverlapsWithOther { label, other } => {
+                ProtoErrorKind::LabelOverlapsWithOther { label, other }
+            }
+            _ => ProtoErrorKind::Msg(err.to_string()),
+        }
+        .into()
+    }
+}
+
+impl From<&'static str> for ProtoError {
+    fn from(msg: &'static str) -> Self {
+        ProtoErrorKind::Message(msg).into()
+    }
+}
+
+impl From<String> for ProtoError {
+    fn from(msg: String) -> Self {
+        ProtoErrorKind::Msg(msg).into()
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<io::Error> for ProtoErrorKind {
+    fn from(e: io::Error) -> Self {
+        match e.kind() {
+            io::ErrorKind::TimedOut => Self::Timeout,
+            _ => Self::Io(e.into()),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T> From<sync::PoisonError<T>> for ProtoError {
+    fn from(_e: sync::PoisonError<T>) -> Self {
+        ProtoErrorKind::Poisoned.into()
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<ProtoError> for io::Error {
+    fn from(e: ProtoError) -> Self {
+        match e.kind() {
+            ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
+            _ => Self::other(e),
+        }
+    }
+}
+
+impl From<ProtoError> for String {
+    fn from(e: ProtoError) -> Self {
+        e.to_string()
+    }
+}
+
+#[cfg(feature = "wasm-bindgen")]
+impl From<ProtoError> for wasm_bindgen_crate::JsValue {
+    fn from(e: ProtoError) -> Self {
+        js_sys::Error::new(&e.to_string()).into()
+    }
+}
+
+impl Clone for ProtoErrorKind {
+    fn clone(&self) -> Self {
+        use self::ProtoErrorKind::*;
+        match *self {
+            BadQueryCount(count) => BadQueryCount(count),
+            BadTransactionId => BadTransactionId,
+            Busy => Busy,
+            Canceled(ref c) => Canceled(*c),
+            CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
+            Dns(ref e) => Dns(e.clone()),
+            LabelOverlapsWithOther { label, other } => LabelOverlapsWithOther { label, other },
+            DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
+            DomainNameTooLong(len) => DomainNameTooLong(len),
+            EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
+            FormError { header, ref error } => FormError {
+                header,
+                error: error.clone(),
+            },
+            IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
+            LabelBytesTooLong(len) => LabelBytesTooLong(len),
+            PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },
+            MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
+            MaxRecordLimitExceeded { count, record_type } => {
+                MaxRecordLimitExceeded { count, record_type }
+            }
+            Message(msg) => Message(msg),
+            Msg(ref msg) => Msg(msg.clone()),
+            NoConnections => NoConnections,
+            NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
+            RequestRefused => RequestRefused,
+            UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
+            UnknownDigestTypeValue(value) => UnknownDigestTypeValue(value),
+            UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
+            UnknownDnsClassValue(value) => UnknownDnsClassValue(value),
+            UnknownRecordTypeStr(ref value) => UnknownRecordTypeStr(value.clone()),
+            UnknownRecordTypeValue(value) => UnknownRecordTypeValue(value),
+            UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
+            UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
+            UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
+            #[cfg(feature = "std")]
+            Io(ref e) => Io(e.clone()),
+            Poisoned => Poisoned,
+            #[cfg(feature = "__dnssec")]
+            Ring(ref _e) => Ring(Unspecified),
+            Timeout => Timeout,
+            Timer => Timer,
+            UrlParsing(ref e) => UrlParsing(*e),
+            Utf8(ref e) => Utf8(*e),
+            FromUtf8(ref e) => FromUtf8(e.clone()),
+            ParseInt(ref e) => ParseInt(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnConnect(ref e) => QuinnConnect(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnConnection(ref e) => QuinnConnection(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnWriteError(ref e) => QuinnWriteError(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuicMessageIdNot0(val) => QuicMessageIdNot0(val),
+            #[cfg(feature = "__quic")]
+            QuinnReadError(ref e) => QuinnReadError(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnStreamError(ref e) => QuinnStreamError(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnConfigError(ref e) => QuinnConfigError(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnTlsConfigError(ref e) => QuinnTlsConfigError(e.clone()),
+            #[cfg(feature = "__quic")]
+            QuinnUnknownStreamError => QuinnUnknownStreamError,
+            #[cfg(feature = "__tls")]
+            RustlsError(ref e) => RustlsError(e.clone()),
+            QueryCaseMismatch => QueryCaseMismatch,
+        }
+    }
+}
+
+/// Semantic DNS errors
+#[derive(Clone, Debug, EnumAsInner, Error)]
+#[non_exhaustive]
+pub enum DnsError {
+    /// A request was refused due to some access check
+    #[error("request refused")]
+    Refused,
+    /// Received an error response code from the server
+    #[error("error response: {0}")]
+    ResponseCode(ResponseCode),
+    /// No records were found for a query
+    #[error("no records found for {:?}", .0.query)]
+    NoRecordsFound(NoRecords),
+    /// No Records and there is a corresponding DNSSEC Proof for NSEC
+    #[cfg(feature = "__dnssec")]
+    #[non_exhaustive]
+    #[error("DNSSEC Negative Record Response for {query}, {proof}")]
+    Nsec {
+        /// Query for which the NSEC was returned
+        query: Box<Query>,
+        /// Response for which the NSEC was returned
+        response: Box<DnsResponse>,
+        /// DNSSEC proof of the record
+        proof: Proof,
+    },
+}
+
+impl DnsError {
+    /// A conversion to determine if the response is an error
+    pub fn from_response(response: DnsResponse) -> Result<DnsResponse, Self> {
+        use ResponseCode::*;
+        debug!("response: {}", *response);
+
+        match response.response_code() {
+                Refused => Err(Self::Refused),
+                code @ ServFail
+                | code @ FormErr
+                | code @ NotImp
+                | code @ YXDomain
+                | code @ YXRRSet
+                | code @ NXRRSet
+                | code @ NotAuth
+                | code @ NotZone
+                | code @ BADVERS
+                | code @ BADSIG
+                | code @ BADKEY
+                | code @ BADTIME
+                | code @ BADMODE
+                | code @ BADNAME
+                | code @ BADALG
+                | code @ BADTRUNC
+                | code @ BADCOOKIE => Err(Self::ResponseCode(code)),
+                // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
+                code @ NXDomain |
+                // No answers are available, CNAME referrals are not failures
+                code @ NoError
+                if !response.contains_answer() && !response.truncated() => {
+                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                    // let valid_until = if response.authoritative() { now + response.negative_ttl() };
+                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
+
+                    // Collect any referral nameservers and associated glue records
+                    let mut referral_name_servers = vec![];
+                    for ns in response.authorities().iter().filter(|ns| ns.record_type() == RecordType::NS) {
+                        let glue = response
+                            .additionals()
+                            .iter()
+                            .filter_map(|record| {
+                                if let Some(ns_data) = ns.data().as_ns() {
+                                    if *record.name() == **ns_data &&
+                                       (record.data().as_a().is_some() || record.data().as_aaaa().is_some()) {
+                                           return Some(Record::to_owned(record));
+                                       }
+                                }
+
+                                None
+                            })
+                            .collect::<Vec<Record>>();
+                        referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue: glue.into() })
+                    }
+
+                    let option_ns = if !referral_name_servers.is_empty() {
+                        Some(referral_name_servers.into())
+                    } else {
+                        None
+                    };
+
+                    let authorities = if !response.authorities().is_empty() {
+                        Some(response.authorities().to_owned().into())
+                    } else {
+                        None
+                    };
+
+                    let negative_ttl = response.negative_ttl();
+                    let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
+
+                    Err(Self::NoRecordsFound(NoRecords {
+                        query: Box::new(query),
+                        soa: soa.map(Box::new),
+                        ns: option_ns,
+                        negative_ttl,
+                        response_code: code,
+                        authorities,
+                    }))
+                }
+                NXDomain
+                | NoError
+                | Unknown(_) => Ok(response),
+            }
     }
 }
 
@@ -452,389 +842,4 @@ pub struct ForwardNSData {
     pub ns: Record,
     /// Any glue records associated with the referant NS record.
     pub glue: Arc<[Record]>,
-}
-
-/// The error type for errors that get returned in the crate
-#[derive(Error, Clone, Debug)]
-#[non_exhaustive]
-pub struct ProtoError {
-    /// Kind of error that occurred
-    pub kind: ProtoErrorKind,
-    /// Backtrace to the source of the error
-    #[cfg(feature = "backtrace")]
-    pub backtrack: Option<ExtBacktrace>,
-}
-
-impl ProtoError {
-    /// Get the kind of the error
-    #[inline]
-    pub fn kind(&self) -> &ProtoErrorKind {
-        &self.kind
-    }
-
-    /// If this is a ProtoErrorKind::Busy
-    #[inline]
-    pub fn is_busy(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::Busy)
-    }
-
-    /// Returns true if this error represents NoConnections
-    #[inline]
-    pub fn is_no_connections(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::NoConnections)
-    }
-
-    /// Returns true if the domain does not exist
-    #[inline]
-    pub fn is_nx_domain(&self) -> bool {
-        matches!(
-            self.kind,
-            ProtoErrorKind::NoRecordsFound(NoRecords {
-                response_code: ResponseCode::NXDomain,
-                ..
-            })
-        )
-    }
-
-    /// Returns true if the error represents NoRecordsFound
-    #[inline]
-    pub fn is_no_records_found(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::NoRecordsFound { .. })
-    }
-
-    /// Returns the SOA record, if the error contains one
-    #[inline]
-    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
-        match self.kind {
-            ProtoErrorKind::NoRecordsFound(NoRecords { soa, .. }) => soa,
-            _ => None,
-        }
-    }
-
-    /// Returns true if this is a std::io::Error
-    #[inline]
-    #[cfg(feature = "std")]
-    pub fn is_io(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::Io(..))
-    }
-
-    #[cfg(feature = "std")]
-    pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
-        self
-    }
-
-    /// A conversion to determine if the response is an error
-    pub fn from_response(response: DnsResponse) -> Result<DnsResponse, Self> {
-        use ResponseCode::*;
-        debug!("response: {}", *response);
-
-        match response.response_code() {
-                Refused => Err(Self::from(ProtoErrorKind::RequestRefused)),
-                code @ ServFail
-                | code @ FormErr
-                | code @ NotImp
-                | code @ YXDomain
-                | code @ YXRRSet
-                | code @ NXRRSet
-                | code @ NotAuth
-                | code @ NotZone
-                | code @ BADVERS
-                | code @ BADSIG
-                | code @ BADKEY
-                | code @ BADTIME
-                | code @ BADMODE
-                | code @ BADNAME
-                | code @ BADALG
-                | code @ BADTRUNC
-                | code @ BADCOOKIE => Err(Self::from(ProtoErrorKind::ResponseCode(code))),
-                // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
-                code @ NXDomain |
-                // No answers are available, CNAME referrals are not failures
-                code @ NoError
-                if !response.contains_answer() && !response.truncated() => {
-                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                    // let valid_until = if response.authoritative() { now + response.negative_ttl() };
-                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
-
-                    // Collect any referral nameservers and associated glue records
-                    let mut referral_name_servers = vec![];
-                    for ns in response.authorities().iter().filter(|ns| ns.record_type() == RecordType::NS) {
-                        let glue = response
-                            .additionals()
-                            .iter()
-                            .filter_map(|record| {
-                                if let Some(ns_data) = ns.data().as_ns() {
-                                    if *record.name() == **ns_data &&
-                                       (record.data().as_a().is_some() || record.data().as_aaaa().is_some()) {
-                                           return Some(Record::to_owned(record));
-                                       }
-                                }
-
-                                None
-                            })
-                            .collect::<Vec<Record>>();
-                        referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue: glue.into() })
-                    }
-
-                    let option_ns = if !referral_name_servers.is_empty() {
-                        Some(referral_name_servers.into())
-                    } else {
-                        None
-                    };
-
-                    let authorities = if !response.authorities().is_empty() {
-                        Some(response.authorities().to_owned().into())
-                    } else {
-                        None
-                    };
-
-                    let negative_ttl = response.negative_ttl();
-                    let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
-
-                    let error_kind = ProtoErrorKind::NoRecordsFound(NoRecords {
-                        query: Box::new(query),
-                        soa: soa.map(Box::new),
-                        ns: option_ns,
-                        negative_ttl,
-                        response_code: code,
-                        authorities,
-                    });
-
-                    Err(Self::from(error_kind))
-                }
-                NXDomain
-                | NoError
-                | Unknown(_) => Ok(response),
-            }
-    }
-
-    /// Compare two errors to see if one contains a server response.
-    pub fn cmp_specificity(&self, other: &Self) -> Ordering {
-        let kind = self.kind();
-        let other = other.kind();
-
-        match (kind, other) {
-            (ProtoErrorKind::NoRecordsFound { .. }, ProtoErrorKind::NoRecordsFound { .. }) => {
-                return Ordering::Equal;
-            }
-            (ProtoErrorKind::NoRecordsFound { .. }, _) => return Ordering::Greater,
-            (_, ProtoErrorKind::NoRecordsFound { .. }) => return Ordering::Less,
-            _ => (),
-        }
-
-        match (kind, other) {
-            #[cfg(feature = "std")]
-            (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
-            #[cfg(feature = "std")]
-            (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
-            #[cfg(feature = "std")]
-            (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
-            _ => (),
-        }
-
-        match (kind, other) {
-            (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return Ordering::Equal,
-            (ProtoErrorKind::Timeout, _) => return Ordering::Greater,
-            (_, ProtoErrorKind::Timeout) => return Ordering::Less,
-            _ => (),
-        }
-
-        Ordering::Equal
-    }
-
-    /// Whether the query should be retried after this error
-    pub fn should_retry(&self) -> bool {
-        !matches!(
-            self.kind(),
-            ProtoErrorKind::NoConnections | ProtoErrorKind::NoRecordsFound { .. }
-        )
-    }
-
-    /// Whether this error should count as an attempt
-    pub fn attempted(&self) -> bool {
-        !matches!(self.kind(), ProtoErrorKind::Busy)
-    }
-}
-
-impl fmt::Display for ProtoError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
-    }
-}
-
-impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
-    fn from(error: E) -> Self {
-        Self {
-            kind: error.into(),
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
-        }
-    }
-}
-
-impl From<DecodeError> for ProtoError {
-    fn from(err: DecodeError) -> Self {
-        match err {
-            DecodeError::PointerNotPriorToLabel { idx, ptr } => {
-                ProtoErrorKind::PointerNotPriorToLabel { idx, ptr }
-            }
-            DecodeError::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
-            DecodeError::UnrecognizedLabelCode(code) => ProtoErrorKind::UnrecognizedLabelCode(code),
-            DecodeError::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
-            DecodeError::LabelOverlapsWithOther { label, other } => {
-                ProtoErrorKind::LabelOverlapsWithOther { label, other }
-            }
-            _ => ProtoErrorKind::Msg(err.to_string()),
-        }
-        .into()
-    }
-}
-
-impl From<&'static str> for ProtoError {
-    fn from(msg: &'static str) -> Self {
-        ProtoErrorKind::Message(msg).into()
-    }
-}
-
-impl From<String> for ProtoError {
-    fn from(msg: String) -> Self {
-        ProtoErrorKind::Msg(msg).into()
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<io::Error> for ProtoErrorKind {
-    fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::TimedOut => Self::Timeout,
-            _ => Self::Io(e.into()),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl<T> From<sync::PoisonError<T>> for ProtoError {
-    fn from(_e: sync::PoisonError<T>) -> Self {
-        ProtoErrorKind::Poisoned.into()
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<ProtoError> for io::Error {
-    fn from(e: ProtoError) -> Self {
-        match e.kind() {
-            ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::other(e),
-        }
-    }
-}
-
-impl From<ProtoError> for String {
-    fn from(e: ProtoError) -> Self {
-        e.to_string()
-    }
-}
-
-#[cfg(feature = "wasm-bindgen")]
-impl From<ProtoError> for wasm_bindgen_crate::JsValue {
-    fn from(e: ProtoError) -> Self {
-        js_sys::Error::new(&e.to_string()).into()
-    }
-}
-
-impl Clone for ProtoErrorKind {
-    fn clone(&self) -> Self {
-        use self::ProtoErrorKind::*;
-        match *self {
-            BadQueryCount(count) => BadQueryCount(count),
-            BadTransactionId => BadTransactionId,
-            Busy => Busy,
-            Canceled(ref c) => Canceled(*c),
-            CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
-            LabelOverlapsWithOther { label, other } => LabelOverlapsWithOther { label, other },
-            DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
-            DomainNameTooLong(len) => DomainNameTooLong(len),
-            EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
-            FormError { header, ref error } => FormError {
-                header,
-                error: error.clone(),
-            },
-            IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
-            LabelBytesTooLong(len) => LabelBytesTooLong(len),
-            PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },
-            MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
-            MaxRecordLimitExceeded { count, record_type } => {
-                MaxRecordLimitExceeded { count, record_type }
-            }
-            Message(msg) => Message(msg),
-            Msg(ref msg) => Msg(msg.clone()),
-            NoConnections => NoConnections,
-            NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
-            NoRecordsFound(ref inner) => NoRecordsFound(inner.clone()),
-            RequestRefused => RequestRefused,
-            ResponseCode(code) => ResponseCode(code),
-            #[cfg(feature = "__dnssec")]
-            Nsec {
-                ref query,
-                ref response,
-                proof,
-            } => Nsec {
-                query: query.clone(),
-                response: response.clone(),
-                proof,
-            },
-            UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
-            UnknownDigestTypeValue(value) => UnknownDigestTypeValue(value),
-            UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
-            UnknownDnsClassValue(value) => UnknownDnsClassValue(value),
-            UnknownRecordTypeStr(ref value) => UnknownRecordTypeStr(value.clone()),
-            UnknownRecordTypeValue(value) => UnknownRecordTypeValue(value),
-            UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
-            UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
-            UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
-            #[cfg(feature = "std")]
-            Io(ref e) => Io(e.clone()),
-            Poisoned => Poisoned,
-            #[cfg(feature = "__dnssec")]
-            Ring(ref _e) => Ring(Unspecified),
-            Timeout => Timeout,
-            Timer => Timer,
-            UrlParsing(ref e) => UrlParsing(*e),
-            Utf8(ref e) => Utf8(*e),
-            FromUtf8(ref e) => FromUtf8(e.clone()),
-            ParseInt(ref e) => ParseInt(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnConnect(ref e) => QuinnConnect(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnConnection(ref e) => QuinnConnection(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnWriteError(ref e) => QuinnWriteError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuicMessageIdNot0(val) => QuicMessageIdNot0(val),
-            #[cfg(feature = "__quic")]
-            QuinnReadError(ref e) => QuinnReadError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnStreamError(ref e) => QuinnStreamError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnConfigError(ref e) => QuinnConfigError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnTlsConfigError(ref e) => QuinnTlsConfigError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnUnknownStreamError => QuinnUnknownStreamError,
-            #[cfg(feature = "__tls")]
-            RustlsError(ref e) => RustlsError(e.clone()),
-            QueryCaseMismatch => QueryCaseMismatch,
-        }
-    }
 }

@@ -15,14 +15,14 @@ use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 use tracing::warn;
 
-#[cfg(feature = "backtrace")]
-use crate::proto::{ExtBacktrace, trace};
 use crate::proto::{
-    ForwardNSData, ProtoErrorKind,
+    DnsError, ForwardNSData, ProtoErrorKind,
     op::ResponseCode,
     rr::{Name, Record, rdata::SOA},
     {AuthorityData, NoRecords, ProtoError},
 };
+#[cfg(feature = "backtrace")]
+use crate::proto::{ExtBacktrace, trace};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, EnumAsInner, Error)]
@@ -206,7 +206,7 @@ impl From<Error> for String {
 impl From<ProtoError> for Error {
     fn from(e: ProtoError) -> Self {
         let no_records = match e.kind() {
-            ProtoErrorKind::NoRecordsFound(no_records) => no_records,
+            ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
             _ => return ErrorKind::Proto(e).into(),
         };
 

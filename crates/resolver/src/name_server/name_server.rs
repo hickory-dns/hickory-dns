@@ -23,7 +23,7 @@ use tracing::debug;
 use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
-    NoRecords, ProtoError, ProtoErrorKind,
+    DnsError, NoRecords, ProtoError, ProtoErrorKind,
     op::{DnsRequest, DnsResponse, ResponseCode},
     xfer::{DnsHandle, FirstAnswer, Protocol},
 };
@@ -177,7 +177,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
         match response {
             Ok(response) => {
                 // First evaluate if the message succeeded.
-                let result = ProtoError::from_response(response);
+                let result = DnsError::from_response(response);
                 self.stats.record(rtt, &result);
                 let response = result?;
 
@@ -193,7 +193,21 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 self.set_status(Status::Failed);
 
                 // record the failure
-                self.stats.record_connection_failure();
+                match error.kind() {
+                    ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
+                        self.stats.record_connection_failure()
+                    }
+                    #[cfg(feature = "__quic")]
+                    ProtoErrorKind::QuinnConfigError(_)
+                    | ProtoErrorKind::QuinnConnect(_)
+                    | ProtoErrorKind::QuinnConnection(_)
+                    | ProtoErrorKind::QuinnTlsConfigError(_) => {
+                        self.stats.record_connection_failure()
+                    }
+                    #[cfg(feature = "__tls")]
+                    ProtoErrorKind::RustlsError(_) => self.stats.record_connection_failure(),
+                    _ => {}
+                }
 
                 // These are connection failures, not lookup failures, that is handled in the resolver layer
                 Err(error)
@@ -286,7 +300,7 @@ impl NameServerStats {
     /// Records the measured `rtt` for a particular result.
     ///
     /// Tries to guess if the result was a failure that should penalize the expected RTT.
-    fn record(&self, rtt: Duration, result: &Result<DnsResponse, ProtoError>) {
+    fn record(&self, rtt: Duration, result: &Result<DnsResponse, DnsError>) {
         let error = match result {
             Ok(_) => {
                 self.record_rtt(rtt);
@@ -295,25 +309,11 @@ impl NameServerStats {
             Err(err) => err,
         };
 
-        use ResponseCode::*;
-        match error.kind() {
-            ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. }) => {
-                match response_code {
-                    ServFail => self.record_connection_failure(),
-                    _ => self.record_rtt(rtt),
-                }
+        if let DnsError::NoRecordsFound(NoRecords { response_code, .. }) = error {
+            match response_code {
+                ResponseCode::ServFail => self.record_connection_failure(),
+                _ => self.record_rtt(rtt),
             }
-            ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
-                self.record_connection_failure()
-            }
-            #[cfg(feature = "__quic")]
-            ProtoErrorKind::QuinnConfigError(_)
-            | ProtoErrorKind::QuinnConnect(_)
-            | ProtoErrorKind::QuinnConnection(_)
-            | ProtoErrorKind::QuinnTlsConfigError(_) => self.record_connection_failure(),
-            #[cfg(feature = "__tls")]
-            ProtoErrorKind::RustlsError(_) => self.record_connection_failure(),
-            _ => {}
         }
     }
 

@@ -15,7 +15,7 @@ use hickory_integration::mock_client::*;
 use hickory_proto::op::{DnsResponse, Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, FirstAnswer};
-use hickory_proto::{NoRecords, ProtoError, ProtoErrorKind};
+use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
 };
@@ -308,9 +308,10 @@ fn test_tcp_fallback_only_on_truncated() {
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
 
     let udp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(udp_message).unwrap(),
-        )],
+        vec![
+            DnsError::from_response(DnsResponse::from_message(udp_message).unwrap())
+                .map_err(ProtoError::from),
+        ],
         ProtocolConfig::Udp,
         Default::default(),
     );
@@ -329,7 +330,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
-        ProtoErrorKind::ResponseCode(ResponseCode::ServFail) => {}
+        ProtoErrorKind::Dns(DnsError::ResponseCode(ResponseCode::ServFail)) => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `ResponseCode` error with SERVFAIL,
             got {kind:#?}",
@@ -353,17 +354,19 @@ fn test_no_tcp_fallback_on_non_io_error() {
     tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
 
     let udp_nameserver = mock_udp_nameserver_trust_nx(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(udp_message).unwrap(),
-        )],
+        vec![
+            DnsError::from_response(DnsResponse::from_message(udp_message).unwrap())
+                .map_err(ProtoError::from),
+        ],
         Default::default(),
         true,
     );
 
     let tcp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(tcp_message).unwrap(),
-        )],
+        vec![
+            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap())
+                .map_err(ProtoError::from),
+        ],
         ProtocolConfig::Tcp,
         Default::default(),
     );
@@ -376,10 +379,10 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
     match error.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords {
+        ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             response_code: ResponseCode::NXDomain,
             ..
-        }) => {}
+        })) => {}
         kind => panic!(
             "expected `NoRecordsFound` with `response_code: NXDomain`,
             got {kind:#?}",
@@ -406,9 +409,10 @@ fn test_tcp_fallback_on_io_error() {
         mock_nameserver(vec![udp_message], ProtocolConfig::Udp, Default::default());
 
     let tcp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(tcp_message).unwrap(),
-        )],
+        vec![
+            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap())
+                .map_err(ProtoError::from),
+        ],
         ProtocolConfig::Tcp,
         Default::default(),
     );
@@ -420,7 +424,7 @@ fn test_tcp_fallback_on_io_error() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::ResponseCode(ResponseCode::NotImp) => {}
+        ProtoErrorKind::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
         kind => panic!(
             "expected `ResponseCode` with `response_code: NotImp`,
             got {kind:#?}",
@@ -446,9 +450,10 @@ fn test_tcp_fallback_on_no_connections() {
         mock_nameserver(vec![udp_message], ProtocolConfig::Udp, Default::default());
 
     let tcp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(tcp_message).unwrap(),
-        )],
+        vec![
+            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap())
+                .map_err(ProtoError::from),
+        ],
         ProtocolConfig::Tcp,
         Default::default(),
     );
@@ -460,7 +465,7 @@ fn test_tcp_fallback_on_no_connections() {
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
     match error.kind() {
-        ProtoErrorKind::ResponseCode(ResponseCode::NotImp) => {}
+        ProtoErrorKind::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
         kind => panic!(
             "expected `ResponseCode` with `response_code: NotImp`,
             got {kind:#?}",
@@ -510,10 +515,10 @@ fn test_trust_nx_responses_fails() {
     let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
     match response.kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords {
+        ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             response_code: ResponseCode::NXDomain,
             ..
-        }) => {}
+        })) => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
             got {kind:#?}",
@@ -560,9 +565,9 @@ fn test_noerror_doesnt_leak() {
     // lookup should only hit the first server
     let future = pool.send(build_request(query)).first_answer();
     match block_on(future).unwrap_err().kind() {
-        ProtoErrorKind::NoRecordsFound(NoRecords {
+        ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             soa, response_code, ..
-        }) => {
+        })) => {
             assert_eq!(response_code, &ResponseCode::NoError);
             assert!(soa.is_some());
         }
@@ -703,10 +708,10 @@ fn test_return_error_from_highest_priority_nameserver() {
             let mut error_message = message(query.clone(), vec![], vec![], vec![]);
             error_message.set_response_code(*response_code);
             let response =
-                ProtoError::from_response(DnsResponse::from_message(error_message).unwrap())
+                DnsError::from_response(DnsResponse::from_message(error_message).unwrap())
                     .expect_err("error code should result in resolve error");
             mock_nameserver(
-                vec![Err(response)],
+                vec![Err(response.into())],
                 ProtocolConfig::Udp,
                 ResolverOpts::default(),
             )
@@ -725,7 +730,8 @@ fn test_return_error_from_highest_priority_nameserver() {
     eprintln!("error is: {error}");
 
     match error.kind() {
-        ProtoErrorKind::ResponseCode(response_code) if response_code == expected_response_code => {}
+        ProtoErrorKind::Dns(DnsError::ResponseCode(response_code))
+            if response_code == expected_response_code => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected error with response \
             code `{expected_response_code:?}`, got {kind:#?}",

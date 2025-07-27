@@ -26,7 +26,7 @@ use crate::proto::op::{Edns, ResponseCode, ResponseSigner};
 #[cfg(feature = "__dnssec")]
 use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
-use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
+use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 #[cfg(feature = "recursor")]
 use crate::recursor::ErrorKind;
 use crate::server::{Request, RequestInfo};
@@ -437,18 +437,19 @@ impl LookupError {
     pub fn authorities(&self) -> Option<Arc<[Record]>> {
         match self {
             Self::ProtoError(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
-                    authorities.clone()
-                }
+                ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+                    authorities, ..
+                })) => authorities.clone(),
                 _ => None,
             },
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => match e.kind() {
                 ErrorKind::Negative(fwd) => fwd.authorities.clone(),
                 ErrorKind::Proto(proto) => match proto.kind() {
-                    ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
-                        authorities.clone()
-                    }
+                    ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+                        authorities,
+                        ..
+                    })) => authorities.clone(),
                     _ => None,
                 },
                 _ => None,

@@ -1123,7 +1123,6 @@ mod tests {
 
     use futures_util::stream::once;
     use futures_util::{Stream, future};
-    use hickory_proto::xfer::DnsExchange;
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
@@ -1143,7 +1142,8 @@ mod tests {
     use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::rdata::A;
-    use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
+    use crate::proto::xfer::DnsExchange;
+    use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 
     fn is_send_t<T: Send>() -> bool {
         true
@@ -1436,11 +1436,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_no_response() {
-        if let ProtoErrorKind::NoRecordsFound(NoRecords {
+        if let ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             query,
             negative_ttl,
             ..
-        }) = LookupFuture::lookup(
+        })) = LookupFuture::lookup(
             vec![Name::root()],
             RecordType::A,
             DnsRequestOptions::default(),
