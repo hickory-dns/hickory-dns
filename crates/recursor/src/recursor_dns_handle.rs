@@ -350,7 +350,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             return None;
         }
 
-        debug!("cached data {response:?}");
+        debug!(?response, "cached data");
         Some(Ok(response))
     }
 
@@ -413,7 +413,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // Query for nameserver records via the pool for the parent zone.
         let lookup_res = match self.response_cache.get(&query, request_time) {
             Some(Ok(response)) => {
-                debug!("cached data {response:?}");
+                debug!(?response, "cached data");
                 Ok(response)
             }
             Some(Err(e)) => Err(e.into()),
