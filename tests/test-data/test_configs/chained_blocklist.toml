@@ -43,6 +43,7 @@ sinkhole_ipv4 = "192.0.2.1"
 sinkhole_ipv6 = "::ffff:c0:0:2:1"
 block_message = "This query has been blocked by the DNS server"
 lists = ["default/blocklist.txt", "default/blocklist2.txt"]
+log_clients = false
 
 [[zones.stores]]
 type = "recursor"
