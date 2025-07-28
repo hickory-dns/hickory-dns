@@ -243,4 +243,21 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn pdns_logs_works() -> Result<()> {
+        let network = Network::new()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
+        let resolver =
+            Resolver::new(&network, ns.root_hint()).start_with_subject(&Implementation::Pdns)?;
+        // no way to block until the server has finished starting up so we just give it some
+        // arbitrary amount of time
+        thread::sleep(Duration::from_secs(1));
+        let logs = resolver.logs()?;
+
+        eprintln!("{logs}");
+        assert!(logs.contains("Listening for queries"));
+
+        Ok(())
+    }
 }

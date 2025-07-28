@@ -55,6 +55,7 @@ pub enum Implementation {
         repo: Repository<'static>,
         crypto_provider: HickoryCryptoProvider,
     },
+    Pdns,
     Unbound,
     EdeDotCom,
 }
@@ -65,6 +66,7 @@ impl Implementation {
             Implementation::Bind => false,
             Implementation::Dnslib => true,
             Implementation::Hickory { .. } => true,
+            Implementation::Pdns => true,
             Implementation::Unbound => true,
             Implementation::EdeDotCom => false, // does not support running a resolver
         }
@@ -101,6 +103,11 @@ impl Implementation {
     }
 
     #[must_use]
+    pub fn is_pdns(&self) -> bool {
+        matches!(self, Self::Pdns)
+    }
+
+    #[must_use]
     pub fn is_unbound(&self) -> bool {
         matches!(self, Self::Unbound)
     }
@@ -133,6 +140,16 @@ impl Implementation {
                     minijinja::render!(
                         include_str!("templates/hickory.resolver.toml.jinja"),
                         use_dnssec => use_dnssec,
+                        case_randomization => case_randomization,
+                    )
+                }
+
+                Self::Pdns => {
+                    minijinja::render!(
+                        include_str!("templates/pdns.resolver.conf.jinja"),
+                        use_dnssec => use_dnssec,
+                        netmask => netmask,
+                        ede => ede,
                         case_randomization => case_randomization,
                     )
                 }
@@ -192,6 +209,11 @@ impl Implementation {
                     )
                 }
 
+                Self::Pdns => {
+                    // PowerDNS Recursor doesn't act as authoritative name server
+                    unreachable!("PowerDNS Recursor doesn't support name server role")
+                }
+
                 Self::EdeDotCom => include_str!("templates/named.ede-dot-com.conf").into(),
             },
 
@@ -212,6 +234,12 @@ impl Implementation {
 
                 Self::Hickory { .. } => minijinja::render!(
                     include_str!("templates/hickory.forwarder.toml.jinja"),
+                    resolver_ip => resolver_ip,
+                    use_dnssec => use_dnssec,
+                ),
+
+                Self::Pdns => minijinja::render!(
+                    include_str!("templates/pdns.forwarder.conf.jinja"),
                     resolver_ip => resolver_ip,
                     use_dnssec => use_dnssec,
                 ),
@@ -238,6 +266,11 @@ impl Implementation {
 
             Self::Hickory { .. } => Some("/etc/named.toml"),
 
+            Self::Pdns => match role {
+                Role::Resolver | Role::Forwarder => Some("/etc/powerdns/recursor.yml"),
+                Role::NameServer => None, // PowerDNS Recursor doesn't act as authoritative
+            },
+
             Self::Unbound => match role {
                 Role::NameServer => Some("/etc/nsd/nsd.conf"),
                 Role::Resolver | Role::Forwarder => Some("/etc/unbound/unbound.conf"),
@@ -252,6 +285,10 @@ impl Implementation {
             Implementation::Bind | Implementation::EdeDotCom => "named -g -d5",
             Implementation::Dnslib => "python3 /script.py",
             Implementation::Hickory { .. } => "hickory-dns -d",
+            Implementation::Pdns => match role {
+                Role::Resolver | Role::Forwarder => "pdns_recursor",
+                Role::NameServer => unreachable!("PowerDNS Recursor doesn't act as authoritative"),
+            },
             Implementation::Unbound => match role {
                 Role::NameServer => "nsd -d",
                 Role::Resolver | Role::Forwarder => "unbound -d",
@@ -286,6 +323,8 @@ impl Implementation {
             Implementation::Dnslib => "/tmp/dnslib",
 
             Implementation::Hickory { .. } => "/tmp/hickory",
+
+            Implementation::Pdns => "/tmp/pdns",
 
             Implementation::Unbound => match role {
                 Role::NameServer => "/tmp/nsd",

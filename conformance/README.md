@@ -50,6 +50,7 @@ To use `hickory-dns` for both, set both the `DNS_TEST_PEER` and `DNS_TEST_SUBJEC
 - `DNS_TEST_SUBJECT`. This variable controls the choice of recursive resolver and forwarder. The variable can contain one of these values:
   - `unbound`
   - `bind`
+  - `pdns`
   - `hickory $REPOSITORY $CRYPTO_PROVIDER`. where `$REPOSITORY` is a placeholder for a git repository, and `$CRYPTO_PROVIDER` is `ring` or `aws-lc-rs`. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
 
 - `DNS_TEST_PEER`. This variable controls the choice of authoritative nameservers. The variable can contain one of these values:
