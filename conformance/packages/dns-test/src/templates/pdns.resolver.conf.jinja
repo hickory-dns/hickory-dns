@@ -1,0 +1,41 @@
+recursor:
+  write_pid: false
+  socket_dir: /var/run/pdns-recursor
+  hint_file: /etc/root.hints
+  # Disable security update polling
+  security_poll_suffix: ""
+{% if not ede %}
+  # EDE is enabled by default
+  extended_resolution_errors: false
+{% endif %}
+
+{% if use_dnssec %}
+dnssec:
+  validation: validate
+  trustanchorfile: /etc/trusted-key.key
+{% else %}
+dnssec:
+  validation: off
+{% endif %}
+
+outgoing:
+{% if not case_randomization %}
+  lowercase: true
+{% endif %}
+  # Allow queries to private IPs (Docker network)
+  dont_query: []
+
+incoming:
+  listen:
+    - 0.0.0.0
+  allow_from:
+    - {{ netmask }}
+
+# Log detailed query resolution for debugging
+logging:
+  loglevel: 9
+  trace: true
+  quiet: false
+
+recordcache:
+  max_ttl: 60

@@ -1,0 +1,38 @@
+recursor:
+  write_pid: false
+  socket_dir: /var/run/pdns-recursor
+  # Disable security update polling
+  security_poll_suffix: ""
+
+  forward_zones_recurse:
+    - zone: .
+      forwarders:
+        - {{ resolver_ip }}
+
+{% if use_dnssec %}
+dnssec:
+  validation: validate
+  trustanchorfile: /etc/trusted-key.key
+{% else %}
+dnssec:
+  validation: off
+{% endif %}
+
+outgoing:
+  # Allow queries to private IPs (Docker network)
+  dont_query: []
+
+incoming:
+  listen:
+    - 0.0.0.0
+  allow_from:
+    - 0.0.0.0/0
+
+# Log detailed query resolution for debugging
+logging:
+  loglevel: 9
+  trace: true
+  quiet: false
+
+recordcache:
+  max_ttl: 60
