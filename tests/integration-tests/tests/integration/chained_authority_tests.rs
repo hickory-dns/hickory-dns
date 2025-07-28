@@ -15,7 +15,7 @@ use hickory_server::{
         AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
         LookupRecords, UpdateResult, ZoneType,
     },
-    server::{Request, ResponseInfo},
+    server::{Request, RequestInfo, ResponseInfo},
 };
 use test_support::subscribe;
 
@@ -218,6 +218,7 @@ impl Authority for TestAuthority {
         &self,
         name: &LowerName,
         _query_type: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         let Some(res) = inner_lookup(name, &self.lookup_records, &lookup_options) else {
@@ -242,6 +243,7 @@ impl Authority for TestAuthority {
             self.lookup(
                 request_info.query.name(),
                 request_info.query.query_type(),
+                Some(&request_info),
                 lookup_options,
             )
             .await,
@@ -253,6 +255,7 @@ impl Authority for TestAuthority {
         &self,
         name: &LowerName,
         _rtype: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
     ) -> (

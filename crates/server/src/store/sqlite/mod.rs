@@ -36,7 +36,7 @@ use crate::{
         op::message::ResponseSigner,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     },
-    server::Request,
+    server::{Request, RequestInfo},
     store::{
         file::rooted,
         in_memory::{InMemoryAuthority, zone_from_path},
@@ -409,6 +409,7 @@ impl SqliteAuthority {
                                     .lookup(
                                         &required_name,
                                         RecordType::ANY,
+                                        None,
                                         LookupOptions::default(),
                                     )
                                     .await
@@ -423,7 +424,7 @@ impl SqliteAuthority {
                             // ANY      rrset    empty    RRset exists (value independent)
                             rrset => {
                                 if self
-                                    .lookup(&required_name, rrset, LookupOptions::default())
+                                    .lookup(&required_name, rrset, None, LookupOptions::default())
                                     .await
                                     .unwrap_or_default()
                                     .was_empty()
@@ -447,6 +448,7 @@ impl SqliteAuthority {
                                     .lookup(
                                         &required_name,
                                         RecordType::ANY,
+                                        None,
                                         LookupOptions::default(),
                                     )
                                     .await
@@ -461,7 +463,7 @@ impl SqliteAuthority {
                             // NONE     rrset    empty    RRset does not exist
                             rrset => {
                                 if !self
-                                    .lookup(&required_name, rrset, LookupOptions::default())
+                                    .lookup(&required_name, rrset, None, LookupOptions::default())
                                     .await
                                     .unwrap_or_default()
                                     .was_empty()
@@ -483,6 +485,7 @@ impl SqliteAuthority {
                         .lookup(
                             &required_name,
                             require.record_type(),
+                            None,
                             LookupOptions::default(),
                         )
                         .await
@@ -915,8 +918,9 @@ impl SqliteAuthority {
         };
 
         let name = LowerName::from(&sig0.input().signer_name);
+
         let Continue(Ok(keys)) = self
-            .lookup(&name, RecordType::KEY, LookupOptions::default())
+            .lookup(&name, RecordType::KEY, None, LookupOptions::default())
             .await
         else {
             warn!("no sig0 key name matched: id {}", request.id());
@@ -1097,9 +1101,12 @@ impl Authority for SqliteAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.lookup(name, rtype, lookup_options).await
+        self.in_memory
+            .lookup(name, rtype, request_info, lookup_options)
+            .await
     }
 
     async fn search(

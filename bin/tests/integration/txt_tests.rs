@@ -108,6 +108,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let lowercase_record = block_on(authority.lookup(
         &Name::from_str("tech.").unwrap().into(),
         RecordType::SOA,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -139,6 +140,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let mut ns_records: Vec<Record> = block_on(authority.lookup(
         &Name::from_str("isi.edu.").unwrap().into(),
         RecordType::NS,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -172,6 +174,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let mut mx_records: Vec<Record> = block_on(authority.lookup(
         &Name::from_str("isi.edu.").unwrap().into(),
         RecordType::MX,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -204,6 +207,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let a_record: Record = block_on(authority.lookup(
         &Name::from_str("a.isi.edu.").unwrap().into(),
         RecordType::A,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -225,6 +229,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let aaaa_record: Record = block_on(authority.lookup(
         &Name::from_str("aaaa.isi.edu.").unwrap().into(),
         RecordType::AAAA,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -246,6 +251,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let short_record: Record = block_on(authority.lookup(
         &Name::from_str("short.isi.edu.").unwrap().into(),
         RecordType::A,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -268,6 +274,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let mut txt_records: Vec<Record> = block_on(authority.lookup(
         &Name::from_str("a.isi.edu.").unwrap().into(),
         RecordType::TXT,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -312,6 +319,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let ptr_record: Record = block_on(authority.lookup(
         &Name::from_str("103.0.3.26.in-addr.arpa.").unwrap().into(),
         RecordType::PTR,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -332,6 +340,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
                 .unwrap()
                 .into(),
             RecordType::SRV,
+            None,
             LookupOptions::default(),
         ),
     )
@@ -353,6 +362,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let idna_record: Record = block_on(authority.lookup(
         &Name::from_str("rust-❤️-🦀.isi.edu.").unwrap().into(),
         RecordType::A,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -374,6 +384,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let caa_record: Record = block_on(authority.lookup(
         &Name::parse("nocerts.isi.edu.", None).unwrap().into(),
         RecordType::CAA,
+        None,
         LookupOptions::default(),
     ))
     .unwrap()
@@ -395,6 +406,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
                 .unwrap()
                 .into(),
             RecordType::TLSA,
+            None,
             LookupOptions::default(),
         ),
     )

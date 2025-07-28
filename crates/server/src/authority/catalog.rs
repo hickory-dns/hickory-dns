@@ -476,6 +476,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                     .consult(
                         request_info.query.name(),
                         request_info.query.query_type(),
+                        Some(&request_info),
                         LookupOptions::from_edns(response_edns.as_ref()),
                         result,
                     )

@@ -102,7 +102,7 @@ async fn test_ttl_wildcard() {
     // // This one related to a wildcard don't pass around $TTL
     let name = LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap());
     let rr = authority
-        .lookup(&name, RecordType::A, LookupOptions::default())
+        .lookup(&name, RecordType::A, None, LookupOptions::default())
         .await
         .unwrap();
     let data = rr

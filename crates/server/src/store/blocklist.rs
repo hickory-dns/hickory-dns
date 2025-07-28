@@ -38,7 +38,7 @@ use crate::{
         },
     },
     resolver::lookup::Lookup,
-    server::Request,
+    server::{Request, RequestInfo},
 };
 
 // TODO:
@@ -337,6 +337,7 @@ impl Authority for BlocklistAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         use LookupControlFlow::*;
@@ -359,6 +360,7 @@ impl Authority for BlocklistAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
     ) -> (
@@ -374,7 +376,7 @@ impl Authority for BlocklistAuthority {
             BlocklistConsultAction::Enforce => {}
         }
 
-        let lookup = self.lookup(name, rtype, lookup_options).await;
+        let lookup = self.lookup(name, rtype, request_info, lookup_options).await;
         if lookup.is_break() {
             (lookup, None)
         } else {
@@ -398,6 +400,7 @@ impl Authority for BlocklistAuthority {
             self.lookup(
                 request_info.query.name(),
                 request_info.query.query_type(),
+                Some(&request_info),
                 lookup_options,
             )
             .await,
@@ -706,6 +709,7 @@ mod test {
             .lookup(
                 &LowerName::from_str(query).unwrap(),
                 q_type,
+                None,
                 LookupOptions::default(),
             )
             .await;
