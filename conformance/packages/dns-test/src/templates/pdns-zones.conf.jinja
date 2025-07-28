@@ -1,0 +1,15 @@
+options {
+    directory "/etc/zones";
+};
+
+zone "{{ fqdn }}" {
+    type primary;
+    file "main.zone";
+};
+
+{% for zone in additional_zones -%}
+zone "{{ zone }}" {
+    type primary;
+    file "{{ zone }}zone";
+};
+{% endfor -%}
