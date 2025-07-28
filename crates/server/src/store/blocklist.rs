@@ -42,8 +42,6 @@ use crate::{
 };
 
 // TODO:
-//  * Add (optional) support for logging the client IP address.  This will require some Authority
-//    trait changes to accomplish
 //  * Add query-type specific results for non-address queries
 //  * Add support for per-blocklist sinkhole IPs, block messages, actions
 //  * Add support for an exclusion list: allow the user to configure a list of patterns that
@@ -74,6 +72,7 @@ pub struct BlocklistAuthority {
     ttl: u32,
     block_message: Option<String>,
     consult_action: BlocklistConsultAction,
+    log_clients: bool,
 }
 
 impl BlocklistAuthority {
@@ -95,6 +94,7 @@ impl BlocklistAuthority {
             ttl: config.ttl,
             block_message: config.block_message.clone(),
             consult_action: config.consult_action,
+            log_clients: config.log_clients,
         };
 
         let base_dir = match base_dir {
@@ -172,6 +172,7 @@ impl BlocklistAuthority {
     ///         block_message: None,
     ///         ttl: 86_400,
     ///         consult_action: BlocklistConsultAction::Disabled,
+    ///         log_clients: true,
     ///     };
     ///
     ///     let mut blocklist = BlocklistAuthority::try_from_config(
@@ -195,6 +196,7 @@ impl BlocklistAuthority {
     ///     let Break(Ok(_res)) = authority.lookup(
     ///                             &LowerName::from(Name::from_ascii("malc0de.com.").unwrap()),
     ///                             RecordType::A,
+    ///                             None,
     ///                             LookupOptions::default(),
     ///                           ).await else {
     ///         panic!("blocklist authority did not return expected match");
@@ -264,15 +266,9 @@ impl BlocklistAuthority {
 
         trace!("blocklist match list: {match_list:?}");
 
-        if match_list
+        match_list
             .iter()
             .any(|entry| self.blocklist.contains_key(entry))
-        {
-            info!("block list matched query {name}");
-            return true;
-        }
-
-        false
     }
 
     /// Generate a BlocklistLookup to return on a blocklist match.  This will return a lookup with
@@ -337,7 +333,7 @@ impl Authority for BlocklistAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         use LookupControlFlow::*;
@@ -345,6 +341,19 @@ impl Authority for BlocklistAuthority {
         trace!("blocklist lookup: {name} {rtype}");
 
         if self.is_blocked(name) {
+            match request_info {
+                Some(info) if self.log_clients => info!(
+                    query = %name,
+                    client = %info.src,
+                    action = "BLOCK",
+                    "blocklist matched",
+                ),
+                _ => info!(
+                    query = %name,
+                    action = "BLOCK",
+                    "blocklist matched",
+                ),
+            }
             return Break(Ok(AuthLookup::from(
                 self.blocklist_response(Name::from(name), rtype),
             )));
@@ -370,17 +379,30 @@ impl Authority for BlocklistAuthority {
         match self.consult_action {
             BlocklistConsultAction::Disabled => return (last_result, None),
             BlocklistConsultAction::Log => {
-                self.is_blocked(name);
-                return (last_result, None);
-            }
-            BlocklistConsultAction::Enforce => {}
-        }
+                if self.is_blocked(name) {
+                    match request_info {
+                        Some(info) if self.log_clients => {
+                            info!(
+                                query = %name,
+                                client = %info.src,
+                                action = "LOG",
+                                "blocklist matched",
+                            );
+                        }
+                        _ => info!(query = %name, action = "LOG", "blocklist matched"),
+                    }
+                }
 
-        let lookup = self.lookup(name, rtype, request_info, lookup_options).await;
-        if lookup.is_break() {
-            (lookup, None)
-        } else {
-            (last_result, None)
+                (last_result, None)
+            }
+            BlocklistConsultAction::Enforce => {
+                let lookup = self.lookup(name, rtype, request_info, lookup_options).await;
+                if lookup.is_break() {
+                    (lookup, None)
+                } else {
+                    (last_result, None)
+                }
+            }
         }
     }
 
@@ -414,7 +436,7 @@ impl Authority for BlocklistAuthority {
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
-            "Getting NSEC records is unimplemented for the blocklist",
+            "getting NSEC records is unimplemented for the blocklist",
         ))))
     }
 
@@ -492,6 +514,9 @@ pub struct BlocklistConfig {
     /// it can be configured to log blocklist matches for those queries ("Log",) or can be
     /// configured to overwrite the previous responses ("Enforce".)
     pub consult_action: BlocklistConsultAction,
+
+    /// Controls client IP logging for blocklist matches
+    pub log_clients: bool,
 }
 
 impl Default for BlocklistConfig {
@@ -505,6 +530,7 @@ impl Default for BlocklistConfig {
             ttl: 86_400,
             block_message: None,
             consult_action: BlocklistConsultAction::default(),
+            log_clients: true,
         }
     }
 }
@@ -541,6 +567,7 @@ mod test {
             block_message: None,
             ttl: 86_400,
             consult_action: BlocklistConsultAction::Disabled,
+            log_clients: true,
         };
 
         let ao = authority(&config);
@@ -586,6 +613,7 @@ mod test {
             block_message: Some(String::from("blocked")),
             ttl: 86_400,
             consult_action: BlocklistConsultAction::Disabled,
+            log_clients: true,
         };
 
         let ao = authority(&config);
@@ -620,6 +648,7 @@ mod test {
             block_message: Some(String::from("blocked")),
             ttl: 86_400,
             consult_action: BlocklistConsultAction::Disabled,
+            log_clients: true,
         };
 
         let ao = authority(&config);
@@ -651,6 +680,7 @@ mod test {
             block_message: Some(String::from("blocked")),
             ttl: 86_400,
             consult_action: BlocklistConsultAction::Disabled,
+            log_clients: true,
         };
 
         let ao = authority(&config);
