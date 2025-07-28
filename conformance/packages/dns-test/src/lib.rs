@@ -130,6 +130,10 @@ fn parse_implementation(env_var: &str) -> Implementation {
             return Implementation::Bind;
         }
 
+        if subject == "pdns" {
+            return Implementation::Pdns;
+        }
+
         if subject.starts_with("hickory ") {
             let tokens = subject.split_ascii_whitespace().collect::<Vec<_>>();
             let Ok([_, url, crypto_provider]) = <[&str; 3]>::try_from(tokens) else {
