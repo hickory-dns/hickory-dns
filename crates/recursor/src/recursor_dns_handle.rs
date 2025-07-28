@@ -342,39 +342,39 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         now: Instant,
         expect_dnssec_in_cached_response: bool,
     ) -> Option<Result<Message, Error>> {
-        if let Some(response_res) = self.response_cache.get(query, now) {
-            let response = match response_res {
-                Ok(response) => response,
-                Err(e) => return Some(Err(e.into())),
-            };
+        let response = match self.response_cache.get(query, now) {
+            Some(Ok(response)) => response,
+            Some(Err(e)) => return Some(Err(e.into())),
+            None => return None,
+        };
 
-            // We may have cached a referral (non-authoritative NS+A records) from a parent zone
-            // while looking for the nameserver to send the query to. That parent zone response
-            // likely won't include RRSIG records. If DO=1 we want to fall through and send the
-            // query to the child zone to retrieve the missing RRSIG record.
-            //
-            // TODO(#3008): We should examine the authoritative answer flag in responses, and track
-            // whether cached responses are authoritative or not.
+        // We may have cached a referral (non-authoritative NS+A records) from a parent zone
+        // while looking for the nameserver to send the query to. That parent zone response
+        // likely won't include RRSIG records. If DO=1 we want to fall through and send the
+        // query to the child zone to retrieve the missing RRSIG record.
+        //
+        // TODO(#3008): We should examine the authoritative answer flag in responses, and track
+        // whether cached responses are authoritative or not.
 
-            #[cfg(feature = "__dnssec")]
-            let any_matching_rrsig = response.all_sections().any(|record| {
-                record.data().as_dnssec().is_some_and(|record| {
-                    record.as_rrsig().is_some_and(|rrsig| {
-                        rrsig.input().type_covered == query.query_type()
-                            || rrsig.input().type_covered == RecordType::CNAME
-                    })
-                }) && record.name() == query.name()
-            });
+        #[cfg(feature = "__dnssec")]
+        let any_matching_rrsig = response.all_sections().any(|record| {
+            record.data().as_dnssec().is_some_and(|record| {
+                record.as_rrsig().is_some_and(|rrsig| {
+                    rrsig.input().type_covered == query.query_type()
+                        || rrsig.input().type_covered == RecordType::CNAME
+                })
+            }) && record.name() == query.name()
+        });
 
-            #[cfg(not(feature = "__dnssec"))]
-            let any_matching_rrsig = false;
+        #[cfg(not(feature = "__dnssec"))]
+        let any_matching_rrsig = false;
 
-            if !expect_dnssec_in_cached_response || any_matching_rrsig {
-                debug!("cached data {response:?}");
-                return Some(Ok(response));
-            }
+        if !expect_dnssec_in_cached_response || any_matching_rrsig {
+            debug!("cached data {response:?}");
+            Some(Ok(response))
+        } else {
+            None
         }
-        None
     }
 
     async fn lookup(
