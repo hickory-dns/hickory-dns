@@ -41,7 +41,7 @@ use crate::{
     },
     recursor::{DnssecPolicy, Recursor},
     resolver::TtlConfig,
-    server::Request,
+    server::{Request, RequestInfo},
 };
 
 /// An authority that performs recursive resolutions.
@@ -137,6 +137,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         debug!("recursive lookup: {} {}", name, rtype);
@@ -172,6 +173,7 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
             self.lookup(
                 request_info.query.name(),
                 request_info.query.query_type(),
+                Some(&request_info),
                 lookup_options,
             )
             .await,

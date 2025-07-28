@@ -131,7 +131,12 @@ async fn test_authority() {
 
     assert!(
         !authority
-            .lookup(authority.origin(), RecordType::NS, LookupOptions::default())
+            .lookup(
+                authority.origin(),
+                RecordType::NS,
+                None,
+                LookupOptions::default()
+            )
             .await
             .unwrap()
             .was_empty()
@@ -172,6 +177,7 @@ async fn test_authority() {
             .lookup(
                 authority.origin(),
                 RecordType::TXT,
+                None,
                 LookupOptions::default()
             )
             .await
@@ -183,6 +189,7 @@ async fn test_authority() {
         .lookup(
             authority.origin(),
             RecordType::TXT,
+            None,
             LookupOptions::default(),
         )
         .await
@@ -209,7 +216,12 @@ async fn test_authority() {
 
     assert_eq!(
         *authority
-            .lookup(authority.origin(), RecordType::A, LookupOptions::default())
+            .lookup(
+                authority.origin(),
+                RecordType::A,
+                None,
+                LookupOptions::default()
+            )
             .await
             .unwrap()
             .iter()
@@ -646,6 +658,7 @@ async fn test_update() {
             .lookup(
                 &www_name.clone().into(),
                 RecordType::ANY,
+                None,
                 LookupOptions::default(),
             )
             .await
@@ -663,6 +676,7 @@ async fn test_update() {
                 .lookup(
                     &new_name.clone().into(),
                     RecordType::ANY,
+                    None,
                     LookupOptions::default()
                 )
                 .await
@@ -690,6 +704,7 @@ async fn test_update() {
             .lookup(
                 &new_name.clone().into(),
                 RecordType::ANY,
+                None,
                 LookupOptions::default()
             )
             .await
@@ -719,6 +734,7 @@ async fn test_update() {
             .lookup(
                 &www_name.clone().into(),
                 RecordType::ANY,
+                None,
                 LookupOptions::default(),
             )
             .await
@@ -751,7 +767,12 @@ async fn test_update() {
     assert_eq!(serial + 3, authority.serial().await);
     {
         let lookup = authority
-            .lookup(&new_name.into(), RecordType::ANY, LookupOptions::default())
+            .lookup(
+                &new_name.into(),
+                RecordType::ANY,
+                None,
+                LookupOptions::default(),
+            )
             .await
             .unwrap();
 
@@ -777,6 +798,7 @@ async fn test_update() {
             .lookup(
                 &www_name.clone().into(),
                 RecordType::ANY,
+                None,
                 LookupOptions::default(),
             )
             .await
@@ -826,6 +848,7 @@ async fn test_update() {
             .lookup(
                 &www_name.clone().into(),
                 RecordType::ANY,
+                None,
                 LookupOptions::default(),
             )
             .await
@@ -854,7 +877,12 @@ async fn test_update() {
 
     assert!(
         authority
-            .lookup(&www_name.into(), RecordType::ANY, LookupOptions::default())
+            .lookup(
+                &www_name.into(),
+                RecordType::ANY,
+                None,
+                LookupOptions::default()
+            )
             .await
             .unwrap()
             .was_empty()
@@ -882,6 +910,7 @@ async fn test_update_tsig_valid() {
         .lookup(
             &new_name.clone().into(),
             RecordType::ANY,
+            None,
             LookupOptions::default(),
         )
         .await
@@ -968,6 +997,7 @@ async fn test_update_tsig_valid() {
         .lookup(
             &new_name.clone().into(),
             RecordType::ANY,
+            None,
             LookupOptions::default(),
         )
         .await
@@ -1237,6 +1267,7 @@ async fn test_zone_signing() {
         .lookup(
             authority.origin(),
             RecordType::AXFR,
+            None,
             LookupOptions::for_dnssec(),
         )
         .await
@@ -1253,6 +1284,7 @@ async fn test_zone_signing() {
         .lookup(
             authority.origin(),
             RecordType::AXFR,
+            None,
             LookupOptions::for_dnssec(),
         )
         .await
@@ -1270,6 +1302,7 @@ async fn test_zone_signing() {
             .lookup(
                 authority.origin(),
                 RecordType::AXFR,
+                None,
                 LookupOptions::for_dnssec(),
             )
             .await
@@ -1342,6 +1375,7 @@ async fn test_journal() {
         .lookup(
             &new_name.clone().into(),
             RecordType::A,
+            None,
             LookupOptions::default(),
         )
         .await
@@ -1353,7 +1387,12 @@ async fn test_journal() {
     let lower_delete_name = LowerName::from(delete_name);
 
     let delete_rrset = authority
-        .lookup(&lower_delete_name, RecordType::A, LookupOptions::default())
+        .lookup(
+            &lower_delete_name,
+            RecordType::A,
+            None,
+            LookupOptions::default(),
+        )
         .await
         .unwrap();
     assert!(delete_rrset.was_empty());
@@ -1381,7 +1420,12 @@ async fn test_journal() {
 
     // assert that the correct set of records is there.
     let new_rrset: Vec<Record> = recovered_authority
-        .lookup(&new_name.into(), RecordType::A, LookupOptions::default())
+        .lookup(
+            &new_name.into(),
+            RecordType::A,
+            None,
+            LookupOptions::default(),
+        )
         .await
         .unwrap()
         .iter()
@@ -1390,7 +1434,12 @@ async fn test_journal() {
     assert!(new_rrset.iter().all(|r| *r == new_record));
 
     let delete_rrset = authority
-        .lookup(&lower_delete_name, RecordType::A, LookupOptions::default())
+        .lookup(
+            &lower_delete_name,
+            RecordType::A,
+            None,
+            LookupOptions::default(),
+        )
         .await
         .unwrap();
     assert!(delete_rrset.was_empty());

@@ -24,7 +24,7 @@ use crate::{
         op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
     },
-    server::Request,
+    server::{Request, RequestInfo},
     store::in_memory::{InMemoryAuthority, zone_from_path},
 };
 #[cfg(feature = "__dnssec")]
@@ -165,9 +165,12 @@ impl Authority for FileAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.lookup(name, rtype, lookup_options).await
+        self.in_memory
+            .lookup(name, rtype, request_info, lookup_options)
+            .await
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -285,6 +288,7 @@ mod tests {
     use std::str::FromStr;
 
     use crate::proto::rr::{RData, rdata::A};
+
     use futures_executor::block_on;
     use test_support::subscribe;
 
@@ -318,6 +322,7 @@ mod tests {
             &authority,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
+            None,
             LookupOptions::default(),
         ))
         .expect("lookup failed");
@@ -336,6 +341,7 @@ mod tests {
             &authority,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
             RecordType::A,
+            None,
             LookupOptions::default(),
         ))
         .expect("INCLUDE lookup failed");

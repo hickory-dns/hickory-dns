@@ -33,7 +33,7 @@ use crate::{
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
         name_server::ConnectionProvider,
     },
-    server::Request,
+    server::{Request, RequestInfo},
 };
 
 /// A builder to construct a [`ForwardAuthority`].
@@ -247,6 +247,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         // TODO: make this an error?
@@ -282,6 +283,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
             self.lookup(
                 request_info.query.name(),
                 request_info.query.query_type(),
+                Some(&request_info),
                 lookup_options,
             )
             .await,

@@ -31,7 +31,7 @@ use crate::{
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
         serialize::txt::Parser,
     },
-    server::Request,
+    server::{Request, RequestInfo},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -415,6 +415,7 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         query_type: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
@@ -581,8 +582,13 @@ impl Authority for InMemoryAuthority {
         // perform the actual lookup
         match record_type {
             RecordType::SOA => (
-                self.lookup(self.origin(), record_type, lookup_options)
-                    .await,
+                self.lookup(
+                    self.origin(),
+                    record_type,
+                    Some(&request_info),
+                    lookup_options,
+                )
+                .await,
                 None,
             ),
             RecordType::AXFR => {
@@ -599,8 +605,14 @@ impl Authority for InMemoryAuthority {
                     LookupRecords::Empty
                 };
 
-                let records = if let Continue(Ok(res)) =
-                    self.lookup(lookup_name, record_type, lookup_options).await
+                let records = if let Continue(Ok(res)) = self
+                    .lookup(
+                        lookup_name,
+                        record_type,
+                        Some(&request_info),
+                        lookup_options,
+                    )
+                    .await
                 {
                     res.unwrap_records()
                 } else {
@@ -618,7 +630,13 @@ impl Authority for InMemoryAuthority {
             }
             // A standard Lookup path
             _ => (
-                self.lookup(lookup_name, record_type, lookup_options).await,
+                self.lookup(
+                    lookup_name,
+                    record_type,
+                    Some(&request_info),
+                    lookup_options,
+                )
+                .await,
                 None,
             ),
         }

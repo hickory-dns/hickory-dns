@@ -18,7 +18,7 @@ use crate::{
         op::{Edns, message::ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     },
-    server::Request,
+    server::{Request, RequestInfo},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -101,6 +101,7 @@ pub trait Authority: Send + Sync {
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
     ///             precede and follow all other records.
+    /// * `request_info` - The `RequestInfo` structure for the request, if it is available.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     ///
@@ -111,6 +112,7 @@ pub trait Authority: Send + Sync {
         &self,
         name: &LowerName,
         rtype: RecordType,
+        request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
 
@@ -128,6 +130,7 @@ pub trait Authority: Send + Sync {
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
     ///             precede and follow all other records.
+    /// * `request_info` - The `RequestInfo` structure for the request, if it is available.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     /// * `last_result` - The lookup returned by a previous authority in a chained configuration.
@@ -147,6 +150,7 @@ pub trait Authority: Send + Sync {
         &self,
         _name: &LowerName,
         _rtype: RecordType,
+        _request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
     ) -> (
@@ -180,7 +184,7 @@ pub trait Authority: Send + Sync {
 
     /// Get the NS, NameServer, record for the zone
     async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.lookup(self.origin(), RecordType::NS, lookup_options)
+        self.lookup(self.origin(), RecordType::NS, None, lookup_options)
             .await
     }
 
@@ -212,13 +216,18 @@ pub trait Authority: Send + Sync {
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
     async fn soa(&self) -> LookupControlFlow<AuthLookup> {
         // SOA should be origin|SOA
-        self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
-            .await
+        self.lookup(
+            self.origin(),
+            RecordType::SOA,
+            None,
+            LookupOptions::default(),
+        )
+        .await
     }
 
     /// Returns the SOA record for the zone
     async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.lookup(self.origin(), RecordType::SOA, lookup_options)
+        self.lookup(self.origin(), RecordType::SOA, None, lookup_options)
             .await
     }
 
