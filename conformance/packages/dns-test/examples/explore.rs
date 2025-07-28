@@ -14,7 +14,7 @@ fn main() -> Result<()> {
     let network = Network::new()?;
     let peer = &dns_test::PEER;
 
-    println!("building docker image...");
+    println!("building nameserver docker image...");
     let leaf_ns = NameServer::new(peer, FQDN::TEST_DOMAIN, &network)?;
     println!("DONE");
 
@@ -46,19 +46,21 @@ fn main() -> Result<()> {
         )?;
     }
 
-    println!("building docker image...");
+    println!("building resolver docker image...");
     let mut builder = Resolver::new(&network, root);
     if let Some(trust_anchor) = &trust_anchor {
         builder.trust_anchor(trust_anchor);
     }
     let resolver = builder.start()?;
-    println!("DONE\n\n");
+    println!("DONE");
 
+    println!("building forwarder docker image...");
     let mut builder = Forwarder::new(&network, &resolver);
     if let Some(trust_anchor) = &trust_anchor {
         builder.trust_anchor(trust_anchor);
     }
     let forwarder = builder.start()?;
+    println!("DONE\n\n");
 
     let (tx, rx) = mpsc::channel();
 
