@@ -53,7 +53,7 @@ pub enum Implementation {
     Dnslib,
     Hickory {
         repo: Repository<'static>,
-        dnssec_feature: HickoryDnssecFeature,
+        crypto_provider: HickoryCryptoProvider,
     },
     Unbound,
     EdeDotCom,
@@ -74,7 +74,7 @@ impl Implementation {
     pub fn hickory() -> Self {
         Self::Hickory {
             repo: Repository(crate::repo_root()),
-            dnssec_feature: HickoryDnssecFeature::AwsLcRs,
+            crypto_provider: HickoryCryptoProvider::AwsLcRs,
         }
     }
 
@@ -179,8 +179,10 @@ impl Implementation {
                     )
                 }
 
-                Self::Hickory { dnssec_feature, .. } => {
-                    let use_pkcs8 = matches!(dnssec_feature, HickoryDnssecFeature::Ring);
+                Self::Hickory {
+                    crypto_provider, ..
+                } => {
+                    let use_pkcs8 = matches!(crypto_provider, HickoryCryptoProvider::Ring);
                     minijinja::render!(
                         include_str!("templates/hickory.name-server.toml.jinja"),
                         fqdn => origin.as_str(),
@@ -295,32 +297,34 @@ impl Implementation {
     }
 }
 
-/// A Hickory DNS Cargo feature used to enable DNSSEC with a particular cryptography library.
+/// A cryptography provider used to enable HickoryDNS Cargo features that depend on cryptography.
+///
+/// For example, one of `dnssec-aws-lc-rs` or `dnssec-ring`.
 #[derive(Debug, Clone, Copy)]
-pub enum HickoryDnssecFeature {
+pub enum HickoryCryptoProvider {
     AwsLcRs,
     Ring,
 }
 
-impl fmt::Display for HickoryDnssecFeature {
+impl fmt::Display for HickoryCryptoProvider {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Self::AwsLcRs => "dnssec-aws-lc-rs",
-            Self::Ring => "dnssec-ring",
+            Self::AwsLcRs => "aws-lc-rs",
+            Self::Ring => "ring",
         })
     }
 }
 
-impl FromStr for HickoryDnssecFeature {
+impl FromStr for HickoryCryptoProvider {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "dnssec-aws-lc-rs" => Ok(Self::AwsLcRs),
-            "dnssec-ring" => Ok(Self::Ring),
-            _ => {
-                Err(format!("invalid value for DNSSEC_FEATURE: {s}, expected  dnssec-ring").into())
-            }
+            "aws-lc-rs" => Ok(Self::AwsLcRs),
+            "ring" => Ok(Self::Ring),
+            _ => Err(
+                format!("invalid value for DNSSEC_FEATURE: {s}, expected aws-lc-rs or ring").into(),
+            ),
         }
     }
 }

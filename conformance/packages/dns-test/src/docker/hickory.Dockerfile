@@ -3,7 +3,7 @@ ENV CARGO_INCREMENTAL=0
 ENV CARGO_PROFILE_DEV_DEBUG=0
 ENV CARGO_PROFILE_DEV_STRIP=true
 RUN cargo install cargo-chef --version 0.1.71 --profile dev
-ARG DNSSEC_FEATURE=dnssec-aws-lc-rs
+ARG CRYPTO_PROVIDER=aws-lc-rs
 
 # `dns-test` will invoke `docker build` from a temporary directory that contains
 # a clone of the hickory repository. `./src` here refers to that clone; not to
@@ -17,11 +17,11 @@ RUN cargo chef prepare
 FROM chef AS builder
 COPY --from=planner /usr/src/hickory/recipe.json /usr/src/hickory/recipe.json
 WORKDIR /usr/src/hickory
-RUN cargo chef cook -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEATURE && \
-    cargo chef cook -p hickory-util --bin dns --features h3-aws-lc-rs,https-aws-lc-rs
+RUN cargo chef cook -p hickory-dns --bin hickory-dns --features recursor,dnssec-$CRYPTO_PROVIDER && \
+    cargo chef cook -p hickory-util --bin dns --features h3-$CRYPTO_PROVIDER,https-$CRYPTO_PROVIDER
 COPY ./src /usr/src/hickory
-RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,$DNSSEC_FEATURE && \
-    cargo build -p hickory-util --bin dns --features h3-aws-lc-rs,https-aws-lc-rs
+RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,dnssec-$CRYPTO_PROVIDER && \
+    cargo build -p hickory-util --bin dns --features h3-$CRYPTO_PROVIDER,https-$CRYPTO_PROVIDER
 
 FROM debian:bookworm-slim AS final
 # - ldnsutils is needed for ldns-keygen, ldns-signzone, and ldns-key2dns. These

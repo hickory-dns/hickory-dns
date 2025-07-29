@@ -12,7 +12,7 @@ use std::{env, fs};
 use tempfile::{NamedTempFile, TempDir};
 
 pub use crate::container::network::Network;
-use crate::{Error, HickoryDnssecFeature, Implementation, Repository, Result};
+use crate::{Error, HickoryCryptoProvider, Implementation, Repository, Result};
 
 #[derive(Clone)]
 pub struct Container {
@@ -28,7 +28,7 @@ pub enum Image {
     Client,
     Hickory {
         repo: Repository<'static>,
-        dnssec_feature: HickoryDnssecFeature,
+        crypto_provider: HickoryCryptoProvider,
     },
     Unbound,
     EdeDotCom,
@@ -38,7 +38,7 @@ impl Image {
     pub fn hickory() -> Self {
         Self::Hickory {
             repo: Repository(crate::repo_root()),
-            dnssec_feature: HickoryDnssecFeature::AwsLcRs,
+            crypto_provider: HickoryCryptoProvider::AwsLcRs,
         }
     }
 
@@ -96,10 +96,10 @@ impl From<Implementation> for Image {
             Implementation::Unbound => Self::Unbound,
             Implementation::Hickory {
                 repo,
-                dnssec_feature,
+                crypto_provider,
             } => Self::Hickory {
                 repo,
-                dnssec_feature,
+                crypto_provider,
             },
             Implementation::EdeDotCom => Self::EdeDotCom,
         }
@@ -112,7 +112,9 @@ impl fmt::Display for Image {
             Self::Client => f.write_str("client"),
             Self::Bind => f.write_str("bind"),
             Self::Dnslib => f.write_str("dnslib"),
-            Self::Hickory { dnssec_feature, .. } => write!(f, "hickory-{dnssec_feature}"),
+            Self::Hickory {
+                crypto_provider, ..
+            } => write!(f, "hickory-{crypto_provider}"),
             Self::Unbound => f.write_str("unbound"),
             Self::EdeDotCom => f.write_str("ede-dot-com"),
         }
@@ -144,8 +146,11 @@ impl Container {
                 // local Docker image.
                 command.env("DOCKER_BUILDKIT", "1");
 
-                if let Image::Hickory { dnssec_feature, .. } = image {
-                    command.arg(format!("--build-arg=DNSSEC_FEATURE={dnssec_feature}"));
+                if let Image::Hickory {
+                    crypto_provider, ..
+                } = image
+                {
+                    command.arg(format!("--build-arg=CRYPTO_PROVIDER={crypto_provider}"));
                 };
 
                 if docker_build_gha_cache() {
@@ -154,13 +159,13 @@ impl Container {
                         Image::Dnslib => "dnslib",
                         Image::Client => "client",
                         Image::Hickory {
-                            dnssec_feature: HickoryDnssecFeature::AwsLcRs,
+                            crypto_provider: HickoryCryptoProvider::AwsLcRs,
                             ..
-                        } => "hickory-dnssec-aws-lc-rs",
+                        } => "hickory-aws-lc-rs",
                         Image::Hickory {
-                            dnssec_feature: HickoryDnssecFeature::Ring,
+                            crypto_provider: HickoryCryptoProvider::Ring,
                             ..
-                        } => "hickory-dnssec-ring",
+                        } => "hickory-ring",
                         Image::Unbound => "unbound",
                         Image::EdeDotCom => "ede-dot-com",
                     };
