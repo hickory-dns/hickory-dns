@@ -8,6 +8,7 @@ on:
     branches:
       - main
   merge_group:
+  workflow_dispatch:
 
 jobs:
   everything:
