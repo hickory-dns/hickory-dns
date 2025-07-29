@@ -33,13 +33,13 @@ $ cargo run --example explore
 By default, this will use `unbound` as the resolver and forwarder, and `nsd` as the nameservers. You can switch the resolver/forwarder to `hickory-dns` using the `DNS_TEST_SUBJECT` environment variable:
 
 ``` shell
-$ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns dnssec-aws-lc-rs" cargo run --example explore
+$ DNS_TEST_SUBJECT="hickory https://github.com/hickory-dns/hickory-dns aws-lc-rs" cargo run --example explore
 ```
 
 You can switch the nameserver to `hickory-dns` using the `DNS_TEST_PEER` environment variable:
 
 ```shell
-$ DNS_TEST_PEER="hickory https://github.com/hickory-dns/hickory-dns dnssec-aws-lc-rs" cargo run --example explore
+$ DNS_TEST_PEER="hickory https://github.com/hickory-dns/hickory-dns aws-lc-rs" cargo run --example explore
 ```
 
 To use `hickory-dns` for both, set both the `DNS_TEST_PEER` and `DNS_TEST_SUBJECT` environment variables.
@@ -50,12 +50,12 @@ To use `hickory-dns` for both, set both the `DNS_TEST_PEER` and `DNS_TEST_SUBJEC
 - `DNS_TEST_SUBJECT`. This variable controls the choice of recursive resolver and forwarder. The variable can contain one of these values:
   - `unbound`
   - `bind`
-  - `hickory $REPOSITORY $DNSSEC_FEATURE`. where `$REPOSITORY` is a placeholder for a git repository, and `$DNSSEC_FEATURE` is `dnssec-ring` or `dnssec-aws-lc-rs`. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
+  - `hickory $REPOSITORY $CRYPTO_PROVIDER`. where `$REPOSITORY` is a placeholder for a git repository, and `$CRYPTO_PROVIDER` is `ring` or `aws-lc-rs`. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
 
 - `DNS_TEST_PEER`. This variable controls the choice of authoritative nameservers. The variable can contain one of these values:
   - `unbound` (note: uses `nsd`)
   - `bind`
-  - `hickory $REPOSITORY $DNSSEC_FEATURE`. where `$REPOSITORY` is a placeholder for a git repository, and `$DNSSEC_FEATURE` is `dnssec-ring` or `dnssec-aws-lc-rs`. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
+  - `hickory $REPOSITORY $CRYPTO_PROVIDER`. where `$REPOSITORY` is a placeholder for a git repository, and `$CRYPTO_PROVIDER` is `ring` or `aws-lc-rs`. Examples values for `$REPOSITORY`: `https://github.com/hickory-dns/hickory-dns`; `/home/user/git-repos/hickory-dns`. NOTE: when using a local repository, changes that have not been committed, regardless of whether they are staged or not, will **not** be included in the `hickory-dns` build.
 
 - `DNS_TEST_VERBOSE_DOCKER_BUILD`. Setting this variable prints the output of the `docker build` invocations that the framework does to the console. This is useful to verify that image caching is working; for example if you set `DNS_TEST_SUBJECT` to a local `hickory-dns` repository then consecutively running the `explore` example and/or `conformance-tests` test suite **must** not rebuild `hickory-dns` provided that you have not *committed* any new change to the local repository.
 
@@ -137,7 +137,7 @@ $ cargo test -p conformance-tests -- --include-ignored
 To run the conformance tests using `hickory-dns` and `nsd` run:
 
 ``` console
-$ DNS_TEST_SUBJECT="hickory /path/to/repository dnssec-aws-lc-rs" cargo test -p conformance-tests
+$ DNS_TEST_SUBJECT="hickory /path/to/repository aws-lc-rs" cargo test -p conformance-tests
 ```
 
 ### Test organization

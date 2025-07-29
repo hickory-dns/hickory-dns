@@ -10,7 +10,7 @@ use name_server::{NameServer, Running};
 pub use crate::container::Network;
 pub use crate::forwarder::Forwarder;
 pub use crate::fqdn::FQDN;
-pub use crate::implementation::{HickoryDnssecFeature, Implementation, Repository};
+pub use crate::implementation::{HickoryCryptoProvider, Implementation, Repository};
 pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;
 
@@ -132,16 +132,16 @@ fn parse_implementation(env_var: &str) -> Implementation {
 
         if subject.starts_with("hickory ") {
             let tokens = subject.split_ascii_whitespace().collect::<Vec<_>>();
-            let Ok([_, url, dnssec_feature]) = <[&str; 3]>::try_from(tokens) else {
+            let Ok([_, url, crypto_provider]) = <[&str; 3]>::try_from(tokens) else {
                 panic!(
-                    "the syntax of {env_var} is 'hickory $URL $DNSSEC_FEATURE', e.g. \
-                    'hickory /tmp/hickory dnssec-aws-lc-rs' or \
-                    'hickory https://github.com/owner/repo dnssec-ring'"
+                    "the syntax of {env_var} is 'hickory $URL $CRYPTO_PROVIDER', e.g. \
+                    'hickory /tmp/hickory aws-lc-rs' or \
+                    'hickory https://github.com/owner/repo ring'"
                 )
             };
             Implementation::Hickory {
                 repo: Repository(url.to_string()),
-                dnssec_feature: dnssec_feature.parse().unwrap(),
+                crypto_provider: crypto_provider.parse().unwrap(),
             }
         } else {
             panic!("unknown implementation: {subject}")
