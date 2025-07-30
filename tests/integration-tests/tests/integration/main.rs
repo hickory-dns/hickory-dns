@@ -8,6 +8,7 @@ mod invalid_nsec_tests;
 mod lookup_tests;
 mod name_server_pool_tests;
 mod retry_dns_handle_tests;
+mod rfc4592_tests;
 mod server_future_tests;
 mod sqlite_authority_tests;
 mod truncation_tests;
