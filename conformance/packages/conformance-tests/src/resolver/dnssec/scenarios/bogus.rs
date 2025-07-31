@@ -656,3 +656,92 @@ fn invalid_nsec_wildcard_no_data_test(mutate: &dyn Fn(&FQDN, &mut Vec<Record>)) 
 
     Ok(())
 }
+
+#[test]
+fn unauthenticated_nsec_wildcard_expanded_response() -> Result<()> {
+    let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
+    let any_modified = AtomicBool::new(false);
+    invalid_nsec_wildcard_expanded_test(&|zone, records| {
+        if *zone != FQDN::TEST_DOMAIN {
+            return;
+        }
+        for rrsig in records.iter_mut().filter_map(Record::as_rrsig_mut) {
+            if rrsig.fqdn == wildcard_fqdn && rrsig.type_covered == RecordType::NSEC {
+                rrsig.signature = "AAAA".to_string();
+                any_modified.store(true, Ordering::SeqCst);
+            }
+        }
+    })?;
+    assert!(any_modified.load(Ordering::SeqCst));
+    Ok(())
+}
+
+#[test]
+fn missing_nsec_wildcard_expanded_response() -> Result<()> {
+    let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
+    let any_modified = AtomicBool::new(false);
+    invalid_nsec_wildcard_expanded_test(&|zone, records| {
+        if *zone != FQDN::TEST_DOMAIN {
+            return;
+        }
+        records.retain(|record| match record {
+            Record::NSEC(NSEC { fqdn, .. }) if *fqdn == wildcard_fqdn => {
+                any_modified.store(true, Ordering::SeqCst);
+                false
+            }
+            Record::RRSIG(RRSIG {
+                fqdn, type_covered, ..
+            }) if *fqdn == wildcard_fqdn && *type_covered == RecordType::NSEC => {
+                any_modified.store(true, Ordering::SeqCst);
+                false
+            }
+            _ => true,
+        });
+    })?;
+    assert!(any_modified.load(Ordering::SeqCst));
+    Ok(())
+}
+
+/// This makes a query that gets a positive response expanded from a wildcard, with invalid DNSSEC records.
+fn invalid_nsec_wildcard_expanded_test(mutate: &dyn Fn(&FQDN, &mut Vec<Record>)) -> Result<()> {
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
+        .push_label("a")
+        .push_label("b")
+        .push_label("c")
+        .push_label("d");
+    let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
+    let network = Network::new()?;
+
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    leaf_ns.add(Record::a(wildcard_fqdn.clone(), Ipv4Addr::new(1, 2, 3, 4)));
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::AndAmend {
+            settings: SignSettings::default().nsec(Nsec::_1),
+            mutate,
+        },
+    )?;
+    let trust_anchor = trust_anchor.unwrap();
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().dnssec().authentic_data();
+
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::CAA,
+        &needle_fqdn,
+    )?;
+
+    assert_eq!(output.status, DigStatus::SERVFAIL);
+    assert!(!output.flags.authenticated_data);
+
+    Ok(())
+}
