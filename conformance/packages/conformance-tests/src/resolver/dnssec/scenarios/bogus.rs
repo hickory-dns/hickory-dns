@@ -1,13 +1,17 @@
 mod no_rrsig_dnskey;
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    net::Ipv4Addr,
+    sync::atomic::{AtomicBool, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use dns_test::{
     FQDN, Network, PEER, Resolver, Result, TrustAnchor,
-    client::{Client, DigOutput, DigSettings, ExtendedDnsError},
+    client::{Client, DigOutput, DigSettings, DigStatus, ExtendedDnsError},
     name_server::{Graph, NameServer, Sign},
-    record::{DNSKEY, DNSKEYRData, DS, RRSIG, Record, RecordType},
-    zone_file::{SignSettings, Signer},
+    record::{DNSKEY, DNSKEYRData, DS, NSEC, RRSIG, Record, RecordType},
+    zone_file::{Nsec, SignSettings, Signer},
 };
 
 #[test]
@@ -510,6 +514,145 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
     if dns_test::SUBJECT.is_unbound() {
         assert!(output.ede.iter().eq(&[ExtendedDnsError::DnssecBogus]));
     }
+
+    Ok(())
+}
+
+#[test]
+fn unauthenticated_nsec_wildcard_name() -> Result<()> {
+    let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
+    let any_modified = AtomicBool::new(false);
+    invalid_nsec_wildcard_no_data_test(&|zone, records| {
+        if *zone != FQDN::TEST_DOMAIN {
+            return;
+        }
+        for rrsig in records.iter_mut().filter_map(Record::as_rrsig_mut) {
+            if rrsig.fqdn == wildcard_fqdn && rrsig.type_covered == RecordType::NSEC {
+                rrsig.signature = "AAAA".to_owned();
+                any_modified.store(true, Ordering::SeqCst);
+            }
+        }
+    })?;
+    assert!(any_modified.load(Ordering::SeqCst));
+    Ok(())
+}
+
+#[test]
+fn unauthenticated_nsec_covering_qname() -> Result<()> {
+    let zero_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("0");
+    let any_modified = AtomicBool::new(false);
+    invalid_nsec_wildcard_no_data_test(&|zone, records| {
+        if *zone != FQDN::TEST_DOMAIN {
+            return;
+        }
+        for rrsig in records.iter_mut().filter_map(Record::as_rrsig_mut) {
+            if rrsig.fqdn == zero_fqdn && rrsig.type_covered == RecordType::NSEC {
+                rrsig.signature = "AAAA".to_owned();
+                any_modified.store(true, Ordering::SeqCst);
+            }
+        }
+    })?;
+    assert!(any_modified.load(Ordering::SeqCst));
+    Ok(())
+}
+
+#[test]
+#[ignore = "hickory does not check record types present at the wildcard name"]
+fn missing_nsec_wildcard_name() -> Result<()> {
+    let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
+    let any_modified = AtomicBool::new(false);
+    invalid_nsec_wildcard_no_data_test(&|zone, records| {
+        if *zone != FQDN::TEST_DOMAIN {
+            return;
+        }
+        records.retain(|record| match record {
+            Record::NSEC(NSEC { fqdn, .. }) if *fqdn == wildcard_fqdn => {
+                any_modified.store(true, Ordering::SeqCst);
+                false
+            }
+            Record::RRSIG(RRSIG {
+                fqdn, type_covered, ..
+            }) if *fqdn == wildcard_fqdn && *type_covered == RecordType::NSEC => {
+                any_modified.store(true, Ordering::SeqCst);
+                false
+            }
+            _ => true,
+        });
+    })?;
+    assert!(any_modified.load(Ordering::SeqCst));
+    Ok(())
+}
+
+#[test]
+fn missing_nsec_covering_qname() -> Result<()> {
+    let zero_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("0");
+    let any_modified = AtomicBool::new(false);
+    invalid_nsec_wildcard_no_data_test(&|zone, records| {
+        if *zone != FQDN::TEST_DOMAIN {
+            return;
+        }
+        records.retain(|record| match record {
+            Record::NSEC(NSEC { fqdn, .. }) if *fqdn == zero_fqdn => {
+                any_modified.store(true, Ordering::SeqCst);
+                false
+            }
+            Record::RRSIG(RRSIG {
+                fqdn, type_covered, ..
+            }) if *fqdn == zero_fqdn && *type_covered == RecordType::NSEC => {
+                any_modified.store(true, Ordering::SeqCst);
+                false
+            }
+            _ => true,
+        });
+    })?;
+    assert!(any_modified.load(Ordering::SeqCst));
+    Ok(())
+}
+
+/// This makes a query that gets a wildcard no data response, with invalid DNSSEC records.
+fn invalid_nsec_wildcard_no_data_test(mutate: &dyn Fn(&FQDN, &mut Vec<Record>)) -> Result<()> {
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
+        .push_label("a")
+        .push_label("b")
+        .push_label("c")
+        .push_label("d");
+    let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
+    let zero_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("0");
+    let network = Network::new()?;
+
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    leaf_ns.add(Record::a(wildcard_fqdn.clone(), Ipv4Addr::new(1, 2, 3, 4)));
+    // This name ensures the NSEC records matching the wildcard and covering the query are
+    // different.
+    leaf_ns.add(Record::a(zero_fqdn.clone(), Ipv4Addr::new(127, 0, 0, 1)));
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::AndAmend {
+            settings: SignSettings::default().nsec(Nsec::_1),
+            mutate,
+        },
+    )?;
+    let trust_anchor = trust_anchor.unwrap();
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().dnssec().authentic_data();
+
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::CAA,
+        &needle_fqdn,
+    )?;
+
+    assert_eq!(output.status, DigStatus::SERVFAIL);
+    assert!(!output.flags.authenticated_data);
 
     Ok(())
 }
