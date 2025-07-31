@@ -1,8 +1,8 @@
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use dns_test::client::{Client, DigSettings};
-use dns_test::name_server::NameServer;
+use dns_test::client::{Client, DigSettings, DigStatus};
+use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::tshark::{Capture, Direction};
 use dns_test::zone_file::{Nsec, SignSettings};
@@ -377,6 +377,56 @@ fn no_root_ds_query() -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+#[test]
+fn nsec_wildcard_expanded_positive_response() -> Result<()> {
+    let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
+        .push_label("a")
+        .push_label("b")
+        .push_label("c")
+        .push_label("d");
+    let network = Network::new()?;
+
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    leaf_ns.add(Record::a(
+        FQDN::EXAMPLE_SUBDOMAIN.push_label("*"),
+        expected_ipv4_addr,
+    ));
+
+    let Graph {
+        nameservers: _nameservers,
+        root,
+        trust_anchor,
+    } = Graph::build(
+        leaf_ns,
+        Sign::Yes {
+            settings: SignSettings::default().nsec(Nsec::_1),
+        },
+    )?;
+    let trust_anchor = trust_anchor.unwrap();
+    let resolver = Resolver::new(&network, root)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().dnssec().authentic_data();
+
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)?;
+
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(output.flags.authenticated_data);
+    assert!(
+        output.answer.iter().any(|record| {
+            record
+                .clone()
+                .try_into_a()
+                .is_ok_and(|a| a.fqdn == needle_fqdn && a.ipv4_addr == expected_ipv4_addr)
+        }),
+        "{output:?}"
+    );
 
     Ok(())
 }
