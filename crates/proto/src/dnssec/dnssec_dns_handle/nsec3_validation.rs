@@ -439,11 +439,8 @@ fn closest_encloser_proof<'a>(
         Some((closest_encloser_index, closest_encloser_record)) if closest_encloser_index > 0 => {
             let closest_encloser_hash_info =
                 closest_encloser_candidates.swap_remove(closest_encloser_index);
-            let closest_encloser_wildcard_name = Name::new()
-                .append_label("*")
-                .unwrap()
-                .append_name(&closest_encloser_hash_info.name)
-                .expect("closest encloser name exists in the zone");
+            let closest_encloser_wildcard_name =
+                closest_encloser_hash_info.name.prepend_label("*").unwrap();
             let closest_encloser = Some((closest_encloser_hash_info, closest_encloser_record));
 
             let next_closer_hash_info =
@@ -508,11 +505,7 @@ fn closest_encloser_proof<'a>(
             // `*.soa_name` wildcard.
             // If the wildcard existed then the response code would be NoError
             // but we received `NXDomain`
-            let closest_encloser_wildcard_name = Name::new()
-                .append_label("*")
-                .unwrap()
-                .append_name(soa_name)
-                .expect("`soa_name` is an existing domain with a valid name");
+            let closest_encloser_wildcard_name = soa_name.prepend_label("*").unwrap();
             let wildcard_name_info =
                 HashedNameInfo::new(closest_encloser_wildcard_name, salt, iterations);
             let wildcard = find_covering_record(
