@@ -26,7 +26,7 @@ use crate::{
         rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
-    op::{Edns, Message, OpCode, Query},
+    op::{Edns, Message, OpCode, Query, ResponseCode},
     rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
@@ -230,7 +230,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
             ),
-            (false, true) => verify_nsec(&query, find_soa_name(&message)?, nsecs.as_slice()),
+            (false, true) => verify_nsec(
+                &query,
+                find_soa_name(&message)?,
+                message.response_code(),
+                nsecs.as_slice(),
+            ),
             (true, true) => {
                 warn!(
                     "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{message:?}"
@@ -1337,8 +1342,22 @@ impl RrsigValidity {
 ///  corresponding RRSIG RR, a validator MUST ignore the settings of the
 ///  NSEC and RRSIG bits in an NSEC RR.
 /// ```
-fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
+fn verify_nsec(
+    query: &Query,
+    soa_name: &Name,
+    response_code: ResponseCode,
+    nsecs: &[(&Name, &NSEC)],
+) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
+
+    if response_code != ResponseCode::NXDomain && response_code != ResponseCode::NoError {
+        return proof_log_yield(
+            Proof::Bogus,
+            query.name(),
+            "nsec1",
+            "unsupported response code",
+        );
+    }
 
     // Look for an NSEC record that matches the query name first. If such a record exists, then the
     // query type and CNAME must mot be present at this name.
@@ -1352,8 +1371,15 @@ fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proo
                 "nsec1",
                 "direct match, record should be present",
             );
-        } else {
+        } else if response_code == ResponseCode::NoError {
             return proof_log_yield(Proof::Secure, query.name(), "nsec1", "direct match");
+        } else {
+            return proof_log_yield(
+                Proof::Bogus,
+                query.name(),
+                "nsec1",
+                "nxdomain when direct match exists",
+            );
         }
     }
 
@@ -1422,19 +1448,30 @@ fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proo
                 "nsec1",
                 "wildcard match, record should be present",
             );
-        } else {
+        } else if response_code == ResponseCode::NoError {
             return proof_log_yield(Proof::Secure, query.name(), "nsec1", "wildcard match");
+        } else {
+            return proof_log_yield(
+                Proof::Bogus,
+                query.name(),
+                "nsec1",
+                "nxdomain when wildcard match exists",
+            );
         }
     }
 
     if find_nsec_covering_record(soa_name, &wildcard_name, nsecs).is_some() {
         // Covering NSEC records exist for both the query name and the wildcard name.
-        return proof_log_yield(
-            Proof::Secure,
-            query.name(),
-            "nsec1",
-            "no direct match, no wildcard",
-        );
+        if response_code == ResponseCode::NXDomain {
+            return proof_log_yield(
+                Proof::Secure,
+                query.name(),
+                "nsec1",
+                "no direct match, no wildcard",
+            );
+        } else {
+            return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "expected NXDOMAIN");
+        }
     }
 
     proof_log_yield(
