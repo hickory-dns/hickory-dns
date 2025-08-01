@@ -557,7 +557,6 @@ fn unauthenticated_nsec_covering_qname() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory does not check record types present at the wildcard name"]
 fn missing_nsec_wildcard_name() -> Result<()> {
     let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
     let any_modified = AtomicBool::new(false);

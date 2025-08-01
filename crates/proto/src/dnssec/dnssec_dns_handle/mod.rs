@@ -1340,73 +1340,123 @@ impl RrsigValidity {
 fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
-    // first look for a record with the same name
-    //  if they are, then the query_type should not exist in the NSEC record.
-    //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
-    //    WTF? is that bad server, bad record
+    // Look for an NSEC record that matches the query name first. If such a record exists, then the
+    // query type and CNAME must mot be present at this name.
     if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
-        if !nsec_data.type_set().contains(query.query_type()) {
-            return proof_log_yield(Proof::Secure, query.name(), "nsec1", "direct match");
-        } else {
-            return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "direct match");
-        }
-    }
-
-    let verify_nsec_coverage = |query_name: &Name| -> bool {
-        nsecs.iter().any(|(nsec_name, nsec_data)| {
-            // the query name must be greater than nsec's label (or equal in the case of wildcard)
-            query_name >= nsec_name && {
-                // the query name is less than the next name
-                // or this record wraps the end, i.e. is the last record
-                query_name < nsec_data.next_domain_name()
-                    || nsec_data.next_domain_name() < nsec_name
-            }
-        })
-    };
-
-    // continue to validate there is no wildcard
-    if !verify_nsec_coverage(query.name()) {
-        return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "no wildcard");
-    }
-
-    // validate ANY or *.domain record existence
-
-    // we need the wildcard proof, but make sure that it's still part of the zone.
-    let wildcard = query.name().base_name();
-    let wildcard = if soa_name.zone_of(&wildcard) {
-        wildcard
-    } else {
-        soa_name.clone()
-    };
-
-    // don't need to validate the same name again
-    if wildcard == *query.name() {
-        // this was validated by the nsec coverage over the query.name()
-        proof_log_yield(
-            Proof::Secure,
-            query.name(),
-            "nsec1",
-            "direct wildcard match",
-        )
-    } else {
-        // this is the final check, return it's value
-        //  if there is wildcard coverage, we're good.
-        if verify_nsec_coverage(&wildcard) {
-            proof_log_yield(
-                Proof::Secure,
-                query.name(),
-                "nsec1",
-                "covering wildcard match",
-            )
-        } else {
-            proof_log_yield(
+        if nsec_data.type_set().contains(query.query_type())
+            || nsec_data.type_set().contains(RecordType::CNAME)
+        {
+            return proof_log_yield(
                 Proof::Bogus,
                 query.name(),
                 "nsec1",
-                "covering wildcard match",
-            )
+                "direct match, record should be present",
+            );
+        } else {
+            return proof_log_yield(Proof::Secure, query.name(), "nsec1", "direct match");
         }
     }
+
+    if !soa_name.zone_of(query.name()) {
+        return proof_log_yield(
+            Proof::Bogus,
+            query.name(),
+            "nsec1",
+            "SOA record is for the wrong zone",
+        );
+    }
+
+    let Some((covering_nsec_name, covering_nsec_data)) =
+        find_nsec_covering_record(soa_name, query.name(), nsecs)
+    else {
+        return proof_log_yield(
+            Proof::Bogus,
+            query.name(),
+            "nsec1",
+            "no NSEC record matches or covers the query name",
+        );
+    };
+
+    // Identify the names that exist (including names of empty non terminals) that are parents of
+    // the query name. Pick the longest such name, because wildcard synthesis would start looking
+    // for a wildcard record there.
+    let mut next_closest_encloser = soa_name.clone();
+    for seed_name in [covering_nsec_name, covering_nsec_data.next_domain_name()] {
+        if !soa_name.zone_of(seed_name) {
+            // This is a sanity check, in case the next domain name is out-of-bailiwick.
+            continue;
+        }
+        let mut candidate_name = seed_name.clone();
+        while candidate_name.num_labels() > next_closest_encloser.num_labels() {
+            if candidate_name.zone_of(query.name()) {
+                next_closest_encloser = candidate_name;
+                break;
+            }
+            candidate_name = candidate_name.base_name();
+        }
+    }
+    let Ok(wildcard_name) = next_closest_encloser.prepend_label("*") else {
+        // This fails if the prepended label is invalid or if the wildcard name would be too long.
+        // However, we already know that the query name is not too long. The next closest enclosing
+        // name must be strictly shorter than the query name, since we know that there is no NSEC
+        // record matching the query name. Thus the query name must be as long or longer than this
+        // wildcard name we are trying to construct, because we removed at least one label from the
+        // query name, and tried to add a single-byte label. This error condition should thus be
+        // unreachable.
+        return proof_log_yield(
+            Proof::Bogus,
+            query.name(),
+            "nsec1",
+            "unreachable error constructing wildcard name",
+        );
+    };
+    debug!(%wildcard_name, "looking for NSEC for wildcard");
+
+    if let Some((_, wildcard_nsec_data)) = nsecs.iter().find(|(name, _)| &wildcard_name == *name) {
+        // Wildcard NSEC exists.
+        let type_set = wildcard_nsec_data.type_set();
+        if type_set.contains(query.query_type()) || type_set.contains(RecordType::CNAME) {
+            return proof_log_yield(
+                Proof::Bogus,
+                query.name(),
+                "nsec1",
+                "wildcard match, record should be present",
+            );
+        } else {
+            return proof_log_yield(Proof::Secure, query.name(), "nsec1", "wildcard match");
+        }
+    }
+
+    if find_nsec_covering_record(soa_name, &wildcard_name, nsecs).is_some() {
+        // Covering NSEC records exist for both the query name and the wildcard name.
+        return proof_log_yield(
+            Proof::Secure,
+            query.name(),
+            "nsec1",
+            "no direct match, no wildcard",
+        );
+    }
+
+    proof_log_yield(
+        Proof::Bogus,
+        query.name(),
+        "nsec1",
+        "no NSEC record matches or covers the wildcard name",
+    )
+}
+
+/// Find the NSEC record covering `test_name`, if any.
+fn find_nsec_covering_record<'a>(
+    soa_name: &Name,
+    test_name: &Name,
+    nsecs: &[(&'a Name, &'a NSEC)],
+) -> Option<(&'a Name, &'a NSEC)> {
+    nsecs.iter().copied().find(|(nsec_name, nsec_data)| {
+        let next_domain_name = nsec_data.next_domain_name();
+        soa_name.zone_of(nsec_name)
+            && test_name > nsec_name
+            && (test_name < next_domain_name || next_domain_name == soa_name)
+    })
 }
 
 /// Returns the current system time as Unix timestamp in seconds.
