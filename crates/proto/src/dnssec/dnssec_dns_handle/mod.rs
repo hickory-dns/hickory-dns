@@ -1337,8 +1337,7 @@ impl RrsigValidity {
 ///  corresponding RRSIG RR, a validator MUST ignore the settings of the
 ///  NSEC and RRSIG bits in an NSEC RR.
 /// ```
-#[doc(hidden)]
-pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
+fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
     // first look for a record with the same name
