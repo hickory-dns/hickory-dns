@@ -1,0 +1,25 @@
+# PowerDNS Authoritative Server Configuration
+
+local-address=0.0.0.0
+setuid=pdns
+setgid=pdns
+
+loglevel=9
+log-dns-queries=yes
+log-dns-details=yes
+
+# Disable security update polling
+security-poll-suffix=
+
+# Backend configuration - use BIND zone files
+launch=bind
+bind-config=/etc/powerdns/zones.conf
+
+disable-axfr=yes
+allow-axfr-ips=
+
+{% if use_dnssec %}
+bind-dnssec-db=/var/run/pdns/dnssec.db
+default-ksk-algorithm=ecdsa256
+default-zsk-algorithm=ecdsa256
+{% endif %}

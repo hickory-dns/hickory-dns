@@ -30,6 +30,7 @@ pub enum Image {
         repo: Repository<'static>,
         crypto_provider: HickoryCryptoProvider,
     },
+    Pdns,
     Unbound,
     EdeDotCom,
 }
@@ -48,6 +49,7 @@ impl Image {
             Self::Dnslib => include_str!("docker/dnslib.Dockerfile"),
             Self::Client => include_str!("docker/client.Dockerfile"),
             Self::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
+            Self::Pdns => include_str!("docker/pdns.Dockerfile"),
             Self::Unbound => include_str!("docker/unbound.Dockerfile"),
             Self::EdeDotCom => include_str!("docker/ede-dot-com/Dockerfile"),
         }
@@ -73,6 +75,11 @@ impl Image {
             Self::Hickory { .. } => {
                 static HICKORY_ONCE: Once = Once::new();
                 &HICKORY_ONCE
+            }
+
+            Self::Pdns => {
+                static PDNS_ONCE: Once = Once::new();
+                &PDNS_ONCE
             }
 
             Self::Unbound => {
@@ -102,6 +109,7 @@ impl From<Implementation> for Image {
                 crypto_provider,
             },
             Implementation::EdeDotCom => Self::EdeDotCom,
+            Implementation::Pdns => Self::Pdns,
         }
     }
 }
@@ -115,6 +123,7 @@ impl fmt::Display for Image {
             Self::Hickory {
                 crypto_provider, ..
             } => write!(f, "hickory-{crypto_provider}"),
+            Self::Pdns => f.write_str("pdns"),
             Self::Unbound => f.write_str("unbound"),
             Self::EdeDotCom => f.write_str("ede-dot-com"),
         }
@@ -166,6 +175,7 @@ impl Container {
                             crypto_provider: HickoryCryptoProvider::Ring,
                             ..
                         } => "hickory-ring",
+                        Image::Pdns => "pdns",
                         Image::Unbound => "unbound",
                         Image::EdeDotCom => "ede-dot-com",
                     };
