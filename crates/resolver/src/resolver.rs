@@ -345,7 +345,7 @@ impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
 enum LookupEither<P: ConnectionProvider> {
     Retry(RetryDnsHandle<NameServerPool<P>>),
     #[cfg(feature = "__dnssec")]
-    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>>),
+    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<P>>, P::RuntimeProvider>),
 }
 
 impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {

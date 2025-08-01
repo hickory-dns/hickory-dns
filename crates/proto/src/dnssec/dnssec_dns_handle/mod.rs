@@ -8,11 +8,8 @@
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
-use core::{clone::Clone, pin::Pin};
-use std::{
-    collections::{HashMap, HashSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use core::{clone::Clone, marker::PhantomData, pin::Pin};
+use std::collections::{HashMap, HashSet};
 
 use futures_util::{
     future::{self, FutureExt},
@@ -28,6 +25,7 @@ use crate::{
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query},
     rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
+    runtime::{RuntimeProvider, Time},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -41,17 +39,17 @@ use nsec3_validation::verify_nsec3;
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
 ///  message responses for Query operations. Update operation responses are not validated by
 ///  this process.
-#[derive(Clone)]
 #[must_use = "queries can only be sent through a DnsHandle"]
-pub struct DnssecDnsHandle<H> {
+pub struct DnssecDnsHandle<H, P> {
     handle: H,
     trust_anchor: Arc<TrustAnchors>,
     request_depth: usize,
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
+    _phantom: PhantomData<P>,
 }
 
-impl<H: DnsHandle> DnssecDnsHandle<H> {
+impl<H: DnsHandle, P: RuntimeProvider + Send + Sync + Unpin + 'static> DnssecDnsHandle<H, P> {
     /// Create a new DnssecDnsHandle wrapping the specified handle.
     ///
     /// This uses the compiled in TrustAnchor default trusted keys.
@@ -78,6 +76,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // [RFC 9276 Appendix A](https://www.rfc-editor.org/rfc/rfc9276.html#appendix-A)
             nsec3_soft_iteration_limit: 100,
             nsec3_hard_iteration_limit: 500,
+            _phantom: PhantomData,
         }
     }
 
@@ -151,15 +150,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             self.trust_anchor.len(),
         );
 
+        // use the same current time value for all rrsig + rrset pairs.
+        let current_time = P::Timer::current_time() as u32;
+
         // group the record sets by name and type
         //  each rrset type needs to validated independently
         let answers = message.take_answers();
         let authorities = message.take_authorities();
         let additionals = message.take_additionals();
 
-        let answers = self.verify_rrsets(answers, options).await;
-        let authorities = self.verify_rrsets(authorities, options).await;
-        let additionals = self.verify_rrsets(additionals, options).await;
+        let answers = self.verify_rrsets(answers, options, current_time).await;
+        let authorities = self.verify_rrsets(authorities, options, current_time).await;
+        let additionals = self.verify_rrsets(additionals, options, current_time).await;
 
         message.insert_answers(answers);
         message.insert_authorities(authorities);
@@ -267,7 +269,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
     /// This pulls all answers returned in a Message response and returns a future which will
     ///  validate all of them.
-    async fn verify_rrsets(&self, records: Vec<Record>, options: DnsRequestOptions) -> Vec<Record> {
+    async fn verify_rrsets(
+        &self,
+        records: Vec<Record>,
+        options: DnsRequestOptions,
+        current_time: u32,
+    ) -> Vec<Record> {
         let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
 
         for rrset in records
@@ -339,7 +346,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             );
 
             // verify this rrset
-            let proof = self.verify_rrset(&rrset, rrsigs, options).await;
+            let proof = self
+                .verify_rrset(&rrset, rrsigs, options, current_time)
+                .await;
 
             let proof = match proof {
                 Ok(proof) => {
@@ -413,10 +422,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         rrset: &Rrset<'_>,
         rrsigs: Vec<RecordRef<'_, RRSIG>>,
         options: DnsRequestOptions,
+        current_time: u32,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
-        // use the same current time value for all rrsig + rrset pairs.
-        let current_time = current_time();
-
         // DNSKEYS have different logic for their verification
         if matches!(rrset.record_type(), RecordType::DNSKEY) {
             let proof = self
@@ -886,12 +893,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             request_depth: self.request_depth + 1,
             nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
+            _phantom: PhantomData,
         }
     }
 }
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
-impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
+impl<H: DnsHandle, P: RuntimeProvider + Send + Sync + Unpin + 'static> DnsHandle
+    for DnssecDnsHandle<H, P>
+{
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -1210,6 +1220,19 @@ fn verify_rrset_with_dnskey(
         })
 }
 
+impl<H: Clone, P> Clone for DnssecDnsHandle<H, P> {
+    fn clone(&self) -> Self {
+        Self {
+            handle: self.handle.clone(),
+            trust_anchor: self.trust_anchor.clone(),
+            request_depth: self.request_depth,
+            nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
+            nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
+            _phantom: PhantomData,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum RrsigValidity {
     /// RRSIG has already expired
@@ -1408,14 +1431,6 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[(&Name, &NSEC)]) -> 
             )
         }
     }
-}
-
-/// Returns the current system time as Unix timestamp in seconds.
-fn current_time() -> u32 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as u32
 }
 
 /// Logs a debug message and yields a Proof type for return

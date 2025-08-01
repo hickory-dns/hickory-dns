@@ -9,10 +9,9 @@
 
 #[cfg(feature = "__dnssec")]
 use std::fs;
+use std::marker::PhantomData;
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
-#[cfg(feature = "__dnssec")]
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -35,6 +34,7 @@ use crate::{
         op::ResponseCode,
         op::message::ResponseSigner,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        runtime::{RuntimeProvider, TokioRuntimeProvider},
     },
     server::{Request, RequestInfo},
     store::{
@@ -46,16 +46,19 @@ use crate::{
 use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
-    proto::dnssec::{
-        DnsSecResult, SigSigner, Verifier,
-        rdata::{
-            DNSSECRData,
-            key::KEY,
-            tsig::{TsigAlgorithm, TsigError},
+    proto::{
+        dnssec::{
+            DnsSecResult, SigSigner, Verifier,
+            rdata::{
+                DNSSECRData,
+                key::KEY,
+                tsig::{TsigAlgorithm, TsigError},
+            },
+            tsig::{TSigResponseContext, TSigner},
         },
-        tsig::{TSigResponseContext, TSigner},
+        op::MessageSignature,
+        runtime::Time,
     },
-    proto::op::MessageSignature,
 };
 #[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
@@ -68,8 +71,8 @@ pub use persistence::Journal;
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 #[allow(dead_code)]
-pub struct SqliteAuthority {
-    in_memory: InMemoryAuthority,
+pub struct SqliteAuthority<P = TokioRuntimeProvider> {
+    in_memory: InMemoryAuthority<P>,
     journal: Mutex<Option<Journal>>,
     axfr_policy: AxfrPolicy,
     allow_update: bool,
@@ -78,9 +81,10 @@ pub struct SqliteAuthority {
     metrics: PersistentStoreMetrics,
     #[cfg(feature = "__dnssec")]
     tsig_signers: Vec<TSigner>,
+    _phantom: PhantomData<P>,
 }
 
-impl SqliteAuthority {
+impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     /// Creates a new Authority.
     ///
     /// # Arguments
@@ -95,7 +99,7 @@ impl SqliteAuthority {
     ///
     /// The new `Authority`.
     pub fn new(
-        in_memory: InMemoryAuthority,
+        in_memory: InMemoryAuthority<P>,
         axfr_policy: AxfrPolicy,
         allow_update: bool,
         is_dnssec_enabled: bool,
@@ -110,6 +114,7 @@ impl SqliteAuthority {
             metrics: PersistentStoreMetrics::new("sqlite"),
             #[cfg(feature = "__dnssec")]
             tsig_signers: Vec::new(),
+            _phantom: PhantomData,
         }
     }
 
@@ -959,10 +964,7 @@ impl SqliteAuthority {
         request: &Request,
     ) -> (UpdateResult<()>, Box<dyn ResponseSigner>) {
         let req_id = request.header().id();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|t| t.as_secs())
-            .unwrap_or_default();
+        let now = P::Timer::current_time();
         let cx = TSigResponseContext::new(req_id, now);
 
         debug!("authorizing with: {tsig:?}");
@@ -1007,22 +1009,22 @@ impl SqliteAuthority {
     }
 }
 
-impl Deref for SqliteAuthority {
-    type Target = InMemoryAuthority;
+impl<P> Deref for SqliteAuthority<P> {
+    type Target = InMemoryAuthority<P>;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory
     }
 }
 
-impl DerefMut for SqliteAuthority {
+impl<P> DerefMut for SqliteAuthority<P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.in_memory
     }
 }
 
 #[async_trait::async_trait]
-impl Authority for SqliteAuthority {
+impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -1181,7 +1183,7 @@ impl Authority for SqliteAuthority {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl DnssecAuthority for SqliteAuthority {
+impl<P: RuntimeProvider + Send + Sync> DnssecAuthority for SqliteAuthority<P> {
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
     }

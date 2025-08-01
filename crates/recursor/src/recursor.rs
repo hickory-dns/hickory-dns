@@ -530,7 +530,7 @@ enum RecursorMode<P: ConnectionProvider> {
 
     #[cfg(feature = "__dnssec")]
     Validating {
-        handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
+        handle: DnssecDnsHandle<RecursorDnsHandle<P>, P::RuntimeProvider>,
         // This is a separate response cache from that inside `RecursorDnsHandle`.
         validated_response_cache: ResponseCache,
         #[cfg(feature = "metrics")]

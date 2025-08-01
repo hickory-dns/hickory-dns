@@ -69,7 +69,8 @@ fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider);
         let (client, bg) = io_loop.block_on(client);
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
-        let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
+        let mut client =
+            DnssecDnsHandle::<_, TokioRuntimeProvider>::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);
     });
