@@ -9,8 +9,7 @@ use futures_executor::block_on;
 use hickory_proto::{
     dnssec::{
         Algorithm, Verifier,
-        rdata::{DNSKEY, DNSSECRData, NSEC, RRSIG},
-        verify_nsec,
+        rdata::{DNSKEY, DNSSECRData, RRSIG},
     },
     op::{Header, MessageType, OpCode, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
@@ -239,17 +238,13 @@ pub fn test_nsec_nodata(authority: impl Authority, _: &[DNSKEY]) {
     println!("nsec_records: {nsec_records:?}");
 
     // there should only be one, and it should match the www.example.com name
-    assert_eq!(nsec_records.len(), 1);
-    assert_eq!(nsec_records.first().unwrap().name(), &name);
-
-    let query = Query::query(name, RecordType::TXT);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_text = nsec_records
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        nsec_text,
+        ["www.example.com. 86400 IN NSEC example.com. A AAAA RRSIG NSEC"]
     );
 }
 
@@ -267,20 +262,15 @@ pub fn test_nsec_nxdomain_start(authority: impl Authority, _: &[DNSKEY]) {
 
     println!("nsec_records: {nsec_records:?}");
 
-    // there should only be one, and it should match the www.example.com name
-    assert!(!nsec_records.is_empty());
-    // because the first record is from the SOA, the wildcard isn't necessary
-    //  that is `example.com.` -> `bbb.example.com.` proves there is no wildcard.
-    assert_eq!(nsec_records.len(), 1);
-
-    let query = Query::query(name, RecordType::A);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    // Because the first NSEC record is from the zone apex, a separate NSEC record for the wildcard
+    // isn't necessary. That is, `example.com.` -> `alias.example.com.` proves there is no wildcard.
+    let nsec_text = nsec_records
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        nsec_text,
+        ["example.com. 86400 IN NSEC alias.example.com. NS SOA MX RRSIG NSEC DNSKEY ANAME"]
     );
 }
 
@@ -291,26 +281,25 @@ pub fn test_nsec_nxdomain_middle(authority: impl Authority, _: &[DNSKEY]) {
         block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
-    let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
+    let (mut nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
+    nsec_records.sort();
 
     println!("nsec_records: {nsec_records:?}");
 
-    // there should only be one, and it should match the www.example.com name
-    assert!(!nsec_records.is_empty());
     // one record covers between the names, the other is for the wildcard proof.
-    assert_eq!(nsec_records.len(), 2);
-
-    let query = Query::query(name, RecordType::A);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_text = nsec_records
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        nsec_text,
+        [
+            "example.com. 86400 IN NSEC alias.example.com. NS SOA MX RRSIG NSEC DNSKEY ANAME",
+            "bbb.example.com. 86400 IN NSEC this.has.dots.example.com. A RRSIG NSEC",
+        ]
     );
 }
 
@@ -321,39 +310,26 @@ pub fn test_nsec_nxdomain_wraps_end(authority: impl Authority, _: &[DNSKEY]) {
         block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
             .unwrap();
 
-    let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
+    let (mut nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::NSEC);
+    nsec_records.sort();
 
     println!("nsec_records: {nsec_records:?}");
 
-    // there should only be one, and it should match the www.example.com name
-    assert!(!nsec_records.is_empty());
     // one record covers between the names, the other is for the wildcard proof.
-    assert_eq!(nsec_records.len(), 2);
-
-    let query = Query::query(name, RecordType::A);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_text = nsec_records
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        nsec_text,
+        [
+            "example.com. 86400 IN NSEC alias.example.com. NS SOA MX RRSIG NSEC DNSKEY ANAME",
+            "www.example.com. 86400 IN NSEC example.com. A AAAA RRSIG NSEC",
+        ]
     );
-}
-
-fn nsecs<'a>(records: impl IntoIterator<Item = &'a Record>) -> Vec<(&'a Name, &'a NSEC)> {
-    records
-        .into_iter()
-        .filter_map(|rr| {
-            rr.data()
-                .as_dnssec()?
-                .as_nsec()
-                .map(|data| (rr.name(), data))
-        })
-        .collect()
 }
 
 pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {
