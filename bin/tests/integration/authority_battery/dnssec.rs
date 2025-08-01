@@ -9,8 +9,7 @@ use futures_executor::block_on;
 use hickory_proto::{
     dnssec::{
         Algorithm, Verifier,
-        rdata::{DNSKEY, DNSSECRData, NSEC, RRSIG},
-        verify_nsec,
+        rdata::{DNSKEY, DNSSECRData, RRSIG},
     },
     op::{Header, MessageType, OpCode, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
@@ -240,16 +239,18 @@ pub fn test_nsec_nodata(authority: impl Authority, _: &[DNSKEY]) {
 
     // there should only be one, and it should match the www.example.com name
     assert_eq!(nsec_records.len(), 1);
-    assert_eq!(nsec_records.first().unwrap().name(), &name);
-
-    let query = Query::query(name, RecordType::TXT);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_record = &nsec_records[0];
+    assert_eq!(nsec_record.name(), &name);
+    let rdata = nsec_record.data().as_dnssec().unwrap().as_nsec().unwrap();
+    assert_eq!(rdata.next_domain_name(), &name.base_name());
+    assert_eq!(
+        rdata.type_bit_maps().collect::<Vec<_>>(),
+        [
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::RRSIG,
+            RecordType::NSEC,
+        ]
     );
 }
 
@@ -267,20 +268,24 @@ pub fn test_nsec_nxdomain_start(authority: impl Authority, _: &[DNSKEY]) {
 
     println!("nsec_records: {nsec_records:?}");
 
-    // there should only be one, and it should match the www.example.com name
-    assert!(!nsec_records.is_empty());
-    // because the first record is from the SOA, the wildcard isn't necessary
-    //  that is `example.com.` -> `bbb.example.com.` proves there is no wildcard.
+    // Because the first NSEC record is from the zone apex, a separate NSEC record for the wildcard
+    // isn't necessary. That is, `example.com.` -> `alias.example.com.` proves there is no wildcard.
     assert_eq!(nsec_records.len(), 1);
-
-    let query = Query::query(name, RecordType::A);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_record = &nsec_records[0];
+    assert_eq!(nsec_record.name(), &name.base_name());
+    let rdata = nsec_record.data().as_dnssec().unwrap().as_nsec().unwrap();
+    assert_eq!(rdata.next_domain_name().to_string(), "alias.example.com.");
+    assert_eq!(
+        rdata.type_bit_maps().collect::<Vec<_>>(),
+        [
+            RecordType::NS,
+            RecordType::SOA,
+            RecordType::MX,
+            RecordType::RRSIG,
+            RecordType::NSEC,
+            RecordType::DNSKEY,
+            RecordType::ANAME,
+        ]
     );
 }
 
@@ -298,19 +303,40 @@ pub fn test_nsec_nxdomain_middle(authority: impl Authority, _: &[DNSKEY]) {
 
     println!("nsec_records: {nsec_records:?}");
 
-    // there should only be one, and it should match the www.example.com name
-    assert!(!nsec_records.is_empty());
     // one record covers between the names, the other is for the wildcard proof.
     assert_eq!(nsec_records.len(), 2);
 
-    let query = Query::query(name, RecordType::A);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_record_1 = nsec_records
+        .iter()
+        .find(|record| record.name().to_string() == "bbb.example.com.")
+        .unwrap();
+    let rdata_1 = nsec_record_1.data().as_dnssec().unwrap().as_nsec().unwrap();
+    assert_eq!(
+        rdata_1.next_domain_name().to_string(),
+        "this.has.dots.example.com."
+    );
+    assert_eq!(
+        rdata_1.type_bit_maps().collect::<Vec<_>>(),
+        [RecordType::A, RecordType::RRSIG, RecordType::NSEC]
+    );
+
+    let nsec_record_2 = nsec_records
+        .iter()
+        .find(|record| record.name() == &name.base_name())
+        .unwrap();
+    let rdata_2 = nsec_record_2.data().as_dnssec().unwrap().as_nsec().unwrap();
+    assert_eq!(rdata_2.next_domain_name().to_string(), "alias.example.com.");
+    assert_eq!(
+        rdata_2.type_bit_maps().collect::<Vec<_>>(),
+        [
+            RecordType::NS,
+            RecordType::SOA,
+            RecordType::MX,
+            RecordType::RRSIG,
+            RecordType::NSEC,
+            RecordType::DNSKEY,
+            RecordType::ANAME,
+        ]
     );
 }
 
@@ -328,32 +354,43 @@ pub fn test_nsec_nxdomain_wraps_end(authority: impl Authority, _: &[DNSKEY]) {
 
     println!("nsec_records: {nsec_records:?}");
 
-    // there should only be one, and it should match the www.example.com name
-    assert!(!nsec_records.is_empty());
     // one record covers between the names, the other is for the wildcard proof.
     assert_eq!(nsec_records.len(), 2);
 
-    let query = Query::query(name, RecordType::A);
-    assert!(
-        verify_nsec(
-            &query,
-            &Name::from_str("example.com.").unwrap(),
-            &nsecs(&nsec_records)
-        )
-        .is_secure()
+    let nsec_record_1 = nsec_records
+        .iter()
+        .find(|record| record.name().to_string() == "www.example.com.")
+        .unwrap();
+    let rdata_1 = nsec_record_1.data().as_dnssec().unwrap().as_nsec().unwrap();
+    assert_eq!(rdata_1.next_domain_name(), &name.base_name());
+    assert_eq!(
+        rdata_1.type_bit_maps().collect::<Vec<_>>(),
+        [
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::RRSIG,
+            RecordType::NSEC,
+        ]
     );
-}
 
-fn nsecs<'a>(records: impl IntoIterator<Item = &'a Record>) -> Vec<(&'a Name, &'a NSEC)> {
-    records
-        .into_iter()
-        .filter_map(|rr| {
-            rr.data()
-                .as_dnssec()?
-                .as_nsec()
-                .map(|data| (rr.name(), data))
-        })
-        .collect()
+    let nsec_record_2 = nsec_records
+        .iter()
+        .find(|record| record.name() == &name.base_name())
+        .unwrap();
+    let rdata_2 = nsec_record_2.data().as_dnssec().unwrap().as_nsec().unwrap();
+    assert_eq!(rdata_2.next_domain_name().to_string(), "alias.example.com.");
+    assert_eq!(
+        rdata_2.type_bit_maps().collect::<Vec<_>>(),
+        [
+            RecordType::NS,
+            RecordType::SOA,
+            RecordType::MX,
+            RecordType::RRSIG,
+            RecordType::NSEC,
+            RecordType::DNSKEY,
+            RecordType::ANAME,
+        ]
+    );
 }
 
 pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {

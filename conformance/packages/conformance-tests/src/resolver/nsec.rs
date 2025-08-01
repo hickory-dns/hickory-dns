@@ -52,13 +52,11 @@ fn domain_exists_record_type_does_not_nsec() -> Result<()> {
     domain_exists_record_type_does_not(Nsec::_1)
 }
 
-#[ignore = "NSEC validation is incorrect"]
 #[test]
 fn wildcard_exists_record_type_does_not_nsec_middle_chain() -> Result<()> {
     wildcard_exists_record_type_does_not(Nsec::_1, "aaaaaa")
 }
 
-#[ignore = "NSEC validation is incorrect"]
 #[test]
 fn wildcard_exists_record_type_does_not_nsec_end_chain() -> Result<()> {
     wildcard_exists_record_type_does_not(Nsec::_1, "zzzzzz")
