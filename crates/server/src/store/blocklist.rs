@@ -20,6 +20,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(feature = "metrics")]
+use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 use serde::Deserialize;
 use tracing::{info, trace, warn};
 
@@ -73,6 +75,8 @@ pub struct BlocklistAuthority {
     block_message: Option<String>,
     consult_action: BlocklistConsultAction,
     log_clients: bool,
+    #[cfg(feature = "metrics")]
+    metrics: BlocklistMetrics,
 }
 
 impl BlocklistAuthority {
@@ -95,6 +99,8 @@ impl BlocklistAuthority {
             block_message: config.block_message.clone(),
             consult_action: config.consult_action,
             log_clients: config.log_clients,
+            #[cfg(feature = "metrics")]
+            metrics: BlocklistMetrics::new(),
         };
 
         let base_dir = match base_dir {
@@ -125,6 +131,12 @@ impl BlocklistAuthority {
                 ));
             }
         }
+
+        #[cfg(feature = "metrics")]
+        authority
+            .metrics
+            .entries
+            .set(authority.blocklist.keys().len() as f64);
 
         Ok(authority)
     }
@@ -340,7 +352,15 @@ impl Authority for BlocklistAuthority {
 
         trace!("blocklist lookup: {name} {rtype}");
 
+        #[cfg(feature = "metrics")]
+        self.metrics.total_queries.increment(1);
+
         if self.is_blocked(name) {
+            #[cfg(feature = "metrics")]
+            {
+                self.metrics.total_hits.increment(1);
+                self.metrics.blocked_queries.increment(1);
+            }
             match request_info {
                 Some(info) if self.log_clients => info!(
                     query = %name,
@@ -379,7 +399,15 @@ impl Authority for BlocklistAuthority {
         match self.consult_action {
             BlocklistConsultAction::Disabled => return (last_result, None),
             BlocklistConsultAction::Log => {
+                #[cfg(feature = "metrics")]
+                self.metrics.total_queries.increment(1);
+
                 if self.is_blocked(name) {
+                    #[cfg(feature = "metrics")]
+                    {
+                        self.metrics.logged_queries.increment(1);
+                        self.metrics.total_hits.increment(1);
+                    }
                     match request_info {
                         Some(info) if self.log_clients => {
                             info!(
@@ -531,6 +559,54 @@ impl Default for BlocklistConfig {
             block_message: None,
             consult_action: BlocklistConsultAction::default(),
             log_clients: true,
+        }
+    }
+}
+
+#[cfg(feature = "metrics")]
+struct BlocklistMetrics {
+    entries: Gauge,
+    blocked_queries: Counter,
+    logged_queries: Counter,
+    total_hits: Counter,
+    total_queries: Counter,
+}
+
+#[cfg(feature = "metrics")]
+impl BlocklistMetrics {
+    fn new() -> Self {
+        describe_gauge!(
+            "hickory_blocklist_list_entries",
+            Unit::Count,
+            "The total number of entries in all configured blocklists",
+        );
+        describe_counter!(
+            "hickory_blocklist_blocked_queries_total",
+            Unit::Count,
+            "The total number of requests that were blocked by the blocklist authority",
+        );
+        describe_counter!(
+            "hickory_blocklist_logged_queries_total",
+            Unit::Count,
+            "The total number of requests that were logged by the blocklist authority",
+        );
+        describe_counter!(
+            "hickory_blocklist_list_hits_total",
+            Unit::Count,
+            "The total number of requests that matched a blocklist entry",
+        );
+        describe_counter!(
+            "hickory_blocklist_queries_total",
+            Unit::Count,
+            "The total number of requests the blocklist authority has processed",
+        );
+
+        Self {
+            entries: gauge!("hickory_blocklist_list_entries"),
+            blocked_queries: counter!("hickory_blocklist_blocked_queries_total"),
+            logged_queries: counter!("hickory_blocklist_logged_queries_total"),
+            total_hits: counter!("hickory_blocklist_list_hits_total"),
+            total_queries: counter!("hickory_blocklist_queries_total"),
         }
     }
 }
