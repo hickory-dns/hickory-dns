@@ -28,7 +28,8 @@ use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::xfer::Protocol;
+use hickory_proto::xfer::{DnsResponse, Protocol};
+use hickory_proto::{ProtoError, ProtoErrorKind};
 use prometheus_parse::{Scrape, Value};
 #[cfg(feature = "__dnssec")]
 use rustls_pki_types::PrivatePkcs8KeyDer;
@@ -403,6 +404,109 @@ fn test_request_response() {
 }
 
 #[test]
+#[cfg(all(feature = "blocklist", feature = "metrics"))]
+fn test_blocklist_metrics() {
+    subscribe();
+
+    named_test_harness("chained_blocklist.toml", |socket_ports| {
+        let io_loop = Runtime::new().unwrap();
+        let metrics = &io_loop.block_on(async {
+            let mut client = create_local_client(&socket_ports, None).await;
+            let response = retry_client_lookup(
+                &mut client,
+                Name::from_str("example.com.").unwrap(),
+                DNSClass::IN,
+                RecordType::A,
+            )
+            .await
+            .unwrap();
+
+            let RData::A(addr) = response.answers()[0].data() else {
+                panic!("expected A record response");
+            };
+            assert_eq!(*addr, A::new(192, 0, 2, 1));
+
+            // com. should be in the cache already and isn't on the test blocklists.
+            let response = retry_client_lookup(
+                &mut client,
+                Name::from_str("com.").unwrap(),
+                DNSClass::IN,
+                RecordType::NS,
+            )
+            .await
+            .unwrap();
+
+            let RData::NS(_addr) = response.answers()[0].data() else {
+                panic!("expected NS record response");
+            };
+
+            fetch_parse_check_metrics(&socket_ports).await
+        });
+
+        verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
+        verify_metric(
+            metrics,
+            "hickory_blocklist_blocked_queries_total",
+            &[],
+            Some(1.0),
+        );
+        verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
+        verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
+    });
+}
+
+#[test]
+#[cfg(all(feature = "blocklist", feature = "metrics"))]
+fn test_consulting_blocklist_metrics() {
+    subscribe();
+
+    named_test_harness("consulting_blocklist.toml", |socket_ports| {
+        let io_loop = Runtime::new().unwrap();
+        let metrics = &io_loop.block_on(async {
+            let mut client = create_local_client(&socket_ports, None).await;
+            let response = retry_client_lookup(
+                &mut client,
+                Name::from_str("example.com.").unwrap(),
+                DNSClass::IN,
+                RecordType::A,
+            )
+            .await
+            .unwrap();
+
+            let RData::A(addr) = response.answers()[0].data() else {
+                panic!("expected A record response");
+            };
+            assert!(*addr != A::new(192, 0, 2, 1));
+
+            let response = retry_client_lookup(
+                &mut client,
+                Name::from_str("com.").unwrap(),
+                DNSClass::IN,
+                RecordType::NS,
+            )
+            .await
+            .unwrap();
+
+            let RData::NS(_addr) = response.answers()[0].data() else {
+                panic!("expected NS record response");
+            };
+
+            fetch_parse_check_metrics(&socket_ports).await
+        });
+
+        verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
+        verify_metric(
+            metrics,
+            "hickory_blocklist_logged_queries_total",
+            &[],
+            Some(1.0),
+        );
+        verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
+        verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
+    })
+}
+
+#[test]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 fn test_updates() {
     subscribe();
@@ -610,6 +714,29 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
     })
 }
 
+async fn retry_client_lookup(
+    client: &mut Client,
+    name: Name,
+    class: DNSClass,
+    rtype: RecordType,
+) -> Result<DnsResponse, ProtoError> {
+    let mut i = 0;
+    loop {
+        return match client.query(name.clone(), class, rtype).await {
+            Ok(res) => Ok(res),
+            Err(e) if i < LOOKUP_RETRIES => {
+                if let ProtoErrorKind::Timeout = e.kind() {
+                    i += 1;
+                    sleep(Duration::from_secs(2)).await;
+                    continue;
+                }
+                Err(e)
+            }
+            Err(e) => Err(e),
+        };
+    }
+}
+
 const AUTHORITATIVE_PRIMARY_FILE_SUCCESS: [(&str, &str); 4] = [
     ("type", "authoritative"),
     ("role", "primary"),
@@ -634,3 +761,4 @@ const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
     ("authority", "forwarder"),
     ("success", "false"),
 ];
+const LOOKUP_RETRIES: usize = 5;
