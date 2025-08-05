@@ -11,6 +11,7 @@ pub use crate::container::Network;
 pub use crate::forwarder::Forwarder;
 pub use crate::fqdn::FQDN;
 pub use crate::implementation::{HickoryCryptoProvider, Implementation, Repository};
+pub use crate::pki::Pki;
 pub use crate::resolver::Resolver;
 pub use crate::trust_anchor::TrustAnchor;
 
@@ -21,6 +22,7 @@ mod fqdn;
 mod implementation;
 pub mod name_server;
 pub mod nsec3;
+pub mod pki;
 pub mod record;
 mod resolver;
 mod trust_anchor;

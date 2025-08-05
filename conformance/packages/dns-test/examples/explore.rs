@@ -1,21 +1,25 @@
 use std::env;
 use std::net::Ipv4Addr;
+use std::rc::Rc;
 use std::sync::mpsc;
 
 use dns_test::client::Client;
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
 use dns_test::zone_file::SignSettings;
-use dns_test::{FQDN, Forwarder, Network, Resolver, Result};
+use dns_test::{FQDN, Forwarder, Network, Pki, Resolver, Result};
 
 fn main() -> Result<()> {
     let args = Args::from_env()?;
 
     let network = Network::new()?;
+    let pki = Rc::new(Pki::new()?);
     let peer = &dns_test::PEER;
 
     println!("building nameserver docker image...");
-    let leaf_ns = NameServer::new(peer, FQDN::TEST_DOMAIN, &network)?;
+    let ns_builder =
+        NameServer::builder((*peer).clone(), FQDN::TEST_DOMAIN, network.clone()).pki(pki.clone());
+    let leaf_ns = ns_builder.build()?;
     println!("DONE");
 
     println!("setting up name servers...");
@@ -65,6 +69,8 @@ fn main() -> Result<()> {
     let (tx, rx) = mpsc::channel();
 
     ctrlc::set_handler(move || tx.send(()).expect("could not forward signal"))?;
+
+    println!("Container PKI root certificate: \n{}\n", pki.root_pem());
 
     for ns in &nameservers {
         println!("{} name server's IP address: {}", ns.zone(), ns.ipv4_addr());

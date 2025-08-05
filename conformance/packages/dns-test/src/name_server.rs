@@ -1,5 +1,5 @@
 use core::sync::atomic::{self, AtomicUsize};
-use std::{collections::HashMap, net::Ipv4Addr, thread, time::Duration};
+use std::{collections::HashMap, net::Ipv4Addr, rc::Rc, thread, time::Duration};
 
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role};
@@ -7,7 +7,7 @@ use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
-use crate::{DEFAULT_TTL, FQDN, Implementation, Result, TrustAnchor};
+use crate::{DEFAULT_TTL, FQDN, Implementation, Pki, Result, TrustAnchor};
 
 pub struct Graph {
     pub nameservers: Vec<NameServer<Running>>,
@@ -52,10 +52,15 @@ impl Graph {
         let mut zone = leaf.zone().clone();
         let network = leaf.container.network().clone();
         let implementation = leaf.implementation.clone();
+        let pki = leaf.pki.clone();
 
         let (mut nameservers_ns, leaf) = if leaf.zone() != &FQDN::TEST_DOMAIN {
-            let nameservers_ns = NameServer::new(&implementation, FQDN::TEST_DOMAIN, &network)?;
-            (nameservers_ns, Some(leaf))
+            let mut nameserver =
+                NameServer::builder(implementation.clone(), FQDN::TEST_DOMAIN, network.clone());
+            if let Some(pki) = &pki {
+                nameserver = nameserver.pki(pki.clone());
+            }
+            (nameserver.build()?, Some(leaf))
         } else {
             (leaf, None)
         };
@@ -63,7 +68,12 @@ impl Graph {
         // the nameserver covering `FQDN::NAMESERVERS` needs A records about all the nameservers in the graph
         let mut nameservers = vec![];
         while let Some(parent) = zone.parent() {
-            let nameserver = NameServer::new(&implementation, parent.clone(), &network)?;
+            let mut nameserver =
+                NameServer::builder(implementation.clone(), parent.clone(), network.clone());
+            if let Some(pki) = &pki {
+                nameserver = nameserver.pki(pki.clone());
+            }
+            let nameserver = nameserver.build()?;
 
             nameservers_ns.add(nameserver.a());
             nameservers.push(nameserver);
@@ -161,6 +171,7 @@ pub struct NameServerBuilder {
     nameserver_fqdn: Option<FQDN>,
     implementation: Implementation,
     network: Network,
+    pki: Option<Rc<Pki>>,
 }
 
 impl NameServerBuilder {
@@ -177,6 +188,7 @@ impl NameServerBuilder {
             nameserver_fqdn,
             implementation,
             network,
+            pki,
         } = self;
 
         let ns_count = ns_count();
@@ -205,12 +217,19 @@ impl NameServerBuilder {
             state: Stopped,
             zone_file,
             additional_zones: HashMap::new(),
+            pki,
         })
     }
 
     /// Override the FQDN of the name server.
     pub fn nameserver_fqdn(mut self, nameserver_fqdn: FQDN) -> Self {
         self.nameserver_fqdn = Some(nameserver_fqdn);
+        self
+    }
+
+    /// Override the PKI to use for the name server.
+    pub fn pki(mut self, pki: Rc<Pki>) -> Self {
+        self.pki = Some(pki);
         self
     }
 }
@@ -221,6 +240,7 @@ pub struct NameServer<State> {
     state: State,
     zone_file: ZoneFile,
     additional_zones: HashMap<FQDN, ZoneFile>,
+    pki: Option<Rc<Pki>>,
 }
 
 impl NameServer<Stopped> {
@@ -251,6 +271,7 @@ impl NameServer<Stopped> {
             nameserver_fqdn: None,
             implementation,
             network,
+            pki: None,
         }
     }
 
@@ -294,6 +315,7 @@ impl NameServer<Stopped> {
             implementation,
             additional_zones,
             state: _,
+            pki,
         } = self;
 
         let signer = Signer::new(&container, settings)?;
@@ -306,6 +328,7 @@ impl NameServer<Stopped> {
             zone_file,
             state,
             additional_zones,
+            pki,
         })
     }
 
@@ -321,6 +344,7 @@ impl NameServer<Stopped> {
             implementation,
             additional_zones,
             state: _,
+            pki,
         } = self;
 
         let signer = Signer::new(&container, settings)?;
@@ -332,6 +356,7 @@ impl NameServer<Stopped> {
             zone_file,
             state,
             additional_zones,
+            pki,
         })
     }
 
@@ -343,6 +368,7 @@ impl NameServer<Stopped> {
             implementation,
             additional_zones,
             state: _,
+            pki,
         } = self;
 
         let config = Config::NameServer {
@@ -405,6 +431,7 @@ impl NameServer<Stopped> {
                 _child: child,
                 trust_anchor: None,
             },
+            pki,
         })
     }
 }
@@ -441,6 +468,7 @@ impl NameServer<Signed> {
             implementation,
             additional_zones,
             state,
+            pki,
         } = self;
 
         let config = Config::NameServer {
@@ -505,6 +533,7 @@ impl NameServer<Signed> {
                 _child: child,
                 trust_anchor: Some(state.trust_anchor()),
             },
+            pki,
         })
     }
 

@@ -10,6 +10,7 @@ base64 = "0.22.1"
 hex = "0.4.3"
 lazy_static = "1.4.0"
 minijinja = "2"
+rcgen = "0.14"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 serde_with = "3.6.1"
