@@ -970,4 +970,47 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn bind_dot() -> Result<()> {
+        test_dot_query_works(Implementation::Bind)
+    }
+
+    #[test]
+    fn nsd_dot() -> Result<()> {
+        // NOTE: Specifying Unbound gets us NSD as the auth. server impl.
+        test_dot_query_works(Implementation::Unbound)
+    }
+
+    #[test]
+    fn hickory_dot() -> Result<()> {
+        test_dot_query_works(Implementation::hickory())
+    }
+
+    fn test_dot_query_works(implementation: Implementation) -> Result<()> {
+        let network = Network::new()?;
+        let pki = Rc::new(Pki::new()?);
+        let tld_ns = NameServer::builder(implementation, FQDN::TEST_TLD, network.clone())
+            .pki(pki.clone())
+            .build()?
+            .start()?;
+        let ip_addr = tld_ns.ipv4_addr();
+
+        let client = Client::new(&network)?;
+        client.cp("/tmp/dot.root.pem", &pki.root_pem())?;
+
+        let output = client.dig(
+            *DigSettings::default()
+                .tcp()
+                .tls()
+                .tls_ca("/tmp/dot.root.pem"),
+            ip_addr,
+            RecordType::SOA,
+            &FQDN::TEST_TLD,
+        )?;
+
+        assert!(output.status.is_noerror());
+
+        Ok(())
+    }
 }
