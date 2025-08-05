@@ -17,10 +17,10 @@ RUN cargo chef prepare
 FROM chef AS builder
 COPY --from=planner /usr/src/hickory/recipe.json /usr/src/hickory/recipe.json
 WORKDIR /usr/src/hickory
-RUN cargo chef cook -p hickory-dns --bin hickory-dns --features recursor,dnssec-$CRYPTO_PROVIDER && \
+RUN cargo chef cook -p hickory-dns --bin hickory-dns --features recursor,dnssec-$CRYPTO_PROVIDER,tls-$CRYPTO_PROVIDER && \
     cargo chef cook -p hickory-util --bin dns --features h3-$CRYPTO_PROVIDER,https-$CRYPTO_PROVIDER
 COPY ./src /usr/src/hickory
-RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,dnssec-$CRYPTO_PROVIDER && \
+RUN cargo build -p hickory-dns --bin hickory-dns --features recursor,dnssec-$CRYPTO_PROVIDER,tls-$CRYPTO_PROVIDER && \
     cargo build -p hickory-util --bin dns --features h3-$CRYPTO_PROVIDER,https-$CRYPTO_PROVIDER
 
 FROM debian:bookworm-slim AS final
@@ -32,12 +32,14 @@ FROM debian:bookworm-slim AS final
 # - tshark is needed for packet captures.
 # - openssl is needed to generate a keypair to be used in Hickory DNS's name
 #   server configuration.
+# - ca-certificates is needed for the resolver to load system roots for the tls feature.
 RUN apt-get update && \
     apt-get install -y \
     ldnsutils \
     bind9-utils \
     tshark \
-    openssl
+    openssl \
+    ca-certificates
 
 COPY --from=builder /usr/src/hickory/target/debug/hickory-dns /usr/bin/
 COPY --from=builder /usr/src/hickory/target/debug/dns /usr/bin/

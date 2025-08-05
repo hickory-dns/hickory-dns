@@ -1,6 +1,14 @@
 user = "nobody"
 group = "nogroup"
 
+{% if dot %}
+tls_listen_port = 853
+
+[tls_cert]
+path = "{{ dot.cert_chain }}"
+private_key = "{{ dot.private_key }}"
+{% endif %}
+
 [[zones]]
 zone = "{{ fqdn }}"
 zone_type = "Primary"
