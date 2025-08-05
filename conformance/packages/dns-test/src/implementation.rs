@@ -2,9 +2,10 @@ use core::fmt;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use serde::Serialize;
 use url::Url;
 
 use crate::zone_file::ZoneFile;
@@ -16,6 +17,8 @@ pub enum Config<'a> {
         origin: &'a FQDN,
         use_dnssec: bool,
         additional_zones: HashMap<FQDN, ZoneFile>,
+        /// Optional DNS over TLS (DoT) configuration.
+        dot: Option<TlsServerConfig>,
     },
     Resolver {
         use_dnssec: bool,
@@ -38,6 +41,15 @@ impl Config<'_> {
             Config::Forwarder { .. } => Role::Forwarder,
         }
     }
+}
+
+/// Configuration for a TLS server
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+pub struct TlsServerConfig {
+    /// Path to a PEM encoded certificate chain for the server.
+    pub cert_chain: PathBuf,
+    /// Path to the PEM encoded private key associated with the leaf cert of `cert_chain`.
+    pub private_key: PathBuf,
 }
 
 #[derive(Clone, Copy)]
@@ -174,12 +186,14 @@ impl Implementation {
                 origin,
                 use_dnssec,
                 additional_zones,
+                dot,
             } => match self {
                 Self::Bind => {
                     minijinja::render!(
                         include_str!("templates/named.name-server.conf.jinja"),
                         fqdn => origin.as_str(),
                         additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
+                        dot => dot,
                     )
                 }
 
@@ -193,6 +207,7 @@ impl Implementation {
                         include_str!("templates/nsd.conf.jinja"),
                         fqdn => origin.as_str(),
                         additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
+                        dot => dot,
                     )
                 }
 
@@ -206,6 +221,7 @@ impl Implementation {
                         use_dnssec => use_dnssec,
                         additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
                         use_pkcs8 => use_pkcs8,
+                        dot => dot,
                     )
                 }
 

@@ -1,13 +1,15 @@
 use core::sync::atomic::{self, AtomicUsize};
-use std::{collections::HashMap, net::Ipv4Addr, rc::Rc, thread, time::Duration};
+use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, rc::Rc, thread, time::Duration};
 
 use crate::container::{Child, Container, Network};
-use crate::implementation::{Config, Role};
+use crate::implementation::{Config, Role, TlsServerConfig};
 use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{DEFAULT_TTL, FQDN, Implementation, Pki, Result, TrustAnchor};
+
+use rcgen::CertifiedKey;
 
 pub struct Graph {
     pub nameservers: Vec<NameServer<Running>>,
@@ -243,6 +245,31 @@ pub struct NameServer<State> {
     pki: Option<Rc<Pki>>,
 }
 
+impl<State> NameServer<State> {
+    fn dot_config(&self) -> Result<Option<TlsServerConfig>> {
+        let Some(pki) = &self.pki else {
+            return Ok(None);
+        };
+
+        let cert_chain_path = "/tmp/dot.fullchain.pem";
+        let private_key_path = "/tmp/dot.privkey.pem";
+        let config = TlsServerConfig {
+            cert_chain: PathBuf::from(cert_chain_path),
+            private_key: PathBuf::from(private_key_path),
+        };
+
+        let CertifiedKey { cert, signing_key } =
+            pki.certified_key_for_container(&self.container)?;
+
+        self.container.cp(cert_chain_path, &cert.pem())?;
+        // NOTE: cp() sets insecure permissions on the private key. Testing use only!
+        self.container
+            .cp(private_key_path, &signing_key.serialize_pem())?;
+
+        Ok(Some(config))
+    }
+}
+
 impl NameServer<Stopped> {
     /// Spins up a primary name server that has authority over the given `zone`
     ///
@@ -362,6 +389,7 @@ impl NameServer<Stopped> {
 
     /// Moves the server to the "Start" state where it can answer client queries
     pub fn start(self) -> Result<NameServer<Running>> {
+        let dot_config = self.dot_config()?;
         let Self {
             container,
             zone_file,
@@ -375,6 +403,7 @@ impl NameServer<Stopped> {
             origin: zone_file.origin(),
             use_dnssec: false,
             additional_zones: additional_zones.clone(),
+            dot: dot_config,
         };
 
         if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
@@ -462,6 +491,7 @@ fn ns_count() -> usize {
 impl NameServer<Signed> {
     /// Moves the server to the "Start" state where it can answer client queries
     pub fn start(self) -> Result<NameServer<Running>> {
+        let dot_config = self.dot_config()?;
         let Self {
             container,
             zone_file,
@@ -475,6 +505,7 @@ impl NameServer<Signed> {
             origin: zone_file.origin(),
             use_dnssec: state.use_dnssec,
             additional_zones: additional_zones.clone(),
+            dot: dot_config,
         };
 
         if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {

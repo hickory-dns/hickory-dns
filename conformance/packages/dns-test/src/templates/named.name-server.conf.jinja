@@ -1,3 +1,10 @@
+{% if dot %}
+tls local-tls {
+    key-file "{{ dot.private_key }}";
+    cert-file "{{ dot.cert_chain }}";
+};
+{% endif %}
+
 options {
     directory "/var/cache/bind";
     pid-file "/tmp/named.pid";
@@ -6,6 +13,11 @@ options {
     allow-transfer { none; };
     # significantly reduces noise in logs
     empty-zones-enable no;
+
+    listen-on port 53 { any; };
+    {% if dot %}
+    listen-on port 853 tls local-tls { any; };
+    {% endif %}
 };
 
 zone "{{ fqdn }}" IN {
