@@ -30,6 +30,10 @@ impl Client {
         self.inner.ipv4_addr()
     }
 
+    pub fn cp(&self, path_in_container: &str, content: &str) -> Result<()> {
+        self.inner.cp(path_in_container, content)
+    }
+
     pub fn delv(
         &self,
         server: Ipv4Addr,
@@ -66,6 +70,7 @@ impl Client {
         let timeoutflag = &settings.timeoutflag();
         let ednsflag = settings.ednsflag();
         let opcodeflag = settings.opcodeflag();
+        let tlscaflag = settings.tlscaflag();
 
         let mut command_and_args = vec![
             "dig",
@@ -79,6 +84,8 @@ impl Client {
             opcodeflag.as_str(),
             settings.header_only_flag(),
             settings.tcpflag(),
+            settings.tlsflag(),
+            tlscaflag.as_str(),
             settings.cookieflag(),
             settings.ednsnegflag(),
             settings.ignoreflag(),
@@ -117,10 +124,12 @@ impl Client {
 }
 
 #[derive(Clone, Copy)]
-pub struct DigSettings {
+pub struct DigSettings<'a> {
     adflag: bool,
     cdflag: bool,
     dnssec: bool,
+    tls: bool,
+    tls_ca: Option<&'a str>,
     recurse: bool,
     timeout: Option<u8>,
     /// EDNS version.
@@ -143,12 +152,14 @@ pub struct DigSettings {
     subnet_zero: bool,
 }
 
-impl Default for DigSettings {
+impl Default for DigSettings<'_> {
     fn default() -> Self {
         Self {
             adflag: false,
             cdflag: false,
             dnssec: false,
+            tls: false,
+            tls_ca: None,
             recurse: false,
             timeout: None,
             edns: Some(0),
@@ -169,7 +180,7 @@ impl Default for DigSettings {
     }
 }
 
-impl DigSettings {
+impl<'a> DigSettings<'a> {
     /// Sets the AD bit in the query
     pub fn authentic_data(&mut self) -> &mut Self {
         self.adflag = true;
@@ -200,6 +211,32 @@ impl DigSettings {
     pub fn dnssec(&mut self) -> &mut Self {
         self.dnssec = true;
         self
+    }
+
+    /// Enables TLS for the query
+    pub fn tls(&mut self) -> &mut Self {
+        self.tls = true;
+        self
+    }
+
+    fn tlsflag(&self) -> &'static str {
+        match self.tls {
+            true => "+tls",
+            false => "+notls",
+        }
+    }
+
+    /// Validate the remote server's TLS certificate using this CA when querying with TLS
+    pub fn tls_ca(&mut self, pem_path: &'a str) -> &mut Self {
+        self.tls_ca = Some(pem_path);
+        self
+    }
+
+    fn tlscaflag(&self) -> String {
+        match &self.tls_ca {
+            Some(ca) => format!("+tls-ca={ca}"),
+            None => "+notls-ca".to_string(),
+        }
     }
 
     fn do_bit(&self) -> &'static str {
