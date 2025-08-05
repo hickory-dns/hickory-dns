@@ -437,7 +437,6 @@ async fn lookup<R: ResponseHandler + Unpin>(
     let lookup_options = LookupOptions::from_edns(edns);
     let request_id = request.id();
 
-    // log algorithms being requested
     if lookup_options.dnssec_ok {
         info!("request: {request_id} lookup_options: {lookup_options:?}");
     }
