@@ -419,8 +419,14 @@ impl Authority for InMemoryAuthority {
     ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
 
+        if query_type == RecordType::AXFR {
+            return LookupControlFlow::Break(Err(LookupError::ProtoError(
+                "AXFR must be handled with Authority::zone_transfer()".into(),
+            )));
+        }
+
         // Collect the records from each rr_set
-        if let RecordType::AXFR | RecordType::ANY = query_type {
+        if query_type == RecordType::ANY {
             return LookupControlFlow::Continue(Ok(AuthLookup::answers(
                 LookupRecords::AnyRecords(AnyRecords::new(
                     lookup_options,
@@ -619,19 +625,12 @@ impl Authority for InMemoryAuthority {
             LookupRecords::Empty
         };
 
-        let records = if let LookupControlFlow::Continue(Ok(res)) = self
-            .lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
-                lookup_options,
-            )
-            .await
-        {
-            res.unwrap_records()
-        } else {
-            LookupRecords::Empty
-        };
+        let records = LookupRecords::AnyRecords(AnyRecords::new(
+            lookup_options,
+            self.inner.read().await.records.values().cloned().collect(),
+            request_info.query.query_type(),
+            request_info.query.name().clone(),
+        ));
 
         Some((
             Ok(ZoneTransfer {
