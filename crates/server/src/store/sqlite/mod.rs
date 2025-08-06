@@ -23,6 +23,7 @@ use futures_util::lock::Mutex;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
+use crate::authority::ZoneTransfer;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
@@ -1122,25 +1123,41 @@ impl Authority for SqliteAuthority {
             Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
 
-        let signer = if request_info.query.query_type() == RecordType::AXFR {
-            let (resp, signer) = self.authorize_axfr(request).await;
-            if let Err(code) = resp {
-                warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
-                return (
-                    LookupControlFlow::Continue(Err(LookupError::ResponseCode(code))),
-                    signer,
-                );
-            }
-
-            debug!(axfr_policy = ?self.axfr_policy, "authorized AXFR");
-            signer
-        } else {
-            None
-        };
+        if request_info.query.query_type() == RecordType::AXFR {
+            return (
+                LookupControlFlow::Break(Err(LookupError::ProtoError(
+                    "AXFR must be handled with Authority::zone_transfer()".into(),
+                ))),
+                None,
+            );
+        }
 
         let (search, _) = self.in_memory.search(request, lookup_options).await;
 
-        (search, signer)
+        (search, None)
+    }
+
+    async fn zone_transfer(
+        &self,
+        request: &Request,
+        lookup_options: LookupOptions,
+    ) -> Option<(
+        Result<ZoneTransfer, LookupError>,
+        Option<Box<dyn ResponseSigner>>,
+    )> {
+        let (resp, signer) = self.authorize_axfr(request).await;
+        if let Err(code) = resp {
+            warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
+            return Some((Err(LookupError::ResponseCode(code)), signer));
+        }
+        debug!(axfr_policy = ?self.axfr_policy, "authorized AXFR");
+
+        let (zone_transfer, _) = self
+            .in_memory
+            .zone_transfer(request, lookup_options)
+            .await?;
+
+        Some((zone_transfer, signer))
     }
 
     /// Return the NSEC records based on the given name

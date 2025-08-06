@@ -13,7 +13,7 @@ use cfg_if::cfg_if;
 use serde::Deserialize;
 
 use crate::{
-    authority::{AuthLookup, LookupError, UpdateResult, ZoneType},
+    authority::{AuthLookup, LookupError, UpdateResult, ZoneTransfer, ZoneType},
     proto::{
         op::{Edns, message::ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
@@ -230,6 +230,18 @@ pub trait Authority: Send + Sync {
         self.lookup(self.origin(), RecordType::SOA, None, lookup_options)
             .await
     }
+
+    /// Returns all records in the zone.
+    ///
+    /// This will return `None` if the next authority in the authority chain should be used instead.
+    async fn zone_transfer(
+        &self,
+        request: &Request,
+        lookup_options: LookupOptions,
+    ) -> Option<(
+        Result<ZoneTransfer, LookupError>,
+        Option<Box<dyn ResponseSigner>>,
+    )>;
 
     /// Returns the kind of non-existence proof used for this zone.
     #[cfg(feature = "__dnssec")]

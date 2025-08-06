@@ -21,7 +21,7 @@ use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Trust
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneType,
+        UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
         op::{ResponseCode, message::ResponseSigner},
@@ -289,6 +289,22 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
             .await,
             None,
         )
+    }
+
+    async fn zone_transfer(
+        &self,
+        _request: &Request,
+        _lookup_options: LookupOptions,
+    ) -> Option<(
+        Result<ZoneTransfer, LookupError>,
+        Option<Box<dyn ResponseSigner>>,
+    )> {
+        Some((
+            Err(LookupError::from(io::Error::other(
+                "zone transfer is unimplemented for the forwarder",
+            ))),
+            None,
+        ))
     }
 
     async fn nsec_records(

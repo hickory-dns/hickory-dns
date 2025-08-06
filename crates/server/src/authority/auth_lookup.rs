@@ -420,3 +420,30 @@ impl From<AnyRecords> for LookupRecords {
         Self::AnyRecords(rrset_records)
     }
 }
+
+/// A copy of all data in a zone.
+///
+/// This is used in the AXFR sub-protocol.
+#[derive(Debug)]
+pub struct ZoneTransfer {
+    /// The SOA record, plus its RRSIG.
+    ///
+    /// This is sent at the start of the first message of the response.
+    pub start_soa: LookupRecords,
+    /// All the records in the zone.
+    pub records: LookupRecords,
+    /// The SOA record again.
+    ///
+    /// This is sent at the end of the last message of the response.
+    pub end_soa: LookupRecords,
+}
+
+impl ZoneTransfer {
+    /// Iterate over all the records, starting and ending with the SOA record.
+    pub fn iter(&self) -> impl Iterator<Item = &Record> {
+        self.start_soa
+            .iter()
+            .chain(self.records.iter())
+            .chain(self.end_soa.iter())
+    }
+}
