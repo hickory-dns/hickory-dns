@@ -46,8 +46,9 @@ fn create_example() -> SqliteAuthority {
 
 #[cfg(feature = "__dnssec")]
 fn create_secure_example() -> SqliteAuthority {
-    let authority = hickory_integration::example_authority::create_secure_example();
-    SqliteAuthority::new(authority, AxfrPolicy::Deny, true, true)
+    let mut authority = hickory_integration::example_authority::create_secure_example();
+    authority.set_axfr_policy(AxfrPolicy::AllowAll);
+    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, true)
 }
 
 #[tokio::test]
@@ -1263,34 +1264,30 @@ async fn test_zone_signing() {
 
     let authority = create_secure_example();
 
-    let results = authority
-        .lookup(
-            authority.origin(),
-            RecordType::AXFR,
-            None,
-            LookupOptions::for_dnssec(),
-        )
+    let message_request = MessageRequest::mock(
+        Header::new(0, MessageType::Query, OpCode::Query),
+        Query::query(authority.origin().clone().into(), RecordType::AXFR),
+    );
+    let request = Request::from_message(
+        message_request,
+        (Ipv4Addr::LOCALHOST, 30000).into(),
+        Protocol::Tcp,
+    )
+    .unwrap();
+    let (results, _) = authority
+        .zone_transfer(&request, LookupOptions::for_dnssec())
         .await
         .unwrap();
+    let records = results.unwrap();
 
     assert!(
-        results
+        records
             .iter()
             .any(|r| r.record_type() == RecordType::DNSKEY),
         "must contain a DNSKEY"
     );
 
-    let results = authority
-        .lookup(
-            authority.origin(),
-            RecordType::AXFR,
-            None,
-            LookupOptions::for_dnssec(),
-        )
-        .await
-        .unwrap();
-
-    for record in &results {
+    for record in records.iter() {
         if record.record_type() == RecordType::RRSIG {
             continue;
         }
@@ -1298,19 +1295,9 @@ async fn test_zone_signing() {
             continue;
         }
 
-        let inner_results = authority
-            .lookup(
-                authority.origin(),
-                RecordType::AXFR,
-                None,
-                LookupOptions::for_dnssec(),
-            )
-            .await
-            .unwrap();
-
         // validate all records have associated RRSIGs after signing
         assert!(
-            inner_results
+            records
                 .iter()
                 .filter_map(|r| {
                     match r.record_type() {
