@@ -431,7 +431,6 @@ impl Authority for InMemoryAuthority {
                 LookupRecords::AnyRecords(AnyRecords::new(
                     lookup_options,
                     inner.records.values().cloned().collect(),
-                    query_type,
                     name.clone(),
                 )),
                 None,
