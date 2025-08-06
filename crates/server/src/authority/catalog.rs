@@ -406,8 +406,8 @@ impl Catalog {
         .await;
 
         match result {
-            Ok(lookup) => lookup,
-            Err(_e) => ResponseInfo::serve_failed(request),
+            Ok(response_info) => response_info,
+            Err(_) => ResponseInfo::serve_failed(request),
         }
     }
 
