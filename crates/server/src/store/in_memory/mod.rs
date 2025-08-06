@@ -22,7 +22,7 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
+        AnyRecords, AuthLookup, Authority, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError,
         LookupOptions, LookupRecords, UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
@@ -625,12 +625,10 @@ impl Authority for InMemoryAuthority {
             LookupRecords::Empty
         };
 
-        let records = LookupRecords::AnyRecords(AnyRecords::new(
-            lookup_options,
+        let records = AxfrRecords::new(
+            lookup_options.dnssec_ok,
             self.inner.read().await.records.values().cloned().collect(),
-            request_info.query.query_type(),
-            request_info.query.name().clone(),
-        ));
+        );
 
         Some((
             Ok(ZoneTransfer {

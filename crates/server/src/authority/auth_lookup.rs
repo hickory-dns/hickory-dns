@@ -280,6 +280,75 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
     }
 }
 
+/// A collection of [`RecordSet`]s for an AXFR.
+///
+/// This omits the SOA record during iteration.
+#[derive(Debug)]
+pub struct AxfrRecords {
+    dnssec_ok: bool,
+    rrsets: Vec<Arc<RecordSet>>,
+}
+
+impl AxfrRecords {
+    /// Construct this wrapper around the contents of a zone.
+    pub fn new(dnssec_ok: bool, rrsets: Vec<Arc<RecordSet>>) -> Self {
+        Self { dnssec_ok, rrsets }
+    }
+
+    fn iter(&self) -> AxfrRecordsIter<'_> {
+        self.into_iter()
+    }
+}
+
+impl<'r> IntoIterator for &'r AxfrRecords {
+    type Item = &'r Record;
+    type IntoIter = AxfrRecordsIter<'r>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AxfrRecordsIter {
+            dnssec_ok: self.dnssec_ok,
+            rrsets: self.rrsets.iter(),
+            records: None,
+        }
+    }
+}
+
+/// An iterator over all records in a zone, except the SOA record.
+pub struct AxfrRecordsIter<'r> {
+    #[cfg_attr(not(feature = "__dnssec"), allow(dead_code))]
+    dnssec_ok: bool,
+    rrsets: Iter<'r, Arc<RecordSet>>,
+    records: Option<RrsetRecords<'r>>,
+}
+
+impl<'r> Iterator for AxfrRecordsIter<'r> {
+    type Item = &'r Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(records) = &mut self.records {
+                if let Some(record) = records
+                    .by_ref()
+                    .find(|record| record.record_type() != RecordType::SOA)
+                {
+                    return Some(record);
+                }
+            }
+
+            // Return if there are no more RRsets.
+            let rrset = self.rrsets.next()?;
+
+            #[cfg(feature = "__dnssec")]
+            let records = rrset.records(self.dnssec_ok);
+
+            #[cfg(not(feature = "__dnssec"))]
+            let records = rrset.records_without_rrsigs();
+
+            self.records = Some(records);
+        }
+    }
+}
+
 /// The result of a lookup
 #[derive(Debug)]
 pub enum LookupRecords {
@@ -414,7 +483,7 @@ pub struct ZoneTransfer {
     /// This is sent at the start of the first message of the response.
     pub start_soa: LookupRecords,
     /// All the records in the zone.
-    pub records: LookupRecords,
+    pub records: AxfrRecords,
     /// The SOA record again.
     ///
     /// This is sent at the end of the last message of the response.
