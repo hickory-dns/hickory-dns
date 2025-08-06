@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
@@ -18,6 +17,7 @@ use crate::proto::{
 use crate::resolver::lookup::{Lookup, LookupRecordIter};
 
 /// The result of a lookup on an Authority
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum AuthLookup {
@@ -36,15 +36,6 @@ pub enum AuthLookup {
     Resolved(Lookup),
     /// Soa only differs from Records in that the lifetime on the name is from the authority, and not the query
     SOA(LookupRecords),
-    /// An axfr starts with soa, chained to all the records, then another soa...
-    AXFR {
-        /// The first SOA record in an AXFR response
-        start_soa: LookupRecords,
-        /// The records to return
-        records: LookupRecords,
-        /// The last SOA record of an AXFR (matches the first)
-        end_soa: LookupRecords,
-    },
     /// A response message
     Response(Message),
 }
@@ -142,11 +133,6 @@ impl<'a> IntoIterator for &'a AuthLookup {
             }
             #[cfg(feature = "resolver")]
             AuthLookup::Resolved(lookup) => AuthLookupIter::Resolved(lookup.record_iter()),
-            AuthLookup::AXFR {
-                start_soa,
-                records,
-                end_soa,
-            } => AuthLookupIter::AXFR(start_soa.into_iter().chain(records).chain(end_soa)),
             AuthLookup::Response(message) => AuthLookupIter::Response(message.answers().iter()),
         }
     }
@@ -163,8 +149,6 @@ pub enum AuthLookupIter<'r> {
     /// An iteration over resolved records
     #[cfg(feature = "resolver")]
     Resolved(LookupRecordIter<'r>),
-    /// An iteration over an AXFR
-    AXFR(Chain<Chain<LookupRecordsIter<'r>, LookupRecordsIter<'r>>, LookupRecordsIter<'r>>),
     /// An iterator over the answer section of a response message
     Response(Iter<'r, Record>),
 }
@@ -178,7 +162,6 @@ impl<'r> Iterator for AuthLookupIter<'r> {
             AuthLookupIter::Records(i) => i.next(),
             #[cfg(feature = "resolver")]
             AuthLookupIter::Resolved(i) => i.next(),
-            AuthLookupIter::AXFR(i) => i.next(),
             AuthLookupIter::Response(i) => i.next(),
         }
     }
