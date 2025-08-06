@@ -268,12 +268,12 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
             if let Some(records) = &mut self.records {
                 let record = records
                     .by_ref()
-                    .filter(|rr_set| {
-                        query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
+                    .filter(|record| {
+                        query_type == RecordType::ANY || record.record_type() != RecordType::SOA
                     })
-                    .find(|rr_set| {
+                    .find(|record| {
                         query_type == RecordType::AXFR
-                            || &LowerName::from(rr_set.name()) == query_name
+                            || &LowerName::from(record.name()) == query_name
                     });
 
                 if record.is_some() {
