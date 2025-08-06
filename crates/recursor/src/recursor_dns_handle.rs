@@ -285,6 +285,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 continue;
             };
 
+            // Check if the response has data for the canonical name.
+            if response
+                .answers()
+                .iter()
+                .any(|record| record.name() == &name.0)
+            {
+                continue;
+            }
+
             let cname_query = Query::query(name.0.clone(), query_type);
 
             let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
