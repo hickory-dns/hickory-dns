@@ -182,7 +182,6 @@ pub struct AnyRecords {
     #[cfg(feature = "__dnssec")]
     lookup_options: LookupOptions,
     rrsets: Vec<Arc<RecordSet>>,
-    query_type: RecordType,
     query_name: LowerName,
 }
 
@@ -192,14 +191,12 @@ impl AnyRecords {
         #[cfg_attr(not(feature = "__dnssec"), allow(unused))] lookup_options: LookupOptions,
         // TODO: potentially very expensive
         rrsets: Vec<Arc<RecordSet>>,
-        query_type: RecordType,
         query_name: LowerName,
     ) -> Self {
         Self {
             #[cfg(feature = "__dnssec")]
             lookup_options,
             rrsets,
-            query_type,
             query_name,
         }
     }
@@ -217,11 +214,8 @@ impl<'r> IntoIterator for &'r AnyRecords {
         AnyRecordsIter {
             #[cfg(feature = "__dnssec")]
             lookup_options: self.lookup_options,
-            // TODO: potentially very expensive
             rrsets: self.rrsets.iter(),
-            rrset: None,
             records: None,
-            query_type: self.query_type,
             query_name: &self.query_name,
         }
     }
@@ -232,9 +226,7 @@ pub struct AnyRecordsIter<'r> {
     #[cfg(feature = "__dnssec")]
     lookup_options: LookupOptions,
     rrsets: Iter<'r, Arc<RecordSet>>,
-    rrset: Option<&'r RecordSet>,
     records: Option<RrsetRecords<'r>>,
-    query_type: RecordType,
     query_name: &'r LowerName,
 }
 
@@ -242,32 +234,21 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
     type Item = &'r Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use std::borrow::Borrow;
-
-        let query_type = self.query_type;
         let query_name = self.query_name;
 
         loop {
             if let Some(records) = &mut self.records {
                 let record = records
                     .by_ref()
-                    .filter(|record| {
-                        query_type == RecordType::ANY || record.record_type() != RecordType::SOA
-                    })
-                    .find(|record| {
-                        query_type == RecordType::AXFR
-                            || &LowerName::from(record.name()) == query_name
-                    });
+                    .find(|record| &LowerName::from(record.name()) == query_name);
 
                 if record.is_some() {
                     return record;
                 }
             }
 
-            self.rrset = self.rrsets.next().map(Borrow::borrow);
-
             // if there are no more RecordSets, then return
-            let rrset = self.rrset?;
+            let rrset = self.rrsets.next()?;
             #[cfg(feature = "__dnssec")]
             {
                 self.records = Some(rrset.records(self.lookup_options.dnssec_ok));
