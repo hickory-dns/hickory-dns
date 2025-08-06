@@ -344,7 +344,6 @@ pub enum LookupRecords {
     },
     /// Vec of disjoint record sets
     ManyRecords(LookupOptions, Vec<Arc<RecordSet>>),
-    // TODO: need a better option for very large zone xfrs...
     /// A generic lookup response where anything is desired
     AnyRecords(AnyRecords),
     /// A section from a response message
