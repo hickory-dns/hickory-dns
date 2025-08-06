@@ -8,7 +8,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn basic() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
@@ -47,7 +46,6 @@ fn basic() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn longer_chain() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
@@ -97,7 +95,6 @@ fn longer_chain() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn basic_cached() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(
@@ -142,7 +139,6 @@ fn basic_cached() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn longer_chain_cached() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(

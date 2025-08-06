@@ -9,7 +9,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn dnssec_ok() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
@@ -99,7 +98,6 @@ fn dnssec_ok() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn dnssec_ok_cached() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(
@@ -195,7 +193,6 @@ fn dnssec_ok_cached() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn checking_disabled() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
@@ -287,7 +284,6 @@ fn checking_disabled() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn checking_disabled_cached() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(
