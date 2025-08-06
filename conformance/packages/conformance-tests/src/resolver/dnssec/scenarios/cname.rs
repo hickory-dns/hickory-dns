@@ -532,7 +532,6 @@ fn setup_cname() -> Result<(Network, Graph, Resolver, Client)> {
 }
 
 #[test]
-#[ignore = "hickory does not include RRSIGs from the target name"]
 fn dnssec_ok_cross_zone() -> Result<()> {
     let (_network, _nameservers, resolver, client) = setup_cname_cross_zone()?;
     let output = client.dig(
@@ -598,7 +597,6 @@ fn dnssec_ok_cross_zone() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory does not include RRSIGs from the target name"]
 fn dnssec_ok_cross_zone_cached() -> Result<()> {
     let (_network, _nameservers, resolver, client) = setup_cname_cross_zone()?;
     client.dig(

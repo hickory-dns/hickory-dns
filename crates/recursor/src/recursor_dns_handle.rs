@@ -333,10 +333,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // original query, or another CNAME.
             cname_chain.extend(response.answers().iter().filter_map(|r| {
                 if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
-                    Some(r.to_owned())
-                } else {
-                    None
+                    return Some(r.to_owned());
                 }
+
+                #[cfg(feature = "__dnssec")]
+                if let Some(rrsig) = r.data().as_dnssec().and_then(|rdata| rdata.as_rrsig()) {
+                    let type_covered = rrsig.input().type_covered;
+                    if type_covered == query_type || type_covered == RecordType::CNAME {
+                        return Some(r.to_owned());
+                    }
+                }
+
+                None
             }));
         }
 
