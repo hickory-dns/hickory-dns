@@ -384,7 +384,6 @@ fn checking_disabled_cached() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn no_dnssec() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
@@ -438,7 +437,6 @@ fn no_dnssec() -> Result<()> {
 }
 
 #[test]
-#[ignore = "hickory duplicates some records"]
 fn no_dnssec_cached() -> Result<()> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(

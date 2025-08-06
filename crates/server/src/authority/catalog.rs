@@ -927,8 +927,10 @@ async fn build_forwarded_response(
         match &mut answers {
             Answer::Normal(answers) => match DnssecSummary::from_records(answers.iter()) {
                 DnssecSummary::Secure => {
-                    trace!("setting ad header");
-                    response_header.set_authentic_data(true);
+                    if request_header.authentic_data() || lookup_options.dnssec_ok {
+                        trace!("setting ad header");
+                        response_header.set_authentic_data(true);
+                    }
                 }
                 DnssecSummary::Bogus if !request_header.checking_disabled() => {
                     response_header.set_response_code(ResponseCode::ServFail);
@@ -939,8 +941,10 @@ async fn build_forwarded_response(
             },
             Answer::NoRecords(soa) => match DnssecSummary::from_records(authorities.iter()) {
                 DnssecSummary::Secure => {
-                    trace!("setting ad header");
-                    response_header.set_authentic_data(true);
+                    if request_header.authentic_data() || lookup_options.dnssec_ok {
+                        trace!("setting ad header");
+                        response_header.set_authentic_data(true);
+                    }
                 }
                 DnssecSummary::Bogus if !request_header.checking_disabled() => {
                     response_header.set_response_code(ResponseCode::ServFail);
