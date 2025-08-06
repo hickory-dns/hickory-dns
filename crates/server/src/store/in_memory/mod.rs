@@ -23,11 +23,10 @@ use tracing::{debug, info};
 use crate::{
     authority::{
         AnyRecords, AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError,
-        LookupOptions, LookupRecords, UpdateResult, ZoneType,
+        LookupOptions, LookupRecords, UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
-        op::ResponseCode,
-        op::message::ResponseSigner,
+        op::{ResponseCode, message::ResponseSigner},
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
         serialize::txt::Parser,
     },
@@ -556,29 +555,6 @@ impl Authority for InMemoryAuthority {
         let lookup_name = request_info.query.name();
         let record_type: RecordType = request_info.query.query_type();
 
-        // if this is an AXFR zone transfer, verify that this is either the Secondary or Primary
-        //  for AXFR the first and last record must be the SOA
-        if RecordType::AXFR == record_type {
-            // TODO: support more advanced AXFR options
-            if !matches!(self.axfr_policy, AxfrPolicy::AllowAll) {
-                return (
-                    LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::Refused))),
-                    None,
-                );
-            }
-
-            match self.zone_type() {
-                ZoneType::Primary | ZoneType::Secondary => (),
-                // TODO: Forward?
-                _ => {
-                    return (
-                        LookupControlFlow::Continue(Err(LookupError::from(ResponseCode::NXDomain))),
-                        None,
-                    );
-                }
-            }
-        }
-
         // perform the actual lookup
         match record_type {
             RecordType::SOA => (
@@ -591,43 +567,12 @@ impl Authority for InMemoryAuthority {
                 .await,
                 None,
             ),
-            RecordType::AXFR => {
-                // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                use LookupControlFlow::Continue;
-                let start_soa = if let Continue(Ok(res)) = self.soa_secure(lookup_options).await {
-                    res.unwrap_records()
-                } else {
-                    LookupRecords::Empty
-                };
-                let end_soa = if let Continue(Ok(res)) = self.soa().await {
-                    res.unwrap_records()
-                } else {
-                    LookupRecords::Empty
-                };
-
-                let records = if let Continue(Ok(res)) = self
-                    .lookup(
-                        lookup_name,
-                        record_type,
-                        Some(&request_info),
-                        lookup_options,
-                    )
-                    .await
-                {
-                    res.unwrap_records()
-                } else {
-                    LookupRecords::Empty
-                };
-
-                (
-                    LookupControlFlow::Continue(Ok(AuthLookup::AXFR {
-                        start_soa,
-                        end_soa,
-                        records,
-                    })),
-                    None,
-                )
-            }
+            RecordType::AXFR => (
+                LookupControlFlow::Break(Err(LookupError::ProtoError(
+                    "AXFR must be handled with Authority::zone_transfer()".into(),
+                ))),
+                None,
+            ),
             // A standard Lookup path
             _ => (
                 self.lookup(
@@ -640,6 +585,62 @@ impl Authority for InMemoryAuthority {
                 None,
             ),
         }
+    }
+
+    async fn zone_transfer(
+        &self,
+        request: &Request,
+        lookup_options: LookupOptions,
+    ) -> Option<(
+        Result<ZoneTransfer, LookupError>,
+        Option<Box<dyn ResponseSigner>>,
+    )> {
+        let request_info = match request.request_info() {
+            Ok(info) => info,
+            Err(e) => return Some((Err(LookupError::from(e)), None)),
+        };
+
+        if request_info.query.query_type() == RecordType::AXFR {
+            // TODO: support more advanced AXFR options
+            if !matches!(self.axfr_policy, AxfrPolicy::AllowAll) {
+                return Some((Err(LookupError::from(ResponseCode::Refused)), None));
+            }
+        }
+
+        let start_soa =
+            if let LookupControlFlow::Continue(Ok(res)) = self.soa_secure(lookup_options).await {
+                res.unwrap_records()
+            } else {
+                LookupRecords::Empty
+            };
+        let end_soa = if let LookupControlFlow::Continue(Ok(res)) = self.soa().await {
+            res.unwrap_records()
+        } else {
+            LookupRecords::Empty
+        };
+
+        let records = if let LookupControlFlow::Continue(Ok(res)) = self
+            .lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                Some(&request_info),
+                lookup_options,
+            )
+            .await
+        {
+            res.unwrap_records()
+        } else {
+            LookupRecords::Empty
+        };
+
+        Some((
+            Ok(ZoneTransfer {
+                start_soa,
+                records,
+                end_soa,
+            }),
+            None,
+        ))
     }
 
     /// Return the NSEC records based on the given name

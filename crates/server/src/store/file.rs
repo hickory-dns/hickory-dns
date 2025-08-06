@@ -18,7 +18,8 @@ use serde::Deserialize;
 use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupOptions, UpdateResult, ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
         op::message::ResponseSigner,
@@ -193,6 +194,17 @@ impl Authority for FileAuthority {
         Option<Box<dyn ResponseSigner>>,
     ) {
         self.in_memory.search(request, lookup_options).await
+    }
+
+    async fn zone_transfer(
+        &self,
+        request: &Request,
+        lookup_options: LookupOptions,
+    ) -> Option<(
+        Result<ZoneTransfer, LookupError>,
+        Option<Box<dyn ResponseSigner>>,
+    )> {
+        self.in_memory.zone_transfer(request, lookup_options).await
     }
 
     /// Get the NS, NameServer, record for the zone

@@ -30,7 +30,7 @@ use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneType,
+        UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
         op::{Query, ResponseCode, message::ResponseSigner},
@@ -456,6 +456,17 @@ impl Authority for BlocklistAuthority {
             .await,
             None,
         )
+    }
+
+    async fn zone_transfer(
+        &self,
+        _request: &Request,
+        _lookup_options: LookupOptions,
+    ) -> Option<(
+        Result<ZoneTransfer, LookupError>,
+        Option<Box<dyn ResponseSigner>>,
+    )> {
+        None
     }
 
     async fn nsec_records(

@@ -1536,8 +1536,9 @@ async fn test_axfr_allow_all() {
     .unwrap();
 
     let result = authority
-        .search(&request, LookupOptions::default())
+        .zone_transfer(&request, LookupOptions::default())
         .await
+        .unwrap()
         .0
         .unwrap();
 
@@ -1562,9 +1563,11 @@ async fn test_axfr_deny_all() {
     .unwrap();
 
     let err = authority
-        .search(&request, LookupOptions::default())
+        .zone_transfer(&request, LookupOptions::default())
         .await
+        .unwrap()
         .0
+        .map(|_| ())
         .unwrap_err();
     assert!(matches!(
         err,
@@ -1591,9 +1594,11 @@ async fn test_axfr_deny_unsigned() {
     .unwrap();
 
     let err = authority
-        .search(&request, LookupOptions::default())
+        .zone_transfer(&request, LookupOptions::default())
         .await
+        .unwrap()
         .0
+        .map(|_| ())
         .unwrap_err();
     assert!(matches!(
         err,
@@ -1630,7 +1635,10 @@ async fn test_axfr_allow_tsig_signed() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    let (resp, resp_signer) = authority.search(&request, LookupOptions::default()).await;
+    let (resp, resp_signer) = authority
+        .zone_transfer(&request, LookupOptions::default())
+        .await
+        .unwrap();
 
     // We should get results back.
     assert_eq!(resp.unwrap().iter().count(), 12);

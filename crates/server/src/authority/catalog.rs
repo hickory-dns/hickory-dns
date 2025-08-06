@@ -8,7 +8,7 @@
 // TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
-use std::{borrow::Borrow, collections::HashMap, io, sync::Arc};
+use std::{borrow::Borrow, collections::HashMap, io, iter, sync::Arc};
 
 use tracing::{debug, error, info, trace, warn};
 
@@ -392,18 +392,29 @@ impl Catalog {
             }
         };
 
-        let result = lookup(
-            request_info.clone(),
-            authorities,
-            request,
-            response_edns
-                .as_ref()
-                .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-            response_handle.clone(),
-            #[cfg(feature = "metrics")]
-            &self.metrics,
-        )
-        .await;
+        let result = if request_info.query.query_type() == RecordType::AXFR {
+            zone_transfer(
+                request_info,
+                authorities,
+                request,
+                response_edns.clone(),
+                response_handle.clone(),
+            )
+            .await
+        } else {
+            lookup(
+                request_info.clone(),
+                authorities,
+                request,
+                response_edns
+                    .as_ref()
+                    .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
+                response_handle.clone(),
+                #[cfg(feature = "metrics")]
+                &self.metrics,
+            )
+            .await
+        };
 
         match result {
             Ok(response_info) => response_info,
@@ -543,6 +554,90 @@ async fn lookup<R: ResponseHandler + Unpin>(
     }
 
     error!("end of chained authority loop reached with all authorities not answering");
+    Err(LookupError::ResponseCode(ResponseCode::ServFail))
+}
+
+async fn zone_transfer(
+    request_info: RequestInfo<'_>,
+    authorities: &[Arc<dyn Authority>],
+    request: &Request,
+    response_edns: Option<Edns>,
+    mut response_handle: impl ResponseHandler,
+) -> Result<ResponseInfo, LookupError> {
+    let request_edns = request.edns();
+    let lookup_options = LookupOptions::from_edns(request_edns);
+    for authority in authorities.iter() {
+        debug!(
+            query = %request_info.query,
+            origin = %authority.origin(),
+            request_id = request.id(),
+            "performing zone transfer"
+        );
+        let Some((result, signer)) = authority.zone_transfer(request, lookup_options).await else {
+            continue;
+        };
+
+        let mut response_header = Header::response_from_request(request.header());
+        let zone_transfer = match result {
+            Ok(zone_transfer) => {
+                response_header.set_response_code(ResponseCode::NoError);
+                response_header.set_authoritative(true);
+                Some(zone_transfer)
+            }
+            Err(e) => {
+                match e {
+                    LookupError::ResponseCode(ResponseCode::Refused) => {
+                        response_header.set_response_code(ResponseCode::Refused);
+                    }
+                    _ => {
+                        if e.is_nx_domain() {
+                            response_header.set_response_code(ResponseCode::NXDomain);
+                        }
+                    }
+                }
+                None
+            }
+        };
+
+        // TODO(issue #351): Send more than one message in response as needed.
+        let mut message_response =
+            MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
+                response_header,
+                zone_transfer
+                    .iter()
+                    .flat_map(|zone_transfer| zone_transfer.iter()),
+                iter::empty(),
+                iter::empty(),
+                iter::empty(),
+            );
+
+        if let Some(signer) = signer {
+            let mut tbs_response_buf = Vec::with_capacity(512);
+            let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
+            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                .build(
+                    response_header,
+                    zone_transfer
+                        .iter()
+                        .flat_map(|zone_transfer| zone_transfer.iter()),
+                    iter::empty(),
+                    iter::empty(),
+                    iter::empty(),
+                );
+            tbs_response.destructive_emit(&mut encoder)?;
+            message_response.set_signature(signer.sign(&tbs_response_buf)?);
+        }
+
+        match response_handle.send_response(message_response).await {
+            Err(error) => {
+                error!(%error, "error sending response");
+                return Err(LookupError::Io(error));
+            }
+            Ok(l) => return Ok(l),
+        }
+    }
+
+    error!("end of chained authority loop with all authorities not answering");
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
