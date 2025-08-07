@@ -9,13 +9,18 @@
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use alloc::boxed::Box;
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use core::pin::Pin;
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use core::task::{Context, Poll};
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use futures_util::stream::{Stream, StreamExt};
 
 use crate::DnsHandle;
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::error::ProtoError;
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::xfer::{DnsRequest, DnsResponse};
 
 /// Can be used to reattempt queries if they fail
@@ -75,6 +80,7 @@ impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
 }
 
 /// A stream for retrying (on failure, for the remaining number of times specified)
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 struct RetrySendStream<H>
 where
     H: DnsHandle,
@@ -85,6 +91,7 @@ where
     remaining_attempts: usize,
 }
 
+#[cfg(any(feature = "std", feature = "no-std-rand"))]
 impl<H: DnsHandle + Unpin> Stream for RetrySendStream<H> {
     type Item = Result<DnsResponse, ProtoError>;
 
