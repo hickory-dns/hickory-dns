@@ -11,7 +11,7 @@ use std::sync::Arc;
 use crate::authority::LookupOptions;
 use crate::proto::{
     op::Message,
-    rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords},
+    rr::{Record, RecordSet, RecordType, RrsetRecords},
 };
 #[cfg(feature = "resolver")]
 use crate::resolver::lookup::{Lookup, LookupRecordIter};
@@ -176,91 +176,6 @@ impl From<LookupRecords> for AuthLookup {
     }
 }
 
-/// A collection of RecordSets from an ANY query for Records.
-#[derive(Debug)]
-pub struct AnyRecords {
-    #[cfg(feature = "__dnssec")]
-    lookup_options: LookupOptions,
-    rrsets: Vec<Arc<RecordSet>>,
-    query_name: LowerName,
-}
-
-impl AnyRecords {
-    /// construct a new lookup of any set of records
-    pub fn new(
-        #[cfg_attr(not(feature = "__dnssec"), allow(unused))] lookup_options: LookupOptions,
-        // TODO: potentially very expensive
-        rrsets: Vec<Arc<RecordSet>>,
-        query_name: LowerName,
-    ) -> Self {
-        Self {
-            #[cfg(feature = "__dnssec")]
-            lookup_options,
-            rrsets,
-            query_name,
-        }
-    }
-
-    fn iter(&self) -> AnyRecordsIter<'_> {
-        self.into_iter()
-    }
-}
-
-impl<'r> IntoIterator for &'r AnyRecords {
-    type Item = &'r Record;
-    type IntoIter = AnyRecordsIter<'r>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnyRecordsIter {
-            #[cfg(feature = "__dnssec")]
-            lookup_options: self.lookup_options,
-            rrsets: self.rrsets.iter(),
-            records: None,
-            query_name: &self.query_name,
-        }
-    }
-}
-
-/// An iteration over a lookup for any Records
-pub struct AnyRecordsIter<'r> {
-    #[cfg(feature = "__dnssec")]
-    lookup_options: LookupOptions,
-    rrsets: Iter<'r, Arc<RecordSet>>,
-    records: Option<RrsetRecords<'r>>,
-    query_name: &'r LowerName,
-}
-
-impl<'r> Iterator for AnyRecordsIter<'r> {
-    type Item = &'r Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let query_name = self.query_name;
-
-        loop {
-            if let Some(records) = &mut self.records {
-                let record = records
-                    .by_ref()
-                    .find(|record| &LowerName::from(record.name()) == query_name);
-
-                if record.is_some() {
-                    return record;
-                }
-            }
-
-            // if there are no more RecordSets, then return
-            let rrset = self.rrsets.next()?;
-            #[cfg(feature = "__dnssec")]
-            {
-                self.records = Some(rrset.records(self.lookup_options.dnssec_ok));
-            }
-            #[cfg(not(feature = "__dnssec"))]
-            {
-                self.records = Some(rrset.records_without_rrsigs());
-            }
-        }
-    }
-}
-
 /// A collection of [`RecordSet`]s for an AXFR.
 ///
 /// This omits the SOA record during iteration.
@@ -344,8 +259,6 @@ pub enum LookupRecords {
     },
     /// Vec of disjoint record sets
     ManyRecords(LookupOptions, Vec<Arc<RecordSet>>),
-    /// A generic lookup response where anything is desired
-    AnyRecords(AnyRecords),
     /// A section from a response message
     Section(Vec<Record>),
 }
@@ -402,7 +315,6 @@ impl<'a> IntoIterator for &'a LookupRecords {
                     .collect(),
                 None,
             ),
-            LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
             LookupRecords::Section(vec) => LookupRecordsIter::SliceIter(vec.iter()),
         }
     }
@@ -411,8 +323,6 @@ impl<'a> IntoIterator for &'a LookupRecords {
 /// Iterator over lookup records
 #[derive(Default)]
 pub enum LookupRecordsIter<'r> {
-    /// An iteration over batch record type results
-    AnyRecordsIter(AnyRecordsIter<'r>),
     /// An iteration over a single RecordSet
     RecordsIter(RrsetRecords<'r>),
     /// An iteration over many rrsets
@@ -430,7 +340,6 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             LookupRecordsIter::Empty => None,
-            LookupRecordsIter::AnyRecordsIter(current) => current.next(),
             LookupRecordsIter::RecordsIter(current) => current.next(),
             LookupRecordsIter::SliceIter(current) => current.next(),
             LookupRecordsIter::ManyRecordsIter(set, current) => loop {
@@ -444,12 +353,6 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
                 }
             },
         }
-    }
-}
-
-impl From<AnyRecords> for LookupRecords {
-    fn from(rrset_records: AnyRecords) -> Self {
-        Self::AnyRecords(rrset_records)
     }
 }
 

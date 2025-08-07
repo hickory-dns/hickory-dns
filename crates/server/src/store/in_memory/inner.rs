@@ -825,6 +825,30 @@ impl InnerInMemory {
 
         Ok(None)
     }
+
+    /// Select one record type to replace QTYPE=ANY. This behavior is described in [RFC 8482,
+    /// section 4.1](https://datatracker.ietf.org/doc/html/rfc8482#section-4.1).
+    pub(super) fn replace_any(&self, name: &LowerName) -> RecordType {
+        // Check for some commonly used record types first: CNAME, A, AAAA, and MX. These are
+        // listed in RFC 8482 section 4.3. If none of these four record types are present, then
+        // pick any other record type, if available.
+        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
+        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
+        let mut first_rrtype = None;
+        for (rrkey, _) in self.records.range(&start_range_key..=&end_range_key) {
+            match rrkey.record_type {
+                RecordType::CNAME | RecordType::A | RecordType::AAAA | RecordType::MX => {
+                    return rrkey.record_type;
+                }
+                _ => {
+                    if first_rrtype.is_none() {
+                        first_rrtype = Some(rrkey.record_type);
+                    }
+                }
+            }
+        }
+        first_rrtype.unwrap_or(RecordType::A)
+    }
 }
 
 /// Helper to construct an NSEC record and reset the running list of record types.

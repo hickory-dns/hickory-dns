@@ -22,7 +22,7 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError,
+        AuthLookup, Authority, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError,
         LookupOptions, LookupRecords, UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
@@ -413,7 +413,7 @@ impl Authority for InMemoryAuthority {
     async fn lookup(
         &self,
         name: &LowerName,
-        query_type: RecordType,
+        mut query_type: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
@@ -425,17 +425,10 @@ impl Authority for InMemoryAuthority {
             )));
         }
 
-        // Collect the records from each rr_set
         if query_type == RecordType::ANY {
-            return LookupControlFlow::Continue(Ok(AuthLookup::answers(
-                LookupRecords::AnyRecords(AnyRecords::new(
-                    lookup_options,
-                    inner.records.values().cloned().collect(),
-                    name.clone(),
-                )),
-                None,
-            )));
+            query_type = inner.replace_any(name);
         }
+
         let answer = inner.inner_lookup(name, query_type, lookup_options);
 
         // evaluate any cnames for additional inclusion
