@@ -132,7 +132,7 @@ fn caches_answer() -> Result<()> {
     let mut tshark = None;
     for i in 0..2 {
         if i == 1 {
-            tshark = Some(resolver.eavesdrop()?);
+            tshark = Some(resolver.eavesdrop_udp()?);
         }
 
         let output = client.dig(settings, resolver_addr, RecordType::A, &needle_fqdn)?;
@@ -339,7 +339,7 @@ fn no_root_ds_query() -> Result<()> {
         .trust_anchor(&trust_anchor)
         .start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let client = Client::new(&network)?;
     client.dig(

@@ -27,7 +27,7 @@ fn caches_dnssec_records() -> Result<()> {
     let mut tshark = None;
     for i in 0..2 {
         if i == 1 {
-            tshark = Some(resolver.eavesdrop()?);
+            tshark = Some(resolver.eavesdrop_udp()?);
         }
 
         let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
@@ -70,7 +70,7 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
     assert!(dig.status.is_noerror());
 
     // send second query to fetch all DNSSEC records
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
     let settings = *DigSettings::default().dnssec().recurse();
     let dig = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
     assert!(dig.status.is_noerror());
@@ -117,7 +117,7 @@ fn caches_intermediate_records() -> Result<()> {
     assert_eq!(leaf_fqdn, a.fqdn);
     assert_eq!(leaf_ipv4_addr, a.ipv4_addr);
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let output = client.dig(settings, resolver_addr, RecordType::DS, &FQDN::TEST_TLD)?;
 

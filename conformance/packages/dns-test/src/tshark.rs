@@ -18,7 +18,7 @@ use crate::container::{Child, Container};
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
-const UDP_PORT: u16 = 53;
+const DNS_PORT: u16 = 53;
 
 fn pid_file(id: usize) -> String {
     format!("/tmp/tshark{id}.pid")
@@ -54,14 +54,37 @@ pub struct Tshark {
     wait_capture_count_watermark: usize,
 }
 
-impl Tshark {
-    pub fn new(container: &Container) -> Result<Self> {
+pub struct TsharkBuilder {
+    port: u16,
+    protocol: Protocol,
+}
+
+impl TsharkBuilder {
+    /// Set the capture port.
+    pub fn port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    /// Set the capture `Protocol`.
+    pub fn protocol(mut self, protocol: Protocol) -> Self {
+        self.protocol = protocol;
+        self
+    }
+
+    /// Spawn a new `Tshark` instance for the `Container`.
+    pub fn build(self, container: &Container) -> Result<Tshark> {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
         let pidfile = pid_file(id);
 
+        let protocol_filter = match self.protocol {
+            Protocol::Udp => format!("udp port {}", self.port),
+            Protocol::Tcp => format!("tcp port {}", self.port),
+        };
+
         let tshark = format!(
             "echo $$ > {pidfile}
-exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
+exec tshark -l -i eth0 -T json -O dns -f '{protocol_filter}'"
         );
         let mut child = container.spawn(&["sh", "-c", &tshark])?;
 
@@ -100,7 +123,7 @@ exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
             Ok(buf)
         });
 
-        Ok(Self {
+        Ok(Tshark {
             container: container.clone(),
             child,
             stdout_handle,
@@ -110,6 +133,27 @@ exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
             captures: Vec::new(),
             wait_capture_count_watermark: 0,
         })
+    }
+}
+
+impl Default for TsharkBuilder {
+    fn default() -> Self {
+        Self {
+            port: DNS_PORT,
+            protocol: Protocol::Udp,
+        }
+    }
+}
+
+impl Tshark {
+    /// Spawn a Tshark instance for the given container capturing plaintext UDP DNS traffic.
+    pub fn new(container: &Container) -> Result<Self> {
+        Self::builder().build(container)
+    }
+
+    /// Construct a TsharkBuilder that can build a customized Tshark instance.
+    pub fn builder() -> TsharkBuilder {
+        TsharkBuilder::default()
     }
 
     /// Waits until the captured packets satisfy some condition.
@@ -283,6 +327,12 @@ pub enum Direction {
     Outgoing { destination: Ipv4Addr },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Protocol {
+    Udp,
+    Tcp,
+}
+
 impl Direction {
     /// The address of the peer, independent of the direction of the packet
     pub fn peer_addr(&self) -> Ipv4Addr {
@@ -322,7 +372,7 @@ struct Source {
 #[derive(Deserialize)]
 struct Layers {
     ip: Ip,
-    dns: serde_json::Value,
+    dns: Option<serde_json::Value>,
 }
 
 #[serde_as]
@@ -391,6 +441,11 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
         while let Some(entry) = seq.next_element::<Entry>()? {
             let Layers { ip, dns } = entry._source.layers;
 
+            // Skip packets without DNS data (e.g., TCP handshake packets)
+            let Some(dns) = dns else {
+                continue;
+            };
+
             let direction = if ip.dst == self.own_addr {
                 Direction::Incoming { source: ip.src }
             } else if ip.src == self.own_addr {
@@ -416,25 +471,39 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
 #[cfg(test)]
 mod tests {
     use crate::client::{Client, DigSettings};
-    use crate::name_server::NameServer;
+    use crate::name_server::{NameServer, Running};
     use crate::record::RecordType;
     use crate::{FQDN, Implementation, Network, Resolver};
 
     use super::*;
 
     #[test]
-    fn nameserver() -> Result<()> {
+    fn nameserver_udp() -> Result<()> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
-        let mut tshark = Tshark::new(ns.container())?;
+        let tshark = Tshark::new(ns.container())?;
+        test_nameserver(network, ns, DigSettings::default(), tshark)
+    }
 
+    #[test]
+    fn nameserver_tcp() -> Result<()> {
+        let network = &Network::new()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
+        let tshark = Tshark::builder()
+            .protocol(Protocol::Tcp)
+            .build(ns.container())?;
+        let dig_settings = *DigSettings::default().tcp();
+        test_nameserver(network, ns, dig_settings, tshark)
+    }
+
+    fn test_nameserver(
+        network: &Network,
+        ns: NameServer<Running>,
+        dig_settings: DigSettings,
+        mut tshark: Tshark,
+    ) -> Result<()> {
         let client = Client::new(network)?;
-        let resp = client.dig(
-            DigSettings::default(),
-            ns.ipv4_addr(),
-            RecordType::SOA,
-            &FQDN::ROOT,
-        )?;
+        let resp = client.dig(dig_settings, ns.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
 
         assert!(resp.status.is_noerror());
 
@@ -482,7 +551,7 @@ mod tests {
 
         let resolver = Resolver::new(network, root_ns.root_hint())
             .start_with_subject(&Implementation::Unbound)?;
-        let mut tshark = resolver.eavesdrop()?;
+        let mut tshark = resolver.eavesdrop_udp()?;
         let resolver_addr = resolver.ipv4_addr();
 
         let client = Client::new(network)?;

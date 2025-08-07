@@ -99,7 +99,7 @@ fn run_test(
 
     let client = Client::new(&network)?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let dig_settings = *DigSettings::default().recurse();
 
