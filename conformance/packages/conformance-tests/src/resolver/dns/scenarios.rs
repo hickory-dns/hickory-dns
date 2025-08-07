@@ -91,7 +91,7 @@ fn recursion_desired_flag() -> Result<()> {
 
     let client = Client::new(&network)?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let settings = *DigSettings::default().recurse();
     let output = client.dig(settings, resolver_ip_addr, RecordType::A, &needle_fqdn)?;

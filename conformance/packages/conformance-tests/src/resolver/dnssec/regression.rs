@@ -119,7 +119,7 @@ fn can_validate_ns_query_case_randomization() -> Result<()> {
         .start()?;
 
     let resolver_addr = resolver.ipv4_addr();
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let client = Client::new(resolver.network())?;
 
@@ -197,7 +197,7 @@ fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
 
     let resolver = Resolver::new(&network, nameserver.root_hint()).start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let ans = client.dig(
         *DigSettings::default().recurse(),

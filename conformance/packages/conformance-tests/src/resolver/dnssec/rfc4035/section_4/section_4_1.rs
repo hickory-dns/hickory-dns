@@ -10,7 +10,7 @@ fn edns_support() -> Result<()> {
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?.start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().authentic_data().recurse();

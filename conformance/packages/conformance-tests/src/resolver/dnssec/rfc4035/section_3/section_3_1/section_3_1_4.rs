@@ -39,7 +39,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
         .trust_anchor(trust_anchor)
         .start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let resolver_addr = resolver.ipv4_addr();
 

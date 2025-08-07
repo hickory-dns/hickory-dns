@@ -17,7 +17,7 @@ fn do_bit_not_set_in_request() -> Result<()> {
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().recurse();
@@ -146,7 +146,7 @@ fn do_bit_set_in_request() -> Result<()> {
         .start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let client = Client::new(network)?;
     let settings = *DigSettings::default().dnssec().recurse();
