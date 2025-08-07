@@ -41,7 +41,7 @@ const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query)
 fn create_example() -> SqliteAuthority {
     let mut authority = hickory_integration::example_authority::create_example();
     authority.set_axfr_policy(AxfrPolicy::AllowAll); // policy is applied in SqliteAuthority.
-    SqliteAuthority::new(authority, AxfrPolicy::Deny, true, false)
+    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, false)
 }
 
 #[cfg(feature = "__dnssec")]
@@ -622,6 +622,7 @@ async fn test_pre_scan() {
 #[tokio::test]
 async fn test_update() {
     subscribe();
+    let origin_name = Name::from_str("example.com.").unwrap();
     let new_name = Name::from_str("new.example.com.").unwrap();
     let www_name = Name::from_str("www.example.com.").unwrap();
     let mut authority = create_example();
@@ -653,36 +654,43 @@ async fn test_update() {
 
     original_vec.sort();
 
+    let message_request = MessageRequest::mock(
+        Header::new(0, MessageType::Query, OpCode::Query),
+        Query::query(origin_name, RecordType::AXFR),
+    );
+    let request = Request::from_message(
+        message_request,
+        (Ipv4Addr::LOCALHOST, 30000).into(),
+        Protocol::Tcp,
+    )
+    .unwrap();
+
     {
         // assert that the correct set of records is there.
-        let mut www_rrset: Vec<Record> = authority
-            .lookup(
-                &www_name.clone().into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default(),
-            )
+        let mut www_records = authority
+            .zone_transfer(&request, LookupOptions::default())
             .await
             .unwrap()
+            .0
+            .unwrap()
             .iter()
+            .filter(|record| record.name() == &www_name)
             .cloned()
-            .collect();
-        www_rrset.sort();
+            .collect::<Vec<_>>();
+        www_records.sort();
 
-        assert_eq!(www_rrset, original_vec);
+        assert_eq!(www_records, original_vec);
 
         // assert new record doesn't exist
         assert!(
-            authority
-                .lookup(
-                    &new_name.clone().into(),
-                    RecordType::ANY,
-                    None,
-                    LookupOptions::default()
-                )
+            !authority
+                .zone_transfer(&request, LookupOptions::default())
                 .await
                 .unwrap()
-                .was_empty()
+                .0
+                .unwrap()
+                .iter()
+                .any(|record| record.name() == &new_name)
         );
     }
 
@@ -702,17 +710,15 @@ async fn test_update() {
     );
     assert_eq!(
         authority
-            .lookup(
-                &new_name.clone().into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default()
-            )
+            .zone_transfer(&request, LookupOptions::default())
             .await
             .unwrap()
+            .0
+            .unwrap()
             .iter()
+            .filter(|record| record.name() == &new_name)
             .collect::<Vec<_>>(),
-        add_record.iter().collect::<Vec<&Record>>()
+        add_record.iter().collect::<Vec<_>>()
     );
     assert_eq!(serial + 1, authority.serial().await);
 
@@ -731,24 +737,22 @@ async fn test_update() {
     assert_eq!(serial + 2, authority.serial().await);
 
     {
-        let mut www_rrset: Vec<_> = authority
-            .lookup(
-                &www_name.clone().into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default(),
-            )
+        let mut www_records = authority
+            .zone_transfer(&request, LookupOptions::default())
             .await
             .unwrap()
+            .0
+            .unwrap()
             .iter()
+            .filter(|record| record.name() == &www_name)
             .cloned()
-            .collect();
-        www_rrset.sort();
+            .collect::<Vec<_>>();
+        www_records.sort();
 
         let mut plus_10 = original_vec.clone();
         plus_10.push(add_www_record[0].clone());
         plus_10.sort();
-        assert_eq!(www_rrset, plus_10);
+        assert_eq!(www_records, plus_10);
     }
 
     //
@@ -767,18 +771,19 @@ async fn test_update() {
     );
     assert_eq!(serial + 3, authority.serial().await);
     {
-        let lookup = authority
-            .lookup(
-                &new_name.into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default(),
-            )
+        let records = authority
+            .zone_transfer(&request, LookupOptions::default())
             .await
-            .unwrap();
+            .unwrap()
+            .0
+            .unwrap()
+            .iter()
+            .filter(|record| record.name() == &new_name)
+            .cloned()
+            .collect::<Vec<_>>();
 
-        println!("after delete of specific record: {lookup:?}");
-        assert!(lookup.was_empty());
+        println!("after delete of specific record: {records:?}");
+        assert!(records.is_empty());
     }
 
     // remove one from www
@@ -795,21 +800,19 @@ async fn test_update() {
     );
     assert_eq!(serial + 4, authority.serial().await);
     {
-        let mut www_rrset: Vec<_> = authority
-            .lookup(
-                &www_name.clone().into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default(),
-            )
+        let mut www_records = authority
+            .zone_transfer(&request, LookupOptions::default())
             .await
             .unwrap()
+            .0
+            .unwrap()
             .iter()
+            .filter(|record| record.name() == &www_name)
             .cloned()
-            .collect();
-        www_rrset.sort();
+            .collect::<Vec<_>>();
+        www_records.sort();
 
-        assert_eq!(www_rrset, original_vec);
+        assert_eq!(www_records, original_vec);
     }
 
     //
@@ -845,21 +848,19 @@ async fn test_update() {
     removed_a_vec.sort();
 
     {
-        let mut www_rrset: Vec<Record> = authority
-            .lookup(
-                &www_name.clone().into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default(),
-            )
+        let mut www_records = authority
+            .zone_transfer(&request, LookupOptions::default())
             .await
             .unwrap()
+            .0
+            .unwrap()
             .iter()
+            .filter(|record| record.name() == &www_name)
             .cloned()
-            .collect();
-        www_rrset.sort();
+            .collect::<Vec<_>>();
+        www_records.sort();
 
-        assert_eq!(www_rrset, removed_a_vec);
+        assert_eq!(www_records, removed_a_vec);
     }
 
     //
@@ -877,16 +878,14 @@ async fn test_update() {
     );
 
     assert!(
-        authority
-            .lookup(
-                &www_name.into(),
-                RecordType::ANY,
-                None,
-                LookupOptions::default()
-            )
+        !authority
+            .zone_transfer(&request, LookupOptions::default())
             .await
             .unwrap()
-            .was_empty()
+            .0
+            .unwrap()
+            .iter()
+            .any(|record| record.name() == &www_name)
     );
 
     assert_eq!(serial + 6, authority.serial().await);
@@ -907,16 +906,27 @@ async fn test_update_tsig_valid() {
 
     // We want to add a new A record for a name. Let's first verify it doesn't exist yet.
     let new_name = Name::from_str("new.example.com.").unwrap();
-    let res = authority
-        .lookup(
-            &new_name.clone().into(),
-            RecordType::ANY,
-            None,
-            LookupOptions::default(),
-        )
-        .await
-        .unwrap();
-    assert!(res.was_empty());
+    let origin_name = Name::from_str("example.com.").unwrap();
+    let message_request = MessageRequest::mock(
+        Header::new(0, MessageType::Query, OpCode::Query),
+        Query::query(origin_name, RecordType::AXFR),
+    );
+    let request = Request::from_message(
+        message_request,
+        (Ipv4Addr::LOCALHOST, 30000).into(),
+        Protocol::Tcp,
+    )
+    .unwrap();
+    assert!(
+        !authority
+            .zone_transfer(&request, LookupOptions::default())
+            .await
+            .unwrap()
+            .0
+            .unwrap()
+            .iter()
+            .any(|record| record.name() == &new_name)
+    );
 
     // Now we construct an update message to add a new A record for the name.
     let mut message = test_update_message(new_name.clone());
@@ -993,17 +1003,16 @@ async fn test_update_tsig_valid() {
     assert!(range.contains(&now));
 
     // And we should now be able to look up the new record.
-    let new_name = Name::from_str("new.example.com.").unwrap();
-    let res = authority
-        .lookup(
-            &new_name.clone().into(),
-            RecordType::ANY,
-            None,
-            LookupOptions::default(),
-        )
+    let records = authority
+        .zone_transfer(&request, LookupOptions::default())
         .await
-        .unwrap();
-    let records = res.iter().collect::<Vec<&Record>>();
+        .unwrap()
+        .0
+        .unwrap()
+        .iter()
+        .filter(|record| record.name() == &new_name)
+        .cloned()
+        .collect::<Vec<_>>();
 
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].name(), &new_name);
