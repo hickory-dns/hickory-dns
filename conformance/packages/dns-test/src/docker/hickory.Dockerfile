@@ -44,3 +44,4 @@ RUN apt-get update && \
 COPY --from=builder /usr/src/hickory/target/debug/hickory-dns /usr/bin/
 COPY --from=builder /usr/src/hickory/target/debug/dns /usr/bin/
 ENV RUST_LOG=debug
+ENV SSLKEYLOGFILE=/tmp/sslkeys.log

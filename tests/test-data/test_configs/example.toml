@@ -37,6 +37,11 @@
 ## port on which to listen, default 853 (should not be 53)
 # tls_listen_port = 853
 
+## whether to support using the SSLKEYLOGFILE environment variable for writing
+## DoT/DoH/DoQ TLS session keys to the specified file for decryption with tools
+## like Wireshark. Enable with care! The recorded data is sensitive.
+# ssl_keylog_enabled = false
+
 ## directory: path on the host filesystem to where zone files are stored.
 # directory = "/var/named"
 
