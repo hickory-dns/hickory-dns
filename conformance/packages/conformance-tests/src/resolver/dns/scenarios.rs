@@ -111,7 +111,10 @@ fn recursion_desired_flag() -> Result<()> {
     // Queries from resolver to nameservers should have RD=0.
     let mut seen_incoming_query = false;
     let mut seen_outgoing_query = false;
-    for Capture { message, direction } in captures.iter() {
+    for Capture {
+        message, direction, ..
+    } in captures.iter()
+    {
         match direction {
             Direction::Incoming { source } if *source == client.ipv4_addr() => {
                 seen_incoming_query = true;

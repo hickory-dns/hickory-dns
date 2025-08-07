@@ -48,7 +48,10 @@ fn clears_ad_bit_in_outgoing_queries() -> Result<()> {
         .iter()
         .map(|ns| ns.ipv4_addr())
         .collect::<Vec<_>>();
-    for Capture { message, direction } in captures {
+    for Capture {
+        message, direction, ..
+    } in captures
+    {
         match direction {
             Direction::Incoming { source } => {
                 if source == client_addr {

@@ -144,7 +144,10 @@ fn do_not_query_filter_first_address() -> Result<()> {
     assert_eq!(a.ipv4_addr, expected_ipv4_addr);
 
     let mut leaf_query_count = 0;
-    for Capture { message, direction } in captures.iter() {
+    for Capture {
+        message, direction, ..
+    } in captures.iter()
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == &bogus_addr {
                 panic!("sent request to server in do_not_query list\n{message:#?}\n");
@@ -191,7 +194,10 @@ fn do_not_query_filter_second_address() -> Result<()> {
     assert_eq!(a.ipv4_addr, expected_ipv4_addr);
 
     let mut leaf_query_count = 0;
-    for Capture { message, direction } in captures.iter() {
+    for Capture {
+        message, direction, ..
+    } in captures.iter()
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == &bogus_addr {
                 panic!("sent request to server in do_not_query list\n{message:#?}\n");
@@ -230,7 +236,10 @@ fn do_not_query_filter_only_address() -> Result<()> {
 
     assert!(ans.answer.is_empty());
 
-    for Capture { message, direction } in captures.iter() {
+    for Capture {
+        message, direction, ..
+    } in captures.iter()
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == &leaf_addr {
                 panic!("sent request to server in do_not_query list\n{message:#?}\n");

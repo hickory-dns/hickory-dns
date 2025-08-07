@@ -219,7 +219,10 @@ fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
     // bug: hickory-dns goes into an infinite loop until it exhausts its network resources
     assert!(captures.len() < 20);
 
-    for Capture { message, direction } in captures {
+    for Capture {
+        message, direction, ..
+    } in captures
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == nameserver_addr {
                 eprintln!("{message:#?}\n");
