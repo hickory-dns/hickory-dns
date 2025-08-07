@@ -625,7 +625,8 @@ async fn build_authoritative_response(
         }
     };
 
-    let (ns, soa) = if answers.is_some() {
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
+    let (ns, soa) = if let Some(answers) = &answers {
         // SOA queries should return the NS records as well.
         if query.query_type().is_soa() {
             // This was a successful authoritative lookup for SOA:
@@ -652,11 +653,9 @@ async fn build_authoritative_response(
                     opt_out: _,
                 }) = authority.nx_proof_kind()
                 {
-                    // This unwrap will not panic as we know that `answers` is `Some`.
-                    let has_wildcard_match =
-                        answers.as_ref().unwrap().iter().any(|rr| {
-                            rr.record_type() == RecordType::RRSIG && rr.name().is_wildcard()
-                        });
+                    let has_wildcard_match = answers
+                        .iter()
+                        .any(|rr| rr.record_type() == RecordType::RRSIG && rr.name().is_wildcard());
 
                     match authority
                         .nsec3_records(
