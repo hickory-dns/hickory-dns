@@ -59,6 +59,7 @@ fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
                 let Capture {
                     direction: Direction::Outgoing { destination },
                     message,
+                    ..
                 } = capture
                 else {
                     return false;

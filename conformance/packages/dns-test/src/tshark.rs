@@ -250,6 +250,9 @@ impl Tshark {
 pub struct Capture {
     pub message: Message,
     pub direction: Direction,
+    pub protocol: Protocol,
+    pub src_port: u16,
+    pub dst_port: u16,
 }
 
 #[derive(Debug)]
@@ -385,6 +388,8 @@ struct Source {
 #[derive(Deserialize)]
 struct Layers {
     ip: Ip,
+    udp: Option<TransportLayer>,
+    tcp: Option<TransportLayer>,
     dns: Option<serde_json::Value>,
 }
 
@@ -398,6 +403,18 @@ struct Ip {
     #[serde(rename = "ip.dst")]
     #[serde_as(as = "DisplayFromStr")]
     dst: Ipv4Addr,
+}
+
+#[serde_as]
+#[derive(Debug, Deserialize)]
+struct TransportLayer {
+    #[serde(rename = "udp.srcport", alias = "tcp.srcport")]
+    #[serde_as(as = "DisplayFromStr")]
+    src_port: u16,
+
+    #[serde(rename = "udp.dstport", alias = "tcp.dstport")]
+    #[serde_as(as = "DisplayFromStr")]
+    dst_port: u16,
 }
 
 /// This handles deserialization of the outer array in `tshark`'s JSON output, and makes each
@@ -452,11 +469,22 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
         A: SeqAccess<'de>,
     {
         while let Some(entry) = seq.next_element::<Entry>()? {
-            let Layers { ip, dns } = entry._source.layers;
+            let Layers { ip, udp, tcp, dns } = entry._source.layers;
 
             // Skip packets without DNS data (e.g., TCP handshake packets)
             let Some(dns) = dns else {
                 continue;
+            };
+
+            // Determine protocol and extract port information
+            let (protocol, src_port, dst_port) = if let Some(udp) = udp {
+                (Protocol::Udp, udp.src_port, udp.dst_port)
+            } else if let Some(tcp) = tcp {
+                (Protocol::Tcp, tcp.src_port, tcp.dst_port)
+            } else {
+                return Err(A::Error::custom(
+                    "packet has DNS data but no UDP or TCP layer",
+                ));
             };
 
             let direction = if ip.dst == self.own_addr {
@@ -474,6 +502,9 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
             let _ = self.sender.send(Capture {
                 message: Message { inner: dns },
                 direction,
+                protocol,
+                src_port,
+                dst_port,
             });
         }
 
@@ -495,7 +526,7 @@ mod tests {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
         let tshark = Tshark::new(ns.container())?;
-        test_nameserver(network, ns, DigSettings::default(), tshark)
+        test_nameserver(network, ns, DigSettings::default(), Protocol::Udp, tshark)
     }
 
     #[test]
@@ -506,7 +537,7 @@ mod tests {
             .protocol(Protocol::Tcp)
             .build(ns.container())?;
         let dig_settings = *DigSettings::default().tcp();
-        test_nameserver(network, ns, dig_settings, tshark)
+        test_nameserver(network, ns, dig_settings, Protocol::Tcp, tshark)
     }
 
     #[test]
@@ -525,13 +556,14 @@ mod tests {
         // NOTE: We have to specify both tcp() and tls() because the default settings will write
         // +notcp otherwise, and that takes priority over the +tls arg!
         let dig_settings = *DigSettings::default().tcp().tls();
-        test_nameserver(network, ns, dig_settings, tshark)
+        test_nameserver(network, ns, dig_settings, Protocol::Tcp, tshark)
     }
 
     fn test_nameserver(
         network: &Network,
         ns: NameServer<Running>,
         dig_settings: DigSettings,
+        expected_protocol: Protocol,
         mut tshark: Tshark,
     ) -> Result<()> {
         let client = Client::new(network)?;
@@ -555,11 +587,14 @@ mod tests {
             client.ipv4_addr(),
             first.direction.try_into_incoming().unwrap()
         );
+        assert_eq!(first.protocol, expected_protocol);
 
         assert_eq!(
             client.ipv4_addr(),
             second.direction.try_into_outgoing().unwrap()
         );
+        assert_eq!(second.protocol, expected_protocol);
+        assert_eq!(second.dst_port, first.src_port,);
 
         Ok(())
     }

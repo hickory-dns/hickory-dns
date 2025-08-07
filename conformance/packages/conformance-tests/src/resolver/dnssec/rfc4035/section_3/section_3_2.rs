@@ -33,7 +33,10 @@ fn do_bit_not_set_in_request() -> Result<()> {
     let captures = tshark.terminate()?;
 
     let ns_addr = ns.ipv4_addr();
-    for Capture { message, direction } in captures {
+    for Capture {
+        message, direction, ..
+    } in captures
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == client.ipv4_addr() {
                 continue;
@@ -162,7 +165,10 @@ fn do_bit_set_in_request() -> Result<()> {
     let captures = tshark.terminate()?;
 
     let ns_addr = ns.ipv4_addr();
-    for Capture { message, direction } in captures {
+    for Capture {
+        message, direction, ..
+    } in captures
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == client.ipv4_addr() {
                 continue;
