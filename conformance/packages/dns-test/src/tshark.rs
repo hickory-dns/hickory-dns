@@ -57,6 +57,7 @@ pub struct Tshark {
 pub struct TsharkBuilder {
     port: u16,
     protocol: Protocol,
+    ssl_keylog_file: Option<String>,
 }
 
 impl TsharkBuilder {
@@ -72,6 +73,12 @@ impl TsharkBuilder {
         self
     }
 
+    /// Set the SSL_KEYLOG_FIE path to use to decrypt encrypted traffic.
+    pub fn ssl_keylog_file(mut self, path: impl Into<String>) -> Self {
+        self.ssl_keylog_file = Some(path.into());
+        self
+    }
+
     /// Spawn a new `Tshark` instance for the `Container`.
     pub fn build(self, container: &Container) -> Result<Tshark> {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
@@ -82,9 +89,14 @@ impl TsharkBuilder {
             Protocol::Tcp => format!("tcp port {}", self.port),
         };
 
+        let ssl_keylog_arg = self
+            .ssl_keylog_file
+            .map(|file| format!("-o tls.keylog_file:{file} "))
+            .unwrap_or_default();
+
         let tshark = format!(
             "echo $$ > {pidfile}
-exec tshark -l -i eth0 -T json -O dns -f '{protocol_filter}'"
+exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '{protocol_filter}'"
         );
         let mut child = container.spawn(&["sh", "-c", &tshark])?;
 
@@ -141,6 +153,7 @@ impl Default for TsharkBuilder {
         Self {
             port: DNS_PORT,
             protocol: Protocol::Udp,
+            ssl_keylog_file: None,
         }
     }
 }
@@ -473,7 +486,7 @@ mod tests {
     use crate::client::{Client, DigSettings};
     use crate::name_server::{NameServer, Running};
     use crate::record::RecordType;
-    use crate::{FQDN, Implementation, Network, Resolver};
+    use crate::{FQDN, Implementation, Network, Pki, Resolver};
 
     use super::*;
 
@@ -493,6 +506,25 @@ mod tests {
             .protocol(Protocol::Tcp)
             .build(ns.container())?;
         let dig_settings = *DigSettings::default().tcp();
+        test_nameserver(network, ns, dig_settings, tshark)
+    }
+
+    #[test]
+    fn nameserver_dot() -> Result<()> {
+        let network = &Network::new()?;
+        // NOTE: We use an implementation here we know supports SSLKEYLOGFILE.
+        let ns = NameServer::builder(Implementation::hickory(), FQDN::ROOT, network.clone())
+            .pki(Pki::new()?.into())
+            .build()?
+            .start()?;
+        let tshark = Tshark::builder()
+            .protocol(Protocol::Tcp)
+            .port(DOT_PORT)
+            .ssl_keylog_file("/tmp/sslkeys.log") // See hickory.Dockerfile
+            .build(ns.container())?;
+        // NOTE: We have to specify both tcp() and tls() because the default settings will write
+        // +notcp otherwise, and that takes priority over the +tls arg!
+        let dig_settings = *DigSettings::default().tcp().tls();
         test_nameserver(network, ns, dig_settings, tshark)
     }
 
@@ -616,4 +648,6 @@ mod tests {
 
         Ok(())
     }
+
+    const DOT_PORT: u16 = 853;
 }
