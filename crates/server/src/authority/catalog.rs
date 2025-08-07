@@ -412,7 +412,7 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<(dyn Authority + 'static)>>> {
+    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<dyn Authority + 'static>>> {
         debug!("searching authorities for: {name}");
         self.authorities.get(name).or_else(|| {
             if !name.is_root() {
