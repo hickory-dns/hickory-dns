@@ -55,21 +55,16 @@ pub struct Tshark {
 }
 
 pub struct TsharkBuilder {
-    port: u16,
-    protocol: Protocol,
+    filters: Vec<ProtocolFilter>,
     ssl_keylog_file: Option<String>,
 }
 
 impl TsharkBuilder {
-    /// Set the capture port.
-    pub fn port(mut self, port: u16) -> Self {
-        self.port = port;
-        self
-    }
-
-    /// Set the capture `Protocol`.
-    pub fn protocol(mut self, protocol: Protocol) -> Self {
-        self.protocol = protocol;
+    /// Set the capture filters.
+    ///
+    /// Multiple filters are logically OR'd together.
+    pub fn filters(mut self, filters: Vec<ProtocolFilter>) -> Self {
+        self.filters = filters;
         self
     }
 
@@ -84,9 +79,19 @@ impl TsharkBuilder {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
         let pidfile = pid_file(id);
 
-        let protocol_filter = match self.protocol {
-            Protocol::Udp => format!("udp port {}", self.port),
-            Protocol::Tcp => format!("tcp port {}", self.port),
+        let mut filter_parts = self
+            .filters
+            .into_iter()
+            .map(|filter| match filter.protocol {
+                Protocol::Udp => format!("udp port {}", filter.port),
+                Protocol::Tcp => format!("tcp port {}", filter.port),
+            })
+            .collect::<Vec<_>>();
+
+        let protocol_filter = if filter_parts.len() == 1 {
+            filter_parts.pop().unwrap()
+        } else {
+            format!("({})", filter_parts.join(" or "))
         };
 
         let ssl_keylog_arg = self
@@ -148,11 +153,37 @@ exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '{protocol_filter}'"
     }
 }
 
-impl Default for TsharkBuilder {
+#[derive(Clone, Copy)]
+pub struct ProtocolFilter {
+    port: u16,
+    protocol: Protocol,
+}
+
+impl ProtocolFilter {
+    pub fn port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    pub fn protocol(mut self, protocol: Protocol) -> Self {
+        self.protocol = protocol;
+        self
+    }
+}
+
+impl Default for ProtocolFilter {
     fn default() -> Self {
         Self {
             port: DNS_PORT,
             protocol: Protocol::Udp,
+        }
+    }
+}
+
+impl Default for TsharkBuilder {
+    fn default() -> Self {
+        Self {
+            filters: vec![ProtocolFilter::default()],
             ssl_keylog_file: None,
         }
     }
@@ -534,7 +565,7 @@ mod tests {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
         let tshark = Tshark::builder()
-            .protocol(Protocol::Tcp)
+            .filters(vec![ProtocolFilter::default().protocol(Protocol::Tcp)])
             .build(ns.container())?;
         let dig_settings = *DigSettings::default().tcp();
         test_nameserver(network, ns, dig_settings, Protocol::Tcp, tshark)
@@ -549,8 +580,11 @@ mod tests {
             .build()?
             .start()?;
         let tshark = Tshark::builder()
-            .protocol(Protocol::Tcp)
-            .port(DOT_PORT)
+            .filters(vec![
+                ProtocolFilter::default()
+                    .protocol(Protocol::Tcp)
+                    .port(DOT_PORT),
+            ])
             .ssl_keylog_file("/tmp/sslkeys.log") // See hickory.Dockerfile
             .build(ns.container())?;
         // NOTE: We have to specify both tcp() and tls() because the default settings will write
@@ -596,6 +630,73 @@ mod tests {
         assert_eq!(second.protocol, expected_protocol);
         assert_eq!(second.dst_port, first.src_port,);
 
+        Ok(())
+    }
+
+    #[test]
+    fn nameserver_multiple_filters() -> Result<()> {
+        let network = &Network::new()?;
+        // NOTE: We use an implementation here we know supports SSLKEYLOGFILE.
+        let ns = NameServer::builder(Implementation::hickory(), FQDN::ROOT, network.clone())
+            .pki(Pki::new()?.into())
+            .build()?
+            .start()?;
+        let mut tshark = Tshark::builder()
+            // Set up a capture filter for _both_ plaintext UDP on 53, and DOT encrypted TCP on 853.
+            .filters(vec![
+                ProtocolFilter::default(),
+                ProtocolFilter::default()
+                    .protocol(Protocol::Tcp)
+                    .port(DOT_PORT),
+            ])
+            .ssl_keylog_file("/tmp/sslkeys.log") // See hickory.Dockerfile
+            .build(ns.container())?;
+
+        let client = Client::new(network)?;
+
+        // Make a plaintext UDP query first.
+        let resp = client.dig(
+            DigSettings::default(),
+            ns.ipv4_addr(),
+            RecordType::SOA,
+            &FQDN::ROOT,
+        )?;
+        assert!(resp.status.is_noerror());
+
+        // And then make a DoT encrypted TCP query second.
+        let resp = client.dig(
+            *DigSettings::default().tcp().tls(),
+            ns.ipv4_addr(),
+            RecordType::SOA,
+            &FQDN::ROOT,
+        )?;
+        assert!(resp.status.is_noerror());
+
+        // Wait until we've captured two incoming messages, or hit the timeout.
+        tshark.wait_until(
+            |captures| {
+                captures
+                    .iter()
+                    .filter(|capture| matches!(capture.direction, Direction::Incoming { .. }))
+                    .count()
+                    == 2
+            },
+            Duration::from_secs(10),
+        )?;
+
+        // Grab just the inbound messages. There should be two.
+        let messages = tshark
+            .terminate()?
+            .into_iter()
+            .filter(|m| matches!(m.direction, Direction::Incoming { .. }))
+            .collect::<Vec<_>>();
+        let [first, second] = messages.try_into().expect("2 DNS messages");
+
+        // We should have gotten the right protocol/dest port messages in the right order.
+        assert_eq!(first.protocol, Protocol::Udp);
+        assert_eq!(first.dst_port, DNS_PORT);
+        assert_eq!(second.protocol, Protocol::Tcp);
+        assert_eq!(second.dst_port, DOT_PORT);
         Ok(())
     }
 
