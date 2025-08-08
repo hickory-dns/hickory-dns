@@ -917,22 +917,22 @@ async fn build_forwarded_response(
             let authorities = if let Some(authorities) = e.authorities() {
                 let authorities = authorities
                     .iter()
-                    .filter_map(|x| {
+                    .filter_map(|record| {
                         // if we have another record (probably a dnssec record) that
                         // matches the query name, but wasn't included in the answers
                         // section, change the NXDomain response to NoError
-                        if *x.name() == **query.name() {
+                        if *record.name() == **query.name() {
                             debug!(
                                 query_name = %query.name(),
-                                record = ?x,
+                                ?record,
                                 "changing response code from NXDomain to NoError due to other record",
                             );
                             response_header.set_response_code(ResponseCode::NoError);
                         }
 
-                        match x.record_type() {
+                        match record.record_type() {
                             RecordType::SOA => None,
-                            _ => Some(Arc::new(RecordSet::from(x.clone()))),
+                            _ => Some(Arc::new(RecordSet::from(record.clone()))),
                         }
                     })
                     .collect();
@@ -1053,10 +1053,10 @@ async fn build_forwarded_response(
     let authorities = if !lookup_options.dnssec_ok {
         let auth = authorities
             .into_iter()
-            .filter_map(|rrset| {
-                let record_type = rrset.record_type();
+            .filter_map(|record| {
+                let record_type = record.record_type();
                 if record_type == query.query_type() || !record_type.is_dnssec() {
-                    Some(Arc::new(RecordSet::from(rrset.clone())))
+                    Some(Arc::new(RecordSet::from(record.clone())))
                 } else {
                     None
                 }
