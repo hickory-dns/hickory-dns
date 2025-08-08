@@ -840,15 +840,12 @@ async fn build_forwarded_response(
 
                         match record.record_type() {
                             RecordType::SOA => None,
-                            _ => Some(Arc::new(RecordSet::from(record.clone()))),
+                            _ => Some(record.clone()),
                         }
                     })
                     .collect();
 
-                AuthLookup::answers(
-                    LookupRecords::many(LookupOptions::default(), authorities),
-                    None,
-                )
+                AuthLookup::answers(LookupRecords::Section(authorities), None)
             } else {
                 AuthLookup::default()
             };
@@ -964,14 +961,14 @@ async fn build_forwarded_response(
             .filter_map(|record| {
                 let record_type = record.record_type();
                 if record_type == query.query_type() || !record_type.is_dnssec() {
-                    Some(Arc::new(RecordSet::from(record.clone())))
+                    Some(record.clone())
                 } else {
                     None
                 }
             })
             .collect();
 
-        AuthLookup::answers(LookupRecords::many(LookupOptions::default(), auth), None)
+        AuthLookup::answers(LookupRecords::Section(auth), None)
     } else {
         authorities
     };
