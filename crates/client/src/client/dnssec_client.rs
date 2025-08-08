@@ -15,7 +15,7 @@ use crate::client::Client;
 use crate::proto::ProtoError;
 use crate::proto::dnssec::DnssecDnsHandle;
 use crate::proto::dnssec::TrustAnchors;
-use crate::proto::runtime::TokioTime;
+use crate::proto::runtime::{TokioRuntimeProvider, TokioTime};
 use crate::proto::xfer::{
     DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
 };
@@ -25,7 +25,7 @@ use crate::proto::xfer::{
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 pub struct DnssecClient {
-    client: DnssecDnsHandle<Client>,
+    client: DnssecDnsHandle<Client, TokioRuntimeProvider>,
 }
 
 impl DnssecClient {

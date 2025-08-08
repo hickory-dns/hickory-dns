@@ -537,7 +537,10 @@ fn test_updates() {
             );
 
             let client = create_local_client(&socket_ports, Some(Arc::new(signer))).await;
-            let mut client = DnssecDnsHandle::with_trust_anchor(client, Arc::new(trust_anchor));
+            let mut client = DnssecDnsHandle::<_, TokioRuntimeProvider>::with_trust_anchor(
+                client,
+                Arc::new(trust_anchor),
+            );
 
             let rrset_create = Record::from_rdata(
                 Name::from_str("zzz.example.com").unwrap(),
