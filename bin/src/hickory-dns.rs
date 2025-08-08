@@ -555,7 +555,12 @@ fn config_tls(
         );
 
         server
-            .register_tls_listener(tls_listener, config.tcp_request_timeout(), tls_cert)
+            .register_tls_listener(
+                tls_listener,
+                config.tcp_request_timeout(),
+                tls_cert,
+                config.ssl_keylog_enabled(),
+            )
             .map_err(|err| format!("failed to register TLS listener: {err}"))?;
     }
     Ok(())
@@ -608,6 +613,7 @@ fn config_https(
                 tls_cert,
                 tls_cert_config.endpoint_name.clone(),
                 endpoint_path.into(),
+                config.ssl_keylog_enabled(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
     }

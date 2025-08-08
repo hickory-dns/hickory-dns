@@ -28,7 +28,7 @@ impl Resolver {
         }
     }
 
-    pub fn eavesdrop(&self) -> Result<Tshark> {
+    pub fn eavesdrop_udp(&self) -> Result<Tshark> {
         Tshark::new(&self.container)
     }
 

@@ -91,7 +91,7 @@ fn recursion_desired_flag() -> Result<()> {
 
     let client = Client::new(&network)?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let settings = *DigSettings::default().recurse();
     let output = client.dig(settings, resolver_ip_addr, RecordType::A, &needle_fqdn)?;
@@ -111,7 +111,10 @@ fn recursion_desired_flag() -> Result<()> {
     // Queries from resolver to nameservers should have RD=0.
     let mut seen_incoming_query = false;
     let mut seen_outgoing_query = false;
-    for Capture { message, direction } in captures.iter() {
+    for Capture {
+        message, direction, ..
+    } in captures.iter()
+    {
         match direction {
             Direction::Incoming { source } if *source == client.ipv4_addr() => {
                 seen_incoming_query = true;

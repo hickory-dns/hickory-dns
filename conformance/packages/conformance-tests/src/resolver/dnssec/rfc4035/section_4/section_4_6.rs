@@ -18,7 +18,7 @@ fn clears_ad_bit_in_outgoing_queries() -> Result<()> {
     let (resolver, nameservers, _trust_anchor) =
         fixtures::minimally_secure(leaf_fqdn.clone(), leaf_ipv4_addr, SignSettings::default())?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let resolver_addr = resolver.ipv4_addr();
 
@@ -48,7 +48,10 @@ fn clears_ad_bit_in_outgoing_queries() -> Result<()> {
         .iter()
         .map(|ns| ns.ipv4_addr())
         .collect::<Vec<_>>();
-    for Capture { message, direction } in captures {
+    for Capture {
+        message, direction, ..
+    } in captures
+    {
         match direction {
             Direction::Incoming { source } => {
                 if source == client_addr {

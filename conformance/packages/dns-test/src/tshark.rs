@@ -18,7 +18,7 @@ use crate::container::{Child, Container};
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
-const UDP_PORT: u16 = 53;
+const DNS_PORT: u16 = 53;
 
 fn pid_file(id: usize) -> String {
     format!("/tmp/tshark{id}.pid")
@@ -54,14 +54,54 @@ pub struct Tshark {
     wait_capture_count_watermark: usize,
 }
 
-impl Tshark {
-    pub fn new(container: &Container) -> Result<Self> {
+pub struct TsharkBuilder {
+    filters: Vec<ProtocolFilter>,
+    ssl_keylog_file: Option<String>,
+}
+
+impl TsharkBuilder {
+    /// Set the capture filters.
+    ///
+    /// Multiple filters are logically OR'd together.
+    pub fn filters(mut self, filters: Vec<ProtocolFilter>) -> Self {
+        self.filters = filters;
+        self
+    }
+
+    /// Set the SSL_KEYLOG_FIE path to use to decrypt encrypted traffic.
+    pub fn ssl_keylog_file(mut self, path: impl Into<String>) -> Self {
+        self.ssl_keylog_file = Some(path.into());
+        self
+    }
+
+    /// Spawn a new `Tshark` instance for the `Container`.
+    pub fn build(self, container: &Container) -> Result<Tshark> {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
         let pidfile = pid_file(id);
 
+        let mut filter_parts = self
+            .filters
+            .into_iter()
+            .map(|filter| match filter.protocol {
+                Protocol::Udp => format!("udp port {}", filter.port),
+                Protocol::Tcp => format!("tcp port {}", filter.port),
+            })
+            .collect::<Vec<_>>();
+
+        let protocol_filter = if filter_parts.len() == 1 {
+            filter_parts.pop().unwrap()
+        } else {
+            format!("({})", filter_parts.join(" or "))
+        };
+
+        let ssl_keylog_arg = self
+            .ssl_keylog_file
+            .map(|file| format!("-o tls.keylog_file:{file} "))
+            .unwrap_or_default();
+
         let tshark = format!(
             "echo $$ > {pidfile}
-exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
+exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '{protocol_filter}'"
         );
         let mut child = container.spawn(&["sh", "-c", &tshark])?;
 
@@ -100,7 +140,7 @@ exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
             Ok(buf)
         });
 
-        Ok(Self {
+        Ok(Tshark {
             container: container.clone(),
             child,
             stdout_handle,
@@ -110,6 +150,54 @@ exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
             captures: Vec::new(),
             wait_capture_count_watermark: 0,
         })
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ProtocolFilter {
+    port: u16,
+    protocol: Protocol,
+}
+
+impl ProtocolFilter {
+    pub fn port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    pub fn protocol(mut self, protocol: Protocol) -> Self {
+        self.protocol = protocol;
+        self
+    }
+}
+
+impl Default for ProtocolFilter {
+    fn default() -> Self {
+        Self {
+            port: DNS_PORT,
+            protocol: Protocol::Udp,
+        }
+    }
+}
+
+impl Default for TsharkBuilder {
+    fn default() -> Self {
+        Self {
+            filters: vec![ProtocolFilter::default()],
+            ssl_keylog_file: None,
+        }
+    }
+}
+
+impl Tshark {
+    /// Spawn a Tshark instance for the given container capturing plaintext UDP DNS traffic.
+    pub fn new(container: &Container) -> Result<Self> {
+        Self::builder().build(container)
+    }
+
+    /// Construct a TsharkBuilder that can build a customized Tshark instance.
+    pub fn builder() -> TsharkBuilder {
+        TsharkBuilder::default()
     }
 
     /// Waits until the captured packets satisfy some condition.
@@ -193,6 +281,9 @@ exec tshark -l -i eth0 -T json -O dns -f 'udp port {UDP_PORT}'"
 pub struct Capture {
     pub message: Message,
     pub direction: Direction,
+    pub protocol: Protocol,
+    pub src_port: u16,
+    pub dst_port: u16,
 }
 
 #[derive(Debug)]
@@ -283,6 +374,12 @@ pub enum Direction {
     Outgoing { destination: Ipv4Addr },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Protocol {
+    Udp,
+    Tcp,
+}
+
 impl Direction {
     /// The address of the peer, independent of the direction of the packet
     pub fn peer_addr(&self) -> Ipv4Addr {
@@ -322,7 +419,9 @@ struct Source {
 #[derive(Deserialize)]
 struct Layers {
     ip: Ip,
-    dns: serde_json::Value,
+    udp: Option<TransportLayer>,
+    tcp: Option<TransportLayer>,
+    dns: Option<serde_json::Value>,
 }
 
 #[serde_as]
@@ -335,6 +434,18 @@ struct Ip {
     #[serde(rename = "ip.dst")]
     #[serde_as(as = "DisplayFromStr")]
     dst: Ipv4Addr,
+}
+
+#[serde_as]
+#[derive(Debug, Deserialize)]
+struct TransportLayer {
+    #[serde(rename = "udp.srcport", alias = "tcp.srcport")]
+    #[serde_as(as = "DisplayFromStr")]
+    src_port: u16,
+
+    #[serde(rename = "udp.dstport", alias = "tcp.dstport")]
+    #[serde_as(as = "DisplayFromStr")]
+    dst_port: u16,
 }
 
 /// This handles deserialization of the outer array in `tshark`'s JSON output, and makes each
@@ -389,7 +500,23 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
         A: SeqAccess<'de>,
     {
         while let Some(entry) = seq.next_element::<Entry>()? {
-            let Layers { ip, dns } = entry._source.layers;
+            let Layers { ip, udp, tcp, dns } = entry._source.layers;
+
+            // Skip packets without DNS data (e.g., TCP handshake packets)
+            let Some(dns) = dns else {
+                continue;
+            };
+
+            // Determine protocol and extract port information
+            let (protocol, src_port, dst_port) = if let Some(udp) = udp {
+                (Protocol::Udp, udp.src_port, udp.dst_port)
+            } else if let Some(tcp) = tcp {
+                (Protocol::Tcp, tcp.src_port, tcp.dst_port)
+            } else {
+                return Err(A::Error::custom(
+                    "packet has DNS data but no UDP or TCP layer",
+                ));
+            };
 
             let direction = if ip.dst == self.own_addr {
                 Direction::Incoming { source: ip.src }
@@ -406,6 +533,9 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
             let _ = self.sender.send(Capture {
                 message: Message { inner: dns },
                 direction,
+                protocol,
+                src_port,
+                dst_port,
             });
         }
 
@@ -416,25 +546,62 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
 #[cfg(test)]
 mod tests {
     use crate::client::{Client, DigSettings};
-    use crate::name_server::NameServer;
+    use crate::name_server::{NameServer, Running};
     use crate::record::RecordType;
-    use crate::{FQDN, Implementation, Network, Resolver};
+    use crate::{FQDN, Implementation, Network, Pki, Resolver};
 
     use super::*;
 
     #[test]
-    fn nameserver() -> Result<()> {
+    fn nameserver_udp() -> Result<()> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
-        let mut tshark = Tshark::new(ns.container())?;
+        let tshark = Tshark::new(ns.container())?;
+        test_nameserver(network, ns, DigSettings::default(), Protocol::Udp, tshark)
+    }
 
+    #[test]
+    fn nameserver_tcp() -> Result<()> {
+        let network = &Network::new()?;
+        let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
+        let tshark = Tshark::builder()
+            .filters(vec![ProtocolFilter::default().protocol(Protocol::Tcp)])
+            .build(ns.container())?;
+        let dig_settings = *DigSettings::default().tcp();
+        test_nameserver(network, ns, dig_settings, Protocol::Tcp, tshark)
+    }
+
+    #[test]
+    fn nameserver_dot() -> Result<()> {
+        let network = &Network::new()?;
+        // NOTE: We use an implementation here we know supports SSLKEYLOGFILE.
+        let ns = NameServer::builder(Implementation::hickory(), FQDN::ROOT, network.clone())
+            .pki(Pki::new()?.into())
+            .build()?
+            .start()?;
+        let tshark = Tshark::builder()
+            .filters(vec![
+                ProtocolFilter::default()
+                    .protocol(Protocol::Tcp)
+                    .port(DOT_PORT),
+            ])
+            .ssl_keylog_file("/tmp/sslkeys.log") // See hickory.Dockerfile
+            .build(ns.container())?;
+        // NOTE: We have to specify both tcp() and tls() because the default settings will write
+        // +notcp otherwise, and that takes priority over the +tls arg!
+        let dig_settings = *DigSettings::default().tcp().tls();
+        test_nameserver(network, ns, dig_settings, Protocol::Tcp, tshark)
+    }
+
+    fn test_nameserver(
+        network: &Network,
+        ns: NameServer<Running>,
+        dig_settings: DigSettings,
+        expected_protocol: Protocol,
+        mut tshark: Tshark,
+    ) -> Result<()> {
         let client = Client::new(network)?;
-        let resp = client.dig(
-            DigSettings::default(),
-            ns.ipv4_addr(),
-            RecordType::SOA,
-            &FQDN::ROOT,
-        )?;
+        let resp = client.dig(dig_settings, ns.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
 
         assert!(resp.status.is_noerror());
 
@@ -454,12 +621,82 @@ mod tests {
             client.ipv4_addr(),
             first.direction.try_into_incoming().unwrap()
         );
+        assert_eq!(first.protocol, expected_protocol);
 
         assert_eq!(
             client.ipv4_addr(),
             second.direction.try_into_outgoing().unwrap()
         );
+        assert_eq!(second.protocol, expected_protocol);
+        assert_eq!(second.dst_port, first.src_port,);
 
+        Ok(())
+    }
+
+    #[test]
+    fn nameserver_multiple_filters() -> Result<()> {
+        let network = &Network::new()?;
+        // NOTE: We use an implementation here we know supports SSLKEYLOGFILE.
+        let ns = NameServer::builder(Implementation::hickory(), FQDN::ROOT, network.clone())
+            .pki(Pki::new()?.into())
+            .build()?
+            .start()?;
+        let mut tshark = Tshark::builder()
+            // Set up a capture filter for _both_ plaintext UDP on 53, and DOT encrypted TCP on 853.
+            .filters(vec![
+                ProtocolFilter::default(),
+                ProtocolFilter::default()
+                    .protocol(Protocol::Tcp)
+                    .port(DOT_PORT),
+            ])
+            .ssl_keylog_file("/tmp/sslkeys.log") // See hickory.Dockerfile
+            .build(ns.container())?;
+
+        let client = Client::new(network)?;
+
+        // Make a plaintext UDP query first.
+        let resp = client.dig(
+            DigSettings::default(),
+            ns.ipv4_addr(),
+            RecordType::SOA,
+            &FQDN::ROOT,
+        )?;
+        assert!(resp.status.is_noerror());
+
+        // And then make a DoT encrypted TCP query second.
+        let resp = client.dig(
+            *DigSettings::default().tcp().tls(),
+            ns.ipv4_addr(),
+            RecordType::SOA,
+            &FQDN::ROOT,
+        )?;
+        assert!(resp.status.is_noerror());
+
+        // Wait until we've captured two incoming messages, or hit the timeout.
+        tshark.wait_until(
+            |captures| {
+                captures
+                    .iter()
+                    .filter(|capture| matches!(capture.direction, Direction::Incoming { .. }))
+                    .count()
+                    == 2
+            },
+            Duration::from_secs(10),
+        )?;
+
+        // Grab just the inbound messages. There should be two.
+        let messages = tshark
+            .terminate()?
+            .into_iter()
+            .filter(|m| matches!(m.direction, Direction::Incoming { .. }))
+            .collect::<Vec<_>>();
+        let [first, second] = messages.try_into().expect("2 DNS messages");
+
+        // We should have gotten the right protocol/dest port messages in the right order.
+        assert_eq!(first.protocol, Protocol::Udp);
+        assert_eq!(first.dst_port, DNS_PORT);
+        assert_eq!(second.protocol, Protocol::Tcp);
+        assert_eq!(second.dst_port, DOT_PORT);
         Ok(())
     }
 
@@ -482,7 +719,7 @@ mod tests {
 
         let resolver = Resolver::new(network, root_ns.root_hint())
             .start_with_subject(&Implementation::Unbound)?;
-        let mut tshark = resolver.eavesdrop()?;
+        let mut tshark = resolver.eavesdrop_udp()?;
         let resolver_addr = resolver.ipv4_addr();
 
         let client = Client::new(network)?;
@@ -547,4 +784,6 @@ mod tests {
 
         Ok(())
     }
+
+    const DOT_PORT: u16 = 853;
 }

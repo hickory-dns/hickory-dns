@@ -3,6 +3,7 @@ group = "nogroup"
 
 {% if dot %}
 tls_listen_port = 853
+ssl_keylog_enabled = true
 
 [tls_cert]
 path = "{{ dot.cert_chain }}"

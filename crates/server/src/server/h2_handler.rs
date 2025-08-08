@@ -39,12 +39,17 @@ pub(super) async fn handle_h2(
     dns_hostname: Option<String>,
     http_endpoint: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
+    ssl_keylog_enabled: bool,
 ) -> Result<(), ProtoError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
     debug!("registered https: {listener:?}");
 
-    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(b"h2", server_cert_resolver)?));
+    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(
+        b"h2",
+        server_cert_resolver,
+        ssl_keylog_enabled,
+    )?));
 
     let mut inner_join_set = JoinSet::new();
     loop {

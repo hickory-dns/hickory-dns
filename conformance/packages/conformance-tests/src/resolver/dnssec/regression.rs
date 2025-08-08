@@ -119,7 +119,7 @@ fn can_validate_ns_query_case_randomization() -> Result<()> {
         .start()?;
 
     let resolver_addr = resolver.ipv4_addr();
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let client = Client::new(resolver.network())?;
 
@@ -197,7 +197,7 @@ fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
 
     let resolver = Resolver::new(&network, nameserver.root_hint()).start()?;
 
-    let mut tshark = resolver.eavesdrop()?;
+    let mut tshark = resolver.eavesdrop_udp()?;
 
     let ans = client.dig(
         *DigSettings::default().recurse(),
@@ -219,7 +219,10 @@ fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
     // bug: hickory-dns goes into an infinite loop until it exhausts its network resources
     assert!(captures.len() < 20);
 
-    for Capture { message, direction } in captures {
+    for Capture {
+        message, direction, ..
+    } in captures
+    {
         if let Direction::Outgoing { destination } = direction {
             if destination == nameserver_addr {
                 eprintln!("{message:#?}\n");

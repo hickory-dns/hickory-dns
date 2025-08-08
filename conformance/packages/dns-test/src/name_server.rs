@@ -594,7 +594,7 @@ impl NameServer<Signed> {
 }
 
 impl NameServer<Running> {
-    pub fn eavesdrop(&self) -> Result<Tshark> {
+    pub fn eavesdrop_udp(&self) -> Result<Tshark> {
         Tshark::new(&self.container)
     }
 

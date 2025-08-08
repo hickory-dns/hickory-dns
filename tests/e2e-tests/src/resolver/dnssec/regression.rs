@@ -75,7 +75,7 @@ fn infinite_recursion_with_unsigned_ds_record() -> Result<()> {
     let mut tshark = None;
     for ns in nameservers.iter() {
         if *ns.zone() == FQDN::TEST_TLD {
-            tshark = Some(ns.eavesdrop()?);
+            tshark = Some(ns.eavesdrop_udp()?);
         }
     }
 
