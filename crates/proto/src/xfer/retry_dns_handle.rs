@@ -83,23 +83,23 @@ mod std_retry {
             // loop over the stream, on errors, spawn a new stream
             //  on ready and not ready return.
             loop {
-                match self.stream.poll_next_unpin(cx) {
-                    Poll::Ready(Some(Err(e))) => {
-                        if self.remaining_attempts == 0 || !e.should_retry() {
-                            return Poll::Ready(Some(Err(e)));
-                        }
-
-                        if e.attempted() {
-                            self.remaining_attempts -= 1;
-                        }
-
-                        // TODO: if the "sent" Message is part of the error result,
-                        //  then we can just reuse it... and no clone necessary
-                        let request = self.request.clone();
-                        self.stream = self.handle.send(request);
-                    }
+                let err = match self.stream.poll_next_unpin(cx) {
+                    Poll::Ready(Some(Err(e))) => e,
                     poll => return poll,
+                };
+
+                if self.remaining_attempts == 0 || !err.should_retry() {
+                    return Poll::Ready(Some(Err(err)));
                 }
+
+                if err.attempted() {
+                    self.remaining_attempts -= 1;
+                }
+
+                // TODO: if the "sent" Message is part of the error result,
+                //  then we can just reuse it... and no clone necessary
+                let request = self.request.clone();
+                self.stream = self.handle.send(request);
             }
         }
     }
