@@ -7,8 +7,6 @@
 
 //! `RetryDnsHandle` allows for DnsQueries to be reattempted on failure
 
-use crate::DnsHandle;
-
 /// Can be used to reattempt queries if they fail
 ///
 /// Note: this does not reattempt queries that fail with a negative response.
@@ -24,18 +22,12 @@ use crate::DnsHandle;
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
 #[allow(dead_code)]
-pub struct RetryDnsHandle<H>
-where
-    H: DnsHandle + Unpin + Send,
-{
+pub struct RetryDnsHandle<H> {
     handle: H,
     attempts: usize,
 }
 
-impl<H> RetryDnsHandle<H>
-where
-    H: DnsHandle + Unpin + Send,
-{
+impl<H> RetryDnsHandle<H> {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
     /// # Arguments
@@ -55,9 +47,9 @@ mod std_retry {
 
     use futures_util::stream::{Stream, StreamExt};
 
-    use super::{DnsHandle, RetryDnsHandle};
+    use super::RetryDnsHandle;
     use crate::error::ProtoError;
-    use crate::xfer::{DnsRequest, DnsResponse};
+    use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
@@ -77,17 +69,14 @@ mod std_retry {
     }
 
     /// A stream for retrying (on failure, for the remaining number of times specified)
-    struct RetrySendStream<H>
-    where
-        H: DnsHandle,
-    {
+    struct RetrySendStream<H: DnsHandle> {
         request: DnsRequest,
         handle: H,
         stream: <H as DnsHandle>::Response,
         remaining_attempts: usize,
     }
 
-    impl<H: DnsHandle + Unpin> Stream for RetrySendStream<H> {
+    impl<H: DnsHandle> Stream for RetrySendStream<H> {
         type Item = Result<DnsResponse, ProtoError>;
 
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -122,15 +111,14 @@ mod test {
     use alloc::sync::Arc;
     use core::sync::atomic::{AtomicU16, Ordering};
 
-    use super::*;
-    use crate::error::*;
-    use crate::op::*;
-    use crate::xfer::FirstAnswer;
-    use crate::xfer::{DnsRequest, DnsResponse};
-
     use futures_executor::block_on;
     use futures_util::future::{err, ok};
-    use futures_util::stream::*;
+    use futures_util::stream::{Stream, once};
+
+    use super::*;
+    use crate::error::ProtoError;
+    use crate::op::Message;
+    use crate::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
     use test_support::subscribe;
 
     #[derive(Clone)]
