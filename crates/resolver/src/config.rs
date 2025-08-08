@@ -854,7 +854,7 @@ pub(crate) mod duration_opt {
     ) -> Result<S::Ok, S::Error> {
         struct Wrapper<'a>(&'a Duration);
 
-        impl<'a> Serialize for Wrapper<'a> {
+        impl Serialize for Wrapper<'_> {
             fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 super::duration::serialize(self.0, serializer)
             }
