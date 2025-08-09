@@ -28,8 +28,7 @@ mod message_response;
 pub(crate) mod metrics;
 
 pub use self::auth_lookup::{
-    AnyRecords, AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter,
-    ZoneTransfer,
+    AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter, ZoneTransfer,
 };
 pub use self::authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions};
 #[cfg(feature = "__dnssec")]

@@ -22,7 +22,7 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AnyRecords, AuthLookup, Authority, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError,
+        AuthLookup, Authority, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError,
         LookupOptions, LookupRecords, UpdateResult, ZoneTransfer, ZoneType,
     },
     proto::{
@@ -413,7 +413,7 @@ impl Authority for InMemoryAuthority {
     async fn lookup(
         &self,
         name: &LowerName,
-        query_type: RecordType,
+        mut query_type: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
@@ -425,16 +425,29 @@ impl Authority for InMemoryAuthority {
             )));
         }
 
-        // Collect the records from each rr_set
+        // Select one RRset to return. This behavior is described in RFC 8482 section 4.1.
+        // https://datatracker.ietf.org/doc/html/rfc8482#section-4.1
         if query_type == RecordType::ANY {
-            return LookupControlFlow::Continue(Ok(AuthLookup::answers(
-                LookupRecords::AnyRecords(AnyRecords::new(
-                    lookup_options,
-                    inner.records.values().cloned().collect(),
-                    name.clone(),
-                )),
-                None,
-            )));
+            for candidate_record_type in [
+                RecordType::CNAME,
+                RecordType::A,
+                RecordType::AAAA,
+                RecordType::MX,
+            ] {
+                if inner
+                    .inner_lookup(name, candidate_record_type, lookup_options)
+                    .is_some()
+                {
+                    query_type = candidate_record_type;
+                    break;
+                }
+            }
+            for rrset in inner.records.keys() {
+                if rrset.name() == name {
+                    query_type = rrset.record_type;
+                    break;
+                }
+            }
         }
         let answer = inner.inner_lookup(name, query_type, lookup_options);
 
