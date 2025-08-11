@@ -40,7 +40,7 @@ jobs:
     env:
       RUST_LOG: trace
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@nightly
         with:
@@ -129,7 +129,7 @@ jobs:
     env:
       RUST_LOG: trace
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -157,7 +157,7 @@ jobs:
           - 3
           - 4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -180,7 +180,7 @@ jobs:
       matrix:
         version: ["1.74", beta, "nightly-2025-01-19"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -208,7 +208,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # not using the cargo cache here, since this differs significantly
       - name: cargo-all cache
@@ -253,7 +253,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -282,7 +282,7 @@ jobs:
       - name: Add aarch64-unknown-none target
         run: rustup target add aarch64-unknown-none
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build proto crate for aarch64-unknown-none
         run: just proto-aarch64-none
