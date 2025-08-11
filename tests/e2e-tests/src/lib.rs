@@ -5,6 +5,7 @@ use std::env;
 mod client;
 mod recursor;
 mod resolver;
+mod server;
 
 #[test]
 fn sanity_check() {
