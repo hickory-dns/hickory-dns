@@ -11,3 +11,4 @@ exclude = ["../../conformance/package/dns-test"]
 [dev-dependencies]
 dns-test.path = "../../conformance/packages/dns-test"
 minijinja = "2"
+serde_json = "1"
