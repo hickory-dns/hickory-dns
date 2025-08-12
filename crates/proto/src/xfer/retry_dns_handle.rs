@@ -7,6 +7,15 @@
 
 //! `RetryDnsHandle` allows for DnsQueries to be reattempted on failure
 
+use alloc::boxed::Box;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+
+use futures_util::stream::{Stream, StreamExt};
+
+use crate::error::ProtoError;
+use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
+
 /// Can be used to reattempt queries if they fail
 ///
 /// Note: this does not reattempt queries that fail with a negative response.
@@ -39,73 +48,60 @@ impl<H> RetryDnsHandle<H> {
     }
 }
 
-#[cfg(any(feature = "std", feature = "no-std-rand"))]
-mod std_retry {
-    use alloc::boxed::Box;
-    use core::pin::Pin;
-    use core::task::{Context, Poll};
+impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
-    use futures_util::stream::{Stream, StreamExt};
+    fn send(&self, request: DnsRequest) -> Self::Response {
+        // need to clone here so that the retry can resend if necessary...
+        //  obviously it would be nice to be lazy about this...
+        let stream = self.handle.send(request.clone());
 
-    use super::RetryDnsHandle;
-    use crate::error::ProtoError;
-    use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
-
-    impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
-
-        fn send(&self, request: DnsRequest) -> Self::Response {
-            // need to clone here so that the retry can resend if necessary...
-            //  obviously it would be nice to be lazy about this...
-            let stream = self.handle.send(request.clone());
-
-            Box::pin(RetrySendStream {
-                request,
-                handle: self.handle.clone(),
-                stream,
-                remaining_attempts: self.attempts,
-            })
-        }
+        Box::pin(RetrySendStream {
+            request,
+            handle: self.handle.clone(),
+            stream,
+            remaining_attempts: self.attempts,
+        })
     }
+}
 
-    /// A stream for retrying (on failure, for the remaining number of times specified)
-    struct RetrySendStream<H: DnsHandle> {
-        request: DnsRequest,
-        handle: H,
-        stream: <H as DnsHandle>::Response,
-        remaining_attempts: usize,
-    }
+/// A stream for retrying (on failure, for the remaining number of times specified)
+struct RetrySendStream<H: DnsHandle> {
+    request: DnsRequest,
+    handle: H,
+    stream: <H as DnsHandle>::Response,
+    remaining_attempts: usize,
+}
 
-    impl<H: DnsHandle> Stream for RetrySendStream<H> {
-        type Item = Result<DnsResponse, ProtoError>;
+impl<H: DnsHandle> Stream for RetrySendStream<H> {
+    type Item = Result<DnsResponse, ProtoError>;
 
-        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            // loop over the stream, on errors, spawn a new stream
-            //  on ready and not ready return.
-            loop {
-                let err = match self.stream.poll_next_unpin(cx) {
-                    Poll::Ready(Some(Err(e))) => e,
-                    poll => return poll,
-                };
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // loop over the stream, on errors, spawn a new stream
+        //  on ready and not ready return.
+        loop {
+            let err = match self.stream.poll_next_unpin(cx) {
+                Poll::Ready(Some(Err(e))) => e,
+                poll => return poll,
+            };
 
-                if self.remaining_attempts == 0 || !err.should_retry() {
-                    return Poll::Ready(Some(Err(err)));
-                }
-
-                if err.attempted() {
-                    self.remaining_attempts -= 1;
-                }
-
-                // TODO: if the "sent" Message is part of the error result,
-                //  then we can just reuse it... and no clone necessary
-                let request = self.request.clone();
-                self.stream = self.handle.send(request);
+            if self.remaining_attempts == 0 || !err.should_retry() {
+                return Poll::Ready(Some(Err(err)));
             }
+
+            if err.attempted() {
+                self.remaining_attempts -= 1;
+            }
+
+            // TODO: if the "sent" Message is part of the error result,
+            //  then we can just reuse it... and no clone necessary
+            let request = self.request.clone();
+            self.stream = self.handle.send(request);
         }
     }
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(test)]
 mod test {
     use alloc::boxed::Box;
     use alloc::sync::Arc;

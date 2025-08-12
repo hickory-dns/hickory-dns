@@ -84,11 +84,13 @@ pub mod xfer;
 #[cfg(feature = "std")]
 pub use crate::xfer::BufDnsStreamHandle;
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 pub use error::{AuthorityData, ForwardNSData, NoRecords, ProtoError, ProtoErrorKind};
 #[cfg(feature = "backtrace")]
