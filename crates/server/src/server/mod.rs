@@ -126,6 +126,9 @@ impl<T: RequestHandler> Server<T> {
     /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
     ///  to not make this too low depending on use cases.
     ///
+    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoT ALPN protocol
+    /// enabled.
+    ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
     /// * `timeout` - timeout duration of incoming requests, any connection that does not send
