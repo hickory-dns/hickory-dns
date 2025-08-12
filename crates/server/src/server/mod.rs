@@ -212,6 +212,46 @@ impl<T: RequestHandler> Server<T> {
         Ok(())
     }
 
+    /// Register a TcpListener for HTTPS (h2) for supporting DoH with the given TLS config.
+    ///
+    /// The TcpListener should already be bound to either an IPv6 or an IPv4 address.
+    ///
+    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoH ALPN protocol
+    /// enabled.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `handshake_timeout` - timeout duration of incoming requests, any connection that does not send
+    ///   requests within this time period will be closed. In the future it should be
+    ///   possible to create long-lived queries, but these should be from trusted sources
+    ///   only, this would require some type of whitelisting.
+    /// * `tls_config` - a customized `ServerConfig` to use for TLS.
+    /// * `dns_hostname` - the DNS hostname of the H2 server.
+    /// * `http_endpoint` - the HTTP endpoint of the H2 server.
+    #[cfg(feature = "__https")]
+    pub fn register_https_listener_with_tls_config(
+        &mut self,
+        listener: net::TcpListener,
+        // TODO: need to set a timeout between requests.
+        handshake_timeout: Duration,
+        tls_config: Arc<ServerConfig>,
+        dns_hostname: Option<String>,
+        http_endpoint: String,
+    ) -> io::Result<()> {
+        self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
+            listener,
+            handshake_timeout,
+            TlsAcceptor::from(tls_config),
+            dns_hostname,
+            http_endpoint,
+            self.context.clone(),
+        ));
+        Ok(())
+    }
+
     /// Register a UdpSocket to the Server for supporting DoQ (DNS-over-QUIC). The UdpSocket should already be bound to either an
     /// IPv6 or an IPv4 address.
     ///

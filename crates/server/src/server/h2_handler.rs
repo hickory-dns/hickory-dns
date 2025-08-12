@@ -31,6 +31,7 @@ use crate::{
     proto::{ProtoError, h2::h2_server, http::Version, rr::Record, xfer::Protocol},
 };
 
+/// handle h2 using the default TLS server config.
 pub(super) async fn handle_h2(
     listener: TcpListener,
     // TODO: need to set a timeout between requests.
@@ -41,15 +42,35 @@ pub(super) async fn handle_h2(
     cx: Arc<ServerContext<impl RequestHandler>>,
     ssl_keylog_enabled: bool,
 ) -> Result<(), ProtoError> {
-    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-    debug!("registered https: {listener:?}");
-
     let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(
         b"h2",
         server_cert_resolver,
         ssl_keylog_enabled,
     )?));
+    handle_h2_with_acceptor(
+        listener,
+        handshake_timeout,
+        tls_acceptor,
+        dns_hostname,
+        http_endpoint,
+        cx,
+    )
+    .await
+}
+
+/// handle h2 using a specific TlsAcceptor.
+pub(super) async fn handle_h2_with_acceptor(
+    listener: TcpListener,
+    // TODO: need to set a timeout between requests.
+    handshake_timeout: Duration,
+    tls_acceptor: TlsAcceptor,
+    dns_hostname: Option<String>,
+    http_endpoint: String,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
+    debug!("registered https: {listener:?}");
 
     let mut inner_join_set = JoinSet::new();
     loop {
