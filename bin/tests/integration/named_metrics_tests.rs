@@ -724,13 +724,13 @@ async fn retry_client_lookup(
     loop {
         return match client.query(name.clone(), class, rtype).await {
             Ok(res) => Ok(res),
-            Err(e) if i < LOOKUP_RETRIES => {
-                if let ProtoErrorKind::Timeout = e.kind() {
-                    i += 1;
-                    sleep(Duration::from_secs(2)).await;
-                    continue;
-                }
-                Err(e)
+            Err(ProtoError {
+                kind: ProtoErrorKind::Timeout,
+                ..
+            }) if i < LOOKUP_RETRIES => {
+                i += 1;
+                sleep(Duration::from_secs(2)).await;
+                continue;
             }
             Err(e) => Err(e),
         };
