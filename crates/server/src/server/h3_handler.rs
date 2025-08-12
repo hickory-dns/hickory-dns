@@ -41,10 +41,21 @@ pub(super) async fn handle_h3(
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), ProtoError> {
-    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-
     debug!("registered h3: {:?}", socket);
-    let mut server = H3Server::with_socket(socket, server_cert_resolver)?;
+    handle_h3_with_server(
+        H3Server::with_socket(socket, server_cert_resolver)?,
+        dns_hostname,
+        cx,
+    )
+    .await
+}
+
+pub(super) async fn handle_h3_with_server(
+    mut server: H3Server,
+    dns_hostname: Option<String>,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    let dns_hostname = dns_hostname.map(|n| n.into());
 
     let mut inner_join_set = JoinSet::new();
     loop {
