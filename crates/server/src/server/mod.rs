@@ -21,7 +21,7 @@ use futures_util::StreamExt;
 use hickory_proto::ProtoErrorKind;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
-use rustls::{KeyLogFile, ServerConfig, server::ResolvesServerCert};
+use rustls::{ServerConfig, server::ResolvesServerCert};
 #[cfg(feature = "__tls")]
 use tokio::time::timeout;
 use tokio::{net, task::JoinSet};
@@ -165,18 +165,19 @@ impl<T: RequestHandler> Server<T> {
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
-    /// * `ssl_keylog_enabled` - whether to respect SSLKEYLOGFILE from the environment, writing
-    ///   sensitive session keys to the specified file for Wireshark decryption.
     #[cfg(feature = "__tls")]
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
-        ssl_keylog_enabled: bool,
     ) -> io::Result<()> {
-        let config = default_tls_server_config(b"dot", server_cert_resolver, ssl_keylog_enabled)?;
-        Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(config))
+        Self::register_tls_listener_with_tls_config(
+            self,
+            listener,
+            timeout,
+            Arc::new(default_tls_server_config(b"dot", server_cert_resolver)?),
+        )
     }
 
     /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (DNS-over-HTTPS). The TcpListener should already be bound to either an
@@ -194,8 +195,6 @@ impl<T: RequestHandler> Server<T> {
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
     /// * `dns_hostname` - the DNS hostname of the H2 server.
     /// * `http_endpoint` - the HTTP endpoint of the H2 server.
-    /// * `ssl_keylog_enabled` - whether to respect SSL_KEYLOG_FILE from the environment, writing
-    ///   sensitive session keys to the specified file for Wireshark decryption.
     #[cfg(feature = "__https")]
     pub fn register_https_listener(
         &mut self,
@@ -205,7 +204,6 @@ impl<T: RequestHandler> Server<T> {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
         http_endpoint: String,
-        ssl_keylog_enabled: bool,
     ) -> io::Result<()> {
         self.join_set.spawn(h2_handler::handle_h2(
             listener,
@@ -214,7 +212,6 @@ impl<T: RequestHandler> Server<T> {
             dns_hostname,
             http_endpoint,
             self.context.clone(),
-            ssl_keylog_enabled,
         ));
         Ok(())
     }
@@ -664,7 +661,6 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
 pub fn default_tls_server_config(
     protocol: &[u8],
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ssl_keylog_enabled: bool,
 ) -> io::Result<ServerConfig> {
     let mut config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
         .with_safe_default_protocol_versions()
@@ -673,10 +669,6 @@ pub fn default_tls_server_config(
         .with_cert_resolver(server_cert_resolver);
 
     config.alpn_protocols = vec![protocol.to_vec()];
-
-    if ssl_keylog_enabled {
-        config.key_log = Arc::new(KeyLogFile::new());
-    }
 
     Ok(config)
 }
@@ -1139,7 +1131,6 @@ mod tests {
                         TcpListener::bind(self.rustls_addr).await.unwrap(),
                         Duration::from_secs(30),
                         cert_key,
-                        false,
                     )
                     .unwrap();
             }
@@ -1154,7 +1145,6 @@ mod tests {
                         cert_key,
                         None,
                         "/dns-query".into(),
-                        false,
                     )
                     .unwrap();
             }

@@ -29,6 +29,8 @@
 
 #![recursion_limit = "128"]
 
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use std::sync::Arc;
 #[cfg(feature = "metrics")]
 use std::time::Duration;
 use std::{
@@ -43,6 +45,8 @@ use clap::Parser;
 use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
 #[cfg(feature = "metrics")]
 use metrics_process::Collector;
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use rustls::KeyLogFile;
 use socket2::{Domain, Socket, Type};
 use time::OffsetDateTime;
 #[cfg(unix)]
@@ -75,6 +79,8 @@ use hickory_dns::TlsCertConfig;
 use hickory_dns::{ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
 use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
+#[cfg(feature = "__tls")]
+use hickory_server::server::default_tls_server_config;
 use hickory_server::{authority::Catalog, server::Server};
 
 /// Cli struct for all options managed with clap derive api.
@@ -554,12 +560,18 @@ fn config_tls(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
+        let mut tls_config = default_tls_server_config(b"dot", tls_cert)
+            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+        if config.ssl_keylog_enabled() {
+            warn!("DoT SSL_KEYLOG_FILE support enabled");
+            tls_config.key_log = Arc::new(KeyLogFile::new());
+        }
+
         server
-            .register_tls_listener(
+            .register_tls_listener_with_tls_config(
                 tls_listener,
                 config.tcp_request_timeout(),
-                tls_cert,
-                config.ssl_keylog_enabled(),
+                Arc::new(tls_config),
             )
             .map_err(|err| format!("failed to register TLS listener: {err}"))?;
     }
@@ -606,14 +618,20 @@ fn config_https(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
+        let mut tls_config = default_tls_server_config(b"h2", tls_cert)
+            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+        if config.ssl_keylog_enabled() {
+            warn!("DoH SSL_KEYLOG_FILE support enabled");
+            tls_config.key_log = Arc::new(KeyLogFile::new());
+        }
+
         server
-            .register_https_listener(
+            .register_https_listener_with_tls_config(
                 https_listener,
                 config.tcp_request_timeout(),
-                tls_cert,
+                Arc::new(tls_config),
                 tls_cert_config.endpoint_name.clone(),
                 endpoint_path.into(),
-                config.ssl_keylog_enabled(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
     }
@@ -660,11 +678,18 @@ fn config_quic(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
+        let mut tls_config = default_tls_server_config(b"doq", tls_cert)
+            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+        if config.ssl_keylog_enabled() {
+            warn!("DoQ SSL_KEYLOG_FILE support enabled");
+            tls_config.key_log = Arc::new(KeyLogFile::new());
+        }
+
         server
-            .register_quic_listener(
+            .register_quic_listener_and_tls_config(
                 quic_listener,
                 config.tcp_request_timeout(),
-                tls_cert,
+                Arc::new(tls_config),
                 tls_cert_config.endpoint_name.clone(),
             )
             .map_err(|err| format!("failed to register QUIC listener: {err}"))?;

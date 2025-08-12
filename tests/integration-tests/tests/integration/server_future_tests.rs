@@ -383,7 +383,7 @@ async fn server_thread_tls(
     // let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
 
     server
-        .register_tls_listener(tls_listener, Duration::from_secs(30), cert_chain, false)
+        .register_tls_listener(tls_listener, Duration::from_secs(30), cert_chain)
         .expect("failed to register TLS");
 
     while server_continue.load(Ordering::Relaxed) {
