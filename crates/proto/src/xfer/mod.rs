@@ -33,11 +33,13 @@ use crate::runtime::Time;
 
 #[cfg(feature = "std")]
 mod dns_exchange;
+#[cfg(feature = "std")]
 pub mod dns_handle;
 #[cfg(feature = "std")]
 pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
+#[cfg(feature = "std")]
 pub mod retry_dns_handle;
 mod serial_message;
 
@@ -45,6 +47,7 @@ mod serial_message;
 pub use self::dns_exchange::{
     Connecting, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
+#[cfg(feature = "std")]
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
 #[cfg(feature = "std")]
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
@@ -52,6 +55,7 @@ pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
 #[cfg(feature = "std")]
 pub use self::dns_response::DnsResponseStream;
+#[cfg(feature = "std")]
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
