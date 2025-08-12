@@ -35,10 +35,21 @@ pub(super) async fn handle_quic(
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), ProtoError> {
-    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+    debug!(?socket, "registered quic");
+    handle_quic_with_server(
+        QuicServer::with_socket(socket, server_cert_resolver)?,
+        dns_hostname,
+        cx,
+    )
+    .await
+}
 
-    debug!("registered quic: {:?}", socket);
-    let mut server = QuicServer::with_socket(socket, server_cert_resolver)?;
+pub(super) async fn handle_quic_with_server(
+    mut server: QuicServer,
+    dns_hostname: Option<String>,
+    cx: Arc<ServerContext<impl RequestHandler>>,
+) -> Result<(), ProtoError> {
+    let dns_hostname = dns_hostname.map(|n| n.into());
 
     let mut inner_join_set = JoinSet::new();
     loop {
