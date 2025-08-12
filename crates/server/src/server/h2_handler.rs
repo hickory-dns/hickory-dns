@@ -24,7 +24,7 @@ use super::{
     ResponseInfo, ServerContext, is_unrecoverable_socket_error, reap_tasks,
     request_handler::RequestHandler,
     response_handler::{ResponseHandler, encode_fallback_servfail_response},
-    sanitize_src_address, tls_server_config,
+    sanitize_src_address, default_tls_server_config,
 };
 use crate::{
     authority::MessageResponse,
@@ -42,7 +42,7 @@ pub(super) async fn handle_h2(
     cx: Arc<ServerContext<impl RequestHandler>>,
     ssl_keylog_enabled: bool,
 ) -> Result<(), ProtoError> {
-    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_server_config(
+    let tls_acceptor = TlsAcceptor::from(Arc::new(default_tls_server_config(
         b"h2",
         server_cert_resolver,
         ssl_keylog_enabled,
