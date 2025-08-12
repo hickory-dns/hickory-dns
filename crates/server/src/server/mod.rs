@@ -30,6 +30,8 @@ use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "__quic")]
+use crate::proto::quic::QuicServer;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::default_provider;
 use crate::{
@@ -279,6 +281,43 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(quic_handler::handle_quic(
             socket,
             server_cert_resolver,
+            dns_hostname,
+            cx,
+        ));
+        Ok(())
+    }
+
+    /// Register a UdpSocket for supporting DoQ (DNS-over-QUIC) with the provided TLS config.
+    ///
+    /// The UdpSocket should already be bound to either an IPv6 or an IPv4 address.
+    ///
+    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoQ ALPN protocol
+    /// enabled.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `socket` - a bound UDP socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///   requests within this time period will be closed. In the future it should be
+    ///   possible to create long-lived queries, but these should be from trusted sources
+    ///   only, this would require some type of whitelisting.
+    /// * `tls_config` - a customized ServerConfig to use for TLS.
+    /// * `dns_hostname` - the DNS hostname of the DoQ server.
+    #[cfg(feature = "__quic")]
+    pub fn register_quic_listener_and_tls_config(
+        &mut self,
+        socket: net::UdpSocket,
+        // TODO: need to set a timeout between requests.
+        _timeout: Duration,
+        tls_config: Arc<ServerConfig>,
+        dns_hostname: Option<String>,
+    ) -> io::Result<()> {
+        let cx = self.context.clone();
+
+        self.join_set.spawn(quic_handler::handle_quic_with_server(
+            QuicServer::with_socket_and_tls_config(socket, tls_config)?,
             dns_hostname,
             cx,
         ));

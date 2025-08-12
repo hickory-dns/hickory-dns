@@ -37,7 +37,7 @@ impl QuicServer {
         Self::with_socket(socket, server_cert_resolver)
     }
 
-    /// Construct the new server with an existing socket
+    /// Construct the new server with an existing socket and a default TLS configuration
     pub fn with_socket(
         socket: tokio::net::UdpSocket,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
@@ -50,8 +50,18 @@ impl QuicServer {
 
         config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
 
+        Self::with_socket_and_tls_config(socket, Arc::new(config))
+    }
+
+    /// Construct the new server with an existing socket and a custom TLS configuration
+    ///
+    /// The caller must ensure the `TlsServerConfig` has the appropriate DoQ ALPN protocol enabled.
+    pub fn with_socket_and_tls_config(
+        socket: tokio::net::UdpSocket,
+        tls_config: Arc<TlsServerConfig>,
+    ) -> Result<Self, ProtoError> {
         let mut server_config =
-            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(config)?));
+            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
         server_config.transport = Arc::new(quic_config::transport());
 
         let socket = socket.into_std()?;
