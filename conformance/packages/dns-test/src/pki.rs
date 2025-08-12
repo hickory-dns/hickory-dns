@@ -1,7 +1,7 @@
 use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, CertifiedKey, DnType,
-    ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose, PKCS_ECDSA_P256_SHA256,
-    SanType, SignatureAlgorithm,
+    BasicConstraints, CertificateParams, CertifiedIssuer, CertifiedKey, DnType,
+    ExtendedKeyUsagePurpose, IsCa, KeyPair, KeyUsagePurpose, PKCS_ECDSA_P256_SHA256, SanType,
+    SignatureAlgorithm,
 };
 
 use crate::Result;
@@ -13,7 +13,7 @@ use crate::container::Container;
 /// leaf certificates per-container. For simplicity's sake we don't use an
 /// intermediate and directly sign leaf certs with the root.
 pub struct Pki {
-    root: (Issuer<'static, KeyPair>, Certificate),
+    root: CertifiedIssuer<'static, KeyPair>,
 }
 
 impl Pki {
@@ -32,12 +32,9 @@ impl Pki {
             KeyUsagePurpose::KeyCertSign,
             KeyUsagePurpose::DigitalSignature,
         ];
-        let ca_key = KeyPair::generate_for(ALG)?;
-        let ca_cert = ca_params.self_signed(&ca_key)?;
-        let ca = Issuer::new(ca_params, ca_key);
 
         Ok(Self {
-            root: (ca, ca_cert),
+            root: CertifiedIssuer::self_signed(ca_params, KeyPair::generate_for(ALG)?)?,
         })
     }
 
@@ -54,14 +51,14 @@ impl Pki {
             .push(SanType::IpAddress(c.ipv4_addr().into()));
 
         let signing_key = KeyPair::generate_for(ALG)?;
-        let cert = container_leaf_params.signed_by(&signing_key, &self.root.0)?;
+        let cert = container_leaf_params.signed_by(&signing_key, &self.root)?;
 
         Ok(CertifiedKey { cert, signing_key })
     }
 
     /// Return the PEM encoding of the PKI's root certificate.
     pub fn root_pem(&self) -> String {
-        self.root.1.pem()
+        self.root.pem()
     }
 }
 
