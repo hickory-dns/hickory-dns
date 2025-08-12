@@ -175,7 +175,7 @@ impl<T: RequestHandler> Server<T> {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         ssl_keylog_enabled: bool,
     ) -> io::Result<()> {
-        let config = tls_server_config(b"dot", server_cert_resolver, ssl_keylog_enabled)?;
+        let config = default_tls_server_config(b"dot", server_cert_resolver, ssl_keylog_enabled)?;
         Self::register_tls_listener_with_tls_config(self, listener, timeout, Arc::new(config))
     }
 
@@ -659,8 +659,9 @@ fn reap_tasks(join_set: &mut JoinSet<()>) {
     while join_set.try_join_next().is_some() {}
 }
 
+/// Construct a default `ServerConfig` for the given ALPN protocol and server cert resolver.
 #[cfg(feature = "__tls")]
-fn tls_server_config(
+pub fn default_tls_server_config(
     protocol: &[u8],
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ssl_keylog_enabled: bool,
