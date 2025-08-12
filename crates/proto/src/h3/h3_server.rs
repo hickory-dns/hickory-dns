@@ -40,7 +40,7 @@ impl H3Server {
         Self::with_socket(socket, server_cert_resolver)
     }
 
-    /// Construct the new server with an existing socket
+    /// Construct the new server with an existing socket and default TLS config.
     pub fn with_socket(
         socket: tokio::net::UdpSocket,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
@@ -53,8 +53,18 @@ impl H3Server {
 
         config.alpn_protocols = vec![ALPN_H3.to_vec()];
 
+        Self::with_socket_and_tls_config(socket, Arc::new(config))
+    }
+
+    /// Construct the new server with an existing socket and custom TLS config.
+    ///
+    /// The TLS configuration should support TLS 1.3 and have the H3 ALPN protocol enabled.
+    pub fn with_socket_and_tls_config(
+        socket: tokio::net::UdpSocket,
+        tls_config: Arc<TlsServerConfig>,
+    ) -> Result<Self, ProtoError> {
         let mut server_config =
-            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(config).unwrap()));
+            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config).unwrap()));
         server_config.transport = Arc::new(super::transport());
 
         let socket = socket.into_std()?;

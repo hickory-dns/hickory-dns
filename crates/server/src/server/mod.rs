@@ -30,6 +30,8 @@ use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "__h3")]
+use crate::proto::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
 use crate::proto::quic::QuicServer;
 #[cfg(feature = "__tls")]
@@ -349,6 +351,40 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(h3_handler::handle_h3(
             socket,
             server_cert_resolver,
+            dns_hostname,
+            self.context.clone(),
+        ));
+        Ok(())
+    }
+
+    /// Register a UdpSocket for supporting DoH3 (DNS-over-HTTP/3) with the specified TLS config.
+    ///
+    /// The UdpSocket should already be bound to either an IPv6 or an IPv4 address.
+    ///
+    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoH3 ALPN protocol
+    /// enabled.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///   requests within this time period will be closed. In the future it should be
+    ///   possible to create long-lived queries, but these should be from trusted sources
+    ///   only, this would require some type of whitelisting.
+    /// * `tls_config` - a customized ServerConfig to use for TLS.
+    #[cfg(feature = "__h3")]
+    pub fn register_h3_listener_with_tls_config(
+        &mut self,
+        socket: net::UdpSocket,
+        // TODO: need to set a timeout between requests.
+        _timeout: Duration,
+        tls_config: Arc<ServerConfig>,
+        dns_hostname: Option<String>,
+    ) -> io::Result<()> {
+        self.join_set.spawn(h3_handler::handle_h3_with_server(
+            H3Server::with_socket_and_tls_config(socket, tls_config)?,
             dns_hostname,
             self.context.clone(),
         ));
