@@ -1,7 +1,7 @@
 use rcgen::{
     BasicConstraints, Certificate, CertificateParams, CertifiedKey, DnType,
-    ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, PKCS_ECDSA_P256_SHA256, SanType,
-    SignatureAlgorithm,
+    ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose, PKCS_ECDSA_P256_SHA256,
+    SanType, SignatureAlgorithm,
 };
 
 use crate::Result;
@@ -27,10 +27,10 @@ impl Pki {
         ca_params
             .distinguished_name
             .push(DnType::CommonName, "Conformance CA");
-        ca_params.is_ca = rcgen::IsCa::Ca(BasicConstraints::Unconstrained);
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
         ca_params.key_usages = vec![
-            rcgen::KeyUsagePurpose::KeyCertSign,
-            rcgen::KeyUsagePurpose::DigitalSignature,
+            KeyUsagePurpose::KeyCertSign,
+            KeyUsagePurpose::DigitalSignature,
         ];
         let ca_key = KeyPair::generate_for(ALG)?;
         let ca_cert = ca_params.self_signed(&ca_key)?;
