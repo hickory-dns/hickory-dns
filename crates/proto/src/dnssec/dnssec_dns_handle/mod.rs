@@ -27,7 +27,7 @@ use crate::{
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
     op::{Edns, Message, OpCode, Query, ResponseCode},
-    rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
+    rr::{Name, RData, Record, RecordType, RecordTypeSet, SerialNumber, resource::RecordRef},
     xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
@@ -1359,28 +1359,28 @@ fn verify_nsec(
         );
     }
 
+    let handle_matching_nsec = |type_set: &RecordTypeSet,
+                                message_secure: &str,
+                                message_record_exists: &str,
+                                message_name_exists| {
+        if type_set.contains(query.query_type()) || type_set.contains(RecordType::CNAME) {
+            proof_log_yield(Proof::Bogus, query.name(), "nsec1", message_record_exists)
+        } else if response_code == ResponseCode::NoError {
+            proof_log_yield(Proof::Secure, query.name(), "nsec1", message_secure)
+        } else {
+            proof_log_yield(Proof::Bogus, query.name(), "nsec1", message_name_exists)
+        }
+    };
+
     // Look for an NSEC record that matches the query name first. If such a record exists, then the
     // query type and CNAME must mot be present at this name.
     if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
-        if nsec_data.type_set().contains(query.query_type())
-            || nsec_data.type_set().contains(RecordType::CNAME)
-        {
-            return proof_log_yield(
-                Proof::Bogus,
-                query.name(),
-                "nsec1",
-                "direct match, record should be present",
-            );
-        } else if response_code == ResponseCode::NoError {
-            return proof_log_yield(Proof::Secure, query.name(), "nsec1", "direct match");
-        } else {
-            return proof_log_yield(
-                Proof::Bogus,
-                query.name(),
-                "nsec1",
-                "nxdomain when direct match exists",
-            );
-        }
+        return handle_matching_nsec(
+            nsec_data.type_set(),
+            "direct match",
+            "direct match, record should be present",
+            "nxdomain when direct match exists",
+        );
     }
 
     if !soa_name.zone_of(query.name()) {
@@ -1440,24 +1440,12 @@ fn verify_nsec(
 
     if let Some((_, wildcard_nsec_data)) = nsecs.iter().find(|(name, _)| &wildcard_name == *name) {
         // Wildcard NSEC exists.
-        let type_set = wildcard_nsec_data.type_set();
-        if type_set.contains(query.query_type()) || type_set.contains(RecordType::CNAME) {
-            return proof_log_yield(
-                Proof::Bogus,
-                query.name(),
-                "nsec1",
-                "wildcard match, record should be present",
-            );
-        } else if response_code == ResponseCode::NoError {
-            return proof_log_yield(Proof::Secure, query.name(), "nsec1", "wildcard match");
-        } else {
-            return proof_log_yield(
-                Proof::Bogus,
-                query.name(),
-                "nsec1",
-                "nxdomain when wildcard match exists",
-            );
-        }
+        return handle_matching_nsec(
+            wildcard_nsec_data.type_set(),
+            "wildcard match",
+            "wildcard match, record should be present",
+            "nxdomain when wildcard match exists",
+        );
     }
 
     if find_nsec_covering_record(soa_name, &wildcard_name, nsecs).is_some() {
