@@ -508,14 +508,14 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
             };
 
             // Determine protocol and extract port information
-            let (protocol, src_port, dst_port) = if let Some(udp) = udp {
-                (Protocol::Udp, udp.src_port, udp.dst_port)
-            } else if let Some(tcp) = tcp {
-                (Protocol::Tcp, tcp.src_port, tcp.dst_port)
-            } else {
-                return Err(A::Error::custom(
-                    "packet has DNS data but no UDP or TCP layer",
-                ));
+            let (protocol, src_port, dst_port) = match (udp, tcp) {
+                (Some(udp), None) => (Protocol::Udp, udp.src_port, udp.dst_port),
+                (None, Some(tcp)) => (Protocol::Tcp, tcp.src_port, tcp.dst_port),
+                _ => {
+                    return Err(A::Error::custom(
+                        "packet has DNS data with missing or conflicting UDP/TCP layers",
+                    ));
+                }
             };
 
             let direction = if ip.dst == self.own_addr {
