@@ -54,6 +54,94 @@ pub struct Tshark {
     wait_capture_count_watermark: usize,
 }
 
+impl Tshark {
+    /// Spawn a Tshark instance for the given container capturing plaintext UDP DNS traffic.
+    pub fn new(container: &Container) -> Result<Self> {
+        Self::builder().build(container)
+    }
+
+    /// Construct a TsharkBuilder that can build a customized Tshark instance.
+    pub fn builder() -> TsharkBuilder {
+        TsharkBuilder::default()
+    }
+
+    /// Waits until the captured packets satisfy some condition.
+    pub fn wait_until(
+        &mut self,
+        condition: impl Fn(&[Capture]) -> bool,
+        timeout: Duration,
+    ) -> Result<()> {
+        let deadline = Instant::now() + timeout;
+        while !condition(&self.captures) {
+            let recv_timeout = deadline
+                .checked_duration_since(Instant::now())
+                .unwrap_or_default();
+            match self.receiver.recv_timeout(recv_timeout) {
+                Ok(capture) => self.captures.push(capture),
+                Err(RecvTimeoutError::Timeout) => return Err("timed out waiting for packet".into()),
+                Err(RecvTimeoutError::Disconnected) => return Err("unexpected EOF".into()),
+            }
+        }
+        Ok(())
+    }
+
+    /// Blocks until `tshark` reports that it has captured new DNS messages.
+    ///
+    /// This method returns the number of newly captured messages.
+    ///
+    /// Consider using [`Self::wait_until`] instead, and waiting for packets with specific
+    /// properties.
+    pub fn wait_for_capture(&mut self) -> Result<usize> {
+        let old_watermark = self.wait_capture_count_watermark;
+        if self.captures.len() <= old_watermark {
+            // Block until we receive a new packet.
+            match self.receiver.recv() {
+                Ok(capture) => self.captures.push(capture),
+                Err(_) => return Err("unexpected EOF".into()),
+            }
+        }
+        // If there are more packets ready in the channel, move them into the vector.
+        while let Ok(capture) = self.receiver.try_recv() {
+            self.captures.push(capture);
+        }
+
+        let new_watermark = self.captures.len();
+        self.wait_capture_count_watermark = new_watermark;
+        Ok(new_watermark - old_watermark)
+    }
+
+    pub fn terminate(mut self) -> Result<Vec<Capture>> {
+        let pidfile = pid_file(self.id);
+        let kill = format!("test -f {pidfile} || sleep 1; kill $(cat {pidfile})");
+
+        self.container.status_ok(&["sh", "-c", &kill])?;
+
+        // wait until tshark exits and closes stdout (and stderr)
+        let output = self.child.wait()?;
+        if !output.status.success() {
+            let stderr_output = self
+                .stderr_handle
+                .join()
+                .map_err(|_| "stderr thread panicked")??;
+
+            return Err(format!("the `tshark` process failed\n{stderr_output}").into());
+        }
+
+        self.stdout_handle
+            .join()
+            .map_err(|_| "stdout thread panicked")?
+            .map_err(|e| e.to_string())?;
+
+        // Read from the channel until it produces `Err(RecvError)` due to the other thread hanging
+        // up.
+        while let Ok(capture) = self.receiver.recv() {
+            self.captures.push(capture);
+        }
+
+        Ok(self.captures)
+    }
+}
+
 pub struct TsharkBuilder {
     filters: Vec<ProtocolFilter>,
     ssl_keylog_file: Option<String>,
@@ -153,6 +241,15 @@ exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '{protocol_filter}'"
     }
 }
 
+impl Default for TsharkBuilder {
+    fn default() -> Self {
+        Self {
+            filters: vec![ProtocolFilter::default()],
+            ssl_keylog_file: None,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct ProtocolFilter {
     port: u16,
@@ -177,103 +274,6 @@ impl Default for ProtocolFilter {
             port: DNS_PORT,
             protocol: Protocol::Udp,
         }
-    }
-}
-
-impl Default for TsharkBuilder {
-    fn default() -> Self {
-        Self {
-            filters: vec![ProtocolFilter::default()],
-            ssl_keylog_file: None,
-        }
-    }
-}
-
-impl Tshark {
-    /// Spawn a Tshark instance for the given container capturing plaintext UDP DNS traffic.
-    pub fn new(container: &Container) -> Result<Self> {
-        Self::builder().build(container)
-    }
-
-    /// Construct a TsharkBuilder that can build a customized Tshark instance.
-    pub fn builder() -> TsharkBuilder {
-        TsharkBuilder::default()
-    }
-
-    /// Waits until the captured packets satisfy some condition.
-    pub fn wait_until(
-        &mut self,
-        condition: impl Fn(&[Capture]) -> bool,
-        timeout: Duration,
-    ) -> Result<()> {
-        let deadline = Instant::now() + timeout;
-        while !condition(&self.captures) {
-            let recv_timeout = deadline
-                .checked_duration_since(Instant::now())
-                .unwrap_or_default();
-            match self.receiver.recv_timeout(recv_timeout) {
-                Ok(capture) => self.captures.push(capture),
-                Err(RecvTimeoutError::Timeout) => return Err("timed out waiting for packet".into()),
-                Err(RecvTimeoutError::Disconnected) => return Err("unexpected EOF".into()),
-            }
-        }
-        Ok(())
-    }
-
-    /// Blocks until `tshark` reports that it has captured new DNS messages.
-    ///
-    /// This method returns the number of newly captured messages.
-    ///
-    /// Consider using [`Self::wait_until`] instead, and waiting for packets with specific
-    /// properties.
-    pub fn wait_for_capture(&mut self) -> Result<usize> {
-        let old_watermark = self.wait_capture_count_watermark;
-        if self.captures.len() <= old_watermark {
-            // Block until we receive a new packet.
-            match self.receiver.recv() {
-                Ok(capture) => self.captures.push(capture),
-                Err(_) => return Err("unexpected EOF".into()),
-            }
-        }
-        // If there are more packets ready in the channel, move them into the vector.
-        while let Ok(capture) = self.receiver.try_recv() {
-            self.captures.push(capture);
-        }
-
-        let new_watermark = self.captures.len();
-        self.wait_capture_count_watermark = new_watermark;
-        Ok(new_watermark - old_watermark)
-    }
-
-    pub fn terminate(mut self) -> Result<Vec<Capture>> {
-        let pidfile = pid_file(self.id);
-        let kill = format!("test -f {pidfile} || sleep 1; kill $(cat {pidfile})");
-
-        self.container.status_ok(&["sh", "-c", &kill])?;
-
-        // wait until tshark exits and closes stdout (and stderr)
-        let output = self.child.wait()?;
-        if !output.status.success() {
-            let stderr_output = self
-                .stderr_handle
-                .join()
-                .map_err(|_| "stderr thread panicked")??;
-
-            return Err(format!("the `tshark` process failed\n{stderr_output}").into());
-        }
-
-        self.stdout_handle
-            .join()
-            .map_err(|_| "stdout thread panicked")?
-            .map_err(|e| e.to_string())?;
-
-        // Read from the channel until it produces `Err(RecvError)` due to the other thread hanging
-        // up.
-        while let Ok(capture) = self.receiver.recv() {
-            self.captures.push(capture);
-        }
-
-        Ok(self.captures)
     }
 }
 
