@@ -68,7 +68,7 @@ impl TsharkBuilder {
         self
     }
 
-    /// Set the SSL_KEYLOG_FIE path to use to decrypt encrypted traffic.
+    /// Set the `SSLKEYLOGFILE` path to use to decrypt encrypted traffic.
     pub fn ssl_keylog_file(mut self, path: impl Into<String>) -> Self {
         self.ssl_keylog_file = Some(path.into());
         self
