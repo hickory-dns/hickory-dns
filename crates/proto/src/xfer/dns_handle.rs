@@ -8,19 +8,15 @@
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 
 use futures_util::stream::Stream;
-#[cfg(any(feature = "std", feature = "no-std-rand"))]
 use tracing::debug;
 
 use crate::error::*;
-use crate::op::Query;
-#[cfg(any(feature = "std", feature = "no-std-rand"))]
-use crate::op::{Edns, Message};
+use crate::op::{Edns, Message, Query};
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
 // https://dnsflagday.net/2020/
-#[cfg(any(feature = "std", feature = "no-std-rand"))]
 const MAX_PAYLOAD_LEN: u16 = 1232;
 
 /// Implementations of Sinks for sending DNS messages
@@ -63,26 +59,12 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     ///
     /// * `query` - the query to lookup
     /// * `options` - options to use when constructing the message
-    #[cfg(any(feature = "std", feature = "no-std-rand"))]
     fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
         self.send(build_request(query, options))
     }
-
-    /// A *classic* DNS query
-    ///
-    /// This is identical to `query`, but instead takes a `Query` object.
-    ///
-    /// # Arguments
-    ///
-    /// * `query` - the query to lookup
-    /// * `options` - options to use when constructing the message
-    #[cfg(not(any(feature = "std", feature = "no-std-rand")))]
-    fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response;
 }
 
-#[cfg_attr(not(any(feature = "std", feature = "no-std-rand")), expect(unused_mut))]
-#[cfg(any(feature = "std", feature = "no-std-rand"))]
 fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
     // build the message
     let mut message = Message::query();
