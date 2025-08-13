@@ -1,7 +1,7 @@
 //! `tshark` JSON output parser
 
 use core::result::Result as CoreResult;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::io::{self, BufRead, BufReader};
 use std::net::Ipv4Addr;
 use std::sync::atomic::{self, AtomicUsize};
@@ -167,20 +167,16 @@ impl TsharkBuilder {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
         let pidfile = pid_file(id);
 
-        let mut filter_parts = self
-            .filters
-            .into_iter()
-            .map(|filter| match filter.protocol {
-                Protocol::Udp => format!("udp port {}", filter.port),
-                Protocol::Tcp => format!("tcp port {}", filter.port),
-            })
-            .collect::<Vec<_>>();
-
-        let protocol_filter = if filter_parts.len() == 1 {
-            filter_parts.pop().unwrap()
-        } else {
-            format!("({})", filter_parts.join(" or "))
-        };
+        let mut protocol_filter = String::new();
+        for filter in self.filters {
+            if !protocol_filter.is_empty() {
+                protocol_filter.push_str(" or ");
+            }
+            match filter.protocol {
+                Protocol::Udp => write!(protocol_filter, "udp port {}", filter.port)?,
+                Protocol::Tcp => write!(protocol_filter, "tcp port {}", filter.port)?,
+            }
+        }
 
         let ssl_keylog_arg = self
             .ssl_keylog_file
@@ -189,7 +185,7 @@ impl TsharkBuilder {
 
         let tshark = format!(
             "echo $$ > {pidfile}
-exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '{protocol_filter}'"
+exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '({protocol_filter})'"
         );
         let mut child = container.spawn(&["sh", "-c", &tshark])?;
 
