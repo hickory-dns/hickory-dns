@@ -34,30 +34,35 @@ use crate::runtime::Time;
 #[cfg(feature = "std")]
 mod dns_exchange;
 #[cfg(feature = "std")]
-pub mod dns_handle;
-#[cfg(feature = "std")]
-pub mod dns_multiplexer;
-pub mod dns_request;
-pub mod dns_response;
-#[cfg(feature = "std")]
-pub mod retry_dns_handle;
-mod serial_message;
-
-#[cfg(feature = "std")]
-pub use self::dns_exchange::{
+pub use dns_exchange::{
     Connecting, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
+
 #[cfg(feature = "std")]
-pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
+pub mod dns_handle;
 #[cfg(feature = "std")]
-pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
-pub use self::dns_request::{DnsRequest, DnsRequestOptions};
-pub use self::dns_response::DnsResponse;
+pub use dns_handle::{DnsHandle, DnsStreamHandle};
+
 #[cfg(feature = "std")]
-pub use self::dns_response::DnsResponseStream;
+pub mod dns_multiplexer;
 #[cfg(feature = "std")]
-pub use self::retry_dns_handle::RetryDnsHandle;
-pub use self::serial_message::SerialMessage;
+pub use dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
+
+pub mod dns_request;
+pub use dns_request::{DnsRequest, DnsRequestOptions};
+
+pub mod dns_response;
+pub use dns_response::DnsResponse;
+#[cfg(feature = "std")]
+pub use dns_response::DnsResponseStream;
+
+#[cfg(feature = "std")]
+pub mod retry_dns_handle;
+#[cfg(feature = "std")]
+pub use retry_dns_handle::RetryDnsHandle;
+
+mod serial_message;
+pub use serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors
 #[cfg(feature = "std")]
