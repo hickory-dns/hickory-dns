@@ -115,12 +115,7 @@ pub(super) fn verify_nsec3(
 
     // Some of record names were NOT in a form of `<base32hash>.soa.name`
     let Some(nsec3s) = nsec3s else {
-        return proof_log_yield(
-            Proof::Bogus,
-            query,
-            "nsec3",
-            "record name format is invalid",
-        );
+        return nsec3_yield(Proof::Bogus, query, "record name format is invalid");
     };
 
     debug_assert!(!nsec3s.is_empty());
@@ -135,7 +130,7 @@ pub(super) fn verify_nsec3(
             || r.nsec3_data.salt() != salt
             || r.nsec3_data.iterations() != iterations
     }) {
-        return proof_log_yield(Proof::Bogus, query, "nsec3", "parameter mismatch");
+        return nsec3_yield(Proof::Bogus, query, "parameter mismatch");
     }
 
     // Protect against high iteration counts by returning Proof::Bogus (triggering a SERVFAIL
@@ -144,19 +139,17 @@ pub(super) fn verify_nsec3(
     //
     // [RFC 9276 3.2](https://www.rfc-editor.org/rfc/rfc9276.html#name-recommendation-for-validati).
     if iterations > nsec3_hard_iteration_limit {
-        return proof_log_yield(
+        return nsec3_yield(
             Proof::Bogus,
             query,
-            "nsec3",
             &format!(
                 "iteration count {iterations} is over {nsec3_hard_iteration_limit}; returning Proof::Bogus"
             ),
         );
     } else if iterations > nsec3_soft_iteration_limit {
-        return proof_log_yield(
+        return nsec3_yield(
             Proof::Insecure,
             query,
-            "nsec3",
             &format!(
                 "iteration count {iterations} is over {nsec3_soft_iteration_limit}; returning Proof::Insecure"
             ),
@@ -197,10 +190,9 @@ pub(super) fn verify_nsec3(
                 &nsec3s,
             )
         }
-        _ => proof_log_yield(
+        _ => nsec3_yield(
             Proof::Bogus,
             query,
-            "nsec3",
             &format!("unsupported response code ({response_code})")[..],
         ),
     }
@@ -311,10 +303,9 @@ fn validate_nxdomain_response(
         .iter()
         .any(|r| r.base32_hashed_name == base32_hashed_query_name)
     {
-        return proof_log_yield(
+        return nsec3_yield(
             Proof::Bogus,
             query,
-            "nsec3",
             "NXDomain response with record for query name",
         );
     }
@@ -323,7 +314,7 @@ fn validate_nxdomain_response(
         closest_encloser_proof(query.name(), soa_name, nsec3s);
 
     if let Some(proof) = early_proof {
-        return proof_log_yield(proof, query, "nsec3", "returning early proof");
+        return nsec3_yield(proof, query, "returning early proof");
     }
 
     // Note that the three fields may hold references to the same NSEC3
@@ -339,19 +330,16 @@ fn validate_nxdomain_response(
     match (closest_encloser, next_closer, closest_encloser_wildcard) {
         // Got all three components - we proved that there's no `query_name`
         // in the zone
-        (Some(_), Some(_), Some(_)) => {
-            proof_log_yield(Proof::Secure, query, "nsec3", "direct proof")
-        }
+        (Some(_), Some(_), Some(_)) => nsec3_yield(Proof::Secure, query, "direct proof"),
         // `query_name`'s parent is the `soa_name` itself, so there's no need
         // to send `soa_name`'s NSEC3 record. Still we have to show that
         // both `query_name` doesn't exist and there's no wildcard to service it
-        (None, Some(_), Some(_)) if &query.name().base_name() == soa_name => proof_log_yield(
+        (None, Some(_), Some(_)) if &query.name().base_name() == soa_name => nsec3_yield(
             Proof::Secure,
             query,
-            "nsec3",
             "no direct or wildcard proof, but parent name of query is SOA",
         ),
-        _ => proof_log_yield(Proof::Bogus, query, "nsec3", "no proof of non-existence"),
+        _ => nsec3_yield(Proof::Bogus, query, "no proof of non-existence"),
     }
 }
 
@@ -599,17 +587,15 @@ fn validate_nodata_response(
                 .type_set()
                 .contains(RecordType::CNAME)
         {
-            return proof_log_yield(
+            return nsec3_yield(
                 Proof::Bogus,
                 query,
-                "nsec3",
                 &format!("nsec3 type map covers {query_type} or CNAME")[..],
             );
         } else {
-            return proof_log_yield(
+            return nsec3_yield(
                 Proof::Secure,
                 query,
-                "nsec3",
                 &format!("type map does not cover {query_type} or CNAME")[..],
             );
         }
@@ -661,12 +647,7 @@ fn validate_nodata_response(
         && find_covering_record(nsec3s, &hashed_query_name, &base32_hashed_query_name)
             .is_some_and(|x| x.nsec3_data.opt_out())
     {
-        return proof_log_yield(
-            Proof::Secure,
-            query,
-            "nsec3",
-            "DS query covered by opt-out proof",
-        );
+        return nsec3_yield(Proof::Secure, query, "DS query covered by opt-out proof");
     }
 
     let (proof, reason) = match wildcard_encloser_num_labels {
@@ -674,10 +655,9 @@ fn validate_nodata_response(
         // Name is serviced by wildcard that has a record of this type
         Some(wildcard_encloser_num_labels) => {
             if query.name().num_labels() <= wildcard_encloser_num_labels {
-                return proof_log_yield(
+                return nsec3_yield(
                     Proof::Bogus,
                     query,
-                    "nsec3",
                     &format!(
                         "query labels ({}) <= wildcard encloser labels ({})",
                         query.name().num_labels(),
@@ -733,7 +713,7 @@ fn validate_nodata_response(
         }
     };
 
-    proof_log_yield(proof, query, "nsec3", reason)
+    nsec3_yield(proof, query, reason)
 }
 
 /// Expecting the following records:
@@ -845,4 +825,9 @@ fn wildcard_based_encloser_proof<'a>(
         next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
         closest_encloser_wildcard: wildcard_encloser,
     }
+}
+
+/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC3 validation.
+fn nsec3_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
+    proof_log_yield(proof, query, "nsec3", msg)
 }

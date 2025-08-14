@@ -1351,7 +1351,7 @@ fn verify_nsec(
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
     if response_code != ResponseCode::NXDomain && response_code != ResponseCode::NoError {
-        return proof_log_yield(Proof::Bogus, query, "nsec1", "unsupported response code");
+        return nsec1_yield(Proof::Bogus, query, "unsupported response code");
     }
 
     let handle_matching_nsec = |type_set: &RecordTypeSet,
@@ -1359,11 +1359,11 @@ fn verify_nsec(
                                 message_record_exists: &str,
                                 message_name_exists| {
         if type_set.contains(query.query_type()) || type_set.contains(RecordType::CNAME) {
-            proof_log_yield(Proof::Bogus, query, "nsec1", message_record_exists)
+            nsec1_yield(Proof::Bogus, query, message_record_exists)
         } else if response_code == ResponseCode::NoError {
-            proof_log_yield(Proof::Secure, query, "nsec1", message_secure)
+            nsec1_yield(Proof::Secure, query, message_secure)
         } else {
-            proof_log_yield(Proof::Bogus, query, "nsec1", message_name_exists)
+            nsec1_yield(Proof::Bogus, query, message_name_exists)
         }
     };
 
@@ -1379,21 +1379,15 @@ fn verify_nsec(
     }
 
     if !soa_name.zone_of(query.name()) {
-        return proof_log_yield(
-            Proof::Bogus,
-            query,
-            "nsec1",
-            "SOA record is for the wrong zone",
-        );
+        return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
     }
 
     let Some((covering_nsec_name, covering_nsec_data)) =
         find_nsec_covering_record(soa_name, query.name(), nsecs)
     else {
-        return proof_log_yield(
+        return nsec1_yield(
             Proof::Bogus,
             query,
-            "nsec1",
             "no NSEC record matches or covers the query name",
         );
     };
@@ -1424,10 +1418,9 @@ fn verify_nsec(
         // wildcard name we are trying to construct, because we removed at least one label from the
         // query name, and tried to add a single-byte label. This error condition should thus be
         // unreachable.
-        return proof_log_yield(
+        return nsec1_yield(
             Proof::Bogus,
             query,
-            "nsec1",
             "unreachable error constructing wildcard name",
         );
     };
@@ -1446,21 +1439,15 @@ fn verify_nsec(
     if find_nsec_covering_record(soa_name, &wildcard_name, nsecs).is_some() {
         // Covering NSEC records exist for both the query name and the wildcard name.
         if response_code == ResponseCode::NXDomain {
-            return proof_log_yield(
-                Proof::Secure,
-                query,
-                "nsec1",
-                "no direct match, no wildcard",
-            );
+            return nsec1_yield(Proof::Secure, query, "no direct match, no wildcard");
         } else {
-            return proof_log_yield(Proof::Bogus, query, "nsec1", "expected NXDOMAIN");
+            return nsec1_yield(Proof::Bogus, query, "expected NXDOMAIN");
         }
     }
 
-    proof_log_yield(
+    nsec1_yield(
         Proof::Bogus,
         query,
-        "nsec1",
         "no NSEC record matches or covers the wildcard name",
     )
 }
@@ -1494,6 +1481,11 @@ fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: &str) -> P
         name = query.name()
     );
     proof
+}
+
+/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
+fn nsec1_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
+    proof_log_yield(proof, query, "nsec1", msg)
 }
 
 mod rrset {
