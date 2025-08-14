@@ -103,6 +103,7 @@ impl<P: ConnectionProvider> NameServer<P> {
 
 impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Runtime = P::RuntimeProvider;
 
     fn is_verifying_dnssec(&self) -> bool {
         #[cfg(feature = "__dnssec")]

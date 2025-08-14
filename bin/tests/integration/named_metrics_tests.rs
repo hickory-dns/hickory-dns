@@ -607,7 +607,7 @@ fn test_updates() {
 async fn create_local_client(
     socket_ports: &SocketPorts,
     signer: Option<Arc<dyn MessageSigner>>,
-) -> Client {
+) -> Client<TokioRuntimeProvider> {
     let dns_port = socket_ports.get_v4(ServerProtocol::Dns(Protocol::Tcp));
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, dns_port.expect("no dns tcp port")));
 
@@ -715,7 +715,7 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
 }
 
 async fn retry_client_lookup(
-    client: &mut Client,
+    client: &mut Client<TokioRuntimeProvider>,
     name: Name,
     class: DNSClass,
     rtype: RecordType,

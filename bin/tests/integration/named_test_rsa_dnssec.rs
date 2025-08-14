@@ -12,7 +12,7 @@ use crate::server_harness::{named_test_harness, query_a, query_all_dnssec};
 use hickory_client::client::Client;
 use hickory_dns::dnssec::key_from_file;
 use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchors};
-use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider, TokioTime};
+use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
 use test_support::subscribe;
@@ -35,12 +35,12 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     port: u16,
     provider: P,
 ) -> (
-    Client,
-    DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>>, TokioTime>,
+    Client<P>,
+    DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>>, P::Timer>,
 ) {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
     let (stream, sender) = TcpClientStream::new(addr, None, None, provider);
-    Client::new(stream, sender, None)
+    Client::<P>::new(stream, sender, None)
         .await
         .expect("new Client failed")
 }

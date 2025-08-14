@@ -68,7 +68,7 @@ pub struct ConnectionFuture<R: RuntimeProvider> {
 }
 
 impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
-    type Output = Result<DnsExchange, ProtoError>;
+    type Output = Result<DnsExchange<R>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
@@ -112,7 +112,7 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
 }
 
 impl<P: RuntimeProvider> ConnectionProvider for P {
-    type Conn = DnsExchange;
+    type Conn = DnsExchange<P>;
     type FutureConn = ConnectionFuture<P>;
     type RuntimeProvider = P;
 

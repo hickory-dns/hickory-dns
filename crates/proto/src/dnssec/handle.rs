@@ -894,6 +894,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Runtime = H::Runtime;
 
     fn is_verifying_dnssec(&self) -> bool {
         // This handler is always verifying...

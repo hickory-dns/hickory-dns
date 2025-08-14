@@ -23,7 +23,7 @@ use hickory_proto::{
     ProtoError, ProtoErrorKind,
     op::{Edns, Message, MessageSigner, OpCode, Query, update_message},
     rr::{DNSClass, Name, Record, RecordSet, RecordType, rdata::SOA},
-    runtime::TokioTime,
+    runtime::RuntimeProvider,
     xfer::{
         BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
         DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
@@ -35,12 +35,12 @@ use hickory_proto::{
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[derive(Clone)]
-pub struct Client {
-    exchange: DnsExchange,
+pub struct Client<P> {
+    exchange: DnsExchange<P>,
     use_edns: bool,
 }
 
-impl Client {
+impl<P: RuntimeProvider> Client<P> {
     /// Spawns a new Client Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -53,7 +53,7 @@ impl Client {
         stream: F,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), ProtoError>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
         S: DnsClientStream + 'static + Unpin,
@@ -76,7 +76,7 @@ impl Client {
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), ProtoError>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
         S: DnsClientStream + 'static + Unpin,
@@ -96,7 +96,7 @@ impl Client {
     ///  If it is None, then another thread has already run the background.
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<S, P::Timer>), ProtoError>
     where
         S: DnsRequestSender,
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
@@ -117,8 +117,9 @@ impl Client {
     }
 }
 
-impl DnsHandle for Client {
-    type Response = DnsExchangeSend;
+impl<P: RuntimeProvider> DnsHandle for Client<P> {
+    type Response = DnsExchangeSend<P>;
+    type Runtime = P;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         self.exchange.send(request)
@@ -1076,7 +1077,7 @@ mod tests {
         //   the client is a handle to an unbounded queue for sending requests via the
         //   background. The background must be scheduled to run before the client can
         //   send any dns requests
-        let client = Client::new(stream, sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
         // await the connection to be established
         let (mut client, bg) = client.await.expect("connection failed");

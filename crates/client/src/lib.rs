@@ -105,7 +105,7 @@
 //!     //   the client is a handle to an unbounded queue for sending requests via the
 //!     //   background. The background must be scheduled to run before the client can
 //!     //   send any dns requests
-//!     let client = Client::new(stream, sender, None);
+//!     let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 //!
 //!     // await the connection to be established
 //!     let (mut client, bg) = client.await.expect("connection failed");

@@ -193,7 +193,7 @@ where
 
 async fn with_nonet<F, Fut>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client<TokioRuntimeProvider>>>) -> Fut,
     Fut: Future<Output = ()>,
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -250,7 +250,7 @@ where
 
 async fn with_udp<F, Fut>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client<TokioRuntimeProvider>>>) -> Fut,
     Fut: Future<Output = ()>,
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -286,7 +286,7 @@ where
 
 async fn with_tcp<F, Fut>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client>>) -> Fut,
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client<TokioRuntimeProvider>>>) -> Fut,
     Fut: Future<Output = ()>,
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

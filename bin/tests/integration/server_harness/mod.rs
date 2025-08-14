@@ -20,14 +20,14 @@ use tracing::{info, warn};
 #[cfg(feature = "__dnssec")]
 use hickory_client::client::Client;
 use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse};
-#[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::Algorithm;
 use hickory_proto::{
     ProtoError,
     op::ResponseCode,
     rr::{DNSClass, Name, RData, RecordType, rdata::A},
     xfer::Protocol,
 };
+#[cfg(feature = "__dnssec")]
+use hickory_proto::{dnssec::Algorithm, runtime::TokioRuntimeProvider};
 
 #[derive(Debug, Default)]
 pub struct SocketPort {
@@ -304,7 +304,11 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
 #[cfg(feature = "__dnssec")]
-pub fn query_all_dnssec(io_loop: &mut Runtime, client: Client, algorithm: Algorithm) {
+pub fn query_all_dnssec(
+    io_loop: &mut Runtime,
+    client: Client<TokioRuntimeProvider>,
+    algorithm: Algorithm,
+) {
     use hickory_proto::{
         dnssec::{
             PublicKey,
