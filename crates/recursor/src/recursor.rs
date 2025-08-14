@@ -561,6 +561,7 @@ mod for_dnssec {
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
+        type Runtime = P::RuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
             let query = if let OpCode::Query = request.op_code() {

@@ -247,14 +247,14 @@ async fn test_server_www_tls() {
     server.await.unwrap();
 }
 
-async fn lazy_udp_client(addr: SocketAddr) -> Client {
+async fn lazy_udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
     let (client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
     client
 }
 
-async fn lazy_tcp_client(addr: SocketAddr) -> Client {
+async fn lazy_tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
     let (client, driver) = Client::connect(multiplexer)
@@ -274,7 +274,7 @@ async fn lazy_tls_client(
     ipaddr: SocketAddr,
     server_name: &str,
     cert_chain: Vec<CertificateDer<'static>>,
-) -> Client {
+) -> Client<TokioRuntimeProvider> {
     let mut root_store = RootCertStore::empty();
     let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
@@ -305,7 +305,7 @@ async fn lazy_tls_client(
     client
 }
 
-async fn client_thread_www(future: impl Future<Output = Client>) {
+async fn client_thread_www(future: impl Future<Output = Client<TokioRuntimeProvider>>) {
     let name = Name::from_str("www.example.com.").unwrap();
 
     let mut client = future.await;

@@ -69,7 +69,7 @@ impl TestClientConnection {
     }
 }
 
-async fn udp_client(addr: SocketAddr) -> Client {
+async fn udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
     let (client, driver) = Client::connect(conn).await.expect("failed to connect");
     tokio::spawn(driver);
@@ -86,7 +86,7 @@ async fn udp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     client
 }
 
-async fn tcp_client(addr: SocketAddr) -> Client {
+async fn tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
     let (client, driver) = Client::connect(multiplexer)
@@ -130,7 +130,7 @@ async fn test_query_tcp() {
     test_query(client).await;
 }
 
-async fn test_query(mut client: Client) {
+async fn test_query(mut client: Client<TokioRuntimeProvider>) {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     let response = client
@@ -160,7 +160,7 @@ async fn test_query(mut client: Client) {
     }
 }
 
-async fn test_query_edns(client: Client) {
+async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
     let name = Name::from_ascii("WWW.example.com.").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
@@ -256,7 +256,7 @@ async fn test_secure_query_example(mut client: DnssecClient) {
     assert!(!response.answers().is_empty());
 }
 
-async fn test_timeout_query(mut client: Client) {
+async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     let response = client.query(name, DNSClass::IN, RecordType::A).await;
@@ -288,7 +288,7 @@ async fn test_timeout_query_tcp() {
     );
 
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    match Client::connect(multiplexer).await {
+    match Client::<TokioRuntimeProvider>::connect(multiplexer).await {
         Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => {}
         _ => panic!("expected timeout"),
     }
@@ -423,7 +423,7 @@ async fn test_nsec3_no_data() {
 
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, Name) {
+async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
     use hickory_server::store::sqlite::SqliteAuthority;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 

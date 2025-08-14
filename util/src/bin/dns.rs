@@ -435,12 +435,15 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn udp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
+async fn udp<P: RuntimeProvider>(
+    opts: Opts,
+    provider: P,
+) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
     println!("; using udp:{nameserver}");
     let stream = UdpClientStream::builder(nameserver, provider).build();
-    let (client, bg) = Client::connect(stream).await?;
+    let (client, bg) = Client::<P>::connect(stream).await?;
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
@@ -448,12 +451,15 @@ async fn udp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     Ok(())
 }
 
-async fn tcp(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
+async fn tcp<P: RuntimeProvider>(
+    opts: Opts,
+    provider: P,
+) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
 
     println!("; using tcp:{nameserver}");
     let (stream, sender) = TcpClientStream::new(nameserver, None, None, provider);
-    let client = Client::new(stream, sender, None);
+    let client = Client::<P>::new(stream, sender, None);
     let (client, bg) = client.await?;
 
     let handle = tokio::spawn(bg);
@@ -472,7 +478,10 @@ async fn tls(
 }
 
 #[cfg(feature = "__tls")]
-async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn std::error::Error>> {
+async fn tls<P: RuntimeProvider>(
+    opts: Opts,
+    provider: P,
+) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
     let alpn = opts.alpn.map(String::into_bytes);
     let dns_name = opts
@@ -492,7 +501,7 @@ async fn tls(opts: Opts, provider: impl RuntimeProvider) -> Result<(), Box<dyn s
     let server_name =
         ServerName::try_from(dns_name).expect("failed to parse tls_dns_name as ServerName");
     let (stream, sender) = tls_client_connect(nameserver, server_name, config, provider);
-    let (client, bg) = Client::new(stream, sender, None).await?;
+    let (client, bg) = Client::<P>::new(stream, sender, None).await?;
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
@@ -510,9 +519,9 @@ async fn https(
 }
 
 #[cfg(feature = "__https")]
-async fn https(
+async fn https<P: RuntimeProvider>(
     opts: Opts,
-    provider: impl RuntimeProvider,
+    provider: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use hickory_proto::h2::HttpsClientStreamBuilder;
 
@@ -537,7 +546,7 @@ async fn https(
     let config = Arc::new(config);
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
-    let (client, bg) = Client::connect(https_builder.build(
+    let (client, bg) = Client::<P>::connect(https_builder.build(
         nameserver,
         Arc::from(dns_name),
         Arc::from(http_endpoint),
@@ -576,7 +585,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::connect(
+    let (client, bg) = Client::<TokioRuntimeProvider>::connect(
         QuicClientStream::builder()
             .crypto_config(config)
             .build(nameserver, Arc::from(dns_name)),
@@ -618,11 +627,13 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::connect(H3ClientStream::builder().crypto_config(config).build(
-        nameserver,
-        Arc::from(dns_name),
-        Arc::from(http_endpoint),
-    ))
+    let (client, bg) = Client::<TokioRuntimeProvider>::connect(
+        H3ClientStream::builder().crypto_config(config).build(
+            nameserver,
+            Arc::from(dns_name),
+            Arc::from(http_endpoint),
+        ),
+    )
     .await?;
 
     let handle = tokio::spawn(bg);

@@ -257,7 +257,7 @@ async fn no_synthesis_5() {
 /// subdel.example.          3600     NS    ns.example.com.
 /// subdel.example.          3600     NS    ns.example.net.
 /// ```
-async fn setup() -> (Client, Server<Catalog>) {
+async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     // Zone setup
     let origin = Name::parse("example.", None).unwrap();
 

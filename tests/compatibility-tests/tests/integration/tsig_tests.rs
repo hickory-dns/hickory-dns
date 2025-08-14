@@ -53,7 +53,9 @@ async fn test_create() {
     let stream = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(signer()))
         .build();
-    let (mut client, driver) = Client::connect(stream).await.expect("failed to connect");
+    let (mut client, driver) = Client::<TokioRuntimeProvider>::connect(stream)
+        .await
+        .expect("failed to connect");
     tokio::spawn(driver);
 
     // create a record
@@ -106,7 +108,7 @@ async fn test_tsig_zone_transfer() {
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(stream, sender, Some(signer()));
 
-    let (mut client, driver) = Client::connect(multiplexer)
+    let (mut client, driver) = Client::<TokioRuntimeProvider>::connect(multiplexer)
         .await
         .expect("failed to connect");
     tokio::spawn(driver);

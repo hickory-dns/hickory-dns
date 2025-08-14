@@ -81,6 +81,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
 impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Runtime = P::RuntimeProvider;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         let state = self.state.clone();

@@ -183,6 +183,7 @@ impl<O: OnSend> MockClientHandle<O> {
 
 impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Runtime = MockRuntimeProvider;
 
     fn send(&self, _: DnsRequest) -> Self::Response {
         let mut messages = self.messages.lock().expect("failed to lock at messages");

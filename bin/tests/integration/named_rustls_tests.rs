@@ -66,7 +66,7 @@ fn test_example_tls_toml_startup() {
                 config.clone(),
                 provider.clone(),
             );
-            let client = Client::new(stream, sender, None);
+            let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
             hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -81,7 +81,7 @@ fn test_example_tls_toml_startup() {
                 config,
                 provider,
             );
-            let client = Client::new(stream, sender, None);
+            let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
             hickory_proto::runtime::spawn_bg(&io_loop, bg);
