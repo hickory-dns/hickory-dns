@@ -1351,12 +1351,7 @@ fn verify_nsec(
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
     if response_code != ResponseCode::NXDomain && response_code != ResponseCode::NoError {
-        return proof_log_yield(
-            Proof::Bogus,
-            query.name(),
-            "nsec1",
-            "unsupported response code",
-        );
+        return proof_log_yield(Proof::Bogus, query, "nsec1", "unsupported response code");
     }
 
     let handle_matching_nsec = |type_set: &RecordTypeSet,
@@ -1364,11 +1359,11 @@ fn verify_nsec(
                                 message_record_exists: &str,
                                 message_name_exists| {
         if type_set.contains(query.query_type()) || type_set.contains(RecordType::CNAME) {
-            proof_log_yield(Proof::Bogus, query.name(), "nsec1", message_record_exists)
+            proof_log_yield(Proof::Bogus, query, "nsec1", message_record_exists)
         } else if response_code == ResponseCode::NoError {
-            proof_log_yield(Proof::Secure, query.name(), "nsec1", message_secure)
+            proof_log_yield(Proof::Secure, query, "nsec1", message_secure)
         } else {
-            proof_log_yield(Proof::Bogus, query.name(), "nsec1", message_name_exists)
+            proof_log_yield(Proof::Bogus, query, "nsec1", message_name_exists)
         }
     };
 
@@ -1386,7 +1381,7 @@ fn verify_nsec(
     if !soa_name.zone_of(query.name()) {
         return proof_log_yield(
             Proof::Bogus,
-            query.name(),
+            query,
             "nsec1",
             "SOA record is for the wrong zone",
         );
@@ -1397,7 +1392,7 @@ fn verify_nsec(
     else {
         return proof_log_yield(
             Proof::Bogus,
-            query.name(),
+            query,
             "nsec1",
             "no NSEC record matches or covers the query name",
         );
@@ -1431,7 +1426,7 @@ fn verify_nsec(
         // unreachable.
         return proof_log_yield(
             Proof::Bogus,
-            query.name(),
+            query,
             "nsec1",
             "unreachable error constructing wildcard name",
         );
@@ -1453,18 +1448,18 @@ fn verify_nsec(
         if response_code == ResponseCode::NXDomain {
             return proof_log_yield(
                 Proof::Secure,
-                query.name(),
+                query,
                 "nsec1",
                 "no direct match, no wildcard",
             );
         } else {
-            return proof_log_yield(Proof::Bogus, query.name(), "nsec1", "expected NXDOMAIN");
+            return proof_log_yield(Proof::Bogus, query, "nsec1", "expected NXDOMAIN");
         }
     }
 
     proof_log_yield(
         Proof::Bogus,
-        query.name(),
+        query,
         "nsec1",
         "no NSEC record matches or covers the wildcard name",
     )
@@ -1493,8 +1488,11 @@ fn current_time() -> u32 {
 }
 
 /// Logs a debug message and yields a Proof type for return
-fn proof_log_yield(proof: Proof, name: &Name, nsec_type: &str, msg: &str) -> Proof {
-    debug!("{nsec_type} proof for {name}, returning {proof}: {msg}");
+fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: &str) -> Proof {
+    debug!(
+        "{nsec_type} proof for {name}, returning {proof}: {msg}",
+        name = query.name()
+    );
     proof
 }
 
