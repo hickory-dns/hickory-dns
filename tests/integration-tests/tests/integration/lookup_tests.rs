@@ -7,7 +7,7 @@ use std::{
 use hickory_proto::{
     op::Query,
     rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
-    runtime::TokioTime,
+    runtime::TokioRuntimeProvider,
     xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
 };
 use hickory_resolver::{
@@ -31,7 +31,7 @@ async fn test_lookup() {
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
-    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
+    let client = DnsExchange::<TokioRuntimeProvider>::connect(dns_conn);
 
     let (client, bg) = client.await.expect("client failed to connect");
     tokio::spawn(bg);
@@ -60,7 +60,7 @@ async fn test_lookup_hosts() {
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
-    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
+    let client = DnsExchange::<TokioRuntimeProvider>::connect(dns_conn);
     let (client, bg) = client.await.expect("client connect failed");
     tokio::spawn(bg);
 
@@ -118,7 +118,7 @@ async fn test_lookup_ipv4_like() {
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
-    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
+    let client = DnsExchange::<TokioRuntimeProvider>::connect(dns_conn);
     let (client, bg) = client.await.expect("client connect failed");
     tokio::spawn(bg);
 
@@ -148,7 +148,7 @@ async fn test_lookup_ipv4_like_fall_through() {
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
 
-    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
+    let client = DnsExchange::<TokioRuntimeProvider>::connect(dns_conn);
     let (client, bg) = client.await.expect("client connect failed");
     tokio::spawn(bg);
 

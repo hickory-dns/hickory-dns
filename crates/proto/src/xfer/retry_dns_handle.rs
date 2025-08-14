@@ -50,6 +50,7 @@ impl<H> RetryDnsHandle<H> {
 
 impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+    type Runtime = H::Runtime;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         // need to clone here so that the retry can resend if necessary...
@@ -101,7 +102,7 @@ impl<H: DnsHandle> Stream for RetrySendStream<H> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio"))]
 mod test {
     use alloc::boxed::Box;
     use alloc::sync::Arc;
@@ -114,6 +115,7 @@ mod test {
     use super::*;
     use crate::error::ProtoError;
     use crate::op::Message;
+    use crate::runtime::TokioRuntimeProvider;
     use crate::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
     use test_support::subscribe;
 
@@ -126,6 +128,7 @@ mod test {
 
     impl DnsHandle for TestClient {
         type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+        type Runtime = TokioRuntimeProvider;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
             let i = self.attempts.load(Ordering::SeqCst);

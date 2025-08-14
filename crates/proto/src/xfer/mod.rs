@@ -8,6 +8,8 @@
 use core::fmt::Display;
 use core::fmt::{self, Debug};
 use core::future::Future;
+#[cfg(feature = "std")]
+use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
@@ -29,7 +31,7 @@ use tracing::{debug, warn};
 
 use crate::error::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "std")]
-use crate::runtime::Time;
+use crate::runtime::{RuntimeProvider, Time};
 
 #[cfg(feature = "std")]
 mod dns_exchange;
@@ -173,8 +175,9 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
 /// Used for associating a name_server to a DnsRequestStreamHandle
 #[derive(Clone)]
 #[cfg(feature = "std")]
-pub struct BufDnsRequestStreamHandle {
+pub struct BufDnsRequestStreamHandle<P> {
     sender: mpsc::Sender<OneshotDnsRequest>,
+    _phantom: PhantomData<P>,
 }
 
 #[cfg(feature = "std")]
@@ -193,8 +196,9 @@ macro_rules! try_oneshot {
 }
 
 #[cfg(feature = "std")]
-impl DnsHandle for BufDnsRequestStreamHandle {
+impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
     type Response = DnsResponseReceiver;
+    type Runtime = P;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         debug!(

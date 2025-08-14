@@ -10,9 +10,12 @@
 use futures_util::stream::Stream;
 use tracing::debug;
 
-use crate::error::*;
-use crate::op::{Edns, Message, Query};
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
+use crate::{
+    error::*,
+    op::{Edns, Message, Query},
+    runtime::RuntimeProvider,
+    xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage},
+};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
@@ -29,6 +32,9 @@ pub trait DnsStreamHandle: 'static + Send {
 pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// The associated response from the response stream, this should resolve to the Response messages
     type Response: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+
+    /// The asynchronous runtime in use.
+    type Runtime: RuntimeProvider;
 
     /// Only returns true if and only if this DNS handle is validating DNSSEC.
     ///

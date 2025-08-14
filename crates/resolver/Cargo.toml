@@ -89,6 +89,7 @@ ipconfig = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+hickory-proto = { workspace = true, features = ["tokio"] }
 serde_json = { workspace = true }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "test-util"] }

@@ -34,7 +34,9 @@ async fn test_truncation() {
 
     // Create the UDP client.
     let stream = UdpClientStream::builder(nameserver, TokioRuntimeProvider::new()).build();
-    let (client, bg) = Client::connect(stream).await.unwrap();
+    let (client, bg) = Client::<TokioRuntimeProvider>::connect(stream)
+        .await
+        .unwrap();
 
     // Run the client exchange in the background.
     tokio::spawn(bg);

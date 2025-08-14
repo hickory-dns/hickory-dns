@@ -52,7 +52,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
         let io_loop = Runtime::new().unwrap();
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
         let stream = UdpClientStream::builder(addr, provider.clone()).build();
-        let client = Client::connect(stream);
+        let client = Client::<TokioRuntimeProvider>::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
         io_loop.spawn(bg);
 
@@ -111,7 +111,7 @@ where
     S: DnsRequestSender,
 {
     let io_loop = Runtime::new().unwrap();
-    let client = Client::connect(stream);
+    let client = Client::<TokioRuntimeProvider>::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
     io_loop.spawn(bg);
 
