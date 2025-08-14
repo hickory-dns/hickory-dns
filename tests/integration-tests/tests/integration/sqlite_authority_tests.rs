@@ -21,6 +21,7 @@ use hickory_proto::op::{
 use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
+use hickory_proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 use hickory_proto::xfer::Protocol;
@@ -1402,7 +1403,8 @@ async fn test_journal() {
         Some(NxProofKind::Nsec),
     );
 
-    let mut recovered_authority = SqliteAuthority::new(in_memory, AxfrPolicy::Deny, false, false);
+    let mut recovered_authority =
+        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
     recovered_authority
         .recover_with_journal(
             authority
@@ -1465,7 +1467,8 @@ async fn test_recovery() {
         Some(NxProofKind::Nsec),
     );
 
-    let mut recovered_authority = SqliteAuthority::new(in_memory, AxfrPolicy::Deny, false, false);
+    let mut recovered_authority =
+        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
 
     recovered_authority
         .recover_with_journal(journal)

@@ -9,6 +9,7 @@ use core::pin::Pin;
 use core::time::Duration;
 use std::io;
 use std::net::SocketAddr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 #[cfg(any(test, feature = "tokio"))]
@@ -334,6 +335,16 @@ pub trait Time {
         duration: Duration,
         future: F,
     ) -> Result<F::Output, std::io::Error>;
+
+    /// Get the current time as a Unix timestamp.
+    ///
+    /// This returns the number of seconds since the Unix epoch.
+    fn current_time() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}

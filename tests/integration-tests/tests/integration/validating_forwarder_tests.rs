@@ -198,7 +198,7 @@ async fn setup_authoritative_server(
     // Zone setup
     let key = Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
     let public_key = key.to_public_key().unwrap();
-    let mut authority = InMemoryAuthority::empty(
+    let mut authority = InMemoryAuthority::<TokioRuntimeProvider>::empty(
         Name::root(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
