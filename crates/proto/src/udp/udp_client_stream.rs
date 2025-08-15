@@ -303,10 +303,15 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
         let request_target = msg.addr();
 
         // Comparing the IP and Port directly as internal information about the link is stored with the IpAddr, see https://github.com/hickory-dns/hickory-dns/issues/2081
-        if src.ip() != request_target.ip() || src.port() != request_target.port() {
+        if src.ip().to_canonical() != request_target.ip().to_canonical()
+            || src.port() != request_target.port()
+        {
             warn!(
-                "ignoring response from {} because it does not match name_server: {}.",
-                src, request_target,
+                "ignoring response from {}:{} because it does not match name_server: {}:{}.",
+                src.ip().to_canonical(),
+                src.port(),
+                request_target.ip().to_canonical(),
+                request_target.port(),
             );
 
             // await an answer from the correct NameServer
