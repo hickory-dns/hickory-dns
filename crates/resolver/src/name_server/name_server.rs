@@ -76,6 +76,15 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
     }
 
+    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
+    pub(super) fn send(
+        &self,
+        request: DnsRequest,
+    ) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>> {
+        let this = self.clone();
+        Box::pin(once(this.inner.send(request)))
+    }
+
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
@@ -98,29 +107,6 @@ impl<P: ConnectionProvider> NameServer<P> {
 
     pub(super) fn trust_negative_responses(&self) -> bool {
         self.inner.trust_negative_responses
-    }
-}
-
-impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
-    type Runtime = P::RuntimeProvider;
-
-    fn is_verifying_dnssec(&self) -> bool {
-        #[cfg(feature = "__dnssec")]
-        {
-            self.inner.options.validate
-        }
-        #[cfg(not(feature = "__dnssec"))]
-        {
-            false
-        }
-    }
-
-    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send(&self, request: DnsRequest) -> Self::Response {
-        let this = self.clone();
-        // if state is failed, return future::err(), unless retry delay expired..
-        Box::pin(once(this.inner.send(request)))
     }
 }
 
@@ -473,7 +459,7 @@ mod tests {
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, FirstAnswer};
+    use crate::proto::xfer::FirstAnswer;
 
     #[tokio::test]
     async fn test_name_server() {
@@ -491,10 +477,10 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
-            .lookup(
+            .send(DnsRequest::from_query(
                 Query::query(name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
-            )
+            ))
             .first_answer()
             .await
             .expect("query failed");
@@ -523,10 +509,10 @@ mod tests {
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
-                .lookup(
+                .send(DnsRequest::from_query(
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
-                )
+                ))
                 .first_answer()
                 .await
                 .is_err()
@@ -587,10 +573,10 @@ mod tests {
             provider,
         );
 
-        let stream = ns.lookup(
+        let stream = ns.send(DnsRequest::from_query(
             Query::query(name.clone(), RecordType::NULL),
             request_options,
-        );
+        ));
         let response = stream.first_answer().await.unwrap();
 
         let response_query_name = response.queries().first().unwrap().name();
