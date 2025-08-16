@@ -338,6 +338,7 @@ fn validate_nxdomain_response(
     }
 }
 
+#[derive(Default)]
 struct ClosestEncloserProofInfo<'a> {
     closest_encloser: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
     next_closer: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
@@ -403,11 +404,7 @@ impl<'a> ClosestEncloserProofInfo<'a> {
             });
 
         let Some((wildcard_encloser_name_info, _)) = &wildcard_encloser else {
-            return Self {
-                closest_encloser: None,
-                next_closer: None,
-                closest_encloser_wildcard: None,
-            };
+            return Self::default();
         };
 
         // Wildcard record exists. Within the wildcard there should be
