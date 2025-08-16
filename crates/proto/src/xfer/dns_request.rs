@@ -56,8 +56,9 @@ pub struct DnsRequest {
 }
 
 impl DnsRequest {
+    /// Build a new `DnsRequest` from a `Query` and `DnsRequestOptions`.
     #[cfg(feature = "std")]
-    pub(crate) fn from_query(mut query: Query, options: DnsRequestOptions) -> Self {
+    pub fn from_query(mut query: Query, options: DnsRequestOptions) -> Self {
         // build the message
         let mut message = Message::query();
         let mut original_query = None;
