@@ -159,6 +159,7 @@ pub(super) fn verify_nsec3(
         query,
         soa,
         nsec3s: &pairs,
+        hash_algorithm,
         salt,
         iterations,
     };
@@ -726,6 +727,7 @@ struct Context<'a> {
     query: &'a Query,
     soa: &'a Name,
     nsec3s: &'a [Nsec3RecordPair<'a>],
+    hash_algorithm: Nsec3HashAlgorithm,
     salt: &'a [u8],
     iterations: u16,
 }
@@ -733,7 +735,8 @@ struct Context<'a> {
 impl<'a> Context<'a> {
     /// Hashes a name and returns both both the hash digest and the base32-encoded form.
     fn hash_and_label(&self, name: &Name) -> (Vec<u8>, Label) {
-        let hash = Nsec3HashAlgorithm::SHA1
+        let hash = self
+            .hash_algorithm
             .hash(self.salt, name, self.iterations)
             // We only compute hashes of names between `query_name` and `soa_name`
             // and wildcards between `*.query_name.base_name()` and `*.soa_name`.
