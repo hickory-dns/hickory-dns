@@ -48,13 +48,12 @@ use crate::{
     authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
     proto::dnssec::{
-        DnsSecResult, SigSigner, Verifier,
+        DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
         rdata::{
             DNSSECRData,
             key::KEY,
             tsig::{TsigAlgorithm, TsigError},
         },
-        tsig::{TSigResponseContext, TSigner},
     },
     proto::op::MessageSignature,
 };

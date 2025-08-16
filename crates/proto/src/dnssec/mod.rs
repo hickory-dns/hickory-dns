@@ -36,10 +36,10 @@ mod ec_public_key;
 mod nsec3;
 pub use nsec3::Nsec3HashAlgorithm;
 
-pub mod proof;
+mod proof;
 pub use proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
 
-pub mod public_key;
+mod public_key;
 pub use public_key::{PublicKey, PublicKeyBuf};
 
 pub mod rdata;
@@ -53,13 +53,14 @@ pub use signer::SigSigner;
 mod supported_algorithm;
 pub use supported_algorithm::SupportedAlgorithms;
 
-pub mod tbs;
+mod tbs;
 pub use tbs::TBS;
 
 mod trust_anchor;
 pub use trust_anchor::TrustAnchors;
 
-pub mod tsig;
+mod tsig;
+pub use tsig::{TSigResponseContext, TSigner};
 
 mod verifier;
 pub use verifier::Verifier;

@@ -18,8 +18,8 @@ use futures::TryStreamExt;
 use time::Duration;
 
 use hickory_client::client::{Client, ClientHandle};
+use hickory_client::proto::dnssec::TSigner;
 use hickory_client::proto::dnssec::rdata::tsig::TsigAlgorithm;
-use hickory_client::proto::dnssec::tsig::TSigner;
 use hickory_client::proto::op::{MessageSigner, ResponseCode};
 use hickory_client::proto::rr::{Name, RData, Record, rdata::A};
 use hickory_client::proto::runtime::TokioRuntimeProvider;

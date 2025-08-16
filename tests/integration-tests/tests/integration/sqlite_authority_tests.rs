@@ -9,11 +9,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::*;
 
 #[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::TSigner;
+#[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::DNSSECRData;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::tsig::{TsigAlgorithm, TsigError};
-#[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::tsig::TSigner;
 use hickory_proto::op::{
     Edns, Header, LowerQuery, Message, MessageSignature, MessageSigner, MessageType, OpCode, Query,
     ResponseCode,
