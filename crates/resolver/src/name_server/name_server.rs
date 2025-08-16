@@ -92,7 +92,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     pub(super) fn decayed_srtt(&self) -> f64 {
-        self.inner.meta.decayed_srtt()
+        self.inner.meta.srtt.current()
     }
 
     pub(super) fn protocol(&self) -> Protocol {
@@ -168,17 +168,17 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 // record the failure
                 match error.kind() {
                     ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
-                        self.meta.record_connection_failure()
+                        self.meta.srtt.record_failure()
                     }
                     #[cfg(feature = "__quic")]
                     ProtoErrorKind::QuinnConfigError(_)
                     | ProtoErrorKind::QuinnConnect(_)
                     | ProtoErrorKind::QuinnConnection(_)
                     | ProtoErrorKind::QuinnTlsConfigError(_) => {
-                        self.meta.record_connection_failure()
+                        self.meta.srtt.record_failure()
                     }
                     #[cfg(feature = "__tls")]
-                    ProtoErrorKind::RustlsError(_) => self.meta.record_connection_failure(),
+                    ProtoErrorKind::RustlsError(_) => self.meta.srtt.record_failure(),
                     _ => {}
                 }
 
@@ -230,6 +230,44 @@ impl<P: ConnectionProvider> NameServerState<P> {
 
 struct ConnectionMeta {
     status: AtomicU8,
+    srtt: DecayingSrtt,
+}
+
+impl ConnectionMeta {
+    /// Records the measured `rtt` for a particular result.
+    ///
+    /// Tries to guess if the result was a failure that should penalize the expected RTT.
+    fn record(&self, rtt: Duration, result: &Result<DnsResponse, DnsError>) {
+        let error = match result {
+            Ok(_) => {
+                self.srtt.record(rtt);
+                return;
+            }
+            Err(err) => err,
+        };
+
+        if let DnsError::NoRecordsFound(NoRecords { response_code, .. }) = error {
+            match response_code {
+                ResponseCode::ServFail => self.srtt.record_failure(),
+                _ => self.srtt.record(rtt),
+            }
+        }
+    }
+}
+
+impl Default for ConnectionMeta {
+    fn default() -> Self {
+        // Initialize the SRTT to a randomly generated value that represents a
+        // very low RTT. Such a value helps ensure that each server is attempted
+        // early.
+        Self {
+            status: AtomicU8::new(Status::Init.into()),
+            srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
+        }
+    }
+}
+
+struct DecayingSrtt {
     /// The smoothed round-trip time (SRTT).
     ///
     /// This value represents an exponentially weighted moving average (EWMA) of
@@ -263,41 +301,20 @@ struct ConnectionMeta {
     last_update: SyncMutex<Option<Instant>>,
 }
 
-impl ConnectionMeta {
+impl DecayingSrtt {
     fn new(initial_srtt: Duration) -> Self {
         Self {
-            status: AtomicU8::new(Status::Init.into()),
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
             last_update: SyncMutex::new(None),
         }
     }
 
-    /// Records the measured `rtt` for a particular result.
-    ///
-    /// Tries to guess if the result was a failure that should penalize the expected RTT.
-    fn record(&self, rtt: Duration, result: &Result<DnsResponse, DnsError>) {
-        let error = match result {
-            Ok(_) => {
-                self.record_rtt(rtt);
-                return;
-            }
-            Err(err) => err,
-        };
-
-        if let DnsError::NoRecordsFound(NoRecords { response_code, .. }) = error {
-            match response_code {
-                ResponseCode::ServFail => self.record_connection_failure(),
-                _ => self.record_rtt(rtt),
-            }
-        }
-    }
-
-    fn record_rtt(&self, rtt: Duration) {
+    fn record(&self, rtt: Duration) {
         // If the cast on the result does overflow (it shouldn't), then the
         // value is saturated to u32::MAX, which is above the `MAX_SRTT_MICROS`
         // limit (meaning that any potential overflow is inconsequential).
         // See https://github.com/rust-lang/rust/issues/10184.
-        self.update_srtt(
+        self.update(
             rtt.as_micros() as u32,
             |cur_srtt_microseconds, last_update| {
                 // An arbitrarily low weight is used when computing the factor
@@ -312,21 +329,13 @@ impl ConnectionMeta {
     }
 
     /// Records a connection failure for a particular query.
-    fn record_connection_failure(&self) {
-        self.update_srtt(
-            Self::CONNECTION_FAILURE_PENALTY,
+    fn record_failure(&self) {
+        self.update(
+            Self::FAILURE_PENALTY,
             |cur_srtt_microseconds, _last_update| {
-                cur_srtt_microseconds.saturating_add(Self::CONNECTION_FAILURE_PENALTY)
+                cur_srtt_microseconds.saturating_add(Self::FAILURE_PENALTY)
             },
         );
-    }
-
-    /// Returns the raw SRTT value.
-    ///
-    /// Prefer to use `decayed_srtt` when ordering name servers.
-    #[cfg(all(test, feature = "tokio"))]
-    fn srtt(&self) -> Duration {
-        Duration::from_micros(u64::from(self.srtt_microseconds.load(Ordering::Acquire)))
     }
 
     /// Returns the SRTT value after applying a time based decay.
@@ -337,7 +346,7 @@ impl ConnectionMeta {
     /// 1. It helps distribute query load.
     /// 2. It helps detect positive network changes. For example, decreases in
     ///    latency or a server that has recovered from a failure.
-    fn decayed_srtt(&self) -> f64 {
+    fn current(&self) -> f64 {
         let srtt = f64::from(self.srtt_microseconds.load(Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
             // In general, if the time between queries is relatively short, then
@@ -359,7 +368,7 @@ impl ConnectionMeta {
     /// If the `last_update` value has not been set, then uses the `default`
     /// value to update the SRTT. Otherwise, invokes the `update_fn` with the
     /// current SRTT value and the `last_update` timestamp.
-    fn update_srtt(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
+    fn update(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
         let last_update = self.last_update.lock().replace(Instant::now());
         let _ = self.srtt_microseconds.fetch_update(
             Ordering::SeqCst,
@@ -376,17 +385,16 @@ impl ConnectionMeta {
         );
     }
 
-    const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
-    const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
-}
-
-impl Default for ConnectionMeta {
-    fn default() -> Self {
-        // Initialize the SRTT to a randomly generated value that represents a
-        // very low RTT. Such a value helps ensure that each server is attempted
-        // early.
-        Self::new(Duration::from_micros(rand::random_range(1..32)))
+    /// Returns the raw SRTT value.
+    ///
+    /// Prefer to use `decayed_srtt` when ordering name servers.
+    #[cfg(all(test, feature = "tokio"))]
+    fn as_duration(&self) -> Duration {
+        Duration::from_micros(u64::from(self.srtt_microseconds.load(Ordering::Acquire)))
     }
+
+    const FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
+    const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
 }
 
 /// Returns an exponentially weighted value in the range of 0.0 < x < 1.0
@@ -589,86 +597,86 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn test_stats_cmp() {
         use std::cmp::Ordering;
-        let server_a = ConnectionMeta::new(Duration::from_micros(10));
-        let server_b = ConnectionMeta::new(Duration::from_micros(20));
+        let srtt_a = DecayingSrtt::new(Duration::from_micros(10));
+        let srtt_b = DecayingSrtt::new(Duration::from_micros(20));
 
         // No RTTs or failures have been recorded. The initial SRTTs should be
         // compared.
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Less);
 
         // Server A was used. Unused server B should now be preferred.
-        server_a.record_rtt(Duration::from_millis(30));
+        srtt_a.record(Duration::from_millis(30));
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Greater);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Greater);
 
         // Both servers have been used. Server A has a lower SRTT and should be
         // preferred.
-        server_b.record_rtt(Duration::from_millis(50));
+        srtt_b.record(Duration::from_millis(50));
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Less);
 
         // Server A experiences a connection failure, which results in Server B
         // being preferred.
-        server_a.record_connection_failure();
+        srtt_a.record_failure();
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Greater);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Greater);
 
         // Server A should eventually recover and once again be preferred.
-        while cmp(&server_a, &server_b) != Ordering::Less {
-            server_b.record_rtt(Duration::from_millis(50));
+        while cmp(&srtt_a, &srtt_b) != Ordering::Less {
+            srtt_b.record(Duration::from_millis(50));
             tokio::time::advance(Duration::from_secs(5)).await;
         }
 
-        server_a.record_rtt(Duration::from_millis(30));
+        srtt_a.record(Duration::from_millis(30));
         tokio::time::advance(Duration::from_secs(3)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Less);
     }
 
-    fn cmp(a: &ConnectionMeta, b: &ConnectionMeta) -> cmp::Ordering {
-        a.decayed_srtt().total_cmp(&b.decayed_srtt())
+    fn cmp(a: &DecayingSrtt, b: &DecayingSrtt) -> cmp::Ordering {
+        a.current().total_cmp(&b.current())
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_rtt() {
-        let server = ConnectionMeta::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
         let first_rtt = Duration::from_millis(50);
-        server.record_rtt(first_rtt);
+        srtt.record(first_rtt);
 
         // The first recorded RTT should replace the initial value.
-        assert_eq!(server.srtt(), first_rtt);
+        assert_eq!(srtt.as_duration(), first_rtt);
 
         tokio::time::advance(Duration::from_secs(3)).await;
 
         // Subsequent RTTs should factor in previously recorded values.
-        server.record_rtt(Duration::from_millis(100));
-        assert_eq!(server.srtt(), Duration::from_micros(81606));
+        srtt.record(Duration::from_millis(100));
+        assert_eq!(srtt.as_duration(), Duration::from_micros(81606));
     }
 
     #[test]
     fn test_record_rtt_maximum_value() {
-        let server = ConnectionMeta::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
-        server.record_rtt(Duration::MAX);
+        srtt.record(Duration::MAX);
         // Updates to the SRTT are capped at a maximum value.
         assert_eq!(
-            server.srtt(),
-            Duration::from_micros(ConnectionMeta::MAX_SRTT_MICROS.into())
+            srtt.as_duration(),
+            Duration::from_micros(DecayingSrtt::MAX_SRTT_MICROS.into())
         );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_connection_failure() {
-        let server = ConnectionMeta::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
         // Verify that the SRTT value is initially replaced with the penalty and
         // subsequent failures result in the penalty being added.
         for failure_count in 1..4 {
-            server.record_connection_failure();
+            srtt.record_failure();
             assert_eq!(
-                server.srtt(),
+                srtt.as_duration(),
                 Duration::from_micros(
-                    ConnectionMeta::CONNECTION_FAILURE_PENALTY
+                    DecayingSrtt::FAILURE_PENALTY
                         .checked_mul(failure_count)
                         .expect("checked_mul overflow")
                         .into()
@@ -679,44 +687,43 @@ mod tests {
 
         // Verify that the `last_update` timestamp was updated for a connection
         // failure and is used in subsequent calculations.
-        server.record_rtt(Duration::from_millis(50));
-        assert_eq!(server.srtt(), Duration::from_micros(197152));
+        srtt.record(Duration::from_millis(50));
+        assert_eq!(srtt.as_duration(), Duration::from_micros(197152));
     }
 
     #[test]
     fn test_record_connection_failure_maximum_value() {
-        let server = ConnectionMeta::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
-        let num_failures =
-            (ConnectionMeta::MAX_SRTT_MICROS / ConnectionMeta::CONNECTION_FAILURE_PENALTY) + 1;
+        let num_failures = (DecayingSrtt::MAX_SRTT_MICROS / DecayingSrtt::FAILURE_PENALTY) + 1;
         for _ in 0..num_failures {
-            server.record_connection_failure();
+            srtt.record_failure();
         }
 
         // Updates to the SRTT are capped at a maximum value.
         assert_eq!(
-            server.srtt(),
-            Duration::from_micros(ConnectionMeta::MAX_SRTT_MICROS.into())
+            srtt.as_duration(),
+            Duration::from_micros(DecayingSrtt::MAX_SRTT_MICROS.into())
         );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_decayed_srtt() {
         let initial_srtt = 10;
-        let server = ConnectionMeta::new(Duration::from_micros(initial_srtt));
+        let srtt = DecayingSrtt::new(Duration::from_micros(initial_srtt));
 
         // No decay should be applied to the initial value.
-        assert_eq!(server.decayed_srtt() as u32, initial_srtt as u32);
+        assert_eq!(srtt.current() as u32, initial_srtt as u32);
 
         tokio::time::advance(Duration::from_secs(5)).await;
-        server.record_rtt(Duration::from_millis(100));
+        srtt.record(Duration::from_millis(100));
 
         // The decay function should assume a minimum of one second has elapsed
         // since the last update.
         tokio::time::advance(Duration::from_millis(500)).await;
-        assert_eq!(server.decayed_srtt() as u32, 99445);
+        assert_eq!(srtt.current() as u32, 99445);
 
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(server.decayed_srtt() as u32, 96990);
+        assert_eq!(srtt.current() as u32, 96990);
     }
 }
