@@ -23,33 +23,46 @@ use crate::rr::Record;
 use crate::trace;
 
 mod algorithm;
+pub use algorithm::Algorithm;
+
 mod handle;
 pub use handle::DnssecDnsHandle;
+
 /// Cryptographic backend implementations of DNSSEC traits.
 pub mod crypto;
+
 mod ec_public_key;
+
 mod nsec3;
+pub use nsec3::Nsec3HashAlgorithm;
+
 pub mod proof;
+pub use proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
+
 pub mod public_key;
+pub use public_key::{PublicKey, PublicKeyBuf};
+
 pub mod rdata;
 use rdata::tsig::TsigAlgorithm;
-mod rsa_public_key;
-mod signer;
-mod supported_algorithm;
-pub mod tbs;
-mod trust_anchor;
-pub mod tsig;
-mod verifier;
 
-pub use self::algorithm::Algorithm;
-pub use self::nsec3::Nsec3HashAlgorithm;
-pub use self::proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
-pub use self::public_key::{PublicKey, PublicKeyBuf};
-pub use self::signer::SigSigner;
-pub use self::supported_algorithm::SupportedAlgorithms;
-pub use self::tbs::TBS;
-pub use self::trust_anchor::TrustAnchors;
-pub use self::verifier::Verifier;
+mod rsa_public_key;
+
+mod signer;
+pub use signer::SigSigner;
+
+mod supported_algorithm;
+pub use supported_algorithm::SupportedAlgorithms;
+
+pub mod tbs;
+pub use tbs::TBS;
+
+mod trust_anchor;
+pub use trust_anchor::TrustAnchors;
+
+pub mod tsig;
+
+mod verifier;
+pub use verifier::Verifier;
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
 ///
