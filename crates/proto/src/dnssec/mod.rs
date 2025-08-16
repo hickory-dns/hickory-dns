@@ -23,8 +23,8 @@ use crate::rr::Record;
 use crate::trace;
 
 mod algorithm;
-mod dnssec_dns_handle;
-pub use dnssec_dns_handle::DnssecDnsHandle;
+mod handle;
+pub use handle::DnssecDnsHandle;
 /// Cryptographic backend implementations of DNSSEC traits.
 pub mod crypto;
 mod ec_public_key;

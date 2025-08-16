@@ -99,7 +99,7 @@ use core::fmt::Display;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{DigestType, Proof, crypto::Digest, dnssec_dns_handle::proof_log_yield, rdata::NSEC3};
+use super::{DigestType, Proof, crypto::Digest, handle::proof_log_yield, rdata::NSEC3};
 use crate::{
     error::{ProtoErrorKind, ProtoResult},
     op::{Query, ResponseCode},
