@@ -10,17 +10,10 @@
 use futures_util::stream::Stream;
 use tracing::debug;
 
-use crate::{
-    error::*,
-    op::{Edns, Message, Query},
-    runtime::RuntimeProvider,
-    xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage},
-};
-
-// TODO: this should be configurable
-// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
-// https://dnsflagday.net/2020/
-const MAX_PAYLOAD_LEN: u16 = 1232;
+use crate::error::ProtoError;
+use crate::op::Query;
+use crate::runtime::RuntimeProvider;
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 /// Implementations of Sinks for sending DNS messages
 pub trait DnsStreamHandle: 'static + Send {
@@ -67,34 +60,6 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// * `options` - options to use when constructing the message
     fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
-        self.send(build_request(query, options))
+        self.send(DnsRequest::from_query(query, options))
     }
-}
-
-fn build_request(mut query: Query, options: DnsRequestOptions) -> DnsRequest {
-    // build the message
-    let mut message = Message::query();
-    let mut original_query = None;
-
-    #[cfg(feature = "std")]
-    if options.case_randomization {
-        original_query = Some(query.clone());
-        query.name.randomize_label_case();
-    }
-
-    message
-        .add_query(query)
-        .set_recursion_desired(options.recursion_desired);
-
-    // Extended dns
-    if options.use_edns {
-        message
-            .extensions_mut()
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
-            .set_version(0)
-            .set_dnssec_ok(options.edns_set_dnssec_ok);
-    }
-
-    DnsRequest::new(message, options).with_original_query(original_query)
 }
