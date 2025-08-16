@@ -105,19 +105,18 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     };
     let client = MockClientHandle::mock_on_send(messages, on_send);
 
+    let proto = protocol.to_protocol();
     let config = NameServerConfig::new(
         ip,
         trust_negative_responses,
         vec![ConnectionConfig::new(protocol)],
     );
-    let connection_config = config.connections.first().unwrap().clone();
 
     NameServer::from_conn(
-        &config,
-        connection_config,
+        config,
         Arc::new(options),
         Arc::new(TlsConfig::new().unwrap()),
-        client,
+        (proto, client),
         conn_provider,
     )
 }
