@@ -9,6 +9,8 @@
 
 use core::ops::{Deref, DerefMut};
 
+#[cfg(feature = "std")]
+use crate::op::Edns;
 use crate::op::{Message, Query};
 
 /// A set of options for expressing options to how requests should be treated
@@ -54,6 +56,33 @@ pub struct DnsRequest {
 }
 
 impl DnsRequest {
+    /// Build a new `DnsRequest` from a `Query` and `DnsRequestOptions`.
+    #[cfg(feature = "std")]
+    pub fn from_query(mut query: Query, options: DnsRequestOptions) -> Self {
+        let mut message = Message::query();
+        let mut original_query = None;
+
+        if options.case_randomization {
+            original_query = Some(query.clone());
+            query.name.randomize_label_case();
+        }
+
+        message
+            .add_query(query)
+            .set_recursion_desired(options.recursion_desired);
+
+        if options.use_edns {
+            message
+                .extensions_mut()
+                .get_or_insert_with(Edns::new)
+                .set_max_payload(MAX_PAYLOAD_LEN)
+                .set_version(0)
+                .set_dnssec_ok(options.edns_set_dnssec_ok);
+        }
+
+        Self::new(message, options).with_original_query(original_query)
+    }
+
     /// Returns a new DnsRequest object
     pub fn new(message: Message, options: DnsRequestOptions) -> Self {
         Self {
@@ -103,3 +132,9 @@ impl From<Message> for DnsRequest {
         Self::new(message, DnsRequestOptions::default())
     }
 }
+
+// TODO: this should be configurable
+// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
+// https://dnsflagday.net/2020/
+#[cfg(feature = "std")]
+const MAX_PAYLOAD_LEN: u16 = 1232;
