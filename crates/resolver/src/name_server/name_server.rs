@@ -140,7 +140,6 @@ struct NameServerState<P: ConnectionProvider> {
     options: Arc<ResolverOpts>,
     tls: Arc<TlsConfig>,
     client: AsyncMutex<Option<P::Conn>>,
-    status: AtomicU8,
     meta: ConnectionMeta,
     trust_negative_responses: bool,
     connection_provider: P,
@@ -161,7 +160,6 @@ impl<P: ConnectionProvider> NameServerState<P> {
             options,
             tls,
             client: AsyncMutex::new(client),
-            status: AtomicU8::new(Status::Init.into()),
             meta: ConnectionMeta::default(),
             trust_negative_responses: server_config.trust_negative_responses,
             connection_provider,
@@ -242,15 +240,16 @@ impl<P: ConnectionProvider> NameServerState<P> {
     }
 
     fn set_status(&self, status: Status) {
-        self.status.store(status.into(), Ordering::Release);
+        self.meta.status.store(status.into(), Ordering::Release);
     }
 
     fn status(&self) -> Status {
-        Status::from(self.status.load(Ordering::Acquire))
+        Status::from(self.meta.status.load(Ordering::Acquire))
     }
 }
 
 struct ConnectionMeta {
+    status: AtomicU8,
     /// The smoothed round-trip time (SRTT).
     ///
     /// This value represents an exponentially weighted moving average (EWMA) of
@@ -287,6 +286,7 @@ struct ConnectionMeta {
 impl ConnectionMeta {
     fn new(initial_srtt: Duration) -> Self {
         Self {
+            status: AtomicU8::new(Status::Init.into()),
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
             last_update: SyncMutex::new(None),
         }
