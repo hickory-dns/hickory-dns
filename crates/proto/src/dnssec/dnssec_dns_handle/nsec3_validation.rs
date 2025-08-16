@@ -478,44 +478,6 @@ fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label)
     (hash, label)
 }
 
-/// For each intermediary name from `query_name` to `soa_name` this function
-/// constructs a triplet of (Name, HashedName, Base32EncodedHashedName)
-///
-/// For `a.b.c.soa.name` it will generate:
-/// [
-///     (a.b.c.soa.name, h(a.b.c.soa.name), b32h(a.b.c.soa.name)),
-///     (b.c.soa.name, h(b.c.soa.name), b32h(b.c.soa.name)),
-///     (c.soa.name, h(c.soa.name), b32h(c.soa.name)),
-///     (soa.name, h(soa.name), b32h(soa.name)),
-/// ]
-///
-/// The list *starts* with `query_name` and *ends* with `soa_name`. Other
-/// code in this module exploits this invariant.
-///
-/// In simplest situations when `query_name` is `label.soa_name` it itself
-/// will act as "next closer"
-fn build_encloser_candidates_list(
-    query_name: &Name,
-    soa_name: &Name,
-    salt: &[u8],
-    iterations: u16,
-) -> Vec<HashedNameInfo> {
-    let mut candidates = Vec::with_capacity(query_name.num_labels() as usize);
-
-    // `query_name` is our first candidate
-    let mut name = query_name.clone();
-    loop {
-        candidates.push(HashedNameInfo::new(name.clone(), salt, iterations));
-        if &name == soa_name {
-            // `soa_name` is the final candidate, we already added it.
-            return candidates;
-        }
-        name = name.base_name();
-        // TODO: can `query_name` *not* be a sub-name of `soa_name`?
-        debug_assert_ne!(name, Name::root());
-    }
-}
-
 /// Expecting the following records:
 /// * closest encloser - *matching* NSEC3 record
 /// * next closer - *covering* NSEC3 record
@@ -795,6 +757,44 @@ fn find_covering_record<'a>(
                 || target_hashed_name > record.nsec3_data.next_hashed_owner_name()
         }
     })
+}
+
+/// For each intermediary name from `query_name` to `soa_name` this function
+/// constructs a triplet of (Name, HashedName, Base32EncodedHashedName)
+///
+/// For `a.b.c.soa.name` it will generate:
+/// [
+///     (a.b.c.soa.name, h(a.b.c.soa.name), b32h(a.b.c.soa.name)),
+///     (b.c.soa.name, h(b.c.soa.name), b32h(b.c.soa.name)),
+///     (c.soa.name, h(c.soa.name), b32h(c.soa.name)),
+///     (soa.name, h(soa.name), b32h(soa.name)),
+/// ]
+///
+/// The list *starts* with `query_name` and *ends* with `soa_name`. Other
+/// code in this module exploits this invariant.
+///
+/// In simplest situations when `query_name` is `label.soa_name` it itself
+/// will act as "next closer"
+fn build_encloser_candidates_list(
+    query_name: &Name,
+    soa_name: &Name,
+    salt: &[u8],
+    iterations: u16,
+) -> Vec<HashedNameInfo> {
+    let mut candidates = Vec::with_capacity(query_name.num_labels() as usize);
+
+    // `query_name` is our first candidate
+    let mut name = query_name.clone();
+    loop {
+        candidates.push(HashedNameInfo::new(name.clone(), salt, iterations));
+        if &name == soa_name {
+            // `soa_name` is the final candidate, we already added it.
+            return candidates;
+        }
+        name = name.base_name();
+        // TODO: can `query_name` *not* be a sub-name of `soa_name`?
+        debug_assert_ne!(name, Name::root());
+    }
 }
 
 // NSEC3 records use a base32 hashed name as a record name component.
