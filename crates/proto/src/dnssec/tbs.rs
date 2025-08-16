@@ -195,7 +195,7 @@ impl AsRef<[u8]> for TBS {
 ///
 ///    The canonical forms for names and RRsets are defined in [RFC4034].
 /// ```
-pub fn determine_name(name: &Name, num_labels: u8) -> Result<Name, ProtoError> {
+fn determine_name(name: &Name, num_labels: u8) -> Result<Name, ProtoError> {
     //             To calculate the name:
     //                let rrsig_labels = the value of the RRSIG Labels field
     //
