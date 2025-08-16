@@ -655,6 +655,7 @@ fn invalid_nsec_wildcard_no_data_test(
         &needle_fqdn,
     )?;
 
+    println!("{}", resolver.logs()?);
     assert_eq!(output.status, DigStatus::SERVFAIL);
     assert!(!output.flags.authenticated_data);
 

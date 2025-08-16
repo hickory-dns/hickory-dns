@@ -193,7 +193,7 @@ conformance-bind filter='':
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 DNS_TEST_PEER=unbound DNS_TEST_SUBJECT=bind cargo t --manifest-path conformance/Cargo.toml -p conformance-tests -- --include-ignored {{filter}}
 
 # runs the conformance test suite against the latest local hickory-dns commit -- changes that have not been commited will be ignored!
-conformance-hickory: (conformance-hickory-aws-lc-rs)
+conformance-hickory filter='': (conformance-hickory-aws-lc-rs filter)
 
 conformance-hickory-aws-lc-rs filter='':
     @ bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
