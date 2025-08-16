@@ -8,7 +8,7 @@
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
-use core::{clone::Clone, pin::Pin};
+use core::{clone::Clone, fmt::Display, pin::Pin};
 use std::{
     collections::{HashMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
@@ -1473,12 +1473,12 @@ fn current_time() -> u32 {
 }
 
 /// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
-fn nsec1_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
+fn nsec1_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
     proof_log_yield(proof, query, "nsec1", msg)
 }
 
 /// Logs a debug message and yields a Proof type for return
-fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: &str) -> Proof {
+fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: impl Display) -> Proof {
     debug!(
         "{nsec_type} proof for {name}, returning {proof}: {msg}",
         name = query.name()

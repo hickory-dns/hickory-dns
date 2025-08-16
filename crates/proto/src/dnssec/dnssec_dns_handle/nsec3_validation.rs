@@ -77,6 +77,7 @@
 //!
 
 use alloc::vec::Vec;
+use core::fmt::Display;
 
 use super::proof_log_yield;
 use crate::{
@@ -143,17 +144,13 @@ pub(super) fn verify_nsec3(
         return nsec3_yield(
             Proof::Bogus,
             query,
-            &format!(
-                "iteration count {iterations} is over {nsec3_hard_iteration_limit}; returning Proof::Bogus"
-            ),
+            format_args!("iteration count {iterations} is over {nsec3_hard_iteration_limit}"),
         );
     } else if iterations > nsec3_soft_iteration_limit {
         return nsec3_yield(
             Proof::Insecure,
             query,
-            &format!(
-                "iteration count {iterations} is over {nsec3_soft_iteration_limit}; returning Proof::Insecure"
-            ),
+            format_args!("iteration count {iterations} is over {nsec3_soft_iteration_limit}"),
         );
     }
 
@@ -194,7 +191,7 @@ pub(super) fn verify_nsec3(
         }
         _ => cx.proof(
             Proof::Bogus,
-            &format!("unsupported response code ({response_code})")[..],
+            format_args!("unsupported response code ({response_code})"),
         ),
     }
 }
@@ -304,12 +301,12 @@ fn validate_nodata_response(
         {
             return cx.proof(
                 Proof::Bogus,
-                &format!("nsec3 type map covers {query_type} or CNAME")[..],
+                format_args!("nsec3 type map covers {query_type} or CNAME"),
             );
         } else {
             return cx.proof(
                 Proof::Secure,
-                &format!("type map does not cover {query_type} or CNAME")[..],
+                format_args!("type map does not cover {query_type} or CNAME"),
             );
         }
     }
@@ -370,11 +367,11 @@ fn validate_nodata_response(
             if cx.query.name().num_labels() <= wildcard_encloser_num_labels {
                 return cx.proof(
                     Proof::Bogus,
-                    &format!(
+                    format_args!(
                         "query labels ({}) <= wildcard encloser labels ({})",
                         cx.query.name().num_labels(),
                         wildcard_encloser_num_labels,
-                    )[..],
+                    ),
                 );
             }
             // There should be an NSEC3 record *covering* `next_closer`
@@ -759,7 +756,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    fn proof(&self, proof: Proof, msg: &str) -> Proof {
+    fn proof(&self, proof: Proof, msg: impl Display) -> Proof {
         nsec3_yield(proof, self.query, msg)
     }
 }
@@ -786,7 +783,7 @@ impl Iterator for EncloserCandidates<'_> {
 }
 
 /// Logs a debug message and returns a [`Proof`]. This is specific to NSEC3 validation.
-fn nsec3_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
+fn nsec3_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
     proof_log_yield(proof, query, "nsec3", msg)
 }
 
