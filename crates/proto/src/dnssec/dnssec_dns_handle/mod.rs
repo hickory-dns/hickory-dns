@@ -1474,6 +1474,11 @@ fn current_time() -> u32 {
         .as_secs() as u32
 }
 
+/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
+fn nsec1_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
+    proof_log_yield(proof, query, "nsec1", msg)
+}
+
 /// Logs a debug message and yields a Proof type for return
 fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: &str) -> Proof {
     debug!(
@@ -1481,11 +1486,6 @@ fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: &str) -> P
         name = query.name()
     );
     proof
-}
-
-/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
-fn nsec1_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
-    proof_log_yield(proof, query, "nsec1", msg)
 }
 
 mod rrset {
