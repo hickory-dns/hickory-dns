@@ -89,7 +89,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     pub(super) fn decayed_srtt(&self) -> f64 {
-        self.inner.stats.decayed_srtt()
+        self.inner.meta.decayed_srtt()
     }
 
     pub(super) fn protocol(&self) -> Protocol {
@@ -141,7 +141,7 @@ struct NameServerState<P: ConnectionProvider> {
     tls: Arc<TlsConfig>,
     client: AsyncMutex<Option<P::Conn>>,
     status: AtomicU8,
-    stats: NameServerStats,
+    meta: ConnectionMeta,
     trust_negative_responses: bool,
     connection_provider: P,
 }
@@ -162,7 +162,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
             tls,
             client: AsyncMutex::new(client),
             status: AtomicU8::new(Status::Init.into()),
-            stats: NameServerStats::default(),
+            meta: ConnectionMeta::default(),
             trust_negative_responses: server_config.trust_negative_responses,
             connection_provider,
         }
@@ -178,7 +178,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
             Ok(response) => {
                 self.set_status(Status::Established);
                 let result = DnsError::from_response(response);
-                self.stats.record(rtt, &result);
+                self.meta.record(rtt, &result);
                 Ok(result?)
             }
             Err(error) => {
@@ -190,17 +190,17 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 // record the failure
                 match error.kind() {
                     ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
-                        self.stats.record_connection_failure()
+                        self.meta.record_connection_failure()
                     }
                     #[cfg(feature = "__quic")]
                     ProtoErrorKind::QuinnConfigError(_)
                     | ProtoErrorKind::QuinnConnect(_)
                     | ProtoErrorKind::QuinnConnection(_)
                     | ProtoErrorKind::QuinnTlsConfigError(_) => {
-                        self.stats.record_connection_failure()
+                        self.meta.record_connection_failure()
                     }
                     #[cfg(feature = "__tls")]
-                    ProtoErrorKind::RustlsError(_) => self.stats.record_connection_failure(),
+                    ProtoErrorKind::RustlsError(_) => self.meta.record_connection_failure(),
                     _ => {}
                 }
 
@@ -250,7 +250,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
     }
 }
 
-struct NameServerStats {
+struct ConnectionMeta {
     /// The smoothed round-trip time (SRTT).
     ///
     /// This value represents an exponentially weighted moving average (EWMA) of
@@ -284,7 +284,7 @@ struct NameServerStats {
     last_update: Arc<SyncMutex<Option<Instant>>>,
 }
 
-impl NameServerStats {
+impl ConnectionMeta {
     fn new(initial_srtt: Duration) -> Self {
         Self {
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
@@ -400,7 +400,7 @@ impl NameServerStats {
     const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
 }
 
-impl Default for NameServerStats {
+impl Default for ConnectionMeta {
     fn default() -> Self {
         // Initialize the SRTT to a randomly generated value that represents a
         // very low RTT. Such a value helps ensure that each server is attempted
@@ -604,14 +604,14 @@ mod tests {
 
     #[test]
     fn stats_are_sync() {
-        assert!(is_send_sync::<NameServerStats>());
+        assert!(is_send_sync::<ConnectionMeta>());
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_stats_cmp() {
         use std::cmp::Ordering;
-        let server_a = NameServerStats::new(Duration::from_micros(10));
-        let server_b = NameServerStats::new(Duration::from_micros(20));
+        let server_a = ConnectionMeta::new(Duration::from_micros(10));
+        let server_b = ConnectionMeta::new(Duration::from_micros(20));
 
         // No RTTs or failures have been recorded. The initial SRTTs should be
         // compared.
@@ -645,13 +645,13 @@ mod tests {
         assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
     }
 
-    fn cmp(a: &NameServerStats, b: &NameServerStats) -> cmp::Ordering {
+    fn cmp(a: &ConnectionMeta, b: &ConnectionMeta) -> cmp::Ordering {
         a.decayed_srtt().total_cmp(&b.decayed_srtt())
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_rtt() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let server = ConnectionMeta::new(Duration::from_micros(10));
 
         let first_rtt = Duration::from_millis(50);
         server.record_rtt(first_rtt);
@@ -668,19 +668,19 @@ mod tests {
 
     #[test]
     fn test_record_rtt_maximum_value() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let server = ConnectionMeta::new(Duration::from_micros(10));
 
         server.record_rtt(Duration::MAX);
         // Updates to the SRTT are capped at a maximum value.
         assert_eq!(
             server.srtt(),
-            Duration::from_micros(NameServerStats::MAX_SRTT_MICROS.into())
+            Duration::from_micros(ConnectionMeta::MAX_SRTT_MICROS.into())
         );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_connection_failure() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let server = ConnectionMeta::new(Duration::from_micros(10));
 
         // Verify that the SRTT value is initially replaced with the penalty and
         // subsequent failures result in the penalty being added.
@@ -689,7 +689,7 @@ mod tests {
             assert_eq!(
                 server.srtt(),
                 Duration::from_micros(
-                    NameServerStats::CONNECTION_FAILURE_PENALTY
+                    ConnectionMeta::CONNECTION_FAILURE_PENALTY
                         .checked_mul(failure_count)
                         .expect("checked_mul overflow")
                         .into()
@@ -706,10 +706,10 @@ mod tests {
 
     #[test]
     fn test_record_connection_failure_maximum_value() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let server = ConnectionMeta::new(Duration::from_micros(10));
 
         let num_failures =
-            (NameServerStats::MAX_SRTT_MICROS / NameServerStats::CONNECTION_FAILURE_PENALTY) + 1;
+            (ConnectionMeta::MAX_SRTT_MICROS / ConnectionMeta::CONNECTION_FAILURE_PENALTY) + 1;
         for _ in 0..num_failures {
             server.record_connection_failure();
         }
@@ -717,14 +717,14 @@ mod tests {
         // Updates to the SRTT are capped at a maximum value.
         assert_eq!(
             server.srtt(),
-            Duration::from_micros(NameServerStats::MAX_SRTT_MICROS.into())
+            Duration::from_micros(ConnectionMeta::MAX_SRTT_MICROS.into())
         );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_decayed_srtt() {
         let initial_srtt = 10;
-        let server = NameServerStats::new(Duration::from_micros(initial_srtt));
+        let server = ConnectionMeta::new(Duration::from_micros(initial_srtt));
 
         // No decay should be applied to the initial value.
         assert_eq!(server.decayed_srtt() as u32, initial_srtt as u32);
