@@ -546,7 +546,7 @@ fn closest_encloser_proof<'a>(
 
     match closest_encloser_in_candidates {
         // General flow - there's a record for closest encloser
-        Some((closest_encloser_index, closest_encloser_record)) if closest_encloser_index > 0 => {
+        Some((closest_encloser_index @ 1.., closest_encloser_record)) => {
             let closest_encloser_hash_info =
                 closest_encloser_candidates.swap_remove(closest_encloser_index);
             let closest_encloser_wildcard_name =
@@ -594,9 +594,6 @@ fn closest_encloser_proof<'a>(
                 Some(Proof::Bogus),
             )
         }
-        Some(_) => unreachable!(
-            "the compiler is convinced the first two cases don't match all Some(_)s possible"
-        ),
         None if &query_name.base_name() == soa_name => {
             // There's no record for closest encloser.
             // It may not be present since the encloser is `soa_name` which
