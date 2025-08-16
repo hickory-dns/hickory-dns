@@ -23,6 +23,7 @@ use tracing::{debug, error, trace, warn};
 use crate::{
     dnssec::{
         Proof, ProofError, ProofErrorKind, TrustAnchors, Verifier,
+        nsec3::verify_nsec3,
         rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
@@ -32,9 +33,6 @@ use crate::{
 };
 
 use self::rrset::Rrset;
-
-mod nsec3_validation;
-use nsec3_validation::verify_nsec3;
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
@@ -1478,7 +1476,7 @@ fn nsec1_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
 }
 
 /// Logs a debug message and yields a Proof type for return
-fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: impl Display) -> Proof {
+pub(super) fn proof_log_yield(proof: Proof, query: &Query, nsec_type: &str, msg: impl Display) -> Proof {
     debug!(
         "{nsec_type} proof for {name}, returning {proof}: {msg}",
         name = query.name()
