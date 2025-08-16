@@ -198,6 +198,69 @@ pub(super) fn verify_nsec3(
     }
 }
 
+/// There is no such `query_name` in the zone and there's no wildcard that
+/// can be expanded to service this `query_name`.
+///
+/// Expecting the following records:
+/// * closest encloser - *matching* NSEC3 record
+/// * next closer - *covering* NSEC3 record
+/// * wildcard of closest encloser - *covering* NSEC3 record
+fn validate_nxdomain_response(
+    query: &Query,
+    soa_name: &Name,
+    nsec3s: &[Nsec3RecordPair<'_>],
+) -> Proof {
+    debug_assert!(!nsec3s.is_empty());
+    let salt = nsec3s[0].nsec3_data.salt();
+    let iterations = nsec3s[0].nsec3_data.iterations();
+
+    let (_, base32_hashed_query_name) = hash_and_label(query.name(), salt, iterations);
+
+    // The response is NXDomain but there's a record for query_name
+    if nsec3s
+        .iter()
+        .any(|r| r.base32_hashed_name == base32_hashed_query_name)
+    {
+        return nsec3_yield(
+            Proof::Bogus,
+            query,
+            "NXDomain response with record for query name",
+        );
+    }
+
+    let (closest_encloser_proof_info, early_proof) =
+        closest_encloser_proof(query.name(), soa_name, nsec3s);
+
+    if let Some(proof) = early_proof {
+        return nsec3_yield(proof, query, "returning early proof");
+    }
+
+    // Note that the three fields may hold references to the same NSEC3
+    // record, because the interval of base32_hashed_name
+    // and next_hashed_owner_name happen to match / cover all three components
+    // of closest encloser proof.
+    let ClosestEncloserProofInfo {
+        closest_encloser,
+        next_closer,
+        closest_encloser_wildcard,
+    } = closest_encloser_proof_info;
+
+    match (closest_encloser, next_closer, closest_encloser_wildcard) {
+        // Got all three components - we proved that there's no `query_name`
+        // in the zone
+        (Some(_), Some(_), Some(_)) => nsec3_yield(Proof::Secure, query, "direct proof"),
+        // `query_name`'s parent is the `soa_name` itself, so there's no need
+        // to send `soa_name`'s NSEC3 record. Still we have to show that
+        // both `query_name` doesn't exist and there's no wildcard to service it
+        (None, Some(_), Some(_)) if &query.name().base_name() == soa_name => nsec3_yield(
+            Proof::Secure,
+            query,
+            "no direct or wildcard proof, but parent name of query is SOA",
+        ),
+        _ => nsec3_yield(Proof::Bogus, query, "no proof of non-existence"),
+    }
+}
+
 /// This function addresses three situations:
 ///
 /// Case 2. Name exists but there's no record of this type
@@ -413,69 +476,6 @@ fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label)
     // hash function. The input is all alphanumeric ASCII characters by construction.
     let label = Label::from_ascii(&base32_encoded).unwrap();
     (hash, label)
-}
-
-/// There is no such `query_name` in the zone and there's no wildcard that
-/// can be expanded to service this `query_name`.
-///
-/// Expecting the following records:
-/// * closest encloser - *matching* NSEC3 record
-/// * next closer - *covering* NSEC3 record
-/// * wildcard of closest encloser - *covering* NSEC3 record
-fn validate_nxdomain_response(
-    query: &Query,
-    soa_name: &Name,
-    nsec3s: &[Nsec3RecordPair<'_>],
-) -> Proof {
-    debug_assert!(!nsec3s.is_empty());
-    let salt = nsec3s[0].nsec3_data.salt();
-    let iterations = nsec3s[0].nsec3_data.iterations();
-
-    let (_, base32_hashed_query_name) = hash_and_label(query.name(), salt, iterations);
-
-    // The response is NXDomain but there's a record for query_name
-    if nsec3s
-        .iter()
-        .any(|r| r.base32_hashed_name == base32_hashed_query_name)
-    {
-        return nsec3_yield(
-            Proof::Bogus,
-            query,
-            "NXDomain response with record for query name",
-        );
-    }
-
-    let (closest_encloser_proof_info, early_proof) =
-        closest_encloser_proof(query.name(), soa_name, nsec3s);
-
-    if let Some(proof) = early_proof {
-        return nsec3_yield(proof, query, "returning early proof");
-    }
-
-    // Note that the three fields may hold references to the same NSEC3
-    // record, because the interval of base32_hashed_name
-    // and next_hashed_owner_name happen to match / cover all three components
-    // of closest encloser proof.
-    let ClosestEncloserProofInfo {
-        closest_encloser,
-        next_closer,
-        closest_encloser_wildcard,
-    } = closest_encloser_proof_info;
-
-    match (closest_encloser, next_closer, closest_encloser_wildcard) {
-        // Got all three components - we proved that there's no `query_name`
-        // in the zone
-        (Some(_), Some(_), Some(_)) => nsec3_yield(Proof::Secure, query, "direct proof"),
-        // `query_name`'s parent is the `soa_name` itself, so there's no need
-        // to send `soa_name`'s NSEC3 record. Still we have to show that
-        // both `query_name` doesn't exist and there's no wildcard to service it
-        (None, Some(_), Some(_)) if &query.name().base_name() == soa_name => nsec3_yield(
-            Proof::Secure,
-            query,
-            "no direct or wildcard proof, but parent name of query is SOA",
-        ),
-        _ => nsec3_yield(Proof::Bogus, query, "no proof of non-existence"),
-    }
 }
 
 /// For each intermediary name from `query_name` to `soa_name` this function
