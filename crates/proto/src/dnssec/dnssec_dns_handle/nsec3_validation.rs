@@ -94,38 +94,39 @@ pub(super) fn verify_nsec3(
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
 ) -> Proof {
-    debug_assert!(!nsec3s.is_empty());
+    debug_assert!(!nsec3s.is_empty()); // checked in the caller
 
     // For every NSEC3 record that in text form looks like:
     // <base32-hash>.soa.name NSEC3 <data>
     // we extract (<base32-hash>, <data>) pair from deeply nested structures
-    let nsec3s: Option<Vec<Nsec3RecordPair<'_>>> = nsec3s
-        .iter()
-        .map(|(record_name, nsec3_data)| {
-            split_first_label(record_name)
-                .filter(|(_, base)| base == soa_name)
-                .and_then(|(base32_hashed_name, _)| {
-                    Some(Nsec3RecordPair {
-                        base32_hashed_name: Label::from_raw_bytes(base32_hashed_name).ok()?,
-                        nsec3_data,
-                    })
-                })
-        })
-        .collect();
+    let mut pairs = Vec::with_capacity(nsec3s.len());
+    for (name, data) in nsec3s {
+        let Some((base32_hashed_name, base)) = split_first_label(name) else {
+            return nsec3_yield(Proof::Bogus, query, "record name format is invalid");
+        };
 
-    // Some of record names were NOT in a form of `<base32hash>.soa.name`
-    let Some(nsec3s) = nsec3s else {
-        return nsec3_yield(Proof::Bogus, query, "record name format is invalid");
-    };
+        if &base != soa_name {
+            return nsec3_yield(Proof::Bogus, query, "record name is not in the zone");
+        }
 
-    debug_assert!(!nsec3s.is_empty());
+        let Ok(base32_hashed_name) = Label::from_raw_bytes(base32_hashed_name) else {
+            return nsec3_yield(Proof::Bogus, query, "base32-hashed name is invalid");
+        };
+
+        pairs.push(Nsec3RecordPair {
+            base32_hashed_name,
+            nsec3_data: data,
+        });
+    }
+
+    debug_assert!(!pairs.is_empty()); // `nsec3s` was not empty, and we returned on any invalid values
 
     // RFC 5155 8.2 - all NSEC3 records share the same NSEC3 params
-    let first = &nsec3s[0];
+    let first = &pairs[0];
     let hash_algorithm = first.nsec3_data.hash_algorithm();
     let salt = first.nsec3_data.salt();
     let iterations = first.nsec3_data.iterations();
-    if nsec3s.iter().any(|r| {
+    if pairs.iter().any(|r| {
         r.nsec3_data.hash_algorithm() != hash_algorithm
             || r.nsec3_data.salt() != salt
             || r.nsec3_data.iterations() != iterations
@@ -166,7 +167,7 @@ pub(super) fn verify_nsec3(
 
     match response_code {
         // Case 1:
-        ResponseCode::NXDomain => validate_nxdomain_response(query, soa_name, &nsec3s),
+        ResponseCode::NXDomain => validate_nxdomain_response(query, soa_name, &pairs),
 
         // RFC 5155: NoData
         // Cases 2, 3, and 4:
@@ -187,7 +188,7 @@ pub(super) fn verify_nsec3(
                 soa_name,
                 query.query_type(),
                 wildcard_num_labels,
-                &nsec3s,
+                &pairs,
             )
         }
         _ => nsec3_yield(
