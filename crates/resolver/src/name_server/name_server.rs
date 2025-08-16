@@ -281,14 +281,14 @@ struct ConnectionMeta {
     srtt_microseconds: AtomicU32,
 
     /// The last time the `srtt_microseconds` value was updated.
-    last_update: Arc<SyncMutex<Option<Instant>>>,
+    last_update: SyncMutex<Option<Instant>>,
 }
 
 impl ConnectionMeta {
     fn new(initial_srtt: Duration) -> Self {
         Self {
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
-            last_update: Arc::new(SyncMutex::new(None)),
+            last_update: SyncMutex::new(None),
         }
     }
 
