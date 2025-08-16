@@ -225,27 +225,6 @@ fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label)
     (hash, label)
 }
 
-// NSEC3 records use a base32 hashed name as a record name component.
-// But within the record body the hash is stored as a binary blob.
-// Thus we need both for comparisons.
-struct HashedNameInfo {
-    name: Name,
-    hashed_name: Vec<u8>,
-    base32_hashed_name: Label,
-}
-
-impl HashedNameInfo {
-    /// Hash a query name and store all representations of it.
-    fn new(name: Name, salt: &[u8], iterations: u16) -> Self {
-        let (hashed_name, base32_hashed_name) = hash_and_label(&name, salt, iterations);
-        Self {
-            name,
-            hashed_name,
-            base32_hashed_name,
-        }
-    }
-}
-
 fn find_covering_record<'a>(
     nsec3s: &'a [Nsec3RecordPair<'a>],
     target_hashed_name: &[u8],
@@ -819,6 +798,27 @@ fn validate_nodata_response(
     };
 
     nsec3_yield(proof, query, reason)
+}
+
+// NSEC3 records use a base32 hashed name as a record name component.
+// But within the record body the hash is stored as a binary blob.
+// Thus we need both for comparisons.
+struct HashedNameInfo {
+    name: Name,
+    hashed_name: Vec<u8>,
+    base32_hashed_name: Label,
+}
+
+impl HashedNameInfo {
+    /// Hash a query name and store all representations of it.
+    fn new(name: Name, salt: &[u8], iterations: u16) -> Self {
+        let (hashed_name, base32_hashed_name) = hash_and_label(&name, salt, iterations);
+        Self {
+            name,
+            hashed_name,
+            base32_hashed_name,
+        }
+    }
 }
 
 /// Logs a debug message and returns a [`Proof`]. This is specific to NSEC3 validation.
