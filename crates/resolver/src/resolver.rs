@@ -350,6 +350,7 @@ enum LookupEither<P: ConnectionProvider> {
 
 impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Runtime = P::RuntimeProvider;
 
     fn is_verifying_dnssec(&self) -> bool {
         match self {
@@ -1164,8 +1165,8 @@ mod tests {
         assert!(is_sync_t::<Resolver<TokioRuntimeProvider>>());
 
         assert!(is_send_t::<DnsRequest>());
-        assert!(is_send_t::<LookupIpFuture<DnsExchange>>());
-        assert!(is_send_t::<LookupFuture<DnsExchange>>());
+        assert!(is_send_t::<LookupIpFuture<DnsExchange<TokioRuntimeProvider>>>());
+        assert!(is_send_t::<LookupFuture<DnsExchange<TokioRuntimeProvider>>>());
     }
 
     #[tokio::test]
@@ -1464,6 +1465,7 @@ mod tests {
 
     impl DnsHandle for MockDnsHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+        type Runtime = TokioRuntimeProvider;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
             Box::pin(once(future::ready(

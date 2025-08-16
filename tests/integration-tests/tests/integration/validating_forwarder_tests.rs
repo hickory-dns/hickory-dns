@@ -252,7 +252,7 @@ async fn setup_authoritative_server(
 async fn setup_client_forwarder(
     name_server_addr: SocketAddr,
     public_key: Option<&PublicKeyBuf>,
-) -> (Client, Server<Catalog>) {
+) -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     // Server setup
     let mut config = NameServerConfig::udp(name_server_addr.ip());
     config.connections[0].port = name_server_addr.port();

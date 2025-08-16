@@ -72,6 +72,7 @@ where
 
 impl<H: ClientHandle> DnsHandle for MemoizeClientHandle<H> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Runtime = H::Runtime;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         Box::pin(
@@ -94,16 +95,16 @@ mod test {
 
     use futures::lock::Mutex;
     use futures::*;
+
+    use crate::client::*;
     use hickory_proto::{
         ProtoError,
         op::{Message, MessageType, OpCode, Query},
         rr::RecordType,
-        xfer::{DnsHandle, DnsRequest, DnsResponse},
+        runtime::TokioRuntimeProvider,
+        xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
     };
     use test_support::subscribe;
-
-    use crate::client::*;
-    use hickory_proto::xfer::FirstAnswer;
 
     #[derive(Clone)]
     struct TestClient {
@@ -112,6 +113,7 @@ mod test {
 
     impl DnsHandle for TestClient {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+        type Runtime = TokioRuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
             let i = Arc::clone(&self.i);

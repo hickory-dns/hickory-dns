@@ -149,7 +149,7 @@ async fn test_query_https() {
     test_query(&mut client).await;
 }
 
-async fn test_query(client: &mut Client) {
+async fn test_query(client: &mut Client<TokioRuntimeProvider>) {
     let name = Name::from_ascii("WWW.example.com.").unwrap();
 
     let response = client
@@ -169,7 +169,7 @@ async fn test_query(client: &mut Client) {
     assert!(!response.answers().is_empty());
 }
 
-async fn test_query_edns(client: &mut Client) {
+async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
     let name = Name::from_ascii("WWW.example.com.").unwrap();
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
@@ -228,7 +228,7 @@ async fn test_notify() {
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::new(stream, sender, None);
+    let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     let (mut client, bg) = client.await.expect("client failed to connect");
     tokio::spawn(bg);
 
@@ -253,7 +253,7 @@ async fn test_notify() {
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client() -> (
     (
-        Client,
+        Client<TokioRuntimeProvider>,
         DnsExchangeBackground<DnsMultiplexer<TestClientStream>, TokioTime>,
     ),
     Name,
@@ -962,7 +962,7 @@ async fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-async fn test_timeout_query(mut client: Client) {
+async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
     let name = Name::from_str("www.example.com").unwrap();
 
     let err = client
@@ -1025,7 +1025,7 @@ async fn test_timeout_query_tcp() {
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::new(),
     );
-    let client = Client::with_timeout(
+    let client = Client::<TokioRuntimeProvider>::with_timeout(
         Box::new(stream),
         sender,
         std::time::Duration::from_millis(1),

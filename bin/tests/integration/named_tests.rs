@@ -31,7 +31,7 @@ fn test_example_toml_startup() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -41,7 +41,7 @@ fn test_example_toml_startup() {
         // just tests that multiple queries work
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -59,7 +59,7 @@ fn test_ipv4_only_toml_startup() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -69,7 +69,7 @@ fn test_ipv4_only_toml_startup() {
 
         let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         assert!(io_loop.block_on(client).is_err());
         //let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -119,7 +119,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -129,7 +129,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -147,7 +147,7 @@ fn test_nodata_where_name_exists() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -172,7 +172,7 @@ fn test_nxdomain_where_no_name_exists() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -198,7 +198,7 @@ fn test_server_continues_on_bad_data_udp() {
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
 
         let stream = UdpClientStream::builder(addr, provider.clone()).build();
-        let client = Client::connect(stream);
+        let client = Client::<TokioRuntimeProvider>::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -215,7 +215,7 @@ fn test_server_continues_on_bad_data_udp() {
         // just tests that multiple queries work
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
         let stream = UdpClientStream::builder(addr, provider).build();
-        let client = Client::connect(stream);
+        let client = Client::<TokioRuntimeProvider>::connect(stream);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -233,7 +233,7 @@ fn test_server_continues_on_bad_data_tcp() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -250,7 +250,7 @@ fn test_server_continues_on_bad_data_tcp() {
         // just tests that multiple queries work
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -271,7 +271,7 @@ fn test_forward() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -294,7 +294,7 @@ fn test_forward() {
         // just tests that multiple queries work
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -325,7 +325,7 @@ fn test_allow_networks_toml_startup() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -335,7 +335,7 @@ fn test_allow_networks_toml_startup() {
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -353,7 +353,7 @@ fn test_deny_networks_toml_startup() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -363,7 +363,7 @@ fn test_deny_networks_toml_startup() {
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 
@@ -381,7 +381,7 @@ fn test_deny_allow_networks_toml_startup() {
         let tcp_port = socket_ports.get_v4(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
@@ -391,7 +391,7 @@ fn test_deny_allow_networks_toml_startup() {
         let tcp_port = socket_ports.get_v6(Protocol::Tcp);
         let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
         let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-        let client = Client::new(Box::new(stream), sender, None);
+        let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         hickory_proto::runtime::spawn_bg(&io_loop, bg);
 

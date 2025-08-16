@@ -8,6 +8,7 @@ use futures::{Stream, executor::block_on, future, stream};
 use hickory_proto::{
     DnsHandle, ProtoError, RetryDnsHandle,
     op::{Message, OpCode, ResponseCode},
+    runtime::TokioRuntimeProvider,
     xfer::{DnsRequest, DnsResponse, FirstAnswer},
 };
 use test_support::subscribe;
@@ -21,6 +22,7 @@ struct TestClient {
 
 impl DnsHandle for TestClient {
     type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+    type Runtime = TokioRuntimeProvider;
 
     fn send(&self, _: DnsRequest) -> Self::Response {
         let i = self.attempts.load(Ordering::SeqCst);

@@ -330,6 +330,7 @@ pub(crate) mod tests {
     use crate::proto::ProtoError;
     use crate::proto::op::Message;
     use crate::proto::rr::{Name, RData, Record};
+    use crate::proto::runtime::TokioRuntimeProvider;
     use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     use super::*;
@@ -341,6 +342,7 @@ pub(crate) mod tests {
 
     impl DnsHandle for MockDnsHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+        type Runtime = TokioRuntimeProvider;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
             Box::pin(once(future::ready(
