@@ -198,11 +198,6 @@ pub(super) fn verify_nsec3(
     }
 }
 
-struct Nsec3RecordPair<'a> {
-    base32_hashed_name: Label,
-    nsec3_data: &'a NSEC3,
-}
-
 fn split_first_label(name: &Name) -> Option<(&[u8], Name)> {
     let first_label = name.iter().next()?;
     let base = name.base_name();
@@ -830,4 +825,9 @@ fn wildcard_based_encloser_proof<'a>(
 /// Logs a debug message and returns a [`Proof`]. This is specific to NSEC3 validation.
 fn nsec3_yield(proof: Proof, query: &Query, msg: &str) -> Proof {
     proof_log_yield(proof, query, "nsec3", msg)
+}
+
+struct Nsec3RecordPair<'a> {
+    base32_hashed_name: Label,
+    nsec3_data: &'a NSEC3,
 }
