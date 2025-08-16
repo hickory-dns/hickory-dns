@@ -24,7 +24,7 @@ use crate::name_server::name_server::NameServer;
 use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, Protocol};
-use crate::proto::{ProtoError, ProtoErrorKind, DnsError, NoRecords};
+use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
@@ -39,27 +39,29 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
-        Self::from_config(config.name_servers(), options, tls, conn_provider)
+        Self::from_config(
+            config.name_servers().to_owned(),
+            options,
+            tls,
+            conn_provider,
+        )
     }
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
-        name_servers: &[NameServerConfig],
+        name_servers: Vec<NameServerConfig>,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
         let mut servers = Vec::with_capacity(name_servers.len());
         for server in name_servers {
-            for conn in &server.connections {
-                servers.push(NameServer::new(
-                    server,
-                    conn.clone(),
-                    options.clone(),
-                    tls.clone(),
-                    conn_provider.clone(),
-                ));
-            }
+            servers.push(NameServer::new(
+                server,
+                options.clone(),
+                tls.clone(),
+                conn_provider.clone(),
+            ));
         }
 
         Self::from_nameservers(servers, options)
@@ -98,13 +100,7 @@ struct PoolState<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
-    fn new(mut servers: Vec<NameServer<P>>, options: Arc<ResolverOpts>) -> Self {
-        // Unless the user specified that we should follow the configured order,
-        // re-order the servers to prioritize UDP.
-        if options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder {
-            servers.sort_by_key(|ns| (ns.protocol() != Protocol::Udp) as u8);
-        }
-
+    fn new(servers: Vec<NameServer<P>>, options: Arc<ResolverOpts>) -> Self {
         Self {
             servers,
             options,
@@ -119,12 +115,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             //   reorder the connections based on current view...
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => {
-                servers.sort_by(|a, b| match (a.protocol(), b.protocol()) {
-                    (ap, bp) if ap == bp => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
-                    (Protocol::Udp, _) => Ordering::Less,
-                    (_, Protocol::Udp) => Ordering::Greater,
-                    (_, _) => a.decayed_srtt().total_cmp(&b.decayed_srtt()),
-                });
+                servers.sort_by(|a, b| a.decayed_srtt().total_cmp(&b.decayed_srtt()));
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
@@ -165,9 +156,9 @@ impl<P: ConnectionProvider> PoolState<P> {
             while !servers.is_empty()
                 && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
             {
-                if let Some(conn) = servers.pop_front() {
-                    if !(skip_udp && conn.protocol() == Protocol::Udp) {
-                        par_servers.push(conn);
+                if let Some(server) = servers.pop_front() {
+                    if !(skip_udp && server.protocols().all(|p| p == Protocol::Udp)) {
+                        par_servers.push(server);
                     }
                 }
             }
@@ -178,10 +169,10 @@ impl<P: ConnectionProvider> PoolState<P> {
                     backoff,
                 )
                 .await;
-                    servers.extend(
-                        busy.drain(..)
-                            .filter(|ns| !(skip_udp && ns.protocol() == Protocol::Udp)),
-                    );
+                    servers
+                        .extend(busy.drain(..).filter(|ns| {
+                            !(skip_udp && ns.protocols().all(|p| p == Protocol::Udp))
+                        }));
                     backoff *= 2;
                     continue;
                 }
@@ -190,25 +181,33 @@ impl<P: ConnectionProvider> PoolState<P> {
 
             let mut requests = par_servers
                 .into_iter()
-                .map(|server| async { server.send(request.clone()).await.map_err(|e| (server, e)) })
+                .map(|server| {
+                    let future = server.send(request.clone(), skip_udp);
+                    async { (server, future.await) }
+                })
                 .collect::<FuturesUnordered<_>>();
 
-            while let Some(result) = requests.next().await {
-                let (server, e) = match result {
+            while let Some((server, result)) = requests.next().await {
+                let e = match result {
                     Ok(response) if response.truncated() => {
                         debug!("truncated response received, retrying over TCP");
                         skip_udp = true;
                         err = ProtoError::from("received truncated response");
+                        servers.push_front(server);
                         continue;
                     }
                     Ok(response) => return Ok(response),
-                    Err((server, e)) => (server, e),
+                    Err(e) => e,
                 };
 
                 match e.kind() {
                     // We assume the response is spoofed, so ignore it and avoid UDP server for this
                     // request to try and avoid further spoofing.
-                    ProtoErrorKind::QueryCaseMismatch => skip_udp = true,
+                    ProtoErrorKind::QueryCaseMismatch => {
+                        servers.push_front(server);
+                        skip_udp = true;
+                        continue;
+                    }
                     // If the server is busy, try it again later if necessary.
                     ProtoErrorKind::Busy => busy.push(server),
                     // If the connection failed, try another one.
@@ -316,10 +315,8 @@ mod tests {
         });
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
-        let connection_config = tcp.connections.first().unwrap().clone();
         let name_server = NameServer::new(
-            &tcp,
-            connection_config,
+            tcp,
             opts.clone(),
             Arc::new(TlsConfig::new().unwrap()),
             conn_provider,

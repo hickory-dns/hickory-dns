@@ -88,7 +88,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         );
         let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
         let roots = NameServerPool::from_config(
-            &servers,
+            servers,
             Arc::new(opts),
             tls.clone(),
             conn_provider.clone(),
@@ -521,7 +521,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // now construct a namesever pool based off the NS and glue records
         let ns = NameServerPool::from_config(
-            &config_group,
+            config_group,
             Arc::new(self.recursor_opts()),
             self.tls.clone(),
             self.conn_provider.clone(),
