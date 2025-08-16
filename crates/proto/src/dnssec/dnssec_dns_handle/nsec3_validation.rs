@@ -457,24 +457,6 @@ fn split_first_label(name: &Name) -> Option<(&[u8], Name)> {
     Some((first_label, base))
 }
 
-/// Hashes a name and returns both both the hash digest and the base32-encoded form.
-fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label) {
-    let hash = Nsec3HashAlgorithm::SHA1
-        .hash(salt, name, iterations)
-        // We only compute hashes of names between `query_name` and `soa_name`
-        // and wildcards between `*.query_name.base_name()` and `*.soa_name`.
-        // All of them are guaranteed to be valid names.
-        .unwrap()
-        .as_ref()
-        .to_vec();
-
-    let base32_encoded = data_encoding::BASE32_DNSSEC.encode(&hash);
-    // Unwrap safety: The length of the hashed name is valid because it is the output of the above
-    // hash function. The input is all alphanumeric ASCII characters by construction.
-    let label = Label::from_ascii(&base32_encoded).unwrap();
-    (hash, label)
-}
-
 /// Expecting the following records:
 /// * closest encloser - *matching* NSEC3 record
 /// * next closer - *covering* NSEC3 record
@@ -813,6 +795,24 @@ impl HashedNameInfo {
             base32_hashed_name,
         }
     }
+}
+
+/// Hashes a name and returns both both the hash digest and the base32-encoded form.
+fn hash_and_label(name: &Name, salt: &[u8], iterations: u16) -> (Vec<u8>, Label) {
+    let hash = Nsec3HashAlgorithm::SHA1
+        .hash(salt, name, iterations)
+        // We only compute hashes of names between `query_name` and `soa_name`
+        // and wildcards between `*.query_name.base_name()` and `*.soa_name`.
+        // All of them are guaranteed to be valid names.
+        .unwrap()
+        .as_ref()
+        .to_vec();
+
+    let base32_encoded = data_encoding::BASE32_DNSSEC.encode(&hash);
+    // Unwrap safety: The length of the hashed name is valid because it is the output of the above
+    // hash function. The input is all alphanumeric ASCII characters by construction.
+    let label = Label::from_ascii(&base32_encoded).unwrap();
+    (hash, label)
 }
 
 /// Logs a debug message and returns a [`Proof`]. This is specific to NSEC3 validation.
