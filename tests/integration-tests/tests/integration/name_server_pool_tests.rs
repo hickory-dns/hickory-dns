@@ -34,8 +34,7 @@ fn mock_nameserver(
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
     mock_nameserver_on_send_nx(
-        messages,
-        protocol,
+        vec![(protocol, messages)],
         options,
         DefaultOnSend,
         DEFAULT_SERVER_ADDR,
@@ -50,8 +49,7 @@ fn mock_udp_nameserver_with_addr(
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
     mock_nameserver_on_send_nx(
-        messages,
-        ProtocolConfig::Udp,
+        vec![(ProtocolConfig::Udp, messages)],
         options,
         DefaultOnSend,
         addr,
@@ -66,8 +64,7 @@ fn mock_udp_nameserver_trust_nx(
     trust_negative_responses: bool,
 ) -> MockedNameServer<DefaultOnSend> {
     mock_nameserver_on_send_nx(
-        messages,
-        ProtocolConfig::Udp,
+        vec![(ProtocolConfig::Udp, messages)],
         options,
         DefaultOnSend,
         DEFAULT_SERVER_ADDR,
@@ -82,8 +79,7 @@ fn mock_udp_nameserver_on_send<O: OnSend + Unpin>(
     on_send: O,
 ) -> MockedNameServer<O> {
     mock_nameserver_on_send_nx(
-        messages,
-        ProtocolConfig::Udp,
+        vec![(ProtocolConfig::Udp, messages)],
         options,
         on_send,
         DEFAULT_SERVER_ADDR,
@@ -93,8 +89,7 @@ fn mock_udp_nameserver_on_send<O: OnSend + Unpin>(
 
 #[cfg(test)]
 fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
-    messages: Vec<Result<DnsResponse, ProtoError>>,
-    protocol: ProtocolConfig,
+    protocols: Vec<(ProtocolConfig, Vec<Result<DnsResponse, ProtoError>>)>,
     options: ResolverOpts,
     on_send: O,
     ip: IpAddr,
@@ -103,21 +98,23 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
     };
-    let client = MockClientHandle::mock_on_send(messages, on_send);
 
-    let config = NameServerConfig::new(
-        ip,
-        trust_negative_responses,
-        vec![ConnectionConfig::new(protocol)],
-    );
-    let connection_config = config.connections.first().unwrap().clone();
+    let (mut configs, mut conns) = (Vec::new(), Vec::new());
+    for (protocol, messages) in protocols {
+        let proto = protocol.to_protocol();
+        configs.push(ConnectionConfig::new(protocol));
+        conns.push((
+            proto,
+            MockClientHandle::mock_on_send(messages, on_send.clone()),
+        ));
+    }
 
-    NameServer::from_conn(
-        &config,
-        connection_config,
+    let config = NameServerConfig::new(ip, trust_negative_responses, configs);
+    NameServer::with_connections(
+        conns,
+        config,
         Arc::new(options),
         Arc::new(TlsConfig::new().unwrap()),
-        client,
         conn_provider,
     )
 }
@@ -147,24 +144,27 @@ fn test_datagram() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
-    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
+    let udp_response = DnsResponse::from_message(udp_message).unwrap();
+
+    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
-    let udp_nameserver = mock_nameserver(
-        vec![Ok(DnsResponse::from_message(udp_message).unwrap())],
-        ProtocolConfig::Udp,
-        Default::default(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        ProtocolConfig::Tcp,
-        Default::default(),
+    let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
+
+    let nameserver = mock_nameserver_on_send_nx(
+        vec![
+            (ProtocolConfig::Udp, vec![Ok(udp_response)]),
+            (ProtocolConfig::Tcp, vec![Ok(tcp_response)]),
+        ],
+        ResolverOpts::default(),
+        DefaultOnSend,
+        DEFAULT_SERVER_ADDR,
+        false,
     );
 
     let mut opts = ResolverOpts::default();
     opts.num_concurrent_reqs = 1;
-    let pool = mock_nameserver_pool(vec![udp_nameserver, tcp_nameserver], None, opts);
+    let pool = mock_nameserver_pool(vec![nameserver], None, opts);
 
     // lookup on UDP succeeds, any other would fail
     let request = build_request(query);
@@ -304,28 +304,24 @@ fn test_tcp_fallback_only_on_truncated() {
 
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
     udp_message.set_response_code(ResponseCode::ServFail);
+    let udp_response = DnsResponse::from_message(udp_message).unwrap();
+
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
+    let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
-    let udp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(udp_message).unwrap(),
-        )],
-        ProtocolConfig::Udp,
-        Default::default(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![Ok(DnsResponse::from_message(tcp_message).unwrap())],
-        ProtocolConfig::Tcp,
-        Default::default(),
-    );
-
-    let pool = mock_nameserver_pool(
-        vec![udp_nameserver, tcp_nameserver],
-        None,
-        Default::default(),
+    let nameserver = mock_nameserver_on_send_nx(
+        vec![
+            (ProtocolConfig::Udp, vec![Ok(udp_response)]),
+            (ProtocolConfig::Tcp, vec![Ok(tcp_response)]),
+        ],
+        ResolverOpts::default(),
+        DefaultOnSend,
+        DEFAULT_SERVER_ADDR,
+        false,
     );
 
+    let pool = mock_nameserver_pool(vec![nameserver], None, Default::default());
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
     match error.kind() {
@@ -348,31 +344,27 @@ fn test_no_tcp_fallback_on_non_io_error() {
 
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
     udp_message.set_response_code(ResponseCode::NXDomain);
+    let udp_response = DnsResponse::from_message(udp_message).unwrap();
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
     tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
-
-    let udp_nameserver = mock_udp_nameserver_trust_nx(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(udp_message).unwrap(),
-        )],
-        Default::default(),
-        true,
-    );
-
-    let tcp_nameserver = mock_nameserver(
-        vec![ProtoError::from_response(
-            DnsResponse::from_message(tcp_message).unwrap(),
-        )],
-        ProtocolConfig::Tcp,
-        Default::default(),
-    );
+    let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
     let mut options = ResolverOpts::default();
     options.num_concurrent_reqs = 1;
     options.try_tcp_on_error = true;
-    let pool = mock_nameserver_pool(vec![udp_nameserver, tcp_nameserver], None, options);
+    let nameserver = mock_nameserver_on_send_nx(
+        vec![
+            (ProtocolConfig::Udp, vec![Ok(udp_response)]),
+            (ProtocolConfig::Tcp, vec![Ok(tcp_response)]),
+        ],
+        options.clone(),
+        DefaultOnSend,
+        DEFAULT_SERVER_ADDR,
+        false,
+    );
 
+    let pool = mock_nameserver_pool(vec![nameserver], None, options);
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
     match error.kind() {
