@@ -168,7 +168,33 @@ impl<P: ConnectionProvider> NameServerState<P> {
     }
 
     async fn send(self: Arc<Self>, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
-        let client = self.connected_mut_client().await?;
+        let mut client = self.client.lock().await;
+
+        // if this is in a failure state
+        let client = match (&*client, self.status()) {
+            // if the client is already connected, then use it
+            (Some(client), Status::Established) => {
+                debug!(config = ?self.config, "using existing connection");
+                client.clone()
+            }
+            _ => {
+                self.set_status(Status::Init);
+                debug!(config = ?self.config, "connecting");
+
+                let new_client = Box::pin(self.connection_provider.new_connection(
+                    self.ip,
+                    &self.config,
+                    &self.options,
+                    &self.tls,
+                )?)
+                .await?;
+
+                // establish a new connection
+                *client = Some(new_client.clone());
+                new_client
+            }
+        };
+
         let now = Instant::now();
         let response = client.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -198,37 +224,6 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 Err(error)
             }
         }
-    }
-
-    /// This will return a mutable client to allows for sending messages.
-    ///
-    /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&self) -> Result<P::Conn, ProtoError> {
-        let mut client = self.client.lock().await;
-
-        // if this is in a failure state
-        if self.status() == Status::Failed || client.is_none() {
-            debug!("reconnecting: {:?}", self.config);
-
-            self.set_status(Status::Init);
-
-            let new_client = Box::pin(self.connection_provider.new_connection(
-                self.ip,
-                &self.config,
-                &self.options,
-                &self.tls,
-            )?)
-            .await?;
-
-            // establish a new connection
-            *client = Some(new_client);
-        } else {
-            debug!("existing connection: {:?}", self.config);
-        }
-
-        Ok((*client)
-            .clone()
-            .expect("bad state, client should be connected"))
     }
 
     fn set_status(&self, status: Status) {
