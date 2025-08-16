@@ -470,8 +470,9 @@ fn closest_encloser_proof<'a>(
     let salt = nsec3s[0].nsec3_data.salt();
     let iterations = nsec3s[0].nsec3_data.iterations();
 
-    let mut closest_encloser_candidates =
-        build_encloser_candidates_list(query_name, soa_name, salt, iterations);
+    let mut closest_encloser_candidates = EncloserCandidates::new(query_name, soa_name)
+        .map(|name| HashedNameInfo::new(name, salt, iterations))
+        .collect::<Vec<_>>();
 
     // Search for *matching* closing encloser record, i.e.
     // An NSEC3 record those name matches one of the names in
@@ -617,8 +618,9 @@ impl<'a> ClosestEncloserProofInfo<'a> {
         let salt = nsec3s[0].nsec3_data.salt();
         let iterations = nsec3s[0].nsec3_data.iterations();
 
-        let mut closest_encloser_candidates =
-            build_encloser_candidates_list(query_name, soa_name, salt, iterations);
+        let mut closest_encloser_candidates = EncloserCandidates::new(query_name, soa_name)
+            .map(|name| HashedNameInfo::new(name, salt, iterations))
+            .collect::<Vec<_>>();
 
         // For `a.b.c.soa.name` the `closest_encloser_candidates` will have:
         // [
@@ -738,41 +740,34 @@ fn find_covering_record<'a>(
     })
 }
 
-/// For each intermediary name from `query_name` to `soa_name` this function
-/// constructs a triplet of (Name, HashedName, Base32EncodedHashedName)
-///
-/// For `a.b.c.soa.name` it will generate:
-/// [
-///     (a.b.c.soa.name, h(a.b.c.soa.name), b32h(a.b.c.soa.name)),
-///     (b.c.soa.name, h(b.c.soa.name), b32h(b.c.soa.name)),
-///     (c.soa.name, h(c.soa.name), b32h(c.soa.name)),
-///     (soa.name, h(soa.name), b32h(soa.name)),
-/// ]
-///
-/// The list *starts* with `query_name` and *ends* with `soa_name`. Other
-/// code in this module exploits this invariant.
-///
-/// In simplest situations when `query_name` is `label.soa_name` it itself
-/// will act as "next closer"
-fn build_encloser_candidates_list(
-    query_name: &Name,
-    soa_name: &Name,
-    salt: &[u8],
-    iterations: u16,
-) -> Vec<HashedNameInfo> {
-    let mut candidates = Vec::with_capacity(query_name.num_labels() as usize);
+struct EncloserCandidates<'a> {
+    cur: Option<Name>,
+    soa: &'a Name,
+}
 
-    // `query_name` is our first candidate
-    let mut name = query_name.clone();
-    loop {
-        candidates.push(HashedNameInfo::new(name.clone(), salt, iterations));
-        if &name == soa_name {
-            // `soa_name` is the final candidate, we already added it.
-            return candidates;
+impl<'a> EncloserCandidates<'a> {
+    /// Create a new iterator over encloser candidates.
+    fn new(start: &'a Name, soa: &'a Name) -> Self {
+        Self {
+            cur: Some(start.clone()),
+            soa,
         }
-        name = name.base_name();
-        // TODO: can `query_name` *not* be a sub-name of `soa_name`?
-        debug_assert_ne!(name, Name::root());
+    }
+}
+
+impl Iterator for EncloserCandidates<'_> {
+    type Item = Name;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let cur = self.cur.take()?;
+        if &cur != self.soa {
+            let next = cur.base_name();
+            // TODO: can `query_name` *not* be a sub-name of `soa_name`?
+            debug_assert_ne!(next, Name::root());
+            self.cur = Some(next);
+        }
+
+        Some(cur)
     }
 }
 
