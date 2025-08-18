@@ -88,7 +88,7 @@ critical-section = { version = "1.1.1" }
 
 # others
 backtrace = "0.3.50"
-bitflags = "2.4.1"
+bitflags = "2.9.2"
 bytes = "1"
 cfg-if = "1"
 clap = { version = "4.0", default-features = false }
