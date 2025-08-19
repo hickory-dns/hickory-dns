@@ -1,6 +1,5 @@
 //! Text representation of DNS records
 
-use core::result::Result as CoreResult;
 use core::str::FromStr;
 use core::{array, fmt};
 use std::borrow::Cow;
@@ -136,7 +135,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_a(self) -> CoreResult<A, Self> {
+    pub fn try_into_a(self) -> Result<A, Self> {
         if let Self::A(v) = self {
             Ok(v)
         } else {
@@ -144,7 +143,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_cname(self) -> CoreResult<CNAME, Self> {
+    pub fn try_into_cname(self) -> Result<CNAME, Self> {
         if let Self::CNAME(v) = self {
             Ok(v)
         } else {
@@ -152,7 +151,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_rrsig(self) -> CoreResult<RRSIG, Self> {
+    pub fn try_into_rrsig(self) -> Result<RRSIG, Self> {
         if let Self::RRSIG(v) = self {
             Ok(v)
         } else {
@@ -160,7 +159,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_soa(self) -> CoreResult<SOA, Self> {
+    pub fn try_into_soa(self) -> Result<SOA, Self> {
         if let Self::SOA(soa) = self {
             Ok(soa)
         } else {
@@ -168,7 +167,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_txt(self) -> CoreResult<TXT, Self> {
+    pub fn try_into_txt(self) -> Result<TXT, Self> {
         if let Self::TXT(txt) = self {
             Ok(txt)
         } else {
@@ -207,7 +206,7 @@ impl Record {
         .into()
     }
 
-    pub fn try_into_ds(self) -> CoreResult<DS, Self> {
+    pub fn try_into_ds(self) -> Result<DS, Self> {
         if let Self::DS(v) = self {
             Ok(v)
         } else {
@@ -215,7 +214,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_nsec3(self) -> CoreResult<NSEC3, Self> {
+    pub fn try_into_nsec3(self) -> Result<NSEC3, Self> {
         if let Self::NSEC3(v) = self {
             Ok(v)
         } else {
@@ -223,7 +222,7 @@ impl Record {
         }
     }
 
-    pub fn try_into_caa(self) -> CoreResult<CAA, Self> {
+    pub fn try_into_caa(self) -> Result<CAA, Self> {
         match self {
             Self::CAA(v) => Ok(v),
             _ => Err(self),
@@ -886,7 +885,7 @@ pub struct RRSIG {
 impl FromStr for RRSIG {
     type Err = Error;
 
-    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -1203,7 +1202,7 @@ pub struct CAA {
 impl FromStr for CAA {
     type Err = Error;
 
-    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -1273,7 +1272,7 @@ pub struct UnknownRdata {
 impl FromStr for UnknownRdata {
     type Err = Error;
 
-    fn from_str(input: &str) -> CoreResult<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut columns = input.split_ascii_whitespace();
 
         let [

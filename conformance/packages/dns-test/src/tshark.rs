@@ -1,6 +1,5 @@
 //! `tshark` JSON output parser
 
-use core::result::Result as CoreResult;
 use std::fmt::{self, Write};
 use std::io::{self, BufRead, BufReader};
 use std::net::Ipv4Addr;
@@ -35,10 +34,10 @@ pub struct Tshark {
     id: usize,
 
     /// Thread join handle for the thread parsing standard output into packets.
-    stdout_handle: JoinHandle<CoreResult<(), Box<dyn std::error::Error + Send + Sync>>>,
+    stdout_handle: JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
 
     /// Thread join handle for the thread capturing standard error.
-    stderr_handle: JoinHandle<CoreResult<String, io::Error>>,
+    stderr_handle: JoinHandle<Result<String, io::Error>>,
 
     /// Receives captured packets from the thread reading standard output.
     receiver: Receiver<Capture>,
@@ -199,7 +198,7 @@ exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '({protocol_filter})'"
         let stdout = child.stdout()?;
         let stdout_handle = thread::spawn({
             let own_addr = container.ipv4_addr();
-            move || -> CoreResult<(), Box<dyn std::error::Error + Send + Sync>> {
+            move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let mut deserializer = serde_json::Deserializer::from_reader(stdout);
                 let adapter = StreamingCapture::new(sender, own_addr);
                 adapter.deserialize(&mut deserializer)?;
@@ -215,7 +214,7 @@ exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '({protocol_filter})'"
             }
         }
 
-        let stderr_handle = thread::spawn(move || -> CoreResult<String, io::Error> {
+        let stderr_handle = thread::spawn(move || -> Result<String, io::Error> {
             let mut buf = String::new();
             for line_res in stderr {
                 buf.push_str(&line_res?);
@@ -385,7 +384,7 @@ impl Direction {
         }
     }
 
-    pub fn try_into_incoming(self) -> CoreResult<Ipv4Addr, Self> {
+    pub fn try_into_incoming(self) -> Result<Ipv4Addr, Self> {
         if let Self::Incoming { source } = self {
             Ok(source)
         } else {
@@ -393,7 +392,7 @@ impl Direction {
         }
     }
 
-    pub fn try_into_outgoing(self) -> CoreResult<Ipv4Addr, Self> {
+    pub fn try_into_outgoing(self) -> Result<Ipv4Addr, Self> {
         if let Self::Outgoing { destination } = self {
             Ok(destination)
         } else {
@@ -431,7 +430,7 @@ struct Ip {
 
 pub(super) fn deserialize_ip<'de, D: Deserializer<'de>>(
     deserializer: D,
-) -> CoreResult<Ipv4Addr, D::Error> {
+) -> Result<Ipv4Addr, D::Error> {
     Ipv4Addr::from_str(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
 }
 
@@ -452,7 +451,7 @@ struct TransportLayer {
     dst_port: u16,
 }
 
-fn deserialize_port<'de, D: Deserializer<'de>>(deserializer: D) -> CoreResult<u16, D::Error> {
+fn deserialize_port<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u16, D::Error> {
     u16::from_str(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
 }
 
@@ -475,7 +474,7 @@ impl StreamingCapture {
 impl<'de> DeserializeSeed<'de> for StreamingCapture {
     type Value = ();
 
-    fn deserialize<D>(self, deserializer: D) -> CoreResult<Self::Value, D::Error>
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -503,7 +502,7 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
         formatter.write_str("a sequence")
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> CoreResult<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
