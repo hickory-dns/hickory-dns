@@ -1,0 +1,9 @@
+[package]
+name = "e2e-tests"
+edition = "2021"
+publish = false
+description = "end-to-end tests at the binary level"
+
+[dev-dependencies]
+dns-test = { path = "../dns-test" }
+minijinja = "2"

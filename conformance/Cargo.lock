@@ -96,6 +96,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "e2e-tests"
+version = "0.0.0"
+dependencies = [
+ "dns-test",
+ "minijinja",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"

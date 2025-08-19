@@ -175,7 +175,6 @@ publish:
 clean:
     rm -rf {{TARGET_DIR}}
     rm -rf {{join(justfile_directory(), "conformance/target")}}
-    rm -rf {{join(justfile_directory(), "tests/e2e-tests/target")}}
     rm -rf {{join(justfile_directory(), "tests/ede-dot-com/target")}}
     rm -rf {{join(justfile_directory(), "fuzz/target")}}
 
@@ -239,12 +238,12 @@ conformance-clean-networks:
     docker network rm $(docker network ls | grep dns-test | cut -f 1 -d " ")
 
 # runs all other e2e-tests-* tasks
-e2e-tests: (e2e-tests-run) (e2e-tests-ignored) (e2e-tests-clippy) (e2e-tests-fmt)
+e2e-tests: (e2e-tests-run) (e2e-tests-ignored)
 
 # runs hickory-specific end-to-end tests that use the dns-test framework
 e2e-tests-run:
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
-    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml
+    DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path conformance/Cargo.toml -p e2e-tests
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
 
 # check that any fixed e2e-test has not been left marked as `#[ignore]`
@@ -255,17 +254,9 @@ e2e-tests-ignored:
 
     tmpfile="$(mktemp)"
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
-    ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path tests/e2e-tests/Cargo.toml --lib -- --ignored || true ) | tee "$tmpfile"
+    ( DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path conformance/Cargo.toml -p e2e-tests --lib -- --ignored || true ) | tee "$tmpfile"
     grep -e 'test result: \(ok\|FAILED\). 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
-
-# lints the end-to-end test suite
-e2e-tests-clippy:
-    cargo clippy --manifest-path tests/e2e-tests/Cargo.toml --all-targets -- -D warnings
-
-# formats the end-to-end test suite code
-e2e-tests-fmt:
-    cargo fmt --manifest-path tests/e2e-tests/Cargo.toml --all -- --check
 
 # runs all other ede-dot-com-* tasks
 ede-dot-com: (ede-dot-com-run) (ede-dot-com-ignored) (ede-dot-com-check)
