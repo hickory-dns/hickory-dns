@@ -159,7 +159,6 @@ version = "0.0.0"
 dependencies = [
  "dns-test",
  "minijinja",
- "serde_json",
 ]
 
 [[package]]
