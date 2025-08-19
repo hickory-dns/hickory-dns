@@ -31,23 +31,7 @@ pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
 
 /// Test udp_stream.
 pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: P) {
-    let succeeded = Arc::new(AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone;
-            for _ in 0..15 {
-                thread::sleep(Duration::from_secs(1));
-                if succeeded.load(Ordering::Relaxed) {
-                    return;
-                }
-            }
-
-            println!("Thread Killer has been awoken, killing process");
-            process::exit(-1);
-        })
-        .unwrap();
+    let stop_thread_killer = start_thread_killer();
 
     let server = UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
@@ -118,30 +102,14 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
         assert_eq!(message.addr(), server_addr);
     }
 
-    succeeded.store(true, Ordering::Relaxed);
+    stop_thread_killer.store(true, Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 }
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
 pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
-    let succeeded = Arc::new(AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone;
-            for _ in 0..15 {
-                thread::sleep(Duration::from_secs(1));
-                if succeeded.load(Ordering::Relaxed) {
-                    return;
-                }
-            }
-
-            println!("Thread Killer has been awoken, killing process");
-            process::exit(-1);
-        })
-        .unwrap();
+    let stop_thread_killer = start_thread_killer();
 
     let server = UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
@@ -232,8 +200,33 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         worked_once = true;
     }
 
-    succeeded.store(true, Ordering::Relaxed);
+    stop_thread_killer.store(true, Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 
     assert!(worked_once);
+}
+
+/// Spawn a thread that wil kill the process after 15 seconds unless stopped.
+///
+/// The thread killer can be stopped when the testing logic is complete by writing
+/// a true value to the returned atomic bool.
+fn start_thread_killer() -> Arc<AtomicBool> {
+    let succeeded = Arc::new(AtomicBool::new(false));
+    let succeeded_clone = succeeded.clone();
+    thread::Builder::new()
+        .name("thread_killer".to_string())
+        .spawn(move || {
+            let succeeded = succeeded_clone;
+            for _ in 0..15 {
+                thread::sleep(Duration::from_secs(1));
+                if succeeded.load(Ordering::Relaxed) {
+                    return;
+                }
+            }
+
+            println!("Thread Killer has been awoken, killing process");
+            process::exit(-1);
+        })
+        .unwrap();
+    succeeded
 }
