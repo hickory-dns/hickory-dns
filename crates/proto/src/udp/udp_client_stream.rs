@@ -422,14 +422,16 @@ mod tests {
     #[tokio::test]
     async fn test_udp_client_stream_ipv4() {
         subscribe();
-        let provider = TokioRuntimeProvider::new();
-        udp_client_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), provider).await;
+        udp_client_stream_test(IpAddr::V4(Ipv4Addr::LOCALHOST), TokioRuntimeProvider::new()).await;
     }
 
     #[tokio::test]
     async fn test_udp_client_stream_ipv6() {
         subscribe();
-        let provider = TokioRuntimeProvider::new();
-        udp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), provider).await;
+        udp_client_stream_test(
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            TokioRuntimeProvider::new(),
+        )
+        .await;
     }
 }
