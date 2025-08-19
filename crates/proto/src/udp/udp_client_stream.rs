@@ -291,8 +291,8 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     trace!("creating UDP receive buffer with size {recv_buf_size}");
     let mut recv_buf = vec![0; recv_buf_size];
 
-    // TODO: limit the max number of attempted messages? this relies on a timeout to die...
-    loop {
+    // Try to process up to 3 responses
+    for _ in 0..3 {
         let (len, src) = socket.recv_from(&mut recv_buf).await?;
 
         // Copy the slice of read bytes.
@@ -409,6 +409,8 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
             return Ok(response);
         }
     }
+
+    Err("udp receive attempts exceeded".into())
 }
 
 #[cfg(test)]
