@@ -4,6 +4,7 @@ use core::result::Result as CoreResult;
 use std::fmt::{self, Write};
 use std::io::{self, BufRead, BufReader};
 use std::net::Ipv4Addr;
+use std::str::FromStr;
 use std::sync::atomic::{self, AtomicUsize};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::{self, JoinHandle};
@@ -432,16 +433,25 @@ struct Ip {
     dst: Ipv4Addr,
 }
 
-#[serde_as]
 #[derive(Debug, Deserialize)]
 struct TransportLayer {
-    #[serde(rename = "udp.srcport", alias = "tcp.srcport")]
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(
+        rename = "udp.srcport",
+        alias = "tcp.srcport",
+        deserialize_with = "deserialize_port"
+    )]
     src_port: u16,
 
-    #[serde(rename = "udp.dstport", alias = "tcp.dstport")]
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(
+        rename = "udp.dstport",
+        alias = "tcp.dstport",
+        deserialize_with = "deserialize_port"
+    )]
     dst_port: u16,
+}
+
+fn deserialize_port<'de, D: Deserializer<'de>>(deserializer: D) -> CoreResult<u16, D::Error> {
+    u16::from_str(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
 }
 
 /// This handles deserialization of the outer array in `tshark`'s JSON output, and makes each
