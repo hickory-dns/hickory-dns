@@ -5,7 +5,7 @@ use dns_test::name_server::NameServer;
 use dns_test::nsec3::NSEC3Records;
 use dns_test::record::{NSEC3, Record, RecordType};
 use dns_test::zone_file::SignSettings;
-use dns_test::{FQDN, Network, Result};
+use dns_test::{Error, FQDN, Network};
 
 const TLD_FQDN: &str = "alice.com.";
 const NON_EXISTENT_FQDN: &str = "charlie.alice.com.";
@@ -22,7 +22,7 @@ const NSEC3_OWNER_HASH: &str = "T5LJ8DV3O2C0BNVLRRUTQ2NKPQE3N385"; /* h(llkh4l6i
 // This test checks that name servers produce a name error response compliant with section 7.2.2.
 // of RFC5155.
 #[test]
-fn name_error_response() -> Result<()> {
+fn name_error_response() -> Result<(), Error> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
@@ -84,7 +84,7 @@ fn name_error_response() -> Result<()> {
 // This test checks that name servers produce a no data response compliant with section 7.2.3.
 // of RFC5155 when the query type is not DS.
 #[test]
-fn no_data_response_not_ds() -> Result<()> {
+fn no_data_response_not_ds() -> Result<(), Error> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
     let qname = alice_fqdn.clone();
@@ -115,7 +115,7 @@ fn no_data_response_not_ds() -> Result<()> {
 // This test checks that name servers produce a no data response compliant with section 7.2.4.
 // of RFC5155 when the query type is DS and there is an NSEC3 RR that matches the queried name.
 #[test]
-fn no_data_response_ds_match() -> Result<()> {
+fn no_data_response_ds_match() -> Result<(), Error> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
     let qname = alice_fqdn.clone();
@@ -146,7 +146,7 @@ fn no_data_response_ds_match() -> Result<()> {
 // This test checks that name servers produce a no data response compliant with section 7.2.4.
 // of RFC5155 when the query type is DS and no NSEC3 RR matches the queried name.
 #[test]
-fn no_data_response_ds_no_match() -> Result<()> {
+fn no_data_response_ds_no_match() -> Result<(), Error> {
     let alice_fqdn = FQDN(TLD_FQDN)?;
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
@@ -196,7 +196,7 @@ fn no_data_response_ds_no_match() -> Result<()> {
 // This test checks that name servers produce a wildcard no data response compliant with section 7.2.5.
 #[test]
 #[ignore]
-fn wildcard_no_data_response() -> Result<()> {
+fn wildcard_no_data_response() -> Result<(), Error> {
     let wildcard_fqdn = FQDN(WILDCARD_FQDN)?;
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
@@ -254,7 +254,7 @@ fn wildcard_no_data_response() -> Result<()> {
 
 // This test checks that name servers produce a wildcard answer response compliant with section 7.2.6.
 #[test]
-fn wildcard_answer_response() -> Result<()> {
+fn wildcard_answer_response() -> Result<(), Error> {
     let wildcard_fqdn = FQDN(WILDCARD_FQDN)?;
     // The queried name
     let qname = FQDN(NON_EXISTENT_FQDN)?;
@@ -296,7 +296,7 @@ fn wildcard_answer_response() -> Result<()> {
 ///
 /// See section 7.2.8 of RFC 5155.
 #[test]
-fn nsec3_owner_name() -> Result<()> {
+fn nsec3_owner_name() -> Result<(), Error> {
     let tld_fqdn = FQDN(TLD_FQDN)?;
     let qname = FQDN(NSEC3_OWNER_FQDN)?;
 
@@ -330,7 +330,7 @@ fn query_nameserver(
     records: impl IntoIterator<Item = Record>,
     qname: &FQDN,
     qtype: RecordType,
-) -> Result<(NSEC3Records, DigStatus, Vec<NSEC3>)> {
+) -> Result<(NSEC3Records, DigStatus, Vec<NSEC3>), Error> {
     let network = Network::new()?;
     let mut ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?;
 

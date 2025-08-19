@@ -1,14 +1,14 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Forwarder, Network, Resolver, Result,
+    Error, FQDN, Forwarder, Network, Resolver,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
 };
 
 #[test]
-fn noerror() -> Result<()> {
+fn noerror() -> Result<(), Error> {
     let network = Network::new()?;
 
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
@@ -45,7 +45,7 @@ fn noerror() -> Result<()> {
 }
 
 #[test]
-fn nxdomain() -> Result<()> {
+fn nxdomain() -> Result<(), Error> {
     let network = Network::new()?;
 
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;

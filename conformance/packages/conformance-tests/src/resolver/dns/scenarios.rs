@@ -4,7 +4,7 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::tshark::{Capture, Direction};
-use dns_test::{FQDN, Network, Resolver, Result};
+use dns_test::{Error, FQDN, Network, Resolver};
 
 mod bad_referral;
 mod cname;
@@ -12,7 +12,7 @@ mod no_soa;
 mod packet_loss;
 
 #[test]
-fn can_resolve() -> Result<()> {
+fn can_resolve() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
@@ -47,7 +47,7 @@ fn can_resolve() -> Result<()> {
 }
 
 #[test]
-fn nxdomain() -> Result<()> {
+fn nxdomain() -> Result<(), Error> {
     let needle_fqdn = FQDN::TEST_DOMAIN.push_label("unicorn");
 
     let network = Network::new()?;
@@ -73,7 +73,7 @@ fn nxdomain() -> Result<()> {
 }
 
 #[test]
-fn recursion_desired_flag() -> Result<()> {
+fn recursion_desired_flag() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 

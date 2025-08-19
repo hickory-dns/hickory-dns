@@ -1,15 +1,15 @@
 use core::sync::atomic::{self, AtomicUsize};
 use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, rc::Rc, thread, time::Duration};
 
+use rcgen::CertifiedKey;
+
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role, TlsServerConfig};
 use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
-use crate::{DEFAULT_TTL, FQDN, Implementation, Pki, Result, TrustAnchor};
-
-use rcgen::CertifiedKey;
+use crate::{DEFAULT_TTL, Error, FQDN, Implementation, Pki, TrustAnchor};
 
 pub struct Graph {
     pub nameservers: Vec<NameServer<Running>>,
@@ -42,7 +42,7 @@ impl Graph {
     /// key to the parent's zone file
     ///
     /// a non-empty `TrustAnchor` is returned only when `Sign::Yes` or `Sign::AndAmend` is used
-    pub fn build(leaf: NameServer<Stopped>, sign: Sign) -> Result<Self> {
+    pub fn build(leaf: NameServer<Stopped>, sign: Sign) -> Result<Self, Error> {
         assert_eq!(2, leaf.zone().num_labels(), "not yet implemented");
         assert_eq!(
             Some(FQDN::TEST_TLD),
@@ -112,7 +112,7 @@ impl Graph {
                 nameservers
                     .into_iter()
                     .map(|nameserver| nameserver.start())
-                    .collect::<Result<_>>()?,
+                    .collect::<Result<_, _>>()?,
                 None,
             ),
 
@@ -184,7 +184,7 @@ impl NameServerBuilder {
     ///
     /// The zone file will initially contain an SOA record, an NS record pointing to this name
     /// server, and an A record with the address of this server.
-    pub fn build(self) -> Result<NameServer<Stopped>> {
+    pub fn build(self) -> Result<NameServer<Stopped>, Error> {
         let Self {
             zone,
             nameserver_fqdn,
@@ -246,7 +246,7 @@ pub struct NameServer<State> {
 }
 
 impl<State> NameServer<State> {
-    fn dot_config(&self) -> Result<Option<TlsServerConfig>> {
+    fn dot_config(&self) -> Result<Option<TlsServerConfig>, Error> {
         let Some(pki) = &self.pki else {
             return Ok(None);
         };
@@ -284,7 +284,11 @@ impl NameServer<Stopped> {
     /// - one NS record, with this name server's FQDN set as the only available name server for
     ///   the zone
     /// - one A record, with this name server's IP address
-    pub fn new(implementation: &Implementation, zone: FQDN, network: &Network) -> Result<Self> {
+    pub fn new(
+        implementation: &Implementation,
+        zone: FQDN,
+        network: &Network,
+    ) -> Result<Self, Error> {
         Self::builder(implementation.clone(), zone, network.clone()).build()
     }
 
@@ -324,7 +328,7 @@ impl NameServer<Stopped> {
     }
 
     /// Copy a file to the name server's filesystem
-    pub fn cp(&self, path: &str, contents: &str) -> Result<()> {
+    pub fn cp(&self, path: &str, contents: &str) -> Result<(), Error> {
         self.container.cp(path, contents)?;
         Ok(())
     }
@@ -335,7 +339,7 @@ impl NameServer<Stopped> {
     }
 
     /// Freezes and signs the name server's zone file
-    pub fn sign(self, settings: SignSettings) -> Result<NameServer<Signed>> {
+    pub fn sign(self, settings: SignSettings) -> Result<NameServer<Signed>, Error> {
         let Self {
             container,
             zone_file,
@@ -364,7 +368,7 @@ impl NameServer<Stopped> {
         self,
         settings: SignSettings,
         keys: &SigningKeys,
-    ) -> Result<NameServer<Signed>> {
+    ) -> Result<NameServer<Signed>, Error> {
         let Self {
             container,
             zone_file,
@@ -388,7 +392,7 @@ impl NameServer<Stopped> {
     }
 
     /// Moves the server to the "Start" state where it can answer client queries
-    pub fn start(self) -> Result<NameServer<Running>> {
+    pub fn start(self) -> Result<NameServer<Running>, Error> {
         let dot_config = self.dot_config()?;
         let Self {
             container,
@@ -490,7 +494,7 @@ fn ns_count() -> usize {
 
 impl NameServer<Signed> {
     /// Moves the server to the "Start" state where it can answer client queries
-    pub fn start(self) -> Result<NameServer<Running>> {
+    pub fn start(self) -> Result<NameServer<Running>, Error> {
         let dot_config = self.dot_config()?;
         let Self {
             container,
@@ -594,7 +598,7 @@ impl NameServer<Signed> {
 }
 
 impl NameServer<Running> {
-    pub fn eavesdrop_udp(&self) -> Result<Tshark> {
+    pub fn eavesdrop_udp(&self) -> Result<Tshark, Error> {
         Tshark::new(&self.container)
     }
 
@@ -603,7 +607,7 @@ impl NameServer<Running> {
     }
 
     /// Returns the logs collected so far
-    pub fn logs(&self) -> Result<String> {
+    pub fn logs(&self) -> Result<String, Error> {
         if self.implementation.is_hickory() || self.implementation.is_dnslib() {
             Ok(format!(
                 "STDOUT:\n{}\nSTDERR:\n{}",
@@ -615,12 +619,12 @@ impl NameServer<Running> {
         }
     }
 
-    fn stdout(&self) -> Result<String> {
+    fn stdout(&self) -> Result<String, Error> {
         self.container
             .stdout(&["cat", &self.implementation.stdout_logfile(Role::NameServer)])
     }
 
-    fn stderr(&self) -> Result<String> {
+    fn stderr(&self) -> Result<String, Error> {
         self.container
             .stdout(&["cat", &self.implementation.stderr_logfile(Role::NameServer)])
     }
@@ -763,7 +767,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn simplest() -> Result<()> {
+    fn simplest() -> Result<(), Error> {
         let network = Network::new()?;
         let tld_ns =
             NameServer::new(&Implementation::Unbound, FQDN::TEST_TLD, &network)?.start()?;
@@ -783,7 +787,7 @@ mod tests {
     }
 
     #[test]
-    fn with_referral() -> Result<()> {
+    fn with_referral() -> Result<(), Error> {
         let network = Network::new()?;
         let expected_ip_addr = Ipv4Addr::new(172, 17, 200, 1);
         let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?;
@@ -812,7 +816,7 @@ mod tests {
     }
 
     #[test]
-    fn signed() -> Result<()> {
+    fn signed() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?
             .sign(SignSettings::default())?;
@@ -844,7 +848,7 @@ mod tests {
     }
 
     #[test]
-    fn nsd_logs_works() -> Result<()> {
+    fn nsd_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         // no way to block until the server has finished starting up so we just give it some
@@ -858,7 +862,7 @@ mod tests {
     }
 
     #[test]
-    fn named_logs_works() -> Result<()> {
+    fn named_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Bind, FQDN::ROOT, &network)?.start()?;
         // no way to block until the server has finished starting up so we just give it some
@@ -873,7 +877,7 @@ mod tests {
     }
 
     #[test]
-    fn hickory_logs_works() -> Result<()> {
+    fn hickory_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::hickory(), FQDN::ROOT, &network)?.start()?;
 
@@ -896,25 +900,25 @@ mod tests {
     }
 
     #[test]
-    fn bind_multizone_works() -> Result<()> {
+    fn bind_multizone_works() -> Result<(), Error> {
         multizone_test(&Implementation::Bind)?;
         Ok(())
     }
 
     #[test]
-    fn hickory_multizone_works() -> Result<()> {
+    fn hickory_multizone_works() -> Result<(), Error> {
         multizone_test(&Implementation::hickory())?;
         Ok(())
     }
 
     #[test]
-    fn unbound_multizone_works() -> Result<()> {
+    fn unbound_multizone_works() -> Result<(), Error> {
         multizone_test(&Implementation::Unbound)?;
         Ok(())
     }
 
     #[cfg(test)]
-    fn multizone_test(implementation: &Implementation) -> Result<()> {
+    fn multizone_test(implementation: &Implementation) -> Result<(), Error> {
         let network = Network::new()?;
         let mut ns = NameServer::new(implementation, FQDN::ROOT, &network)?;
         let mut zone_file = ZoneFile::new(SOA {
@@ -972,22 +976,22 @@ mod tests {
     }
 
     #[test]
-    fn bind_dot() -> Result<()> {
+    fn bind_dot() -> Result<(), Error> {
         test_dot_query_works(Implementation::Bind)
     }
 
     #[test]
-    fn nsd_dot() -> Result<()> {
+    fn nsd_dot() -> Result<(), Error> {
         // NOTE: Specifying Unbound gets us NSD as the auth. server impl.
         test_dot_query_works(Implementation::Unbound)
     }
 
     #[test]
-    fn hickory_dot() -> Result<()> {
+    fn hickory_dot() -> Result<(), Error> {
         test_dot_query_works(Implementation::hickory())
     }
 
-    fn test_dot_query_works(implementation: Implementation) -> Result<()> {
+    fn test_dot_query_works(implementation: Implementation) -> Result<(), Error> {
         let network = Network::new()?;
         let pki = Rc::new(Pki::new()?);
         let tld_ns = NameServer::builder(implementation, FQDN::TEST_TLD, network.clone())

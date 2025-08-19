@@ -1,5 +1,5 @@
 use dns_test::{
-    FQDN, Network, PEER, Resolver, Result,
+    Error, FQDN, Network, PEER, Resolver,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
@@ -7,7 +7,7 @@ use dns_test::{
 
 /// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3125
 #[test]
-fn ns_query() -> Result<()> {
+fn ns_query() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
     let Graph {

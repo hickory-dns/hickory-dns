@@ -12,7 +12,7 @@ use std::{env, fs};
 use tempfile::{NamedTempFile, TempDir};
 
 pub use crate::container::network::Network;
-use crate::{Error, HickoryCryptoProvider, Implementation, Repository, Result};
+use crate::{Error, HickoryCryptoProvider, Implementation, Repository};
 
 #[derive(Clone)]
 pub struct Container {
@@ -132,7 +132,7 @@ impl fmt::Display for Image {
 
 impl Container {
     /// Starts the container in a "parked" state
-    pub fn run(image: &Image, network: &Network) -> Result<Self> {
+    pub fn run(image: &Image, network: &Network) -> Result<Self, Error> {
         let image_tag = format!("{PACKAGE_NAME}-{image}");
 
         if !skip_docker_build() {
@@ -260,7 +260,7 @@ impl Container {
         })
     }
 
-    pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<()> {
+    pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<(), Error> {
         const CHMOD_RW_EVERYONE: &str = "666";
 
         let mut temp_file = NamedTempFile::new()?;
@@ -279,7 +279,7 @@ impl Container {
     }
 
     /// Similar to `std::process::Command::output` but runs `command_and_args` in the container
-    pub fn output(&self, command_and_args: &[&str]) -> Result<Output> {
+    pub fn output(&self, command_and_args: &[&str]) -> Result<Output, Error> {
         let mut command = Command::new("docker");
         command
             .args(["exec", &self.inner.id])
@@ -290,7 +290,7 @@ impl Container {
 
     /// Similar to `Self::output` but checks `command_and_args` ran successfully and only
     /// returns the stdout
-    pub fn stdout(&self, command_and_args: &[&str]) -> Result<String> {
+    pub fn stdout(&self, command_and_args: &[&str]) -> Result<String, Error> {
         let Output {
             status,
             stderr,
@@ -307,7 +307,7 @@ impl Container {
     }
 
     /// Similar to `std::process::Command::status` but runs `command_and_args` in the container
-    pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus> {
+    pub fn status(&self, command_and_args: &[&str]) -> Result<ExitStatus, Error> {
         let mut command = Command::new("docker");
         command
             .args(["exec", &self.inner.id])
@@ -319,7 +319,7 @@ impl Container {
     }
 
     /// Like `Self::status` but checks that `command_and_args` executed successfully
-    pub fn status_ok(&self, command_and_args: &[&str]) -> Result<()> {
+    pub fn status_ok(&self, command_and_args: &[&str]) -> Result<(), Error> {
         let status = self.status(command_and_args)?;
 
         if status.success() {
@@ -329,7 +329,7 @@ impl Container {
         }
     }
 
-    pub fn spawn(&self, cmd: &[impl AsRef<OsStr>]) -> Result<Child> {
+    pub fn spawn(&self, cmd: &[impl AsRef<OsStr>]) -> Result<Child, Error> {
         let mut command = Command::new("docker");
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
         command.args(["exec", &self.inner.id]).args(cmd);
@@ -414,7 +414,7 @@ impl Child {
     /// Returns a handle to the child's stdout
     ///
     /// This method will succeed at most once
-    pub fn stdout(&mut self) -> Result<ChildStdout> {
+    pub fn stdout(&mut self) -> Result<ChildStdout, Error> {
         Ok(self
             .inner
             .as_mut()
@@ -425,7 +425,7 @@ impl Child {
     /// Returns a handle to the child's stderr
     ///
     /// This method will succeed at most once
-    pub fn stderr(&mut self) -> Result<ChildStderr> {
+    pub fn stderr(&mut self) -> Result<ChildStderr, Error> {
         Ok(self
             .inner
             .as_mut()
@@ -435,14 +435,14 @@ impl Child {
 
     /// Returns the child's exit status, if the child process has exited. try_wait will not block
     /// on a running process.
-    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, Error> {
         match self.inner.as_mut() {
             Some(child) => Ok(child.try_wait()?),
             _ => Err("can't borrow child as mut for try_wait".into()),
         }
     }
 
-    pub fn wait(mut self) -> Result<Output> {
+    pub fn wait(mut self) -> Result<Output, Error> {
         let output = self.inner.take().expect("unreachable").wait_with_output()?;
         output.try_into()
     }
@@ -466,7 +466,7 @@ pub struct Output {
 impl TryFrom<process::Output> for Output {
     type Error = Error;
 
-    fn try_from(output: process::Output) -> Result<Self> {
+    fn try_from(output: process::Output) -> Result<Self, Error> {
         let mut stderr = String::from_utf8(output.stderr)?;
         while stderr.ends_with(['\n', '\r']) {
             stderr.pop();
@@ -485,7 +485,7 @@ impl TryFrom<process::Output> for Output {
     }
 }
 
-fn checked_output(command: &mut Command) -> Result<process::Output> {
+fn checked_output(command: &mut Command) -> Result<process::Output, Error> {
     let output = command.output()?;
     if output.status.success() {
         Ok(output)
@@ -494,7 +494,7 @@ fn checked_output(command: &mut Command) -> Result<process::Output> {
     }
 }
 
-fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr> {
+fn get_ipv4_addr(container_id: &str) -> Result<Ipv4Addr, Error> {
     let mut command = Command::new("docker");
     command
         .args([
@@ -532,7 +532,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn run_works() -> Result<()> {
+    fn run_works() -> Result<(), Error> {
         let network = Network::new()?;
         let container = Container::run(&Image::Client, &network)?;
 
@@ -543,7 +543,7 @@ mod tests {
     }
 
     #[test]
-    fn ipv4_addr_works() -> Result<()> {
+    fn ipv4_addr_works() -> Result<(), Error> {
         let network = Network::new()?;
         let container = Container::run(&Image::Client, &network)?;
         let ipv4_addr = container.ipv4_addr();
@@ -555,7 +555,7 @@ mod tests {
     }
 
     #[test]
-    fn cp_works() -> Result<()> {
+    fn cp_works() -> Result<(), Error> {
         let network = Network::new()?;
         let container = Container::run(&Image::Client, &network)?;
 

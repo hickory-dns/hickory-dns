@@ -6,10 +6,10 @@ use std::net::Ipv4Addr;
 use dns_test::client::{Client, DigOutput, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
-use dns_test::{FQDN, Network, Resolver, Result};
+use dns_test::{Error, FQDN, Network, Resolver};
 
 #[test]
-fn v4_this_host() -> Result<()> {
+fn v4_this_host() -> Result<(), Error> {
     if dns_test::SUBJECT.is_unbound() {
         // unbound does not answer and `dig` times out
         return Ok(());
@@ -32,7 +32,7 @@ fn v4_this_host() -> Result<()> {
 }
 
 #[test]
-fn v4_loopback() -> Result<()> {
+fn v4_loopback() -> Result<(), Error> {
     let (output, logs) = fixture("v4-loopback", Ipv4Addr::LOCALHOST)?;
     dbg!(&output);
 
@@ -50,7 +50,7 @@ fn v4_loopback() -> Result<()> {
 }
 
 #[test]
-fn v4_broadcast() -> Result<()> {
+fn v4_broadcast() -> Result<(), Error> {
     let (output, logs) = fixture("v4-broadcast", Ipv4Addr::BROADCAST)?;
     dbg!(&output);
 
@@ -68,7 +68,7 @@ fn v4_broadcast() -> Result<()> {
     Ok(())
 }
 
-fn fixture(label: &str, addr: Ipv4Addr) -> Result<(DigOutput, String)> {
+fn fixture(label: &str, addr: Ipv4Addr) -> Result<(DigOutput, String), Error> {
     let network = Network::new()?;
 
     let leaf_zone = FQDN::TEST_TLD.push_label(label);

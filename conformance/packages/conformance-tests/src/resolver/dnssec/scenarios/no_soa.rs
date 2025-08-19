@@ -1,7 +1,7 @@
 use std::fs;
 
 use dns_test::{
-    FQDN, Implementation, Network, PEER, Resolver, Result,
+    Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::RecordType,
@@ -10,7 +10,7 @@ use dns_test::{
 
 #[test]
 #[ignore = "hickory fails to correctly find a zone cut in the face of a lame delegation with no NS apex RRset"]
-fn no_soa_insecure() -> Result<()> {
+fn no_soa_insecure() -> Result<(), Error> {
     let target_fqdn = FQDN::TEST_DOMAIN;
     let network = Network::new()?;
 

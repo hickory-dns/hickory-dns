@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use base64::prelude::*;
 use dns_test::{
-    FQDN, Network, Resolver, Result, TrustAnchor,
+    Error, FQDN, Network, Resolver, TrustAnchor,
     name_server::{Graph, NameServer, Running, Sign},
     record::Record,
     zone_file::SignSettings,
@@ -11,7 +11,7 @@ use dns_test::{
 pub fn bad_signature_in_leaf_nameserver(
     leaf_fqdn: &FQDN,
     leaf_ipv4_addr: Ipv4Addr,
-) -> Result<(Resolver, Graph)> {
+) -> Result<(Resolver, Graph), Error> {
     assert_eq!(Some(FQDN::TEST_DOMAIN), leaf_fqdn.parent());
 
     let network = Network::new()?;
@@ -58,7 +58,7 @@ pub fn minimally_secure(
     leaf_fqdn: FQDN,
     leaf_ipv4_addr: Ipv4Addr,
     settings: SignSettings,
-) -> Result<(Resolver, Vec<NameServer<Running>>, TrustAnchor)> {
+) -> Result<(Resolver, Vec<NameServer<Running>>, TrustAnchor), Error> {
     assert_eq!(Some(FQDN::TEST_DOMAIN), leaf_fqdn.parent());
 
     let network = Network::new()?;

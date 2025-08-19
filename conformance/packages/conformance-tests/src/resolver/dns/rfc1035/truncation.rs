@@ -6,7 +6,7 @@
 use std::{fs, thread, time::Duration};
 
 use dns_test::{
-    FQDN, Implementation, Network, PEER, Resolver, Result,
+    Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer},
     record::{Record, RecordType},
@@ -15,7 +15,7 @@ use dns_test::{
 /// Verify that resolvers will retry a query over TCP if they get a truncated response via UDP, and
 /// only cache the complete TCP response.
 #[test]
-fn truncated_response_caching_with_tcp_fallback() -> Result<()> {
+fn truncated_response_caching_with_tcp_fallback() -> Result<(), Error> {
     let target_fqdn = FQDN("example.testing.")?;
     let (resolver, client, _graph) =
         setup("src/resolver/dns/rfc1035/truncated_with_tcp_fallback.py")?;
@@ -62,7 +62,7 @@ fn truncated_response_caching_with_tcp_fallback() -> Result<()> {
 /// Verify that resolvers will not cache a truncated response received via UDP if the authoritative
 /// server does not reply to TCP fallback queries.
 #[test]
-fn truncated_response_caching_udp_only() -> Result<()> {
+fn truncated_response_caching_udp_only() -> Result<(), Error> {
     let target_fqdn = FQDN("example.testing.")?;
     let (resolver, client, _graph) = setup("src/resolver/dns/rfc1035/truncated_udp_only.py")?;
 
@@ -106,7 +106,7 @@ fn truncated_response_caching_udp_only() -> Result<()> {
     Ok(())
 }
 
-fn setup(script_path: &str) -> Result<(Resolver, Client, Graph)> {
+fn setup(script_path: &str) -> Result<(Resolver, Client, Graph), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
@@ -136,7 +136,7 @@ fn setup(script_path: &str) -> Result<(Resolver, Client, Graph)> {
 }
 
 /// Parse the protocol name and counter value from the dnslib-based name server's response.
-fn parse_txt_records(records: &[Record]) -> Result<(Option<String>, Option<u64>)> {
+fn parse_txt_records(records: &[Record]) -> Result<(Option<String>, Option<u64>), Error> {
     let mut protocol = None;
     let mut counter = None;
     for record in records.iter() {

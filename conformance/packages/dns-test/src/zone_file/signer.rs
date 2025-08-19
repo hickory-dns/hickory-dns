@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    FQDN,
+    Error, FQDN,
     container::Container,
     name_server::{DS2, Signed},
     record::DS,
@@ -220,7 +220,7 @@ pub struct Signer<'a> {
 }
 
 impl<'a> Signer<'a> {
-    pub fn new(container: &'a Container, settings: SignSettings) -> crate::Result<Self> {
+    pub fn new(container: &'a Container, settings: SignSettings) -> Result<Self, Error> {
         Ok(Self {
             container,
             settings,
@@ -228,7 +228,7 @@ impl<'a> Signer<'a> {
     }
 
     /// Generates ZSK and KSK keys.
-    pub fn generate_keys(&self, zone: &FQDN) -> crate::Result<SigningKeys> {
+    pub fn generate_keys(&self, zone: &FQDN) -> Result<SigningKeys, Error> {
         self.container.status_ok(&["mkdir", "-p", KEYS_DIR])?;
         let zsk = self.gen_zsk_key(zone)?;
         let ksk = self.gen_ksk_key(zone, zsk.public.rdata.calculate_key_tag())?;
@@ -236,7 +236,7 @@ impl<'a> Signer<'a> {
     }
 
     /// Signs the [`ZoneFile`] with the [`SignSettings`].
-    pub fn sign_zone(&self, zone_file: &ZoneFile, keys: &SigningKeys) -> crate::Result<Signed> {
+    pub fn sign_zone(&self, zone_file: &ZoneFile, keys: &SigningKeys) -> Result<Signed, Error> {
         self.container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         let zone_file_path = zone_file_path();
         self.container.cp(&zone_file_path, &zone_file.to_string())?;
@@ -296,11 +296,11 @@ impl<'a> Signer<'a> {
         })
     }
 
-    fn gen_zsk_key(&self, zone: &FQDN) -> crate::Result<Keypair> {
+    fn gen_zsk_key(&self, zone: &FQDN) -> Result<Keypair, Error> {
         self.gen_key(&ldns_keygen_zsk(&self.settings, zone))
     }
 
-    fn gen_ksk_key(&self, zone: &FQDN, zsk_keytag: u16) -> crate::Result<Keypair> {
+    fn gen_ksk_key(&self, zone: &FQDN, zsk_keytag: u16) -> Result<Keypair, Error> {
         // ldns-signzone will not accept a KSK that has either the same
         // keytag as the ZSK, or a keytag one higher than the ZSK.
         // See https://github.com/hickory-dns/hickory-dns/issues/2555
@@ -318,7 +318,7 @@ impl<'a> Signer<'a> {
         )
     }
 
-    fn gen_key(&self, command: &str) -> crate::Result<Keypair> {
+    fn gen_key(&self, command: &str) -> Result<Keypair, Error> {
         let command = format!("cd {KEYS_DIR} && {command}");
         let key_filename = self.container.stdout(&["sh", "-c", &command])?;
         let key_path = format!("{KEYS_DIR}/{key_filename}.key");

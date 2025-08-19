@@ -1,10 +1,10 @@
 use std::env;
 
-use dns_test::Result;
+use dns_test::Error;
 
 // control subdomain; authentic data is expected
 #[test]
-fn valid_dnssec() -> Result<()> {
+fn valid_dnssec() -> Result<(), Error> {
     let response = crate::compare("valid", true)?;
 
     dbg!(&response);
@@ -16,7 +16,7 @@ fn valid_dnssec() -> Result<()> {
 }
 
 #[test]
-fn hermetic_valid_dnssec() -> Result<()> {
+fn hermetic_valid_dnssec() -> Result<(), Error> {
     let response = crate::hermetic_compare("valid", true)?;
 
     dbg!(&response);
@@ -28,7 +28,7 @@ fn hermetic_valid_dnssec() -> Result<()> {
 }
 
 #[test]
-fn valid_no_dnssec() -> Result<()> {
+fn valid_no_dnssec() -> Result<(), Error> {
     let response = crate::compare("valid", false)?;
 
     dbg!(&response);
@@ -40,7 +40,7 @@ fn valid_no_dnssec() -> Result<()> {
 }
 
 #[test]
-fn hermetic_valid_no_dnssec() -> Result<()> {
+fn hermetic_valid_no_dnssec() -> Result<(), Error> {
     let response = crate::hermetic_compare("valid", false)?;
 
     dbg!(&response);

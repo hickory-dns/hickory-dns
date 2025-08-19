@@ -1,5 +1,5 @@
 use dns_test::{
-    FQDN, Result,
+    Error, FQDN,
     client::{DigSettings, DigStatus},
     record::RecordType,
     zone_file::SignSettings,
@@ -18,7 +18,7 @@ use super::setup;
 //   expect AD=1 instead of AD=0.
 
 #[test]
-fn test_8_2_1_minimal_edns() -> Result<()> {
+fn test_8_2_1_minimal_edns() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(Some(0)).nocookie();
@@ -41,7 +41,7 @@ fn test_8_2_1_minimal_edns() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_2_edns_version_negotiation() -> Result<()> {
+fn test_8_2_2_edns_version_negotiation() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -67,7 +67,7 @@ fn test_8_2_2_edns_version_negotiation() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_3_unknown_edns_options() -> Result<()> {
+fn test_8_2_3_unknown_edns_options() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().nocookie().ednsoption(100);
@@ -91,7 +91,7 @@ fn test_8_2_3_unknown_edns_options() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_4_unknown_edns_flags() -> Result<()> {
+fn test_8_2_4_unknown_edns_flags() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -119,7 +119,7 @@ fn test_8_2_4_unknown_edns_flags() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_5_edns_version_negotiation_with_unknown_edns_flags() -> Result<()> {
+fn test_8_2_5_edns_version_negotiation_with_unknown_edns_flags() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -147,7 +147,7 @@ fn test_8_2_5_edns_version_negotiation_with_unknown_edns_flags() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_6_edns_version_negotiation_with_unknown_edns_options() -> Result<()> {
+fn test_8_2_6_edns_version_negotiation_with_unknown_edns_options() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -175,7 +175,7 @@ fn test_8_2_6_edns_version_negotiation_with_unknown_edns_options() -> Result<()>
 }
 
 #[test]
-fn test_8_2_7_truncated_responses() -> Result<()> {
+fn test_8_2_7_truncated_responses() -> Result<(), Error> {
     // We need to use RSA keys in order to make the response big enough to trigger truncation.
     let (_network, _graph, resolver, client) = setup_with_sign_settings(SignSettings::rsasha256())?;
 
@@ -202,7 +202,7 @@ fn test_8_2_7_truncated_responses() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_8_do_1() -> Result<()> {
+fn test_8_2_8_do_1() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -229,7 +229,7 @@ fn test_8_2_8_do_1() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_9_edns_version_negotiation_with_do_1() -> Result<()> {
+fn test_8_2_9_edns_version_negotiation_with_do_1() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -256,7 +256,7 @@ fn test_8_2_9_edns_version_negotiation_with_do_1() -> Result<()> {
 }
 
 #[test]
-fn test_8_2_10_multiple_defined_edns_options() -> Result<()> {
+fn test_8_2_10_multiple_defined_edns_options() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()

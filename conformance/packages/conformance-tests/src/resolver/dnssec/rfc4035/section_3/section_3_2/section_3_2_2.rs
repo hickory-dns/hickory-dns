@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Network, Resolver, Result,
+    Error, FQDN, Network, Resolver,
     client::{Client, DigSettings},
     name_server::NameServer,
     record::RecordType,
@@ -10,7 +10,7 @@ use dns_test::{
 use crate::resolver::dnssec::fixtures;
 
 #[test]
-fn copies_cd_bit_from_query_to_response() -> Result<()> {
+fn copies_cd_bit_from_query_to_response() -> Result<(), Error> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?.start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;
@@ -25,7 +25,7 @@ fn copies_cd_bit_from_query_to_response() -> Result<()> {
 }
 
 #[test]
-fn if_cd_bit_is_set_then_respond_with_data_that_fails_authentication() -> Result<()> {
+fn if_cd_bit_is_set_then_respond_with_data_that_fails_authentication() -> Result<(), Error> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 
@@ -55,7 +55,7 @@ fn if_cd_bit_is_set_then_respond_with_data_that_fails_authentication() -> Result
 }
 
 #[test]
-fn if_cd_bit_is_clear_and_data_is_not_authentic_then_respond_with_servfail() -> Result<()> {
+fn if_cd_bit_is_clear_and_data_is_not_authentic_then_respond_with_servfail() -> Result<(), Error> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 

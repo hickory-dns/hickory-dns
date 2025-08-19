@@ -2,10 +2,10 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::SignSettings;
-use dns_test::{FQDN, Network, Result};
+use dns_test::{Error, FQDN, Network};
 
 #[test]
-fn rrsig_in_answer_section() -> Result<()> {
+fn rrsig_in_answer_section() -> Result<(), Error> {
     let network = Network::new()?;
 
     let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?
@@ -33,7 +33,7 @@ fn rrsig_in_answer_section() -> Result<()> {
 }
 
 #[test]
-fn rrsig_in_authority_section() -> Result<()> {
+fn rrsig_in_authority_section() -> Result<(), Error> {
     let network = Network::new()?;
 
     let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, &network)?

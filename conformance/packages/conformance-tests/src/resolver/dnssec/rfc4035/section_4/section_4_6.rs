@@ -1,7 +1,7 @@
 use std::{net::Ipv4Addr, time::Duration};
 
 use dns_test::{
-    FQDN, Result,
+    Error, FQDN,
     client::{Client, DigSettings},
     record::RecordType,
     tshark::{Capture, Direction},
@@ -11,7 +11,7 @@ use dns_test::{
 use crate::resolver::dnssec::fixtures;
 
 #[test]
-fn clears_ad_bit_in_outgoing_queries() -> Result<()> {
+fn clears_ad_bit_in_outgoing_queries() -> Result<(), Error> {
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 

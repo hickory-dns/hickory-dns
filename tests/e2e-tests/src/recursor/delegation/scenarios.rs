@@ -5,7 +5,7 @@
 use std::{net::Ipv4Addr, thread, time::Duration};
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigSettings},
     name_server::NameServer,
     record::{A, NS, Record, RecordType, SOA, SoaSettings},
@@ -23,7 +23,7 @@ use dns_test::{
 /// Querying for any host in example.testing should cause the recursor to return no answer and the
 /// recursor log should contain a NoConnections error.
 #[test]
-fn recursive_delegation() -> Result<()> {
+fn recursive_delegation() -> Result<(), Error> {
     let target_fqdn = FQDN("www.example.testing.")?;
     let target_ipv4 = Ipv4Addr::new(192, 0, 2, 1);
 
@@ -126,7 +126,7 @@ fn recursive_delegation() -> Result<()> {
 /// Querying for any host in example.testing should cause the recursor to return no answer and the
 /// recursor log should contain a NoConnections error.
 #[test]
-fn multi_domain_delegation() -> Result<()> {
+fn multi_domain_delegation() -> Result<(), Error> {
     let target_fqdn = FQDN("www.example.testing.")?;
     let target_ipv4 = Ipv4Addr::new(192, 0, 2, 1);
 

@@ -1,14 +1,14 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Network, PEER, Resolver, Result,
+    Error, FQDN, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::{CNAME, Record, RecordType},
 };
 
 #[test]
-fn cname_between_zone_cuts() -> Result<()> {
+fn cname_between_zone_cuts() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_TLD.push_label("a").push_label("b");
     let needle_fqdn = leaf_zone.push_label("www");

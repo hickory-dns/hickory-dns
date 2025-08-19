@@ -5,14 +5,14 @@ use std::net::Ipv4Addr;
 use crate::container::{Container, Image, Network};
 use crate::record::{Record, RecordType};
 use crate::trust_anchor::TrustAnchor;
-use crate::{Error, FQDN, Result};
+use crate::{Error, FQDN};
 
 pub struct Client {
     inner: Container,
 }
 
 impl Client {
-    pub fn new(network: &Network) -> Result<Self> {
+    pub fn new(network: &Network) -> Result<Self, Error> {
         Ok(Self {
             inner: Container::run(&Image::Client, network)?,
         })
@@ -30,7 +30,7 @@ impl Client {
         self.inner.ipv4_addr()
     }
 
-    pub fn cp(&self, path_in_container: &str, content: &str) -> Result<()> {
+    pub fn cp(&self, path_in_container: &str, content: &str) -> Result<(), Error> {
         self.inner.cp(path_in_container, content)
     }
 
@@ -40,7 +40,7 @@ impl Client {
         record_type: RecordType,
         fqdn: &FQDN,
         trust_anchor: &TrustAnchor,
-    ) -> Result<String> {
+    ) -> Result<String, Error> {
         const TRUST_ANCHOR_PATH: &str = "/etc/bind.keys";
 
         assert!(
@@ -66,7 +66,7 @@ impl Client {
         server: Ipv4Addr,
         record_type: RecordType,
         fqdn: &FQDN,
-    ) -> Result<DigOutput> {
+    ) -> Result<DigOutput, Error> {
         let timeoutflag = &settings.timeoutflag();
         let ednsflag = settings.ednsflag();
         let opcodeflag = settings.opcodeflag();
@@ -470,7 +470,7 @@ pub struct DigOutput {
 impl FromStr for DigOutput {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         const FLAGS_PREFIX: &str = ";; flags: ";
         const OPCODE_PREFIX: &str = ";; ->>HEADER<<- opcode: ";
         const STATUS_PREFIX: &str = "status: ";
@@ -759,7 +759,7 @@ impl DigStatus {
 impl FromStr for DigStatus {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let status = match input {
             "BADVERS" => Self::BADVERS,
             "NOERROR" => Self::NOERROR,
@@ -779,7 +779,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dig_nxdomain() -> Result<()> {
+    fn dig_nxdomain() -> Result<(), Error> {
         // $ dig nonexistent.domain.
         let input = "
 ; <<>> DiG 9.18.18-0ubuntu0.22.04.1-Ubuntu <<>> nonexistent.domain.
@@ -818,7 +818,7 @@ mod tests {
     }
 
     #[test]
-    fn authority_section() -> Result<()> {
+    fn authority_section() -> Result<(), Error> {
         // $ dig A .
         let input = "
 ; <<>> DiG 9.18.24 <<>> A .
@@ -851,7 +851,7 @@ mod tests {
     }
 
     #[test]
-    fn additional_section() -> Result<()> {
+    fn additional_section() -> Result<(), Error> {
         // $ dig @a.root-servers.net. +norecurse NS .
         // but with most records removed from each section to keep this short
         let input =
@@ -889,7 +889,7 @@ l.root-servers.net. 518400  IN  A   199.7.83.42
     }
 
     #[test]
-    fn ede() -> Result<()> {
+    fn ede() -> Result<(), Error> {
         let input = "; <<>> DiG 9.18.24-1-Debian <<>> +recurse +nodnssec +adflag +nocdflag @192.168.176.5 A example.nameservers.com.
 ; (1 server found)
 ;; global options: +cmd
@@ -918,7 +918,7 @@ l.root-servers.net. 518400  IN  A   199.7.83.42
     }
 
     #[test]
-    fn multiple_ede() -> Result<()> {
+    fn multiple_ede() -> Result<(), Error> {
         let input = "; <<>> DiG 9.18.28-1~deb12u2-Debian <<>> @1.1.1.1 allow-query-none.extended-dns-errors.com.
 ; (1 server found)
 ;; global options: +cmd
@@ -951,7 +951,7 @@ l.root-servers.net. 518400  IN  A   199.7.83.42
     }
 
     #[test]
-    fn no_opt_pseudosection() -> Result<()> {
+    fn no_opt_pseudosection() -> Result<(), Error> {
         let input="; <<>> DiG 9.18.28-1~deb12u2-Debian <<>> +norecurse +nodnssec +noadflag +nocdflag +timeout +noedns @172.19.0.2 SOA hickory-dns.testing.
 ; (1 server found)
 ;; global options: +cmd
@@ -984,7 +984,7 @@ primary0.hickory-dns.testing. 86400 IN	A	172.19.0.2
     }
 
     #[test]
-    fn reserved_flag() -> Result<()> {
+    fn reserved_flag() -> Result<(), Error> {
         let input =
             "; <<>> DiG 9.18.28-0ubuntu0.24.04.1-Ubuntu <<>> @127.0.0.1 -p 12353 A example.testing.
 ; (1 server found)
@@ -1013,7 +1013,7 @@ example.testing.	0	IN	A	1.2.3.4
     }
 
     #[test]
-    fn reserved_opcode() -> Result<()> {
+    fn reserved_opcode() -> Result<(), Error> {
         let input = "; <<>> DiG 9.18.28-0ubuntu0.24.04.1-Ubuntu <<>> +header-only +opcode @8.8.8.8 SOA google.com.
 ; (1 server found)
 ;; global options: +cmd
@@ -1038,7 +1038,7 @@ example.testing.	0	IN	A	1.2.3.4
     }
 
     #[test]
-    fn edns_reserved_flag() -> Result<()> {
+    fn edns_reserved_flag() -> Result<(), Error> {
         let input =
             "; <<>> DiG 9.18.28-0ubuntu0.24.04.1-Ubuntu <<>> -p 12353 @127.0.0.1 A example.testing.
 ; (1 server found)
@@ -1069,7 +1069,7 @@ example.testing.	0	IN	A	1.2.3.4
     }
 
     #[test]
-    fn do_flag() -> Result<()> {
+    fn do_flag() -> Result<(), Error> {
         let input="; <<>> DiG 9.18.28-1~deb12u2-Debian <<>> +norecurse +dnssec +noadflag +nocdflag +timeout +edns +nozflag +opcode +noheader-only +notcp +nocookie +ednsneg +noignore @172.19.0.2 SOA hickory-dns.testing.
 ; (1 server found)
 ;; global options: +cmd

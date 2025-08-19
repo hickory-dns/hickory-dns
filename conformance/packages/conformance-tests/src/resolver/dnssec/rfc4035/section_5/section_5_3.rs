@@ -6,7 +6,7 @@
 use std::time::{Duration, SystemTime};
 
 use dns_test::{
-    FQDN, Network, Resolver, Result,
+    Error, FQDN, Network, Resolver,
     client::{Client, DigSettings},
     name_server::NameServer,
     record::{RRSIG, RecordType, SOA},
@@ -17,7 +17,7 @@ const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
 /// Check that inception > current_time results in an invalid response.
 #[test]
-fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<()> {
+fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<(), Error> {
     // `unbound` allows a skew / delta around inception time in `val-sig-skew-min` option
     let inception = SystemTime::now() + 4 * ONE_HOUR;
     let expiration = SystemTime::now() + 10 * ONE_HOUR;
@@ -49,7 +49,7 @@ fn rrsig_rr_inception_time_is_set_in_the_future() -> Result<()> {
 
 /// Check that expiration timestamp < current_time results in an invalid lookup.
 #[test]
-fn rrsig_rr_expiration_time_is_before_current_time() -> Result<()> {
+fn rrsig_rr_expiration_time_is_before_current_time() -> Result<(), Error> {
     let expiration = SystemTime::now() - 4 * ONE_HOUR;
     let inception = SystemTime::now() - 10 * ONE_HOUR;
 
@@ -83,7 +83,7 @@ fn rrsig_rr_expiration_time_is_before_current_time() -> Result<()> {
 /// See Github issue: https://github.com/hickory-dns/hickory-dns/issues/2292
 #[test]
 fn rrsig_rr_ttl_is_not_greater_than_duration_between_current_time_and_signature_expiration_timestamp()
--> Result<()> {
+-> Result<(), Error> {
     let ttl_delta = 4 * ONE_HOUR;
     let settings = SignSettings::default().expiration(SystemTime::now() + ttl_delta);
 
@@ -116,7 +116,7 @@ fn rrsig_rr_ttl_is_not_greater_than_duration_between_current_time_and_signature_
 /// Check that both RRSIG and RR use the same TTL, section 5.3.3 of RFC 4035 defines conditions how to adjust the TTL
 /// while section 2.2 states "The RRSIG RR's TTL is equal to the TTL of the RRset."
 #[test]
-fn rrsig_and_rr_return_the_same_adjusted_ttl() -> Result<()> {
+fn rrsig_and_rr_return_the_same_adjusted_ttl() -> Result<(), Error> {
     let ttl_delta = 4 * ONE_HOUR;
     let settings = SignSettings::default().expiration(SystemTime::now() + ttl_delta);
 
@@ -150,7 +150,7 @@ fn rrsig_and_rr_return_the_same_adjusted_ttl() -> Result<()> {
 
 /// Check that Serial Number arithemtics support the case where the timesamp is `1 << 31` beyond UNIX_EPOCH.
 #[test]
-fn rrsig_rr_expiration_time_is_1_to_the_power_of_31_beyond_unix_epoch() -> Result<()> {
+fn rrsig_rr_expiration_time_is_1_to_the_power_of_31_beyond_unix_epoch() -> Result<(), Error> {
     // The representation in the record uses format `YYYYMMDDhhmmss`
     const MAX_UNIX_TIMESTAMP: u64 = 20380119031408;
 
@@ -187,7 +187,7 @@ fn rrsig_rr_expiration_time_is_1_to_the_power_of_31_beyond_unix_epoch() -> Resul
 
 /// Check that Serial Number arithmetics invalidate the case where the timestamp is `1 << 32` beyond UNIX_EPOCH.
 #[test]
-fn rrsig_rr_expiration_time_is_1_to_the_power_of_32_beyond_unix_epoch() -> Result<()> {
+fn rrsig_rr_expiration_time_is_1_to_the_power_of_32_beyond_unix_epoch() -> Result<(), Error> {
     let settings = SignSettings::default();
 
     let network = &Network::new()?;

@@ -2,10 +2,10 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
 use dns_test::tshark::{Capture, Direction};
-use dns_test::{FQDN, Network, Resolver, Result};
+use dns_test::{Error, FQDN, Network, Resolver};
 
 #[test]
-fn edns_support() -> Result<()> {
+fn edns_support() -> Result<(), Error> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?.start()?;
     let resolver = Resolver::new(network, ns.root_hint()).start()?;

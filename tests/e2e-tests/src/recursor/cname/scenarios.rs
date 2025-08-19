@@ -23,7 +23,7 @@ use std::thread;
 use std::time::Duration;
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigOutput, DigSettings},
     name_server::{NameServer, Running},
     record::{Record, RecordType},
@@ -39,7 +39,7 @@ use dns_test::{
 /// Querying IN CNAME www.example.testing. yields:
 ///  www12.example2.testing IN CNAME www13.example.testing.
 #[test]
-fn single_level_cname_tests() -> Result<()> {
+fn single_level_cname_tests() -> Result<(), Error> {
     let cname_fqdn = FQDN("www12.example2.testing.")?;
     let cname_target = FQDN("www13.example.testing.")?;
 
@@ -116,7 +116,7 @@ fn single_level_cname_tests() -> Result<()> {
 ///
 /// Querying IN CNAME www13.example.testing. yields NoError
 #[test]
-fn multi_level_cname_tests() -> Result<()> {
+fn multi_level_cname_tests() -> Result<(), Error> {
     let test = TestNetwork::new().unwrap();
 
     let res = test.dig(RecordType::A, &FQDN("www.example.testing.")?);
@@ -169,7 +169,7 @@ fn multi_level_cname_tests() -> Result<()> {
 
 /// ensure that no more than MAX_CNAME_LOOKUPS will be resolved.
 #[test]
-fn cname_lookup_limit_test() -> Result<()> {
+fn cname_lookup_limit_test() -> Result<(), Error> {
     let target_fqdn = FQDN("host.testing.")?;
 
     let network = Network::new()?;
@@ -231,7 +231,7 @@ struct TestNetwork {
 }
 
 impl TestNetwork {
-    fn new() -> Result<Self> {
+    fn new() -> Result<Self, Error> {
         let cnames = vec![
             (
                 FQDN("www.example.testing.")?,
@@ -362,13 +362,13 @@ impl TestNetwork {
         &self.cnames
     }
 
-    fn dig(&self, r_type: RecordType, q_name: &FQDN) -> Result<DigOutput> {
+    fn dig(&self, r_type: RecordType, q_name: &FQDN) -> Result<DigOutput, Error> {
         let a_settings = *DigSettings::default().recurse().authentic_data();
         self.client
             .dig(a_settings, self.resolver.ipv4_addr(), r_type, q_name)
     }
 
-    fn logs(&self) -> Result<String> {
+    fn logs(&self) -> Result<String, Error> {
         self.resolver.logs()
     }
 }

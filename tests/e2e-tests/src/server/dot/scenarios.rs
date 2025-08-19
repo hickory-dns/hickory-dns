@@ -5,7 +5,7 @@ use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
 use dns_test::tshark::{Capture, Direction, Protocol, ProtocolFilter, Tshark};
-use dns_test::{FQDN, Implementation, Network, Pki, Resolver, Result};
+use dns_test::{Error, FQDN, Implementation, Network, Pki, Resolver};
 
 /// Test the pdns recursive resolver RFC 9539 opportunistic DoT support works with Hickory.
 ///
@@ -16,7 +16,7 @@ use dns_test::{FQDN, Implementation, Network, Pki, Resolver, Result};
 /// We can observe this by making recursive queries and interrogating the traffic that arrives
 /// at the auth server.
 #[test]
-fn pdns_opportunistic_dot_success() -> Result<()> {
+fn pdns_opportunistic_dot_success() -> Result<(), Error> {
     let network = &Network::new()?;
     let leaf_ns = NameServer::builder(
         Implementation::hickory(),

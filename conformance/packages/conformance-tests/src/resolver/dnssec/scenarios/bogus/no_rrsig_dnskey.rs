@@ -3,7 +3,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigSettings, ExtendedDnsError},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
@@ -11,7 +11,7 @@ use dns_test::{
 };
 
 #[test]
-fn query_dnskey_record() -> Result<()> {
+fn query_dnskey_record() -> Result<(), Error> {
     let network = Network::new()?;
 
     let leaf_zone = FQDN::TEST_TLD.push_label("no-rrsig-dnskey");
@@ -75,7 +75,7 @@ fn query_dnskey_record() -> Result<()> {
 }
 
 #[test]
-fn query_other_record() -> Result<()> {
+fn query_other_record() -> Result<(), Error> {
     let network = Network::new()?;
 
     let leaf_zone = FQDN::TEST_TLD.push_label("no-rrsig-dnskey");

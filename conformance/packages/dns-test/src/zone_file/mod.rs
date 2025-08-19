@@ -10,7 +10,7 @@ use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use crate::record::{self, DNSKEYRData, RRSIG, Record, RecordType, SOA, write_split_long_string};
-use crate::{DEFAULT_TTL, Error, FQDN, Result};
+use crate::{DEFAULT_TTL, Error, FQDN};
 
 mod signer;
 
@@ -73,7 +73,7 @@ impl fmt::Display for ZoneFile {
 impl FromStr for ZoneFile {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut records = vec![];
         let mut maybe_soa = None;
 
@@ -171,7 +171,7 @@ impl DNSKEY {
 impl FromStr for DNSKEY {
     type Err = Error;
 
-    fn from_str(mut input: &str) -> Result<Self> {
+    fn from_str(mut input: &str) -> Result<Self, Error> {
         // discard trailing comment
         if let Some((before, _after)) = input.split_once(';') {
             input = before.trim();
@@ -253,7 +253,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn dnskey() -> Result<()> {
+    fn dnskey() -> Result<(), Error> {
         let input = ".	IN	DNSKEY	256 3 7 AwEAAaCUpg+5lH7vart4WiMw4lbbkTNKfkvoyXWsAj09Cc5lT1bFo6sS7o4evhzXU9+iDGZkWZnnkwWg2thXfGgNdfQNTKW/Owz9UMDGv5yjkANKI3fI4jHn7Xp1qIZAwZG0W3RU26s7vkKWVcmA3mrKlDIX9r4BRIZrBVOtNgiHydbB ;{id = 42933 (zsk), size = 1024b}";
 
         let DNSKEY {
@@ -278,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip() -> Result<()> {
+    fn roundtrip() -> Result<(), Error> {
         // `ldns-signzone`'s output minus trailing comments; long trailing fields have been split as well
         let input = include_str!("muster.zone");
         let zone: ZoneFile = input.parse()?;

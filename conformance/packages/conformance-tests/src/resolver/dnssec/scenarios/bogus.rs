@@ -7,7 +7,7 @@ use std::{
 };
 
 use dns_test::{
-    FQDN, Network, PEER, Resolver, Result, TrustAnchor,
+    Error, FQDN, Network, PEER, Resolver, TrustAnchor,
     client::{Client, DigOutput, DigSettings, DigStatus, ExtendedDnsError},
     name_server::{Graph, NameServer, Sign},
     record::{DNSKEY, DNSKEYRData, DS, NSEC, RRSIG, Record, RecordType},
@@ -15,7 +15,7 @@ use dns_test::{
 };
 
 #[test]
-fn ds_unassigned_key_algo() -> Result<()> {
+fn ds_unassigned_key_algo() -> Result<(), Error> {
     let output =
         malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-unassigned-key-algo"), |ds| {
             ds.algorithm = 100
@@ -33,7 +33,7 @@ fn ds_unassigned_key_algo() -> Result<()> {
 }
 
 #[test]
-fn ds_reserved_key_algo() -> Result<()> {
+fn ds_reserved_key_algo() -> Result<(), Error> {
     let output = malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-reserved-key-algo"), |ds| {
         ds.algorithm = 200
     })?;
@@ -51,7 +51,7 @@ fn ds_reserved_key_algo() -> Result<()> {
 
 // the key tag in the DS record does not match the key tag in the DNSKEY record
 #[test]
-fn ds_bad_tag() -> Result<()> {
+fn ds_bad_tag() -> Result<(), Error> {
     let output = malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-bad-tag"), |ds| {
         ds.key_tag = !ds.key_tag;
     })?;
@@ -69,7 +69,7 @@ fn ds_bad_tag() -> Result<()> {
 
 // the algorithm field in the DS record does not match the algorithm field in the DNSKEY record
 #[test]
-fn ds_bad_key_algo() -> Result<()> {
+fn ds_bad_key_algo() -> Result<(), Error> {
     let output = malformed_ds_fixture(&FQDN::TEST_TLD.push_label("ds-bad-key-algo"), |ds| {
         assert_eq!(13, ds.algorithm, "number below may need to change");
         ds.algorithm = 7;
@@ -89,7 +89,7 @@ fn ds_bad_key_algo() -> Result<()> {
 // the RRSIG covering the DNSKEYs generated using the KSK has been removed
 // but there's an RRSIG covering the DNSKEYs generated using the ZSK
 #[test]
-fn no_rrsig_ksk() -> Result<()> {
+fn no_rrsig_ksk() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_TLD.push_label("no-rrsig-ksk");
     let leaf_ns = NameServer::new(&dns_test::PEER, leaf_zone.clone(), &network)?;
@@ -181,7 +181,10 @@ fn no_rrsig_ksk() -> Result<()> {
     Ok(())
 }
 
-fn malformed_ds_fixture(leaf_zone: &FQDN, mutate: impl FnOnce(&mut DS)) -> Result<DigOutput> {
+fn malformed_ds_fixture(
+    leaf_zone: &FQDN,
+    mutate: impl FnOnce(&mut DS),
+) -> Result<DigOutput, Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 
@@ -233,7 +236,7 @@ fn malformed_ds_fixture(leaf_zone: &FQDN, mutate: impl FnOnce(&mut DS)) -> Resul
 }
 
 #[test]
-fn bogus_zone_plus_trust_anchor_dnskey() -> Result<()> {
+fn bogus_zone_plus_trust_anchor_dnskey() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 
@@ -321,7 +324,7 @@ fn bogus_zone_plus_trust_anchor_dnskey() -> Result<()> {
 }
 
 #[test]
-fn bogus_zone_plus_ds_covered_dnskey() -> Result<()> {
+fn bogus_zone_plus_ds_covered_dnskey() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 
@@ -404,7 +407,7 @@ fn bogus_zone_plus_ds_covered_dnskey() -> Result<()> {
 /// child zone does not contain the corresponding DNSKEY records, and all DNSKEY records in the
 /// child zone use unsupported signature algorithms. The child zone ought to be treated as bogus.
 #[test]
-fn bogus_delegation_dnskey_unsupported_algorithm() -> Result<()> {
+fn bogus_delegation_dnskey_unsupported_algorithm() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 
@@ -519,7 +522,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 }
 
 #[test]
-fn unauthenticated_nsec_wildcard_name() -> Result<()> {
+fn unauthenticated_nsec_wildcard_name() -> Result<(), Error> {
     let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
     let any_modified = AtomicBool::new(false);
     invalid_nsec_wildcard_no_data_test(&|zone, records| {
@@ -538,7 +541,7 @@ fn unauthenticated_nsec_wildcard_name() -> Result<()> {
 }
 
 #[test]
-fn unauthenticated_nsec_covering_qname() -> Result<()> {
+fn unauthenticated_nsec_covering_qname() -> Result<(), Error> {
     let zero_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("0");
     let any_modified = AtomicBool::new(false);
     invalid_nsec_wildcard_no_data_test(&|zone, records| {
@@ -557,7 +560,7 @@ fn unauthenticated_nsec_covering_qname() -> Result<()> {
 }
 
 #[test]
-fn missing_nsec_wildcard_name() -> Result<()> {
+fn missing_nsec_wildcard_name() -> Result<(), Error> {
     let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
     let any_modified = AtomicBool::new(false);
     invalid_nsec_wildcard_no_data_test(&|zone, records| {
@@ -583,7 +586,7 @@ fn missing_nsec_wildcard_name() -> Result<()> {
 }
 
 #[test]
-fn missing_nsec_covering_qname() -> Result<()> {
+fn missing_nsec_covering_qname() -> Result<(), Error> {
     let zero_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("0");
     let any_modified = AtomicBool::new(false);
     invalid_nsec_wildcard_no_data_test(&|zone, records| {
@@ -609,7 +612,9 @@ fn missing_nsec_covering_qname() -> Result<()> {
 }
 
 /// This makes a query that gets a wildcard no data response, with invalid DNSSEC records.
-fn invalid_nsec_wildcard_no_data_test(mutate: &dyn Fn(&FQDN, &mut Vec<Record>)) -> Result<()> {
+fn invalid_nsec_wildcard_no_data_test(
+    mutate: &dyn Fn(&FQDN, &mut Vec<Record>),
+) -> Result<(), Error> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
         .push_label("a")
         .push_label("b")
@@ -657,7 +662,7 @@ fn invalid_nsec_wildcard_no_data_test(mutate: &dyn Fn(&FQDN, &mut Vec<Record>)) 
 }
 
 #[test]
-fn unauthenticated_nsec_wildcard_expanded_response() -> Result<()> {
+fn unauthenticated_nsec_wildcard_expanded_response() -> Result<(), Error> {
     let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
     let any_modified = AtomicBool::new(false);
     invalid_nsec_wildcard_expanded_test(&|zone, records| {
@@ -676,7 +681,7 @@ fn unauthenticated_nsec_wildcard_expanded_response() -> Result<()> {
 }
 
 #[test]
-fn missing_nsec_wildcard_expanded_response() -> Result<()> {
+fn missing_nsec_wildcard_expanded_response() -> Result<(), Error> {
     let wildcard_fqdn = FQDN::EXAMPLE_SUBDOMAIN.push_label("*");
     let any_modified = AtomicBool::new(false);
     invalid_nsec_wildcard_expanded_test(&|zone, records| {
@@ -702,7 +707,9 @@ fn missing_nsec_wildcard_expanded_response() -> Result<()> {
 }
 
 /// This makes a query that gets a positive response expanded from a wildcard, with invalid DNSSEC records.
-fn invalid_nsec_wildcard_expanded_test(mutate: &dyn Fn(&FQDN, &mut Vec<Record>)) -> Result<()> {
+fn invalid_nsec_wildcard_expanded_test(
+    mutate: &dyn Fn(&FQDN, &mut Vec<Record>),
+) -> Result<(), Error> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
         .push_label("a")
         .push_label("b")

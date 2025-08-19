@@ -4,7 +4,7 @@ use rcgen::{
     SignatureAlgorithm,
 };
 
-use crate::Result;
+use crate::Error;
 use crate::container::Container;
 
 /// A public key infrastructure (PKI) for dns-test containers.
@@ -18,7 +18,7 @@ pub struct Pki {
 
 impl Pki {
     /// Create a new container test PKI using `rcgen`.
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, Error> {
         // Create an issuer CA cert.
         let mut ca_params = CertificateParams::new(Vec::new())?;
         ca_params
@@ -39,7 +39,10 @@ impl Pki {
     }
 
     /// Issue a leaf certificate/keypair for a given container using the PKI root
-    pub fn certified_key_for_container(&self, c: &Container) -> Result<CertifiedKey<KeyPair>> {
+    pub fn certified_key_for_container(
+        &self,
+        c: &Container,
+    ) -> Result<CertifiedKey<KeyPair>, Error> {
         let mut container_leaf_params = CertificateParams::new(Vec::new())?;
         container_leaf_params
             .distinguished_name

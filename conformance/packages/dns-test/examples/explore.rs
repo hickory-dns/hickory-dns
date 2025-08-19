@@ -7,9 +7,9 @@ use dns_test::client::Client;
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::RecordType;
 use dns_test::zone_file::SignSettings;
-use dns_test::{FQDN, Forwarder, Network, Pki, Resolver, Result};
+use dns_test::{Error, FQDN, Forwarder, Network, Pki, Resolver};
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     let args = Args::from_env()?;
 
     let network = Network::new()?;
@@ -129,7 +129,7 @@ struct Args {
 }
 
 impl Args {
-    fn from_env() -> Result<Self> {
+    fn from_env() -> Result<Self, Error> {
         let args: Vec<_> = env::args().skip(1).collect();
         let num_args = args.len();
 
@@ -149,7 +149,7 @@ impl Args {
     }
 }
 
-fn cli_error<T>() -> Result<T> {
+fn cli_error<T>() -> Result<T, Error> {
     eprintln!(
         "usage: explore [--dnssec]
 Options:
