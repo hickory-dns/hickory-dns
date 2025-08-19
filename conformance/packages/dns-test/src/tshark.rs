@@ -12,7 +12,6 @@ use std::time::{Duration, Instant};
 
 use serde::de::{DeserializeSeed, Error as _, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
-use serde_with::{DisplayFromStr, serde_as};
 
 use crate::Result;
 use crate::container::{Child, Container};
@@ -421,16 +420,19 @@ struct Layers {
     dns: Option<serde_json::Value>,
 }
 
-#[serde_as]
 #[derive(Debug, Deserialize)]
 struct Ip {
-    #[serde(rename = "ip.src")]
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(rename = "ip.src", deserialize_with = "deserialize_ip")]
     src: Ipv4Addr,
 
-    #[serde(rename = "ip.dst")]
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde(rename = "ip.dst", deserialize_with = "deserialize_ip")]
     dst: Ipv4Addr,
+}
+
+pub(super) fn deserialize_ip<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> CoreResult<Ipv4Addr, D::Error> {
+    Ipv4Addr::from_str(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
 }
 
 #[derive(Debug, Deserialize)]
