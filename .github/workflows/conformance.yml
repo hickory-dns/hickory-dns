@@ -59,9 +59,6 @@ jobs:
       - name: run end-to-end tests that use the `dns-test` framework
         run: just e2e-tests
 
-      - name: check public tests that use the `dns-test` framework
-        run: just ede-dot-com-check
-
       - name: run ede-dot-com tests against local nameservers
         run: just ede-dot-com-run hermetic
 

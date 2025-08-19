@@ -104,6 +104,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ede-dot-com"
+version = "0.0.0"
+dependencies = [
+ "dns-test",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"

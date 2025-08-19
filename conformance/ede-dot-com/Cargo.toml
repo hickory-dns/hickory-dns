@@ -4,9 +4,5 @@ edition = "2021"
 publish = false
 description = "tests that rely on the public DNS testing infrastructure extended-dns-errors.com."
 
-[workspace]
-# don't accidentally run `dns-test` with `cargo t [--workspace]`
-exclude = ["../../conformance/dns-test"]
-
 [dev-dependencies]
-dns-test.path = "../../conformance/dns-test"
+dns-test = { path = "../dns-test" }

@@ -1,3 +1,3 @@
 [workspace]
-members = ["conformance-tests", "dns-test", "e2e-tests"]
+members = ["conformance-tests", "dns-test", "e2e-tests", "ede-dot-com"]
 resolver = "2"
