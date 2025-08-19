@@ -9,7 +9,6 @@ use std::{println, process, thread};
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
-use crate::ProtoError;
 use crate::op::{Message, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
@@ -19,6 +18,7 @@ use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{
     DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse, FirstAnswer, SerialMessage,
 };
+use crate::{ProtoError, ProtoErrorKind};
 
 /// Test next random udpsocket.
 pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
@@ -118,6 +118,7 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         "udp_client_stream",
         4,
         1,
+        |_, _| {},
         |response| match response {
             Ok(response) => {
                 let response = Message::from(response);
@@ -134,12 +135,42 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
     .await;
 }
 
+/// Test udp_client_stream handling of bad response IDs
+#[allow(clippy::print_stdout)]
+pub async fn udp_client_stream_bad_id_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
+    udp_client_stream_test_inner(
+        server_addr,
+        provider,
+        "udp_client_stream_bad_id",
+        1,
+        1,
+        |idx, message| {
+            // Mutate the first response to have the wrong ID
+            if idx == 0 {
+                message.set_id(message.id().wrapping_add(1));
+            }
+        },
+        |response| {
+            // The test should pass when we see a bad transaction ID response error.
+            matches!(
+                response,
+                Err(ProtoError {
+                    kind: ProtoErrorKind::BadTransactionId,
+                    ..
+                })
+            )
+        },
+    )
+    .await;
+}
+
 async fn udp_client_stream_test_inner(
     server_addr: IpAddr,
     provider: impl RuntimeProvider,
     test_name: &str,
     request_count: usize,
     response_count: usize,
+    response_mutator: impl Fn(usize, &mut Message) + Send + 'static,
     accept_response: impl Fn(Result<DnsResponse, ProtoError>) -> bool,
 ) {
     let stop_thread_killer = start_thread_killer();
@@ -183,6 +214,8 @@ async fn udp_client_stream_test_inner(
                         0,
                         RData::NULL(NULL::with(test_bytes.to_vec())),
                     ));
+
+                    response_mutator(response_idx, &mut message);
 
                     // bounce them right back...
                     let bytes = message.to_vec().unwrap();
