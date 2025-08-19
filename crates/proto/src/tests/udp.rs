@@ -164,6 +164,44 @@ pub async fn udp_client_stream_bad_id_test(server_addr: IpAddr, provider: impl R
     .await;
 }
 
+/// Test udp_client_stream response limit (3 max).
+#[allow(clippy::print_stdout)]
+pub async fn udp_client_stream_response_limit_test(
+    server_addr: IpAddr,
+    provider: impl RuntimeProvider,
+) {
+    udp_client_stream_test_inner(
+        server_addr,
+        provider,
+        "udp_client_stream_response_limit",
+        1,
+        4,
+        |idx, message| {
+            // Replace the query in all but the final response message.
+            // We should skip through reading the first three responses, and then error
+            // before looking at the fourth correct response.
+            if idx < 3 {
+                message.queries_mut().clear();
+                message.add_query(Query::query(
+                    Name::from_str("wrong.name.").unwrap(),
+                    RecordType::A,
+                ));
+            }
+        },
+        |response| {
+            // The test should pass when we get a UDP receive limit exceeded error.
+            matches!(
+                response,
+                Err(ProtoError {
+                    kind: ProtoErrorKind::Message("udp receive attempts exceeded"),
+                    ..
+                })
+            )
+        },
+    )
+    .await;
+}
+
 async fn udp_client_stream_test_inner(
     server_addr: IpAddr,
     provider: impl RuntimeProvider,
