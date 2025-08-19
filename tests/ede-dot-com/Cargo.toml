@@ -6,7 +6,7 @@ description = "tests that rely on the public DNS testing infrastructure extended
 
 [workspace]
 # don't accidentally run `dns-test` with `cargo t [--workspace]`
-exclude = ["../../conformance/package/dns-test"]
+exclude = ["../../conformance/dns-test"]
 
 [dev-dependencies]
-dns-test.path = "../../conformance/packages/dns-test"
+dns-test.path = "../../conformance/dns-test"
