@@ -44,16 +44,16 @@ use crate::{DnsMultiplexer, error::*};
 /// The variants of all supported connections for a `DnsExchange`.
 #[allow(missing_docs, clippy::large_enum_variant, clippy::type_complexity)]
 #[non_exhaustive]
-pub enum Connecting<R: RuntimeProvider> {
-    Udp(DnsExchangeConnect<UdpClientConnect<R>, UdpClientStream<R>, R>),
+pub enum Connecting<P: RuntimeProvider> {
+    Udp(DnsExchangeConnect<UdpClientConnect<P>, UdpClientStream<P>, P>),
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TcpClientStream<R::Tcp>, ProtoError>>,
-                TcpClientStream<<R as RuntimeProvider>::Tcp>,
+                BoxFuture<'static, Result<TcpClientStream<P::Tcp>, ProtoError>>,
+                TcpClientStream<<P as RuntimeProvider>::Tcp>,
             >,
-            DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>>,
-            R,
+            DnsMultiplexer<TcpClientStream<<P as RuntimeProvider>::Tcp>>,
+            P,
         >,
     ),
     #[cfg(feature = "__tls")]
@@ -62,20 +62,20 @@ pub enum Connecting<R: RuntimeProvider> {
             DnsMultiplexerConnect<
                 BoxFuture<
                     'static,
-                    Result<TlsClientStream<<R as RuntimeProvider>::Tcp>, ProtoError>,
+                    Result<TlsClientStream<<P as RuntimeProvider>::Tcp>, ProtoError>,
                 >,
-                TlsClientStream<<R as RuntimeProvider>::Tcp>,
+                TlsClientStream<<P as RuntimeProvider>::Tcp>,
             >,
-            DnsMultiplexer<TlsClientStream<<R as RuntimeProvider>::Tcp>>,
-            R,
+            DnsMultiplexer<TlsClientStream<<P as RuntimeProvider>::Tcp>>,
+            P,
         >,
     ),
     #[cfg(all(feature = "__https", feature = "tokio"))]
-    Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, R>),
+    Https(DnsExchangeConnect<HttpsClientConnect<P::Tcp>, HttpsClientStream, P>),
     #[cfg(all(feature = "__quic", feature = "tokio"))]
-    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, R>),
+    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, P>),
     #[cfg(all(feature = "__h3", feature = "tokio"))]
-    H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, R>),
+    H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, P>),
 }
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
