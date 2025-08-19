@@ -3,7 +3,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigOutput, DigSettings},
     name_server::{Graph, NameServer, Running, Sign},
     record::{Record, RecordType},
@@ -24,7 +24,7 @@ fn setup_two_leaf_nameservers(
     needle_ip_addr: Ipv4Addr,
     implementation: Implementation,
     network: Network,
-) -> Result<TestNetwork> {
+) -> Result<TestNetwork, Error> {
     // set up two equivalent name servers for "example.com.", block one of them with config later
     let mut first_leaf_ns = NameServer::new(&implementation, needle_fqdn.clone(), &network)?;
     first_leaf_ns.add(Record::a(needle_fqdn.clone(), needle_ip_addr));
@@ -79,7 +79,7 @@ fn run_test(
     block_addr: Ipv4Addr,
     network: Network,
     root: Root,
-) -> Result<(DigOutput, Vec<Capture>)> {
+) -> Result<(DigOutput, Vec<Capture>), Error> {
     // build config file
 
     let allow_list = allow_addrs
@@ -116,7 +116,7 @@ fn run_test(
 }
 
 #[test]
-fn do_not_query_filter_first_address() -> Result<()> {
+fn do_not_query_filter_first_address() -> Result<(), Error> {
     let needle_fqdn = FQDN("example.testing.")?;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let implementation = Implementation::test_peer();
@@ -166,7 +166,7 @@ fn do_not_query_filter_first_address() -> Result<()> {
 }
 
 #[test]
-fn do_not_query_filter_second_address() -> Result<()> {
+fn do_not_query_filter_second_address() -> Result<(), Error> {
     let needle_fqdn = FQDN("example.testing.")?;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let implementation = Implementation::test_peer();
@@ -216,7 +216,7 @@ fn do_not_query_filter_second_address() -> Result<()> {
 }
 
 #[test]
-fn do_not_query_filter_only_address() -> Result<()> {
+fn do_not_query_filter_only_address() -> Result<(), Error> {
     let needle_fqdn = FQDN("example.testing.")?;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let implementation = Implementation::test_peer();

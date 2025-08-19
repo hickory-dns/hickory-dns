@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use serde::de::{DeserializeSeed, Error as _, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 
-use crate::Result;
+use crate::Error;
 use crate::container::{Child, Container};
 
 static ID: AtomicUsize = AtomicUsize::new(0);
@@ -56,7 +56,7 @@ pub struct Tshark {
 
 impl Tshark {
     /// Spawn a Tshark instance for the given container capturing plaintext UDP DNS traffic.
-    pub fn new(container: &Container) -> Result<Self> {
+    pub fn new(container: &Container) -> Result<Self, Error> {
         Self::builder().build(container)
     }
 
@@ -70,7 +70,7 @@ impl Tshark {
         &mut self,
         condition: impl Fn(&[Capture]) -> bool,
         timeout: Duration,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         let deadline = Instant::now() + timeout;
         while !condition(&self.captures) {
             let recv_timeout = deadline
@@ -91,7 +91,7 @@ impl Tshark {
     ///
     /// Consider using [`Self::wait_until`] instead, and waiting for packets with specific
     /// properties.
-    pub fn wait_for_capture(&mut self) -> Result<usize> {
+    pub fn wait_for_capture(&mut self) -> Result<usize, Error> {
         let old_watermark = self.wait_capture_count_watermark;
         if self.captures.len() <= old_watermark {
             // Block until we receive a new packet.
@@ -110,7 +110,7 @@ impl Tshark {
         Ok(new_watermark - old_watermark)
     }
 
-    pub fn terminate(mut self) -> Result<Vec<Capture>> {
+    pub fn terminate(mut self) -> Result<Vec<Capture>, Error> {
         let pidfile = pid_file(self.id);
         let kill = format!("test -f {pidfile} || sleep 1; kill $(cat {pidfile})");
 
@@ -163,7 +163,7 @@ impl TsharkBuilder {
     }
 
     /// Spawn a new `Tshark` instance for the `Container`.
-    pub fn build(self, container: &Container) -> Result<Tshark> {
+    pub fn build(self, container: &Container) -> Result<Tshark, Error> {
         let id = ID.fetch_add(1, atomic::Ordering::Relaxed);
         let pidfile = pid_file(id);
 
@@ -561,7 +561,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn nameserver_udp() -> Result<()> {
+    fn nameserver_udp() -> Result<(), Error> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
         let tshark = Tshark::new(ns.container())?;
@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn nameserver_tcp() -> Result<()> {
+    fn nameserver_tcp() -> Result<(), Error> {
         let network = &Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?.start()?;
         let tshark = Tshark::builder()
@@ -580,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn nameserver_dot() -> Result<()> {
+    fn nameserver_dot() -> Result<(), Error> {
         let network = &Network::new()?;
         // NOTE: We use an implementation here we know supports SSLKEYLOGFILE.
         let ns = NameServer::builder(Implementation::hickory(), FQDN::ROOT, network.clone())
@@ -607,7 +607,7 @@ mod tests {
         dig_settings: DigSettings,
         expected_protocol: Protocol,
         mut tshark: Tshark,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         let client = Client::new(network)?;
         let resp = client.dig(dig_settings, ns.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
 
@@ -642,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    fn nameserver_multiple_filters() -> Result<()> {
+    fn nameserver_multiple_filters() -> Result<(), Error> {
         let network = &Network::new()?;
         // NOTE: We use an implementation here we know supports SSLKEYLOGFILE.
         let ns = NameServer::builder(Implementation::hickory(), FQDN::ROOT, network.clone())
@@ -709,7 +709,7 @@ mod tests {
     }
 
     #[test]
-    fn resolver() -> Result<()> {
+    fn resolver() -> Result<(), Error> {
         let network = &Network::new()?;
         let mut root_ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, network)?;
         let mut com_ns = NameServer::new(&Implementation::Unbound, FQDN::TEST_TLD, network)?;

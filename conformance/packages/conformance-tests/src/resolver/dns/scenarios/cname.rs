@@ -1,14 +1,14 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Network, PEER, Resolver, Result,
+    Error, FQDN, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer, Running, Sign},
     record::{A, CNAME, Record, RecordType},
 };
 
 #[test]
-fn basic() -> Result<()> {
+fn basic() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
         *DigSettings::default().recurse(),
@@ -46,7 +46,7 @@ fn basic() -> Result<()> {
 }
 
 #[test]
-fn longer_chain() -> Result<()> {
+fn longer_chain() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     let output = client.dig(
         *DigSettings::default().recurse(),
@@ -95,7 +95,7 @@ fn longer_chain() -> Result<()> {
 }
 
 #[test]
-fn basic_cached() -> Result<()> {
+fn basic_cached() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(
         *DigSettings::default().recurse(),
@@ -139,7 +139,7 @@ fn basic_cached() -> Result<()> {
 }
 
 #[test]
-fn longer_chain_cached() -> Result<()> {
+fn longer_chain_cached() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup_cname()?;
     client.dig(
         *DigSettings::default().recurse(),
@@ -193,7 +193,7 @@ fn longer_chain_cached() -> Result<()> {
     Ok(())
 }
 
-fn setup_cname() -> Result<(Network, Graph, Resolver, Client)> {
+fn setup_cname() -> Result<(Network, Graph, Resolver, Client), Error> {
     let network = Network::new()?;
     let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(A {
@@ -221,7 +221,7 @@ fn setup_cname() -> Result<(Network, Graph, Resolver, Client)> {
 }
 
 #[test]
-fn basic_cross_zone() -> Result<()> {
+fn basic_cross_zone() -> Result<(), Error> {
     let (_network, _nameservers, resolver, client) = setup_cname_cross_zone()?;
     let output = client.dig(
         *DigSettings::default().recurse(),
@@ -259,7 +259,7 @@ fn basic_cross_zone() -> Result<()> {
 }
 
 #[test]
-fn basic_cross_zone_cached() -> Result<()> {
+fn basic_cross_zone_cached() -> Result<(), Error> {
     let (_network, _nameservers, resolver, client) = setup_cname_cross_zone()?;
     client.dig(
         *DigSettings::default().recurse(),
@@ -302,7 +302,9 @@ fn basic_cross_zone_cached() -> Result<()> {
     Ok(())
 }
 
-fn setup_cname_cross_zone() -> Result<(Network, Vec<NameServer<Running>>, Resolver, Client)> {
+#[allow(clippy::type_complexity)]
+fn setup_cname_cross_zone() -> Result<(Network, Vec<NameServer<Running>>, Resolver, Client), Error>
+{
     let network = Network::new()?;
     let mut leaf_1_ns = NameServer::new(&PEER, FQDN::EXAMPLE_SUBDOMAIN, &network)?;
     leaf_1_ns.add(CNAME {

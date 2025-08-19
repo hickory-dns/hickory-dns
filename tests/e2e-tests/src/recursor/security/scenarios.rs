@@ -2,7 +2,7 @@
 use std::{fs, net::Ipv4Addr, thread, time::Duration};
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::RecordType,
@@ -11,7 +11,7 @@ use dns_test::{
 
 /// Transaction ID check - verify that Hickory will drop an invalidate transaction id.
 #[test]
-fn tx_id_validation_test() -> Result<()> {
+fn tx_id_validation_test() -> Result<(), Error> {
     let target_fqdn = FQDN("www.example.testing.")?;
 
     let network = Network::new()?;
@@ -64,7 +64,7 @@ fn tx_id_validation_test() -> Result<()> {
 /// Check that enabling the case randomization setting causes Hickory to drop responses that do not
 /// exactly preserve the QNAME.
 #[test]
-fn case_randomization_enabled() -> Result<()> {
+fn case_randomization_enabled() -> Result<(), Error> {
     let target_fqdn = FQDN("example-123.testing.").unwrap();
     let target_fqdn_compression = FQDN("testing.testing.").unwrap();
 
@@ -120,7 +120,7 @@ fn case_randomization_enabled() -> Result<()> {
 
 /// Test resolving against the same dnslib server, but without enabling the case randomization setting.
 #[test]
-fn case_randomization_disabled() -> Result<()> {
+fn case_randomization_disabled() -> Result<(), Error> {
     let target_fqdn = FQDN("example-123.testing.").unwrap();
     let target_fqdn_compression = FQDN("testing.testing.").unwrap();
 
@@ -176,7 +176,7 @@ fn case_randomization_disabled() -> Result<()> {
 /// Check that enabling the case randomization setting causes Hickory to fall back to TCP when
 /// talking to incompatible servers.
 #[test]
-fn case_randomization_tcp_fallback() -> Result<()> {
+fn case_randomization_tcp_fallback() -> Result<(), Error> {
     let target_fqdn = FQDN("example-123.testing.").unwrap();
 
     let network = Network::new()?;

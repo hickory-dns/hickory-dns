@@ -1,7 +1,7 @@
 use std::{fs, net::Ipv4Addr};
 
 use dns_test::{
-    FQDN, Forwarder, Implementation, Network, PEER, Resolver, Result, TrustAnchor,
+    Error, FQDN, Forwarder, Implementation, Network, PEER, Resolver, TrustAnchor,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::{A, RecordType},
@@ -9,7 +9,7 @@ use dns_test::{
 };
 
 #[test]
-fn wrong_key() -> Result<()> {
+fn wrong_key() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
     let leaf_zone = FQDN::TEST_TLD.push_label("wrong-key");
@@ -66,7 +66,7 @@ fn wrong_key() -> Result<()> {
 }
 
 #[test]
-fn nsec3_does_not_cover() -> Result<()> {
+fn nsec3_does_not_cover() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 

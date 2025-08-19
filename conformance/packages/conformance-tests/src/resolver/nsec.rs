@@ -3,7 +3,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Network, PEER, Resolver, Result,
+    Error, FQDN, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer, Sign},
     record::{A, Record, RecordType},
@@ -11,7 +11,7 @@ use dns_test::{
 };
 
 #[test]
-fn zone_exist_domain_does_not_nsec3() -> Result<()> {
+fn zone_exist_domain_does_not_nsec3() -> Result<(), Error> {
     zone_exist_domain_does_not(Nsec::_3 {
         iterations: 0,
         opt_out: false,
@@ -20,12 +20,12 @@ fn zone_exist_domain_does_not_nsec3() -> Result<()> {
 }
 
 #[test]
-fn zone_exist_domain_does_not_nsec() -> Result<()> {
+fn zone_exist_domain_does_not_nsec() -> Result<(), Error> {
     zone_exist_domain_does_not(Nsec::_1)
 }
 
 #[test]
-fn zone_does_not_exist_nsec3() -> Result<()> {
+fn zone_does_not_exist_nsec3() -> Result<(), Error> {
     zone_does_not_exist(Nsec::_3 {
         iterations: 0,
         opt_out: false,
@@ -34,12 +34,12 @@ fn zone_does_not_exist_nsec3() -> Result<()> {
 }
 
 #[test]
-fn zone_does_not_exist_nsec() -> Result<()> {
+fn zone_does_not_exist_nsec() -> Result<(), Error> {
     zone_does_not_exist(Nsec::_1)
 }
 
 #[test]
-fn domain_exists_record_type_does_not_nsec3() -> Result<()> {
+fn domain_exists_record_type_does_not_nsec3() -> Result<(), Error> {
     domain_exists_record_type_does_not(Nsec::_3 {
         iterations: 0,
         opt_out: false,
@@ -48,22 +48,22 @@ fn domain_exists_record_type_does_not_nsec3() -> Result<()> {
 }
 
 #[test]
-fn domain_exists_record_type_does_not_nsec() -> Result<()> {
+fn domain_exists_record_type_does_not_nsec() -> Result<(), Error> {
     domain_exists_record_type_does_not(Nsec::_1)
 }
 
 #[test]
-fn wildcard_exists_record_type_does_not_nsec_middle_chain() -> Result<()> {
+fn wildcard_exists_record_type_does_not_nsec_middle_chain() -> Result<(), Error> {
     wildcard_exists_record_type_does_not(Nsec::_1, "aaaaaa")
 }
 
 #[test]
-fn wildcard_exists_record_type_does_not_nsec_end_chain() -> Result<()> {
+fn wildcard_exists_record_type_does_not_nsec_end_chain() -> Result<(), Error> {
     wildcard_exists_record_type_does_not(Nsec::_1, "zzzzzz")
 }
 
 #[test]
-fn wildcard_exists_record_type_does_not_nsec3() -> Result<()> {
+fn wildcard_exists_record_type_does_not_nsec3() -> Result<(), Error> {
     wildcard_exists_record_type_does_not(
         Nsec::_3 {
             iterations: 0,
@@ -74,7 +74,7 @@ fn wildcard_exists_record_type_does_not_nsec3() -> Result<()> {
     )
 }
 
-fn zone_exist_domain_does_not(nsec: Nsec) -> Result<()> {
+fn zone_exist_domain_does_not(nsec: Nsec) -> Result<(), Error> {
     let leaf_zone = FQDN::TEST_TLD.push_label("exists");
     let needle_fqdn = leaf_zone.push_label("unicorn");
 
@@ -111,7 +111,7 @@ fn zone_exist_domain_does_not(nsec: Nsec) -> Result<()> {
     Ok(())
 }
 
-fn zone_does_not_exist(nsec: Nsec) -> Result<()> {
+fn zone_does_not_exist(nsec: Nsec) -> Result<(), Error> {
     let parent_zone = FQDN::TEST_DOMAIN;
     let leaf_zone = parent_zone.push_label("does-not-exist");
     let needle_fqdn = leaf_zone.push_label("unicorn");
@@ -149,7 +149,7 @@ fn zone_does_not_exist(nsec: Nsec) -> Result<()> {
     Ok(())
 }
 
-fn domain_exists_record_type_does_not(nsec: Nsec) -> Result<()> {
+fn domain_exists_record_type_does_not(nsec: Nsec) -> Result<(), Error> {
     let leaf_zone = FQDN::TEST_TLD.push_label("exists");
     let needle_fqdn = leaf_zone.push_label("example");
 
@@ -192,7 +192,7 @@ fn domain_exists_record_type_does_not(nsec: Nsec) -> Result<()> {
     Ok(())
 }
 
-fn wildcard_exists_record_type_does_not(nsec: Nsec, label: &str) -> Result<()> {
+fn wildcard_exists_record_type_does_not(nsec: Nsec, label: &str) -> Result<(), Error> {
     let network = Network::new()?;
 
     let record_name = FQDN::TEST_DOMAIN.push_label("record");

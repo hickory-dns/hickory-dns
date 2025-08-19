@@ -8,7 +8,7 @@ use std::fmt::Write;
 use std::net::Ipv4Addr;
 use std::{any, mem};
 
-use crate::{DEFAULT_TTL, Error, FQDN, Result};
+use crate::{DEFAULT_TTL, Error, FQDN};
 
 const CLASS: &str = "IN"; // "internet"
 
@@ -33,7 +33,7 @@ macro_rules! record_types {
         impl FromStr for RecordType {
             type Err = Error;
 
-            fn from_str(input: &str) -> Result<Self> {
+            fn from_str(input: &str) -> Result<Self, Error> {
                 $(if input == stringify!($variant) {
                     return Ok(Self::$variant);
                 })*
@@ -234,7 +234,7 @@ impl Record {
 impl FromStr for Record {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let record_type = input
             .split_whitespace()
             .nth(3)
@@ -296,7 +296,7 @@ pub struct A {
 impl FromStr for A {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -345,7 +345,7 @@ pub struct CNAME {
 impl FromStr for CNAME {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -425,7 +425,7 @@ impl DNSKEY {
 impl FromStr for DNSKEY {
     type Err = Error;
 
-    fn from_str(mut input: &str) -> Result<Self> {
+    fn from_str(mut input: &str) -> Result<Self, Error> {
         if let Some((rr, _comment)) = input.rsplit_once(" ;") {
             input = rr.trim_end();
         }
@@ -547,7 +547,7 @@ pub struct DS {
 impl FromStr for DS {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -626,7 +626,7 @@ impl fmt::Display for NS {
 impl FromStr for NS {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -663,7 +663,7 @@ pub struct NSEC {
 impl FromStr for NSEC {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -730,7 +730,7 @@ pub struct NSEC3 {
 impl FromStr for NSEC3 {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -809,7 +809,7 @@ pub struct NSEC3PARAM {
 impl FromStr for NSEC3PARAM {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -970,7 +970,7 @@ pub struct SOA {
 impl FromStr for SOA {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut columns = input.split_whitespace();
 
         let [
@@ -1074,7 +1074,7 @@ pub struct TXT {
 impl FromStr for TXT {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let mut rest = input;
         let [Some(zone), Some(ttl), Some(class), Some(record_type)] = array::from_fn(|_| {
             if let Some((left, right)) = rest.split_once(|c| char::is_ascii_whitespace(&c)) {
@@ -1336,7 +1336,7 @@ impl fmt::Display for UnknownRdata {
     }
 }
 
-fn check_class(class: &str) -> Result<()> {
+fn check_class(class: &str) -> Result<(), Error> {
     if class != "IN" {
         return Err(format!("unknown class: {class}").into());
     }
@@ -1344,7 +1344,7 @@ fn check_class(class: &str) -> Result<()> {
     Ok(())
 }
 
-fn check_record_type<T>(record_type: &str) -> Result<()> {
+fn check_record_type<T>(record_type: &str) -> Result<(), Error> {
     let expected = unqualified_type_name::<T>();
     if record_type == expected {
         Ok(())
@@ -1382,7 +1382,7 @@ mod tests {
     const A_INPUT: &str = "a.root-servers.net.	77859	IN	A	198.41.0.4";
 
     #[test]
-    fn a() -> Result<()> {
+    fn a() -> Result<(), Error> {
         let a @ A {
             fqdn,
             ttl,
@@ -1403,7 +1403,7 @@ mod tests {
     const CNAME_INPUT: &str = "www.isc.org.	277	IN	CNAME	isc.map.fastlydns.net.";
 
     #[test]
-    fn cname() -> Result<()> {
+    fn cname() -> Result<(), Error> {
         let cname @ CNAME { fqdn, ttl, target } = &CNAME_INPUT.parse()?;
 
         assert_eq!("www.isc.org.", fqdn.as_str());
@@ -1420,7 +1420,7 @@ mod tests {
     const DNSKEY_INPUT: &str = ".	1116	IN	DNSKEY	257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=";
 
     #[test]
-    fn dnskey() -> Result<()> {
+    fn dnskey() -> Result<(), Error> {
         let dnskey @ DNSKEY {
             zone,
             ttl,
@@ -1450,7 +1450,7 @@ mod tests {
     }
 
     #[test]
-    fn rsamd5_key_tag() -> Result<()> {
+    fn rsamd5_key_tag() -> Result<(), Error> {
         // dig @1.1.1.1 +recurse +cdflag DNSKEY rsamd5.extended-dns-errors.com.
         const INPUT: &str = "rsamd5.extended-dns-errors.com.    268 IN DNSKEY 257 3 1 \
                              AwEAAcpRn4ct2tt2a6RRqOYEDMtK8zETcLvpSoHhthWF \
@@ -1468,7 +1468,7 @@ mod tests {
     }
 
     #[test]
-    fn dsa_key_tag() -> Result<()> {
+    fn dsa_key_tag() -> Result<(), Error> {
         // dig @1.1.1.1 +recurse +cdflag +multi DNSKEY rsamd5.extended-dns-errors.com.
         const INPUT: &str = "dsa.extended-dns-errors.com. 600 IN DNSKEY 257 3 3 \
                              CPn4bkeyFLewxmOnFPoNLE1dTSHh/sDgPPPtKvXgtp9N \
@@ -1494,7 +1494,7 @@ mod tests {
     }
 
     #[test]
-    fn parsing_dnskey_ignores_trailing_comment() -> Result<()> {
+    fn parsing_dnskey_ignores_trailing_comment() -> Result<(), Error> {
         // `ldns-signzone`'s output
         const DNSKEY_INPUT2: &str = ".	86400	IN	DNSKEY	256 3 7 AwEAAbEzD/uB2WK89f+PJ1Lyg5xvdt9mXge/R5tiQl8SEAUh/kfbn8jQiakH3HbBnBtdNXpjYrsmM7AxMmJLrp75dFMVnl5693/cY5k4dSk0BFJPQtBsZDn/7Q1rviQn0gqKNjaUfISuRpgCIWFKdRtTdq1VRDf3qIn7S/nuhfWE4w15 ;{id = 11387 (zsk), size = 1024b}";
 
@@ -1513,7 +1513,7 @@ mod tests {
     const DS_INPUT: &str = "com.	7612	IN	DS	19718 13 2 8ACBB0CD28F41250A80A491389424D341522D946B0DA0C0291F2D3D7 71D7805A";
 
     #[test]
-    fn ds() -> Result<()> {
+    fn ds() -> Result<(), Error> {
         let ds @ DS {
             zone,
             ttl,
@@ -1541,7 +1541,7 @@ mod tests {
     const NS_INPUT: &str = ".	86400	IN	NS	f.root-servers.net.";
 
     #[test]
-    fn ns() -> Result<()> {
+    fn ns() -> Result<(), Error> {
         let ns @ NS {
             zone,
             ttl,
@@ -1562,7 +1562,7 @@ mod tests {
         "hickory-dns.testing.	86400	IN	NSEC	primary1.hickory-dns.testing. NS SOA RRSIG NSEC DNSKEY";
 
     #[test]
-    fn nsec() -> Result<()> {
+    fn nsec() -> Result<(), Error> {
         let nsec @ NSEC {
             fqdn,
             ttl,
@@ -1594,7 +1594,7 @@ mod tests {
     const NSEC3_INPUT: &str = "abhif1b25fhcda5amfk5hnrsh6jid2ki.example.com.	3571	IN	NSEC3	1 0 5 53BCBC5805D2B761  GVPMD82B8ER38VUEGP72I721LIH19RGR A NS SOA MX TXT AAAA RRSIG DNSKEY NSEC3PARAM";
 
     #[test]
-    fn nsec3() -> Result<()> {
+    fn nsec3() -> Result<(), Error> {
         let nsec3 @ NSEC3 {
             fqdn,
             ttl,
@@ -1641,7 +1641,7 @@ mod tests {
     const NSEC3PARAM_INPUT: &str = "com.	86238	IN	NSEC3PARAM	1 0 0 -";
 
     #[test]
-    fn nsec3param() -> Result<()> {
+    fn nsec3param() -> Result<(), Error> {
         let nsec3param @ NSEC3PARAM {
             zone,
             ttl,
@@ -1666,7 +1666,7 @@ mod tests {
     const RRSIG_INPUT: &str = ".	1800	IN	RRSIG	SOA 7 0 1800 20240306132701 20240207132701 11264 . wXpRU4elJPGYm2kgVVsIwGf1IkYJcQ3UE4mwmItWdxj0XWSWY07MO4Ll DMJgsE0u64Q/345Ck7+aQ904uLebwCvpFnsmkyCxk82XIAfHN9FiwzSy qoR/zZEvBONaej3vrvsqPwh8q/pvypLft9647HcFdwY0juzZsbrAaDAX 8WY=";
 
     #[test]
-    fn rrsig() -> Result<()> {
+    fn rrsig() -> Result<(), Error> {
         let rrsig @ RRSIG {
             fqdn,
             ttl,
@@ -1704,7 +1704,7 @@ mod tests {
     const SOA_INPUT: &str = ".	15633	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2024020501 1800 900 604800 86400";
 
     #[test]
-    fn soa() -> Result<()> {
+    fn soa() -> Result<(), Error> {
         let soa: SOA = SOA_INPUT.parse()?;
 
         assert_eq!(".", soa.zone.as_str());
@@ -1728,7 +1728,7 @@ mod tests {
     const TXT_INPUT: &str = r#"example.testing.	0	IN	TXT	"protocol=TCP" "counter=0""#;
 
     #[test]
-    fn txt() -> Result<()> {
+    fn txt() -> Result<(), Error> {
         let txt: TXT = TXT_INPUT.parse()?;
 
         assert_eq!("example.testing.", txt.zone.as_str());
@@ -1747,7 +1747,7 @@ mod tests {
     const CAA_INPUT: &str = "certs.example.com.	86400	IN	CAA	0 issue ca1.example.net";
 
     #[test]
-    fn caa() -> Result<()> {
+    fn caa() -> Result<(), Error> {
         let caa @ CAA {
             zone,
             ttl,
@@ -1769,7 +1769,7 @@ mod tests {
     }
 
     #[test]
-    fn any() -> Result<()> {
+    fn any() -> Result<(), Error> {
         assert!(matches!(A_INPUT.parse()?, Record::A(..)));
         assert!(matches!(CAA_INPUT.parse()?, Record::CAA(..)));
         assert!(matches!(DNSKEY_INPUT.parse()?, Record::DNSKEY(..)));
@@ -1786,7 +1786,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_type_round_trip() -> Result<()> {
+    fn unknown_type_round_trip() -> Result<(), Error> {
         assert_eq!(RecordType::from_str("type1000")?, RecordType::Unknown(1000));
         assert_eq!(RecordType::from_str("TYPE1000")?, RecordType::Unknown(1000));
         assert_eq!(RecordType::Unknown(1000).as_name(), "type1000");

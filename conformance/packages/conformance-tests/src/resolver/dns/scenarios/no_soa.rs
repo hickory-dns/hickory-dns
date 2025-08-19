@@ -1,14 +1,14 @@
 use std::fs;
 
 use dns_test::{
-    FQDN, Implementation, Network, PEER, Resolver, Result,
+    Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::RecordType,
 };
 
 #[test]
-fn no_soa() -> Result<()> {
+fn no_soa() -> Result<(), Error> {
     let target_fqdn = FQDN::TEST_DOMAIN;
     let network = Network::new()?;
 

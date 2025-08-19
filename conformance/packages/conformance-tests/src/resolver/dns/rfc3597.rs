@@ -1,5 +1,5 @@
 use dns_test::{
-    FQDN, Network, PEER, Resolver, Result,
+    Error, FQDN, Network, PEER, Resolver,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{CAA, Record, RecordType, UnknownRdata},
@@ -12,7 +12,7 @@ use dns_test::{
 /// handle RRs of unknown type transparently. That is, they must treat the RDATA section of such RRs
 /// as unstructured binary data, storing and transmitting it without change."
 #[test]
-fn unknown_type_transparency() -> Result<()> {
+fn unknown_type_transparency() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
@@ -62,7 +62,7 @@ fn unknown_type_transparency() -> Result<()> {
 /// of RRs of known type, except for changes due to compression or decompression where allowed by
 /// section 4 of this memo."
 #[test]
-fn caa_issue_empty_value_dnssec() -> Result<()> {
+fn caa_issue_empty_value_dnssec() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;

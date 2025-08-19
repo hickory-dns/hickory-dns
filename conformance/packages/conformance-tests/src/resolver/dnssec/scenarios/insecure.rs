@@ -4,7 +4,7 @@ use dns_test::client::{Client, DigOutput, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::{A, Record, RecordType};
 use dns_test::zone_file::{Nsec, SignSettings};
-use dns_test::{FQDN, Network, Resolver, Result, TrustAnchor};
+use dns_test::{Error, FQDN, Network, Resolver, TrustAnchor};
 
 mod deprecated_algorithm;
 
@@ -14,7 +14,7 @@ mod deprecated_algorithm;
 // a validating resolver should not respond with SERVFAIL to queries about the unsigned zone because
 // the security status of the whole zone is "Insecure", not "Bogus"
 #[test]
-fn unsigned_zone_nsec3() -> Result<()> {
+fn unsigned_zone_nsec3() -> Result<(), Error> {
     unsigned_zone_fixture(Nsec::_3 {
         iterations: 0,
         opt_out: false,
@@ -23,11 +23,11 @@ fn unsigned_zone_nsec3() -> Result<()> {
 }
 
 #[test]
-fn unsigned_zone_nsec() -> Result<()> {
+fn unsigned_zone_nsec() -> Result<(), Error> {
     unsigned_zone_fixture(Nsec::_1)
 }
 
-fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
+fn unsigned_zone_fixture(nsec: Nsec) -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let unsigned_zone = FQDN::TEST_TLD.push_label("unsigned");
     let needle_fqdn = unsigned_zone.push_label("example");
@@ -94,7 +94,7 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<()> {
 }
 
 #[test]
-fn no_ds_record_nsec1() -> Result<()> {
+fn no_ds_record_nsec1() -> Result<(), Error> {
     let (output, _logs) =
         no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1), false, false)?;
 
@@ -107,7 +107,7 @@ fn no_ds_record_nsec1() -> Result<()> {
 }
 
 #[test]
-fn no_ds_record_nsec3() -> Result<()> {
+fn no_ds_record_nsec3() -> Result<(), Error> {
     let (output, _logs) = no_ds_record_fixture(
         SignSettings::default().nsec(Nsec::_3 {
             iterations: 0,
@@ -127,7 +127,7 @@ fn no_ds_record_nsec3() -> Result<()> {
 }
 
 #[test]
-fn no_ds_record_nsec3_case_randomization() -> Result<()> {
+fn no_ds_record_nsec3_case_randomization() -> Result<(), Error> {
     let (output, _logs) = no_ds_record_fixture(
         SignSettings::default().nsec(Nsec::_3 {
             iterations: 0,
@@ -147,7 +147,7 @@ fn no_ds_record_nsec3_case_randomization() -> Result<()> {
 }
 
 #[test]
-fn no_ds_record_nsec3_opt_out() -> Result<()> {
+fn no_ds_record_nsec3_opt_out() -> Result<(), Error> {
     let (output, logs) =
         no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, false)?;
 
@@ -164,7 +164,7 @@ fn no_ds_record_nsec3_opt_out() -> Result<()> {
 }
 
 #[test]
-fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<()> {
+fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<(), Error> {
     let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, true)?;
 
     dbg!(&output);
@@ -187,7 +187,7 @@ fn no_ds_record_fixture(
     sign_settings: SignSettings,
     case_randomization: bool,
     add_chaff_to_tld: bool,
-) -> Result<(DigOutput, String)> {
+) -> Result<(DigOutput, String), Error> {
     let network = Network::new()?;
 
     let no_ds_zone = FQDN::TEST_TLD.push_label("no-ds");

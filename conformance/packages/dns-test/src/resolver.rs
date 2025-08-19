@@ -7,7 +7,7 @@ use crate::record::DNSKEY;
 use crate::trust_anchor::TrustAnchor;
 use crate::tshark::Tshark;
 use crate::zone_file::Root;
-use crate::{Implementation, Result};
+use crate::{Error, Implementation};
 
 pub struct Resolver {
     container: Container,
@@ -28,7 +28,7 @@ impl Resolver {
         }
     }
 
-    pub fn eavesdrop_udp(&self) -> Result<Tshark> {
+    pub fn eavesdrop_udp(&self) -> Result<Tshark, Error> {
         Tshark::new(&self.container)
     }
 
@@ -49,7 +49,7 @@ impl Resolver {
     }
 
     /// Returns the logs collected so far
-    pub fn logs(&self) -> Result<String> {
+    pub fn logs(&self) -> Result<String, Error> {
         if self.implementation.is_hickory() {
             self.stdout()
         } else {
@@ -57,12 +57,12 @@ impl Resolver {
         }
     }
 
-    fn stdout(&self) -> Result<String> {
+    fn stdout(&self) -> Result<String, Error> {
         self.container
             .stdout(&["cat", &self.implementation.stdout_logfile(Role::Resolver)])
     }
 
-    fn stderr(&self) -> Result<String> {
+    fn stderr(&self) -> Result<String, Error> {
         self.container
             .stdout(&["cat", &self.implementation.stderr_logfile(Role::Resolver)])
     }
@@ -82,14 +82,14 @@ impl ResolverSettings {
     /// Starts a DNS server in the recursive resolver role
     ///
     /// The server uses the implementation based on `$DNS_TEST_SUBJECT` env var.
-    pub fn start(&self) -> Result<Resolver> {
+    pub fn start(&self) -> Result<Resolver, Error> {
         self.start_with_subject(&crate::SUBJECT)
     }
 
     /// Starts a DNS server in the recursive resolver role
     ///
     /// This server is not an authoritative name server; it does not serve a zone file to clients
-    pub fn start_with_subject(&self, implementation: &Implementation) -> Result<Resolver> {
+    pub fn start_with_subject(&self, implementation: &Implementation) -> Result<Resolver, Error> {
         let image = implementation.clone().into();
         let container = Container::run(&image, &self.network)?;
 
@@ -188,7 +188,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unbound_logs_works() -> Result<()> {
+    fn unbound_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver =
@@ -205,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    fn bind_logs_works() -> Result<()> {
+    fn bind_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver =
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn hickory_logs_works() -> Result<()> {
+    fn hickory_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver = Resolver::new(&network, ns.root_hint())
@@ -245,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn pdns_logs_works() -> Result<()> {
+    fn pdns_logs_works() -> Result<(), Error> {
         let network = Network::new()?;
         let ns = NameServer::new(&Implementation::Unbound, FQDN::ROOT, &network)?.start()?;
         let resolver =

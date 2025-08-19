@@ -1,7 +1,7 @@
 mod section_3_2_2;
 
 use dns_test::{
-    FQDN, Network, Resolver, Result,
+    Error, FQDN, Network, Resolver,
     client::{Client, DigSettings},
     name_server::NameServer,
     record::{Record, RecordType},
@@ -10,7 +10,7 @@ use dns_test::{
 };
 
 #[test]
-fn do_bit_not_set_in_request() -> Result<()> {
+fn do_bit_not_set_in_request() -> Result<(), Error> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign(SignSettings::default())?
@@ -59,7 +59,8 @@ fn do_bit_not_set_in_request() -> Result<()> {
 // this ensures that even in the presence of a cached (answer+rrsig) we strip the dnssec records as
 // per the RFC
 #[test]
-fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query() -> Result<()> {
+fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query() -> Result<(), Error>
+{
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign(SignSettings::default())?
@@ -89,7 +90,8 @@ fn on_do_0_query_strips_dnssec_records_even_if_it_cached_a_previous_do_1_query()
 // this ensures that in the presence of a cached entry (answer), the dnssec records (answer+rrsig) are still
 // returned as per the RFC
 #[test]
-fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query() -> Result<()> {
+fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query() -> Result<(), Error>
+{
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign(SignSettings::default())?
@@ -117,7 +119,8 @@ fn on_do_1_query_return_dnssec_records_even_if_it_cached_a_previous_do_0_query()
 }
 
 #[test]
-fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -> Result<()> {
+fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -> Result<(), Error>
+{
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign(SignSettings::default())?
@@ -142,7 +145,7 @@ fn if_do_bit_not_set_in_request_then_requested_dnssec_record_is_not_stripped() -
 }
 
 #[test]
-fn do_bit_set_in_request() -> Result<()> {
+fn do_bit_set_in_request() -> Result<(), Error> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign(SignSettings::default())?

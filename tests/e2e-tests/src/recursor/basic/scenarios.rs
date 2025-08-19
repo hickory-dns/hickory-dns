@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigOutput, DigSettings},
     name_server::{NameServer, Running},
     record::{Record, RecordType},
@@ -20,7 +20,7 @@ use dns_test::{
 /// Querying IN AAAA www.example.testing yields NOERROR and 0 answer records + 1 authority record
 /// Querying IN A www2.example.testing yields NXDOMAIN and 1 authority records.
 #[test]
-fn error_code_tests() -> Result<()> {
+fn error_code_tests() -> Result<(), Error> {
     let target_fqdn = FQDN("www.example.testing.")?;
     let target_ipv4_addr = Ipv4Addr::new(192, 0, 2, 1);
 
@@ -84,7 +84,7 @@ struct TestNetwork {
 }
 
 impl TestNetwork {
-    fn new() -> Result<Self> {
+    fn new() -> Result<Self, Error> {
         let www_fqdn = FQDN("www.example.testing.")?;
         let www_ipv4 = Ipv4Addr::new(192, 0, 2, 1);
 
@@ -133,7 +133,7 @@ impl TestNetwork {
         Ok(ret)
     }
 
-    fn dig(&self, r_type: RecordType, q_name: &FQDN) -> Result<DigOutput> {
+    fn dig(&self, r_type: RecordType, q_name: &FQDN) -> Result<DigOutput, Error> {
         let a_settings = *DigSettings::default().recurse().authentic_data();
         self.client
             .dig(a_settings, self.resolver.ipv4_addr(), r_type, q_name)

@@ -4,7 +4,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Result,
+    Error, FQDN,
     client::{Client, DigSettings},
     record::RecordType,
 };
@@ -12,7 +12,7 @@ use dns_test::{
 use super::fixtures;
 
 #[test]
-fn empty_answer_section_on_failed_dnssec_validation_and_cd_flag_unset() -> Result<()> {
+fn empty_answer_section_on_failed_dnssec_validation_and_cd_flag_unset() -> Result<(), Error> {
     let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 

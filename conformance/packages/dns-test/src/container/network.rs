@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::Result;
+use crate::Error;
 
 /// Represents a network in which to put containers into.
 #[derive(Clone)]
@@ -30,13 +30,13 @@ struct NetworkInner {
 }
 
 impl Network {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, Error> {
         let pid = process::id();
         let network_name = env!("CARGO_PKG_NAME");
         Ok(Self(Arc::new(NetworkInner::new(pid, network_name, true)?)))
     }
 
-    pub fn with_internet_access() -> Result<Self> {
+    pub fn with_internet_access() -> Result<Self, Error> {
         let pid = process::id();
         let network_name = env!("CARGO_PKG_NAME");
         Ok(Self(Arc::new(NetworkInner::new(pid, network_name, false)?)))
@@ -55,7 +55,7 @@ impl Drop for NetworkInner {
 }
 
 impl NetworkInner {
-    pub fn new(pid: u32, network_name: &str, internal: bool) -> Result<Self> {
+    pub fn new(pid: u32, network_name: &str, internal: bool) -> Result<Self, Error> {
         static CRITICAL_SECTION: Mutex<()> = Mutex::new(());
 
         let count = network_count();
@@ -100,7 +100,7 @@ pub struct NetworkConfig {
 }
 
 /// Return network config
-fn get_network_config(network_name: &str) -> Result<NetworkConfig> {
+fn get_network_config(network_name: &str) -> Result<NetworkConfig, Error> {
     let mut command = Command::new("docker");
     command
         .args([
@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn create_works() -> Result<()> {
+    fn create_works() -> Result<(), Error> {
         let network = Network::new();
         assert!(network.is_ok());
 
@@ -153,7 +153,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_network_works() -> Result<()> {
+    fn remove_network_works() -> Result<(), Error> {
         let network = Network::new().expect("Failed to create network");
         let network_name = network.name().to_string();
         let container =

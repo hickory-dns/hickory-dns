@@ -4,11 +4,11 @@ use dns_test::client::{Client, DigSettings, ExtendedDnsError};
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::SignSettings;
-use dns_test::{FQDN, Network, Resolver, Result};
+use dns_test::{Error, FQDN, Network, Resolver};
 
 #[ignore]
 #[test]
-fn dnskey_missing() -> Result<()> {
+fn dnskey_missing() -> Result<(), Error> {
     fixture(
         ExtendedDnsError::DnssecBogus,
         |_needle_fqdn, zone, records| {
@@ -39,7 +39,7 @@ fn dnskey_missing() -> Result<()> {
 
 #[ignore]
 #[test]
-fn rrsigs_missing() -> Result<()> {
+fn rrsigs_missing() -> Result<(), Error> {
     fixture(
         ExtendedDnsError::RrsigsMissing,
         |needle_fqdn, zone, records| {
@@ -70,7 +70,7 @@ fn rrsigs_missing() -> Result<()> {
 
 #[ignore]
 #[test]
-fn unsupported_dnskey_algorithm() -> Result<()> {
+fn unsupported_dnskey_algorithm() -> Result<(), Error> {
     fixture(
         ExtendedDnsError::UnsupportedDnskeyAlgorithm,
         |needle_fqdn, zone, records| {
@@ -94,7 +94,7 @@ fn unsupported_dnskey_algorithm() -> Result<()> {
 
 #[ignore]
 #[test]
-fn dnssec_bogus() -> Result<()> {
+fn dnssec_bogus() -> Result<(), Error> {
     fixture(
         ExtendedDnsError::DnssecBogus,
         |needle_fqdn, zone, records| {
@@ -128,7 +128,7 @@ fn dnssec_bogus() -> Result<()> {
 fn fixture(
     expected: ExtendedDnsError,
     amend: fn(needle_fqdn: &FQDN, zone: &FQDN, records: &mut Vec<Record>),
-) -> Result<()> {
+) -> Result<(), Error> {
     let subject = &dns_test::SUBJECT;
     let supports_ede = subject.supports_ede();
 

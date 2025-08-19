@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Network, Resolver, Result, TrustAnchor,
+    Error, FQDN, Network, Resolver, TrustAnchor,
     client::{Client, DigOutput, DigSettings},
     name_server::NameServer,
     record::{Record, RecordType},
@@ -12,7 +12,7 @@ const EXPECTED: Ipv4Addr = Ipv4Addr::new(1, 2, 3, 4);
 
 // check that the fixture works
 #[test]
-fn sanity_check() -> Result<()> {
+fn sanity_check() -> Result<(), Error> {
     let output = fixture("dsa", SignSettings::default())?;
 
     dbg!(&output);
@@ -28,7 +28,7 @@ fn sanity_check() -> Result<()> {
 }
 
 #[test]
-fn dsa() -> Result<()> {
+fn dsa() -> Result<(), Error> {
     let output = fixture("dsa", SignSettings::dsa())?;
 
     dbg!(&output);
@@ -44,7 +44,7 @@ fn dsa() -> Result<()> {
 }
 
 #[test]
-fn rsamd5() -> Result<()> {
+fn rsamd5() -> Result<(), Error> {
     let output = fixture("rsamd5", SignSettings::rsamd5())?;
 
     dbg!(&output);
@@ -59,7 +59,7 @@ fn rsamd5() -> Result<()> {
     Ok(())
 }
 
-fn fixture(label: &str, deprecated_settings: SignSettings) -> Result<DigOutput> {
+fn fixture(label: &str, deprecated_settings: SignSettings) -> Result<DigOutput, Error> {
     let leaf_zone = FQDN::TEST_TLD.push_label(label);
     let needle_fqdn = leaf_zone.push_label("example");
 

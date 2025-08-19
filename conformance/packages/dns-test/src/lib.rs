@@ -30,7 +30,6 @@ pub mod tshark;
 pub mod zone_file;
 
 pub type Error = Box<dyn std::error::Error>;
-pub type Result<T> = core::result::Result<T, Error>;
 
 // TODO maybe this should be a TLS variable that each unit test (thread) can override
 const DEFAULT_TTL: u32 = 24 * 60 * 60; // 1 day

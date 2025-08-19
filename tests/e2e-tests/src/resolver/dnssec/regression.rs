@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
@@ -11,7 +11,7 @@ use dns_test::{
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/3090
 #[test]
-fn infinite_recursion_with_unsigned_ds_record() -> Result<()> {
+fn infinite_recursion_with_unsigned_ds_record() -> Result<(), Error> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let network = Network::new()?;
@@ -132,7 +132,7 @@ fn infinite_recursion_with_unsigned_ds_record() -> Result<()> {
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2252
 #[test]
-fn infinite_recursion_with_deprecated_algorithm() -> Result<()> {
+fn infinite_recursion_with_deprecated_algorithm() -> Result<(), Error> {
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let network = Network::new()?;

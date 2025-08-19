@@ -1,10 +1,10 @@
 use dns_test::client::{Client, DigSettings};
 use dns_test::name_server::NameServer;
 use dns_test::record::RecordType;
-use dns_test::{FQDN, Network, Result};
+use dns_test::{Error, FQDN, Network};
 
 #[test]
-fn authoritative_answer() -> Result<()> {
+fn authoritative_answer() -> Result<(), Error> {
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::SUBJECT, FQDN::ROOT, network)?.start()?;
 

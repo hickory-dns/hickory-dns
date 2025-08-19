@@ -1,7 +1,7 @@
 use std::{fs, net::Ipv4Addr};
 
 use dns_test::{
-    FQDN, Implementation, Network, PEER, Resolver, Result,
+    Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::{A, RecordType},
@@ -9,7 +9,7 @@ use dns_test::{
 };
 
 #[test]
-fn does_not_cover() -> Result<()> {
+fn does_not_cover() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 

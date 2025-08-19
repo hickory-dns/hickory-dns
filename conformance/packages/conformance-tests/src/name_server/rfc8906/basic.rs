@@ -1,5 +1,5 @@
 use dns_test::{
-    FQDN, Result,
+    Error, FQDN,
     client::{DigSettings, DigStatus},
     record::RecordType,
 };
@@ -7,7 +7,7 @@ use dns_test::{
 use crate::name_server::rfc8906::setup;
 
 #[test]
-fn test_8_1_1_zone_configured() -> Result<()> {
+fn test_8_1_1_zone_configured() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None);
@@ -30,7 +30,7 @@ fn test_8_1_1_zone_configured() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_2_unknown_types() -> Result<()> {
+fn test_8_1_2_unknown_types() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None);
@@ -52,7 +52,7 @@ fn test_8_1_2_unknown_types() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_1_header_bits_cd_1() -> Result<()> {
+fn test_8_1_3_1_header_bits_cd_1() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).checking_disabled();
@@ -75,7 +75,7 @@ fn test_8_1_3_1_header_bits_cd_1() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_2_header_bits_ad_1() -> Result<()> {
+fn test_8_1_3_2_header_bits_ad_1() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).authentic_data();
@@ -97,7 +97,7 @@ fn test_8_1_3_2_header_bits_ad_1() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_3_header_bits_reserved() -> Result<()> {
+fn test_8_1_3_3_header_bits_reserved() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).set_z_flag();
@@ -121,7 +121,7 @@ fn test_8_1_3_3_header_bits_reserved() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_4_header_bits_recursive_query() -> Result<()> {
+fn test_8_1_3_4_header_bits_recursive_query() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).recurse();
@@ -144,7 +144,7 @@ fn test_8_1_3_4_header_bits_recursive_query() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_4_unknown_opcodes() -> Result<()> {
+fn test_8_1_4_unknown_opcodes() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).opcode(15).header_only();
@@ -170,7 +170,7 @@ fn test_8_1_4_unknown_opcodes() -> Result<()> {
 
 /// This is a variant of test 8.1.4 with +noheader-only.
 #[test]
-fn test_unknown_opcode_with_query() -> Result<()> {
+fn test_unknown_opcode_with_query() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).opcode(15);
@@ -195,7 +195,7 @@ fn test_unknown_opcode_with_query() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_5_tcp() -> Result<()> {
+fn test_8_1_5_tcp() -> Result<(), Error> {
     let (_network, ns, client) = setup()?;
 
     let settings = *DigSettings::default().edns(None).tcp();

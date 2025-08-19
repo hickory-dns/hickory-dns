@@ -3,7 +3,7 @@
 use std::{fs, net::Ipv4Addr};
 
 use dns_test::{
-    FQDN, Implementation, Network, PEER, Resolver, Result,
+    Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::RecordType,
@@ -11,7 +11,7 @@ use dns_test::{
 
 #[test]
 #[ignore = "hickory-recursor does not have a retransmission policy"]
-fn packet_loss_udp() -> Result<()> {
+fn packet_loss_udp() -> Result<(), Error> {
     let target_fqdn = FQDN("example.testing.")?;
     let network = Network::new()?;
 

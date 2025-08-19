@@ -1,7 +1,7 @@
 use std::{net::Ipv4Addr, time::Duration};
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result,
+    Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{A, Record, RecordType},
@@ -11,7 +11,7 @@ use dns_test::{
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2299
 #[test]
-fn includes_rrsig_record_in_ns_query() -> Result<()> {
+fn includes_rrsig_record_in_ns_query() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
@@ -55,7 +55,7 @@ fn includes_rrsig_record_in_ns_query() -> Result<()> {
 
 /// This is a regression test for https://github.com/hickory-dns/hickory-dns/issues/2285
 #[test]
-fn can_validate_ns_query() -> Result<()> {
+fn can_validate_ns_query() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
@@ -98,7 +98,7 @@ fn can_validate_ns_query() -> Result<()> {
 }
 
 #[test]
-fn can_validate_ns_query_case_randomization() -> Result<()> {
+fn can_validate_ns_query_case_randomization() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
 
@@ -170,7 +170,7 @@ fn can_validate_ns_query_case_randomization() -> Result<()> {
 
 /// regression test for https://github.com/hickory-dns/hickory-dns/issues/2306
 #[test]
-fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
+fn single_node_dns_graph_with_bind_as_peer() -> Result<(), Error> {
     let network = Network::new()?;
     let peer = Implementation::Bind;
     let nameserver = NameServer::new(&peer, FQDN::ROOT, &network)?
@@ -234,7 +234,7 @@ fn single_node_dns_graph_with_bind_as_peer() -> Result<()> {
 }
 
 #[test]
-fn five_secure_zones() -> Result<()> {
+fn five_secure_zones() -> Result<(), Error> {
     let network = Network::new()?;
 
     let subdomain_zone = FQDN::TEST_DOMAIN.push_label("bar");
@@ -296,7 +296,7 @@ fn five_secure_zones() -> Result<()> {
 }
 
 #[test]
-fn glue_reuse() -> Result<()> {
+fn glue_reuse() -> Result<(), Error> {
     let network = Network::new()?;
 
     let sibling_zone = FQDN::TEST_TLD.push_label("sibling");

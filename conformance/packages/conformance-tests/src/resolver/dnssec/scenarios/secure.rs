@@ -6,13 +6,13 @@ use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
 use dns_test::tshark::{Capture, Direction};
 use dns_test::zone_file::{Nsec, SignSettings};
-use dns_test::{FQDN, Network, PEER, Resolver, Result, TrustAnchor};
+use dns_test::{Error, FQDN, Network, PEER, Resolver, TrustAnchor};
 
 use crate::resolver::dnssec::fixtures;
 
 // no DS records are involved; this is a single-link chain of trust
 #[test]
-fn can_validate_without_delegation() -> Result<()> {
+fn can_validate_without_delegation() -> Result<(), Error> {
     let network = Network::new()?;
     let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
     ns.add(ns.a());
@@ -44,7 +44,7 @@ fn can_validate_without_delegation() -> Result<()> {
 }
 
 #[test]
-fn can_validate_with_delegation() -> Result<()> {
+fn can_validate_with_delegation() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
@@ -76,7 +76,7 @@ fn can_validate_with_delegation() -> Result<()> {
 // the inclusion of RRSIGs records in the answer should not change the outcome of validation
 // if the chain of trust was valid then the RRSIGs, which are part of the chain, must also be secure
 #[test]
-fn also_secure_when_do_is_set() -> Result<()> {
+fn also_secure_when_do_is_set() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
@@ -114,7 +114,7 @@ fn also_secure_when_do_is_set() -> Result<()> {
 }
 
 #[test]
-fn caches_answer() -> Result<()> {
+fn caches_answer() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
@@ -170,7 +170,7 @@ fn caches_answer() -> Result<()> {
 // however, it appears to also be fine to have the parent zone directly vouch for the child's ZSK,
 // eliminating the need for a KSK, so long the ZSK is self-signed in the child zone
 #[test]
-fn ds_of_zsk() -> Result<()> {
+fn ds_of_zsk() -> Result<(), Error> {
     let sign_settings = SignSettings::default();
 
     let network = Network::new()?;
@@ -260,7 +260,7 @@ fn ds_of_zsk() -> Result<()> {
 }
 
 #[test]
-fn nxdomain_nsec() -> Result<()> {
+fn nxdomain_nsec() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
@@ -289,7 +289,7 @@ fn nxdomain_nsec() -> Result<()> {
 }
 
 #[test]
-fn nxdomain_nsec3() -> Result<()> {
+fn nxdomain_nsec3() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
 
@@ -318,7 +318,7 @@ fn nxdomain_nsec3() -> Result<()> {
 }
 
 #[test]
-fn no_root_ds_query() -> Result<()> {
+fn no_root_ds_query() -> Result<(), Error> {
     let network = Network::new()?;
 
     let signed_root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
@@ -382,7 +382,7 @@ fn no_root_ds_query() -> Result<()> {
 }
 
 #[test]
-fn nsec_wildcard_expanded_positive_response() -> Result<()> {
+fn nsec_wildcard_expanded_positive_response() -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
         .push_label("a")

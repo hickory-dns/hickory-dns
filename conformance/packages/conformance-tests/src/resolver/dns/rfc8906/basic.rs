@@ -1,5 +1,5 @@
 use dns_test::{
-    FQDN, Result,
+    Error, FQDN,
     client::{DigSettings, DigStatus},
     record::RecordType,
 };
@@ -15,7 +15,7 @@ use crate::resolver::dns::rfc8906::setup;
 //   expect AD=1 instead of AD=0.
 
 #[test]
-fn test_8_1_1_zone_configured() -> Result<()> {
+fn test_8_1_1_zone_configured() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None);
@@ -38,7 +38,7 @@ fn test_8_1_1_zone_configured() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_2_unknown_types() -> Result<()> {
+fn test_8_1_2_unknown_types() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None);
@@ -60,7 +60,7 @@ fn test_8_1_2_unknown_types() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_1_header_bits_cd_1() -> Result<()> {
+fn test_8_1_3_1_header_bits_cd_1() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -86,7 +86,7 @@ fn test_8_1_3_1_header_bits_cd_1() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_2_header_bits_ad_1() -> Result<()> {
+fn test_8_1_3_2_header_bits_ad_1() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None).authentic_data();
@@ -108,7 +108,7 @@ fn test_8_1_3_2_header_bits_ad_1() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_3_header_bits_reserved() -> Result<()> {
+fn test_8_1_3_3_header_bits_reserved() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None).set_z_flag();
@@ -132,7 +132,7 @@ fn test_8_1_3_3_header_bits_reserved() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_3_4_header_bits_recursive_query() -> Result<()> {
+fn test_8_1_3_4_header_bits_recursive_query() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None);
@@ -156,7 +156,7 @@ fn test_8_1_3_4_header_bits_recursive_query() -> Result<()> {
 
 #[test]
 #[ignore = "hickory returns FORMERR"]
-fn test_8_1_4_unknown_opcodes() -> Result<()> {
+fn test_8_1_4_unknown_opcodes() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default()
@@ -190,7 +190,7 @@ fn test_8_1_4_unknown_opcodes() -> Result<()> {
 /// This is a variant of test 8.1.4 with +noheader-only.
 #[test]
 #[ignore = "hickory sets RD=1 in the NOTIMP response"]
-fn test_unknown_opcode_with_query() -> Result<()> {
+fn test_unknown_opcode_with_query() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None).opcode(15);
@@ -218,7 +218,7 @@ fn test_unknown_opcode_with_query() -> Result<()> {
 }
 
 #[test]
-fn test_8_1_5_tcp() -> Result<()> {
+fn test_8_1_5_tcp() -> Result<(), Error> {
     let (_network, _graph, resolver, client) = setup()?;
 
     let settings = *DigSettings::default().recurse().edns(None).tcp();

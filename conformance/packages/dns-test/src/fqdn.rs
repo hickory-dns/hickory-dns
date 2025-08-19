@@ -2,7 +2,7 @@ use core::fmt;
 use core::str::FromStr;
 use std::borrow::Cow;
 
-use crate::{Error, Result};
+use crate::Error;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct FQDN {
@@ -11,7 +11,7 @@ pub struct FQDN {
 
 // TODO likely needs further validation
 #[allow(non_snake_case)]
-pub fn FQDN(input: impl Into<Cow<'static, str>>) -> Result<FQDN> {
+pub fn FQDN(input: impl Into<Cow<'static, str>>) -> Result<FQDN, Error> {
     let input = input.into();
 
     if !input.ends_with('.') {
@@ -108,7 +108,7 @@ impl FQDN {
 impl FromStr for FQDN {
     type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         FQDN(input.to_string())
     }
 }
@@ -130,7 +130,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parent() -> Result<()> {
+    fn parent() -> Result<(), Error> {
         let mut fqdn = FQDN::EXAMPLE_SUBDOMAIN;
         assert_eq!(3, fqdn.num_labels());
 

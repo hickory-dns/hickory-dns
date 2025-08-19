@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use dns_test::{
-    FQDN, Network, Resolver, Result,
+    Error, FQDN, Network, Resolver,
     client::{Client, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::RecordType,
@@ -10,7 +10,7 @@ use dns_test::{
 };
 
 #[test]
-fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<()> {
+fn on_clients_ds_query_it_queries_the_parent_zone() -> Result<(), Error> {
     let network = Network::new()?;
 
     let leaf_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;

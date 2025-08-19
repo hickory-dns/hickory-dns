@@ -2,29 +2,29 @@ use core::time::Duration;
 use std::thread;
 
 use dns_test::container::{Container, Image};
-use dns_test::{Network, Result};
+use dns_test::{Error, Network};
 
 #[test]
-fn tls_handshake_timeout_dns_over_https() -> Result<()> {
+fn tls_handshake_timeout_dns_over_https() -> Result<(), Error> {
     tls_handshake_timeout("https")
 }
 
 #[test]
-fn tls_handshake_timeout_dns_over_tls() -> Result<()> {
+fn tls_handshake_timeout_dns_over_tls() -> Result<(), Error> {
     tls_handshake_timeout("tls")
 }
 
 #[test]
-fn tls_handshake_timeout_dns_over_quic() -> Result<()> {
+fn tls_handshake_timeout_dns_over_quic() -> Result<(), Error> {
     tls_handshake_timeout("quic")
 }
 
 #[test]
-fn tls_handshake_timeout_dns_over_h3() -> Result<()> {
+fn tls_handshake_timeout_dns_over_h3() -> Result<(), Error> {
     tls_handshake_timeout("h3")
 }
 
-fn tls_handshake_timeout(protocol: &str) -> Result<()> {
+fn tls_handshake_timeout(protocol: &str) -> Result<(), Error> {
     const PORT: u16 = 8443;
 
     let network = Network::new().unwrap();

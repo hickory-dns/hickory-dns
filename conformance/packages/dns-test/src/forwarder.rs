@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use crate::{
-    Implementation, Network, Resolver, Result, TrustAnchor,
+    Error, Implementation, Network, Resolver, TrustAnchor,
     container::{Child, Container},
     implementation::{Config, Role},
     record::DNSKEY,
@@ -40,7 +40,7 @@ impl Forwarder {
     }
 
     /// Returns the logs collected so far
-    pub fn logs(&self) -> Result<String> {
+    pub fn logs(&self) -> Result<String, Error> {
         if self.implementation.is_hickory() {
             self.stdout()
         } else {
@@ -48,12 +48,12 @@ impl Forwarder {
         }
     }
 
-    fn stdout(&self) -> Result<String> {
+    fn stdout(&self) -> Result<String, Error> {
         self.container
             .stdout(&["cat", &self.implementation.stdout_logfile(Role::Forwarder)])
     }
 
-    fn stderr(&self) -> Result<String> {
+    fn stderr(&self) -> Result<String, Error> {
         self.container
             .stdout(&["cat", &self.implementation.stderr_logfile(Role::Forwarder)])
     }
@@ -69,12 +69,12 @@ impl ForwarderSettings<'_> {
     /// Starts a DNS server in the forwarder role.
     ///
     /// The server uses the implementation chosen by the `$DNS_TEST_SUBJECT` environment variable.
-    pub fn start(&self) -> Result<Forwarder> {
+    pub fn start(&self) -> Result<Forwarder, Error> {
         self.start_with_subject(&crate::SUBJECT)
     }
 
     /// Starts a DNS server in the forwarder role.
-    pub fn start_with_subject(&self, implementation: &Implementation) -> Result<Forwarder> {
+    pub fn start_with_subject(&self, implementation: &Implementation) -> Result<Forwarder, Error> {
         let image = implementation.clone().into();
         let container = Container::run(&image, &self.network)?;
 

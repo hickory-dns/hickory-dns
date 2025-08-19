@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    FQDN, Implementation, Network, Resolver, Result, TrustAnchor,
+    Error, FQDN, Implementation, Network, Resolver, TrustAnchor,
     client::{Client, DigOutput, DigSettings},
     name_server::{Graph, NameServer, Sign},
     record::{Record, RecordType},
@@ -11,7 +11,7 @@ use dns_test::{
 /// This tests that the server will return an insecure answer when receiving NSEC3 records with
 /// an iteration count exceeding the default soft limit, but below the hard limit.
 #[test]
-fn soft_nsec3_iteration_failure() -> Result<()> {
+fn soft_nsec3_iteration_failure() -> Result<(), Error> {
     let (output, logs) = insecure_record_fixture(
         FQDN("noexist.insecure.testing.")?,
         SignSettings::default().nsec(Nsec::_3 {
@@ -34,7 +34,7 @@ fn soft_nsec3_iteration_failure() -> Result<()> {
 /// This tests that the server will return SERVFAIL when receiving NSEC3 records with
 /// an iteration count exceeding the default hard limit.
 #[test]
-fn hard_nsec3_iteration_failure() -> Result<()> {
+fn hard_nsec3_iteration_failure() -> Result<(), Error> {
     let (output, logs) = insecure_record_fixture(
         FQDN("noexist.insecure.testing.")?,
         SignSettings::default().nsec(Nsec::_3 {
@@ -55,7 +55,7 @@ fn hard_nsec3_iteration_failure() -> Result<()> {
 
 /// This tests the nsec3_soft_iteration_limit and nsec3_hard_iteration_limit configuration settings
 #[test]
-fn nsec3_custom_iteration_count() -> Result<()> {
+fn nsec3_custom_iteration_count() -> Result<(), Error> {
     let (output, logs) = insecure_record_fixture(
         FQDN("noexist.insecure.testing.")?,
         SignSettings::default().nsec(Nsec::_3 {
@@ -96,7 +96,7 @@ fn nsec3_custom_iteration_count() -> Result<()> {
 
 /// This test verifies the server will verify NSEC3 RRSIGs before rejecting high iteration counts.
 #[test]
-fn hard_nsec3_iteration_invalid_rrsig() -> Result<()> {
+fn hard_nsec3_iteration_invalid_rrsig() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_DOMAIN;
     let mut leaf_ns = NameServer::new(&Implementation::test_peer(), leaf_zone.clone(), &network)?;
@@ -167,7 +167,7 @@ pub fn insecure_record_fixture(
     query_fqdn: FQDN,
     sign_settings: SignSettings,
     custom_config: Option<String>,
-) -> Result<(DigOutput, String)> {
+) -> Result<(DigOutput, String), Error> {
     let network = Network::new()?;
 
     let insecure_zone = FQDN::TEST_TLD.push_label("insecure");
