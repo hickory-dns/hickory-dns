@@ -62,13 +62,13 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub struct ConnectionFuture<R: RuntimeProvider> {
-    pub(crate) connect: Connecting<R>,
-    pub(crate) spawner: R::Handle,
+pub struct ConnectionFuture<P: RuntimeProvider> {
+    pub(crate) connect: Connecting<P>,
+    pub(crate) spawner: P::Handle,
 }
 
-impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
-    type Output = Result<DnsExchange<R>, ProtoError>;
+impl<P: RuntimeProvider> Future for ConnectionFuture<P> {
+    type Output = Result<DnsExchange<P>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
