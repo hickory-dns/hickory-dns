@@ -24,7 +24,7 @@ use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderi
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::NameServer;
 use crate::proto::runtime::{RuntimeProvider, Time};
-use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer, Protocol};
+use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, Protocol};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// Abstract interface for mocking purpose
@@ -191,13 +191,7 @@ impl<P: ConnectionProvider> PoolState<P> {
 
             let mut requests = par_servers
                 .into_iter()
-                .map(|server| async {
-                    server
-                        .send(request.clone())
-                        .first_answer()
-                        .await
-                        .map_err(|e| (server, e))
-                })
+                .map(|server| async { server.send(request.clone()).await.map_err(|e| (server, e)) })
                 .collect::<FuturesUnordered<_>>();
 
             while let Some(result) = requests.next().await {
@@ -251,7 +245,7 @@ mod tests {
     use crate::proto::op::Query;
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
+    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
