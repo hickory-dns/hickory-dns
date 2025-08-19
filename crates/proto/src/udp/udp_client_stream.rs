@@ -417,7 +417,10 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 #[cfg(feature = "tokio")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
-    use crate::{runtime::TokioRuntimeProvider, tests::udp_client_stream_test};
+    use crate::{
+        runtime::TokioRuntimeProvider,
+        tests::{udp_client_stream_bad_id_test, udp_client_stream_test},
+    };
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use test_support::subscribe;
 
@@ -428,9 +431,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_udp_client_stream_ipv4_bad_id() {
+        subscribe();
+        udp_client_stream_bad_id_test(IpAddr::V4(Ipv4Addr::LOCALHOST), TokioRuntimeProvider::new())
+            .await;
+    }
+
+    #[tokio::test]
     async fn test_udp_client_stream_ipv6() {
         subscribe();
         udp_client_stream_test(
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            TokioRuntimeProvider::new(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_udp_client_stream_ipv6_bad_id() {
+        subscribe();
+        udp_client_stream_bad_id_test(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             TokioRuntimeProvider::new(),
         )
