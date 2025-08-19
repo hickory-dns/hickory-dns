@@ -9,13 +9,16 @@ use std::{println, process, thread};
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
+use crate::ProtoError;
 use crate::op::{Message, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
 use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsRequestSender, FirstAnswer, SerialMessage};
+use crate::xfer::{
+    DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse, FirstAnswer, SerialMessage,
+};
 
 /// Test next random udpsocket.
 pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
@@ -109,6 +112,36 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
 pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
+    udp_client_stream_test_inner(
+        server_addr,
+        provider,
+        "udp_client_stream",
+        4,
+        1,
+        |response| match response {
+            Ok(response) => {
+                let response = Message::from(response);
+                if let RData::NULL(null) = response.answers()[0].data() {
+                    assert_eq!(null.anything(), b"DEADBEEF");
+                    true
+                } else {
+                    panic!("not a NULL response");
+                }
+            }
+            Err(_) => false,
+        },
+    )
+    .await;
+}
+
+async fn udp_client_stream_test_inner(
+    server_addr: IpAddr,
+    provider: impl RuntimeProvider,
+    test_name: &str,
+    request_count: usize,
+    response_count: usize,
+    accept_response: impl Fn(Result<DnsResponse, ProtoError>) -> bool,
+) {
     let stop_thread_killer = start_thread_killer();
 
     let server = UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -117,23 +150,21 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
         .unwrap(); // should receive something within 5 seconds...
     server
         .set_write_timeout(Some(Duration::from_secs(5)))
-        .unwrap(); // should receive something within 5 seconds...
+        .unwrap(); // should write something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
 
     let mut query = Message::query();
-    let test_name = Name::from_str("dead.beef.").unwrap();
-    query.add_query(Query::query(test_name.clone(), RecordType::NULL));
+    let query_name = Name::from_str("dead.beef.").unwrap();
+    query.add_query(Query::query(query_name.clone(), RecordType::NULL));
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
-    let send_recv_times = 4;
 
-    let test_name_server = test_name;
-    // an in and out server
+    let test_name_server = query_name;
     let server_handle = thread::Builder::new()
-        .name("test_udp_client_stream_ipv4:server".to_string())
+        .name(format!("{test_name}:server"))
         .spawn(move || {
             let mut buffer = [0_u8; 512];
 
-            for i in 0..send_recv_times {
+            for i in 0..request_count {
                 // wait for some bytes...
                 debug!("server receiving request {}", i);
                 let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
@@ -143,23 +174,21 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
                 assert_eq!(*request.queries()[0].name(), test_name_server.clone());
                 assert_eq!(request.queries()[0].query_type(), RecordType::NULL);
 
-                let mut message = Message::query();
-                message.set_id(request.id());
-                message.add_queries(request.queries().to_vec());
-                message.add_answer(Record::from_rdata(
-                    test_name_server.clone(),
-                    0,
-                    RData::NULL(NULL::with(test_bytes.to_vec())),
-                ));
+                for response_idx in 0..response_count {
+                    let mut message = Message::query();
+                    message.set_id(request.id());
+                    message.add_queries(request.queries().to_vec());
+                    message.add_answer(Record::from_rdata(
+                        test_name_server.clone(),
+                        0,
+                        RData::NULL(NULL::with(test_bytes.to_vec())),
+                    ));
 
-                // bounce them right back...
-                let bytes = message.to_vec().unwrap();
-                debug!("server sending response {i} to: {addr}");
-                assert_eq!(
-                    server.send_to(&bytes, addr).expect("send failed"),
-                    bytes.len()
-                );
-                debug!("server sent response {i}");
+                    // bounce them right back...
+                    let bytes = message.to_vec().unwrap();
+                    server.send_to(&bytes, addr).expect("send failed");
+                    debug!("server sent response {response_idx} for request {i}");
+                }
                 thread::yield_now();
             }
         })
@@ -176,28 +205,16 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
     let mut stream = stream.await.unwrap();
     let mut worked_once = false;
 
-    for i in 0..send_recv_times {
-        // test once
+    for i in 0..request_count {
         let response_stream =
             stream.send_message(DnsRequest::new(query.clone(), DnsRequestOptions::default()));
         println!("client sending request {i}");
-        let response = match response_stream.first_answer().await {
-            Ok(response) => response,
-            Err(err) => {
-                println!("failed to get message: {err}");
-                continue;
-            }
-        };
+        let response = response_stream.first_answer().await;
         println!("client got response {i}");
 
-        let response = Message::from(response);
-        if let RData::NULL(null) = response.answers()[0].data() {
-            assert_eq!(null.anything(), test_bytes);
-        } else {
-            panic!("not a NULL response");
+        if accept_response(response) {
+            worked_once = true;
         }
-
-        worked_once = true;
     }
 
     stop_thread_killer.store(true, Ordering::Relaxed);
