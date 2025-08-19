@@ -7,14 +7,12 @@
 
 use std::fmt::{self, Debug, Formatter};
 use std::net::IpAddr;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
 
 use futures_util::lock::Mutex as AsyncMutex;
-use futures_util::stream::{Stream, once};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
@@ -77,12 +75,8 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    pub(super) fn send(
-        &self,
-        request: DnsRequest,
-    ) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>> {
-        let this = self.clone();
-        Box::pin(once(this.inner.send(request)))
+    pub(super) async fn send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
+        self.clone().inner.send(request).await
     }
 
     #[cfg(test)]
@@ -459,7 +453,6 @@ mod tests {
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::FirstAnswer;
 
     #[tokio::test]
     async fn test_name_server() {
@@ -481,7 +474,6 @@ mod tests {
                 Query::query(name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             ))
-            .first_answer()
             .await
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -513,7 +505,6 @@ mod tests {
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 ))
-                .first_answer()
                 .await
                 .is_err()
         );
@@ -573,11 +564,13 @@ mod tests {
             provider,
         );
 
-        let stream = ns.send(DnsRequest::from_query(
-            Query::query(name.clone(), RecordType::NULL),
-            request_options,
-        ));
-        let response = stream.first_answer().await.unwrap();
+        let response = ns
+            .send(DnsRequest::from_query(
+                Query::query(name.clone(), RecordType::NULL),
+                request_options,
+            ))
+            .await
+            .unwrap();
 
         let response_query_name = response.queries().first().unwrap().name();
         assert!(response_query_name.eq_case(&name));
