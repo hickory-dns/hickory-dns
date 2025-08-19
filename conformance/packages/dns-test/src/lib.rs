@@ -1,10 +1,10 @@
 //! A test framework for all things DNS
 
 use std::io::{Read as _, Write as _};
+use std::sync::LazyLock;
 use std::{env, io};
 
 use client::Client;
-use lazy_static::lazy_static;
 use name_server::{NameServer, Running};
 
 pub use crate::container::Network;
@@ -35,10 +35,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 // TODO maybe this should be a TLS variable that each unit test (thread) can override
 const DEFAULT_TTL: u32 = 24 * 60 * 60; // 1 day
 
-lazy_static! {
-    pub static ref SUBJECT: Implementation = parse_subject();
-    pub static ref PEER: Implementation = parse_peer();
-}
+pub static SUBJECT: LazyLock<Implementation> = LazyLock::new(parse_subject);
+pub static PEER: LazyLock<Implementation> = LazyLock::new(parse_peer);
 
 /// Helper to prevent a unit test from immediately terminating so its associated containers can be
 /// manually inspected
