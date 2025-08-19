@@ -336,7 +336,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
                 response.id()
             );
 
-            continue;
+            return Err(ProtoErrorKind::BadTransactionId.into());
         }
 
         // Validate the returned query name.
