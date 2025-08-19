@@ -72,6 +72,11 @@ pub enum ProtoErrorKind {
     #[error("there should only be one query per request, got: {0}")]
     BadQueryCount(usize),
 
+    /// A UDP response was received with an incorrect transaction id, likely indicating a
+    /// cache-poisoning attempt.
+    #[error("bad transaction id received")]
+    BadTransactionId,
+
     /// The underlying resource is too busy
     ///
     /// This is a signal that an internal resource is too busy. The intended action should be tried
@@ -754,6 +759,7 @@ impl Clone for ProtoErrorKind {
         use self::ProtoErrorKind::*;
         match *self {
             BadQueryCount(count) => BadQueryCount(count),
+            BadTransactionId => BadTransactionId,
             Busy => Busy,
             Canceled(ref c) => Canceled(*c),
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
