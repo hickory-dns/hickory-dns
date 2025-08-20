@@ -139,8 +139,11 @@ impl<'a> Parser<'a> {
     pub fn new(
         input: impl Into<Cow<'a, str>>,
         path: Option<PathBuf>,
-        origin: Option<Name>,
+        mut origin: Option<Name>,
     ) -> Self {
+        if let Some(origin) = &mut origin {
+            origin.set_fqdn(true);
+        }
         Self {
             lexers: vec![(Lexer::new(input), path)],
             origin,
