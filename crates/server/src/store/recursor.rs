@@ -9,6 +9,7 @@
 
 //! Recursive resolver related types
 
+#[cfg(feature = "__dnssec")]
 use std::sync::Arc;
 use std::{
     borrow::Cow,
