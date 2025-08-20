@@ -584,8 +584,10 @@ async fn zone_transfer(
             }
             Err(e) => {
                 match e {
-                    LookupError::ResponseCode(ResponseCode::Refused) => {
-                        response_header.set_response_code(ResponseCode::Refused);
+                    LookupError::ResponseCode(
+                        rcode @ ResponseCode::Refused | rcode @ ResponseCode::NotAuth,
+                    ) => {
+                        response_header.set_response_code(rcode);
                     }
                     _ => {
                         if e.is_nx_domain() {
@@ -701,10 +703,11 @@ async fn build_authoritative_response(
             response_header.set_authoritative(true);
             Some(records)
         }
-        // This request was refused
         // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
-        Err(LookupError::ResponseCode(ResponseCode::Refused)) => {
-            response_header.set_response_code(ResponseCode::Refused);
+        Err(LookupError::ResponseCode(
+            rcode @ ResponseCode::Refused | rcode @ ResponseCode::NotAuth,
+        )) => {
+            response_header.set_response_code(rcode);
             return LookupSections::default();
         }
         Err(e) => {
