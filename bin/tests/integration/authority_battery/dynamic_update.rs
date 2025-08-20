@@ -1,4 +1,4 @@
-#![cfg(feature = "__dnssec")]
+#![cfg(all(feature = "__dnssec", feature = "sqlite"))]
 
 use std::{
     net::{Ipv4Addr, SocketAddr},
