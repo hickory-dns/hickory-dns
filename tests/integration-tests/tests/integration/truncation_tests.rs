@@ -98,9 +98,12 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
 
     let mut records = BTreeMap::new();
     records.insert(RrKey::new(name.clone().into(), RecordType::A), record_set);
-    records.insert(RrKey::new(name.into(), RecordType::SOA), soa_record_set);
+    records.insert(
+        RrKey::new(name.clone().into(), RecordType::SOA),
+        soa_record_set,
+    );
     let authority = InMemoryAuthority::<TokioRuntimeProvider>::new(
-        Name::root(),
+        name,
         records,
         ZoneType::Primary,
         AxfrPolicy::Deny,
