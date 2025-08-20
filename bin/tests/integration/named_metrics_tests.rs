@@ -15,23 +15,26 @@ use test_support::subscribe;
 
 use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
 use hickory_client::client::{Client, ClientHandle};
-#[cfg(feature = "__dnssec")]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::{
     Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,
     rdata::DNSKEY,
 };
 use hickory_proto::op::MessageSigner;
 use hickory_proto::rr::RData::PTR;
-#[cfg(feature = "__dnssec")]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::xfer::{DnsResponse, Protocol};
+#[cfg(feature = "blocklist")]
+use hickory_proto::xfer::DnsResponse;
+use hickory_proto::xfer::Protocol;
+#[cfg(feature = "blocklist")]
 use hickory_proto::{ProtoError, ProtoErrorKind};
 use prometheus_parse::{Scrape, Value};
-#[cfg(feature = "__dnssec")]
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use tokio::runtime::Runtime;
 use tokio::time::sleep;
@@ -714,6 +717,7 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
     })
 }
 
+#[cfg(feature = "blocklist")]
 async fn retry_client_lookup(
     client: &mut Client<TokioRuntimeProvider>,
     name: Name,
@@ -761,4 +765,5 @@ const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
     ("authority", "forwarder"),
     ("success", "false"),
 ];
+#[cfg(feature = "blocklist")]
 const LOOKUP_RETRIES: usize = 5;
