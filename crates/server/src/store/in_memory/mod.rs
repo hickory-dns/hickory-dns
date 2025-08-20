@@ -30,7 +30,7 @@ use crate::{
     },
     proto::{
         op::{ResponseCode, message::ResponseSigner},
-        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
+        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
         runtime::{RuntimeProvider, TokioRuntimeProvider},
         serialize::txt::Parser,
     },
@@ -99,14 +99,12 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryAuthority<P> {
         let inner = this.inner.get_mut();
 
         // SOA must be present
-        let serial = records
-            .iter()
-            .find(|(key, _)| key.record_type == RecordType::SOA)
-            .and_then(|(_, rrset)| rrset.records_without_rrsigs().next())
-            .map(Record::data)
-            .and_then(RData::as_soa)
-            .map(SOA::serial)
+        let soa = records
+            .get(&RrKey::new(origin.clone().into(), RecordType::SOA))
+            .and_then(|rrset| rrset.records_without_rrsigs().next())
+            .and_then(|record| record.data().as_soa())
             .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
+        let serial = soa.serial();
 
         let iter = records.into_values();
 
