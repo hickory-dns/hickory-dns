@@ -1,7 +1,7 @@
-use std::{str::FromStr, sync::Arc};
+use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
 
 use hickory_proto::{
-    op::{Edns, Message, MessageType, Query, ResponseCode},
+    op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
         DNSClass, LowerName, Name, RData, Record, RecordType,
         rdata::{
@@ -14,10 +14,15 @@ use hickory_proto::{
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
+#[cfg(feature = "sqlite")]
+use hickory_server::store::sqlite::SqliteAuthority;
 use hickory_server::{
     authority::{Authority, AxfrPolicy, Catalog, ZoneType},
     server::{Request, RequestHandler},
-    store::in_memory::InMemoryAuthority,
+    store::{
+        forwarder::{ForwardAuthority, ForwardConfig},
+        in_memory::InMemoryAuthority,
+    },
 };
 
 use hickory_integration::{example_authority::create_example, *};
@@ -530,6 +535,39 @@ async fn test_axfr_deny_all() {
     assert!(result.additionals().is_empty());
 }
 
+#[cfg(feature = "sqlite")]
+#[tokio::test]
+async fn test_axfr_deny_all_sqlite() {
+    subscribe();
+
+    let mut test = create_test();
+    test.set_axfr_policy(AxfrPolicy::Deny);
+    let authority = SqliteAuthority::new(test, AxfrPolicy::Deny, false, false);
+    let origin = authority.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), vec![Arc::new(authority)]);
+
+    let query = Query::query(origin.into(), RecordType::AXFR);
+    let mut message = Message::query();
+    message.add_query(query);
+
+    let message_bytes = message.to_bytes().unwrap();
+    let request =
+        Request::from_bytes(message_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&request, None, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+
+    assert_eq!(response.response_code(), ResponseCode::NotAuth);
+    assert!(response.answers().is_empty());
+    assert!(response.authorities().is_empty());
+    assert!(response.additionals().is_empty());
+}
+
 #[tokio::test]
 #[cfg(feature = "__dnssec")]
 async fn test_axfr_deny_unsigned() {
@@ -805,6 +843,46 @@ async fn test_multiple_cname_additionals() {
         additionals.last().unwrap().data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
+}
+
+#[tokio::test]
+async fn test_update_forwarder() {
+    subscribe();
+
+    let authority = ForwardAuthority::builder_tokio(ForwardConfig {
+        name_servers: Vec::new(),
+        options: None,
+    })
+    .build()
+    .unwrap();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
+
+    let query = Query::query(Name::root(), RecordType::SOA);
+    let mut message = Message::new(0, MessageType::Query, OpCode::Update);
+    message.add_query(query);
+    message.add_answer(Record::from_rdata(
+        Name::root(),
+        86400,
+        RData::A(A(Ipv4Addr::LOCALHOST)),
+    ));
+    message.set_recursion_desired(true);
+
+    let message_bytes = message.to_bytes().unwrap();
+    let request =
+        Request::from_bytes(message_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .handle_request(&request, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+
+    assert_eq!(response.response_code(), ResponseCode::NotAuth);
+    assert!(response.answers().is_empty());
+    assert!(response.authorities().is_empty());
+    assert!(response.additionals().is_empty());
 }
 
 #[cfg(feature = "__dnssec")]
