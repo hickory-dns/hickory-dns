@@ -1,7 +1,9 @@
 #![cfg(feature = "sqlite")]
 
+#[cfg(feature = "__dnssec")]
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
 use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 #[cfg(feature = "__dnssec")]
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,10 +16,10 @@ use hickory_proto::dnssec::TSigner;
 use hickory_proto::dnssec::rdata::DNSSECRData;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::tsig::{TsigAlgorithm, TsigError};
-use hickory_proto::op::{
-    Edns, Header, LowerQuery, Message, MessageSignature, MessageSigner, MessageType, OpCode, Query,
-    ResponseCode,
-};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::op::{Edns, LowerQuery, Message, MessageSignature, MessageSigner};
+use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
+#[cfg(feature = "__dnssec")]
 use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
@@ -25,13 +27,13 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 use hickory_proto::xfer::Protocol;
+#[cfg(feature = "__dnssec")]
+use hickory_server::authority::MessageResponseBuilder;
 use hickory_server::authority::{
-    Authority, AxfrPolicy, LookupError, LookupOptions, MessageRequest, MessageResponseBuilder,
-    ZoneType,
+    Authority, AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneType,
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-#[cfg(feature = "__dnssec")]
 use hickory_server::server::Request;
 use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};
@@ -1605,6 +1607,7 @@ async fn test_axfr_deny_unsigned() {
     ))
 }
 
+#[cfg(feature = "__dnssec")]
 #[tokio::test]
 async fn test_axfr_allow_tsig_signed() {
     subscribe();
