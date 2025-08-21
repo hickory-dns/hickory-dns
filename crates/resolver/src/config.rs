@@ -462,10 +462,6 @@ pub struct ResolverOpts {
     /// Number of retries after lookup failure before giving up. Defaults to 2
     #[cfg_attr(feature = "serde", serde(default = "default_attempts"))]
     pub attempts: usize,
-    /// Validate the names in the response, not implemented don't really see the point unless you need to support
-    ///  badly configured DNS
-    #[cfg_attr(feature = "serde", serde(default = "default_check_names"))]
-    pub check_names: bool,
     /// Enable edns, for larger records
     pub edns0: bool,
     /// Use DNSSEC to validate the request
@@ -556,7 +552,6 @@ impl Default for ResolverOpts {
             ndots: default_ndots(),
             timeout: default_timeout(),
             attempts: default_attempts(),
-            check_names: default_check_names(),
             edns0: false,
             #[cfg(feature = "__dnssec")]
             validate: false,
@@ -593,10 +588,6 @@ fn default_timeout() -> Duration {
 
 fn default_attempts() -> usize {
     2
-}
-
-fn default_check_names() -> bool {
-    true
 }
 
 fn default_cache_size() -> u64 {
@@ -887,7 +878,6 @@ mod tests {
         assert_eq!(code.ndots, json.ndots);
         assert_eq!(code.timeout, json.timeout);
         assert_eq!(code.attempts, json.attempts);
-        assert_eq!(code.check_names, json.check_names);
         assert_eq!(code.edns0, json.edns0);
         #[cfg(feature = "__dnssec")]
         assert_eq!(code.validate, json.validate);
