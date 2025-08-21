@@ -471,7 +471,7 @@ pub struct ResolverOpts {
     /// Use DNSSEC to validate the request
     #[cfg(feature = "__dnssec")]
     pub validate: bool,
-    /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
+    /// The strategy for the Resolver to use when looking up host IP addresses
     pub ip_strategy: LookupIpStrategy,
     /// Cache size is in number of responses (some responses can be large)
     #[cfg_attr(feature = "serde", serde(default = "default_cache_size"))]
