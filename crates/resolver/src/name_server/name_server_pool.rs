@@ -269,7 +269,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let pool = NameServerPool::tokio_from_config(
+        let pool = NameServerPool::from_config_with_provider(
             &resolver_config,
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
@@ -369,16 +369,5 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
-    }
-
-    impl NameServerPool<TokioRuntimeProvider> {
-        pub(crate) fn tokio_from_config(
-            config: &ResolverConfig,
-            options: Arc<ResolverOpts>,
-            tls: Arc<TlsConfig>,
-            provider: TokioRuntimeProvider,
-        ) -> Self {
-            Self::from_config_with_provider(config, options, tls, provider)
-        }
     }
 }
