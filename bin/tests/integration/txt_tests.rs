@@ -9,7 +9,8 @@ use hickory_proto::serialize::txt::*;
 use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::authoritative::AuthoritativeAuthority;
+use hickory_server::store::in_memory::InMemoryStore;
 use test_support::subscribe;
 
 // TODO: split this test up to test each thing separately
@@ -68,15 +69,14 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     let (origin, records) = records.unwrap();
 
-    let authority: InMemoryAuthority = InMemoryAuthority::new(
-        origin,
-        records,
+    let authority = AuthoritativeAuthority::<_, TokioRuntimeProvider>::new(
+        origin.clone(),
+        InMemoryStore::new(origin, records).unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
-    )
-    .unwrap();
+    );
     // not validating everything, just one of each...
 
     // SOA
@@ -456,17 +456,7 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(
-        InMemoryAuthority::<TokioRuntimeProvider>::new(
-            origin,
-            records,
-            ZoneType::Primary,
-            AxfrPolicy::Deny,
-            #[cfg(feature = "__dnssec")]
-            Some(NxProofKind::Nsec),
-        )
-        .is_err()
-    );
+    assert!(InMemoryStore::new(origin, records,).is_err());
 }
 
 #[test]
@@ -494,17 +484,7 @@ b       A       127.0.0.2
 
     let (origin, records) = records.unwrap();
 
-    assert!(
-        InMemoryAuthority::<TokioRuntimeProvider>::new(
-            origin,
-            records,
-            ZoneType::Primary,
-            AxfrPolicy::Deny,
-            #[cfg(feature = "__dnssec")]
-            Some(NxProofKind::Nsec),
-        )
-        .is_err()
-    );
+    assert!(InMemoryStore::new(origin, records).is_err());
 }
 
 #[test]
@@ -531,17 +511,7 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(
-        InMemoryAuthority::<TokioRuntimeProvider>::new(
-            origin,
-            records,
-            ZoneType::Primary,
-            AxfrPolicy::Deny,
-            #[cfg(feature = "__dnssec")]
-            Some(NxProofKind::Nsec),
-        )
-        .is_ok()
-    );
+    InMemoryStore::new(origin, records).unwrap();
 }
 
 #[test]

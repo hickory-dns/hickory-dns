@@ -8,6 +8,7 @@ use std::str::FromStr;
 #[cfg(feature = "__dnssec")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use hickory_server::store::authoritative::AuthoritativeAuthority;
 use rusqlite::*;
 
 #[cfg(feature = "__dnssec")]
@@ -35,7 +36,6 @@ use hickory_server::authority::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
-use hickory_server::store::in_memory::InMemoryAuthority;
 use hickory_server::store::sqlite::{Journal, SqliteAuthority};
 use test_support::subscribe;
 
@@ -1397,7 +1397,7 @@ async fn test_journal() {
     assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
-    let in_memory = InMemoryAuthority::empty(
+    let in_memory = AuthoritativeAuthority::empty(
         authority.origin().clone().into(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -1461,7 +1461,7 @@ async fn test_recovery() {
     let journal = journal
         .as_ref()
         .expect("test should have associated journal");
-    let in_memory = InMemoryAuthority::empty(
+    let in_memory = AuthoritativeAuthority::empty(
         authority.origin().clone().into(),
         ZoneType::Primary,
         AxfrPolicy::Deny,

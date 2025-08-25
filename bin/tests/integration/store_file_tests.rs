@@ -52,7 +52,7 @@ fn test_all_lines_are_loaded() {
         record_type: RecordType::A,
         name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap()),
     };
-    assert!(authority.records_get_mut().get(&rrkey).is_some())
+    assert!(authority.records_mut().get(&rrkey).is_some())
 }
 
 #[test]
@@ -98,7 +98,7 @@ async fn test_ttl_wildcard() {
         record_type: RecordType::A,
         name: LowerName::from(Name::from_ascii("simple.test.local.").unwrap()),
     };
-    assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
+    assert_eq!(authority.records_mut().get(&rrkey).unwrap().ttl(), 120);
     // // This one related to a wildcard don't pass around $TTL
     let name = LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap());
     let rr = authority

@@ -16,7 +16,7 @@ use hickory_resolver::{
 };
 use hickory_server::{
     authority::{Authority, Catalog},
-    store::in_memory::InMemoryAuthority,
+    store::{authoritative::AuthoritativeAuthority, in_memory::InMemoryStore},
 };
 use test_support::subscribe;
 
@@ -92,7 +92,7 @@ async fn test_lookup_hosts() {
     assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
 }
 
-fn create_ip_like_example() -> InMemoryAuthority {
+fn create_ip_like_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
     let mut authority = create_example();
     authority.upsert_mut(
         Record::from_rdata(

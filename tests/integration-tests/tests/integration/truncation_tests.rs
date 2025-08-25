@@ -10,7 +10,8 @@ use hickory_server::Server;
 use hickory_server::authority::{AxfrPolicy, Catalog, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::authoritative::AuthoritativeAuthority;
+use hickory_server::store::in_memory::InMemoryStore;
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
@@ -102,15 +103,14 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         RrKey::new(name.clone().into(), RecordType::SOA),
         soa_record_set,
     );
-    let authority = InMemoryAuthority::<TokioRuntimeProvider>::new(
-        name,
-        records,
+    let authority = AuthoritativeAuthority::<_, TokioRuntimeProvider>::new(
+        name.clone(),
+        InMemoryStore::new(name, records).unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
-    )
-    .unwrap();
+    );
 
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);

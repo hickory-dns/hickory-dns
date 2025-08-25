@@ -9,6 +9,7 @@ use hickory_proto::{
             opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
     },
+    runtime::TokioRuntimeProvider,
     serialize::binary::BinEncodable,
     xfer::Protocol,
 };
@@ -20,8 +21,9 @@ use hickory_server::{
     authority::{Authority, AxfrPolicy, Catalog, ZoneType},
     server::{Request, RequestHandler},
     store::{
+        authoritative::AuthoritativeAuthority,
         forwarder::{ForwardAuthority, ForwardConfig},
-        in_memory::InMemoryAuthority,
+        in_memory::InMemoryStore,
     },
 };
 
@@ -29,7 +31,7 @@ use hickory_integration::{example_authority::create_example, *};
 use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_records(records: &mut InMemoryAuthority) {
+pub fn create_records(records: &mut AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>) {
     let origin: Name = records.origin().into();
     records.upsert_mut(
         Record::from_rdata(
@@ -111,10 +113,10 @@ pub fn create_records(records: &mut InMemoryAuthority) {
     );
 }
 
-pub fn create_test() -> InMemoryAuthority {
+pub fn create_test() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
     let origin = Name::parse("test.com.", None).unwrap();
 
-    let mut records = InMemoryAuthority::empty(
+    let mut records = AuthoritativeAuthority::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -895,7 +897,7 @@ mod dnssec {
     fn make_catalog() -> Catalog {
         let origin = Name::parse("test.com.", None).unwrap();
 
-        let mut records = InMemoryAuthority::empty(
+        let mut records = AuthoritativeAuthority::empty(
             origin.clone(),
             ZoneType::Primary,
             AxfrPolicy::Deny,

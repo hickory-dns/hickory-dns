@@ -22,9 +22,12 @@ use futures_util::lock::Mutex;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
-use crate::authority::ZoneTransfer;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
+use crate::{
+    authority::ZoneTransfer,
+    store::{StoreBackend, StoreBackendExt},
+};
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
@@ -39,8 +42,9 @@ use crate::{
     },
     server::{Request, RequestInfo},
     store::{
+        authoritative::AuthoritativeAuthority,
         file::rooted,
-        in_memory::{InMemoryAuthority, zone_from_path},
+        in_memory::{InMemoryStore, zone_from_path},
     },
 };
 #[cfg(feature = "__dnssec")]
@@ -72,7 +76,7 @@ pub use persistence::Journal;
 /// start of authority for the zone, is a Secondary, or a cached zone.
 #[allow(dead_code)]
 pub struct SqliteAuthority<P = TokioRuntimeProvider> {
-    in_memory: InMemoryAuthority<P>,
+    in_memory: AuthoritativeAuthority<InMemoryStore, P>,
     journal: Mutex<Option<Journal>>,
     axfr_policy: AxfrPolicy,
     allow_update: bool,
@@ -99,7 +103,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     ///
     /// The new `Authority`.
     pub fn new(
-        in_memory: InMemoryAuthority<P>,
+        in_memory: AuthoritativeAuthority<InMemoryStore, P>,
         axfr_policy: AxfrPolicy,
         allow_update: bool,
         is_dnssec_enabled: bool,
@@ -141,7 +145,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
-            let in_memory = InMemoryAuthority::empty(
+            let in_memory = AuthoritativeAuthority::empty(
                 zone_name.clone(),
                 zone_type,
                 AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
@@ -167,14 +171,14 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
             let records = zone_from_path(&zone_path, zone_name.clone())
                 .map_err(|e| format!("failed to load zone file: {e}"))?;
 
-            let in_memory = InMemoryAuthority::new(
+            let in_memory = AuthoritativeAuthority::new(
                 zone_name.clone(),
-                records,
+                InMemoryStore::new(zone_name.clone(), records)?,
                 zone_type,
                 AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
-            )?;
+            );
 
             let mut authority =
                 Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
@@ -216,7 +220,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         journal: &Journal,
     ) -> Result<(), PersistenceError> {
         assert!(
-            self.in_memory.records_get_mut().is_empty(),
+            self.in_memory.records_mut().is_empty(),
             "records should be empty during a recovery"
         );
 
@@ -226,7 +230,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
             //  when recovering, if an AXFR is encountered, we should remove all the records in the
             //  authority.
             if record.record_type() == RecordType::AXFR {
-                self.in_memory.clear();
+                self.in_memory.records_mut().clear();
             } else {
                 match self.update_records(&[record], false).await {
                     Ok(_) => {
@@ -784,7 +788,11 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
 
                     // zone     rrset    rr       Add to an RRset
                     info!("upserting record: {rr:?}");
-                    let upserted = self.in_memory.upsert(rr.clone(), serial).await;
+                    let upserted = self.in_memory.backend_mut().await.upsert(
+                        rr.clone(),
+                        serial,
+                        self.in_memory.class(),
+                    );
 
                     #[cfg(all(feature = "metrics", feature = "__dnssec"))]
                     if auto_signing_and_increment {
@@ -817,7 +825,8 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
                             );
                             let origin = self.origin();
 
-                            let mut records = self.in_memory.records_mut().await;
+                            let mut backend = self.in_memory.backend_mut().await;
+                            let records = backend.records_mut();
                             let old_size = records.len();
                             records.retain(|k, _| {
                                 k.name != rr_name
@@ -826,7 +835,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
                                         && k.name != *origin)
                             });
                             let new_size = records.len();
-                            drop(records);
+                            drop(backend);
 
                             if new_size < old_size {
                                 updated = true;
@@ -847,7 +856,12 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
 
                             // ANY      rrset    empty    Delete an RRset
                             if let RData::Update0(_) | RData::NULL(..) = rr.data() {
-                                let deleted = self.in_memory.records_mut().await.remove(&rr_key);
+                                let deleted = self
+                                    .in_memory
+                                    .backend_mut()
+                                    .await
+                                    .records_mut()
+                                    .remove(&rr_key);
                                 info!("deleted rrset: {deleted:?}");
                                 updated = updated || deleted.is_some();
 
@@ -865,7 +879,13 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
                 DNSClass::NONE => {
                     info!("deleting specific record: {rr:?}");
                     // NONE     rrset    rr       Delete an RR from an RRset
-                    if let Some(rrset) = self.in_memory.records_mut().await.get_mut(&rr_key) {
+                    if let Some(rrset) = self
+                        .in_memory
+                        .backend_mut()
+                        .await
+                        .records_mut()
+                        .get_mut(&rr_key)
+                    {
                         // b/c this is an Arc, we need to clone, then remove, and replace the node.
                         let mut rrset_clone: RecordSet = RecordSet::clone(&*rrset);
                         let deleted = rrset_clone.remove(rr, serial);
@@ -906,7 +926,10 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
             } else {
                 // the secure_zone() function increments the SOA during it's operation, if we're not
                 //  dnssec, then we need to do it here...
-                self.in_memory.increment_soa_serial().await;
+                self.in_memory
+                    .backend_mut()
+                    .await
+                    .increment_soa_serial(self.origin(), self.in_memory.class());
             }
         }
 
@@ -1010,7 +1033,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
 }
 
 impl<P> Deref for SqliteAuthority<P> {
-    type Target = InMemoryAuthority<P>;
+    type Target = AuthoritativeAuthority<InMemoryStore, P>;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory

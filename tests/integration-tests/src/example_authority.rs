@@ -2,14 +2,16 @@ use std::str::FromStr;
 
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record};
+use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_server::authority::{AxfrPolicy, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::authoritative::AuthoritativeAuthority;
+use hickory_server::store::in_memory::InMemoryStore;
 
-pub fn create_example() -> InMemoryAuthority {
+pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
     let origin = Name::parse("example.com.", None).unwrap();
-    let mut records = InMemoryAuthority::empty(
+    let mut records = AuthoritativeAuthority::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -183,7 +185,7 @@ pub fn create_example() -> InMemoryAuthority {
 }
 
 #[cfg(feature = "__dnssec")]
-pub fn create_secure_example() -> InMemoryAuthority {
+pub fn create_secure_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
     use hickory_proto::dnssec::{
         Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };

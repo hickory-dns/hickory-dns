@@ -24,9 +24,13 @@ use crate::{
     proto::{
         op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
+        runtime::TokioRuntimeProvider,
     },
     server::{Request, RequestInfo},
-    store::in_memory::{InMemoryAuthority, zone_from_path},
+    store::{
+        authoritative::AuthoritativeAuthority,
+        in_memory::{InMemoryStore, zone_from_path},
+    },
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -40,7 +44,7 @@ use crate::{
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct FileAuthority {
-    in_memory: InMemoryAuthority,
+    in_memory: AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>,
     #[cfg(feature = "metrics")]
     #[allow(unused)]
     metrics: PersistentStoreMetrics,
@@ -61,7 +65,9 @@ impl FileAuthority {
     /// # Return value
     ///
     /// The new `Authority`.
-    pub async fn new(in_memory: InMemoryAuthority) -> Self {
+    pub async fn new(
+        in_memory: AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>,
+    ) -> Self {
         Self {
             #[cfg(feature = "metrics")]
             metrics: {
@@ -95,20 +101,20 @@ impl FileAuthority {
                 new.zone_records.increment(records.len() as f64);
                 new
             },
-            in_memory: InMemoryAuthority::new(
-                origin,
-                records,
+            in_memory: AuthoritativeAuthority::new(
+                origin.clone(),
+                InMemoryStore::new(origin, records)?,
                 zone_type,
                 axfr_policy,
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
-            )?,
+            ),
         })
     }
 }
 
 impl Deref for FileAuthority {
-    type Target = InMemoryAuthority;
+    type Target = AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory

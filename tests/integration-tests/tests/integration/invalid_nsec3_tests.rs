@@ -28,13 +28,14 @@ use hickory_proto::{
         DNSClass, RData, Record, RecordType,
         rdata::{A, AAAA, HINFO, MX, NS, SOA},
     },
+    runtime::TokioRuntimeProvider,
     xfer::DnsResponse,
 };
 use hickory_resolver::Name;
 use hickory_server::{
     authority::{AxfrPolicy, Catalog, ZoneType},
     dnssec::NxProofKind,
-    store::in_memory::InMemoryAuthority,
+    store::{authoritative::AuthoritativeAuthority, in_memory::InMemoryStore},
 };
 use test_support::subscribe;
 
@@ -381,8 +382,11 @@ fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
 }
 
 /// Constructs an authority based on the zone file described in RFC 5155 Appendix A.
-fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryAuthority {
-    let mut authority = InMemoryAuthority::empty(
+fn example_zone_authority(
+    origin: Name,
+    key: Box<dyn SigningKey>,
+) -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
+    let mut authority = AuthoritativeAuthority::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -642,7 +646,7 @@ fn example_zone_nsec3_chain() {
     let mut authority = example_zone_authority(origin.clone(), Box::new(key));
 
     let names = authority
-        .records_get_mut()
+        .records_mut()
         .keys()
         .map(|key| key.name.to_ascii())
         .collect::<HashSet<_>>();

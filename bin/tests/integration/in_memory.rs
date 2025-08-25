@@ -11,7 +11,7 @@ use hickory_proto::{
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{Authority, AxfrPolicy, ZoneType},
-    store::in_memory::InMemoryAuthority,
+    store::authoritative::AuthoritativeAuthority,
 };
 
 #[test]
@@ -19,7 +19,7 @@ fn test_cname_loop() {
     subscribe();
 
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let mut auth = InMemoryAuthority::<TokioRuntimeProvider>::empty(
+    let mut auth = AuthoritativeAuthority::<_, TokioRuntimeProvider>::empty(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
