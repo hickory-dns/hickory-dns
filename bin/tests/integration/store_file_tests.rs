@@ -3,19 +3,29 @@ use std::{
     str::FromStr,
 };
 
-use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
-use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
+use hickory_proto::{
+    rr::{LowerName, Name, RecordType, RrKey},
+    runtime::TokioRuntimeProvider,
+};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::file::{FileAuthority, FileConfig};
+use hickory_server::store::file::{FileConfig, FileStore};
+use hickory_server::{
+    authority::{Authority, AxfrPolicy, LookupOptions, ZoneType},
+    store::authoritative::AuthoritativeAuthority,
+};
 use test_support::subscribe;
 
-fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileAuthority {
+fn file(
+    zone_path: &Path,
+    _module: &str,
+    _test_name: &str,
+) -> AuthoritativeAuthority<FileStore, TokioRuntimeProvider> {
     let config = FileConfig {
         zone_path: zone_path.to_owned(),
     };
 
-    FileAuthority::try_from_config(
+    AuthoritativeAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -38,7 +48,7 @@ fn test_all_lines_are_loaded() {
         zone_path: PathBuf::from("../tests/test-data/test_configs/default/nonewline.zone"),
     };
 
-    let mut authority = FileAuthority::try_from_config(
+    let mut authority = AuthoritativeAuthority::<FileStore, TokioRuntimeProvider>::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -62,7 +72,7 @@ fn test_implicit_in_class() {
         zone_path: PathBuf::from("../tests/test-data/test_configs/default/implicitclass.zone"),
     };
 
-    let authority = FileAuthority::try_from_config(
+    let authority = AuthoritativeAuthority::<FileStore, TokioRuntimeProvider>::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -82,7 +92,7 @@ async fn test_ttl_wildcard() {
     };
 
     let zone_name = LowerName::from_str("test.local.").unwrap();
-    let mut authority = FileAuthority::try_from_config(
+    let mut authority = AuthoritativeAuthority::<FileStore, TokioRuntimeProvider>::try_from_config(
         Name::from(zone_name.clone()),
         ZoneType::Primary,
         AxfrPolicy::Deny,

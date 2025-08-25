@@ -7,16 +7,13 @@
 
 //! In-memory zone data authority
 
-use std::{collections::BTreeMap, fs, path::Path, sync::Arc};
-
-use tracing::{debug, info};
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
     authority::{AxfrPolicy, ZoneType},
     proto::{
         rr::{DNSClass, LowerName, Name, RecordSet, RecordType, RrKey},
         runtime::RuntimeProvider,
-        serialize::txt::Parser,
     },
     store::{StoreBackend, StoreBackendExt, authoritative::AuthoritativeAuthority},
 };
@@ -157,25 +154,4 @@ impl<P: RuntimeProvider> AuthoritativeAuthority<InMemoryStore, P> {
             nx_proof_kind,
         )
     }
-}
-
-// internal load for e.g. sqlite db creation
-pub(crate) fn zone_from_path(
-    zone_path: &Path,
-    origin: Name,
-) -> Result<BTreeMap<RrKey, RecordSet>, String> {
-    info!("loading zone file: {zone_path:?}");
-
-    // TODO: this should really use something to read line by line or some other method to
-    //  keep the usage down. and be a custom lexer...
-    let buf = fs::read_to_string(zone_path)
-        .map_err(|e| format!("failed to read {}: {e:?}", zone_path.display()))?;
-
-    let (origin, records) = Parser::new(buf, Some(zone_path.to_owned()), Some(origin))
-        .parse()
-        .map_err(|e| format!("failed to parse {}: {e:?}", zone_path.display()))?;
-
-    info!("zone file loaded: {origin} with {} records", records.len());
-    debug!("zone: {records:#?}");
-    Ok(records)
 }

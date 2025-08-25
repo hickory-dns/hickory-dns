@@ -42,7 +42,6 @@ use hickory_proto::rustls::default_provider;
 use hickory_proto::{ProtoError, rr::Name};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-#[cfg(any(feature = "recursor", feature = "sqlite"))]
 use hickory_server::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistAuthority;
@@ -61,7 +60,10 @@ use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
     ConfigError,
     authority::{Authority, AxfrPolicy, ZoneType},
-    store::file::{FileAuthority, FileConfig},
+    store::{
+        authoritative::AuthoritativeAuthority,
+        file::{FileConfig, FileStore},
+    },
 };
 
 #[cfg(feature = "prometheus-metrics")]
@@ -421,7 +423,10 @@ impl ZoneConfig {
 
                         ServerStoreConfig::File(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut authority = FileAuthority::try_from_config(
+                            let mut authority = AuthoritativeAuthority::<
+                                FileStore,
+                                TokioRuntimeProvider,
+                            >::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
                                 axfr_policy,

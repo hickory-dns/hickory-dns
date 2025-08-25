@@ -43,8 +43,8 @@ use crate::{
     server::{Request, RequestInfo},
     store::{
         authoritative::AuthoritativeAuthority,
-        file::rooted,
-        in_memory::{InMemoryStore, zone_from_path},
+        file::{rooted, zone_from_path},
+        in_memory::InMemoryStore,
     },
 };
 #[cfg(feature = "__dnssec")]

@@ -8,79 +8,85 @@
 //! Zone file based serving with Dynamic DNS and journaling support
 
 use std::{
-    ops::{Deref, DerefMut},
+    collections::BTreeMap,
+    fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use serde::Deserialize;
+use tracing::{debug, info};
 
-#[cfg(feature = "metrics")]
-use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
-    authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneTransfer, ZoneType,
-    },
+    authority::{AxfrPolicy, ZoneType},
     proto::{
-        op::message::ResponseSigner,
-        rr::{LowerName, Name, RecordType},
-        runtime::TokioRuntimeProvider,
+        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+        runtime::RuntimeProvider,
+        serialize::txt::Parser,
     },
-    server::{Request, RequestInfo},
-    store::{
-        authoritative::AuthoritativeAuthority,
-        in_memory::{InMemoryStore, zone_from_path},
-    },
+    store::{StoreBackend, authoritative::AuthoritativeAuthority, in_memory::InMemoryStore},
 };
 #[cfg(feature = "__dnssec")]
-use crate::{
-    authority::{DnssecAuthority, Nsec3QueryInfo},
-    dnssec::NxProofKind,
-    proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
-};
+use crate::{dnssec::NxProofKind, proto::dnssec::SigSigner};
 
-/// FileAuthority is responsible for storing the resource records for a particular zone.
-///
-/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
-/// start of authority for the zone, is a Secondary, or a cached zone.
-pub struct FileAuthority {
-    in_memory: AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>,
-    #[cfg(feature = "metrics")]
-    #[allow(unused)]
-    metrics: PersistentStoreMetrics,
+/// Read-only file-backed storage for an authoritative zone.
+pub struct FileStore {
+    in_memory: InMemoryStore,
 }
 
-impl FileAuthority {
-    /// Creates a new Authority.
-    ///
-    /// # Arguments
-    ///
-    /// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`
-    ///   record.
-    /// * `records` - The map of the initial set of records in the zone.
-    /// * `zone_type` - The type of zone, i.e. is this authoritative?
-    /// * `axfr_policy` - A policy for determining if AXFR is allowed.
-    /// * `nx_proof_kind` - The kind of non-existence proof to be used by the server.
-    ///
-    /// # Return value
-    ///
-    /// The new `Authority`.
-    pub async fn new(
-        in_memory: AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>,
-    ) -> Self {
-        Self {
-            #[cfg(feature = "metrics")]
-            metrics: {
-                let new = PersistentStoreMetrics::new("file");
-                let records = in_memory.records().await;
-                new.zone_records.increment(records.len() as f64);
-                new
-            },
-            in_memory,
-        }
+impl FileStore {
+    /// Creates a new file-based backing store.
+    pub fn new(origin: Name, records: BTreeMap<RrKey, RecordSet>) -> Result<Self, String> {
+        Ok(Self {
+            in_memory: InMemoryStore::new(origin, records)?,
+        })
+    }
+}
+
+impl StoreBackend for FileStore {
+    fn get_rrset<'r>(
+        &'r self,
+        name: &LowerName,
+        record_type: RecordType,
+    ) -> Option<&'r Arc<RecordSet>> {
+        self.in_memory.get_rrset(name, record_type)
     }
 
-    /// Read the Authority for the origin from the specified configuration
+    fn name_exists(&self, name: &LowerName) -> bool {
+        self.in_memory.name_exists(name)
+    }
+
+    fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
+        self.in_memory.records()
+    }
+
+    fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
+        self.in_memory.records_mut()
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn secure_keys(&self) -> &[SigSigner] {
+        self.in_memory.secure_keys()
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn secure_keys_mut(&mut self) -> &mut Vec<SigSigner> {
+        self.in_memory.secure_keys_mut()
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn as_mut_tuple(&mut self) -> (&mut BTreeMap<RrKey, Arc<RecordSet>>, &mut Vec<SigSigner>) {
+        self.in_memory.as_mut_tuple()
+    }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        "file"
+    }
+}
+
+impl<P: RuntimeProvider> AuthoritativeAuthority<FileStore, P> {
+    /// Read the Authority for the origin from the specified configuration.
     pub fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
@@ -93,196 +99,25 @@ impl FileAuthority {
         let records = zone_from_path(&zone_path, origin.clone())
             .map_err(|e| format!("failed to load zone file: {e}"))?;
 
-        // Don't call `new()`, since it needs to be async to get the number of records to initialize metrics
-        Ok(Self {
-            #[cfg(feature = "metrics")]
-            metrics: {
-                let new = PersistentStoreMetrics::new("file");
-                new.zone_records.increment(records.len() as f64);
-                new
-            },
-            in_memory: AuthoritativeAuthority::new(
-                origin.clone(),
-                InMemoryStore::new(origin, records)?,
-                zone_type,
-                axfr_policy,
-                #[cfg(feature = "__dnssec")]
-                nx_proof_kind,
-            ),
-        })
-    }
-}
+        #[cfg(feature = "metrics")]
+        let record_count = records.len();
 
-impl Deref for FileAuthority {
-    type Target = AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>;
+        let authority = Self::new(
+            origin.clone(),
+            FileStore::new(origin, records)?,
+            zone_type,
+            axfr_policy,
+            #[cfg(feature = "__dnssec")]
+            nx_proof_kind,
+        );
 
-    fn deref(&self) -> &Self::Target {
-        &self.in_memory
-    }
-}
+        #[cfg(feature = "metrics")]
+        authority
+            .metrics
+            .zone_records
+            .increment(record_count as f64);
 
-impl DerefMut for FileAuthority {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.in_memory
-    }
-}
-
-#[async_trait::async_trait]
-impl Authority for FileAuthority {
-    /// What type is this zone
-    fn zone_type(&self) -> ZoneType {
-        self.in_memory.zone_type()
-    }
-
-    /// Return the policy for determining if AXFR requests are allowed
-    fn axfr_policy(&self) -> AxfrPolicy {
-        self.in_memory.axfr_policy()
-    }
-
-    /// Perform a dynamic update of a zone
-    async fn update(
-        &self,
-        _update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
-        use crate::proto::op::ResponseCode;
-        (Err(ResponseCode::NotImp), None)
-    }
-
-    /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName {
-        self.in_memory.origin()
-    }
-
-    /// Looks up all Resource Records matching the given `Name` and `RecordType`.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The name to look up.
-    /// * `rtype` - The `RecordType` to look up. `RecordType::ANY` will return all records matching
-    ///   `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///   due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///   precede and follow all other records.
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///   algorithms, etc.)
-    ///
-    /// # Return value
-    ///
-    /// A LookupControlFlow containing the lookup that should be returned to the client.
-    async fn lookup(
-        &self,
-        name: &LowerName,
-        rtype: RecordType,
-        request_info: Option<&RequestInfo<'_>>,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory
-            .lookup(name, rtype, request_info, lookup_options)
-            .await
-    }
-
-    /// Using the specified query, perform a lookup against this zone.
-    ///
-    /// # Arguments
-    ///
-    /// * `request` - the query to perform the lookup with.
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///   algorithms, etc.)
-    ///
-    /// # Return value
-    ///
-    /// A LookupControlFlow containing the lookup that should be returned to the client.
-    async fn search(
-        &self,
-        request: &Request,
-        lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
-        self.in_memory.search(request, lookup_options).await
-    }
-
-    async fn zone_transfer(
-        &self,
-        request: &Request,
-        lookup_options: LookupOptions,
-    ) -> Option<(
-        Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
-    )> {
-        self.in_memory.zone_transfer(request, lookup_options).await
-    }
-
-    /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.ns(lookup_options).await
-    }
-
-    /// Return the NSEC records based on the given name
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
-    ///   this
-    /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
-    ///   algorithms, etc.)
-    async fn nsec_records(
-        &self,
-        name: &LowerName,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.nsec_records(name, lookup_options).await
-    }
-
-    #[cfg(feature = "__dnssec")]
-    async fn nsec3_records(
-        &self,
-        info: Nsec3QueryInfo<'_>,
-        lookup_options: LookupOptions,
-    ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.nsec3_records(info, lookup_options).await
-    }
-
-    /// Returns the SOA of the authority.
-    ///
-    /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
-    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.soa().await
-    }
-
-    /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.soa_secure(lookup_options).await
-    }
-
-    #[cfg(feature = "__dnssec")]
-    fn nx_proof_kind(&self) -> Option<&NxProofKind> {
-        self.in_memory.nx_proof_kind()
-    }
-
-    #[cfg(feature = "metrics")]
-    fn metrics_label(&self) -> &'static str {
-        "file"
-    }
-}
-
-#[cfg(feature = "__dnssec")]
-#[async_trait::async_trait]
-impl DnssecAuthority for FileAuthority {
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
-    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
-        self.in_memory.add_update_auth_key(name, key).await
-    }
-
-    /// Add Signer
-    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
-        self.in_memory.add_zone_signing_key(signer).await
-    }
-
-    /// Sign the zone for DNSSEC
-    async fn secure_zone(&self) -> DnsSecResult<()> {
-        DnssecAuthority::secure_zone(&self.in_memory).await
+        Ok(authority)
     }
 }
 
@@ -301,17 +136,42 @@ pub(crate) fn rooted(zone_file: &Path, root_dir: Option<&Path>) -> PathBuf {
     }
 }
 
+// internal load for e.g. sqlite db creation
+pub(crate) fn zone_from_path(
+    zone_path: &Path,
+    origin: Name,
+) -> Result<BTreeMap<RrKey, RecordSet>, String> {
+    info!("loading zone file: {zone_path:?}");
+
+    // TODO: this should really use something to read line by line or some other method to
+    //  keep the usage down. and be a custom lexer...
+    let buf = fs::read_to_string(zone_path)
+        .map_err(|e| format!("failed to read {}: {e:?}", zone_path.display()))?;
+
+    let (origin, records) = Parser::new(buf, Some(zone_path.to_owned()), Some(origin))
+        .parse()
+        .map_err(|e| format!("failed to parse {}: {e:?}", zone_path.display()))?;
+
+    info!("zone file loaded: {origin} with {} records", records.len());
+    debug!("zone: {records:#?}");
+    Ok(records)
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-
-    use crate::proto::rr::{RData, rdata::A};
 
     use futures_executor::block_on;
     use test_support::subscribe;
 
     use super::*;
-    use crate::authority::ZoneType;
+    use crate::{
+        authority::{Authority, LookupOptions, ZoneType},
+        proto::{
+            rr::{RData, rdata::A},
+            runtime::TokioRuntimeProvider,
+        },
+    };
 
     #[test]
     fn test_load_zone() {
@@ -325,7 +185,7 @@ mod tests {
         let config = FileConfig {
             zone_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
         };
-        let authority = FileAuthority::try_from_config(
+        let authority = AuthoritativeAuthority::<FileStore, TokioRuntimeProvider>::try_from_config(
             Name::from_str("example.com.").unwrap(),
             ZoneType::Primary,
             AxfrPolicy::Deny,
