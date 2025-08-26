@@ -10,6 +10,7 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{collections::HashMap, io, iter, sync::Arc};
 
+use hickory_proto::runtime::Time;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
@@ -55,7 +56,7 @@ impl RequestHandler for Catalog {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - sink for the response message to be sent
-    async fn handle_request<R: ResponseHandler>(
+    async fn handle_request<R: ResponseHandler, T: Time>(
         &self,
         request: &Request,
         mut response_handle: R,
@@ -128,19 +129,23 @@ impl RequestHandler for Catalog {
             response_edns = None;
         }
 
+        let now = T::current_time();
         let result = match request.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => match request.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request.id());
-                    let info = self.lookup(request, response_edns, response_handle).await;
+                    let info = self
+                        .lookup(request, response_edns, now, response_handle)
+                        .await;
 
                     Ok(info)
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.id());
-                    self.update(request, response_edns, response_handle).await
+                    self.update(request, response_edns, now, response_handle)
+                        .await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
@@ -274,6 +279,7 @@ impl Catalog {
         &self,
         update: &Request,
         response_edns: Option<Edns>,
+        now: u64,
         mut response_handle: R,
     ) -> io::Result<ResponseInfo> {
         // 2.3 - Zone Section
@@ -301,7 +307,7 @@ impl Catalog {
                         (ResponseCode::NotImp, None)
                     }
                     ZoneType::Primary => {
-                        let (update_result, signer) = authority.update(update).await;
+                        let (update_result, signer) = authority.update(update, now).await;
                         match update_result {
                             // successful update
                             Ok(_) => (ResponseCode::NoError, signer),
@@ -363,6 +369,7 @@ impl Catalog {
         &self,
         request: &Request,
         response_edns: Option<Edns>,
+        now: u64,
         mut response_handle: R,
     ) -> ResponseInfo {
         let Ok(request_info) = request.request_info() else {
@@ -398,6 +405,7 @@ impl Catalog {
                 authorities,
                 request,
                 response_edns.clone(),
+                now,
                 response_handle.clone(),
             )
             .await
@@ -560,6 +568,7 @@ async fn zone_transfer(
     authorities: &[Arc<dyn Authority>],
     request: &Request,
     response_edns: Option<Edns>,
+    now: u64,
     mut response_handle: impl ResponseHandler,
 ) -> Result<ResponseInfo, LookupError> {
     let request_edns = request.edns();
@@ -571,7 +580,8 @@ async fn zone_transfer(
             request_id = request.id(),
             "performing zone transfer"
         );
-        let Some((result, signer)) = authority.zone_transfer(request, lookup_options).await else {
+        let Some((result, signer)) = authority.zone_transfer(request, lookup_options, now).await
+        else {
             continue;
         };
 

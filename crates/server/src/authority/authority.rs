@@ -87,6 +87,7 @@ pub trait Authority: Send + Sync {
     async fn update(
         &self,
         _update: &Request,
+        _now: u64,
     ) -> (Result<bool, ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         (Err(ResponseCode::NotImp), None)
     }
@@ -240,6 +241,7 @@ pub trait Authority: Send + Sync {
         &self,
         _request: &Request,
         _lookup_options: LookupOptions,
+        _now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
         Option<Box<dyn ResponseSigner>>,

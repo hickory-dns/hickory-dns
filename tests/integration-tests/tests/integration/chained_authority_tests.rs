@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
-    op::message::ResponseSigner,
-    op::{Message, MessageType, Query, ResponseCode},
+    op::{Message, MessageType, Query, ResponseCode, message::ResponseSigner},
     rr::{LowerName, Name, RData, Record, RecordSet, RecordType, rdata::A},
+    runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,
     xfer::Protocol,
 };
@@ -350,9 +350,10 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
     let response_handler = TestResponseHandler::new();
+    let now = TokioTime::current_time();
 
     let res = catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(&question_req, None, now, response_handler.clone())
         .await;
     (res, response_handler)
 }
