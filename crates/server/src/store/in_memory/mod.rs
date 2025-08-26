@@ -25,8 +25,8 @@ use tracing::{debug, info};
 
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError,
-        LookupOptions, LookupRecords, ZoneTransfer, ZoneType,
+        AuthLookup, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, ZoneHandler, ZoneTransfer, ZoneType,
     },
     proto::{
         op::{ResponseCode, message::ResponseSigner},
@@ -336,7 +336,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryAuthority<P> {
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> Authority for InMemoryAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryAuthority<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type

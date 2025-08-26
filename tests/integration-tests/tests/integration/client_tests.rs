@@ -41,7 +41,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::authority::{Authority, AxfrPolicy, Catalog};
+use hickory_server::authority::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]

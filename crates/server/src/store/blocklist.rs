@@ -29,7 +29,7 @@ use tracing::{info, trace, warn};
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneTransfer, ZoneType,
     },
     proto::{
@@ -319,7 +319,7 @@ impl BlocklistAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for BlocklistAuthority {
+impl ZoneHandler for BlocklistAuthority {
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
     }
@@ -808,7 +808,7 @@ mod test {
     }
 
     async fn basic_test(
-        ao: &Arc<dyn Authority>,
+        ao: &Arc<dyn ZoneHandler>,
         query: &'static str,
         q_type: RecordType,
         r_type: TestResult,
@@ -866,7 +866,7 @@ mod test {
         }
     }
 
-    fn authority(config: &BlocklistConfig) -> Arc<dyn Authority> {
+    fn authority(config: &BlocklistConfig) -> Arc<dyn ZoneHandler> {
         let authority = BlocklistAuthority::try_from_config(
             Name::root(),
             config,

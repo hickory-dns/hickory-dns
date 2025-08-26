@@ -18,7 +18,7 @@ use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "sqlite")]
 use hickory_server::store::sqlite::SqliteAuthority;
 use hickory_server::{
-    authority::{Authority, AxfrPolicy, Catalog, ZoneType},
+    authority::{AxfrPolicy, Catalog, ZoneHandler, ZoneType},
     server::{Request, RequestHandler},
     store::{
         forwarder::{ForwardAuthority, ForwardConfig},

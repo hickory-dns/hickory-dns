@@ -71,7 +71,7 @@ impl LookupOptions {
 
 /// Authority implementations can be used with a `Catalog`
 #[async_trait::async_trait]
-pub trait Authority: Send + Sync {
+pub trait ZoneHandler: Send + Sync {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
@@ -261,7 +261,7 @@ pub trait Authority: Send + Sync {
 /// Extension to Authority to allow for DNSSEC features
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-pub trait DnssecAuthority: Authority {
+pub trait DnssecAuthority: ZoneHandler {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()>;
 

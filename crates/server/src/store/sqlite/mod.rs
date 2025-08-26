@@ -27,7 +27,8 @@ use crate::authority::ZoneTransfer;
 use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneType,
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
     },
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
@@ -1027,7 +1028,7 @@ impl<P> DerefMut for SqliteAuthority<P> {
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteAuthority<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()

@@ -15,7 +15,7 @@ use hickory_resolver::{
     lookup_ip::LookupIpFuture,
 };
 use hickory_server::{
-    authority::{Authority, Catalog},
+    authority::{Catalog, ZoneHandler},
     store::in_memory::InMemoryAuthority,
 };
 use test_support::subscribe;

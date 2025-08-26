@@ -30,7 +30,7 @@ use hickory_proto::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
 use hickory_server::authority::MessageResponseBuilder;
 use hickory_server::authority::{
-    Authority, AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneType,
+    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
