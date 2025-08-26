@@ -574,7 +574,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     ) -> (Result<(), ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         match self.axfr_policy {
             // Deny without checking any signatures.
-            AxfrPolicy::Deny => (Err(ResponseCode::NotAuth), None),
+            AxfrPolicy::Deny => (Err(ResponseCode::Refused), None),
             // Allow without checking any signatures.
             AxfrPolicy::AllowAll => (Ok(()), None),
             // Allow only if a valid signature is present.
@@ -587,7 +587,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
                 }
                 MessageSignature::Unsigned => {
                     warn!("AXFR request was not signed");
-                    (Err(ResponseCode::NotAuth), None)
+                    (Err(ResponseCode::Refused), None)
                 }
             },
         }

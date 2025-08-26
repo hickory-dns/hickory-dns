@@ -562,7 +562,7 @@ async fn test_axfr_deny_all_sqlite() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::NotAuth);
+    assert_eq!(response.response_code(), ResponseCode::Refused);
     assert!(response.answers().is_empty());
     assert!(response.authorities().is_empty());
     assert!(response.additionals().is_empty());

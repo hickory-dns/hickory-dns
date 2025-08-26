@@ -1572,7 +1572,7 @@ async fn test_axfr_deny_all() {
         .unwrap_err();
     assert!(matches!(
         err,
-        LookupError::ResponseCode(ResponseCode::NotAuth)
+        LookupError::ResponseCode(ResponseCode::Refused)
     ))
 }
 
@@ -1603,7 +1603,7 @@ async fn test_axfr_deny_unsigned() {
         .unwrap_err();
     assert!(matches!(
         err,
-        LookupError::ResponseCode(ResponseCode::NotAuth)
+        LookupError::ResponseCode(ResponseCode::Refused)
     ))
 }
 
