@@ -261,7 +261,7 @@ pub trait ZoneHandler: Send + Sync {
 /// Extension to Authority to allow for DNSSEC features
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-pub trait DnssecAuthority: ZoneHandler {
+pub trait DnssecZoneHandler: ZoneHandler {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()>;
 

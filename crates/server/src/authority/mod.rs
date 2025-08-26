@@ -32,7 +32,7 @@ pub use self::auth_lookup::{
 };
 pub use self::authority::{AxfrPolicy, LookupControlFlow, LookupOptions, ZoneHandler};
 #[cfg(feature = "__dnssec")]
-pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
+pub use self::authority::{DnssecZoneHandler, Nsec3QueryInfo};
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};

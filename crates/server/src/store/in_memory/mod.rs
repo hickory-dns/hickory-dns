@@ -38,7 +38,7 @@ use crate::{
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{DnssecAuthority, Nsec3QueryInfo},
+    authority::{DnssecZoneHandler, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::{
         dnssec::{
@@ -691,7 +691,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryAuthority<P> {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> DnssecAuthority for InMemoryAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryAuthority<P> {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
