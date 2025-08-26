@@ -56,7 +56,6 @@ use crate::{
             },
         },
         op::MessageSignature,
-        runtime::Time,
     },
 };
 #[cfg(feature = "__dnssec")]
@@ -540,6 +539,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     pub async fn authorize_update(
         &self,
         request: &Request,
+        now: u64,
     ) -> (Result<(), ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         // 3.3.3 - Pseudocode for Permission Checking
         //
@@ -562,7 +562,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         match request.signature() {
             MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, request).await, None),
             MessageSignature::Tsig(tsig) => {
-                let (resp, signer) = self.authorized_tsig(tsig, request).await;
+                let (resp, signer) = self.authorized_tsig(tsig, request, now).await;
                 (resp, Some(signer))
             }
             MessageSignature::Unsigned => (Err(ResponseCode::Refused), None),
@@ -573,6 +573,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     async fn authorize_axfr(
         &self,
         _request: &Request,
+        _now: u64,
     ) -> (Result<(), ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         match self.axfr_policy {
             // Deny without checking any signatures.
@@ -584,7 +585,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
             AxfrPolicy::AllowSigned => match _request.signature() {
                 MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, _request).await, None),
                 MessageSignature::Tsig(tsig) => {
-                    let (resp, signer) = self.authorized_tsig(tsig, _request).await;
+                    let (resp, signer) = self.authorized_tsig(tsig, _request, _now).await;
                     (resp, Some(signer))
                 }
                 MessageSignature::Unsigned => {
@@ -964,9 +965,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         &self,
         tsig: &Record,
         request: &Request,
+        now: u64,
     ) -> (Result<(), ResponseCode>, Box<dyn ResponseSigner>) {
         let req_id = request.header().id();
-        let now = P::Timer::current_time();
         let cx = TSigResponseContext::new(req_id, now);
 
         debug!("authorizing with: {tsig:?}");
@@ -1055,11 +1056,12 @@ impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
     async fn update(
         &self,
         _request: &Request,
+        _now: u64,
     ) -> (Result<bool, ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.
-            let signer = match self.authorize_update(_request).await {
+            let signer = match self.authorize_update(_request, _now).await {
                 (Err(e), signer) => return (Err(e), signer),
                 (_, signer) => signer,
             };
@@ -1144,11 +1146,12 @@ impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
+        now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
         Option<Box<dyn ResponseSigner>>,
     )> {
-        let (resp, signer) = self.authorize_axfr(request).await;
+        let (resp, signer) = self.authorize_axfr(request, now).await;
         if let Err(code) = resp {
             warn!(axfr_policy = ?self.axfr_policy, "rejected AXFR");
             return Some((Err(LookupError::ResponseCode(code)), signer));
@@ -1157,7 +1160,7 @@ impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
 
         let (zone_transfer, _) = self
             .in_memory
-            .zone_transfer(request, lookup_options)
+            .zone_transfer(request, lookup_options, now)
             .await?;
 
         Some((zone_transfer, signer))

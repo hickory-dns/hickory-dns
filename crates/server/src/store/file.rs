@@ -191,11 +191,14 @@ impl Authority for FileAuthority {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
+        now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
         Option<Box<dyn ResponseSigner>>,
     )> {
-        self.in_memory.zone_transfer(request, lookup_options).await
+        self.in_memory
+            .zone_transfer(request, lookup_options, now)
+            .await
     }
 
     /// Get the NS, NameServer, record for the zone

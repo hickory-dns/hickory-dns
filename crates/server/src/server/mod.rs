@@ -18,7 +18,7 @@ use std::{
 use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
 use futures_util::StreamExt;
-use hickory_proto::ProtoErrorKind;
+use hickory_proto::{ProtoErrorKind, runtime::TokioTime};
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -905,7 +905,9 @@ impl<T: RequestHandler> ServerContext<T> {
             metrics: ResponseHandlerMetrics::default(),
         };
 
-        self.handler.handle_request(&request, reporter).await;
+        self.handler
+            .handle_request::<_, TokioTime>(&request, reporter)
+            .await;
     }
 }
 

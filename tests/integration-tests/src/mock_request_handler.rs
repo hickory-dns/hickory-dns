@@ -6,6 +6,7 @@ use hickory_proto::rr::DNSClass;
 use hickory_proto::{
     op::{Header, MessageType, ResponseCode},
     rr::{LowerName, RecordType},
+    runtime::Time,
     xfer::DnsResponse,
 };
 use hickory_resolver::Name;
@@ -44,7 +45,7 @@ impl MockHandler {
 
 #[async_trait]
 impl RequestHandler for MockHandler {
-    async fn handle_request<R: ResponseHandler>(
+    async fn handle_request<R: ResponseHandler, T: Time>(
         &self,
         request: &Request,
         mut response_handle: R,

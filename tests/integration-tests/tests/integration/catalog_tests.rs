@@ -9,6 +9,7 @@ use hickory_proto::{
             opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
     },
+    runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,
     xfer::Protocol,
 };
@@ -154,7 +155,12 @@ async fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -188,7 +194,12 @@ async fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -234,7 +245,12 @@ async fn test_catalog_lookup_soa() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -301,7 +317,12 @@ async fn test_catalog_nx_soa() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -352,7 +373,12 @@ async fn test_non_authoritive_nx_refused() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -407,7 +433,12 @@ async fn test_axfr_allow_all() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -525,7 +556,12 @@ async fn test_axfr_deny_all() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -558,7 +594,12 @@ async fn test_axfr_deny_all_sqlite() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&request, None, response_handler.clone())
+        .lookup(
+            &request,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let response = response_handler.into_message().await;
 
@@ -595,7 +636,12 @@ async fn test_axfr_deny_unsigned() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -620,7 +666,7 @@ async fn test_nsid_disabled_requested() {
 
     let response_handler = TestResponseHandler::new();
     let _ = catalog
-        .handle_request(&question_req, response_handler.clone())
+        .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -656,7 +702,7 @@ async fn test_nsid_enabled_not_requested() {
 
     let response_handler = TestResponseHandler::new();
     let _ = catalog
-        .handle_request(&question_req, response_handler.clone())
+        .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -693,7 +739,7 @@ async fn test_nsid_enabled_and_requested() {
 
     let response_handler = TestResponseHandler::new();
     let _ = catalog
-        .handle_request(&question_req, response_handler.clone())
+        .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -759,7 +805,12 @@ async fn test_cname_additionals() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -808,7 +859,12 @@ async fn test_multiple_cname_additionals() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
         .await;
     let result = response_handler.into_message().await;
 
@@ -875,7 +931,7 @@ async fn test_update_forwarder() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .handle_request(&request, response_handler.clone())
+        .handle_request::<_, TokioTime>(&request, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
 
@@ -943,7 +999,12 @@ mod dnssec {
 
         let response_handler = TestResponseHandler::new();
         catalog
-            .lookup(&question_req, None, response_handler.clone())
+            .lookup(
+                &question_req,
+                None,
+                TokioTime::current_time(),
+                response_handler.clone(),
+            )
             .await;
         response_handler.into_message().await
     }

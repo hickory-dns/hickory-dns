@@ -550,6 +550,7 @@ impl<P: RuntimeProvider + Send + Sync> Authority for InMemoryAuthority<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
+        _now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
         Option<Box<dyn ResponseSigner>>,

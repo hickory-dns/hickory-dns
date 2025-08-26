@@ -23,7 +23,7 @@ use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::runtime::{Time, TokioRuntimeProvider, TokioTime};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 use hickory_proto::xfer::Protocol;
@@ -259,7 +259,10 @@ async fn test_authorize_update() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     assert_eq!(
-        authority.authorize_update(&request).await.0,
+        authority
+            .authorize_update(&request, TokioTime::current_time())
+            .await
+            .0,
         Err(ResponseCode::Refused)
     );
 
@@ -671,7 +674,11 @@ async fn test_update() {
     {
         // assert that the correct set of records is there.
         let mut www_records = authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time(),
+            )
             .await
             .unwrap()
             .0
@@ -687,7 +694,11 @@ async fn test_update() {
         // assert new record doesn't exist
         assert!(
             !authority
-                .zone_transfer(&request, LookupOptions::default())
+                .zone_transfer(
+                    &request,
+                    LookupOptions::default(),
+                    TokioTime::current_time()
+                )
                 .await
                 .unwrap()
                 .0
@@ -713,7 +724,11 @@ async fn test_update() {
     );
     assert_eq!(
         authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time()
+            )
             .await
             .unwrap()
             .0
@@ -741,7 +756,11 @@ async fn test_update() {
 
     {
         let mut www_records = authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time(),
+            )
             .await
             .unwrap()
             .0
@@ -775,7 +794,11 @@ async fn test_update() {
     assert_eq!(serial + 3, authority.serial().await);
     {
         let records = authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time(),
+            )
             .await
             .unwrap()
             .0
@@ -804,7 +827,11 @@ async fn test_update() {
     assert_eq!(serial + 4, authority.serial().await);
     {
         let mut www_records = authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time(),
+            )
             .await
             .unwrap()
             .0
@@ -852,7 +879,11 @@ async fn test_update() {
 
     {
         let mut www_records = authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time(),
+            )
             .await
             .unwrap()
             .0
@@ -882,7 +913,11 @@ async fn test_update() {
 
     assert!(
         !authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time()
+            )
             .await
             .unwrap()
             .0
@@ -922,7 +957,11 @@ async fn test_update_tsig_valid() {
     .unwrap();
     assert!(
         !authority
-            .zone_transfer(&request, LookupOptions::default())
+            .zone_transfer(
+                &request,
+                LookupOptions::default(),
+                TokioTime::current_time()
+            )
             .await
             .unwrap()
             .0
@@ -961,7 +1000,7 @@ async fn test_update_tsig_valid() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should succeed.
-    let (resp, resp_signer) = authority.update(&request).await;
+    let (resp, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
     assert!(resp.unwrap());
 
     // We should have produced a resp_signer.
@@ -1007,7 +1046,11 @@ async fn test_update_tsig_valid() {
 
     // And we should now be able to look up the new record.
     let records = authority
-        .zone_transfer(&request, LookupOptions::default())
+        .zone_transfer(
+            &request,
+            LookupOptions::default(),
+            TokioTime::current_time(),
+        )
         .await
         .unwrap()
         .0
@@ -1057,7 +1100,7 @@ async fn test_update_tsig_invalid_unknown_signer() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    let (res, resp_signer) = authority.update(&request).await;
+    let (res, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
 
     // The update should have been rejected as not authorized.
     assert_eq!(res, Err(ResponseCode::NotAuth));
@@ -1118,7 +1161,7 @@ async fn test_update_tsig_invalid_sig() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    let (res, resp_signer) = authority.update(&request).await;
+    let (res, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
 
     // The update should have been rejected as not authorized.
     assert_eq!(res, Err(ResponseCode::NotAuth));
@@ -1184,7 +1227,7 @@ async fn test_update_tsig_invalid_stale_sig() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been rejected as not authorized.
-    let (resp, resp_signer) = authority.update(&request).await;
+    let (resp, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
     assert_eq!(resp, Err(ResponseCode::NotAuth));
 
     // We should have produced a resp_signer.
@@ -1287,7 +1330,11 @@ async fn test_zone_signing() {
     )
     .unwrap();
     let (results, _) = authority
-        .zone_transfer(&request, LookupOptions::for_dnssec())
+        .zone_transfer(
+            &request,
+            LookupOptions::for_dnssec(),
+            TokioTime::current_time(),
+        )
         .await
         .unwrap();
     let records = results.unwrap();
@@ -1537,7 +1584,11 @@ async fn test_axfr_allow_all() {
     .unwrap();
 
     let result = authority
-        .zone_transfer(&request, LookupOptions::default())
+        .zone_transfer(
+            &request,
+            LookupOptions::default(),
+            TokioTime::current_time(),
+        )
         .await
         .unwrap()
         .0
@@ -1564,7 +1615,11 @@ async fn test_axfr_deny_all() {
     .unwrap();
 
     let err = authority
-        .zone_transfer(&request, LookupOptions::default())
+        .zone_transfer(
+            &request,
+            LookupOptions::default(),
+            TokioTime::current_time(),
+        )
         .await
         .unwrap()
         .0
@@ -1595,7 +1650,11 @@ async fn test_axfr_deny_unsigned() {
     .unwrap();
 
     let err = authority
-        .zone_transfer(&request, LookupOptions::default())
+        .zone_transfer(
+            &request,
+            LookupOptions::default(),
+            TokioTime::current_time(),
+        )
         .await
         .unwrap()
         .0
@@ -1638,7 +1697,11 @@ async fn test_axfr_allow_tsig_signed() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     let (resp, resp_signer) = authority
-        .zone_transfer(&request, LookupOptions::default())
+        .zone_transfer(
+            &request,
+            LookupOptions::default(),
+            TokioTime::current_time(),
+        )
         .await
         .unwrap();
 

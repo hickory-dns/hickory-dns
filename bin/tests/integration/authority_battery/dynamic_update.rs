@@ -19,6 +19,7 @@ use hickory_proto::{
         DNSClass, Name, RData, Record, RecordSet, RecordType,
         rdata::{A as A4, AAAA},
     },
+    runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,
     xfer::Protocol,
 };
@@ -43,7 +44,7 @@ fn update_authority(
     )
     .unwrap();
 
-    block_on(authority.update(&request)).0
+    block_on(authority.update(&request, TokioTime::current_time())).0
 }
 
 pub fn test_create(mut authority: impl Authority, keys: &[SigSigner]) {

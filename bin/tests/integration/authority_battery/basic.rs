@@ -11,6 +11,7 @@ use hickory_proto::{
         Name, RData, Record, RecordType,
         rdata::{A as A4, AAAA},
     },
+    runtime::{Time, TokioTime},
     xfer::Protocol,
 };
 use hickory_server::{
@@ -497,7 +498,11 @@ pub fn test_update_errors(authority: impl Authority) {
     .unwrap();
 
     // this is expected to fail, i.e. updates are not allowed
-    assert!(block_on(authority.update(&request)).0.is_err());
+    assert!(
+        block_on(authority.update(&request, TokioTime::current_time()))
+            .0
+            .is_err()
+    );
 }
 
 #[allow(clippy::uninlined_format_args)]

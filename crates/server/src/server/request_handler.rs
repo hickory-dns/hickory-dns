@@ -8,6 +8,7 @@
 //! Request Handler for incoming requests
 
 use bytes::Bytes;
+use hickory_proto::runtime::Time;
 use std::net::SocketAddr;
 
 #[cfg(feature = "testing")]
@@ -181,7 +182,7 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - handle to which a return message should be sent
-    async fn handle_request<R: ResponseHandler>(
+    async fn handle_request<R: ResponseHandler, T: Time>(
         &self,
         request: &Request,
         response_handle: R,
