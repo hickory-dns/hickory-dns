@@ -238,12 +238,14 @@ pub trait Authority: Send + Sync {
     /// This will return `None` if the next authority in the authority chain should be used instead.
     async fn zone_transfer(
         &self,
-        request: &Request,
-        lookup_options: LookupOptions,
+        _request: &Request,
+        _lookup_options: LookupOptions,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
         Option<Box<dyn ResponseSigner>>,
-    )>;
+    )> {
+        Some((Err(LookupError::from(ResponseCode::NotImp)), None))
+    }
 
     /// Returns the kind of non-existence proof used for this zone.
     #[cfg(feature = "__dnssec")]
