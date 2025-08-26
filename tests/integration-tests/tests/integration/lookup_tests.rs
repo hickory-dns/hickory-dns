@@ -20,12 +20,14 @@ use hickory_server::{
 };
 use test_support::subscribe;
 
-use hickory_integration::{TestClientStream, example_authority::create_example, mock_client::*};
+use hickory_integration::{
+    TestClientStream, example_authority::create_example_authority, mock_client::*,
+};
 
 #[tokio::test]
 async fn test_lookup() {
     subscribe();
-    let authority = create_example();
+    let authority = create_example_authority();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
@@ -53,7 +55,7 @@ async fn test_lookup() {
 #[tokio::test]
 async fn test_lookup_hosts() {
     subscribe();
-    let authority = create_example();
+    let authority = create_example_authority();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
 
@@ -93,7 +95,7 @@ async fn test_lookup_hosts() {
 }
 
 fn create_ip_like_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
-    let mut authority = create_example();
+    let mut authority = create_example_authority();
     authority.upsert_mut(
         Record::from_rdata(
             Name::from_str("1.2.3.4.example.com.").unwrap(),

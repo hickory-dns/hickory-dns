@@ -17,6 +17,8 @@ use std::{
 use serde::Deserialize;
 use tracing::{debug, info};
 
+#[cfg(feature = "sqlite")]
+use crate::store::sqlite::Journal;
 use crate::{
     authority::{AxfrPolicy, ZoneType},
     proto::{
@@ -79,6 +81,11 @@ impl StoreBackend for FileStore {
         self.in_memory.as_mut_tuple()
     }
 
+    #[cfg(feature = "sqlite")]
+    fn journal(&self) -> Option<&Journal> {
+        None
+    }
+
     #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "file"
@@ -107,6 +114,8 @@ impl<P: RuntimeProvider> AuthoritativeAuthority<FileStore, P> {
             FileStore::new(origin, records)?,
             zone_type,
             axfr_policy,
+            false,
+            false,
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
         );

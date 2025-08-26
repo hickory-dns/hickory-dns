@@ -9,6 +9,8 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+#[cfg(feature = "sqlite")]
+use crate::store::sqlite::Journal;
 use crate::{
     authority::{AxfrPolicy, ZoneType},
     proto::{
@@ -131,6 +133,11 @@ impl StoreBackend for InMemoryStore {
         (records, secure_keys)
     }
 
+    #[cfg(feature = "sqlite")]
+    fn journal(&self) -> Option<&Journal> {
+        None
+    }
+
     #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "in-memory"
@@ -150,6 +157,8 @@ impl<P: RuntimeProvider> AuthoritativeAuthority<InMemoryStore, P> {
             InMemoryStore::empty(origin),
             zone_type,
             axfr_policy,
+            false,
+            false,
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
         )

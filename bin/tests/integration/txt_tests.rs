@@ -69,11 +69,13 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     let (origin, records) = records.unwrap();
 
-    let authority = AuthoritativeAuthority::<_, TokioRuntimeProvider>::new(
+    let authority = AuthoritativeAuthority::<InMemoryStore, TokioRuntimeProvider>::new(
         origin.clone(),
         InMemoryStore::new(origin, records).unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
+        false,
+        false,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );

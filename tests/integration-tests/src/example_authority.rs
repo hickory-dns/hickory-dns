@@ -1,26 +1,25 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::SigSigner;
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
-use hickory_proto::rr::{DNSClass, Name, RData, Record};
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_server::authority::{AxfrPolicy, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::authoritative::AuthoritativeAuthority;
 use hickory_server::store::in_memory::InMemoryStore;
+#[cfg(feature = "sqlite")]
+use hickory_server::store::sqlite::SqliteStore;
 
-pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
+pub fn create_example_records() -> (Name, BTreeMap<RrKey, RecordSet>) {
     let origin = Name::parse("example.com.", None).unwrap();
-    let mut records = AuthoritativeAuthority::empty(
-        origin.clone(),
-        ZoneType::Primary,
-        AxfrPolicy::Deny,
-        #[cfg(feature = "__dnssec")]
-        Some(NxProofKind::Nsec),
-    );
+    let mut records = BTreeMap::new();
 
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(origin.clone().into(), RecordType::SOA),
         Record::from_rdata(
             origin.clone(),
             3600,
@@ -35,11 +34,11 @@ pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimePro
             )),
         )
         .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+        .clone()
+        .into(),
     );
 
-    records.upsert_mut(
+    let mut rrset = RecordSet::from(
         Record::from_rdata(
             origin.clone(),
             86400,
@@ -47,23 +46,17 @@ pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimePro
         )
         .set_dns_class(DNSClass::IN)
         .clone(),
-        0,
     );
-    records.upsert_mut(
-        Record::from_rdata(
-            origin.clone(),
-            86400,
-            RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
-    );
+    rrset.add_rdata(RData::NS(NS(
+        Name::parse("b.iana-servers.net.", None).unwrap()
+    )));
+    records.insert(RrKey::new(origin.clone().into(), RecordType::NS), rrset);
 
     // example.com.		60	IN	TXT	"v=spf1 -all"
     //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(origin.clone().into(), RecordType::TXT),
         Record::from_rdata(
             origin.clone(),
             60,
@@ -74,30 +67,32 @@ pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimePro
             ])),
         )
         .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+        .clone()
+        .into(),
     );
 
     // example.com.		86400	IN	A	93.184.215.14
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(origin.clone().into(), RecordType::A),
         Record::from_rdata(origin.clone(), 86400, RData::A(A::new(93, 184, 215, 14)))
             .set_dns_class(DNSClass::IN)
-            .clone(),
-        0,
+            .clone()
+            .into(),
     );
 
     // example.com.		86400	IN	AAAA	2606:2800:21f:cb07:6820:80da:af6b:8b2c
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(origin.clone().into(), RecordType::AAAA),
         Record::from_rdata(
-            origin,
+            origin.clone(),
             86400,
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
         )
         .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+        .clone()
+        .into(),
     );
 
     // TODO support these later...
@@ -118,27 +113,30 @@ pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimePro
     let www_name: Name = Name::parse("www.example.com.", None).unwrap();
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(www_name.clone().into(), RecordType::TXT),
         Record::from_rdata(
             www_name.clone(),
             86400,
             RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])),
         )
         .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+        .clone()
+        .into(),
     );
 
     // www.example.com.	86400	IN	A	93.184.215.14
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(www_name.clone().into(), RecordType::A),
         Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(93, 184, 215, 14)))
             .set_dns_class(DNSClass::IN)
-            .clone(),
-        0,
+            .clone()
+            .into(),
     );
 
     // www.example.com.	86400	IN	AAAA	2606:2800:21f:cb07:6820:80da:af6b:8b2c
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(www_name.clone().into(), RecordType::AAAA),
         Record::from_rdata(
             www_name.clone(),
             86400,
@@ -147,32 +145,34 @@ pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimePro
             )),
         )
         .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+        .clone()
+        .into(),
     );
+
+    let alias_name = Name::from_str("alias.example.com.").unwrap();
 
     // alias 86400 IN www
-    records.upsert_mut(
+    records.insert(
+        RrKey::new(alias_name.clone().into(), RecordType::CNAME),
         Record::from_rdata(
-            Name::from_str("alias.example.com.").unwrap(),
+            alias_name.clone(),
             86400,
-            RData::CNAME(CNAME(www_name)),
+            RData::CNAME(CNAME(www_name.clone())),
         )
         .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+        .clone()
+        .into(),
     );
 
+    let alias2_name = Name::from_str("alias2.example.com.").unwrap();
+
     // alias2 86400 IN www, multiple cname chains
-    records.upsert_mut(
-        Record::from_rdata(
-            Name::from_str("alias2.example.com.").unwrap(),
-            86400,
-            RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
-        0,
+    records.insert(
+        RrKey::new(alias2_name.clone().into(), RecordType::CNAME),
+        Record::from_rdata(alias2_name, 86400, RData::CNAME(CNAME(alias_name)))
+            .set_dns_class(DNSClass::IN)
+            .clone()
+            .into(),
     );
 
     // www.example.com.	3600	IN	RRSIG	NSEC 8 3 3600 20150925215757 20150905040848 54108 example.com. ZKIVt1IN3O1FWZPSfrQAH7nHt7RUFDjcbh7NxnEqd/uTGCnZ6SrAEgrY E9GMmBwvRjoucphGtjkYOpPJPe5MlnTHoYCjxL4qmG3LsD2KD0bfPufa ibtlQZRrPglxZ92hBKK3ZiPnPRe7I9yni2UQSQA7XDi7CQySYyo490It AxdXjAo=
@@ -181,19 +181,48 @@ pub fn create_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimePro
     // www.example.com.	86400	IN	RRSIG	AAAA 8 3 86400 20150914082216 20150824191224 54108 example.com. kje4FKE+7d/j4OzWQelcKkePq6DxCRY/5btAiUcZNf+zVNlHK+o57h1r Y76ZviWChQB8Np2TjA1DrXGi/kHr2KKE60H5822mFZ2b9O+sgW4q6o3G kO2E1CQxbYe+nI1Z8lVfjdCNm81zfvYqDjo2/tGqagehxG1V9MBZO6br 4KKdoa4=
     // www.example.com.	86400	IN	RRSIG	A 8 3 86400 20150915023456 20150824191224 54108 example.com. cWtw0nMvcXcYNnxejB3Le3KBfoPPQZLmbaJ8ybdmzBDefQOm1ZjZZMOP wHEIxzdjRhG9mLt1mpyo1H7OezKTGX+mDtskcECTl/+jB/YSZyvbwRxj e88Lrg4D+D2MiajQn3XSWf+6LQVe1J67gdbKTXezvux0tRxBNHHqWXRk pxCILes=
 
-    records
+    (origin, records)
+}
+
+pub fn create_example_authority() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
+    let (origin, records) = create_example_records();
+    AuthoritativeAuthority::new(
+        origin.clone(),
+        InMemoryStore::new(origin, records).unwrap(),
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        false,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    )
+}
+
+#[cfg(feature = "sqlite")]
+pub fn create_example_sqlite_authority() -> AuthoritativeAuthority<SqliteStore, TokioRuntimeProvider>
+{
+    let (origin, records) = create_example_records();
+    AuthoritativeAuthority::new(
+        origin.clone(),
+        SqliteStore::new(origin, records).unwrap(),
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        true,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    )
 }
 
 #[cfg(feature = "__dnssec")]
-pub fn create_secure_example() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
+pub fn create_secure_example_records() -> (Name, BTreeMap<RrKey, RecordSet>, SigSigner) {
     use hickory_proto::dnssec::{
         Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
-    use hickory_server::authority::Authority;
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 
-    let mut authority = create_example();
+    let (origin, records) = create_example_records();
 
     const KEY: &[u8] = include_bytes!("../tests/rsa-2048.pk8");
     let key =
@@ -201,10 +230,27 @@ pub fn create_secure_example() -> AuthoritativeAuthority<InMemoryStore, TokioRun
     let signer = SigSigner::dnssec(
         DNSKEY::from_key(&key.to_public_key().unwrap()),
         Box::new(key),
-        authority.origin().clone().into(),
+        origin.clone(),
         Duration::weeks(1).try_into().unwrap(),
     );
 
+    (origin, records, signer)
+}
+
+#[cfg(feature = "__dnssec")]
+pub fn create_secure_example_authority()
+-> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider> {
+    let (origin, records, signer) = create_secure_example_records();
+    let store = InMemoryStore::new(origin.clone(), records).unwrap();
+    let mut authority = AuthoritativeAuthority::new(
+        origin,
+        store,
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        false,
+        false,
+        Some(NxProofKind::Nsec),
+    );
     authority.add_zone_signing_key_mut(signer).unwrap();
     authority.secure_zone_mut().unwrap();
 

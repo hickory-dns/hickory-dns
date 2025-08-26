@@ -16,22 +16,25 @@ use hickory_proto::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::SqliteAuthority;
+use hickory_server::store::sqlite::SqliteStore;
 use hickory_server::{
     authority::{Authority, AxfrPolicy, Catalog, ZoneType},
     server::{Request, RequestHandler},
     store::{
+        StoreBackend,
         authoritative::AuthoritativeAuthority,
         forwarder::{ForwardAuthority, ForwardConfig},
         in_memory::InMemoryStore,
     },
 };
 
-use hickory_integration::{example_authority::create_example, *};
+use hickory_integration::{TestResponseHandler, example_authority::create_example_authority};
 use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_records(records: &mut AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvider>) {
+pub fn create_records<B: StoreBackend + Send + Sync>(
+    records: &mut AuthoritativeAuthority<B, TokioRuntimeProvider>,
+) {
     let origin: Name = records.origin().into();
     records.upsert_mut(
         Record::from_rdata(
@@ -133,7 +136,7 @@ pub fn create_test() -> AuthoritativeAuthority<InMemoryStore, TokioRuntimeProvid
 async fn test_catalog_lookup() {
     subscribe();
 
-    let example = create_example();
+    let example = create_example_authority();
     let test = create_test();
     let origin = example.origin().clone();
     let test_origin = test.origin().clone();
@@ -212,7 +215,7 @@ async fn test_catalog_lookup() {
 async fn test_catalog_lookup_soa() {
     subscribe();
 
-    let example = create_example();
+    let example = create_example_authority();
     let test = create_test();
     let origin = example.origin().clone();
     let test_origin = test.origin().clone();
@@ -283,7 +286,7 @@ async fn test_catalog_lookup_soa() {
 async fn test_catalog_nx_soa() {
     subscribe();
 
-    let example = create_example();
+    let example = create_example_authority();
     let origin = example.origin().clone();
 
     let mut catalog = Catalog::new();
@@ -333,7 +336,7 @@ async fn test_catalog_nx_soa() {
 async fn test_non_authoritive_nx_refused() {
     subscribe();
 
-    let example = create_example();
+    let example = create_example_authority();
     let origin = example.origin().clone();
 
     let mut catalog = Catalog::new();
@@ -531,7 +534,7 @@ async fn test_axfr_deny_all() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert_eq!(result.response_code(), ResponseCode::NotAuth);
     assert!(result.answers().is_empty());
     assert!(result.authorities().is_empty());
     assert!(result.additionals().is_empty());
@@ -542,15 +545,23 @@ async fn test_axfr_deny_all() {
 async fn test_axfr_deny_all_sqlite() {
     subscribe();
 
-    let mut test = create_test();
-    test.set_axfr_policy(AxfrPolicy::Deny);
-    let authority = SqliteAuthority::new(test, AxfrPolicy::Deny, false, false);
-    let origin = authority.origin().clone();
+    let origin = Name::parse("test.com.", None).unwrap();
+    let mut authority = AuthoritativeAuthority::<SqliteStore, TokioRuntimeProvider>::new(
+        origin.clone(),
+        SqliteStore::empty(origin.clone()),
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        false,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    );
+    create_records(&mut authority);
 
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.clone(), vec![Arc::new(authority)]);
+    catalog.upsert(origin.clone().into(), vec![Arc::new(authority)]);
 
-    let query = Query::query(origin.into(), RecordType::AXFR);
+    let query = Query::query(origin, RecordType::AXFR);
     let mut message = Message::query();
     message.add_query(query);
 
@@ -601,7 +612,7 @@ async fn test_axfr_deny_unsigned() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert_eq!(result.response_code(), ResponseCode::NotAuth);
     assert!(result.answers().is_empty());
     assert!(result.authorities().is_empty());
     assert!(result.additionals().is_empty());
@@ -740,7 +751,7 @@ fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
 async fn test_cname_additionals() {
     subscribe();
 
-    let example = create_example();
+    let example = create_example_authority();
     let origin = example.origin().clone();
 
     let mut catalog = Catalog::new();
@@ -789,7 +800,7 @@ async fn test_cname_additionals() {
 async fn test_multiple_cname_additionals() {
     subscribe();
 
-    let example = create_example();
+    let example = create_example_authority();
     let origin = example.origin().clone();
 
     let mut catalog = Catalog::new();

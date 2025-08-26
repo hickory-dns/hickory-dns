@@ -16,7 +16,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_server::authority::{Authority, Catalog};
 
-use hickory_integration::example_authority::create_secure_example;
+use hickory_integration::example_authority::create_secure_example_authority;
 use hickory_integration::{GOOGLE_V4, TestClientStream};
 use test_support::subscribe;
 
@@ -214,7 +214,7 @@ where
         })
         .unwrap();
 
-    let authority = create_secure_example();
+    let authority = create_secure_example_authority();
 
     let trust_anchor = {
         let signers = block_on(authority.secure_keys());

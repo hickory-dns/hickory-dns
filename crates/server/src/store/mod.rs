@@ -24,11 +24,13 @@ use time::OffsetDateTime;
 use tracing::debug;
 use tracing::{error, warn};
 
-#[cfg(any(feature = "__dnssec", feature = "sqlite"))]
-use crate::proto::rr::RData;
+#[cfg(feature = "sqlite")]
+use crate::store::sqlite::Journal;
 use crate::{
     authority::LookupOptions,
-    proto::rr::{DNSClass, LowerName, Name, Record, RecordSet, RecordType, RrKey, rdata::SOA},
+    proto::rr::{
+        DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
+    },
     store::authoritative::maybe_next_name,
 };
 #[cfg(feature = "__dnssec")]
@@ -86,6 +88,10 @@ pub trait StoreBackend {
     #[cfg(feature = "__dnssec")]
     fn as_mut_tuple(&mut self) -> (&mut BTreeMap<RrKey, Arc<RecordSet>>, &mut Vec<SigSigner>);
 
+    /// Returns the SQLite database used to persist this zone, if applicable.
+    #[cfg(feature = "sqlite")]
+    fn journal(&self) -> Option<&Journal>;
+
     /// Returns a label for use in metrics, indicating the type of storage backend.
     #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str;
@@ -121,7 +127,6 @@ trait StoreBackendExt: StoreBackend {
         }
     }
 
-    #[cfg(any(feature = "__dnssec", feature = "sqlite"))]
     fn increment_soa_serial(&mut self, origin: &LowerName, dns_class: DNSClass) -> u32 {
         // we'll remove the SOA and then replace it
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);

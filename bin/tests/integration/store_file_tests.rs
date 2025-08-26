@@ -25,7 +25,7 @@ fn file(
         zone_path: zone_path.to_owned(),
     };
 
-    AuthoritativeAuthority::try_from_config(
+    AuthoritativeAuthority::<FileStore, _>::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,

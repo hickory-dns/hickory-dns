@@ -23,7 +23,7 @@ use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
 use hickory_client::client::{Client, ClientHandle};
-use hickory_integration::example_authority::create_example;
+use hickory_integration::example_authority::create_example_authority;
 use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -335,7 +335,7 @@ async fn client_thread_www(future: impl Future<Output = Client<TokioRuntimeProvi
 }
 
 fn new_catalog() -> Catalog {
-    let example = create_example();
+    let example = create_example_authority();
     let origin = example.origin().clone();
 
     let mut catalog = Catalog::new();

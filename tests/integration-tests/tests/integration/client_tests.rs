@@ -16,7 +16,7 @@ use hickory_client::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_integration::example_authority::create_example;
+use hickory_integration::example_authority::create_example_sqlite_authority;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::ProtoError;
@@ -41,7 +41,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::authority::{Authority, AxfrPolicy, Catalog};
+use hickory_server::authority::{Authority, Catalog};
 use test_support::subscribe;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -424,12 +424,9 @@ async fn test_nsec3_no_data() {
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
-    use hickory_server::store::sqlite::SqliteAuthority;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
-    let authority = create_example();
-    let mut authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
+    let mut authority = create_example_sqlite_authority();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 

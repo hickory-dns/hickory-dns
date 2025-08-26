@@ -4,17 +4,22 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::{fs, path::Path};
 
-use futures_executor::block_on;
-
-use hickory_proto::rr::Name;
+use hickory_proto::{rr::Name, runtime::TokioRuntimeProvider};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     authority::{AxfrPolicy, ZoneType},
-    store::sqlite::{SqliteAuthority, SqliteConfig},
+    store::{
+        authoritative::AuthoritativeAuthority,
+        sqlite::{SqliteConfig, SqliteStore},
+    },
 };
 
-fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
+fn sqlite(
+    zone_path: &Path,
+    module: &str,
+    test_name: &str,
+) -> AuthoritativeAuthority<SqliteStore, TokioRuntimeProvider> {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
@@ -32,7 +37,7 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
         tsig_keys: Vec::new(),
     };
 
-    block_on(SqliteAuthority::try_from_config(
+    AuthoritativeAuthority::<SqliteStore, _>::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -41,12 +46,16 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
         &config,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
-    ))
+    )
     .expect("failed to load file")
 }
 
 #[cfg_attr(not(feature = "__dnssec"), allow(unused))]
-fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
+fn sqlite_update(
+    zone_path: &Path,
+    module: &str,
+    test_name: &str,
+) -> AuthoritativeAuthority<SqliteStore, TokioRuntimeProvider> {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
@@ -64,7 +73,7 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAutho
         tsig_keys: Vec::new(),
     };
 
-    block_on(SqliteAuthority::try_from_config(
+    AuthoritativeAuthority::<SqliteStore, _>::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -73,7 +82,7 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAutho
         &config,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
-    ))
+    )
     .expect("failed to load file")
 }
 

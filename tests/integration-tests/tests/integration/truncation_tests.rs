@@ -103,11 +103,13 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         RrKey::new(name.clone().into(), RecordType::SOA),
         soa_record_set,
     );
-    let authority = AuthoritativeAuthority::<_, TokioRuntimeProvider>::new(
+    let authority = AuthoritativeAuthority::<InMemoryStore, TokioRuntimeProvider>::new(
         name.clone(),
         InMemoryStore::new(name, records).unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
+        false,
+        false,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );

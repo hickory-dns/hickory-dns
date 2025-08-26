@@ -8,7 +8,12 @@ use std::str::FromStr;
 #[cfg(feature = "__dnssec")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use hickory_integration::example_authority::create_example_records;
+#[cfg(feature = "__dnssec")]
+use hickory_integration::example_authority::create_secure_example_records;
+use hickory_server::store::StoreBackend;
 use hickory_server::store::authoritative::AuthoritativeAuthority;
+use hickory_server::store::sqlite::SqliteStore;
 use rusqlite::*;
 
 #[cfg(feature = "__dnssec")]
@@ -36,22 +41,45 @@ use hickory_server::authority::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
-use hickory_server::store::sqlite::{Journal, SqliteAuthority};
+use hickory_server::store::sqlite::Journal;
 use test_support::subscribe;
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-fn create_example() -> SqliteAuthority {
-    let mut authority = hickory_integration::example_authority::create_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowAll); // policy is applied in SqliteAuthority.
-    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, false)
+fn create_store() -> (Name, SqliteStore) {
+    let (origin, records) = create_example_records();
+    (origin.clone(), SqliteStore::new(origin, records).unwrap())
+}
+
+fn create_example() -> AuthoritativeAuthority<SqliteStore, TokioRuntimeProvider> {
+    let (origin, records) = create_example_records();
+    AuthoritativeAuthority::new(
+        origin.clone(),
+        SqliteStore::new(origin, records).unwrap(),
+        ZoneType::Primary,
+        AxfrPolicy::AllowAll,
+        true,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    )
 }
 
 #[cfg(feature = "__dnssec")]
-fn create_secure_example() -> SqliteAuthority {
-    let mut authority = hickory_integration::example_authority::create_secure_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowAll);
-    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, true)
+fn create_secure_example() -> AuthoritativeAuthority<SqliteStore, TokioRuntimeProvider> {
+    let (origin, records, signer) = create_secure_example_records();
+    let mut authority = AuthoritativeAuthority::new(
+        origin.clone(),
+        SqliteStore::new(origin, records).unwrap(),
+        ZoneType::Primary,
+        AxfrPolicy::AllowAll,
+        true,
+        true,
+        Some(NxProofKind::Nsec),
+    );
+    authority.add_zone_signing_key_mut(signer).unwrap();
+    authority.secure_zone_mut().unwrap();
+    authority
 }
 
 #[tokio::test]
@@ -969,7 +997,7 @@ async fn test_update_tsig_valid() {
 
     // Build an initial unsigned response for the update.
     // The catalog handles this in normal operation, but we're testing at the level of the
-    // SqliteAuthority and so have to do this ourselves. Provide a response EDNS
+    // AuthoritativeAuthority and so have to do this ourselves. Provide a response EDNS
     // with an option to ensure the response signature handles this correctly.
     let mut edns = Edns::new();
     edns.options_mut().insert(EdnsOption::NSID(
@@ -1192,7 +1220,7 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // Build an initial unsigned response for the update.
     // The catalog handles this in normal operation, but we're testing at the level of the
-    // SqliteAuthority and so have to do this ourselves.
+    // AuthoritativeAuthority and so have to do this ourselves.
     let response = MessageResponseBuilder::new(request.raw_queries(), None);
     let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NotAuth);
@@ -1352,9 +1380,20 @@ async fn test_journal() {
     let mut journal = Journal::new(conn).unwrap();
     journal.schema_up().unwrap();
 
-    let mut authority = create_example();
-    authority.set_journal(journal).await;
-    authority.persist_to_journal().await.unwrap();
+    let (origin, mut store) = create_store();
+    store.set_journal(journal);
+    store.persist_to_journal().unwrap();
+
+    let authority = AuthoritativeAuthority::<SqliteStore, TokioRuntimeProvider>::new(
+        origin,
+        store,
+        ZoneType::Primary,
+        AxfrPolicy::AllowAll,
+        true,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    );
 
     let new_name = Name::from_str("new.example.com.").unwrap();
     let delete_name = Name::from_str("www.example.com.").unwrap();
@@ -1397,26 +1436,20 @@ async fn test_journal() {
     assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
-    let in_memory = AuthoritativeAuthority::empty(
+    let mut recovered_store = SqliteStore::empty(authority.origin().clone().into());
+    recovered_store
+        .recover_with_journal(authority.backend().await.journal().unwrap())
+        .expect("recovery");
+    let recovered_authority = AuthoritativeAuthority::<SqliteStore, TokioRuntimeProvider>::new(
         authority.origin().clone().into(),
+        recovered_store,
         ZoneType::Primary,
         AxfrPolicy::Deny,
+        false,
+        false,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
-
-    let mut recovered_authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
-    recovered_authority
-        .recover_with_journal(
-            authority
-                .journal()
-                .await
-                .as_ref()
-                .expect("journal not Some"),
-        )
-        .await
-        .expect("recovery");
 
     // assert that the correct set of records is there.
     let new_rrset: Vec<Record> = recovered_authority
@@ -1453,29 +1486,41 @@ async fn test_recovery() {
     let mut journal = Journal::new(conn).unwrap();
     journal.schema_up().unwrap();
 
-    let mut authority = create_example();
-    authority.set_journal(journal).await;
-    authority.persist_to_journal().await.unwrap();
+    let (origin, mut store) = create_store();
+    store.set_journal(journal);
+    store.persist_to_journal().unwrap();
 
-    let journal = authority.journal().await;
-    let journal = journal
-        .as_ref()
-        .expect("test should have associated journal");
-    let in_memory = AuthoritativeAuthority::empty(
-        authority.origin().clone().into(),
+    let authority = AuthoritativeAuthority::<SqliteStore, TokioRuntimeProvider>::new(
+        origin,
+        store,
         ZoneType::Primary,
-        AxfrPolicy::Deny,
+        AxfrPolicy::AllowAll,
+        true,
+        false,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 
-    let mut recovered_authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
-
-    recovered_authority
-        .recover_with_journal(journal)
-        .await
-        .expect("recovery");
+    let mut recovered_store = SqliteStore::empty(authority.origin().clone().into());
+    recovered_store
+        .recover_with_journal(
+            authority
+                .backend()
+                .await
+                .journal()
+                .expect("test should have associated journal"),
+        )
+        .expect("recover");
+    let recovered_authority = AuthoritativeAuthority::<SqliteStore, TokioRuntimeProvider>::new(
+        authority.origin().clone().into(),
+        recovered_store,
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        false,
+        false,
+        #[cfg(feature = "__dnssec")]
+        Some(NxProofKind::Nsec),
+    );
 
     assert_eq!(
         recovered_authority.records().await.len(),
