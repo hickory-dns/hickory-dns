@@ -13,7 +13,7 @@ use cfg_if::cfg_if;
 use serde::Deserialize;
 
 use crate::{
-    authority::{AuthLookup, LookupError, UpdateResult, ZoneTransfer, ZoneType},
+    authority::{AuthLookup, LookupError, ZoneTransfer, ZoneType},
     proto::{
         op::{Edns, ResponseCode, message::ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
@@ -87,7 +87,7 @@ pub trait Authority: Send + Sync {
     async fn update(
         &self,
         _update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
+    ) -> (Result<bool, ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         (Err(ResponseCode::NotImp), None)
     }
 
