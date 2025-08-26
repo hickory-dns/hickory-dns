@@ -25,7 +25,6 @@ use ipnet::IpNet;
 use serde::Deserialize;
 use tracing::{debug, info};
 
-use crate::authority::ZoneTransfer;
 #[cfg(feature = "__dnssec")]
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
@@ -173,22 +172,6 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
             .await,
             None,
         )
-    }
-
-    async fn zone_transfer(
-        &self,
-        _request: &Request,
-        _lookup_options: LookupOptions,
-    ) -> Option<(
-        Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
-    )> {
-        Some((
-            Err(LookupError::from(io::Error::other(
-                "zone transfer is unimplemented for the recursor",
-            ))),
-            None,
-        ))
     }
 
     async fn nsec_records(

@@ -13,7 +13,7 @@ use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, ZoneTransfer, ZoneType,
+        LookupRecords, ZoneType,
     },
     server::{Request, RequestInfo, ResponseInfo},
 };
@@ -242,17 +242,6 @@ impl Authority for TestAuthority {
             .await,
             None,
         )
-    }
-
-    async fn zone_transfer(
-        &self,
-        _request: &Request,
-        _lookup_options: LookupOptions,
-    ) -> Option<(
-        Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
-    )> {
-        unimplemented!()
     }
 
     async fn consult(
