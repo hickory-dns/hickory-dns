@@ -30,13 +30,12 @@ use crate::authority::ZoneTransfer;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneType,
     },
     error::ConfigError,
     proto::{
+        op::Query,
         op::message::ResponseSigner,
-        op::{Query, ResponseCode},
         rr::{LowerName, Name, RData, Record, RecordSet, RecordType},
         runtime::RuntimeProvider,
         serialize::txt::{ParseError, Parser},
@@ -116,13 +115,6 @@ impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
 
     fn can_validate_dnssec(&self) -> bool {
         self.recursor.is_validating()
-    }
-
-    async fn update(
-        &self,
-        _update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
-        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com

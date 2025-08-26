@@ -19,7 +19,7 @@ use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneTransfer, ZoneType,
+        ZoneTransfer, ZoneType,
     },
     proto::{
         op::message::ResponseSigner,
@@ -131,15 +131,6 @@ impl Authority for FileAuthority {
     /// Return the policy for determining if AXFR requests are allowed
     fn axfr_policy(&self) -> AxfrPolicy {
         self.in_memory.axfr_policy()
-    }
-
-    /// Perform a dynamic update of a zone
-    async fn update(
-        &self,
-        _update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
-        use crate::proto::op::ResponseCode;
-        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
