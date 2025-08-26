@@ -45,7 +45,7 @@ use crate::{
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
+    authority::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
     proto::{
         dnssec::{
@@ -1205,7 +1205,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteAuthority<P> {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> DnssecAuthority for SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteAuthority<P> {
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
     }

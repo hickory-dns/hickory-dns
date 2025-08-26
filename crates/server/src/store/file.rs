@@ -30,7 +30,7 @@ use crate::{
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{DnssecAuthority, Nsec3QueryInfo},
+    authority::{DnssecZoneHandler, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
 };
@@ -257,7 +257,7 @@ impl ZoneHandler for FileAuthority {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl DnssecAuthority for FileAuthority {
+impl DnssecZoneHandler for FileAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
@@ -270,7 +270,7 @@ impl DnssecAuthority for FileAuthority {
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()> {
-        DnssecAuthority::secure_zone(&self.in_memory).await
+        DnssecZoneHandler::secure_zone(&self.in_memory).await
     }
 }
 

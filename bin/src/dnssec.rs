@@ -21,10 +21,10 @@ use hickory_proto::{
     dnssec::{Algorithm, SigSigner, SigningKey, rdata::DNSKEY, rdata::KEY, rdata::key::KeyUsage},
     rr::domain::IntoName,
 };
-use hickory_server::authority::DnssecAuthority;
+use hickory_server::authority::DnssecZoneHandler;
 
 pub(super) async fn load_keys(
-    authority: &mut impl DnssecAuthority,
+    authority: &mut impl DnssecZoneHandler,
     zone_name: &Name,
     keys: &[KeyConfig],
 ) -> Result<(), String> {
@@ -116,7 +116,7 @@ impl KeyConfig {
 
     pub async fn load(
         &self,
-        authority: &mut impl DnssecAuthority,
+        authority: &mut impl DnssecZoneHandler,
         zone_name: Name,
     ) -> Result<(), String> {
         info!(

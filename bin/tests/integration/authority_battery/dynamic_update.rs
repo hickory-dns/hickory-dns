@@ -24,7 +24,7 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{DnssecAuthority, LookupOptions, MessageRequest, ZoneHandler},
+    authority::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
     server::Request,
 };
 
@@ -728,7 +728,7 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
+pub fn add_auth<A: DnssecZoneHandler>(authority: &mut A) -> Vec<SigSigner> {
     let update_name = Name::from_str("update")
         .unwrap()
         .append_domain(&authority.origin().to_owned().into())

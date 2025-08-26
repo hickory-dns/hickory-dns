@@ -16,7 +16,7 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{DnssecAuthority, LookupOptions, MessageRequest, ZoneHandler},
+    authority::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
     server::Request,
 };
 
@@ -353,7 +353,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
     }));
 }
 
-pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
+pub fn add_signers<A: DnssecZoneHandler>(authority: &mut A) -> Vec<DNSKEY> {
     use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
     let signer_name = Name::from(authority.origin().to_owned());
 
