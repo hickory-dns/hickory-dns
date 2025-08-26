@@ -23,7 +23,7 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{Authority, DnssecAuthority, LookupOptions, MessageRequest, UpdateResult},
+    authority::{Authority, DnssecAuthority, LookupOptions, MessageRequest},
     server::Request,
 };
 
@@ -33,7 +33,7 @@ fn update_authority(
     mut message: Message,
     key: &SigSigner,
     authority: &mut impl Authority,
-) -> UpdateResult<bool> {
+) -> Result<bool, ResponseCode> {
     message.finalize(key, 1).expect("failed to sign message");
     let bytes = message.to_bytes().unwrap();
     let request = Request::from_bytes(

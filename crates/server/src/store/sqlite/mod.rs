@@ -27,8 +27,7 @@ use crate::authority::ZoneTransfer;
 use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneType,
+        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneType,
     },
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
@@ -356,7 +355,10 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     ///   NONE     rrset    empty    RRset does not exist
     ///   zone     rrset    rr       RRset exists (value dependent)
     /// ```
-    pub async fn verify_prerequisites(&self, pre_requisites: &[Record]) -> UpdateResult<()> {
+    pub async fn verify_prerequisites(
+        &self,
+        pre_requisites: &[Record],
+    ) -> Result<(), ResponseCode> {
         //   3.2.5 - Pseudocode for Prerequisite Section Processing
         //
         //      for rr in prerequisites
@@ -538,7 +540,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     pub async fn authorize_update(
         &self,
         request: &Request,
-    ) -> (UpdateResult<()>, Option<Box<dyn ResponseSigner>>) {
+    ) -> (Result<(), ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -619,7 +621,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     ///   MAILB, or any other QUERY metatype besides ANY, or any unrecognized
     ///   type, else signal FORMERR to the requestor.
     /// ```
-    pub async fn pre_scan(&self, records: &[Record]) -> UpdateResult<()> {
+    pub async fn pre_scan(&self, records: &[Record]) -> Result<(), ResponseCode> {
         // 3.4.1.3 - Pseudocode For Update Section Prescan
         //
         //      [rr] for rr in updates
@@ -713,7 +715,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         &self,
         records: &[Record],
         auto_signing_and_increment: bool,
-    ) -> UpdateResult<bool> {
+    ) -> Result<bool, ResponseCode> {
         let mut updated = false;
         let serial: u32 = self.in_memory.serial().await;
 
@@ -914,7 +916,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_sig0(&self, sig0: &Record, request: &Request) -> UpdateResult<()> {
+    async fn authorized_sig0(&self, sig0: &Record, request: &Request) -> Result<(), ResponseCode> {
         debug!("authorizing with: {sig0:?}");
 
         let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
@@ -962,7 +964,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         &self,
         tsig: &Record,
         request: &Request,
-    ) -> (UpdateResult<()>, Box<dyn ResponseSigner>) {
+    ) -> (Result<(), ResponseCode>, Box<dyn ResponseSigner>) {
         let req_id = request.header().id();
         let now = P::Timer::current_time();
         let cx = TSigResponseContext::new(req_id, now);
@@ -1053,7 +1055,7 @@ impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
     async fn update(
         &self,
         _request: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
+    ) -> (Result<bool, ResponseCode>, Option<Box<dyn ResponseSigner>>) {
         #[cfg(feature = "__dnssec")]
         {
             // the spec says to authorize after prereqs, seems better to auth first.

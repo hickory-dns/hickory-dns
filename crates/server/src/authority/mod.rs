@@ -37,9 +37,6 @@ pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 
-/// Result of an Update operation
-pub type UpdateResult<T> = Result<T, ResponseCode>;
-
 /// A query could not be fulfilled
 #[derive(Debug, EnumAsInner, Error)]
 #[non_exhaustive]

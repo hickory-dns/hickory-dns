@@ -24,7 +24,7 @@ use crate::{
         ZoneTransfer, ZoneType,
     },
     proto::{
-        op::{message::ResponseSigner},
+        op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
         runtime::TokioRuntimeProvider,
     },
