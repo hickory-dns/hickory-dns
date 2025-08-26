@@ -15,13 +15,13 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{Authority, LookupError, LookupOptions, MessageRequest},
+    authority::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
     server::Request,
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-pub fn test_a_lookup(authority: impl Authority) {
+pub fn test_a_lookup(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -49,7 +49,7 @@ pub fn test_a_lookup(authority: impl Authority) {
 }
 
 #[allow(clippy::unreadable_literal)]
-pub fn test_soa(authority: impl Authority) {
+pub fn test_soa(authority: impl ZoneHandler) {
     let lookup = block_on(authority.soa()).unwrap();
 
     match lookup
@@ -74,7 +74,7 @@ pub fn test_soa(authority: impl Authority) {
     }
 }
 
-pub fn test_ns(authority: impl Authority) {
+pub fn test_ns(authority: impl ZoneHandler) {
     let lookup = block_on(authority.ns(LookupOptions::default())).unwrap();
 
     match lookup
@@ -88,7 +88,7 @@ pub fn test_ns(authority: impl Authority) {
     }
 }
 
-pub fn test_ns_lookup(authority: impl Authority) {
+pub fn test_ns_lookup(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -125,7 +125,7 @@ pub fn test_ns_lookup(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 2), *a);
 }
 
-pub fn test_mx(authority: impl Authority) {
+pub fn test_mx(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -183,7 +183,7 @@ pub fn test_mx(authority: impl Authority) {
     assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
-pub fn test_mx_to_null(authority: impl Authority) {
+pub fn test_mx_to_null(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -215,7 +215,7 @@ pub fn test_mx_to_null(authority: impl Authority) {
     assert_eq!(Name::from_str(".").unwrap(), *mx.exchange());
 }
 
-pub fn test_cname(authority: impl Authority) {
+pub fn test_cname(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -244,7 +244,7 @@ pub fn test_cname(authority: impl Authority) {
     assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
 }
 
-pub fn test_cname_alias(authority: impl Authority) {
+pub fn test_cname_alias(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -283,7 +283,7 @@ pub fn test_cname_alias(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_cname_chain(authority: impl Authority) {
+pub fn test_cname_chain(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -336,7 +336,7 @@ pub fn test_cname_chain(authority: impl Authority) {
 
 /// In this the ANAME , should, return A and AAAA records in additional section
 /// the answer should be the A record
-pub fn test_aname(authority: impl Authority) {
+pub fn test_aname(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -384,7 +384,7 @@ pub fn test_aname(authority: impl Authority) {
 /// In this test the A record that the ANAME resolves to should be returned as the answer,
 ///
 /// The additionals should include the ANAME.
-pub fn test_aname_a_lookup(authority: impl Authority) {
+pub fn test_aname_a_lookup(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -427,7 +427,7 @@ pub fn test_aname_a_lookup(authority: impl Authority) {
 /// In this test the A record that the ANAME resolves to should be returned as the answer, not at the apex
 ///
 /// The additionals should include the ANAME, this one should include the CNAME chain as well.
-pub fn test_aname_chain(authority: impl Authority) {
+pub fn test_aname_chain(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -486,7 +486,7 @@ pub fn test_aname_chain(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_update_errors(authority: impl Authority) {
+pub fn test_update_errors(authority: impl ZoneHandler) {
     let mut message = Message::query();
     message.add_query(Query::new());
     let bytes = message.to_vec().unwrap();
@@ -506,7 +506,7 @@ pub fn test_update_errors(authority: impl Authority) {
 }
 
 #[allow(clippy::uninlined_format_args)]
-pub fn test_dots_in_name(authority: impl Authority) {
+pub fn test_dots_in_name(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -593,7 +593,7 @@ pub fn test_dots_in_name(authority: impl Authority) {
     assert!(lookup.is_nx_domain());
 }
 
-pub fn test_wildcard(authority: impl Authority) {
+pub fn test_wildcard(authority: impl ZoneHandler) {
     // check direct lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -662,7 +662,7 @@ pub fn test_wildcard(authority: impl Authority) {
     );
 }
 
-pub fn test_wildcard_subdomain(authority: impl Authority) {
+pub fn test_wildcard_subdomain(authority: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -701,7 +701,7 @@ pub fn test_wildcard_subdomain(authority: impl Authority) {
     );
 }
 
-pub fn test_wildcard_chain(authority: impl Authority) {
+pub fn test_wildcard_chain(authority: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -745,7 +745,7 @@ pub fn test_wildcard_chain(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_srv(authority: impl Authority) {
+pub fn test_srv(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -803,7 +803,7 @@ pub fn test_srv(authority: impl Authority) {
     assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
-pub fn test_invalid_lookup(authority: impl Authority) {
+pub fn test_invalid_lookup(authority: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,

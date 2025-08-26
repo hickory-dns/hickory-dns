@@ -4,7 +4,7 @@ use std::{
 };
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
-use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
+use hickory_server::authority::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileAuthority, FileConfig};

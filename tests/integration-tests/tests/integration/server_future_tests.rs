@@ -34,7 +34,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 use hickory_server::Server;
-use hickory_server::authority::{Authority, Catalog};
+use hickory_server::authority::{Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[tokio::test]

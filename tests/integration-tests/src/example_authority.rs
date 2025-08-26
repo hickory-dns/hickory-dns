@@ -187,7 +187,7 @@ pub fn create_secure_example() -> InMemoryAuthority {
     use hickory_proto::dnssec::{
         Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
-    use hickory_server::authority::Authority;
+    use hickory_server::authority::ZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 

@@ -34,7 +34,7 @@ use hickory_proto::{
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::authority::AxfrPolicy;
-use hickory_server::authority::{Authority, Catalog};
+use hickory_server::authority::{Catalog, ZoneHandler};
 
 #[tokio::test]
 async fn test_query_nonet() {

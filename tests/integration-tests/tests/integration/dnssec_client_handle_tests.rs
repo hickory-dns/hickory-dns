@@ -14,7 +14,7 @@ use hickory_proto::rr::{DNSClass, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
-use hickory_server::authority::{Authority, Catalog};
+use hickory_server::authority::{Catalog, ZoneHandler};
 
 use hickory_integration::example_authority::create_secure_example;
 use hickory_integration::{GOOGLE_V4, TestClientStream};

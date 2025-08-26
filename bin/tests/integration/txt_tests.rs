@@ -6,7 +6,7 @@ use hickory_proto::rr::rdata::{A, AAAA, tlsa::*};
 use hickory_proto::rr::*;
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::serialize::txt::*;
-use hickory_server::authority::{Authority, AxfrPolicy, LookupOptions, ZoneType};
+use hickory_server::authority::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryAuthority;

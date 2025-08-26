@@ -12,8 +12,8 @@ use hickory_proto::{
 use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use hickory_server::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, ZoneType,
+        AuthLookup, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, ZoneHandler, ZoneType,
     },
     server::{Request, RequestInfo, ResponseInfo},
 };
@@ -171,7 +171,7 @@ impl TestAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for TestAuthority {
+impl ZoneHandler for TestAuthority {
     fn origin(&self) -> &LowerName {
         &self.origin
     }

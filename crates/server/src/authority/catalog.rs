@@ -19,8 +19,8 @@ use crate::authority::metrics::CatalogMetrics;
 use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::DnssecSummary};
 use crate::{
     authority::{
-        AuthLookup, Authority, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
-        MessageResponseBuilder, ZoneType,
+        AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
+        MessageResponseBuilder, ZoneHandler, ZoneType,
     },
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
@@ -43,7 +43,7 @@ use crate::{
 #[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
-    authorities: HashMap<LowerName, Vec<Arc<dyn Authority>>>,
+    authorities: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
 }
@@ -192,7 +192,7 @@ impl Catalog {
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `authorities` - a vec of authority objects
-    pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn Authority>>) {
+    pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn ZoneHandler>>) {
         #[cfg(feature = "metrics")]
         for authority in authorities.iter() {
             self.metrics.add_authority(authority.as_ref())
@@ -202,7 +202,7 @@ impl Catalog {
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn Authority>>> {
+    pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn ZoneHandler>>> {
         // NOTE: metrics are not removed to avoid dropping counters that are potentially still
         // being used by other authorities having the same labels
         self.authorities.remove(name)
@@ -429,7 +429,7 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<dyn Authority + 'static>>> {
+    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<dyn ZoneHandler + 'static>>> {
         debug!("searching authorities for: {name}");
         self.authorities.get(name).or_else(|| {
             if !name.is_root() {
@@ -444,7 +444,7 @@ impl Catalog {
 
 async fn lookup<R: ResponseHandler + Unpin>(
     request_info: RequestInfo<'_>,
-    authorities: &[Arc<dyn Authority>],
+    authorities: &[Arc<dyn ZoneHandler>],
     request: &Request,
     response_edns: Option<Edns>,
     mut response_handle: R,
@@ -565,7 +565,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
 async fn zone_transfer(
     request_info: RequestInfo<'_>,
-    authorities: &[Arc<dyn Authority>],
+    authorities: &[Arc<dyn ZoneHandler>],
     request: &Request,
     response_edns: Option<Edns>,
     now: u64,
@@ -654,7 +654,7 @@ async fn zone_transfer(
 /// Build Header and LookupSections (answers) given a query response from an authority
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
-    authority: &dyn Authority,
+    authority: &dyn ZoneHandler,
     request_id: u16,
     request_header: &Header,
     query: &LowerQuery,
@@ -695,7 +695,7 @@ async fn build_response(
 /// Prepare a response for an authoritative zone
 async fn build_authoritative_response(
     response: Result<AuthLookup, LookupError>,
-    authority: &dyn Authority,
+    authority: &dyn ZoneHandler,
     response_header: &mut Header,
     lookup_options: LookupOptions,
     _request_id: u16,

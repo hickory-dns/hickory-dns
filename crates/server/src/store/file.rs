@@ -18,7 +18,7 @@ use serde::Deserialize;
 use crate::store::metrics::PersistentStoreMetrics;
 use crate::{
     authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneTransfer, ZoneType,
     },
     proto::{
@@ -122,7 +122,7 @@ impl DerefMut for FileAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for FileAuthority {
+impl ZoneHandler for FileAuthority {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -324,7 +324,7 @@ mod tests {
         )
         .expect("failed to load file");
 
-        let lookup = block_on(Authority::lookup(
+        let lookup = block_on(ZoneHandler::lookup(
             &authority,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
@@ -343,7 +343,7 @@ mod tests {
             _ => panic!("wrong rdata type returned"),
         }
 
-        let include_lookup = block_on(Authority::lookup(
+        let include_lookup = block_on(ZoneHandler::lookup(
             &authority,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
             RecordType::A,

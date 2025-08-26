@@ -30,7 +30,7 @@ pub(crate) mod metrics;
 pub use self::auth_lookup::{
     AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter, ZoneTransfer,
 };
-pub use self::authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions};
+pub use self::authority::{AxfrPolicy, LookupControlFlow, LookupOptions, ZoneHandler};
 #[cfg(feature = "__dnssec")]
 pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
 pub use self::catalog::Catalog;

@@ -60,7 +60,7 @@ use hickory_server::store::recursor::RecursiveConfig;
 use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
     ConfigError,
-    authority::{Authority, AxfrPolicy, ZoneType},
+    authority::{AxfrPolicy, ZoneHandler, ZoneType},
     store::file::{FileAuthority, FileConfig},
 };
 
@@ -376,7 +376,7 @@ pub struct ZoneConfig {
 
 impl ZoneConfig {
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn Authority>>, String> {
+    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, String> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -386,7 +386,7 @@ impl ZoneConfig {
 
         // load the zone and insert any configured authorities in the catalog.
 
-        let mut authorities: Vec<Arc<dyn Authority>> = vec![];
+        let mut authorities: Vec<Arc<dyn ZoneHandler>> = vec![];
         match &self.zone_type_config {
             ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
                 debug!(
@@ -396,7 +396,7 @@ impl ZoneConfig {
 
                 let axfr_policy = server_config.axfr_policy();
                 for store in &server_config.stores {
-                    let authority: Arc<dyn Authority> = match store {
+                    let authority: Arc<dyn ZoneHandler> = match store {
                         #[cfg(feature = "sqlite")]
                         ServerStoreConfig::Sqlite(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
@@ -453,7 +453,7 @@ impl ZoneConfig {
                     allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
-                    let authority: Arc<dyn Authority> = match store {
+                    let authority: Arc<dyn ZoneHandler> = match store {
                         #[cfg(feature = "blocklist")]
                         ExternalStoreConfig::Blocklist(config) => {
                             Arc::new(BlocklistAuthority::try_from_config(

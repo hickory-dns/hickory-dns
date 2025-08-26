@@ -24,7 +24,7 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{Authority, DnssecAuthority, LookupOptions, MessageRequest},
+    authority::{DnssecAuthority, LookupOptions, MessageRequest, ZoneHandler},
     server::Request,
 };
 
@@ -33,7 +33,7 @@ const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query)
 fn update_authority(
     mut message: Message,
     key: &SigSigner,
-    authority: &mut impl Authority,
+    authority: &mut impl ZoneHandler,
 ) -> Result<bool, ResponseCode> {
     message.finalize(key, 1).expect("failed to sign message");
     let bytes = message.to_bytes().unwrap();
@@ -47,7 +47,7 @@ fn update_authority(
     block_on(authority.update(&request, TokioTime::current_time())).0
 }
 
-pub fn test_create(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_create(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("create.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -94,7 +94,7 @@ pub fn test_create(mut authority: impl Authority, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_create_multi(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_create_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("create-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -139,7 +139,7 @@ pub fn test_create_multi(mut authority: impl Authority, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_append(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("append.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -227,7 +227,7 @@ pub fn test_append(mut authority: impl Authority, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_append_multi(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("append-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -304,7 +304,7 @@ pub fn test_append_multi(mut authority: impl Authority, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_compare_and_swap(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -376,7 +376,7 @@ pub fn test_compare_and_swap(mut authority: impl Authority, keys: &[SigSigner]) 
     }
 }
 
-pub fn test_compare_and_swap_multi(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -459,7 +459,7 @@ pub fn test_compare_and_swap_multi(mut authority: impl Authority, keys: &[SigSig
     }
 }
 
-pub fn test_delete_by_rdata(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("test-delete-by-rdata.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -520,7 +520,7 @@ pub fn test_delete_by_rdata(mut authority: impl Authority, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_delete_by_rdata_multi(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("test-delete-by-rdata-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -600,7 +600,7 @@ pub fn test_delete_by_rdata_multi(mut authority: impl Authority, keys: &[SigSign
     }
 }
 
-pub fn test_delete_rrset(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -661,7 +661,7 @@ pub fn test_delete_rrset(mut authority: impl Authority, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_delete_all(mut authority: impl Authority, keys: &[SigSigner]) {
+pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())

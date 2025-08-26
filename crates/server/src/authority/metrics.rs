@@ -10,7 +10,7 @@ use std::{
     fmt,
 };
 
-use crate::authority::{AuthLookup, Authority, LookupControlFlow, ZoneType};
+use crate::authority::{AuthLookup, LookupControlFlow, ZoneHandler, ZoneType};
 
 use hickory_proto::op::LowerQuery;
 use hickory_proto::rr::{DNSClass, Record, RecordType};
@@ -23,7 +23,7 @@ pub(super) struct CatalogMetrics {
 }
 
 impl CatalogMetrics {
-    pub(super) fn add_authority(&mut self, authority: &dyn Authority) {
+    pub(super) fn add_authority(&mut self, authority: &dyn ZoneHandler) {
         match self
             .zone_store_metrics
             .entry((authority.metrics_label(), authority.zone_type()))
@@ -42,7 +42,7 @@ impl CatalogMetrics {
 
     pub(super) fn update_zone_lookup(
         &self,
-        authority: &dyn Authority,
+        authority: &dyn ZoneHandler,
         lookup: &LookupControlFlow<AuthLookup>,
     ) {
         // metrics per store are added/removed with the Authority in the Catalog (requires mut)
