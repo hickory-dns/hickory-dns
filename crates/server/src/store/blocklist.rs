@@ -30,10 +30,10 @@ use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneTransfer, ZoneType,
+        ZoneTransfer, ZoneType,
     },
     proto::{
-        op::{Query, ResponseCode, message::ResponseSigner},
+        op::{Query, message::ResponseSigner},
         rr::{
             LowerName, Name, RData, Record, RecordType,
             rdata::{A, AAAA, TXT},
@@ -326,13 +326,6 @@ impl Authority for BlocklistAuthority {
 
     fn axfr_policy(&self) -> AxfrPolicy {
         AxfrPolicy::Deny
-    }
-
-    async fn update(
-        &self,
-        _update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
-        (Err(ResponseCode::NotImp), None)
     }
 
     fn origin(&self) -> &LowerName {

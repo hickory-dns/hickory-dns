@@ -15,7 +15,7 @@ use serde::Deserialize;
 use crate::{
     authority::{AuthLookup, LookupError, UpdateResult, ZoneTransfer, ZoneType},
     proto::{
-        op::{Edns, message::ResponseSigner},
+        op::{Edns, ResponseCode, message::ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     },
     server::{Request, RequestInfo},
@@ -86,8 +86,10 @@ pub trait Authority: Send + Sync {
     /// Perform a dynamic update of a zone
     async fn update(
         &self,
-        update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>);
+        _update: &Request,
+    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
+        (Err(ResponseCode::NotImp), None)
+    }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;

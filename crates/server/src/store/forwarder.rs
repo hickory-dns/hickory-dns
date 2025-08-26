@@ -21,10 +21,10 @@ use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::Trust
 use crate::{
     authority::{
         AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        UpdateResult, ZoneTransfer, ZoneType,
+        ZoneTransfer, ZoneType,
     },
     proto::{
-        op::{ResponseCode, message::ResponseSigner},
+        op::{message::ResponseSigner},
         rr::{LowerName, Name, RecordType},
         runtime::TokioRuntimeProvider,
     },
@@ -224,13 +224,6 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         {
             false
         }
-    }
-
-    async fn update(
-        &self,
-        _update: &Request,
-    ) -> (UpdateResult<bool>, Option<Box<dyn ResponseSigner>>) {
-        (Err(ResponseCode::NotImp), None)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
