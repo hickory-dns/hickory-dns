@@ -261,7 +261,7 @@ e2e-tests-ignored:
 ede-dot-com: (ede-dot-com-run) (ede-dot-com-ignored)
 
 # runs hickory-specific ede-dot-com tests that use the dns-test framework
-ede-dot-com-run filter='':
+ede-dot-com-run filter='hermetic':
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes will NOT be tested" || true'
     DNS_TEST_VERBOSE_DOCKER_BUILD=1 cargo test --manifest-path conformance/Cargo.toml -p ede-dot-com --locked -- {{filter}}
     bash -c '[[ -n "$(git status -s)" ]] && echo "WARNING: uncommitted changes were NOT tested" || true'
