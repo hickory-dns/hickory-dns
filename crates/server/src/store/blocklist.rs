@@ -64,7 +64,7 @@ use crate::{
 /// are being queried.  While this can be configured to overwrite responses, it is not recommended
 /// to do so - it is both more efficient, and more secure, to allow the blocklist to drop queries
 /// pre-emptively, as in the first example.
-pub struct BlocklistAuthority {
+pub struct BlocklistZoneHandler {
     origin: LowerName,
     blocklist: HashMap<LowerName, bool>,
     wildcard_match: bool,
@@ -79,7 +79,7 @@ pub struct BlocklistAuthority {
     metrics: BlocklistMetrics,
 }
 
-impl BlocklistAuthority {
+impl BlocklistZoneHandler {
     /// Read the Authority for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
@@ -187,7 +187,7 @@ impl BlocklistAuthority {
     ///         log_clients: true,
     ///     };
     ///
-    ///     let mut blocklist = BlocklistAuthority::try_from_config(
+    ///     let mut blocklist = BlocklistZoneHandler::try_from_config(
     ///         Name::root(),
     ///         &config,
     ///         Some(Path::new("../../tests/test-data/test_configs")),
@@ -319,7 +319,7 @@ impl BlocklistAuthority {
 }
 
 #[async_trait::async_trait]
-impl ZoneHandler for BlocklistAuthority {
+impl ZoneHandler for BlocklistZoneHandler {
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
     }
@@ -867,7 +867,7 @@ mod test {
     }
 
     fn authority(config: &BlocklistConfig) -> Arc<dyn ZoneHandler> {
-        let authority = BlocklistAuthority::try_from_config(
+        let authority = BlocklistZoneHandler::try_from_config(
             Name::root(),
             config,
             Some(Path::new("../../tests/test-data/test_configs/")),
