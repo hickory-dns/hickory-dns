@@ -12,6 +12,19 @@ on:
 
 jobs:
   everything:
+    strategy:
+      matrix:
+        suite:
+          - conformance-framework
+          - conformance-unbound
+          - conformance-bind
+          - conformance-hickory
+          - conformance-ignored
+          - e2e-tests
+          - ede-dot-com-run
+          - conformance-clippy
+          - conformance-fmt
+
     # host is irrelevant because everything will run in Docker containers
     runs-on: ubuntu-latest
     env:
@@ -38,29 +51,5 @@ jobs:
       # reusable workflows, not shell commands.
       - uses: crazy-max/ghaction-github-runtime@v3
 
-      - name: run test-framework tests
-        run: just conformance-framework
-
-      - name: run conformance tests against unbound
-        run: just conformance-unbound
-
-      - name: run conformance tests against BIND
-        run: just conformance-bind
-
-      - name: run conformance tests against hickory-dns
-        run: just conformance-hickory
-
-      - name: check that all the tests that now pass with hickory-dns are not marked as `#[ignore]`-d
-        run: just conformance-ignored
-
-      - name: run end-to-end tests that use the `dns-test` framework
-        run: just e2e-tests
-
-      - name: run ede-dot-com tests against local nameservers
-        run: just ede-dot-com-run
-
-      - name: lint code
-        run: just conformance-clippy
-
-      - name: check that code is formatted
-        run: just conformance-fmt
+      - name: ${{ matrix.suite }}
+        run: just ${{ matrix.suite }}
