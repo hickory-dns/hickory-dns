@@ -45,9 +45,9 @@ use hickory_server::dnssec::NxProofKind;
 #[cfg(any(feature = "recursor", feature = "sqlite"))]
 use hickory_server::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "blocklist")]
-use hickory_server::store::blocklist::BlocklistAuthority;
-#[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
+#[cfg(feature = "blocklist")]
+use hickory_server::store::blocklist::BlocklistZoneHandler;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "resolver")]
@@ -456,7 +456,7 @@ impl ZoneConfig {
                     let authority: Arc<dyn ZoneHandler> = match store {
                         #[cfg(feature = "blocklist")]
                         ExternalStoreConfig::Blocklist(config) => {
-                            Arc::new(BlocklistAuthority::try_from_config(
+                            Arc::new(BlocklistZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 config,
                                 Some(zone_dir),
