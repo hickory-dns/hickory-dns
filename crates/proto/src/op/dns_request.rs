@@ -76,7 +76,6 @@ impl DnsRequest {
                 .extensions_mut()
                 .get_or_insert_with(Edns::new)
                 .set_max_payload(MAX_PAYLOAD_LEN)
-                .set_version(0)
                 .set_dnssec_ok(options.edns_set_dnssec_ok);
         }
 
