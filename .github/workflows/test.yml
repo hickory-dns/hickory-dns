@@ -194,6 +194,7 @@ jobs:
         run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUSTUP_TOOLCHAIN: stable
 
       - name: just std
         run: just std
