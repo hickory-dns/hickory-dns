@@ -57,7 +57,7 @@ jobs:
         run: just e2e-tests
 
       - name: run ede-dot-com tests against local nameservers
-        run: just ede-dot-com-run hermetic
+        run: just ede-dot-com-run
 
       - name: lint code
         run: just conformance-clippy
