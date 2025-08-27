@@ -8,7 +8,7 @@ use hickory_proto::{
     rr::{Name, RecordType},
     runtime::TokioRuntimeProvider,
 };
-use hickory_server::{authority::ZoneHandler, store::forwarder::ForwardAuthority};
+use hickory_server::{authority::ZoneHandler, store::forwarder::ForwardZoneHandler};
 use test_support::subscribe;
 
 #[test]
@@ -16,7 +16,7 @@ fn test_lookup() {
     subscribe();
 
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let forwarder = ForwardAuthority::builder(TokioRuntimeProvider::default())
+    let forwarder = ForwardZoneHandler::builder(TokioRuntimeProvider::default())
         .unwrap()
         .build()
         .expect("failed to create forwarder");

@@ -34,7 +34,7 @@ use hickory_server::{
     Server,
     authority::{AxfrPolicy, Catalog, ZoneType},
     store::{
-        forwarder::{ForwardAuthority, ForwardConfig},
+        forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryAuthority,
     },
 };
@@ -256,7 +256,7 @@ async fn setup_client_forwarder(
     // Server setup
     let mut config = NameServerConfig::udp(name_server_addr.ip());
     config.connections[0].port = name_server_addr.port();
-    let mut authority_builder = ForwardAuthority::builder_tokio(ForwardConfig {
+    let mut authority_builder = ForwardZoneHandler::builder_tokio(ForwardConfig {
         name_servers: vec![config],
         options: Some(ResolverOpts::default()),
     });
