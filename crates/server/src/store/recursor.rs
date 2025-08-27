@@ -48,12 +48,12 @@ use crate::{
 /// An authority that performs recursive resolutions.
 ///
 /// This uses the hickory-recursor crate for resolving requests.
-pub struct RecursiveAuthority<P: RuntimeProvider> {
+pub struct RecursiveZoneHandler<P: RuntimeProvider> {
     origin: LowerName,
     recursor: Recursor<P>,
 }
 
-impl<P: RuntimeProvider> RecursiveAuthority<P> {
+impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
     /// Read the Authority for the origin from the specified configuration
     pub async fn try_from_config(
         origin: Name,
@@ -102,7 +102,7 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider> ZoneHandler for RecursiveAuthority<P> {
+impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
