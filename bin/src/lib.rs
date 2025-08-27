@@ -53,9 +53,9 @@ use hickory_server::store::forwarder::ForwardConfig;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardZoneHandler;
 #[cfg(feature = "recursor")]
-use hickory_server::store::recursor::RecursiveAuthority;
-#[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveConfig;
+#[cfg(feature = "recursor")]
+use hickory_server::store::recursor::RecursiveZoneHandler;
 #[cfg(feature = "sqlite")]
 use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
@@ -472,7 +472,7 @@ impl ZoneConfig {
                         }
                         #[cfg(feature = "recursor")]
                         ExternalStoreConfig::Recursor(config) => {
-                            let recursor = RecursiveAuthority::try_from_config(
+                            let recursor = RecursiveZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
                                 config,
