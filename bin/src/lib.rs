@@ -49,9 +49,9 @@ use hickory_server::store::blocklist::BlocklistConfig;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistZoneHandler;
 #[cfg(feature = "resolver")]
-use hickory_server::store::forwarder::ForwardAuthority;
-#[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardConfig;
+#[cfg(feature = "resolver")]
+use hickory_server::store::forwarder::ForwardZoneHandler;
 #[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveAuthority;
 #[cfg(feature = "recursor")]
@@ -464,7 +464,7 @@ impl ZoneConfig {
                         }
                         #[cfg(feature = "resolver")]
                         ExternalStoreConfig::Forward(config) => {
-                            let forwarder = ForwardAuthority::builder_tokio(config.clone())
+                            let forwarder = ForwardZoneHandler::builder_tokio(config.clone())
                                 .with_origin(zone_name.clone())
                                 .build()?;
 

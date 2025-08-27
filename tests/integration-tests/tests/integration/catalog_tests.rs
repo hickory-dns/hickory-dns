@@ -21,7 +21,7 @@ use hickory_server::{
     authority::{AxfrPolicy, Catalog, ZoneHandler, ZoneType},
     server::{Request, RequestHandler},
     store::{
-        forwarder::{ForwardAuthority, ForwardConfig},
+        forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryAuthority,
     },
 };
@@ -905,7 +905,7 @@ async fn test_multiple_cname_additionals() {
 async fn test_update_forwarder() {
     subscribe();
 
-    let authority = ForwardAuthority::builder_tokio(ForwardConfig {
+    let authority = ForwardZoneHandler::builder_tokio(ForwardConfig {
         name_servers: Vec::new(),
         options: None,
     })
