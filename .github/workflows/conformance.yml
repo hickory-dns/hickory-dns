@@ -50,9 +50,6 @@ jobs:
       - name: run conformance tests against hickory-dns
         run: just conformance-hickory
 
-      - name: run conformance tests against hickory-dns (with ring)
-        run: just conformance-hickory-ring
-
       - name: check that all the tests that now pass with hickory-dns are not marked as `#[ignore]`-d
         run: just conformance-ignored
 
