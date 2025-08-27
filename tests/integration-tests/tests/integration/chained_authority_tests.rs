@@ -105,13 +105,13 @@ async fn chained_authority_test() {
         ),
     ];
 
-    let primary_authority = TestAuthority::new(
+    let primary_authority = TestZoneHandler::new(
         Name::from_ascii("example.com.").unwrap(),
         pri_lookup_records,
         pri_consult_records,
     );
 
-    let secondary_authority = TestAuthority::new(
+    let secondary_authority = TestZoneHandler::new(
         Name::from_ascii("example.com.").unwrap(),
         sec_lookup_records,
         sec_consult_records,
@@ -152,16 +152,16 @@ async fn chained_authority_test() {
     error_test(&catalog, "breakerr.example.com.", ResponseCode::NXDomain).await;
 }
 
-struct TestAuthority {
+struct TestZoneHandler {
     origin: LowerName,
     zone_type: ZoneType,
     lookup_records: TestRecords,
     consult_records: TestRecords,
 }
 
-impl TestAuthority {
+impl TestZoneHandler {
     pub fn new(origin: Name, lookup_records: TestRecords, consult_records: TestRecords) -> Self {
-        TestAuthority {
+        TestZoneHandler {
             origin: origin.into(),
             zone_type: ZoneType::External,
             lookup_records,
@@ -171,7 +171,7 @@ impl TestAuthority {
 }
 
 #[async_trait::async_trait]
-impl ZoneHandler for TestAuthority {
+impl ZoneHandler for TestZoneHandler {
     fn origin(&self) -> &LowerName {
         &self.origin
     }
