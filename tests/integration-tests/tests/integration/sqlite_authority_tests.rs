@@ -265,10 +265,6 @@ async fn test_authorize_update() {
             .0,
         Err(ResponseCode::Refused)
     );
-
-    // TODO: this will nee to be more complex as additional policies are added
-    // authority.set_allow_update(true);
-    // assert!(authority.authorize(&message).is_ok());
 }
 
 #[tokio::test]
