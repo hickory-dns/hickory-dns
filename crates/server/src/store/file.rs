@@ -201,11 +201,6 @@ impl ZoneHandler for FileZoneHandler {
             .await
     }
 
-    /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.ns(lookup_options).await
-    }
-
     /// Return the NSEC records based on the given name
     ///
     /// # Arguments
@@ -229,19 +224,6 @@ impl ZoneHandler for FileZoneHandler {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         self.in_memory.nsec3_records(info, lookup_options).await
-    }
-
-    /// Returns the SOA of the zone handler.
-    ///
-    /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
-    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.soa().await
-    }
-
-    /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.soa_secure(lookup_options).await
     }
 
     #[cfg(feature = "__dnssec")]
