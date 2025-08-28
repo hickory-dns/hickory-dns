@@ -61,7 +61,7 @@ use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use hickory_server::{
     ConfigError,
     authority::{AxfrPolicy, ZoneHandler, ZoneType},
-    store::file::{FileAuthority, FileConfig},
+    store::file::{FileConfig, FileZoneHandler},
 };
 
 #[cfg(feature = "prometheus-metrics")]
@@ -421,7 +421,7 @@ impl ZoneConfig {
 
                         ServerStoreConfig::File(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut authority = FileAuthority::try_from_config(
+                            let mut authority = FileZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
                                 axfr_policy,

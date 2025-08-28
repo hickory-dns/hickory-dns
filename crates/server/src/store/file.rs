@@ -39,14 +39,14 @@ use crate::{
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
-pub struct FileAuthority {
+pub struct FileZoneHandler {
     in_memory: InMemoryAuthority,
     #[cfg(feature = "metrics")]
     #[allow(unused)]
     metrics: PersistentStoreMetrics,
 }
 
-impl FileAuthority {
+impl FileZoneHandler {
     /// Creates a new Authority.
     ///
     /// # Arguments
@@ -107,7 +107,7 @@ impl FileAuthority {
     }
 }
 
-impl Deref for FileAuthority {
+impl Deref for FileZoneHandler {
     type Target = InMemoryAuthority;
 
     fn deref(&self) -> &Self::Target {
@@ -115,14 +115,14 @@ impl Deref for FileAuthority {
     }
 }
 
-impl DerefMut for FileAuthority {
+impl DerefMut for FileZoneHandler {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.in_memory
     }
 }
 
 #[async_trait::async_trait]
-impl ZoneHandler for FileAuthority {
+impl ZoneHandler for FileZoneHandler {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -257,7 +257,7 @@ impl ZoneHandler for FileAuthority {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl DnssecZoneHandler for FileAuthority {
+impl DnssecZoneHandler for FileZoneHandler {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
@@ -313,7 +313,7 @@ mod tests {
         let config = FileConfig {
             zone_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
         };
-        let authority = FileAuthority::try_from_config(
+        let authority = FileZoneHandler::try_from_config(
             Name::from_str("example.com.").unwrap(),
             ZoneType::Primary,
             AxfrPolicy::Deny,
