@@ -22,7 +22,7 @@ use hickory_server::{
     server::{Request, RequestHandler},
     store::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
-        in_memory::InMemoryAuthority,
+        in_memory::InMemoryZoneHandler,
     },
 };
 
@@ -30,7 +30,7 @@ use hickory_integration::{example_authority::create_example, *};
 use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_records(records: &mut InMemoryAuthority) {
+pub fn create_records(records: &mut InMemoryZoneHandler) {
     let origin: Name = records.origin().into();
     records.upsert_mut(
         Record::from_rdata(
@@ -112,10 +112,10 @@ pub fn create_records(records: &mut InMemoryAuthority) {
     );
 }
 
-pub fn create_test() -> InMemoryAuthority {
+pub fn create_test() -> InMemoryZoneHandler {
     let origin = Name::parse("test.com.", None).unwrap();
 
-    let mut records = InMemoryAuthority::empty(
+    let mut records = InMemoryZoneHandler::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -951,7 +951,7 @@ mod dnssec {
     fn make_catalog() -> Catalog {
         let origin = Name::parse("test.com.", None).unwrap();
 
-        let mut records = InMemoryAuthority::empty(
+        let mut records = InMemoryZoneHandler::empty(
             origin.clone(),
             ZoneType::Primary,
             AxfrPolicy::Deny,

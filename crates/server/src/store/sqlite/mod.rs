@@ -40,7 +40,7 @@ use crate::{
     server::{Request, RequestInfo},
     store::{
         file::rooted,
-        in_memory::{InMemoryAuthority, zone_from_path},
+        in_memory::{InMemoryZoneHandler, zone_from_path},
     },
 };
 #[cfg(feature = "__dnssec")]
@@ -71,7 +71,7 @@ pub use persistence::Journal;
 /// start of authority for the zone, is a Secondary, or a cached zone.
 #[allow(dead_code)]
 pub struct SqliteZoneHandler<P = TokioRuntimeProvider> {
-    in_memory: InMemoryAuthority<P>,
+    in_memory: InMemoryZoneHandler<P>,
     journal: Mutex<Option<Journal>>,
     axfr_policy: AxfrPolicy,
     allow_update: bool,
@@ -98,7 +98,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     ///
     /// The new `Authority`.
     pub fn new(
-        in_memory: InMemoryAuthority<P>,
+        in_memory: InMemoryZoneHandler<P>,
         axfr_policy: AxfrPolicy,
         allow_update: bool,
         is_dnssec_enabled: bool,
@@ -140,7 +140,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
-            let in_memory = InMemoryAuthority::empty(
+            let in_memory = InMemoryZoneHandler::empty(
                 zone_name.clone(),
                 zone_type,
                 AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
@@ -166,7 +166,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             let records = zone_from_path(&zone_path, zone_name.clone())
                 .map_err(|e| format!("failed to load zone file: {e}"))?;
 
-            let in_memory = InMemoryAuthority::new(
+            let in_memory = InMemoryZoneHandler::new(
                 zone_name.clone(),
                 records,
                 zone_type,
@@ -1014,7 +1014,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
 }
 
 impl<P> Deref for SqliteZoneHandler<P> {
-    type Target = InMemoryAuthority<P>;
+    type Target = InMemoryZoneHandler<P>;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory

@@ -5,11 +5,11 @@ use hickory_proto::rr::{DNSClass, Name, RData, Record};
 use hickory_server::authority::{AxfrPolicy, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::in_memory::InMemoryZoneHandler;
 
-pub fn create_example() -> InMemoryAuthority {
+pub fn create_example() -> InMemoryZoneHandler {
     let origin = Name::parse("example.com.", None).unwrap();
-    let mut records = InMemoryAuthority::empty(
+    let mut records = InMemoryZoneHandler::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -183,7 +183,7 @@ pub fn create_example() -> InMemoryAuthority {
 }
 
 #[cfg(feature = "__dnssec")]
-pub fn create_secure_example() -> InMemoryAuthority {
+pub fn create_secure_example() -> InMemoryZoneHandler {
     use hickory_proto::dnssec::{
         Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };

@@ -34,7 +34,7 @@ use hickory_resolver::Name;
 use hickory_server::{
     authority::{AxfrPolicy, Catalog, ZoneType},
     dnssec::NxProofKind,
-    store::in_memory::InMemoryAuthority,
+    store::in_memory::InMemoryZoneHandler,
 };
 use test_support::subscribe;
 
@@ -381,8 +381,8 @@ fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
 }
 
 /// Constructs an authority based on the zone file described in RFC 5155 Appendix A.
-fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryAuthority {
-    let mut authority = InMemoryAuthority::empty(
+fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZoneHandler {
+    let mut authority = InMemoryZoneHandler::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,

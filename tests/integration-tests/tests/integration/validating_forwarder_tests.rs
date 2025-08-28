@@ -35,7 +35,7 @@ use hickory_server::{
     authority::{AxfrPolicy, Catalog, ZoneType},
     store::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
-        in_memory::InMemoryAuthority,
+        in_memory::InMemoryZoneHandler,
     },
 };
 use test_support::subscribe;
@@ -198,7 +198,7 @@ async fn setup_authoritative_server(
     // Zone setup
     let key = Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
     let public_key = key.to_public_key().unwrap();
-    let mut authority = InMemoryAuthority::<TokioRuntimeProvider>::empty(
+    let mut authority = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         Name::root(),
         ZoneType::Primary,
         AxfrPolicy::Deny,

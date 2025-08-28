@@ -26,7 +26,7 @@ use crate::{
         rr::{LowerName, Name, RecordType},
     },
     server::{Request, RequestInfo},
-    store::in_memory::{InMemoryAuthority, zone_from_path},
+    store::in_memory::{InMemoryZoneHandler, zone_from_path},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -40,7 +40,7 @@ use crate::{
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct FileZoneHandler {
-    in_memory: InMemoryAuthority,
+    in_memory: InMemoryZoneHandler,
     #[cfg(feature = "metrics")]
     #[allow(unused)]
     metrics: PersistentStoreMetrics,
@@ -61,7 +61,7 @@ impl FileZoneHandler {
     /// # Return value
     ///
     /// The new `Authority`.
-    pub async fn new(in_memory: InMemoryAuthority) -> Self {
+    pub async fn new(in_memory: InMemoryZoneHandler) -> Self {
         Self {
             #[cfg(feature = "metrics")]
             metrics: {
@@ -95,7 +95,7 @@ impl FileZoneHandler {
                 new.zone_records.increment(records.len() as f64);
                 new
             },
-            in_memory: InMemoryAuthority::new(
+            in_memory: InMemoryZoneHandler::new(
                 origin,
                 records,
                 zone_type,
@@ -108,7 +108,7 @@ impl FileZoneHandler {
 }
 
 impl Deref for FileZoneHandler {
-    type Target = InMemoryAuthority;
+    type Target = InMemoryZoneHandler;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory

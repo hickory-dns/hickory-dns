@@ -20,7 +20,7 @@ use hickory_resolver::Name;
 use hickory_server::{
     Server,
     authority::{AxfrPolicy, Catalog, ZoneType},
-    store::in_memory::InMemoryAuthority,
+    store::in_memory::InMemoryZoneHandler,
 };
 use test_support::subscribe;
 use tokio::net::UdpSocket;
@@ -264,7 +264,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     const SERIAL: u32 = 1;
     const TTL: u32 = 3600;
 
-    let mut authority = InMemoryAuthority::<TokioRuntimeProvider>::empty(
+    let mut authority = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
