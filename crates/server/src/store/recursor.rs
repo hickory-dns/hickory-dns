@@ -45,7 +45,7 @@ use crate::{
     server::{Request, RequestInfo},
 };
 
-/// An authority that performs recursive resolutions.
+/// A zone handler that performs recursive resolutions.
 ///
 /// This uses the hickory-recursor crate for resolving requests.
 pub struct RecursiveZoneHandler<P: RuntimeProvider> {
@@ -54,7 +54,7 @@ pub struct RecursiveZoneHandler<P: RuntimeProvider> {
 }
 
 impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
-    /// Read the Authority for the origin from the specified configuration
+    /// Read the ZoneHandler for the origin from the specified configuration
     pub async fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,

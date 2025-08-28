@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! All authority related types
+//! All zone handler related types
 
 use std::fmt;
 
@@ -69,7 +69,7 @@ impl LookupOptions {
     }
 }
 
-/// Authority implementations can be used with a `Catalog`
+/// ZoneHandler implementations can be used with a `Catalog`
 #[async_trait::async_trait]
 pub trait ZoneHandler: Send + Sync {
     /// What type is this zone
@@ -78,7 +78,7 @@ pub trait ZoneHandler: Send + Sync {
     /// Return the policy for determining if AXFR requests are allowed
     fn axfr_policy(&self) -> AxfrPolicy;
 
-    /// Whether the authority can perform DNSSEC validation
+    /// Whether the zone handler can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool {
         false
     }
@@ -119,12 +119,12 @@ pub trait ZoneHandler: Send + Sync {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
 
-    /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`.
-    /// This will be called in a chained authority configuration after an authority in the chain
-    /// has returned a lookup with a LookupControlFlow::Continue action. Every other authority in
-    /// the chain will be called via this consult method, until one either returns a
-    /// LookupControlFlow::Break action, or all authorities have been consulted.  The authority that
-    /// generated the primary lookup (the one returned via 'lookup') will not be consulted.
+    /// Consulting lookup for all Resource Records matching the given `Name` and `RecordType`. This
+    /// will be called in a chained zone handler configuration after a zone handler in the chain has
+    /// returned a lookup with a LookupControlFlow::Continue action. Every other zone handler in the
+    /// chain will be called via this consult method, until one either returns a
+    /// LookupControlFlow::Break action, or all zone handlers have been consulted.  The zone handler
+    /// that generated the primary lookup (the one returned via 'lookup') will not be consulted.
     ///
     /// # Arguments
     ///
@@ -136,18 +136,18 @@ pub trait ZoneHandler: Send + Sync {
     /// * `request_info` - The `RequestInfo` structure for the request, if it is available.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
-    /// * `last_result` - The lookup returned by a previous authority in a chained configuration.
-    ///                   If a subsequent authority does not modify this lookup, it will be returned
-    ///                   to the client after consulting all authorities in the chain.
+    /// * `last_result` - The lookup returned by a previous zone handler in a chained configuration.
+    ///                   If a subsequent zone handler does not modify this lookup, it will be
+    ///                   returned to the client after consulting all zone handlers in the chain.
     ///
     /// # Return value
     ///
     /// A LookupControlFlow containing the lookup that should be returned to the client.  This can
     /// be the same last_result that was passed in, or a new lookup, depending on the logic of the
-    /// authority in question.
+    /// zone handler in question.
     ///
     /// An optional `ResponseSigner` to use to sign the response returned to the client. If it is
-    /// `None` and an earlier authority provided `Some`, it will be ignored. If it is `Some` it
+    /// `None` and an earlier zone handler provided `Some`, it will be ignored. If it is `Some` it
     /// will be used to replace any previous `ResponseSigner`.
     async fn consult(
         &self,
@@ -213,7 +213,7 @@ pub trait ZoneHandler: Send + Sync {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
 
-    /// Returns the SOA of the authority.
+    /// Returns the SOA of the zone handler.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
@@ -236,7 +236,7 @@ pub trait ZoneHandler: Send + Sync {
 
     /// Returns all records in the zone.
     ///
-    /// This will return `None` if the next authority in the authority chain should be used instead.
+    /// This will return `None` if the next zone handler in the zone handler chain should be used instead.
     async fn zone_transfer(
         &self,
         _request: &Request,
@@ -253,16 +253,16 @@ pub trait ZoneHandler: Send + Sync {
     #[cfg(feature = "__dnssec")]
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 
-    /// Returns the authority metrics label.
+    /// Returns the zone handler metrics label.
     #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str;
 }
 
-/// Extension to Authority to allow for DNSSEC features
+/// Extension to ZoneHandler to allow for DNSSEC features
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 pub trait DnssecZoneHandler: ZoneHandler {
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
+    /// Add a (Sig0) key that is authorized to perform updates against this zone
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()>;
 
     /// Add Signer
@@ -287,29 +287,30 @@ pub enum AxfrPolicy {
     AllowSigned,
 }
 
-/// Result of a Lookup in the Catalog and Authority
+/// Result of a Lookup in the Catalog and ZoneHandler
 ///
-/// * **All authorities should default to using LookupControlFlow::Continue to wrap their responses.**
-///   These responses may be passed to other authorities for analysis or requery purposes.
-/// * Authorities may use LookupControlFlow::Break to indicate the response must be returned
-///   immediately to the client, without consulting any other authorities.  For example, if the
-///   user configures a blocklist authority, it would not be appropriate to pass the query to
-///   any additional authorities to try to resolve, as that might be used to leak information to a
-///   hostile party, and so a blocklist (or similar) authority should wrap responses for any
+/// * **All zone handlers should default to using LookupControlFlow::Continue to wrap their
+///   responses.** These responses may be passed to other zone handlers for analysis or requery
+///   purposes.
+/// * Zone handlers may use LookupControlFlow::Break to indicate the response must be returned
+///   immediately to the client, without consulting any other zone handlers.  For example, if the
+///   user configures a blocklist zone handler, it would not be appropriate to pass the query to any
+///   additional zone handlers to try to resolve, as that might be used to leak information to a
+///   hostile party, and so a blocklist (or similar) zone handler should wrap responses for any
 ///   blocklist hits in LookupControlFlow::Break.
-/// * Authorities may use LookupControlFlow::Skip to indicate the authority did not attempt to
-///   process a particular query.  This might be used, for example, in a block list authority for
+/// * Zone handlers may use LookupControlFlow::Skip to indicate the zone handler did not attempt to
+///   process a particular query.  This might be used, for example, in a block list zone handler for
 ///   any queries that **did not** match the blocklist, to allow the recursor or forwarder to
 ///   resolve the query. Skip must not be used to represent an empty lookup; (use
 ///   Continue(EmptyLookup) or Break(EmptyLookup) for that.)
 pub enum LookupControlFlow<T, E = LookupError> {
-    /// A lookup response that may be passed to one or more additional authorities before
+    /// A lookup response that may be passed to one or more additional zone handlers before
     /// being returned to the client.
     Continue(Result<T, E>),
     /// A lookup response that must be immediately returned to the client without consulting
-    /// any other authorities.
+    /// any other zone handlers.
     Break(Result<T, E>),
-    /// The authority did not answer the query and the next authority in the chain should
+    /// The zone handler did not answer the query and the next zone handler in the chain should
     /// be consulted.
     Skip,
 }
@@ -332,7 +333,7 @@ impl<T, E> fmt::Display for LookupControlFlow<T, E> {
 
 /// The following are a minimal set of methods typically used with Result or Option, and that
 /// were used in the server code or test suite prior to when the LookupControlFlow type was created
-/// (authority lookup functions previously returned a Result over a Lookup or LookupError type.)
+/// (zone handler lookup functions previously returned a Result over a Lookup or LookupError type.)
 impl<T, E> LookupControlFlow<T, E> {
     /// Return true if self is LookupControlFlow::Continue
     pub fn is_continue(&self) -> bool {

@@ -10,7 +10,7 @@ The project has these high-level crates (to be used as dependencies in other pro
 
 - **[hickory-resolver](crates/resolver)** - implements a stub-resolver with support for CNAME chasing and other things, abstract over runtimes (Tokio supported by default)
 - **[hickory-client](crates/client)** - a bare-bones client crate, most useful for dynamic DNS updates
-- **[hickory-server](crates/server)** - implements support for hosted Authorities of various types
+- **[hickory-server](crates/server)** - implements support for various types of hosted zones
 - **tokio-resolver** - (under consideration, currently Tokio support is directly in hickory-resolver)
 
 Low-level crates supporting the above high-level crates:
@@ -19,7 +19,7 @@ Low-level crates supporting the above high-level crates:
 
 Binaries:
 
-- **[hickory-dns](bin/)** - server binary, `hickory-dns`, for hosting authorities, zones, and/or setting up a forwarder
+- **[hickory-dns](bin/)** - server binary, `hickory-dns`, for hosting zones and/or setting up a forwarder or resolver
 - **[hickory-util](util/)** - helpful utilities, e.g. `resolve` for a CLI resolver, as well as some DNSSEC utilities
 
 Old and Outdated crates:

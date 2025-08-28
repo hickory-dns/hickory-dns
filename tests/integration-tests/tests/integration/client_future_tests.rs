@@ -40,9 +40,9 @@ use hickory_server::authority::{Catalog, ZoneHandler};
 async fn test_query_nonet() {
     subscribe();
 
-    let authority = create_example();
+    let handler = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = Client::new(stream, sender, None);
@@ -223,9 +223,9 @@ async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
 #[tokio::test]
 async fn test_notify() {
     subscribe();
-    let authority = create_example();
+    let handler = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
@@ -262,10 +262,10 @@ async fn create_sig0_ready_client() -> (
     use hickory_server::store::sqlite::SqliteZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
-    let authority = create_example();
-    let mut authority =
-        SqliteZoneHandler::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
-    let origin = authority.origin().clone();
+    let handler = create_example();
+    let mut handler =
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(handler, AxfrPolicy::Deny, true, false);
+    let origin = handler.origin().clone();
 
     let trusted_name = Name::from_str("trusted.example.com.").unwrap();
 
@@ -283,11 +283,11 @@ async fn create_sig0_ready_client() -> (
         Duration::minutes(5).whole_seconds() as u32,
         RData::DNSSEC(DNSSECRData::KEY(sig0_key)),
     );
-    authority.upsert_mut(auth_key, 0);
+    handler.upsert_mut(auth_key, 0);
 
     // setup the catalog
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));

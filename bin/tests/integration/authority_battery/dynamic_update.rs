@@ -30,10 +30,10 @@ use hickory_server::{
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-fn update_authority(
+fn update_zone_handler(
     mut message: Message,
     key: &SigSigner,
-    authority: &mut impl ZoneHandler,
+    handler: &mut impl ZoneHandler,
 ) -> Result<bool, ResponseCode> {
     message.finalize(key, 1).expect("failed to sign message");
     let bytes = message.to_bytes().unwrap();
@@ -44,10 +44,10 @@ fn update_authority(
     )
     .unwrap();
 
-    block_on(authority.update(&request, TokioTime::current_time())).0
+    block_on(handler.update(&request, TokioTime::current_time())).0
 }
 
-pub fn test_create(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_create(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("create.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -61,7 +61,7 @@ pub fn test_create(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name, RecordType::A)),
@@ -70,14 +70,14 @@ pub fn test_create(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
         match lookup
             .into_iter()
             .next()
-            .expect("A record not found in authority")
+            .expect("A record not found in zone handler")
             .data()
         {
             RData::A(ip) => assert_eq!(A4::new(127, 0, 0, 10), *ip),
@@ -88,13 +88,13 @@ pub fn test_create(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         let message =
             update_message::create(record.into(), Name::from_str("example.com.").unwrap(), true);
         assert_eq!(
-            update_authority(message, key, &mut authority).unwrap_err(),
+            update_zone_handler(message, key, &mut handler).unwrap_err(),
             ResponseCode::YXRRSet
         );
     }
 }
 
-pub fn test_create_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_create_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("create-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -114,7 +114,7 @@ pub fn test_create_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
 
         let message =
             update_message::create(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -123,7 +123,7 @@ pub fn test_create_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -133,13 +133,13 @@ pub fn test_create_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         // trying to create again should error
         let message = update_message::create(rrset, Name::from_str("example.com.").unwrap(), true);
         assert_eq!(
-            update_authority(message, key, &mut authority).unwrap_err(),
+            update_zone_handler(message, key, &mut handler).unwrap_err(),
             ResponseCode::YXRRSet
         );
     }
 }
 
-pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_append(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("append.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -158,7 +158,7 @@ pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             true,
         );
         assert_eq!(
-            update_authority(message, key, &mut authority).unwrap_err(),
+            update_zone_handler(message, key, &mut handler).unwrap_err(),
             ResponseCode::NXRRSet
         );
 
@@ -169,7 +169,7 @@ pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             false,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         // verify record contents
         let request = Request::from_message(
@@ -179,7 +179,7 @@ pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -196,9 +196,9 @@ pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             true,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("append failed"));
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -214,9 +214,9 @@ pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             true,
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("append failed"));
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -227,7 +227,7 @@ pub fn test_append(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_append_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("append-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -245,7 +245,7 @@ pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             false,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("append failed"));
 
         // will fail if already set and not the same value.
         let mut record2 = record.clone();
@@ -263,7 +263,7 @@ pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             true,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("append failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -272,7 +272,7 @@ pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -290,9 +290,9 @@ pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             true,
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("append failed"));
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -304,7 +304,7 @@ pub fn test_append_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -320,7 +320,7 @@ pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let current = record;
         let mut new = current.clone();
@@ -333,7 +333,7 @@ pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("compare_and_swap failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("compare_and_swap failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -342,7 +342,7 @@ pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -362,11 +362,11 @@ pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]
             true,
         );
         assert_eq!(
-            update_authority(message, key, &mut authority).unwrap_err(),
+            update_zone_handler(message, key, &mut handler).unwrap_err(),
             ResponseCode::NXRRSet
         );
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -376,7 +376,7 @@ pub fn test_compare_and_swap(mut authority: impl ZoneHandler, keys: &[SigSigner]
     }
 }
 
-pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_compare_and_swap_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -400,7 +400,7 @@ pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigS
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let mut new =
             RecordSet::with_ttl(current.name().clone(), current.record_type(), current.ttl());
@@ -414,7 +414,7 @@ pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigS
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("compare_and_swap failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("compare_and_swap failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -423,7 +423,7 @@ pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigS
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -445,11 +445,11 @@ pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigS
             true,
         );
         assert_eq!(
-            update_authority(message, key, &mut authority).unwrap_err(),
+            update_zone_handler(message, key, &mut handler).unwrap_err(),
             ResponseCode::NXRRSet
         );
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -459,7 +459,7 @@ pub fn test_compare_and_swap_multi(mut authority: impl ZoneHandler, keys: &[SigS
     }
 }
 
-pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_by_rdata(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("test-delete-by-rdata.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -476,7 +476,7 @@ pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner])
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         // next create to a non-existent RRset
         let message = update_message::create(
@@ -484,7 +484,7 @@ pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner])
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         let mut record2 = record1.clone();
         record2.set_data(RData::A(A4::new(101, 11, 101, 11)));
@@ -494,7 +494,7 @@ pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner])
             true,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("append failed"));
 
         // verify record contents
         let message = update_message::delete_by_rdata(
@@ -502,7 +502,7 @@ pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner])
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -511,7 +511,7 @@ pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner])
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -520,7 +520,7 @@ pub fn test_delete_by_rdata(mut authority: impl ZoneHandler, keys: &[SigSigner])
     }
 }
 
-pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_by_rdata_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("test-delete-by-rdata-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -551,12 +551,12 @@ pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSi
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         // next create to a non-existent RRset
         let message =
             update_message::create(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         // append a record
         let mut rrset = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
@@ -571,7 +571,7 @@ pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSi
             true,
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("append failed"));
 
         // verify record contents
         let message = update_message::delete_by_rdata(
@@ -579,7 +579,7 @@ pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSi
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -588,7 +588,7 @@ pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSi
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()))
+        let lookup = block_on(handler.search(&request, LookupOptions::default()))
             .0
             .unwrap();
 
@@ -600,7 +600,7 @@ pub fn test_delete_by_rdata_multi(mut authority: impl ZoneHandler, keys: &[SigSi
     }
 }
 
-pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -617,7 +617,7 @@ pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("delete_rrset failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("delete_rrset failed"));
 
         // next create to a non-existent RRset
         let message = update_message::create(
@@ -625,7 +625,7 @@ pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let mut record = record.clone();
         record.set_data(RData::A(A4::new(101, 11, 101, 11)));
@@ -635,7 +635,7 @@ pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             true,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("append failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("append failed"));
 
         // verify record contents
         let message = update_message::delete_rrset(
@@ -643,7 +643,7 @@ pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("delete_rrset failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("delete_rrset failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -652,7 +652,7 @@ pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()));
+        let lookup = block_on(handler.search(&request, LookupOptions::default()));
 
         assert_eq!(
             *lookup.0.unwrap_err().as_response_code().unwrap(),
@@ -661,7 +661,7 @@ pub fn test_delete_rrset(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
         let name = Name::from_str(key.key().algorithm().as_str())
@@ -679,7 +679,7 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             DNSClass::IN,
             true,
         );
-        assert!(!update_authority(message, key, &mut authority).expect("delete_all failed"));
+        assert!(!update_zone_handler(message, key, &mut handler).expect("delete_all failed"));
 
         // next create to a non-existent RRset
         let message = update_message::create(
@@ -687,7 +687,7 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let mut record = record.clone();
         record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
@@ -696,7 +696,7 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             Name::from_str("example.com.").unwrap(),
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("create failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         // verify record contents
         let message = update_message::delete_all(
@@ -705,7 +705,7 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
             DNSClass::IN,
             true,
         );
-        assert!(update_authority(message, key, &mut authority).expect("delete_all failed"));
+        assert!(update_zone_handler(message, key, &mut handler).expect("delete_all failed"));
 
         let request = Request::from_message(
             MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
@@ -714,13 +714,13 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
         )
         .unwrap();
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()));
+        let lookup = block_on(handler.search(&request, LookupOptions::default()));
         assert_eq!(
             *lookup.0.unwrap_err().as_response_code().unwrap(),
             ResponseCode::NXDomain
         );
 
-        let lookup = block_on(authority.search(&request, LookupOptions::default()));
+        let lookup = block_on(handler.search(&request, LookupOptions::default()));
         assert_eq!(
             *lookup.0.unwrap_err().as_response_code().unwrap(),
             ResponseCode::NXDomain
@@ -728,10 +728,10 @@ pub fn test_delete_all(mut authority: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn add_auth<A: DnssecZoneHandler>(authority: &mut A) -> Vec<SigSigner> {
+pub fn add_auth<A: DnssecZoneHandler>(handler: &mut A) -> Vec<SigSigner> {
     let update_name = Name::from_str("update")
         .unwrap()
-        .append_domain(&authority.origin().to_owned().into())
+        .append_domain(&handler.origin().to_owned().into())
         .unwrap();
 
     let mut keys = Vec::<SigSigner>::new();
@@ -770,7 +770,7 @@ pub fn add_auth<A: DnssecZoneHandler>(authority: &mut A) -> Vec<SigSigner> {
                 .expect("failed to get public key");
 
             let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
-            block_on(authority.add_update_auth_key(update_name.clone(), key))
+            block_on(handler.add_update_auth_key(update_name.clone(), key))
                 .expect("failed to add signer to zone");
             keys.push(signer);
         }
@@ -786,9 +786,9 @@ macro_rules! define_update_test {
             fn $f () {
                 ::test_support::subscribe();
                 use std::path::Path;
-                let mut authority = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
-                let keys = crate::authority_battery::dynamic_update::add_auth(&mut authority);
-                crate::authority_battery::dynamic_update::$f(authority, &keys);
+                let mut handler = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
+                let keys = crate::authority_battery::dynamic_update::add_auth(&mut handler);
+                crate::authority_battery::dynamic_update::$f(handler, &keys);
             }
         )*
     }

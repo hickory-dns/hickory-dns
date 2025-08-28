@@ -24,7 +24,7 @@ use hickory_proto::{
 use hickory_server::authority::DnssecZoneHandler;
 
 pub(super) async fn load_keys(
-    authority: &mut impl DnssecZoneHandler,
+    handler: &mut impl DnssecZoneHandler,
     zone_name: &Name,
     keys: &[KeyConfig],
 ) -> Result<(), String> {
@@ -33,11 +33,11 @@ pub(super) async fn load_keys(
     }
 
     for key_config in keys {
-        key_config.load(authority, zone_name.clone()).await?;
+        key_config.load(handler, zone_name.clone()).await?;
     }
 
     info!("signing zone: {zone_name}");
-    authority
+    handler
         .secure_zone()
         .await
         .map_err(|err| format!("failed to sign zone {zone_name}: {err}"))?;
@@ -116,7 +116,7 @@ impl KeyConfig {
 
     pub async fn load(
         &self,
-        authority: &mut impl DnssecZoneHandler,
+        handler: &mut impl DnssecZoneHandler,
         zone_name: Name,
     ) -> Result<(), String> {
         info!(
@@ -129,10 +129,12 @@ impl KeyConfig {
                 let zone_signer = self
                     .try_into_signer(zone_name)
                     .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
-                authority
+                handler
                     .add_zone_signing_key(zone_signer)
                     .await
-                    .map_err(|err| format!("failed to add zone signing key to authority: {err}"))?;
+                    .map_err(|err| {
+                        format!("failed to add zone signing key to zone handler: {err}")
+                    })?;
             }
 
             KeyPurpose::ZoneUpdateAuth => {
@@ -144,10 +146,12 @@ impl KeyConfig {
                     .to_public_key()
                     .map_err(|err| format!("failed to get public key: {err}"))?;
                 let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
-                authority
+                handler
                     .add_update_auth_key(zone_name, key)
                     .await
-                    .map_err(|err| format!("failed to update auth key to authority: {err}"))?;
+                    .map_err(|err| {
+                        format!("failed to add update auth key to zone handler: {err}")
+                    })?;
             }
         }
 

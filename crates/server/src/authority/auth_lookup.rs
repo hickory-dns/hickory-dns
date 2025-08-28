@@ -16,7 +16,7 @@ use crate::proto::{
 #[cfg(feature = "resolver")]
 use crate::resolver::lookup::{Lookup, LookupRecordIter};
 
-/// The result of a lookup on an Authority
+/// The result of a lookup on a ZoneHandler
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 #[non_exhaustive]
@@ -34,7 +34,7 @@ pub enum AuthLookup {
     /// Records resulting from a resolver lookup
     #[cfg(feature = "resolver")]
     Resolved(Lookup),
-    /// Soa only differs from Records in that the lifetime on the name is from the authority, and not the query
+    /// Soa only differs from Records in that the lifetime on the name is from the zone handler, and not the query
     SOA(LookupRecords),
     /// A response message
     Response(Message),
@@ -138,7 +138,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
     }
 }
 
-/// An iterator over an Authority Lookup
+/// An iterator over a ZoneHandler lookup
 #[derive(Default)]
 pub enum AuthLookupIter<'r> {
     /// The empty set

@@ -39,11 +39,11 @@ use crate::{
     recursor::ErrorKind,
 };
 
-/// Set of authorities, zones, available to this server.
+/// Set of zones and zone handlers available to this server.
 #[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
-    authorities: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
+    handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
 }
@@ -179,33 +179,33 @@ impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
         Self {
-            authorities: HashMap::new(),
+            handlers: HashMap::new(),
             nsid_payload: None,
             #[cfg(feature = "metrics")]
             metrics: CatalogMetrics::default(),
         }
     }
 
-    /// Insert or update the provided zone authorities
+    /// Insert or update the provided zone handlers
     ///
     /// # Arguments
     ///
     /// * `name` - zone name, e.g. example.com.
-    /// * `authorities` - a vec of authority objects
-    pub fn upsert(&mut self, name: LowerName, authorities: Vec<Arc<dyn ZoneHandler>>) {
+    /// * `handlers` - a vec of zone handler objects
+    pub fn upsert(&mut self, name: LowerName, handlers: Vec<Arc<dyn ZoneHandler>>) {
         #[cfg(feature = "metrics")]
-        for authority in authorities.iter() {
-            self.metrics.add_authority(authority.as_ref())
+        for handler in handlers.iter() {
+            self.metrics.add_handler(handler.as_ref())
         }
 
-        self.authorities.insert(name, authorities);
+        self.handlers.insert(name, handlers);
     }
 
     /// Remove a zone from the catalog
     pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn ZoneHandler>>> {
         // NOTE: metrics are not removed to avoid dropping counters that are potentially still
-        // being used by other authorities having the same labels
-        self.authorities.remove(name)
+        // being used by other zone handlers having the same labels
+        self.handlers.remove(name)
     }
 
     /// Set a specified name server identifier (NSID) in responses
@@ -298,16 +298,16 @@ impl Catalog {
         }
 
         // verify the zone type and number of zones in request, then find the zone to update
-        if let Some(authorities) = self.find(request_info.query.name()) {
+        if let Some(handlers) = self.find(request_info.query.name()) {
             #[allow(clippy::never_loop)]
-            for authority in authorities {
-                let (response_code, signer) = match authority.zone_type() {
+            for handler in handlers {
+                let (response_code, signer) = match handler.zone_type() {
                     ZoneType::Secondary => {
                         error!("secondary forwarding for update not yet implemented");
                         (ResponseCode::NotImp, None)
                     }
                     ZoneType::Primary => {
-                        let (update_result, signer) = authority.update(update, now).await;
+                        let (update_result, signer) = handler.update(update, now).await;
                         match update_result {
                             // successful update
                             Ok(_) => (ResponseCode::NoError, signer),
@@ -348,14 +348,14 @@ impl Catalog {
     /// Checks whether the `Catalog` contains DNS records for `name`
     ///
     /// Use this when you know the exact `LowerName` that was used when
-    /// adding an authority and you don't care about the authority it
+    /// adding a zone handler and you don't care about the zone handler it
     /// contains. For public domain names, `LowerName` is usually the
     /// top level domain name like `example.com.`.
     ///
     /// If you do not know the exact domain name to use or you actually
-    /// want to use the authority it contains, use `find` instead.
+    /// want to use the zone handler it contains, use `find` instead.
     pub fn contains(&self, name: &LowerName) -> bool {
-        self.authorities.contains_key(name)
+        self.handlers.contains_key(name)
     }
 
     /// Given the requested query, lookup and return any matching results.
@@ -384,10 +384,10 @@ impl Catalog {
                 Ok(r) => return r,
             }
         };
-        let authorities = self.find(request_info.query.name());
+        let handlers = self.find(request_info.query.name());
 
-        let Some(authorities) = authorities else {
-            // There are no authorities registered that can handle the request
+        let Some(handlers) = handlers else {
+            // There are no zone handlers registered that can handle the request
             let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
                 .error_msg(request.header(), ResponseCode::Refused);
             match response_handle.send_response(response).await {
@@ -402,7 +402,7 @@ impl Catalog {
         let result = if request_info.query.query_type() == RecordType::AXFR {
             zone_transfer(
                 request_info,
-                authorities,
+                handlers,
                 request,
                 response_edns.clone(),
                 now,
@@ -412,7 +412,7 @@ impl Catalog {
         } else {
             lookup(
                 request_info,
-                authorities,
+                handlers,
                 request,
                 response_edns.clone(),
                 response_handle.clone(),
@@ -428,10 +428,10 @@ impl Catalog {
         }
     }
 
-    /// Recursively searches the catalog for a matching authority
+    /// Recursively searches the catalog for a matching zone handler
     pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<dyn ZoneHandler + 'static>>> {
-        debug!("searching authorities for: {name}");
-        self.authorities.get(name).or_else(|| {
+        debug!("searching zone handlers for: {name}");
+        self.handlers.get(name).or_else(|| {
             if !name.is_root() {
                 let name = name.base_name();
                 self.find(&name)
@@ -444,7 +444,7 @@ impl Catalog {
 
 async fn lookup<R: ResponseHandler + Unpin>(
     request_info: RequestInfo<'_>,
-    authorities: &[Arc<dyn ZoneHandler>],
+    handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
     response_edns: Option<Edns>,
     mut response_handle: R,
@@ -460,35 +460,35 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
     let query = request_info.query;
 
-    for (authority_index, authority) in authorities.iter().enumerate() {
+    for (index, handler) in handlers.iter().enumerate() {
         debug!(
-            "performing {query} on authority {origin} with request id {request_id}",
-            origin = authority.origin(),
+            "performing {query} on zone handler {origin} with request id {request_id}",
+            origin = handler.origin(),
         );
 
-        // Wait so we can determine if we need to fire a request to the next authority in a chained
-        // configuration if the current authority declines to answer.
-        let (mut result, mut signer) = authority.search(request, lookup_options).await;
+        // Wait so we can determine if we need to fire a request to the next zone handler in a
+        // chained configuration if the current zone handler declines to answer.
+        let (mut result, mut signer) = handler.search(request, lookup_options).await;
         #[cfg(feature = "metrics")]
-        metrics.update_zone_lookup(authority.as_ref(), &result);
+        metrics.update_zone_lookup(handler.as_ref(), &result);
 
         if let LookupControlFlow::Skip = result {
-            trace!("catalog::lookup::authority did not handle request");
+            trace!("catalog::lookup: zone handler did not handle request");
             continue;
         } else if result.is_continue() {
-            trace!("catalog::lookup::authority did handle request with continue");
+            trace!("catalog::lookup: zone handler did handle request with continue");
 
             // For LookupControlFlow::Continue results, we'll call consult on every
-            // authority, except the authority that returned the Continue result.
-            for (continue_index, consult_authority) in authorities.iter().enumerate() {
-                if continue_index == authority_index {
-                    trace!("skipping current authority consult (index {continue_index})");
+            // zone handler, except the zone handler that returned the Continue result.
+            for (continue_index, consult_handler) in handlers.iter().enumerate() {
+                if continue_index == index {
+                    trace!("skipping current zone handler consult (index {continue_index})");
                     continue;
                 } else {
-                    trace!("calling authority consult (index {continue_index})");
+                    trace!("calling zone handler consult (index {continue_index})");
                 }
 
-                let (new_result, new_signer) = consult_authority
+                let (new_result, new_signer) = consult_handler
                     .consult(
                         request_info.query.name(),
                         request_info.query.query_type(),
@@ -503,7 +503,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                 result = new_result;
             }
         } else {
-            trace!("catalog::lookup::authority did handle request with break");
+            trace!("catalog::lookup: zone handler did handle request with break");
         }
 
         // We no longer need the context from LookupControlFlow, so decompose into a standard Result
@@ -515,7 +515,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
         let (response_header, sections) = build_response(
             result,
-            &**authority,
+            &**handler,
             request_id,
             request.header(),
             query,
@@ -559,13 +559,13 @@ async fn lookup<R: ResponseHandler + Unpin>(
         }
     }
 
-    error!("end of chained authority loop reached with all authorities not answering");
+    error!("end of chained zone handler loop reached with all zone handlers not answering");
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
 async fn zone_transfer(
     request_info: RequestInfo<'_>,
-    authorities: &[Arc<dyn ZoneHandler>],
+    handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
     response_edns: Option<Edns>,
     now: u64,
@@ -573,14 +573,14 @@ async fn zone_transfer(
 ) -> Result<ResponseInfo, LookupError> {
     let request_edns = request.edns();
     let lookup_options = LookupOptions::from_edns(request_edns);
-    for authority in authorities.iter() {
+    for handler in handlers.iter() {
         debug!(
             query = %request_info.query,
-            origin = %authority.origin(),
+            origin = %handler.origin(),
             request_id = request.id(),
             "performing zone transfer"
         );
-        let Some((result, signer)) = authority.zone_transfer(request, lookup_options, now).await
+        let Some((result, signer)) = handler.zone_transfer(request, lookup_options, now).await
         else {
             continue;
         };
@@ -647,14 +647,14 @@ async fn zone_transfer(
         }
     }
 
-    error!("end of chained authority loop with all authorities not answering");
+    error!("end of chained zone handler loop with all zone handlers not answering");
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
 }
 
-/// Build Header and LookupSections (answers) given a query response from an authority
+/// Build Header and LookupSections (answers) given a query response from a zone handler
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
-    authority: &dyn ZoneHandler,
+    handler: &dyn ZoneHandler,
     request_id: u16,
     request_header: &Header,
     query: &LowerQuery,
@@ -663,11 +663,11 @@ async fn build_response(
     let lookup_options = LookupOptions::from_edns(edns);
 
     let mut response_header = Header::response_from_request(request_header);
-    let sections = match authority.zone_type() {
+    let sections = match handler.zone_type() {
         ZoneType::Primary | ZoneType::Secondary => {
             build_authoritative_response(
                 result,
-                authority,
+                handler,
                 &mut response_header,
                 lookup_options,
                 request_id,
@@ -681,7 +681,7 @@ async fn build_response(
                 request_header,
                 &mut response_header,
                 #[cfg(feature = "__dnssec")]
-                authority.can_validate_dnssec(),
+                handler.can_validate_dnssec(),
                 query,
                 lookup_options,
             )
@@ -695,7 +695,7 @@ async fn build_response(
 /// Prepare a response for an authoritative zone
 async fn build_authoritative_response(
     response: Result<AuthLookup, LookupError>,
-    authority: &dyn ZoneHandler,
+    handler: &dyn ZoneHandler,
     response_header: &mut Header,
     lookup_options: LookupOptions,
     _request_id: u16,
@@ -737,7 +737,7 @@ async fn build_authoritative_response(
             // This was a successful authoritative lookup for SOA:
             //   get the NS records as well.
 
-            match authority.ns(lookup_options).await.map_result() {
+            match handler.ns(lookup_options).await.map_result() {
                 Some(Ok(ns)) => (Some(ns), None),
                 Some(Err(error)) => {
                     warn!(%error, "ns_lookup errored");
@@ -756,13 +756,13 @@ async fn build_authoritative_response(
                     salt,
                     iterations,
                     opt_out: _,
-                }) = authority.nx_proof_kind()
+                }) = handler.nx_proof_kind()
                 {
                     let has_wildcard_match = answers
                         .iter()
                         .any(|rr| rr.record_type() == RecordType::RRSIG && rr.name().is_wildcard());
 
-                    match authority
+                    match handler
                         .nsec3_records(
                             Nsec3QueryInfo {
                                 qname: query.name(),
@@ -804,19 +804,17 @@ async fn build_authoritative_response(
             {
                 // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                 debug!("request: {_request_id} non-existent adding nsecs");
-                match authority.nx_proof_kind() {
+                match handler.nx_proof_kind() {
                     Some(nx_proof_kind) => {
                         // run the nsec lookup future, and then transition to get soa
                         let future = match nx_proof_kind {
-                            NxProofKind::Nsec => {
-                                authority.nsec_records(query.name(), lookup_options)
-                            }
+                            NxProofKind::Nsec => handler.nsec_records(query.name(), lookup_options),
                             NxProofKind::Nsec3 {
                                 algorithm,
                                 salt,
                                 iterations,
                                 opt_out: _,
-                            } => authority.nsec3_records(
+                            } => handler.nsec3_records(
                                 Nsec3QueryInfo {
                                     qname: query.name(),
                                     qtype: query.query_type(),
@@ -854,7 +852,7 @@ async fn build_authoritative_response(
             None
         };
 
-        match authority.soa_secure(lookup_options).await.map_result() {
+        match handler.soa_secure(lookup_options).await.map_result() {
             Some(Ok(soa)) => (nsecs, Some(soa)),
             Some(Err(error)) => {
                 warn!(%error, "failed to lookup soa");

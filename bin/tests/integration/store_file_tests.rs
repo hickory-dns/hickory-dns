@@ -38,7 +38,7 @@ fn test_all_lines_are_loaded() {
         zone_path: PathBuf::from("../tests/test-data/test_configs/default/nonewline.zone"),
     };
 
-    let mut authority = FileZoneHandler::try_from_config(
+    let mut handler = FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -52,7 +52,7 @@ fn test_all_lines_are_loaded() {
         record_type: RecordType::A,
         name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap()),
     };
-    assert!(authority.records_get_mut().get(&rrkey).is_some())
+    assert!(handler.records_get_mut().get(&rrkey).is_some())
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_implicit_in_class() {
         zone_path: PathBuf::from("../tests/test-data/test_configs/default/implicitclass.zone"),
     };
 
-    let authority = FileZoneHandler::try_from_config(
+    let handler = FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -71,7 +71,7 @@ fn test_implicit_in_class() {
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
-    assert!(authority.is_ok());
+    assert!(handler.is_ok());
 }
 
 #[tokio::test]
@@ -82,7 +82,7 @@ async fn test_ttl_wildcard() {
     };
 
     let zone_name = LowerName::from_str("test.local.").unwrap();
-    let mut authority = FileZoneHandler::try_from_config(
+    let mut handler = FileZoneHandler::try_from_config(
         Name::from(zone_name.clone()),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -98,17 +98,17 @@ async fn test_ttl_wildcard() {
         record_type: RecordType::A,
         name: LowerName::from(Name::from_ascii("simple.test.local.").unwrap()),
     };
-    assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
+    assert_eq!(handler.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
     // // This one related to a wildcard don't pass around $TTL
     let name = LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap());
-    let rr = authority
+    let rr = handler
         .lookup(&name, RecordType::A, None, LookupOptions::default())
         .await
         .unwrap();
     let data = rr
         .into_iter()
         .next()
-        .expect("A record not found in authority");
+        .expect("A record not found in zone handler");
 
     assert_eq!(data.record_type(), RecordType::A);
     assert_eq!(data.ttl(), 120);

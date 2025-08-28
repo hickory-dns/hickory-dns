@@ -57,7 +57,7 @@ impl Journal {
         self.version
     }
 
-    /// this returns an iterator from the beginning of time, to be used to recreate an authority
+    /// this returns an iterator from the beginning of time, to be used to recreate a zone handler
     pub fn iter(&self) -> JournalIter<'_> {
         JournalIter::new(self)
     }
@@ -271,8 +271,8 @@ impl Journal {
         Ok(0)
     }
 
-    /// adds the records table, this is the main and single table for the history of changes to an
-    ///  authority. Each record is expected to be in the format of an update record
+    /// adds the records table, this is the main and single table for the history of changes to a
+    ///  zone. Each record is expected to be in the format of an update record
     fn records_up(&self) -> Result<i64, PersistenceError> {
         // we'll be using rowid for our primary key, basically: `rowid INTEGER PRIMARY KEY ASC`
         let count = self.conn.lock().expect("conn poisoned").execute(

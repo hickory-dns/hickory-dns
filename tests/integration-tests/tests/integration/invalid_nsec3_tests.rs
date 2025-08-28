@@ -154,7 +154,7 @@ async fn no_data_error_empty_non_terminal() {
 }
 
 /// Based on RFC 5155 section B.3.
-#[ignore = "authority returns an NXDOMAIN for mc.c.example. instead of a referral to nameservers for c.example."]
+#[ignore = "zone handler returns an NXDOMAIN for mc.c.example. instead of a referral to nameservers for c.example."]
 #[tokio::test]
 async fn referral_opt_out_unsigned() {
     subscribe();
@@ -373,16 +373,16 @@ async fn test_exclude_nsec3(
 fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
     let origin = Name::parse("example.", None).unwrap();
 
-    let authority = example_zone_authority(origin.clone(), key);
+    let handler = example_zone_handler(origin.clone(), key);
 
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.into(), vec![Arc::new(authority)]);
+    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
     catalog
 }
 
-/// Constructs an authority based on the zone file described in RFC 5155 Appendix A.
-fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZoneHandler {
-    let mut authority = InMemoryZoneHandler::empty(
+/// Constructs a zone handler based on the zone file described in RFC 5155 Appendix A.
+fn example_zone_handler(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZoneHandler {
+    let mut handler = InMemoryZoneHandler::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -398,7 +398,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
     );
 
     // Note that the serial will be incremented from 0 to 1 by `secure_zone_mut()`.
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             3600,
@@ -414,7 +414,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             3600,
@@ -422,7 +422,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             3600,
@@ -430,7 +430,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             3600,
@@ -438,7 +438,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("2t7b4g4vsa5smi47k61mv5bv1a22bojr", Some(&origin)).unwrap(),
             3600,
@@ -446,7 +446,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("a", Some(&origin)).unwrap(),
             3600,
@@ -454,7 +454,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("a", Some(&origin)).unwrap(),
             3600,
@@ -462,7 +462,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("a", Some(&origin)).unwrap(),
             3600,
@@ -479,7 +479,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ns1.a", Some(&origin)).unwrap(),
             3600,
@@ -487,7 +487,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ns2.a", Some(&origin)).unwrap(),
             3600,
@@ -495,7 +495,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ai", Some(&origin)).unwrap(),
             3600,
@@ -503,7 +503,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ai", Some(&origin)).unwrap(),
             3600,
@@ -511,7 +511,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ai", Some(&origin)).unwrap(),
             3600,
@@ -521,7 +521,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("c", Some(&origin)).unwrap(),
             3600,
@@ -529,7 +529,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("c", Some(&origin)).unwrap(),
             3600,
@@ -537,7 +537,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ns1.c", Some(&origin)).unwrap(),
             3600,
@@ -545,7 +545,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ns2.c", Some(&origin)).unwrap(),
             3600,
@@ -553,7 +553,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ns1", Some(&origin)).unwrap(),
             3600,
@@ -561,7 +561,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("ns2", Some(&origin)).unwrap(),
             3600,
@@ -569,7 +569,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("*.w", Some(&origin)).unwrap(),
             3600,
@@ -577,7 +577,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("x.w", Some(&origin)).unwrap(),
             3600,
@@ -585,7 +585,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("x.y.w", Some(&origin)).unwrap(),
             3600,
@@ -593,7 +593,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("xx", Some(&origin)).unwrap(),
             3600,
@@ -601,7 +601,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("xx", Some(&origin)).unwrap(),
             3600,
@@ -609,7 +609,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
         ),
         0,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("xx", Some(&origin)).unwrap(),
             3600,
@@ -621,7 +621,7 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
     );
 
     // Add DNSKEY and sign zone
-    authority
+    handler
         .add_zone_signing_key_mut(SigSigner::dnssec(
             DNSKEY::from_key(&key.to_public_key().unwrap()),
             key,
@@ -629,9 +629,9 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
             Duration::from_secs(86400),
         ))
         .unwrap();
-    authority.secure_zone_mut().unwrap();
+    handler.secure_zone_mut().unwrap();
 
-    authority
+    handler
 }
 
 /// Confirm that the generated NSEC3 chain matches the zone file from RFC 5155 Appendix A.
@@ -639,9 +639,9 @@ fn example_zone_authority(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZon
 fn example_zone_nsec3_chain() {
     let key = Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
     let origin = Name::parse("example.", None).unwrap();
-    let mut authority = example_zone_authority(origin.clone(), Box::new(key));
+    let mut handler = example_zone_handler(origin.clone(), Box::new(key));
 
-    let names = authority
+    let names = handler
         .records_get_mut()
         .keys()
         .map(|key| key.name.to_ascii())

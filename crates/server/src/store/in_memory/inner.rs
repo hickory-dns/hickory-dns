@@ -176,7 +176,7 @@ impl InnerInMemory {
         match self.inner_soa(origin) {
             Some(soa) => soa.minimum(),
             None => {
-                error!("could not lookup SOA for authority: {origin}");
+                error!("could not lookup SOA for zone handler: {origin}");
                 0
             }
         }
@@ -187,7 +187,7 @@ impl InnerInMemory {
         match self.inner_soa(origin) {
             Some(soa) => soa.serial(),
             None => {
-                error!("could not lookup SOA for authority: {origin}");
+                error!("could not lookup SOA for zone handler: {origin}");
                 0
             }
         }
@@ -367,7 +367,7 @@ impl InnerInMemory {
         let mut record = if let Some(record) = record {
             record
         } else {
-            error!("could not lookup SOA for authority: {}", origin);
+            error!("could not lookup SOA for zone handler: {}", origin);
             return 0;
         };
 
@@ -382,7 +382,7 @@ impl InnerInMemory {
         serial
     }
 
-    /// Inserts or updates a `Record` depending on it's existence in the authority.
+    /// Inserts or updates a `Record` depending on it's existence in the zone.
     ///
     /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
     ///
