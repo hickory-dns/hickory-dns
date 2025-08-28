@@ -56,7 +56,7 @@ use inner::InnerInMemory;
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
-pub struct InMemoryAuthority<P = TokioRuntimeProvider> {
+pub struct InMemoryZoneHandler<P = TokioRuntimeProvider> {
     origin: LowerName,
     class: DNSClass,
     zone_type: ZoneType,
@@ -67,7 +67,7 @@ pub struct InMemoryAuthority<P = TokioRuntimeProvider> {
     _phantom: PhantomData<P>,
 }
 
-impl<P: RuntimeProvider + Send + Sync> InMemoryAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     /// Creates a new Authority.
     ///
     /// # Arguments
@@ -336,7 +336,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryAuthority<P> {
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type
@@ -691,7 +691,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryAuthority<P> {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler<P> {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
