@@ -34,7 +34,7 @@ pub enum AuthLookup {
     /// Records resulting from a resolver lookup
     #[cfg(feature = "resolver")]
     Resolved(Lookup),
-    /// Soa only differs from Records in that the lifetime on the name is from the zone handler, and not the query
+    /// `SOA` is used to store the SOA RR, to be included in the Additional section of a response.
     SOA(LookupRecords),
     /// A response message
     Response(Message),
