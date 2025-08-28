@@ -20,13 +20,13 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    authority::MessageResponse,
     proto::{
         ProtoError,
         quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
         rr::Record,
         xfer::Protocol,
     },
+    zone_handler::MessageResponse,
 };
 
 pub(super) async fn handle_quic(

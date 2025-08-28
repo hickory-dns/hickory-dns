@@ -19,8 +19,8 @@ use hickory_proto::{
 use hickory_resolver::Name;
 use hickory_server::{
     Server,
-    authority::{AxfrPolicy, Catalog, ZoneType},
     store::in_memory::InMemoryZoneHandler,
+    zone_handler::{AxfrPolicy, Catalog, ZoneType},
 };
 use test_support::subscribe;
 use tokio::net::UdpSocket;

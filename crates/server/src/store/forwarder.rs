@@ -17,12 +17,8 @@ use serde::Deserialize;
 use tracing::{debug, info};
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
+use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
-    authority::{
-        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
-        ZoneType,
-    },
     proto::{
         op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
@@ -34,6 +30,10 @@ use crate::{
         name_server::ConnectionProvider,
     },
     server::{Request, RequestInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
+    },
 };
 
 /// A builder to construct a [`ForwardZoneHandler`].

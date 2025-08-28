@@ -14,7 +14,6 @@ use std::net::SocketAddr;
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
-    authority::MessageRequest,
     proto::{
         ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
@@ -22,6 +21,7 @@ use crate::{
         xfer::Protocol,
     },
     server::ResponseHandler,
+    zone_handler::MessageRequest,
 };
 
 /// An incoming request to the DNS catalog

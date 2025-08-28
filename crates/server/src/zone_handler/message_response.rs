@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::{
-    authority::{Queries, message_request::MessageRequest},
     proto::{
         ProtoError,
         op::{Edns, Header, MessageSignature, ResponseCode, message},
@@ -14,6 +13,7 @@ use crate::{
         serialize::binary::BinEncoder,
     },
     server::ResponseInfo,
+    zone_handler::{Queries, message_request::MessageRequest},
 };
 
 /// A [`crate::proto::serialize::binary::BinEncodable`] message with borrowed data for
@@ -126,8 +126,8 @@ impl<'q> MessageResponseBuilder<'q> {
     /// ```rust
     /// use hickory_proto::{op::ResponseCode, rr::Record};
     /// use hickory_server::{
-    ///     authority::{MessageResponse, MessageResponseBuilder},
     ///     server::Request,
+    ///     zone_handler::{MessageResponse, MessageResponseBuilder},
     /// };
     ///
     /// fn handle_request<'q>(request: &'q Request) -> MessageResponse<

@@ -23,7 +23,7 @@ use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
 use hickory_client::client::{Client, ClientHandle};
-use hickory_integration::example_authority::create_example;
+use hickory_integration::example_zone::create_example;
 use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -34,7 +34,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 use hickory_server::Server;
-use hickory_server::authority::{Catalog, ZoneHandler};
+use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[tokio::test]

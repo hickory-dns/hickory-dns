@@ -4,10 +4,10 @@ use std::{
 };
 
 use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
-use hickory_server::authority::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileConfig, FileZoneHandler};
+use hickory_server::zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType};
 use test_support::subscribe;
 
 fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileZoneHandler {

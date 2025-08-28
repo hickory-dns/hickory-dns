@@ -8,7 +8,7 @@ use hickory_proto::{
     rr::{Name, RecordType},
     runtime::TokioRuntimeProvider,
 };
-use hickory_server::{authority::ZoneHandler, store::forwarder::ForwardZoneHandler};
+use hickory_server::{store::forwarder::ForwardZoneHandler, zone_handler::ZoneHandler};
 use test_support::subscribe;
 
 #[test]

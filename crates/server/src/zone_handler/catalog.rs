@@ -14,14 +14,16 @@ use hickory_proto::runtime::Time;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
-use crate::authority::metrics::CatalogMetrics;
+use crate::zone_handler::metrics::CatalogMetrics;
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::DnssecSummary};
+use crate::{dnssec::NxProofKind, proto::dnssec::DnssecSummary, zone_handler::Nsec3QueryInfo};
+#[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{
-    authority::{
-        AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
-        MessageResponseBuilder, ZoneHandler, ZoneType,
-    },
+    proto::{ProtoError, ProtoErrorKind},
+    recursor,
+    recursor::ErrorKind,
+};
+use crate::{
     proto::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
         rr::{
@@ -31,12 +33,10 @@ use crate::{
         serialize::binary::{BinEncoder, EncodeMode},
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
-};
-#[cfg(all(feature = "__dnssec", feature = "recursor"))]
-use crate::{
-    proto::{ProtoError, ProtoErrorKind},
-    recursor,
-    recursor::ErrorKind,
+    zone_handler::{
+        AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
+        MessageResponseBuilder, ZoneHandler, ZoneType,
+    },
 };
 
 /// Set of zones and zone handlers available to this server.

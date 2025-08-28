@@ -42,11 +42,11 @@ use hickory_proto::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::Server;
 use hickory_server::{
-    authority::{Catalog, MessageResponse},
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
+    zone_handler::{Catalog, MessageResponse},
 };
 
-pub mod example_authority;
+pub mod example_zone;
 pub mod mock_client;
 pub mod mock_request_handler;
 

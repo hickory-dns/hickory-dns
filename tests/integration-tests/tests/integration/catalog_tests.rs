@@ -18,15 +18,15 @@ use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "sqlite")]
 use hickory_server::store::sqlite::SqliteZoneHandler;
 use hickory_server::{
-    authority::{AxfrPolicy, Catalog, ZoneHandler, ZoneType},
     server::{Request, RequestHandler},
     store::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryZoneHandler,
     },
+    zone_handler::{AxfrPolicy, Catalog, ZoneHandler, ZoneType},
 };
 
-use hickory_integration::{example_authority::create_example, *};
+use hickory_integration::{example_zone::create_example, *};
 use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]

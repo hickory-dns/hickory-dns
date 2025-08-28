@@ -27,9 +27,9 @@ use hickory_proto::{
 };
 use hickory_resolver::Name;
 use hickory_server::{
-    authority::{AxfrPolicy, Catalog, ZoneType},
     dnssec::NxProofKind,
     store::in_memory::InMemoryZoneHandler,
+    zone_handler::{AxfrPolicy, Catalog, ZoneType},
 };
 use test_support::subscribe;
 

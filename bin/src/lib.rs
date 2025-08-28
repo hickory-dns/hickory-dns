@@ -60,8 +60,8 @@ use hickory_server::store::recursor::RecursiveZoneHandler;
 use hickory_server::store::sqlite::{SqliteConfig, SqliteZoneHandler};
 use hickory_server::{
     ConfigError,
-    authority::{AxfrPolicy, ZoneHandler, ZoneType},
     store::file::{FileConfig, FileZoneHandler},
+    zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
 };
 
 #[cfg(feature = "prometheus-metrics")]

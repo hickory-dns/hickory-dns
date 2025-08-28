@@ -28,28 +28,28 @@ use hickory_proto::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 use hickory_proto::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
-use hickory_server::authority::MessageResponseBuilder;
-use hickory_server::authority::{
-    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
-};
-#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
 use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
+#[cfg(feature = "__dnssec")]
+use hickory_server::zone_handler::MessageResponseBuilder;
+use hickory_server::zone_handler::{
+    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
+};
 use test_support::subscribe;
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
 fn create_example() -> SqliteZoneHandler {
-    let mut handler = hickory_integration::example_authority::create_example();
+    let mut handler = hickory_integration::example_zone::create_example();
     handler.set_axfr_policy(AxfrPolicy::AllowAll); // policy is applied in SqliteZoneHandler.
     SqliteZoneHandler::new(handler, AxfrPolicy::AllowAll, true, false)
 }
 
 #[cfg(feature = "__dnssec")]
 fn create_secure_example() -> SqliteZoneHandler {
-    let mut handler = hickory_integration::example_authority::create_secure_example();
+    let mut handler = hickory_integration::example_zone::create_secure_example();
     handler.set_axfr_policy(AxfrPolicy::AllowAll);
     SqliteZoneHandler::new(handler, AxfrPolicy::AllowAll, true, true)
 }

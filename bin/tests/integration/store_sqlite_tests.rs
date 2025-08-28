@@ -10,8 +10,8 @@ use hickory_proto::rr::Name;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
-    authority::{AxfrPolicy, ZoneType},
     store::sqlite::{SqliteConfig, SqliteZoneHandler},
+    zone_handler::{AxfrPolicy, ZoneType},
 };
 
 fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler {

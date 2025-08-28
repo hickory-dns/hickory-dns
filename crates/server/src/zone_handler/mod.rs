@@ -19,23 +19,23 @@ use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 use crate::recursor::ErrorKind;
 
 mod auth_lookup;
-#[allow(clippy::module_inception)]
-mod authority;
 mod catalog;
 pub(crate) mod message_request;
 mod message_response;
 #[cfg(feature = "metrics")]
 pub(crate) mod metrics;
+#[allow(clippy::module_inception)]
+mod zone_handler;
 
 pub use self::auth_lookup::{
     AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter, ZoneTransfer,
 };
-pub use self::authority::{AxfrPolicy, LookupControlFlow, LookupOptions, ZoneHandler};
-#[cfg(feature = "__dnssec")]
-pub use self::authority::{DnssecZoneHandler, Nsec3QueryInfo};
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
+pub use self::zone_handler::{AxfrPolicy, LookupControlFlow, LookupOptions, ZoneHandler};
+#[cfg(feature = "__dnssec")]
+pub use self::zone_handler::{DnssecZoneHandler, Nsec3QueryInfo};
 
 /// A query could not be fulfilled
 #[derive(Debug, EnumAsInner, Error)]

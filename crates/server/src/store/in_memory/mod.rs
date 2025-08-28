@@ -23,22 +23,8 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tracing::warn;
 use tracing::{debug, info};
 
-use crate::{
-    authority::{
-        AuthLookup, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, ZoneHandler, ZoneTransfer, ZoneType,
-    },
-    proto::{
-        op::{ResponseCode, message::ResponseSigner},
-        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        runtime::{RuntimeProvider, TokioRuntimeProvider},
-        serialize::txt::Parser,
-    },
-    server::{Request, RequestInfo},
-};
 #[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{DnssecZoneHandler, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::{
         dnssec::{
@@ -46,6 +32,20 @@ use crate::{
             rdata::{DNSKEY, DNSSECRData, key::KEY},
         },
         runtime::Time,
+    },
+    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
+};
+use crate::{
+    proto::{
+        op::{ResponseCode, message::ResponseSigner},
+        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        runtime::{RuntimeProvider, TokioRuntimeProvider},
+        serialize::txt::Parser,
+    },
+    server::{Request, RequestInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, ZoneHandler, ZoneTransfer, ZoneType,
     },
 };
 

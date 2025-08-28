@@ -10,8 +10,8 @@ use hickory_proto::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
-    authority::{AxfrPolicy, ZoneHandler, ZoneType},
     store::in_memory::InMemoryZoneHandler,
+    zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
 };
 
 #[test]

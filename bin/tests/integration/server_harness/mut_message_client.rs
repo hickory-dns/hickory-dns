@@ -3,7 +3,7 @@ use hickory_client::client::ClientHandle;
 use hickory_proto::op::Edns;
 use hickory_proto::xfer::{DnsHandle, DnsRequest};
 #[cfg(feature = "__dnssec")]
-use hickory_server::authority::LookupOptions;
+use hickory_server::zone_handler::LookupOptions;
 
 #[derive(Clone)]
 pub struct MutMessageHandle<C: ClientHandle + Unpin> {

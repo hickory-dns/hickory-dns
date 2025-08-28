@@ -15,12 +15,12 @@ use hickory_resolver::{
     lookup_ip::LookupIpFuture,
 };
 use hickory_server::{
-    authority::{Catalog, ZoneHandler},
     store::in_memory::InMemoryZoneHandler,
+    zone_handler::{Catalog, ZoneHandler},
 };
 use test_support::subscribe;
 
-use hickory_integration::{TestClientStream, example_authority::create_example, mock_client::*};
+use hickory_integration::{TestClientStream, example_zone::create_example, mock_client::*};
 
 #[tokio::test]
 async fn test_lookup() {

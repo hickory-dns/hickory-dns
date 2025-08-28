@@ -16,23 +16,23 @@ use serde::Deserialize;
 
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
+#[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{
-        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
-        ZoneTransfer, ZoneType,
-    },
+    dnssec::NxProofKind,
+    proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
+    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
+};
+use crate::{
     proto::{
         op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
     },
     server::{Request, RequestInfo},
     store::in_memory::{InMemoryZoneHandler, zone_from_path},
-};
-#[cfg(feature = "__dnssec")]
-use crate::{
-    authority::{DnssecZoneHandler, Nsec3QueryInfo},
-    dnssec::NxProofKind,
-    proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneTransfer, ZoneType,
+    },
 };
 
 /// FileZoneHandler is responsible for storing the resource records for a particular zone.
@@ -299,7 +299,7 @@ mod tests {
     use test_support::subscribe;
 
     use super::*;
-    use crate::authority::ZoneType;
+    use crate::zone_handler::ZoneType;
 
     #[test]
     fn test_load_zone() {
