@@ -57,7 +57,7 @@ use hickory_server::store::recursor::RecursiveConfig;
 #[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveZoneHandler;
 #[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use hickory_server::store::sqlite::{SqliteConfig, SqliteZoneHandler};
 use hickory_server::{
     ConfigError,
     authority::{AxfrPolicy, ZoneHandler, ZoneType},
@@ -401,7 +401,7 @@ impl ZoneConfig {
                         ServerStoreConfig::Sqlite(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
                             let mut authority =
-                                SqliteAuthority::<TokioRuntimeProvider>::try_from_config(
+                                SqliteZoneHandler::<TokioRuntimeProvider>::try_from_config(
                                     zone_name.clone(),
                                     zone_type,
                                     axfr_policy,

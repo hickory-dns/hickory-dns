@@ -70,7 +70,7 @@ pub use persistence::Journal;
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 #[allow(dead_code)]
-pub struct SqliteAuthority<P = TokioRuntimeProvider> {
+pub struct SqliteZoneHandler<P = TokioRuntimeProvider> {
     in_memory: InMemoryAuthority<P>,
     journal: Mutex<Option<Journal>>,
     axfr_policy: AxfrPolicy,
@@ -83,7 +83,7 @@ pub struct SqliteAuthority<P = TokioRuntimeProvider> {
     _phantom: PhantomData<P>,
 }
 
-impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     /// Creates a new Authority.
     ///
     /// # Arguments
@@ -1013,7 +1013,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     }
 }
 
-impl<P> Deref for SqliteAuthority<P> {
+impl<P> Deref for SqliteZoneHandler<P> {
     type Target = InMemoryAuthority<P>;
 
     fn deref(&self) -> &Self::Target {
@@ -1021,14 +1021,14 @@ impl<P> Deref for SqliteAuthority<P> {
     }
 }
 
-impl<P> DerefMut for SqliteAuthority<P> {
+impl<P> DerefMut for SqliteZoneHandler<P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.in_memory
     }
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -1205,7 +1205,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteAuthority<P> {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteZoneHandler<P> {
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
     }
@@ -1293,7 +1293,7 @@ pub(crate) fn default_fudge() -> u16 {
 #[cfg(test)]
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
-    use crate::store::sqlite::SqliteAuthority;
+    use crate::store::sqlite::SqliteZoneHandler;
 
     #[test]
     fn test_is_send_sync() {
@@ -1301,6 +1301,6 @@ mod tests {
             true
         }
 
-        assert!(send_sync::<SqliteAuthority>());
+        assert!(send_sync::<SqliteZoneHandler>());
     }
 }

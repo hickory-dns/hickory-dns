@@ -424,12 +424,12 @@ async fn test_nsec3_no_data() {
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
-    use hickory_server::store::sqlite::SqliteAuthority;
+    use hickory_server::store::sqlite::SqliteZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
     let mut authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
