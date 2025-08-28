@@ -100,26 +100,26 @@ struct ZoneLookupMetrics {
 }
 
 impl ZoneLookupMetrics {
-    pub(crate) fn new(authority: &'static str, zone_type: ZoneType) -> Self {
+    pub(crate) fn new(zone_handler: &'static str, zone_type: ZoneType) -> Self {
         let zone_lookups_name = "hickory_zone_lookups_total";
         let type_key = "type";
         let role_key = "role";
-        let authority_key = "authority";
+        let zone_handler_key = "zone_handler";
         let success_key = "success";
 
         // tags are statically derived from the ZoneHandler ZoneType which is a 1:1 relationship
         let new = match zone_type {
             ZoneType::Primary => Self {
-                success: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "primary", success_key => "true"),
-                failed: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "primary", success_key => "false"),
+                success: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "true"),
+                failed: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "false"),
             },
             ZoneType::Secondary => Self {
-                success: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "secondary", success_key => "true"),
-                failed: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "secondary", success_key => "false"),
+                success: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "true"),
+                failed: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "false"),
             },
             ZoneType::External => Self {
-                success: counter!(zone_lookups_name, authority_key => authority, type_key => "external", role_key => "forwarded", success_key => "true"),
-                failed: counter!(zone_lookups_name, authority_key => authority, type_key => "external", role_key => "forwarded", success_key => "false"),
+                success: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "true"),
+                failed: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "false"),
             },
         };
 

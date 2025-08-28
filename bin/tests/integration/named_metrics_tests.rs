@@ -309,7 +309,7 @@ fn test_request_response() {
             &[
                 ("type", "authoritative"),
                 ("role", "secondary"),
-                ("authority", "file"),
+                ("zone_handler", "file"),
                 ("success", "true"),
             ],
             Some(1f64),
@@ -744,25 +744,25 @@ async fn retry_client_lookup(
 const AUTHORITATIVE_PRIMARY_FILE_SUCCESS: [(&str, &str); 4] = [
     ("type", "authoritative"),
     ("role", "primary"),
-    ("authority", "file"),
+    ("zone_handler", "file"),
     ("success", "true"),
 ];
 const AUTHORITATIVE_PRIMARY_FILE_FAILED: [(&str, &str); 4] = [
     ("type", "authoritative"),
     ("role", "primary"),
-    ("authority", "file"),
+    ("zone_handler", "file"),
     ("success", "false"),
 ];
 const EXTERNAL_FORWARDED_FORWARDER_SUCCESS: [(&str, &str); 4] = [
     ("type", "external"),
     ("role", "forwarded"),
-    ("authority", "forwarder"),
+    ("zone_handler", "forwarder"),
     ("success", "true"),
 ];
 const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
     ("type", "external"),
     ("role", "forwarded"),
-    ("authority", "forwarder"),
+    ("zone_handler", "forwarder"),
     ("success", "false"),
 ];
 #[cfg(feature = "blocklist")]
