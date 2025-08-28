@@ -185,12 +185,6 @@ pub trait ZoneHandler: Send + Sync {
         Option<Box<dyn ResponseSigner>>,
     );
 
-    /// Get the NS, NameServer, record for the zone
-    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.lookup(self.origin(), RecordType::NS, None, lookup_options)
-            .await
-    }
-
     /// Return the NSEC records based on the given name
     ///
     /// # Arguments

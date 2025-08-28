@@ -85,7 +85,13 @@ pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 }
 
 pub fn test_ns(handler: impl ZoneHandler, keys: &[DNSKEY]) {
-    let lookup = block_on(handler.ns(LookupOptions::for_dnssec())).unwrap();
+    let lookup = block_on(handler.lookup(
+        handler.origin(),
+        RecordType::NS,
+        None,
+        LookupOptions::for_dnssec(),
+    ))
+    .unwrap();
 
     let (ns_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()

@@ -75,7 +75,13 @@ pub fn test_soa(handler: impl ZoneHandler) {
 }
 
 pub fn test_ns(handler: impl ZoneHandler) {
-    let lookup = block_on(handler.ns(LookupOptions::default())).unwrap();
+    let lookup = block_on(handler.lookup(
+        handler.origin(),
+        RecordType::NS,
+        None,
+        LookupOptions::default(),
+    ))
+    .unwrap();
 
     match lookup
         .into_iter()

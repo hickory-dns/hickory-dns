@@ -147,7 +147,12 @@ async fn test_zone_handler() {
     );
 
     let mut lookup: Vec<_> = handler
-        .ns(LookupOptions::default())
+        .lookup(
+            handler.origin(),
+            RecordType::NS,
+            None,
+            LookupOptions::default(),
+        )
         .await
         .unwrap()
         .iter()
