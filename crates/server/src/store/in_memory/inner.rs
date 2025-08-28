@@ -382,7 +382,7 @@ impl InnerInMemory {
         serial
     }
 
-    /// Inserts or updates a `Record` depending on it's existence in the zone.
+    /// Inserts or updates a `Record` depending on its existence in the zone.
     ///
     /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
     ///
