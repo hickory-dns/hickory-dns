@@ -36,22 +36,22 @@ use hickory_server::authority::{
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
 use hickory_server::store::in_memory::InMemoryAuthority;
-use hickory_server::store::sqlite::{Journal, SqliteAuthority};
+use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
 use test_support::subscribe;
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-fn create_example() -> SqliteAuthority {
+fn create_example() -> SqliteZoneHandler {
     let mut authority = hickory_integration::example_authority::create_example();
     authority.set_axfr_policy(AxfrPolicy::AllowAll); // policy is applied in SqliteAuthority.
-    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, false)
+    SqliteZoneHandler::new(authority, AxfrPolicy::AllowAll, true, false)
 }
 
 #[cfg(feature = "__dnssec")]
-fn create_secure_example() -> SqliteAuthority {
+fn create_secure_example() -> SqliteZoneHandler {
     let mut authority = hickory_integration::example_authority::create_secure_example();
     authority.set_axfr_policy(AxfrPolicy::AllowAll);
-    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, true)
+    SqliteZoneHandler::new(authority, AxfrPolicy::AllowAll, true, true)
 }
 
 #[tokio::test]
@@ -1453,7 +1453,7 @@ async fn test_journal() {
     );
 
     let mut recovered_authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
     recovered_authority
         .recover_with_journal(
             authority
@@ -1517,7 +1517,7 @@ async fn test_recovery() {
     );
 
     let mut recovered_authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
 
     recovered_authority
         .recover_with_journal(journal)

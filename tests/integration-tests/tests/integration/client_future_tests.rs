@@ -259,12 +259,12 @@ async fn create_sig0_ready_client() -> (
     Name,
 ) {
     use hickory_proto::dnssec::rdata::KEY;
-    use hickory_server::store::sqlite::SqliteAuthority;
+    use hickory_server::store::sqlite::SqliteZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     let authority = create_example();
     let mut authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
     let origin = authority.origin().clone();
 
     let trusted_name = Name::from_str("trusted.example.com.").unwrap();

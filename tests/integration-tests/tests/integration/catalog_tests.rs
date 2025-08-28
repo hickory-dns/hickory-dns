@@ -16,7 +16,7 @@ use hickory_proto::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::SqliteAuthority;
+use hickory_server::store::sqlite::SqliteZoneHandler;
 use hickory_server::{
     authority::{AxfrPolicy, Catalog, ZoneHandler, ZoneType},
     server::{Request, RequestHandler},
@@ -578,7 +578,7 @@ async fn test_axfr_deny_all_sqlite() {
 
     let mut test = create_test();
     test.set_axfr_policy(AxfrPolicy::Deny);
-    let authority = SqliteAuthority::new(test, AxfrPolicy::Deny, false, false);
+    let authority = SqliteZoneHandler::new(test, AxfrPolicy::Deny, false, false);
     let origin = authority.origin().clone();
 
     let mut catalog = Catalog::new();
