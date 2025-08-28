@@ -220,7 +220,7 @@ where
         let signers = block_on(handler.secure_keys());
         let public_key = signers
             .first()
-            .expect("expected a key in the authority")
+            .expect("expected a key in the zone handler")
             .key()
             .to_public_key()
             .expect("could not convert keypair to public_key");
