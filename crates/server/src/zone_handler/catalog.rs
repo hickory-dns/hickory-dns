@@ -737,7 +737,8 @@ async fn build_authoritative_response(
             // This was a successful authoritative lookup for SOA:
             //   get the NS records as well.
 
-            match handler.ns(lookup_options).await.map_result() {
+            let future = handler.lookup(handler.origin(), RecordType::NS, None, lookup_options);
+            match future.await.map_result() {
                 Some(Ok(ns)) => (Some(ns), None),
                 Some(Err(error)) => {
                     warn!(%error, "ns_lookup errored");
