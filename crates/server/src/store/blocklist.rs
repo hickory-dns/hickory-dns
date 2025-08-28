@@ -50,20 +50,20 @@ use crate::{
 //    will never be insert into the in-memory blocklist (such as their own domain)
 //  * Add support for regex matching
 
-/// A conditional authority that will resolve queries against one or more block lists and return a
-/// forged response.  The typical use case will be to use this in a chained configuration before a
-/// forwarding or recursive resolver in order to pre-emptively block queries for hosts that are on
-/// a block list. Refer to tests/test-data/test_configs/chained_blocklist.toml for an example
-/// of this configuration.
+/// A conditional zone handler that will resolve queries against one or more block lists and return
+/// a forged response.  The typical use case will be to use this in a chained configuration before a
+/// forwarding or recursive resolver in order to pre-emptively block queries for hosts that are on a
+/// block list. Refer to tests/test-data/test_configs/chained_blocklist.toml for an example of this
+/// configuration.
 ///
-/// The blocklist authority also supports the consult interface, which allows an authority to review
-/// a query/response that has been processed by another authority, and, optionally, overwrite that
-/// response before returning it to the requestor.  There is an example of this configuration in
-/// tests/test-data/test_configs/example_consulting_blocklist.toml.  The main intended use of this
-/// feature is to allow log-only configurations, to allow administrators to see if blocklist domains
-/// are being queried.  While this can be configured to overwrite responses, it is not recommended
-/// to do so - it is both more efficient, and more secure, to allow the blocklist to drop queries
-/// pre-emptively, as in the first example.
+/// The blocklist zone handler also supports the consult interface, which allows a zone handler to
+/// review a query/response that has been processed by another zone handler, and, optionally,
+/// overwrite that response before returning it to the requestor.  There is an example of this
+/// configuration in tests/test-data/test_configs/example_consulting_blocklist.toml.  The main
+/// intended use of this feature is to allow log-only configurations, to allow administrators to see
+/// if blocklist domains are being queried.  While this can be configured to overwrite responses, it
+/// is not recommended to do so - it is both more efficient, and more secure, to allow the blocklist
+/// to drop queries pre-emptively, as in the first example.
 pub struct BlocklistZoneHandler {
     origin: LowerName,
     blocklist: HashMap<LowerName, bool>,
@@ -80,7 +80,7 @@ pub struct BlocklistZoneHandler {
 }
 
 impl BlocklistZoneHandler {
-    /// Read the Authority for the origin from the specified configuration
+    /// Read the ZoneHandler for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
         config: &BlocklistConfig,
@@ -88,7 +88,7 @@ impl BlocklistZoneHandler {
     ) -> Result<Self, String> {
         info!("loading blocklist config: {origin}");
 
-        let mut authority = Self {
+        let mut handler = Self {
             origin: origin.into(),
             blocklist: HashMap::new(),
             wildcard_match: config.wildcard_match,
@@ -112,7 +112,7 @@ impl BlocklistZoneHandler {
             }
         };
 
-        // Load block lists into the block table cache for this authority.
+        // Load block lists into the block table cache for this zone handler.
         for bl in &config.lists {
             info!("adding blocklist {bl}");
 
@@ -125,7 +125,7 @@ impl BlocklistZoneHandler {
                 }
             };
 
-            if let Err(e) = authority.add(file) {
+            if let Err(e) = handler.add(file) {
                 return Err(format!(
                     "unable to add data from blocklist {base_dir}/{bl}: {e:?}"
                 ));
@@ -133,16 +133,16 @@ impl BlocklistZoneHandler {
         }
 
         #[cfg(feature = "metrics")]
-        authority
+        handler
             .metrics
             .entries
-            .set(authority.blocklist.keys().len() as f64);
+            .set(handler.blocklist.keys().len() as f64);
 
-        Ok(authority)
+        Ok(handler)
     }
 
     /// Add the contents of a block list to the in-memory cache. This function is normally called
-    /// from try_from_config, but it can be invoked after the blocklist authority is created.
+    /// from try_from_config, but it can be invoked after the blocklist zone handler is created.
     ///
     /// # Arguments
     ///
@@ -171,7 +171,10 @@ impl BlocklistZoneHandler {
     /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::Path, str::FromStr, sync::Arc};
     /// use hickory_proto::rr::{LowerName, RecordType};
     /// use hickory_resolver::Name;
-    /// use hickory_server::{authority::{Authority, LookupControlFlow, LookupOptions, ZoneType}, store::blocklist::*};
+    /// use hickory_server::{
+    ///     authority::{LookupControlFlow, LookupOptions, ZoneHandler, ZoneType},
+    ///     store::blocklist::*,
+    /// };
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -199,19 +202,19 @@ impl BlocklistZoneHandler {
     ///     }
     ///
     ///     let origin = blocklist.origin().clone();
-    ///     let authority = Arc::new(blocklist) as Arc<dyn Authority>;
+    ///     let handler = Arc::new(blocklist) as Arc<dyn ZoneHandler>;
     ///
     ///     // In this example, malc0de.com only exists in the blocklist2.txt file we added to the
-    ///     // authority after instantiating it.  The following simulates a lookup against the blocklist
-    ///     // authority, and checks for the expected response for a blocklist match.
+    ///     // zone handler after instantiating it.  The following simulates a lookup against the
+    ///     // blocklist zone handler, and checks for the expected response for a blocklist match.
     ///     use LookupControlFlow::*;
-    ///     let Break(Ok(_res)) = authority.lookup(
+    ///     let Break(Ok(_res)) = handler.lookup(
     ///                             &LowerName::from(Name::from_ascii("malc0de.com.").unwrap()),
     ///                             RecordType::A,
     ///                             None,
     ///                             LookupOptions::default(),
     ///                           ).await else {
-    ///         panic!("blocklist authority did not return expected match");
+    ///         panic!("blocklist zone handler did not return expected match");
     ///     };
     /// }
     /// ```
@@ -268,7 +271,7 @@ impl BlocklistZoneHandler {
     }
 
     /// Perform a blocklist lookup. Returns true on match, false on no match.  This is also where
-    /// wildcard expansion is done, if wildcard support is enabled for the blocklist authority.
+    /// wildcard expansion is done, if wildcard support is enabled for the blocklist zone handler.
     fn is_blocked(&self, name: &LowerName) -> bool {
         let mut match_list = vec![name.to_owned()];
 
@@ -376,7 +379,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         Skip
     }
 
-    /// Optionally, perform a blocklist lookup after another authority has done a lookup for this
+    /// Optionally, perform a blocklist lookup after another zone handler has done a lookup for this
     /// query.
     async fn consult(
         &self,
@@ -542,7 +545,7 @@ pub struct BlocklistConfig {
     /// a query.
     pub block_message: Option<String>,
 
-    /// The consult action controls how the blocklist handles queries where another authority has
+    /// The consult action controls how the blocklist handles queries where another zone handler has
     /// already provided an answer.  By default, it ignores any such queries ("Disabled",) however
     /// it can be configured to log blocklist matches for those queries ("Log",) or can be
     /// configured to overwrite the previous responses ("Enforce".)
@@ -588,12 +591,12 @@ impl BlocklistMetrics {
         describe_counter!(
             "hickory_blocklist_blocked_queries_total",
             Unit::Count,
-            "The total number of requests that were blocked by the blocklist authority",
+            "The total number of requests that were blocked by the blocklist zone handler",
         );
         describe_counter!(
             "hickory_blocklist_logged_queries_total",
             Unit::Count,
-            "The total number of requests that were logged by the blocklist authority",
+            "The total number of requests that were logged by the blocklist zone handler",
         );
         describe_counter!(
             "hickory_blocklist_list_hits_total",
@@ -603,7 +606,7 @@ impl BlocklistMetrics {
         describe_counter!(
             "hickory_blocklist_queries_total",
             Unit::Count,
-            "The total number of requests the blocklist authority has processed",
+            "The total number of requests the blocklist zone handler has processed",
         );
 
         Self {
@@ -651,35 +654,35 @@ mod test {
             log_clients: true,
         };
 
-        let ao = authority(&config);
+        let h = handler(&config);
         let v4 = A::new(0, 0, 0, 0);
         let v6 = AAAA::new(0, 0, 0, 0, 0, 0, 0, 0);
 
         use RecordType::{A as Rec_A, AAAA as Rec_AAAA};
         use TestResult::*;
         // Test: lookup a record that is in the blocklist and that should match without a wildcard.
-        basic_test(&ao, "foo.com.", Rec_A, Break, Some(v4), None, None).await;
+        basic_test(&h, "foo.com.", Rec_A, Break, Some(v4), None, None).await;
 
         // test: lookup a record that is not in the blocklist. This test should fail.
-        basic_test(&ao, "test.com.", Rec_A, Skip, None, None, None).await;
+        basic_test(&h, "test.com.", Rec_A, Skip, None, None, None).await;
 
         // Test: lookup a record that will match a wildcard that is in the blocklist.
-        basic_test(&ao, "www.foo.com.", Rec_A, Break, Some(v4), None, None).await;
+        basic_test(&h, "www.foo.com.", Rec_A, Break, Some(v4), None, None).await;
 
         // Test: lookup a record that will match a wildcard that is in the blocklist.
-        basic_test(&ao, "www.com.foo.com.", Rec_A, Break, Some(v4), None, None).await;
+        basic_test(&h, "www.com.foo.com.", Rec_A, Break, Some(v4), None, None).await;
 
         // Test: lookup a record that is in the blocklist and that should match without a wildcard.
-        basic_test(&ao, "foo.com.", Rec_AAAA, Break, None, Some(v6), None).await;
+        basic_test(&h, "foo.com.", Rec_AAAA, Break, None, Some(v6), None).await;
 
         // test: lookup a record that is not in the blocklist. This test should fail.
-        basic_test(&ao, "test.com.", Rec_AAAA, Skip, None, None, None).await;
+        basic_test(&h, "test.com.", Rec_AAAA, Skip, None, None, None).await;
 
         // Test: lookup a record that will match a wildcard that is in the blocklist.
-        basic_test(&ao, "www.foo.com.", Rec_AAAA, Break, None, Some(v6), None).await;
+        basic_test(&h, "www.foo.com.", Rec_AAAA, Break, None, Some(v6), None).await;
 
         // Test: lookup a record that will match a wildcard that is in the blocklist.
-        basic_test(&ao, "ab.cd.foo.com.", Rec_AAAA, Break, None, Some(v6), None).await;
+        basic_test(&h, "ab.cd.foo.com.", Rec_AAAA, Break, None, Some(v6), None).await;
     }
 
     #[tokio::test]
@@ -697,7 +700,7 @@ mod test {
             log_clients: true,
         };
 
-        let ao = authority(&config);
+        let h = handler(&config);
         let v4 = A::new(192, 0, 2, 1);
         let v6 = AAAA::new(0, 0, 0, 0, 0xc0, 0, 2, 1);
         let msg = config.block_message;
@@ -706,14 +709,14 @@ mod test {
         use TestResult::*;
 
         // Test: lookup a record that is in the blocklist and that should match without a wildcard.
-        basic_test(&ao, "foo.com.", Rec_A, Break, Some(v4), None, msg.clone()).await;
+        basic_test(&h, "foo.com.", Rec_A, Break, Some(v4), None, msg.clone()).await;
 
         // Test: lookup a record that is not in the blocklist, but would match a wildcard; this
         // should fail.
-        basic_test(&ao, "www.foo.com.", Rec_A, Skip, None, None, msg.clone()).await;
+        basic_test(&h, "www.foo.com.", Rec_A, Skip, None, None, msg.clone()).await;
 
         // Test: lookup a record that is in the blocklist and that should match without a wildcard.
-        basic_test(&ao, "foo.com.", Rec_AAAA, Break, None, Some(v6), msg).await;
+        basic_test(&h, "foo.com.", Rec_AAAA, Break, None, Some(v6), msg).await;
     }
 
     #[tokio::test]
@@ -732,13 +735,13 @@ mod test {
             log_clients: true,
         };
 
-        let ao = authority(&config);
+        let h = handler(&config);
         let sinkhole_v4 = A::new(192, 0, 2, 1);
 
         // Test: lookup a record that is in the blocklist, but specify an incorrect block message to
         // match.
         basic_test(
-            &ao,
+            &h,
             "foo.com.",
             RecordType::A,
             TestResult::Break,
@@ -764,7 +767,7 @@ mod test {
             log_clients: true,
         };
 
-        let ao = authority(&config);
+        let h = handler(&config);
         let v4 = A::new(192, 0, 2, 1);
         let msg = config.block_message;
 
@@ -772,7 +775,7 @@ mod test {
 
         // Test: lookup a record from a blocklist file in plain format (only domain) which should match without a wildcard.
         basic_test(
-            &ao,
+            &h,
             "test.com.",
             RecordType::A,
             Break,
@@ -784,7 +787,7 @@ mod test {
 
         // Test: lookup a record from a blocklist file in hosts format (ip <space> domain) which should match without a wildcard.
         basic_test(
-            &ao,
+            &h,
             "anothertest.com.",
             RecordType::A,
             Break,
@@ -796,7 +799,7 @@ mod test {
 
         // Test: lookup a record from a blocklist file in hosts format (ip <space> domain) which should match with a wildcard.
         basic_test(
-            &ao,
+            &h,
             "yet.anothertest.com.",
             RecordType::A,
             Break,
@@ -866,17 +869,17 @@ mod test {
         }
     }
 
-    fn authority(config: &BlocklistConfig) -> Arc<dyn ZoneHandler> {
-        let authority = BlocklistZoneHandler::try_from_config(
+    fn handler(config: &BlocklistConfig) -> Arc<dyn ZoneHandler> {
+        let handler = BlocklistZoneHandler::try_from_config(
             Name::root(),
             config,
             Some(Path::new("../../tests/test-data/test_configs/")),
         );
 
-        // Test: verify the blocklist authority was successfully created.
-        match authority {
-            Ok(authority) => Arc::new(authority),
-            Err(error) => panic!("error creating blocklist authority: {error}"),
+        // Test: verify the blocklist zone handler was successfully created.
+        match handler {
+            Ok(handler) => Arc::new(handler),
+            Err(error) => panic!("error creating blocklist zone handler: {error}"),
         }
     }
 

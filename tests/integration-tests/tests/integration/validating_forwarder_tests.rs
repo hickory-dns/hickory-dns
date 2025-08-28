@@ -198,18 +198,18 @@ async fn setup_authoritative_server(
     // Zone setup
     let key = Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
     let public_key = key.to_public_key().unwrap();
-    let mut authority = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+    let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         Name::root(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         Some(hickory_server::dnssec::NxProofKind::Nsec),
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(Name::root(), 3600, RData::A(A(Ipv4Addr::new(1, 2, 3, 4)))),
         0,
     );
     if soa {
-        authority.upsert_mut(
+        handler.upsert_mut(
             Record::from_rdata(
                 Name::root(),
                 3600,
@@ -227,7 +227,7 @@ async fn setup_authoritative_server(
         );
     }
     if signed {
-        authority
+        handler
             .add_zone_signing_key_mut(SigSigner::dnssec(
                 DNSKEY::from_key(&key.to_public_key().unwrap()),
                 Box::new(key),
@@ -235,14 +235,14 @@ async fn setup_authoritative_server(
                 Duration::from_secs(86400),
             ))
             .unwrap();
-        authority.secure_zone_mut().unwrap();
+        handler.secure_zone_mut().unwrap();
     }
 
     // Server setup
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
+    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
     server.register_socket(udp_socket);
 
@@ -256,7 +256,7 @@ async fn setup_client_forwarder(
     // Server setup
     let mut config = NameServerConfig::udp(name_server_addr.ip());
     config.connections[0].port = name_server_addr.port();
-    let mut authority_builder = ForwardZoneHandler::builder_tokio(ForwardConfig {
+    let mut builder = ForwardZoneHandler::builder_tokio(ForwardConfig {
         name_servers: vec![config],
         options: Some(ResolverOpts::default()),
     });
@@ -264,14 +264,14 @@ async fn setup_client_forwarder(
     if let Some(public_key) = public_key {
         let mut anchors = TrustAnchors::empty();
         anchors.insert(public_key);
-        authority_builder = authority_builder.with_trust_anchor(Arc::new(anchors));
+        builder = builder.with_trust_anchor(Arc::new(anchors));
     }
-    let authority = authority_builder.build().unwrap();
+    let handler = builder.build().unwrap();
 
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
+    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
     server.register_socket(udp_socket);
 

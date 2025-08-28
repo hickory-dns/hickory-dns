@@ -102,7 +102,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         RrKey::new(name.clone().into(), RecordType::SOA),
         soa_record_set,
     );
-    let authority = InMemoryZoneHandler::<TokioRuntimeProvider>::new(
+    let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::new(
         name,
         records,
         ZoneType::Primary,
@@ -113,7 +113,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     .unwrap();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
+    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     catalog
 }
 

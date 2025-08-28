@@ -18,7 +18,7 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler 
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
-        .join("authority_battery.jrnl");
+        .join("zone_handler_battery.jrnl");
     let _ = fs::create_dir_all(journal_path.parent().unwrap());
 
     // cleanup anything from previous test
@@ -50,7 +50,7 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneH
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
-        .join("authority_battery.jrnl");
+        .join("zone_handler_battery.jrnl");
     let _ = fs::create_dir_all(journal_path.parent().unwrap());
 
     // cleanup anything from previous test

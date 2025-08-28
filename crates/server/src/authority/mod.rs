@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
+//! Module for `Catalog` of `ZoneHandler` zones which are responsible for storing `RRSet` records.
 
 use std::{io, sync::Arc};
 

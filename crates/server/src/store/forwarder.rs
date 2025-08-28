@@ -51,14 +51,14 @@ pub struct ForwardZoneHandlerBuilder<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
-    /// Set the origin of the authority.
+    /// Set the origin of the zone handler.
     pub fn with_origin(mut self, origin: Name) -> Self {
         self.origin = origin;
         self
     }
 
     /// Enables DNSSEC validation, and sets the DNSSEC trust anchors to be used by the forward
-    /// authority.
+    /// zone handler.
     ///
     /// This overrides the trust anchor path in the `ResolverOpts`.
     #[cfg(feature = "__dnssec")]
@@ -86,7 +86,7 @@ impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
         self
     }
 
-    /// Construct the authority.
+    /// Construct the zone handler.
     pub fn build(self) -> Result<ForwardZoneHandler<P>, String> {
         let Self {
             origin,
@@ -155,7 +155,7 @@ impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
     }
 }
 
-/// An authority that will forward resolutions to upstream resolvers.
+/// A zone handler that will forward resolutions to upstream resolvers.
 ///
 /// This uses the hickory-resolver crate for resolving requests.
 pub struct ForwardZoneHandler<P: ConnectionProvider = TokioRuntimeProvider> {
@@ -214,7 +214,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         AxfrPolicy::Deny
     }
 
-    /// Whether the authority can perform DNSSEC validation
+    /// Whether the zone handler can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool {
         #[cfg(feature = "__dnssec")]
         {

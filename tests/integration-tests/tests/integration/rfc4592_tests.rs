@@ -264,14 +264,14 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     const SERIAL: u32 = 1;
     const TTL: u32 = 3600;
 
-    let mut authority = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+    let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         None,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             TTL,
@@ -287,7 +287,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             TTL,
@@ -295,7 +295,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             origin.clone(),
             TTL,
@@ -303,7 +303,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("*", Some(&origin)).unwrap(),
             TTL,
@@ -311,7 +311,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("*", Some(&origin)).unwrap(),
             TTL,
@@ -319,7 +319,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("sub.*", Some(&origin)).unwrap(),
             TTL,
@@ -327,7 +327,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("host1", Some(&origin)).unwrap(),
             TTL,
@@ -335,7 +335,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("_ssh._tcp.host1", Some(&origin)).unwrap(),
             TTL,
@@ -348,7 +348,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("_ssh._tcp.host2", Some(&origin)).unwrap(),
             TTL,
@@ -361,7 +361,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("subdel", Some(&origin)).unwrap(),
             TTL,
@@ -369,7 +369,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         ),
         SERIAL,
     );
-    authority.upsert_mut(
+    handler.upsert_mut(
         Record::from_rdata(
             Name::parse("subdel", Some(&origin)).unwrap(),
             TTL,
@@ -379,7 +379,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     );
 
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.into(), vec![Arc::new(authority)]);
+    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
 
     // Server setup
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();

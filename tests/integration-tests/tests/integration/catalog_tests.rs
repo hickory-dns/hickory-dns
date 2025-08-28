@@ -578,11 +578,11 @@ async fn test_axfr_deny_all_sqlite() {
 
     let mut test = create_test();
     test.set_axfr_policy(AxfrPolicy::Deny);
-    let authority = SqliteZoneHandler::new(test, AxfrPolicy::Deny, false, false);
-    let origin = authority.origin().clone();
+    let handler = SqliteZoneHandler::new(test, AxfrPolicy::Deny, false, false);
+    let origin = handler.origin().clone();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.clone(), vec![Arc::new(authority)]);
+    catalog.upsert(origin.clone(), vec![Arc::new(handler)]);
 
     let query = Query::query(origin.into(), RecordType::AXFR);
     let mut message = Message::query();
@@ -656,10 +656,10 @@ async fn test_axfr_deny_unsigned() {
 async fn test_nsid_disabled_requested() {
     subscribe();
 
-    let mem_authority = create_test();
-    let origin = mem_authority.origin().clone();
+    let mem_handler = create_test();
+    let origin = mem_handler.origin().clone();
     let mut catalog = Catalog::new(); // Default behaviour: NSID disabled.
-    catalog.upsert(origin.clone(), vec![Arc::new(mem_authority)]);
+    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
 
     // Create a question request that asks for NSID in EDNS.
     let question_req = test_nsid_request(origin.clone(), true);
@@ -689,10 +689,10 @@ async fn test_nsid_disabled_requested() {
 async fn test_nsid_enabled_not_requested() {
     subscribe();
 
-    let mem_authority = create_test();
-    let origin = mem_authority.origin().clone();
+    let mem_handler = create_test();
+    let origin = mem_handler.origin().clone();
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.clone(), vec![Arc::new(mem_authority)]);
+    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
 
     // Configure the catalog with an NSID payload.
     catalog.set_nsid(Some(NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap()));
@@ -725,10 +725,10 @@ async fn test_nsid_enabled_not_requested() {
 async fn test_nsid_enabled_and_requested() {
     subscribe();
 
-    let mem_authority = create_test();
-    let origin = mem_authority.origin().clone();
+    let mem_handler = create_test();
+    let origin = mem_handler.origin().clone();
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.clone(), vec![Arc::new(mem_authority)]);
+    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
 
     // Configure the catalog with an NSID payload.
     let nsid = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
@@ -905,7 +905,7 @@ async fn test_multiple_cname_additionals() {
 async fn test_update_forwarder() {
     subscribe();
 
-    let authority = ForwardZoneHandler::builder_tokio(ForwardConfig {
+    let handler = ForwardZoneHandler::builder_tokio(ForwardConfig {
         name_servers: Vec::new(),
         options: None,
     })
@@ -913,7 +913,7 @@ async fn test_update_forwarder() {
     .unwrap();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
+    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
 
     let query = Query::query(Name::root(), RecordType::SOA);
     let mut message = Message::new(0, MessageType::Query, OpCode::Update);

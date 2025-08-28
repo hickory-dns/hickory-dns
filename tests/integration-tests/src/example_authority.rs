@@ -191,7 +191,7 @@ pub fn create_secure_example() -> InMemoryZoneHandler {
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 
-    let mut authority = create_example();
+    let mut handler = create_example();
 
     const KEY: &[u8] = include_bytes!("../tests/rsa-2048.pk8");
     let key =
@@ -199,12 +199,12 @@ pub fn create_secure_example() -> InMemoryZoneHandler {
     let signer = SigSigner::dnssec(
         DNSKEY::from_key(&key.to_public_key().unwrap()),
         Box::new(key),
-        authority.origin().clone().into(),
+        handler.origin().clone().into(),
         Duration::weeks(1).try_into().unwrap(),
     );
 
-    authority.add_zone_signing_key_mut(signer).unwrap();
-    authority.secure_zone_mut().unwrap();
+    handler.add_zone_signing_key_mut(signer).unwrap();
+    handler.secure_zone_mut().unwrap();
 
-    authority
+    handler
 }

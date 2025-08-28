@@ -22,7 +22,7 @@ use hickory_server::{
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-pub fn test_a_lookup(authority: impl ZoneHandler, keys: &[DNSKEY]) {
+pub fn test_a_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -33,7 +33,7 @@ pub fn test_a_lookup(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
+    let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
         .unwrap();
 
@@ -52,8 +52,8 @@ pub fn test_a_lookup(authority: impl ZoneHandler, keys: &[DNSKEY]) {
 }
 
 #[allow(clippy::unreadable_literal)]
-pub fn test_soa(authority: impl ZoneHandler, keys: &[DNSKEY]) {
-    let lookup = block_on(authority.soa_secure(LookupOptions::for_dnssec())).unwrap();
+pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
+    let lookup = block_on(handler.soa_secure(LookupOptions::for_dnssec())).unwrap();
 
     let (soa_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -84,8 +84,8 @@ pub fn test_soa(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     verify(&soa_records, &rrsig_records, keys);
 }
 
-pub fn test_ns(authority: impl ZoneHandler, keys: &[DNSKEY]) {
-    let lookup = block_on(authority.ns(LookupOptions::for_dnssec())).unwrap();
+pub fn test_ns(handler: impl ZoneHandler, keys: &[DNSKEY]) {
+    let lookup = block_on(handler.ns(LookupOptions::for_dnssec())).unwrap();
 
     let (ns_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -106,7 +106,7 @@ pub fn test_ns(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     verify(&ns_records, &rrsig_records, keys);
 }
 
-pub fn test_aname_lookup(authority: impl ZoneHandler, keys: &[DNSKEY]) {
+pub fn test_aname_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -120,7 +120,7 @@ pub fn test_aname_lookup(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
+    let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
         .unwrap();
 
@@ -138,7 +138,7 @@ pub fn test_aname_lookup(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     verify(&a_records, &rrsig_records, keys);
 }
 
-pub fn test_wildcard(authority: impl ZoneHandler, keys: &[DNSKEY]) {
+pub fn test_wildcard(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -153,7 +153,7 @@ pub fn test_wildcard(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
+    let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
         .expect("lookup of www.wildcard.example.com. failed");
 
@@ -177,7 +177,7 @@ pub fn test_wildcard(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     verify(&cname_records, &rrsig_records, keys);
 }
 
-pub fn test_wildcard_subdomain(authority: impl ZoneHandler, keys: &[DNSKEY]) {
+pub fn test_wildcard_subdomain(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -192,7 +192,7 @@ pub fn test_wildcard_subdomain(authority: impl ZoneHandler, keys: &[DNSKEY]) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::for_dnssec()))
+    let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
@@ -223,12 +223,11 @@ fn into_rrsig(r: Record<RData>) -> Option<Record<RRSIG>> {
     })
 }
 
-pub fn test_nsec_nodata(authority: impl ZoneHandler, _: &[DNSKEY]) {
+pub fn test_nsec_nodata(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
     let lookup =
-        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
-            .unwrap();
+        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -248,12 +247,11 @@ pub fn test_nsec_nodata(authority: impl ZoneHandler, _: &[DNSKEY]) {
     );
 }
 
-pub fn test_nsec_nxdomain_start(authority: impl ZoneHandler, _: &[DNSKEY]) {
+pub fn test_nsec_nxdomain_start(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // tests between the SOA and first record in the zone, where bbb is the first zone record
     let name = Name::from_str("aaa.example.com.").unwrap();
     let lookup =
-        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
-            .unwrap();
+        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -274,12 +272,11 @@ pub fn test_nsec_nxdomain_start(authority: impl ZoneHandler, _: &[DNSKEY]) {
     );
 }
 
-pub fn test_nsec_nxdomain_middle(authority: impl ZoneHandler, _: &[DNSKEY]) {
+pub fn test_nsec_nxdomain_middle(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
     let name = Name::from_str("ccc.example.com.").unwrap();
     let lookup =
-        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
-            .unwrap();
+        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
 
     let (mut nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -303,12 +300,11 @@ pub fn test_nsec_nxdomain_middle(authority: impl ZoneHandler, _: &[DNSKEY]) {
     );
 }
 
-pub fn test_nsec_nxdomain_wraps_end(authority: impl ZoneHandler, _: &[DNSKEY]) {
+pub fn test_nsec_nxdomain_wraps_end(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // wraps back to the beginning of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
     let lookup =
-        block_on(authority.nsec_records(&name.clone().into(), LookupOptions::for_dnssec()))
-            .unwrap();
+        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
 
     let (mut nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -353,9 +349,9 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
     }));
 }
 
-pub fn add_signers<A: DnssecZoneHandler>(authority: &mut A) -> Vec<DNSKEY> {
+pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
     use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
-    let signer_name = Name::from(authority.origin().to_owned());
+    let signer_name = Name::from(handler.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();
 
@@ -374,8 +370,8 @@ pub fn add_signers<A: DnssecZoneHandler>(authority: &mut A) -> Vec<DNSKEY> {
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        block_on(authority.add_zone_signing_key(signer)).expect("failed to add signer to zone");
-        block_on(authority.secure_zone()).expect("failed to sign zone");
+        block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
+        block_on(handler.secure_zone()).expect("failed to sign zone");
     }
 
     // ecdsa_p256
@@ -391,8 +387,8 @@ pub fn add_signers<A: DnssecZoneHandler>(authority: &mut A) -> Vec<DNSKEY> {
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        block_on(authority.add_zone_signing_key(signer)).expect("failed to add signer to zone");
-        block_on(authority.secure_zone()).expect("failed to sign zone");
+        block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
+        block_on(handler.secure_zone()).expect("failed to sign zone");
     }
 
     // ecdsa_p384
@@ -408,8 +404,8 @@ pub fn add_signers<A: DnssecZoneHandler>(authority: &mut A) -> Vec<DNSKEY> {
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        block_on(authority.add_zone_signing_key(signer)).expect("failed to add signer to zone");
-        block_on(authority.secure_zone()).expect("failed to sign zone");
+        block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
+        block_on(handler.secure_zone()).expect("failed to sign zone");
     }
 
     // ed 25519
@@ -426,8 +422,8 @@ pub fn add_signers<A: DnssecZoneHandler>(authority: &mut A) -> Vec<DNSKEY> {
             .try_into_signer(signer_name)
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        block_on(authority.add_zone_signing_key(signer)).expect("failed to add signer to zone");
-        block_on(authority.secure_zone()).expect("failed to sign zone");
+        block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
+        block_on(handler.secure_zone()).expect("failed to sign zone");
     }
 
     keys
@@ -440,9 +436,9 @@ macro_rules! define_dnssec_test {
             fn $f () {
                 ::test_support::subscribe();
                 use std::path::Path;
-                let mut authority = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
-                let keys = crate::authority_battery::dnssec::add_signers(&mut authority);
-                crate::authority_battery::dnssec::$f(authority, &keys);
+                let mut handler = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
+                let keys = crate::authority_battery::dnssec::add_signers(&mut handler);
+                crate::authority_battery::dnssec::$f(handler, &keys);
             }
         )*
     }

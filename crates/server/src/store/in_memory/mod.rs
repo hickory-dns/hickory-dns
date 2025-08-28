@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! In-memory zone data authority
+//! Zone handler with in-memory authoritative data storage
 
 use std::{
     collections::BTreeMap,
@@ -52,9 +52,9 @@ use crate::{
 mod inner;
 use inner::InnerInMemory;
 
-/// InMemoryAuthority is responsible for storing the resource records for a particular zone.
+/// InMemoryZoneHandler is responsible for storing the resource records for a particular zone.
 ///
-/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
+/// Zone handlers default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct InMemoryZoneHandler<P = TokioRuntimeProvider> {
     origin: LowerName,
@@ -68,7 +68,7 @@ pub struct InMemoryZoneHandler<P = TokioRuntimeProvider> {
 }
 
 impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
-    /// Creates a new Authority.
+    /// Creates a new ZoneHandler.
     ///
     /// # Arguments
     ///
@@ -81,7 +81,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     ///
     /// # Return value
     ///
-    /// The new `Authority`.
+    /// The new `ZoneHandler`.
     pub fn new(
         origin: Name,
         records: BTreeMap<RrKey, RecordSet>,
@@ -125,7 +125,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
         Ok(this)
     }
 
-    /// Creates an empty Authority
+    /// Creates an empty ZoneHandler
     ///
     /// # Warning
     ///
@@ -207,7 +207,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
             .increment_soa_serial(self.origin(), self.class)
     }
 
-    /// Inserts or updates a `Record` depending on its existence in the authority.
+    /// Inserts or updates a `Record` depending on its existence in the zone.
     ///
     /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
     ///
@@ -228,7 +228,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
         self.inner.get_mut().upsert(record, serial, self.class)
     }
 
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
+    /// Add a (Sig0) key that is authorized to perform updates against this zone
     #[cfg(feature = "__dnssec")]
     fn inner_add_update_auth_key(
         inner: &mut InnerInMemory,
@@ -378,7 +378,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 
         if query_type == RecordType::AXFR {
             return LookupControlFlow::Break(Err(LookupError::ProtoError(
-                "AXFR must be handled with Authority::zone_transfer()".into(),
+                "AXFR must be handled with ZoneHandler::zone_transfer()".into(),
             )));
         }
 
@@ -509,7 +509,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             Ok(info) => info,
             Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
         };
-        debug!("searching InMemoryAuthority for: {}", request_info.query);
+        debug!("searching InMemoryZoneHandler for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
         let record_type: RecordType = request_info.query.query_type();
@@ -528,7 +528,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             ),
             RecordType::AXFR => (
                 LookupControlFlow::Break(Err(LookupError::ProtoError(
-                    "AXFR must be handled with Authority::zone_transfer()".into(),
+                    "AXFR must be handled with ZoneHandler::zone_transfer()".into(),
                 ))),
                 None,
             ),
@@ -692,7 +692,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler<P> {
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
+    /// Add a (Sig0) key that is authorized to perform updates against this zone
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
 

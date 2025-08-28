@@ -23,18 +23,18 @@ pub(super) struct CatalogMetrics {
 }
 
 impl CatalogMetrics {
-    pub(super) fn add_authority(&mut self, authority: &dyn ZoneHandler) {
+    pub(super) fn add_handler(&mut self, handler: &dyn ZoneHandler) {
         match self
             .zone_store_metrics
-            .entry((authority.metrics_label(), authority.zone_type()))
+            .entry((handler.metrics_label(), handler.zone_type()))
         {
             Entry::Occupied(_) => {
                 /* already present, for the label and zone type combination => use existing */
             }
             Entry::Vacant(v) => {
                 v.insert(ZoneLookupMetrics::new(
-                    authority.metrics_label(),
-                    authority.zone_type(),
+                    handler.metrics_label(),
+                    handler.zone_type(),
                 ));
             }
         }
@@ -42,13 +42,13 @@ impl CatalogMetrics {
 
     pub(super) fn update_zone_lookup(
         &self,
-        authority: &dyn ZoneHandler,
+        handler: &dyn ZoneHandler,
         lookup: &LookupControlFlow<AuthLookup>,
     ) {
-        // metrics per store are added/removed with the Authority in the Catalog (requires mut)
+        // metrics per store are added/removed with the ZoneHandler in the Catalog (requires mut)
         let Some(zone_store_metrics) = self
             .zone_store_metrics
-            .get(&(authority.metrics_label(), authority.zone_type()))
+            .get(&(handler.metrics_label(), handler.zone_type()))
         else {
             return;
         };
@@ -107,7 +107,7 @@ impl ZoneLookupMetrics {
         let authority_key = "authority";
         let success_key = "success";
 
-        // tags are statically derived from the Authority ZoneType which is a 1:1 relationship
+        // tags are statically derived from the ZoneHandler ZoneType which is a 1:1 relationship
         let new = match zone_type {
             ZoneType::Primary => Self {
                 success: counter!(zone_lookups_name, authority_key => authority, type_key => "authoritative", role_key => "primary", success_key => "true"),
