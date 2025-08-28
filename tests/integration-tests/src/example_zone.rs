@@ -2,10 +2,10 @@ use std::str::FromStr;
 
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record};
-use hickory_server::authority::{AxfrPolicy, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
+use hickory_server::zone_handler::{AxfrPolicy, ZoneType};
 
 pub fn create_example() -> InMemoryZoneHandler {
     let origin = Name::parse("example.com.", None).unwrap();
@@ -187,7 +187,7 @@ pub fn create_secure_example() -> InMemoryZoneHandler {
     use hickory_proto::dnssec::{
         Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
-    use hickory_server::authority::ZoneHandler;
+    use hickory_server::zone_handler::ZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 

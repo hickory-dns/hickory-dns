@@ -22,14 +22,26 @@ use futures_util::lock::Mutex;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
-use crate::authority::ZoneTransfer;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
+use crate::zone_handler::ZoneTransfer;
+#[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{
-        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
-        ZoneType,
+    dnssec::NxProofKind,
+    proto::{
+        dnssec::{
+            DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
+            rdata::{
+                DNSSECRData,
+                key::KEY,
+                tsig::{TsigAlgorithm, TsigError},
+            },
+        },
+        op::MessageSignature,
     },
+    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
+};
+use crate::{
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::ResponseCode,
@@ -42,21 +54,9 @@ use crate::{
         file::rooted,
         in_memory::{InMemoryZoneHandler, zone_from_path},
     },
-};
-#[cfg(feature = "__dnssec")]
-use crate::{
-    authority::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
-    dnssec::NxProofKind,
-    proto::{
-        dnssec::{
-            DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
-            rdata::{
-                DNSSECRData,
-                key::KEY,
-                tsig::{TsigAlgorithm, TsigError},
-            },
-        },
-        op::MessageSignature,
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
     },
 };
 #[cfg(feature = "__dnssec")]

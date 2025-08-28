@@ -26,12 +26,8 @@ use serde::Deserialize;
 use tracing::{debug, info};
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
+use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
-    authority::{
-        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
-        ZoneType,
-    },
     error::ConfigError,
     proto::{
         op::Query,
@@ -43,6 +39,10 @@ use crate::{
     recursor::{DnssecPolicy, Recursor},
     resolver::TtlConfig,
     server::{Request, RequestInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
+    },
 };
 
 /// A zone handler that performs recursive resolutions.

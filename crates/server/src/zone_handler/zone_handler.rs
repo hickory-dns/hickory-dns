@@ -12,14 +12,6 @@ use std::fmt;
 use cfg_if::cfg_if;
 use serde::Deserialize;
 
-use crate::{
-    authority::{AuthLookup, LookupError, ZoneTransfer, ZoneType},
-    proto::{
-        op::{Edns, ResponseCode, message::ResponseSigner},
-        rr::{LowerName, RecordSet, RecordType, RrsetRecords},
-    },
-    server::{Request, RequestInfo},
-};
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
@@ -28,6 +20,14 @@ use crate::{
         dnssec::{DnsSecResult, Nsec3HashAlgorithm, SigSigner, crypto::Digest, rdata::key::KEY},
         rr::Name,
     },
+};
+use crate::{
+    proto::{
+        op::{Edns, ResponseCode, message::ResponseSigner},
+        rr::{LowerName, RecordSet, RecordType, RrsetRecords},
+    },
+    server::{Request, RequestInfo},
+    zone_handler::{AuthLookup, LookupError, ZoneTransfer, ZoneType},
 };
 
 /// Options from the client to include or exclude various records in the response.

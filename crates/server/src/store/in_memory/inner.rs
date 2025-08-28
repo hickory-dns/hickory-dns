@@ -17,7 +17,6 @@ use tracing::{error, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{LookupError, Nsec3QueryInfo},
     dnssec::NxProofKind,
     proto::{
         ProtoError,
@@ -26,14 +25,15 @@ use crate::{
             rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
         },
     },
+    zone_handler::{LookupError, Nsec3QueryInfo},
 };
 
 use super::maybe_next_name;
 use crate::{
-    authority::LookupOptions,
     proto::rr::{
         DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
     },
+    zone_handler::LookupOptions,
 };
 
 #[derive(Default)]

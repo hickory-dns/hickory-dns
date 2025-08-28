@@ -81,7 +81,7 @@ use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::default_tls_server_config;
-use hickory_server::{authority::Catalog, server::Server};
+use hickory_server::{server::Server, zone_handler::Catalog};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]

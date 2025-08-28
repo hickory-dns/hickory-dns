@@ -15,8 +15,8 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
     server::Request,
+    zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
@@ -833,7 +833,7 @@ macro_rules! define_basic_test {
                 subscribe();
                 use std::path::Path;
                 let handler = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
-                crate::authority_battery::basic::$f(handler);
+                crate::zone_handler_battery::basic::$f(handler);
             }
         )*
     }

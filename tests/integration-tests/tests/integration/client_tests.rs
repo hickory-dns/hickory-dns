@@ -16,7 +16,7 @@ use hickory_client::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_integration::example_authority::create_example;
+use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::ProtoError;
@@ -41,7 +41,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::authority::{AxfrPolicy, Catalog, ZoneHandler};
+use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]

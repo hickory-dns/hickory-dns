@@ -11,7 +11,7 @@ use time::Duration;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_integration::{
     GOOGLE_V4, GOOGLE_V6, NeverReturnsClientStream, TEST3_V4, TestClientStream,
-    example_authority::create_example,
+    example_zone::create_example,
 };
 use hickory_proto::{
     DnsHandle, ProtoErrorKind,
@@ -33,8 +33,8 @@ use hickory_proto::{
     xfer::{DnsExchangeBackground, DnsMultiplexer},
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::authority::AxfrPolicy;
-use hickory_server::authority::{Catalog, ZoneHandler};
+use hickory_server::zone_handler::AxfrPolicy;
+use hickory_server::zone_handler::{Catalog, ZoneHandler};
 
 #[tokio::test]
 async fn test_query_nonet() {

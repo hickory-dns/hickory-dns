@@ -24,8 +24,8 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
     server::Request,
+    zone_handler::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
@@ -787,8 +787,8 @@ macro_rules! define_update_test {
                 ::test_support::subscribe();
                 use std::path::Path;
                 let mut handler = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
-                let keys = crate::authority_battery::dynamic_update::add_auth(&mut handler);
-                crate::authority_battery::dynamic_update::$f(handler, &keys);
+                let keys = crate::zone_handler_battery::dynamic_update::add_auth(&mut handler);
+                crate::zone_handler_battery::dynamic_update::$f(handler, &keys);
             }
         )*
     }

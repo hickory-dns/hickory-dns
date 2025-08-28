@@ -32,11 +32,11 @@ use hickory_resolver::{
 };
 use hickory_server::{
     Server,
-    authority::{AxfrPolicy, Catalog, ZoneType},
     store::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryZoneHandler,
     },
+    zone_handler::{AxfrPolicy, Catalog, ZoneType},
 };
 use test_support::subscribe;
 use tokio::{net::UdpSocket, spawn};

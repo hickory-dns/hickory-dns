@@ -10,7 +10,7 @@ use std::{
     fmt,
 };
 
-use crate::authority::{AuthLookup, LookupControlFlow, ZoneHandler, ZoneType};
+use crate::zone_handler::{AuthLookup, LookupControlFlow, ZoneHandler, ZoneType};
 
 use hickory_proto::op::LowerQuery;
 use hickory_proto::rr::{DNSClass, Record, RecordType};

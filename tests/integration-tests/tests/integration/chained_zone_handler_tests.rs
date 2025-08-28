@@ -9,13 +9,13 @@ use hickory_proto::{
     xfer::Protocol,
 };
 #[cfg(feature = "__dnssec")]
-use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
+use hickory_server::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use hickory_server::{
-    authority::{
+    server::{Request, RequestInfo, ResponseInfo},
+    zone_handler::{
         AuthLookup, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
         LookupRecords, ZoneHandler, ZoneType,
     },
-    server::{Request, RequestInfo, ResponseInfo},
 };
 use test_support::subscribe;
 

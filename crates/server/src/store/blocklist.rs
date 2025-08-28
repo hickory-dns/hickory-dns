@@ -26,12 +26,8 @@ use serde::Deserialize;
 use tracing::{info, trace, warn};
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
+use crate::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use crate::{
-    authority::{
-        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
-        ZoneTransfer, ZoneType,
-    },
     proto::{
         op::{Query, message::ResponseSigner},
         rr::{
@@ -41,6 +37,10 @@ use crate::{
     },
     resolver::lookup::Lookup,
     server::{Request, RequestInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneTransfer, ZoneType,
+    },
 };
 
 // TODO:
@@ -172,8 +172,8 @@ impl BlocklistZoneHandler {
     /// use hickory_proto::rr::{LowerName, RecordType};
     /// use hickory_resolver::Name;
     /// use hickory_server::{
-    ///     authority::{LookupControlFlow, LookupOptions, ZoneHandler, ZoneType},
     ///     store::blocklist::*,
+    ///     zone_handler::{LookupControlFlow, LookupOptions, ZoneHandler, ZoneType},
     /// };
     ///
     /// #[tokio::main]
@@ -630,12 +630,12 @@ mod test {
 
     use super::*;
     use crate::{
-        authority::LookupOptions,
         proto::rr::domain::Name,
         proto::rr::{
             LowerName, RData, RecordType,
             rdata::{A, AAAA},
         },
+        zone_handler::LookupOptions,
     };
     use test_support::subscribe;
 

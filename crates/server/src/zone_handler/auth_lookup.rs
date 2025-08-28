@@ -8,13 +8,13 @@
 use std::slice::Iter;
 use std::sync::Arc;
 
-use crate::authority::LookupOptions;
 use crate::proto::{
     op::Message,
     rr::{Record, RecordSet, RecordType, RrsetRecords},
 };
 #[cfg(feature = "resolver")]
 use crate::resolver::lookup::{Lookup, LookupRecordIter};
+use crate::zone_handler::LookupOptions;
 
 /// The result of a lookup on a ZoneHandler
 #[allow(clippy::large_enum_variant)]

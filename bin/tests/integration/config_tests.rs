@@ -27,7 +27,7 @@ use toml::value::Array;
 use toml::{Table, Value};
 
 use hickory_dns::{Config, ServerZoneConfig};
-use hickory_server::authority::ZoneType;
+use hickory_server::zone_handler::ZoneType;
 
 #[test]
 fn test_read_config() {
