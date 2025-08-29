@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
@@ -100,16 +100,6 @@ impl<P: ConnectionProvider> NameServer<P> {
 
     pub(super) fn trust_negative_responses(&self) -> bool {
         self.inner.config.trust_negative_responses
-    }
-}
-
-impl<P: ConnectionProvider> Debug for NameServer<P> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            f,
-            "config: {:?}, options: {:?}",
-            self.inner.config, self.inner.options
-        )
     }
 }
 
