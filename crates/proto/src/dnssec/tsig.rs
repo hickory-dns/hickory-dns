@@ -419,8 +419,8 @@ mod tests {
     fn test_sign_and_verify_message_tsig() {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
-        let origin: Name = Name::parse("example.com.", None).unwrap();
-        let key_name: Name = Name::from_ascii("key_name.").unwrap();
+        let origin = Name::parse("example.com.", None).unwrap();
+        let key_name = Name::from_ascii("key_name.").unwrap();
         let mut question = Message::query();
         let mut query: Query = Query::new();
         query.set_name(origin);
@@ -449,8 +449,8 @@ mod tests {
     fn get_message_and_signer() -> (Message, TSigner) {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
-        let origin: Name = Name::parse("example.com.", None).unwrap();
-        let key_name: Name = Name::from_ascii("key_name.").unwrap();
+        let origin = Name::parse("example.com.", None).unwrap();
+        let key_name = Name::from_ascii("key_name.").unwrap();
         let mut question = Message::query();
         let mut query: Query = Query::new();
         query.set_name(origin);
@@ -480,7 +480,7 @@ mod tests {
     fn test_sign_and_verify_message_tsig_reject_keyname() {
         let (mut question, signer) = get_message_and_signer();
 
-        let other_name: Name = Name::from_ascii("other_name.").unwrap();
+        let other_name = Name::from_ascii("other_name.").unwrap();
         let MessageSignature::Tsig(mut signature) = question.take_signature() else {
             panic!("should have TSIG signed");
         };
@@ -499,7 +499,7 @@ mod tests {
         let (mut question, signer) = get_message_and_signer();
 
         let mut query: Query = Query::new();
-        let origin: Name = Name::parse("example.net.", None).unwrap();
+        let origin = Name::parse("example.net.", None).unwrap();
         query.set_name(origin);
         question.add_query(query);
 

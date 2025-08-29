@@ -113,7 +113,7 @@ pub fn create_example() -> InMemoryZoneHandler {
     // example.com.		3600	IN	RRSIG	SOA 8 2 3600 20150926132522 20150905040848 54108 example.com. q8psdDPaJVo9KPVgMNR2N1by3LMEci+3HyTmN/Xv3DgDFG5MqNlX9Dfj dUBIMbvYmkUUPQ9fIWYA+ldmDHiRBiHIcvvk/LYD8mODWL6RoF+GEsW0 zm43RNBnbE41wtNrch5WU/q1ko2svB98ooqePWWuFzmdyPpidtLCgSCz FCiCiVQ=
 
     // www
-    let www_name: Name = Name::parse("www.example.com.", None).unwrap();
+    let www_name = Name::parse("www.example.com.", None).unwrap();
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
     records.upsert_mut(

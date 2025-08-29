@@ -406,7 +406,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
-        let name_labels: Name = Name::read(decoder)?;
+        let name_labels = Name::read(decoder)?;
 
         // TYPE            two octets containing one of the RR TYPE codes.
         let record_type: RecordType = RecordType::read(decoder)?;

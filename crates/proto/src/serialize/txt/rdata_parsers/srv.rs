@@ -42,7 +42,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("port".to_string())))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
 
-    let target: Name = tokens
+    let target = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("target".to_string())))
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;

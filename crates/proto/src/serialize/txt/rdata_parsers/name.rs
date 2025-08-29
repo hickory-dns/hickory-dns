@@ -26,7 +26,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<Name> {
-    let name: Name = tokens
+    let name = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("name".to_string()).into())
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;

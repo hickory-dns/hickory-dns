@@ -526,7 +526,7 @@ fn test_updates() {
             let mut trust_anchor = TrustAnchors::empty();
             trust_anchor.insert(&verify_key.to_public_key().unwrap());
 
-            let origin: Name = Name::parse("example.com.", None).unwrap();
+            let origin = Name::parse("example.com.", None).unwrap();
 
             let update_algo = Algorithm::RSASHA512;
             let update_key =

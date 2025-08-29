@@ -82,7 +82,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         .and_then(|s| s.parse().map_err(Into::into))?;
 
     // svcb target
-    let target_name: Name = tokens
+    let target_name = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("Target".to_string())))
         .and_then(|s| Name::from_str(s).map_err(ParseError::from))?;

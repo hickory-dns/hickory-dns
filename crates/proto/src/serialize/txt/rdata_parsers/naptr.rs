@@ -57,7 +57,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
         .map(ToString::to_string)
         .map(|s| s.into_bytes().into_boxed_slice())?;
 
-    let replacement: Name = tokens
+    let replacement = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("replacement".to_string()).into())
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;

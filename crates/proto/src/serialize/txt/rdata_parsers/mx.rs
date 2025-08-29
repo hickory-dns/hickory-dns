@@ -31,7 +31,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("preference".to_string())))
         .and_then(|s| s.parse().map_err(Into::into))?;
-    let exchange: Name = tokens
+    let exchange = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("exchange".to_string()).into())
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;

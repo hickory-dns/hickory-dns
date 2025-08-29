@@ -31,12 +31,12 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<SOA> {
-    let mname: Name = tokens
+    let mname = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("mname".to_string()).into())
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
-    let rname: Name = tokens
+    let rname = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("rname".to_string()).into())
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
