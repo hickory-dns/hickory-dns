@@ -138,7 +138,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
         // Unless the user specified that we should follow the configured order,
         // re-order the connections to prioritize UDP.
         if options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder {
-            connections.sort_by_key(|ns| (ns.protocol != Protocol::Udp) as u8);
+            connections.sort_by_key(|ns| ns.protocol != Protocol::Udp);
         }
 
         Self {
