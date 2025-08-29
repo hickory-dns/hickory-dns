@@ -34,8 +34,6 @@ pub enum AuthLookup {
     /// Records resulting from a resolver lookup
     #[cfg(feature = "resolver")]
     Resolved(Lookup),
-    /// `SOA` is used to store the SOA RR, to be included in the Additional section of a response.
-    SOA(LookupRecords),
     /// A response message
     Response(Message),
 }
@@ -128,9 +126,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
         match self {
             AuthLookup::Empty => AuthLookupIter::Empty,
             // TODO: what about the additionals? is IntoIterator a bad idea?
-            AuthLookup::Records { answers: r, .. } | AuthLookup::SOA(r) => {
-                AuthLookupIter::Records(r.into_iter())
-            }
+            AuthLookup::Records { answers: r, .. } => AuthLookupIter::Records(r.into_iter()),
             #[cfg(feature = "resolver")]
             AuthLookup::Resolved(lookup) => AuthLookupIter::Resolved(lookup.record_iter()),
             AuthLookup::Response(message) => AuthLookupIter::Response(message.answers().iter()),
