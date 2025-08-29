@@ -18,7 +18,7 @@ use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::NameServer;
 use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
@@ -33,20 +33,6 @@ pub struct NameServerPool<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> NameServerPool<P> {
-    pub(crate) fn from_config_with_provider(
-        config: &ResolverConfig,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
-        conn_provider: P,
-    ) -> Self {
-        Self::from_config(
-            config.name_servers().iter().cloned(),
-            options,
-            tls,
-            conn_provider,
-        )
-    }
-
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         servers: impl IntoIterator<Item = NameServerConfig>,
@@ -55,7 +41,8 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
-            servers.into_iter()
+            servers
+                .into_iter()
                 .map(|server| {
                     Arc::new(NameServer::new(
                         [],
@@ -242,7 +229,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::config::NameServerConfig;
+    use crate::config::{NameServerConfig, ResolverConfig};
     use crate::proto::op::{DnsRequestOptions, Query};
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
@@ -264,8 +251,8 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let pool = NameServerPool::from_config_with_provider(
-            &resolver_config,
+        let pool = NameServerPool::from_config(
+            resolver_config.name_servers,
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::new(),

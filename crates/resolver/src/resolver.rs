@@ -457,8 +457,8 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         }
 
         let options = Arc::new(options);
-        let pool = NameServerPool::from_config_with_provider(
-            &config,
+        let pool = NameServerPool::from_config(
+            config.name_servers().iter().cloned(),
             options.clone(),
             Arc::new(match tls {
                 Some(config) => config,
