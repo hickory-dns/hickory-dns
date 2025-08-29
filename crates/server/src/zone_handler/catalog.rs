@@ -130,47 +130,49 @@ impl RequestHandler for Catalog {
         }
 
         let now = T::current_time();
-        let result = match request.message_type() {
+        match request.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => match request.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request.id());
-                    let info = self
-                        .lookup(request, response_edns, now, response_handle)
-                        .await;
-
-                    Ok(info)
+                    self.lookup(request, response_edns, now, response_handle)
+                        .await
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.id());
-                    self.update(request, response_edns, now, response_handle)
-                        .await
+                    let result = self
+                        .update(request, response_edns, now, response_handle)
+                        .await;
+                    match result {
+                        Ok(info) => info,
+                        Err(error) => {
+                            error!(%error, "request failed");
+                            ResponseInfo::serve_failed(request)
+                        }
+                    }
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    let response =
-                        MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                            .error_msg(request.header(), ResponseCode::NotImp);
-
-                    response_handle.send_response(response).await
+                    send_error_response(
+                        request,
+                        ResponseCode::NotImp,
+                        response_edns,
+                        response_handle,
+                    )
+                    .await
                 }
             },
             MessageType::Response => {
                 warn!("got a response as a request from id: {}", request.id());
-                let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                    .error_msg(request.header(), ResponseCode::FormErr);
-
-                response_handle.send_response(response).await
+                send_error_response(
+                    request,
+                    ResponseCode::FormErr,
+                    response_edns,
+                    response_handle,
+                )
+                .await
             }
-        };
-
-        match result {
-            Err(error) => {
-                error!(%error, "request failed");
-                ResponseInfo::serve_failed(request)
-            }
-            Ok(info) => info,
         }
     }
 }
@@ -370,33 +372,29 @@ impl Catalog {
         request: &Request,
         response_edns: Option<Edns>,
         now: u64,
-        mut response_handle: R,
+        response_handle: R,
     ) -> ResponseInfo {
         let Ok(request_info) = request.request_info() else {
             // Wrong number of queries
-            let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                .error_msg(request.header(), ResponseCode::FormErr);
-            match response_handle.send_response(response).await {
-                Err(error) => {
-                    error!(%error, "failed to send response");
-                    return ResponseInfo::serve_failed(request);
-                }
-                Ok(r) => return r,
-            }
+            return send_error_response(
+                request,
+                ResponseCode::FormErr,
+                response_edns,
+                response_handle,
+            )
+            .await;
         };
         let handlers = self.find(request_info.query.name());
 
         let Some(handlers) = handlers else {
             // There are no zone handlers registered that can handle the request
-            let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                .error_msg(request.header(), ResponseCode::Refused);
-            match response_handle.send_response(response).await {
-                Err(error) => {
-                    error!(%error, "failed to send response");
-                    return ResponseInfo::serve_failed(request);
-                }
-                Ok(r) => return r,
-            }
+            return send_error_response(
+                request,
+                ResponseCode::Refused,
+                response_edns,
+                response_handle,
+            )
+            .await;
         };
 
         let result = if request_info.query.query_type() == RecordType::AXFR {
@@ -649,6 +647,25 @@ async fn zone_transfer(
 
     error!("end of chained zone handler loop with all zone handlers not answering");
     Err(LookupError::ResponseCode(ResponseCode::ServFail))
+}
+
+/// Helper function to construct a response message with an error response code, and send it via a
+/// response handler.
+async fn send_error_response(
+    request: &Request,
+    response_code: ResponseCode,
+    response_edns: Option<Edns>,
+    mut response_handle: impl ResponseHandler,
+) -> ResponseInfo {
+    let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+        .error_msg(request.header(), response_code);
+    match response_handle.send_response(response).await {
+        Ok(r) => r,
+        Err(error) => {
+            error!(%error, "failed to send response");
+            ResponseInfo::serve_failed(request)
+        }
+    }
 }
 
 /// Build Header and LookupSections (answers) given a query response from a zone handler
