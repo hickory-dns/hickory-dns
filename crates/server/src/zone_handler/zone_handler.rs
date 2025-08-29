@@ -1,47 +1,72 @@
-// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Module for `Catalog` of `ZoneHandler` zones which are responsible for storing `RRSet` records.
+//! All zone handler related types
 
-use std::{fmt, io, sync::Arc};
+use std::fmt;
 
 use cfg_if::cfg_if;
-use enum_as_inner::EnumAsInner;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use serde::Deserialize;
 
 #[cfg(feature = "__dnssec")]
-use crate::dnssec::NxProofKind;
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::crypto::Digest;
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::rdata::KEY;
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::{DnsSecResult, Nsec3HashAlgorithm, SigSigner};
-use crate::proto::op::{Edns, ResponseCode, ResponseSigner};
-use crate::proto::rr::{Name, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
-use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
-#[cfg(feature = "recursor")]
-use crate::recursor::ErrorKind;
-use crate::server::{Request, RequestInfo};
-
-mod auth_lookup;
-mod catalog;
-pub(crate) mod message_request;
-mod message_response;
-#[cfg(feature = "metrics")]
-pub(crate) mod metrics;
-
-pub use self::auth_lookup::{
-    AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter, ZoneTransfer,
+use crate::{
+    dnssec::NxProofKind,
+    proto::{
+        ProtoError,
+        dnssec::{DnsSecResult, Nsec3HashAlgorithm, SigSigner, crypto::Digest, rdata::key::KEY},
+    },
 };
-pub use self::catalog::Catalog;
-pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
-pub use self::message_response::{MessageResponse, MessageResponseBuilder};
+use crate::{
+    proto::{
+        op::{Edns, ResponseCode, message::ResponseSigner},
+        rr::{Name, RecordSet, RecordType, RrsetRecords},
+    },
+    server::{Request, RequestInfo},
+    zone_handler::{AuthLookup, LookupError, ZoneTransfer, ZoneType},
+};
+
+/// Options from the client to include or exclude various records in the response.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LookupOptions {
+    /// Whether the client is interested in `RRSIG` records (DNSSEC DO bit).
+    pub dnssec_ok: bool,
+}
+
+impl LookupOptions {
+    /// Create [`LookupOptions`] from the given EDNS options.
+    #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
+    pub fn from_edns(edns: Option<&Edns>) -> Self {
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
+        let mut new = Self::default();
+        #[cfg(feature = "__dnssec")]
+        if let Some(edns) = edns {
+            new.dnssec_ok = edns.flags().dnssec_ok;
+        }
+        new
+    }
+
+    /// Create [`LookupOptions`] with `dnssec_ok` enabled.
+    #[cfg(feature = "__dnssec")]
+    pub fn for_dnssec() -> Self {
+        Self { dnssec_ok: true }
+    }
+
+    /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
+    pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
+        cfg_if! {
+            if #[cfg(feature = "__dnssec")] {
+                record_set.records(self.dnssec_ok)
+            } else {
+                record_set.records_without_rrsigs()
+            }
+        }
+    }
+}
 
 /// ZoneHandler implementations can be used with a `Catalog`
 #[async_trait::async_trait]
@@ -159,6 +184,12 @@ pub trait ZoneHandler: Send + Sync {
         Option<Box<dyn ResponseSigner>>,
     );
 
+    /// Get the NS, NameServer, record for the zone
+    async fn ns(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
+        self.lookup(self.origin(), RecordType::NS, None, lookup_options)
+            .await
+    }
+
     /// Return the NSEC records based on the given name
     ///
     /// # Arguments
@@ -180,6 +211,27 @@ pub trait ZoneHandler: Send + Sync {
         info: Nsec3QueryInfo<'_>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
+
+    /// Returns the SOA of the zone handler.
+    ///
+    /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
+    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
+    async fn soa(&self) -> LookupControlFlow<AuthLookup> {
+        // SOA should be origin|SOA
+        self.lookup(
+            self.origin(),
+            RecordType::SOA,
+            None,
+            LookupOptions::default(),
+        )
+        .await
+    }
+
+    /// Returns the SOA record for the zone
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
+        self.lookup(self.origin(), RecordType::SOA, None, lookup_options)
+            .await
+    }
 
     /// Returns all records in the zone.
     ///
@@ -217,6 +269,21 @@ pub trait DnssecZoneHandler: ZoneHandler {
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()>;
+}
+
+/// AxfrPolicy describes how to handle AXFR requests
+///
+/// By default, all AXFR requests are denied.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum AxfrPolicy {
+    /// Deny all AXFR requests.
+    #[default]
+    Deny,
+    /// Allow all AXFR requests, regardless of whether they are signed.
+    AllowAll,
+    /// Allow all AXFR requests that have a valid SIG(0) or TSIG signature.
+    #[cfg(feature = "__dnssec")]
+    AllowSigned,
 }
 
 /// Result of a Lookup in the Catalog and ZoneHandler
@@ -372,110 +439,6 @@ impl<E: std::fmt::Display> LookupControlFlow<AuthLookup, E> {
     }
 }
 
-/// A query could not be fulfilled
-#[derive(Debug, EnumAsInner, Error)]
-#[non_exhaustive]
-pub enum LookupError {
-    /// A record at the same Name as the query exists, but not of the queried RecordType
-    #[error("The name exists, but not for the record requested")]
-    NameExists,
-    /// There was an error performing the lookup
-    #[error("Error performing lookup: {0}")]
-    ResponseCode(ResponseCode),
-    /// Proto error
-    #[error("Proto error: {0}")]
-    ProtoError(#[from] ProtoError),
-    /// Recursive Resolver Error
-    #[cfg(feature = "recursor")]
-    #[error("Recursive resolution error: {0}")]
-    RecursiveError(#[from] hickory_recursor::Error),
-    /// An underlying IO error occurred
-    #[error("io error: {0}")]
-    Io(io::Error),
-}
-
-impl LookupError {
-    /// Create a lookup error, specifying that a name exists at the location, but no matching RecordType
-    pub fn for_name_exists() -> Self {
-        Self::NameExists
-    }
-
-    /// This is a non-existent domain name
-    pub fn is_nx_domain(&self) -> bool {
-        match self {
-            Self::ProtoError(e) => e.is_nx_domain(),
-            Self::ResponseCode(ResponseCode::NXDomain) => true,
-            #[cfg(feature = "recursor")]
-            Self::RecursiveError(e) if e.is_nx_domain() => true,
-            _ => false,
-        }
-    }
-
-    /// Returns true if no records were returned
-    pub fn is_no_records_found(&self) -> bool {
-        match self {
-            Self::ProtoError(e) => e.is_no_records_found(),
-            #[cfg(feature = "recursor")]
-            Self::RecursiveError(e) if e.is_no_records_found() => true,
-            _ => false,
-        }
-    }
-
-    /// Returns the SOA record, if the error contains one
-    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
-        match self {
-            Self::ProtoError(e) => e.into_soa(),
-            #[cfg(feature = "recursor")]
-            Self::RecursiveError(e) => e.into_soa(),
-            _ => None,
-        }
-    }
-
-    /// Return authority records
-    pub fn authorities(&self) -> Option<Arc<[Record]>> {
-        match self {
-            Self::ProtoError(e) => match e.kind() {
-                ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
-                    authorities.clone()
-                }
-                _ => None,
-            },
-            #[cfg(feature = "recursor")]
-            Self::RecursiveError(e) => match e.kind() {
-                ErrorKind::Negative(fwd) => fwd.authorities.clone(),
-                ErrorKind::Proto(proto) => match proto.kind() {
-                    ProtoErrorKind::NoRecordsFound(NoRecords { authorities, .. }) => {
-                        authorities.clone()
-                    }
-                    _ => None,
-                },
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-}
-
-impl From<ResponseCode> for LookupError {
-    fn from(code: ResponseCode) -> Self {
-        // this should never be a NoError
-        debug_assert!(code != ResponseCode::NoError);
-        Self::ResponseCode(code)
-    }
-}
-
-impl From<io::Error> for LookupError {
-    fn from(e: io::Error) -> Self {
-        Self::Io(e)
-    }
-}
-
-impl From<LookupError> for io::Error {
-    fn from(e: LookupError) -> Self {
-        Self::other(Box::new(e))
-    }
-}
-
 /// Information required to compute the NSEC3 records that should be sent for a query.
 #[cfg(feature = "__dnssec")]
 pub struct Nsec3QueryInfo<'q> {
@@ -507,69 +470,4 @@ impl Nsec3QueryInfo<'_> {
         let label = data_encoding::BASE32_DNSSEC.encode(hash.as_ref());
         zone.prepend_label(label)
     }
-}
-
-/// Options from the client to include or exclude various records in the response.
-#[non_exhaustive]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct LookupOptions {
-    /// Whether the client is interested in `RRSIG` records (DNSSEC DO bit).
-    pub dnssec_ok: bool,
-}
-
-impl LookupOptions {
-    /// Create [`LookupOptions`] from the given EDNS options.
-    #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
-    pub fn from_edns(edns: Option<&Edns>) -> Self {
-        #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-        let mut new = Self::default();
-        #[cfg(feature = "__dnssec")]
-        if let Some(edns) = edns {
-            new.dnssec_ok = edns.flags().dnssec_ok;
-        }
-        new
-    }
-
-    /// Create [`LookupOptions`] with `dnssec_ok` enabled.
-    #[cfg(feature = "__dnssec")]
-    pub fn for_dnssec() -> Self {
-        Self { dnssec_ok: true }
-    }
-
-    /// Returns the rrset's records with or without RRSIGs, depending on the DO flag.
-    pub fn rrset_with_rrigs<'r>(&self, record_set: &'r RecordSet) -> RrsetRecords<'r> {
-        cfg_if! {
-            if #[cfg(feature = "__dnssec")] {
-                record_set.records(self.dnssec_ok)
-            } else {
-                record_set.records_without_rrsigs()
-            }
-        }
-    }
-}
-
-/// AxfrPolicy describes how to handle AXFR requests
-///
-/// By default, all AXFR requests are denied.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Deserialize)]
-pub enum AxfrPolicy {
-    /// Deny all AXFR requests.
-    #[default]
-    Deny,
-    /// Allow all AXFR requests, regardless of whether they are signed.
-    AllowAll,
-    /// Allow all AXFR requests that have a valid SIG(0) or TSIG signature.
-    #[cfg(feature = "__dnssec")]
-    AllowSigned,
-}
-
-/// The type of zone stored in a Catalog
-#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Copy)]
-pub enum ZoneType {
-    /// This authority for a zone
-    Primary,
-    /// A secondary, i.e. replicated from the Primary
-    Secondary,
-    /// A cached zone that queries other nameservers
-    External,
 }

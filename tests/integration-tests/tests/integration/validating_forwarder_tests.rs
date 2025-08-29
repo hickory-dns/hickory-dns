@@ -242,7 +242,7 @@ async fn setup_authoritative_server(
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
+    catalog.upsert(Name::root(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
     server.register_socket(udp_socket);
 
@@ -271,7 +271,7 @@ async fn setup_client_forwarder(
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
+    catalog.upsert(Name::root(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
     server.register_socket(udp_socket);
 

@@ -25,7 +25,7 @@ use crate::{
 use crate::{
     proto::{
         op::ResponseSigner,
-        rr::{LowerName, Name, RecordType},
+        rr::{Name, RecordType},
     },
     server::{Request, RequestInfo},
     store::in_memory::{InMemoryZoneHandler, zone_from_path},
@@ -134,7 +134,7 @@ impl ZoneHandler for FileZoneHandler {
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         self.in_memory.origin()
     }
 
@@ -155,7 +155,7 @@ impl ZoneHandler for FileZoneHandler {
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         rtype: RecordType,
         request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
@@ -211,7 +211,7 @@ impl ZoneHandler for FileZoneHandler {
     ///   algorithms, etc.)
     async fn nsec_records(
         &self,
-        name: &LowerName,
+        name: &Name,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         self.in_memory.nsec_records(name, lookup_options).await
@@ -308,7 +308,7 @@ mod tests {
 
         let lookup = block_on(ZoneHandler::lookup(
             &handler,
-            &LowerName::from_str("www.example.com.").unwrap(),
+            &Name::from_str("www.example.com.").unwrap(),
             RecordType::A,
             None,
             LookupOptions::default(),
@@ -327,7 +327,7 @@ mod tests {
 
         let include_lookup = block_on(ZoneHandler::lookup(
             &handler,
-            &LowerName::from_str("include.alias.example.com.").unwrap(),
+            &Name::from_str("include.alias.example.com.").unwrap(),
             RecordType::A,
             None,
             LookupOptions::default(),

@@ -97,11 +97,8 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     );
 
     let mut records = BTreeMap::new();
-    records.insert(RrKey::new(name.clone().into(), RecordType::A), record_set);
-    records.insert(
-        RrKey::new(name.clone().into(), RecordType::SOA),
-        soa_record_set,
-    );
+    records.insert(RrKey::new(name.clone(), RecordType::A), record_set);
+    records.insert(RrKey::new(name.clone(), RecordType::SOA), soa_record_set);
     let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::new(
         name,
         records,
@@ -113,7 +110,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     .unwrap();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
+    catalog.upsert(Name::root(), vec![Arc::new(handler)]);
     catalog
 }
 

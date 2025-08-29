@@ -25,9 +25,9 @@ use crate::{
 };
 use crate::{
     proto::{
-        op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
+        op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
         rr::{
-            LowerName, RecordSet, RecordType,
+            Name, RecordSet, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
         serialize::binary::{BinEncoder, EncodeMode},
@@ -43,7 +43,7 @@ use crate::{
 #[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
-    handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
+    handlers: HashMap<Name, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
 }
@@ -192,7 +192,7 @@ impl Catalog {
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `handlers` - a vec of zone handler objects
-    pub fn upsert(&mut self, name: LowerName, handlers: Vec<Arc<dyn ZoneHandler>>) {
+    pub fn upsert(&mut self, name: Name, handlers: Vec<Arc<dyn ZoneHandler>>) {
         #[cfg(feature = "metrics")]
         for handler in handlers.iter() {
             self.metrics.add_handler(handler.as_ref())
@@ -202,7 +202,7 @@ impl Catalog {
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn ZoneHandler>>> {
+    pub fn remove(&mut self, name: &Name) -> Option<Vec<Arc<dyn ZoneHandler>>> {
         // NOTE: metrics are not removed to avoid dropping counters that are potentially still
         // being used by other zone handlers having the same labels
         self.handlers.remove(name)
@@ -347,14 +347,14 @@ impl Catalog {
 
     /// Checks whether the `Catalog` contains DNS records for `name`
     ///
-    /// Use this when you know the exact `LowerName` that was used when
+    /// Use this when you know the exact `Name` that was used when
     /// adding a zone handler and you don't care about the zone handler it
-    /// contains. For public domain names, `LowerName` is usually the
+    /// contains. For public domain names, `Name` is usually the
     /// top level domain name like `example.com.`.
     ///
     /// If you do not know the exact domain name to use or you actually
     /// want to use the zone handler it contains, use `find` instead.
-    pub fn contains(&self, name: &LowerName) -> bool {
+    pub fn contains(&self, name: &Name) -> bool {
         self.handlers.contains_key(name)
     }
 
@@ -429,7 +429,7 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching zone handler
-    pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<dyn ZoneHandler + 'static>>> {
+    pub fn find(&self, name: &Name) -> Option<&Vec<Arc<dyn ZoneHandler + 'static>>> {
         debug!("searching zone handlers for: {name}");
         self.handlers.get(name).or_else(|| {
             if !name.is_root() {
@@ -657,7 +657,7 @@ async fn build_response(
     handler: &dyn ZoneHandler,
     request_id: u16,
     request_header: &Header,
-    query: &LowerQuery,
+    query: &Query,
     edns: Option<&Edns>,
 ) -> (Header, LookupSections) {
     let lookup_options = LookupOptions::from_edns(edns);
@@ -699,7 +699,7 @@ async fn build_authoritative_response(
     response_header: &mut Header,
     lookup_options: LookupOptions,
     _request_id: u16,
-    query: &LowerQuery,
+    query: &Query,
 ) -> LookupSections {
     response_header.set_authoritative(true);
 
@@ -896,7 +896,7 @@ async fn build_forwarded_response(
     request_header: &Header,
     response_header: &mut Header,
     #[cfg(feature = "__dnssec")] can_validate_dnssec: bool,
-    query: &LowerQuery,
+    query: &Query,
     lookup_options: LookupOptions,
 ) -> LookupSections {
     response_header.set_recursion_available(true);
@@ -934,7 +934,7 @@ async fn build_forwarded_response(
                         // if we have another record (probably a dnssec record) that
                         // matches the query name, but wasn't included in the answers
                         // section, change the NXDomain response to NoError
-                        if *record.name() == **query.name() {
+                        if record.name() == query.name() {
                             debug!(
                                 query_name = %query.name(),
                                 ?record,

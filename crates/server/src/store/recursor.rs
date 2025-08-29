@@ -32,7 +32,7 @@ use crate::{
     proto::{
         op::Query,
         op::ResponseSigner,
-        rr::{LowerName, Name, RData, Record, RecordSet, RecordType},
+        rr::{Name, RData, Record, RecordSet, RecordType},
         runtime::RuntimeProvider,
         serialize::txt::{ParseError, Parser},
     },
@@ -49,7 +49,7 @@ use crate::{
 ///
 /// This uses the hickory-recursor crate for resolving requests.
 pub struct RecursiveZoneHandler<P: RuntimeProvider> {
-    origin: LowerName,
+    origin: Name,
     recursor: Recursor<P>,
 }
 
@@ -94,10 +94,7 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             .build(&root_addrs)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
-        Ok(Self {
-            origin: origin.into(),
-            recursor,
-        })
+        Ok(Self { origin, recursor })
     }
 }
 
@@ -122,21 +119,21 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     /// In the context of a forwarder, this is either a zone which this forwarder is associated,
     ///   or `.`, the root zone for all zones. If this is not the root zone, then it will only forward
     ///   for lookups which match the given zone name.
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         &self.origin
     }
 
     /// Forwards a lookup given the resolver configuration for this Forwarded zone
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         rtype: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         debug!("recursive lookup: {} {}", name, rtype);
 
-        let query = Query::query(name.into(), rtype);
+        let query = Query::query(name.clone(), rtype);
         let now = Instant::now();
 
         let result = self
@@ -177,7 +174,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
 
     async fn nsec_records(
         &self,
-        _name: &LowerName,
+        _name: &Name,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(

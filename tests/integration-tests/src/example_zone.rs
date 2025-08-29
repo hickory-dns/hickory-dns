@@ -199,7 +199,7 @@ pub fn create_secure_example() -> InMemoryZoneHandler {
     let signer = SigSigner::dnssec(
         DNSKEY::from_key(&key.to_public_key().unwrap()),
         Box::new(key),
-        handler.origin().clone().into(),
+        handler.origin().clone(),
         Duration::weeks(1).try_into().unwrap(),
     );
 

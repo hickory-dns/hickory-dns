@@ -23,7 +23,7 @@ fn test_lookup() {
 
     let lookup = runtime
         .block_on(forwarder.lookup(
-            &Name::from_str("www.example.com.").unwrap().into(),
+            &Name::from_str("www.example.com.").unwrap(),
             RecordType::A,
             None,
             Default::default(),

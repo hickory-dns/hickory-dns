@@ -74,7 +74,7 @@ fn test_cname_loop() {
 
     let lookup = runtime
         .block_on(auth.lookup(
-            &Name::from_str("foo.example.com.").unwrap().into(),
+            &Name::from_str("foo.example.com.").unwrap(),
             RecordType::A,
             None,
             Default::default(),
@@ -97,7 +97,7 @@ fn test_cname_loop() {
 
     let lookup = runtime
         .block_on(auth.lookup(
-            &Name::from_str("bar.example.com.").unwrap().into(),
+            &Name::from_str("bar.example.com.").unwrap(),
             RecordType::A,
             None,
             Default::default(),
@@ -127,7 +127,7 @@ fn test_cname_loop() {
 
     let lookup = runtime
         .block_on(auth.lookup(
-            &Name::from_str("baz.example.com.").unwrap().into(),
+            &Name::from_str("baz.example.com.").unwrap(),
             RecordType::A,
             None,
             Default::default(),

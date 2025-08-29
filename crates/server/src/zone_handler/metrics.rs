@@ -12,7 +12,7 @@ use std::{
 
 use crate::zone_handler::{AuthLookup, LookupControlFlow, ZoneHandler, ZoneType};
 
-use hickory_proto::op::LowerQuery;
+use hickory_proto::op::Query;
 use hickory_proto::rr::{DNSClass, Record, RecordType};
 use metrics::{Counter, Unit, counter, describe_counter};
 
@@ -67,7 +67,7 @@ impl CatalogMetrics {
 
     pub(super) fn update_request_response<'a>(
         &self,
-        query: &LowerQuery,
+        query: &Query,
         answers: impl Iterator<Item = &'a Record> + Send + 'a,
     ) {
         self.request_metrics

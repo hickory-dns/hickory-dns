@@ -295,7 +295,7 @@ async fn create_sig0_ready_client() -> (
         .await
         .expect("failed to get new Client");
 
-    (client, origin.into())
+    (client, origin)
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]

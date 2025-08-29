@@ -7,13 +7,13 @@
 
 use core::cmp::Ordering;
 
-use crate::rr::{LowerName, RecordType};
+use crate::rr::{Name, RecordType};
 
 /// Accessor key for RRSets in the Authority.
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
 pub struct RrKey {
     /// Matches the name in the Record of this key
-    pub name: LowerName,
+    pub name: Name,
     /// Matches the type of the Record of this key
     pub record_type: RecordType,
 }
@@ -30,12 +30,12 @@ impl RrKey {
     ///
     /// A new key to access the Authorities.
     /// TODO: make all cloned params pass by value.
-    pub fn new(name: LowerName, record_type: RecordType) -> Self {
+    pub fn new(name: Name, record_type: RecordType) -> Self {
         Self { name, record_type }
     }
 
     /// Returns the name of the key
-    pub fn name(&self) -> &LowerName {
+    pub fn name(&self) -> &Name {
         &self.name
     }
 }

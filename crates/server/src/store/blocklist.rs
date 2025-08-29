@@ -31,7 +31,7 @@ use crate::{
     proto::{
         op::{Query, ResponseSigner},
         rr::{
-            LowerName, Name, RData, Record, RecordType,
+            Name, RData, Record, RecordType,
             rdata::{A, AAAA, TXT},
         },
     },
@@ -65,8 +65,8 @@ use crate::{
 /// is not recommended to do so - it is both more efficient, and more secure, to allow the blocklist
 /// to drop queries pre-emptively, as in the first example.
 pub struct BlocklistZoneHandler {
-    origin: LowerName,
-    blocklist: HashMap<LowerName, bool>,
+    origin: Name,
+    blocklist: HashMap<Name, bool>,
     wildcard_match: bool,
     min_wildcard_depth: u8,
     sinkhole_ipv4: Ipv4Addr,
@@ -89,7 +89,7 @@ impl BlocklistZoneHandler {
         info!("loading blocklist config: {origin}");
 
         let mut handler = Self {
-            origin: origin.into(),
+            origin,
             blocklist: HashMap::new(),
             wildcard_match: config.wildcard_match,
             min_wildcard_depth: config.min_wildcard_depth,
@@ -169,8 +169,7 @@ impl BlocklistZoneHandler {
     /// # Example
     /// ```
     /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::Path, str::FromStr, sync::Arc};
-    /// use hickory_proto::rr::{LowerName, RecordType};
-    /// use hickory_resolver::Name;
+    /// use hickory_proto::rr::{Name, RecordType};
     /// use hickory_server::{
     ///     store::blocklist::*,
     ///     zone_handler::{LookupControlFlow, LookupOptions, ZoneHandler, ZoneType},
@@ -208,12 +207,15 @@ impl BlocklistZoneHandler {
     ///     // zone handler after instantiating it.  The following simulates a lookup against the
     ///     // blocklist zone handler, and checks for the expected response for a blocklist match.
     ///     use LookupControlFlow::*;
-    ///     let Break(Ok(_res)) = handler.lookup(
-    ///                             &LowerName::from(Name::from_ascii("malc0de.com.").unwrap()),
-    ///                             RecordType::A,
-    ///                             None,
-    ///                             LookupOptions::default(),
-    ///                           ).await else {
+    ///     let Break(Ok(_res)) = handler
+    ///         .lookup(
+    ///             &Name::from_ascii("malc0de.com.").unwrap(),
+    ///             RecordType::A,
+    ///             None,
+    ///             LookupOptions::default(),
+    ///         )
+    ///         .await
+    ///     else {
     ///         panic!("blocklist zone handler did not return expected match");
     ///     };
     /// }
@@ -241,8 +243,8 @@ impl BlocklistZoneHandler {
                 None => entry,
             };
 
-            let Ok(mut name) = LowerName::from_str(name) else {
-                warn!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
+            let Ok(mut name) = Name::from_str(name) else {
+                warn!("unable to derive Name for blocklist entry '{name}'; skipping entry");
                 continue;
             };
 
@@ -257,12 +259,12 @@ impl BlocklistZoneHandler {
     }
 
     /// Build a wildcard match list for a given host
-    fn wildcards(&self, host: &Name) -> Vec<LowerName> {
+    fn wildcards(&self, host: &Name) -> Vec<Name> {
         host.iter()
             .enumerate()
             .filter_map(|(i, _x)| {
                 if i > ((self.min_wildcard_depth - 1) as usize) {
-                    Some(host.trim_to(i + 1).into_wildcard().into())
+                    Some(host.trim_to(i + 1).into_wildcard())
                 } else {
                     None
                 }
@@ -272,7 +274,7 @@ impl BlocklistZoneHandler {
 
     /// Perform a blocklist lookup. Returns true on match, false on no match.  This is also where
     /// wildcard expansion is done, if wildcard support is enabled for the blocklist zone handler.
-    fn is_blocked(&self, name: &LowerName) -> bool {
+    fn is_blocked(&self, name: &Name) -> bool {
         let mut match_list = vec![name.to_owned()];
 
         if self.wildcard_match {
@@ -331,7 +333,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         AxfrPolicy::Deny
     }
 
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         &self.origin
     }
 
@@ -339,7 +341,7 @@ impl ZoneHandler for BlocklistZoneHandler {
     /// LookupControlFlow::Skip on no match.
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         rtype: RecordType,
         request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
@@ -371,7 +373,7 @@ impl ZoneHandler for BlocklistZoneHandler {
                 ),
             }
             return Break(Ok(AuthLookup::from(
-                self.blocklist_response(Name::from(name), rtype),
+                self.blocklist_response(name.clone(), rtype),
             )));
         }
 
@@ -383,7 +385,7 @@ impl ZoneHandler for BlocklistZoneHandler {
     /// query.
     async fn consult(
         &self,
-        name: &LowerName,
+        name: &Name,
         rtype: RecordType,
         request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
@@ -468,7 +470,7 @@ impl ZoneHandler for BlocklistZoneHandler {
 
     async fn nsec_records(
         &self,
-        _name: &LowerName,
+        _name: &Name,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
@@ -630,9 +632,8 @@ mod test {
 
     use super::*;
     use crate::{
-        proto::rr::domain::Name,
         proto::rr::{
-            LowerName, RData, RecordType,
+            Name, RData, RecordType,
             rdata::{A, AAAA},
         },
         zone_handler::LookupOptions,
@@ -821,7 +822,7 @@ mod test {
     ) {
         let res = ao
             .lookup(
-                &LowerName::from_str(query).unwrap(),
+                &Name::from_str(query).unwrap(),
                 q_type,
                 None,
                 LookupOptions::default(),

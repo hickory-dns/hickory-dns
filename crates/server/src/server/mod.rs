@@ -40,7 +40,7 @@ use crate::{
     access::AccessControl,
     proto::{
         BufDnsStreamHandle, ProtoError,
-        op::{Header, LowerQuery, MessageType, ResponseCode, SerialMessage},
+        op::{Header, MessageType, Query, ResponseCode, SerialMessage},
         rr::Record,
         runtime::{TokioRuntimeProvider, iocompat::AsyncIoTokioAsStd},
         serialize::binary::{BinDecodable, BinDecoder},
@@ -676,7 +676,7 @@ pub fn default_tls_server_config(
 #[derive(Clone)]
 struct ReportingResponseHandler<R: ResponseHandler> {
     request_header: Header,
-    queries: Vec<LowerQuery>,
+    queries: Vec<Query>,
     protocol: Protocol,
     src_addr: SocketAddr,
     handler: R,

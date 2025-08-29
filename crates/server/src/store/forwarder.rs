@@ -21,7 +21,7 @@ use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec
 use crate::{
     proto::{
         op::ResponseSigner,
-        rr::{LowerName, Name, RecordType},
+        rr::{Name, RecordType},
         runtime::TokioRuntimeProvider,
     },
     resolver::{
@@ -148,10 +148,7 @@ impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
 
         info!(%origin, "forward resolver configured");
 
-        Ok(ForwardZoneHandler {
-            origin: origin.into(),
-            resolver,
-        })
+        Ok(ForwardZoneHandler { origin, resolver })
     }
 }
 
@@ -159,7 +156,7 @@ impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
 ///
 /// This uses the hickory-resolver crate for resolving requests.
 pub struct ForwardZoneHandler<P: ConnectionProvider = TokioRuntimeProvider> {
-    origin: LowerName,
+    origin: Name,
     resolver: Resolver<P>,
 }
 
@@ -231,14 +228,14 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
     /// In the context of a forwarder, this is either a zone which this forwarder is associated,
     ///   or `.`, the root zone for all zones. If this is not the root zone, then it will only forward
     ///   for lookups which match the given zone name.
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         &self.origin
     }
 
     /// Forwards a lookup given the resolver configuration for this Forwarded zone
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         rtype: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
@@ -250,7 +247,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
 
         // Ignore FQDN when we forward DNS queries. Without this we can't look
         // up addresses from system hosts file.
-        let mut name: Name = name.clone().into();
+        let mut name = name.clone();
         name.set_fqdn(false);
 
         use LookupControlFlow::*;
@@ -286,7 +283,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
 
     async fn nsec_records(
         &self,
-        _name: &LowerName,
+        _name: &Name,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(

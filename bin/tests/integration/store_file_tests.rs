@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
+use hickory_proto::rr::{Name, RecordType, RrKey};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileConfig, FileZoneHandler};
@@ -50,7 +50,7 @@ fn test_all_lines_are_loaded() {
     .expect("failed to load");
     let rrkey = RrKey {
         record_type: RecordType::A,
-        name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap()),
+        name: Name::from_ascii("ensure.nonewline.").unwrap(),
     };
     assert!(handler.records_get_mut().get(&rrkey).is_some())
 }
@@ -81,9 +81,9 @@ async fn test_ttl_wildcard() {
         zone_path: PathBuf::from("../tests/test-data/test_configs/default/test.local.zone"),
     };
 
-    let zone_name = LowerName::from_str("test.local.").unwrap();
+    let zone_name = Name::from_str("test.local.").unwrap();
     let mut handler = FileZoneHandler::try_from_config(
-        Name::from(zone_name.clone()),
+        zone_name.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         None,
@@ -96,11 +96,11 @@ async fn test_ttl_wildcard() {
     // This one pass.
     let rrkey = RrKey {
         record_type: RecordType::A,
-        name: LowerName::from(Name::from_ascii("simple.test.local.").unwrap()),
+        name: Name::from_ascii("simple.test.local.").unwrap(),
     };
     assert_eq!(handler.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
     // // This one related to a wildcard don't pass around $TTL
-    let name = LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap());
+    let name = Name::from_ascii("x.wc.test.local.").unwrap();
     let rr = handler
         .lookup(&name, RecordType::A, None, LookupOptions::default())
         .await

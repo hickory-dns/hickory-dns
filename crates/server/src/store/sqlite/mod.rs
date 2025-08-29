@@ -44,7 +44,7 @@ use crate::{
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::{ResponseCode, ResponseSigner},
-        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey},
         runtime::{RuntimeProvider, TokioRuntimeProvider},
     },
     server::{Request, RequestInfo},
@@ -389,7 +389,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         //           if (zone_rrset<rrset.name, rrset.type> != rrset)
         //                return (NXRRSET)
         for require in pre_requisites {
-            let required_name = LowerName::from(require.name());
+            let required_name = require.name();
 
             if require.ttl() != 0 {
                 warn!("ttl must be 0 for: {require:?}");
@@ -397,7 +397,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             }
 
             let origin = self.origin();
-            if !origin.zone_of(&require.name().into()) {
+            if !origin.zone_of(require.name()) {
                 warn!("{} is not a zone_of {origin}", require.name());
                 return Err(ResponseCode::NotZone);
             }
@@ -410,7 +410,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                             RecordType::ANY => {
                                 if self
                                     .lookup(
-                                        &required_name,
+                                        required_name,
                                         RecordType::ANY,
                                         None,
                                         LookupOptions::default(),
@@ -427,7 +427,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                             // ANY      rrset    empty    RRset exists (value independent)
                             rrset => {
                                 if self
-                                    .lookup(&required_name, rrset, None, LookupOptions::default())
+                                    .lookup(required_name, rrset, None, LookupOptions::default())
                                     .await
                                     .unwrap_or_default()
                                     .was_empty()
@@ -449,7 +449,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                             RecordType::ANY => {
                                 if !self
                                     .lookup(
-                                        &required_name,
+                                        required_name,
                                         RecordType::ANY,
                                         None,
                                         LookupOptions::default(),
@@ -466,7 +466,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                             // NONE     rrset    empty    RRset does not exist
                             rrset => {
                                 if !self
-                                    .lookup(&required_name, rrset, None, LookupOptions::default())
+                                    .lookup(required_name, rrset, None, LookupOptions::default())
                                     .await
                                     .unwrap_or_default()
                                     .was_empty()
@@ -486,7 +486,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                 {
                     if !self
                         .lookup(
-                            &required_name,
+                            required_name,
                             require.record_type(),
                             None,
                             LookupOptions::default(),
@@ -638,7 +638,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         //           else
         //                return (FORMERR)
         for rr in records {
-            if !self.origin().zone_of(&rr.name().into()) {
+            if !self.origin().zone_of(rr.name()) {
                 return Err(ResponseCode::NotZone);
             }
 
@@ -766,7 +766,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         //                zone_rr<rr.name, rr.type, rr.data> = Nil
         //      return (NOERROR)
         for rr in records {
-            let rr_name = LowerName::from(rr.name());
+            let rr_name = rr.name();
             let rr_key = RrKey::new(rr_name.clone(), rr.record_type());
 
             match rr.dns_class() {
@@ -800,7 +800,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.record_type() {
-                        t @ RecordType::SOA | t @ RecordType::NS if rr_name == *self.origin() => {
+                        t @ RecordType::SOA | t @ RecordType::NS if rr_name == self.origin() => {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {t:?} see RFC 2136 - 3.4.2.3");
                             continue;
@@ -820,7 +820,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                             let mut records = self.in_memory.records_mut().await;
                             let old_size = records.len();
                             records.retain(|k, _| {
-                                k.name != rr_name
+                                k.name != *rr_name
                                     || ((k.record_type == RecordType::SOA
                                         || k.record_type == RecordType::NS)
                                         && k.name != *origin)
@@ -922,10 +922,10 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             return Err(ResponseCode::Refused);
         };
 
-        let name = LowerName::from(&sig0.input().signer_name);
+        let name = &sig0.input().signer_name;
 
         let Continue(Ok(keys)) = self
-            .lookup(&name, RecordType::KEY, None, LookupOptions::default())
+            .lookup(name, RecordType::KEY, None, LookupOptions::default())
             .await
         else {
             warn!("no sig0 key name matched: id {}", request.id());
@@ -1081,7 +1081,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         self.in_memory.origin()
     }
 
@@ -1102,7 +1102,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         rtype: RecordType,
         request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
@@ -1173,7 +1173,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     ///                      algorithms, etc.)
     async fn nsec_records(
         &self,
-        name: &LowerName,
+        name: &Name,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         self.in_memory.nsec_records(name, lookup_options).await

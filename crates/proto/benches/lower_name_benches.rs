@@ -14,12 +14,12 @@ use std::str::FromStr;
 
 use test::Bencher;
 
-use hickory_proto::rr::{LowerName, Name};
+use hickory_proto::rr::Name;
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {
-    let name1 = LowerName::new(&Name::from_str("com").unwrap());
-    let name2 = LowerName::new(&Name::from_str("COM").unwrap());
+    let name1 = Name::from_str("com").unwrap();
+    let name2 = Name::from_str("COM").unwrap();
 
     b.iter(|| {
         assert_eq!(name1, name2);
@@ -28,8 +28,8 @@ fn name_cmp_short(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_short_case(b: &mut Bencher) {
-    let name1 = LowerName::new(&Name::from_str("com").unwrap());
-    let name2 = LowerName::new(&Name::from_str("com").unwrap());
+    let name1 = Name::from_str("com").unwrap();
+    let name2 = Name::from_str("com").unwrap();
 
     b.iter(|| {
         assert_eq!(name1, name2);
@@ -38,8 +38,8 @@ fn name_cmp_short_case(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_medium(b: &mut Bencher) {
-    let name1 = LowerName::new(&Name::from_str("www.example.com").unwrap());
-    let name2 = LowerName::new(&Name::from_str("www.EXAMPLE.com").unwrap());
+    let name1 = Name::from_str("www.example.com").unwrap();
+    let name2 = Name::from_str("www.EXAMPLE.com").unwrap();
 
     b.iter(|| {
         assert_eq!(name1, name2);
@@ -48,8 +48,8 @@ fn name_cmp_medium(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_medium_case(b: &mut Bencher) {
-    let name1 = LowerName::new(&Name::from_str("www.example.com").unwrap());
-    let name2 = LowerName::new(&Name::from_str("www.example.com").unwrap());
+    let name1 = Name::from_str("www.example.com").unwrap();
+    let name2 = Name::from_str("www.example.com").unwrap();
 
     b.iter(|| {
         assert_eq!(name1, name2);
@@ -58,8 +58,8 @@ fn name_cmp_medium_case(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_long(b: &mut Bencher) {
-    let name1 = LowerName::new(&Name::from_str("a.crazy.really.long.example.com").unwrap());
-    let name2 = LowerName::new(&Name::from_str("a.crazy.really.long.EXAMPLE.com").unwrap());
+    let name1 = Name::from_str("a.crazy.really.long.example.com").unwrap();
+    let name2 = Name::from_str("a.crazy.really.long.EXAMPLE.com").unwrap();
 
     b.iter(|| {
         assert_eq!(name1, name2);
@@ -68,8 +68,8 @@ fn name_cmp_long(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_long_case(b: &mut Bencher) {
-    let name1 = LowerName::new(&Name::from_str("a.crazy.really.long.example.com").unwrap());
-    let name2 = LowerName::new(&Name::from_str("a.crazy.really.long.example.com").unwrap());
+    let name1 = Name::from_str("a.crazy.really.long.example.com").unwrap();
+    let name2 = Name::from_str("a.crazy.really.long.example.com").unwrap();
 
     b.iter(|| {
         assert_eq!(name1, name2);

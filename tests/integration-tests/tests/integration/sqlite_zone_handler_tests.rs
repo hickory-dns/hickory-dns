@@ -17,12 +17,12 @@ use hickory_proto::dnssec::rdata::DNSSECRData;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::tsig::{TsigAlgorithm, TsigError};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::op::{Edns, LowerQuery, Message, MessageSignature, MessageSigner};
+use hickory_proto::op::{Edns, Message, MessageSignature, MessageSigner};
 use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
-use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_proto::runtime::{Time, TokioRuntimeProvider, TokioTime};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
@@ -61,7 +61,7 @@ async fn test_search() {
     let origin = example.origin().clone();
 
     let mut query = Query::new();
-    query.set_name(origin.into());
+    query.set_name(origin);
     let request = Request::from_message(
         MessageRequest::mock(*TEST_HEADER, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -168,7 +168,7 @@ async fn test_zone_handler() {
     assert_eq!(
         *lookup.first().unwrap(),
         Record::from_rdata(
-            handler.origin().clone().into(),
+            handler.origin().clone(),
             86400,
             RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
         )
@@ -178,7 +178,7 @@ async fn test_zone_handler() {
     assert_eq!(
         *lookup.last().unwrap(),
         Record::from_rdata(
-            handler.origin().clone().into(),
+            handler.origin().clone(),
             86400,
             RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
         )
@@ -216,7 +216,7 @@ async fn test_zone_handler() {
     assert_eq!(
         *lookup.first().unwrap(),
         Record::from_rdata(
-            handler.origin().clone().into(),
+            handler.origin().clone(),
             60,
             RData::TXT(TXT::new(vec![
                 "$Id: example.com 4415 2015-08-24 \
@@ -242,7 +242,7 @@ async fn test_zone_handler() {
             .next()
             .unwrap(),
         Record::from_rdata(
-            handler.origin().clone().into(),
+            handler.origin().clone(),
             86400,
             RData::A(A::new(93, 184, 215, 14)),
         )
@@ -307,13 +307,11 @@ async fn test_prerequisites() {
     // *   ANY      ANY      empty    Name is in use
     assert!(
         handler
-            .verify_prerequisites(&[Record::update0(
-                handler.origin().clone().into(),
-                0,
-                RecordType::ANY,
-            )
-            .set_dns_class(DNSClass::ANY)
-            .clone()])
+            .verify_prerequisites(&[
+                Record::update0(handler.origin().clone(), 0, RecordType::ANY)
+                    .set_dns_class(DNSClass::ANY)
+                    .clone()
+            ])
             .await
             .is_ok()
     );
@@ -333,13 +331,11 @@ async fn test_prerequisites() {
     // *   ANY      rrset    empty    RRset exists (value independent)
     assert!(
         handler
-            .verify_prerequisites(&[Record::update0(
-                handler.origin().clone().into(),
-                0,
-                RecordType::A,
+            .verify_prerequisites(
+                &[Record::update0(handler.origin().clone(), 0, RecordType::A)
+                    .set_dns_class(DNSClass::ANY)
+                    .clone()]
             )
-            .set_dns_class(DNSClass::ANY)
-            .clone()])
             .await
             .is_ok()
     );
@@ -363,13 +359,11 @@ async fn test_prerequisites() {
     );
     assert_eq!(
         handler
-            .verify_prerequisites(&[Record::update0(
-                handler.origin().clone().into(),
-                0,
-                RecordType::ANY,
-            )
-            .set_dns_class(DNSClass::NONE)
-            .clone()],)
+            .verify_prerequisites(&[
+                Record::update0(handler.origin().clone(), 0, RecordType::ANY)
+                    .set_dns_class(DNSClass::NONE)
+                    .clone()
+            ])
             .await,
         Err(ResponseCode::YXDomain)
     );
@@ -385,13 +379,11 @@ async fn test_prerequisites() {
     );
     assert_eq!(
         handler
-            .verify_prerequisites(&[Record::update0(
-                handler.origin().clone().into(),
-                0,
-                RecordType::A,
+            .verify_prerequisites(
+                &[Record::update0(handler.origin().clone(), 0, RecordType::A)
+                    .set_dns_class(DNSClass::NONE)
+                    .clone()],
             )
-            .set_dns_class(DNSClass::NONE)
-            .clone()],)
             .await,
         Err(ResponseCode::YXRRSet)
     );
@@ -400,7 +392,7 @@ async fn test_prerequisites() {
     assert!(
         handler
             .verify_prerequisites(&[Record::from_rdata(
-                handler.origin().clone().into(),
+                handler.origin().clone(),
                 0,
                 RData::A(A::new(93, 184, 215, 14)),
             )
@@ -413,12 +405,12 @@ async fn test_prerequisites() {
     assert_eq!(
         handler
             .verify_prerequisites(&[Record::from_rdata(
-                handler.origin().clone().into(),
+                handler.origin().clone(),
                 0,
                 RData::A(A::new(93, 184, 215, 14)),
             )
             .set_dns_class(DNSClass::CH)
-            .clone()],)
+            .clone()])
             .await,
         Err(ResponseCode::FormErr)
     );
@@ -439,12 +431,12 @@ async fn test_prerequisites() {
     assert_eq!(
         handler
             .verify_prerequisites(&[Record::from_rdata(
-                handler.origin().clone().into(),
+                handler.origin().clone(),
                 0,
                 RData::A(A::new(93, 184, 216, 24)),
             )
             .set_dns_class(DNSClass::IN)
-            .clone()],)
+            .clone()])
             .await,
         Err(ResponseCode::NXRRSet)
     );
@@ -1327,7 +1319,7 @@ async fn test_zone_signing() {
 
     let message_request = MessageRequest::mock(
         Header::new(0, MessageType::Query, OpCode::Query),
-        Query::query(handler.origin().clone().into(), RecordType::AXFR),
+        Query::query(handler.origin().clone(), RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -1385,10 +1377,9 @@ async fn test_get_nsec() {
     subscribe();
     let name = Name::from_str("zzz.example.com.").unwrap();
     let handler = create_secure_example();
-    let lower_name = LowerName::from(name.clone());
 
     let results = handler
-        .nsec_records(&lower_name, LookupOptions::for_dnssec())
+        .nsec_records(&name, LookupOptions::for_dnssec())
         .await
         .unwrap();
 
@@ -1425,7 +1416,7 @@ async fn test_journal() {
     // assert that the correct set of records is there.
     let new_rrset: Vec<Record> = handler
         .lookup(
-            &new_name.clone().into(),
+            &new_name.clone(),
             RecordType::A,
             None,
             LookupOptions::default(),
@@ -1436,22 +1427,16 @@ async fn test_journal() {
         .cloned()
         .collect();
     assert!(new_rrset.iter().all(|r| *r == new_record));
-    let lower_delete_name = LowerName::from(delete_name);
 
     let delete_rrset = handler
-        .lookup(
-            &lower_delete_name,
-            RecordType::A,
-            None,
-            LookupOptions::default(),
-        )
+        .lookup(&delete_name, RecordType::A, None, LookupOptions::default())
         .await
         .unwrap();
     assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
     let in_memory = InMemoryZoneHandler::empty(
-        handler.origin().clone().into(),
+        handler.origin().clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
@@ -1467,12 +1452,7 @@ async fn test_journal() {
 
     // assert that the correct set of records is there.
     let new_rrset: Vec<Record> = recovered_handler
-        .lookup(
-            &new_name.into(),
-            RecordType::A,
-            None,
-            LookupOptions::default(),
-        )
+        .lookup(&new_name, RecordType::A, None, LookupOptions::default())
         .await
         .unwrap()
         .iter()
@@ -1481,12 +1461,7 @@ async fn test_journal() {
     assert!(new_rrset.iter().all(|r| *r == new_record));
 
     let delete_rrset = handler
-        .lookup(
-            &lower_delete_name,
-            RecordType::A,
-            None,
-            LookupOptions::default(),
-        )
+        .lookup(&delete_name, RecordType::A, None, LookupOptions::default())
         .await
         .unwrap();
     assert!(delete_rrset.was_empty());
@@ -1509,7 +1484,7 @@ async fn test_recovery() {
         .as_ref()
         .expect("test should have associated journal");
     let in_memory = InMemoryZoneHandler::empty(
-        handler.origin().clone().into(),
+        handler.origin().clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
@@ -1654,10 +1629,7 @@ async fn test_axfr_deny_unsigned() {
     let mut handler = create_example();
     handler.set_axfr_policy(AxfrPolicy::AllowSigned);
 
-    let query = LowerQuery::from(Query::query(
-        Name::from_str("example.com.").unwrap(),
-        RecordType::AXFR,
-    ));
+    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR);
     let request = Request::from_message(
         MessageRequest::mock(*TEST_HEADER, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),

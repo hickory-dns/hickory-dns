@@ -30,9 +30,7 @@ use crate::{
 
 use super::maybe_next_name;
 use crate::{
-    proto::rr::{
-        DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
-    },
+    proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA},
     zone_handler::LookupOptions,
 };
 
@@ -53,7 +51,7 @@ impl InnerInMemory {
     pub(super) fn proof(
         &self,
         info: Nsec3QueryInfo<'_>,
-        zone: &LowerName,
+        zone: &Name,
     ) -> Result<Vec<Arc<RecordSet>>, LookupError> {
         let Nsec3QueryInfo {
             qname,
@@ -128,13 +126,13 @@ impl InnerInMemory {
     }
 
     #[cfg(feature = "__dnssec")]
-    pub(super) fn closest_nsec(&self, name: &LowerName) -> Option<Arc<RecordSet>> {
+    pub(super) fn closest_nsec(&self, name: &Name) -> Option<Arc<RecordSet>> {
         for rr_set in self.records.values().rev() {
             if rr_set.record_type() != RecordType::NSEC {
                 continue;
             }
 
-            if *name < rr_set.name().into() {
+            if name < rr_set.name() {
                 continue;
             }
 
@@ -149,7 +147,7 @@ impl InnerInMemory {
 
             let next_domain_name = nsec.next_domain_name();
             // the search name is less than the next NSEC record
-            if *name < next_domain_name.into() ||
+            if name < next_domain_name ||
                 // this is the last record, and wraps to the beginning of the zone
                 next_domain_name < rr_set.name()
             {
@@ -160,7 +158,7 @@ impl InnerInMemory {
         None
     }
 
-    fn inner_soa(&self, origin: &LowerName) -> Option<&SOA> {
+    fn inner_soa(&self, origin: &Name) -> Option<&SOA> {
         // TODO: can't there be an RrKeyRef?
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
 
@@ -172,7 +170,7 @@ impl InnerInMemory {
     }
 
     /// Returns the minimum ttl (as used in the SOA record)
-    pub(super) fn minimum_ttl(&self, origin: &LowerName) -> u32 {
+    pub(super) fn minimum_ttl(&self, origin: &Name) -> u32 {
         match self.inner_soa(origin) {
             Some(soa) => soa.minimum(),
             None => {
@@ -183,7 +181,7 @@ impl InnerInMemory {
     }
 
     /// get the current serial number for the zone.
-    pub(super) fn serial(&self, origin: &LowerName) -> u32 {
+    pub(super) fn serial(&self, origin: &Name) -> u32 {
         match self.inner_soa(origin) {
             Some(soa) => soa.serial(),
             None => {
@@ -195,7 +193,7 @@ impl InnerInMemory {
 
     pub(super) fn inner_lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         record_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
@@ -228,7 +226,7 @@ impl InnerInMemory {
 
     fn inner_lookup_wildcard(
         &self,
-        name: &LowerName,
+        name: &Name,
         record_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
@@ -251,7 +249,7 @@ impl InnerInMemory {
 
             // we need to change the name to the query name in the result set since this was a wildcard
             let mut new_answer =
-                RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
+                RecordSet::with_ttl(name.clone(), rrset.record_type(), rrset.ttl());
 
             #[allow(clippy::needless_late_init)]
             let records;
@@ -296,9 +294,9 @@ impl InnerInMemory {
     ///   algorithms, etc.)
     pub(super) fn additional_search(
         &self,
-        original_name: &LowerName,
+        original_name: &Name,
         original_query_type: RecordType,
-        next_name: LowerName,
+        next_name: Name,
         _search_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Option<Vec<Arc<RecordSet>>> {
@@ -355,7 +353,7 @@ impl InnerInMemory {
     }
 
     #[cfg(any(feature = "__dnssec", feature = "sqlite"))]
-    pub(super) fn increment_soa_serial(&mut self, origin: &LowerName, dns_class: DNSClass) -> u32 {
+    pub(super) fn increment_soa_serial(&mut self, origin: &Name, dns_class: DNSClass) -> u32 {
         // we'll remove the SOA and then replace it
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
         let record = self
@@ -432,8 +430,8 @@ impl InnerInMemory {
         }
 
         // check that CNAME and ANAME is either not already present, or no other records are if it's a CNAME
-        let start_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MIN));
-        let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MAX));
+        let start_range_key = RrKey::new(record.name().clone(), RecordType::Unknown(u16::MIN));
+        let end_range_key = RrKey::new(record.name().clone(), RecordType::Unknown(u16::MAX));
 
         let multiple_records_at_label_disallowed = self
             .records
@@ -453,7 +451,7 @@ impl InnerInMemory {
             return false;
         }
 
-        let rr_key = RrKey::new(record.name().into(), record.record_type());
+        let rr_key = RrKey::new(record.name().clone(), record.record_type());
         let records: &mut Arc<RecordSet> = self.records.entry(rr_key).or_insert_with(|| {
             Arc::new(RecordSet::new(
                 record.name().clone(),
@@ -476,7 +474,7 @@ impl InnerInMemory {
     #[cfg(feature = "__dnssec")]
     pub(super) fn secure_zone_mut(
         &mut self,
-        origin: &LowerName,
+        origin: &Name,
         dns_class: DNSClass,
         nx_proof_kind: Option<&NxProofKind>,
         signature_inception: OffsetDateTime,
@@ -503,7 +501,7 @@ impl InnerInMemory {
     }
 
     #[cfg(feature = "__dnssec")]
-    fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
+    fn nsec_zone(&mut self, origin: &Name, dns_class: DNSClass) {
         // only create nsec records for secure zones
 
         if self.secure_keys.is_empty() {
@@ -522,7 +520,7 @@ impl InnerInMemory {
 
         {
             let mut nsec_info: Option<(&Name, BTreeSet<RecordType>)> = None;
-            let mut delegation_points = HashSet::<LowerName>::new();
+            let mut delegation_points = HashSet::<Name>::new();
             for key in self.records.keys() {
                 if !origin.zone_of(key.name()) {
                     // Non-authoritative record outside of zone
@@ -541,7 +539,7 @@ impl InnerInMemory {
 
                 match &mut nsec_info {
                     None => nsec_info = Some((&key.name, BTreeSet::from([key.record_type]))),
-                    Some((name, set)) if LowerName::new(name) == key.name => {
+                    Some((name, set)) if *name == &key.name => {
                         set.insert(key.record_type);
                     }
                     Some((name, set)) => {
@@ -570,7 +568,7 @@ impl InnerInMemory {
     #[cfg(feature = "__dnssec")]
     fn nsec3_zone(
         &mut self,
-        origin: &LowerName,
+        origin: &Name,
         dns_class: DNSClass,
         hash_alg: Nsec3HashAlgorithm,
         salt: &[u8],
@@ -596,7 +594,7 @@ impl InnerInMemory {
         let mut record_types = HashMap::new();
         record_types.insert(origin.clone(), ([RecordType::NSEC3PARAM].into(), true));
 
-        let mut delegation_points = HashSet::<LowerName>::new();
+        let mut delegation_points = HashSet::<Name>::new();
 
         for key in self.records.keys() {
             if !origin.zone_of(&key.name) {
@@ -686,7 +684,7 @@ impl InnerInMemory {
 
         // Include the NSEC3PARAM record.
         let rdata = NSEC3PARAM::new(hash_alg, opt_out, iterations, salt.to_vec());
-        let record = Record::from_rdata(origin.into(), ttl, rdata);
+        let record = Record::from_rdata(origin.clone(), ttl, rdata);
         records.push(record.into_record_of_rdata());
 
         // insert all the NSEC3 records.
@@ -747,7 +745,7 @@ impl InnerInMemory {
     #[cfg(feature = "__dnssec")]
     fn sign_zone(
         &mut self,
-        origin: &LowerName,
+        origin: &Name,
         dns_class: DNSClass,
         inception: OffsetDateTime,
     ) -> DnsSecResult<()> {
@@ -781,7 +779,7 @@ impl InnerInMemory {
     #[cfg(feature = "__dnssec")]
     fn find_cover(
         &self,
-        name: &LowerName,
+        name: &Name,
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
     ) -> Result<Option<Arc<RecordSet>>, ProtoError> {
@@ -798,7 +796,7 @@ impl InnerInMemory {
         Ok(records
             .clone()
             .filter(|rr_set| rr_set.record_type() == RecordType::NSEC3)
-            .filter(|rr_set| rr_set.name() < &*owner_name)
+            .filter(|rr_set| rr_set.name() < &owner_name)
             .max_by_key(|rr_set| rr_set.name())
             .or_else(|| records.max_by_key(|rr_set| rr_set.name()))
             .cloned())
@@ -808,10 +806,10 @@ impl InnerInMemory {
     #[cfg(feature = "__dnssec")]
     fn closest_encloser_proof(
         &self,
-        name: &LowerName,
+        name: &Name,
         zone: &Name,
         info: &Nsec3QueryInfo<'_>,
-    ) -> Result<Option<(LowerName, Arc<RecordSet>)>, ProtoError> {
+    ) -> Result<Option<(Name, Arc<RecordSet>)>, ProtoError> {
         let mut next_closer_name = name.clone();
         let mut closest_encloser = next_closer_name.base_name();
 
@@ -833,7 +831,7 @@ impl InnerInMemory {
 
     /// Select one record type to replace QTYPE=ANY. This behavior is described in [RFC 8482,
     /// section 4.1](https://datatracker.ietf.org/doc/html/rfc8482#section-4.1).
-    pub(super) fn replace_any(&self, name: &LowerName) -> RecordType {
+    pub(super) fn replace_any(&self, name: &Name) -> RecordType {
         // Check for some commonly used record types first: CNAME, A, AAAA, and MX. These are
         // listed in RFC 8482 section 4.3. If none of these four record types are present, then
         // pick any other record type, if available.

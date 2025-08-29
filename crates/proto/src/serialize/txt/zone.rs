@@ -18,7 +18,7 @@ use std::{
 };
 
 use crate::{
-    rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey},
     serialize::txt::{
         ParseError, ParseErrorKind, ParseResult,
         parse_rdata::RDataParser,
@@ -494,10 +494,9 @@ impl Context {
         record.set_dns_class(self.class);
 
         // add to the map
-        let entry = self.records.entry(RrKey::new(
-            LowerName::new(record.name()),
-            record.record_type(),
-        ));
+        let entry = self
+            .records
+            .entry(RrKey::new(record.name().clone(), record.record_type()));
         match (rtype, entry) {
             (RecordType::SOA, Entry::Occupied(_)) => {
                 return Err(ParseError::from("SOA is already specified"));

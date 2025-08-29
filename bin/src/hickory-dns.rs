@@ -327,7 +327,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
             .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
         match zone.load(&zone_dir).await {
-            Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
+            Ok(handlers) => catalog.upsert(zone_name, handlers),
             Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
 

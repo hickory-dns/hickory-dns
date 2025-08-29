@@ -38,7 +38,7 @@ use crate::{
 use crate::{
     proto::{
         op::{ResponseCode, ResponseSigner},
-        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey},
         runtime::{RuntimeProvider, TokioRuntimeProvider},
         serialize::txt::Parser,
     },
@@ -57,7 +57,7 @@ use inner::InnerInMemory;
 /// Zone handlers default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct InMemoryZoneHandler<P = TokioRuntimeProvider> {
-    origin: LowerName,
+    origin: Name,
     class: DNSClass,
     zone_type: ZoneType,
     axfr_policy: AxfrPolicy,
@@ -100,7 +100,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 
         // SOA must be present
         let soa = records
-            .get(&RrKey::new(origin.clone().into(), RecordType::SOA))
+            .get(&RrKey::new(origin.clone(), RecordType::SOA))
             .and_then(|rrset| rrset.records_without_rrsigs().next())
             .and_then(|record| record.data().as_soa())
             .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
@@ -137,7 +137,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
-            origin: LowerName::new(&origin),
+            origin,
             class: DNSClass::IN,
             zone_type,
             axfr_policy,
@@ -235,7 +235,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 
         name: Name,
         key: KEY,
-        origin: &LowerName,
+        origin: &Name,
         dns_class: DNSClass,
     ) -> DnsSecResult<()> {
         let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
@@ -268,20 +268,20 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    /// * `origin` - The origin `LowerName` for the signer record
+    /// * `origin` - The origin `Name` for the signer record
     /// * `dns_class` - The `DNSClass` for the signer record
     #[cfg(feature = "__dnssec")]
     fn inner_add_zone_signing_key(
         inner: &mut InnerInMemory,
         signer: SigSigner,
-        origin: &LowerName,
+        origin: &Name,
         dns_class: DNSClass,
     ) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = inner.minimum_ttl(origin);
         let dnskey = DNSKEY::from_key(&signer.key().to_public_key()?);
         let dnskey = Record::from_rdata(
-            origin.clone().into(),
+            origin.clone(),
             zone_ttl,
             RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
         );
@@ -348,7 +348,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         &self.origin
     }
 
@@ -369,7 +369,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     /// A LookupControlFlow containing the lookup that should be returned to the client.
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         mut query_type: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
@@ -612,7 +612,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     #[cfg(feature = "__dnssec")]
     async fn nsec_records(
         &self,
-        name: &LowerName,
+        name: &Name,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
@@ -665,7 +665,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     #[cfg(not(feature = "__dnssec"))]
     async fn nsec_records(
         &self,
-        _name: &LowerName,
+        _name: &Name,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::default()))
@@ -731,10 +731,7 @@ impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler
 }
 
 /// Gets the next search name, and returns the RecordType that it originated from
-fn maybe_next_name(
-    record_set: &RecordSet,
-    query_type: RecordType,
-) -> Option<(LowerName, RecordType)> {
+fn maybe_next_name(record_set: &RecordSet, query_type: RecordType) -> Option<(Name, RecordType)> {
     match (record_set.record_type(), query_type) {
         // ANAME is similar to CNAME,
         //  unlike CNAME, it is only something that continue to additional processing if the
@@ -746,14 +743,14 @@ fn maybe_next_name(
             .next()
             .map(Record::data)
             .and_then(RData::as_aname)
-            .map(|aname| LowerName::from(&aname.0))
+            .map(|aname| aname.0.clone())
             .map(|name| (name, t)),
         (t @ RecordType::NS, RecordType::NS) => record_set
             .records_without_rrsigs()
             .next()
             .map(Record::data)
             .and_then(RData::as_ns)
-            .map(|ns| LowerName::from(&ns.0))
+            .map(|ns| ns.0.clone())
             .map(|name| (name, t)),
         // CNAME will continue to additional processing for any query type
         (t @ RecordType::CNAME, _) => record_set
@@ -761,7 +758,7 @@ fn maybe_next_name(
             .next()
             .map(Record::data)
             .and_then(RData::as_cname)
-            .map(|cname| LowerName::from(&cname.0))
+            .map(|cname| cname.0.clone())
             .map(|name| (name, t)),
         (t @ RecordType::MX, RecordType::MX) => record_set
             .records_without_rrsigs()
@@ -769,7 +766,6 @@ fn maybe_next_name(
             .map(Record::data)
             .and_then(RData::as_mx)
             .map(|mx| mx.exchange().clone())
-            .map(LowerName::from)
             .map(|name| (name, t)),
         (t @ RecordType::SRV, RecordType::SRV) => record_set
             .records_without_rrsigs()
@@ -777,7 +773,6 @@ fn maybe_next_name(
             .map(Record::data)
             .and_then(RData::as_srv)
             .map(|srv| srv.target().clone())
-            .map(LowerName::from)
             .map(|name| (name, t)),
         // other additional collectors can be added here can be added here
         _ => None,

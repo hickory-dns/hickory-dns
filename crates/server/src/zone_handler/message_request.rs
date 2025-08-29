@@ -8,7 +8,7 @@
 use crate::proto::{
     ProtoError, ProtoErrorKind,
     op::{
-        Edns, EmitAndCount, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode,
+        Edns, EmitAndCount, Header, Message, MessageSignature, MessageType, OpCode, Query,
         ResponseCode, emit_message_parts,
     },
     rr::Record,
@@ -32,7 +32,7 @@ impl MessageRequest {
     ///
     /// The unspecified fields are left empty.
     #[cfg(any(test, feature = "testing"))]
-    pub fn mock(header: Header, query: impl Into<LowerQuery>) -> Self {
+    pub fn mock(header: Header, query: impl Into<Query>) -> Self {
         Self {
             header,
             queries: Queries::new(vec![query.into()]),
@@ -105,7 +105,7 @@ impl MessageRequest {
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```
-    pub fn queries(&self) -> &[LowerQuery] {
+    pub fn queries(&self) -> &[Query] {
         &self.queries.queries
     }
 
@@ -242,14 +242,14 @@ impl<'q> BinDecodable<'q> for MessageRequest {
 /// A set of Queries with the associated serialized data
 #[derive(Debug, PartialEq, Eq)]
 pub struct Queries {
-    queries: Vec<LowerQuery>,
+    queries: Vec<Query>,
     original: Box<[u8]>,
 }
 
 impl Queries {
     /// Construct a mock Queries object for a given query for testing purposes
     #[cfg(any(test, feature = "testing"))]
-    pub fn new(query: Vec<LowerQuery>) -> Self {
+    pub fn new(query: Vec<Query>) -> Self {
         let mut encoded = Vec::new();
         let mut encoder = BinEncoder::new(&mut encoded);
         for q in query.iter() {
@@ -261,13 +261,10 @@ impl Queries {
         }
     }
 
-    fn read_queries(
-        decoder: &mut BinDecoder<'_>,
-        count: usize,
-    ) -> Result<Vec<LowerQuery>, ProtoError> {
+    fn read_queries(decoder: &mut BinDecoder<'_>, count: usize) -> Result<Vec<Query>, ProtoError> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
-            queries.push(LowerQuery::read(decoder)?);
+            queries.push(Query::read(decoder)?);
         }
         Ok(queries)
     }
@@ -295,7 +292,7 @@ impl Queries {
     }
 
     /// Returns the queries from the request
-    pub fn queries(&self) -> &[LowerQuery] {
+    pub fn queries(&self) -> &[Query] {
         &self.queries
     }
 
@@ -315,8 +312,8 @@ impl Queries {
     }
 
     /// Validate that this set of Queries contains exactly one Query, and return a reference to the
-    /// `LowerQuery` if so.
-    pub(crate) fn try_as_query(&self) -> Result<&LowerQuery, ProtoError> {
+    /// `Query` if so.
+    pub(crate) fn try_as_query(&self) -> Result<&Query, ProtoError> {
         let count = self.queries.len();
         if count != 1 {
             return Err(ProtoErrorKind::BadQueryCount(count).into());
@@ -337,7 +334,7 @@ pub(crate) struct QueriesEmitAndCount<'q> {
     /// Number of queries in this segment
     length: usize,
     /// Use the first query, if it exists, to pre-populate the string compression cache
-    first_query: Option<&'q LowerQuery>,
+    first_query: Option<&'q Query>,
     /// The cached rendering of the original (wire-format) queries
     cached_serialized: &'q [u8],
 }
@@ -382,7 +379,7 @@ pub trait UpdateRequest {
     fn id(&self) -> u16;
 
     /// Zone being updated, this should be the query of a Message
-    fn zone(&self) -> Result<&LowerQuery, ProtoError>;
+    fn zone(&self) -> Result<&Query, ProtoError>;
 
     /// Prerequisites map to the Answer section of a Message
     fn prerequisites(&self) -> &[Record];
@@ -402,7 +399,7 @@ impl UpdateRequest for MessageRequest {
         Self::id(self)
     }
 
-    fn zone(&self) -> Result<&LowerQuery, ProtoError> {
+    fn zone(&self) -> Result<&Query, ProtoError> {
         // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
         self.raw_queries().try_as_query()
     }

@@ -469,7 +469,7 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
         .expect("failed to connect");
     tokio::spawn(driver);
 
-    (client, origin.into())
+    (client, origin)
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]

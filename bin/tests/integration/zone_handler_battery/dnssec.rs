@@ -238,8 +238,7 @@ fn into_rrsig(r: Record<RData>) -> Option<Record<RRSIG>> {
 pub fn test_nsec_nodata(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
-    let lookup =
-        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
+    let lookup = block_on(handler.nsec_records(&name, LookupOptions::for_dnssec())).unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -262,8 +261,7 @@ pub fn test_nsec_nodata(handler: impl ZoneHandler, _: &[DNSKEY]) {
 pub fn test_nsec_nxdomain_start(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // tests between the SOA and first record in the zone, where bbb is the first zone record
     let name = Name::from_str("aaa.example.com.").unwrap();
-    let lookup =
-        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
+    let lookup = block_on(handler.nsec_records(&name, LookupOptions::for_dnssec())).unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -287,8 +285,7 @@ pub fn test_nsec_nxdomain_start(handler: impl ZoneHandler, _: &[DNSKEY]) {
 pub fn test_nsec_nxdomain_middle(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
     let name = Name::from_str("ccc.example.com.").unwrap();
-    let lookup =
-        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
+    let lookup = block_on(handler.nsec_records(&name, LookupOptions::for_dnssec())).unwrap();
 
     let (mut nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -315,8 +312,7 @@ pub fn test_nsec_nxdomain_middle(handler: impl ZoneHandler, _: &[DNSKEY]) {
 pub fn test_nsec_nxdomain_wraps_end(handler: impl ZoneHandler, _: &[DNSKEY]) {
     // wraps back to the beginning of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
-    let lookup =
-        block_on(handler.nsec_records(&name.clone().into(), LookupOptions::for_dnssec())).unwrap();
+    let lookup = block_on(handler.nsec_records(&name, LookupOptions::for_dnssec())).unwrap();
 
     let (mut nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -363,7 +359,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
 
 pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
     use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
-    let signer_name = Name::from(handler.origin().to_owned());
+    let signer_name = handler.origin().clone();
 
     let mut keys = Vec::<DNSKEY>::new();
 

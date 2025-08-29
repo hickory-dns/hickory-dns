@@ -3,7 +3,7 @@ use std::sync::Arc;
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
     op::{Message, MessageType, Query, ResponseCode, ResponseSigner},
-    rr::{LowerName, Name, RData, Record, RecordSet, RecordType, rdata::A},
+    rr::{Name, RData, Record, RecordSet, RecordType, rdata::A},
     runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,
     xfer::Protocol,
@@ -153,7 +153,7 @@ async fn chained_zone_handler_test() {
 }
 
 struct TestZoneHandler {
-    origin: LowerName,
+    origin: Name,
     zone_type: ZoneType,
     lookup_records: TestRecords,
     consult_records: TestRecords,
@@ -162,7 +162,7 @@ struct TestZoneHandler {
 impl TestZoneHandler {
     pub fn new(origin: Name, lookup_records: TestRecords, consult_records: TestRecords) -> Self {
         TestZoneHandler {
-            origin: origin.into(),
+            origin,
             zone_type: ZoneType::External,
             lookup_records,
             consult_records,
@@ -172,7 +172,7 @@ impl TestZoneHandler {
 
 #[async_trait::async_trait]
 impl ZoneHandler for TestZoneHandler {
-    fn origin(&self) -> &LowerName {
+    fn origin(&self) -> &Name {
         &self.origin
     }
 
@@ -187,7 +187,7 @@ impl ZoneHandler for TestZoneHandler {
 
     async fn nsec_records(
         &self,
-        _name: &LowerName,
+        _name: &Name,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::Empty))
@@ -209,7 +209,7 @@ impl ZoneHandler for TestZoneHandler {
 
     async fn lookup(
         &self,
-        name: &LowerName,
+        name: &Name,
         _query_type: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
@@ -246,7 +246,7 @@ impl ZoneHandler for TestZoneHandler {
 
     async fn consult(
         &self,
-        name: &LowerName,
+        name: &Name,
         _rtype: RecordType,
         _request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
@@ -289,11 +289,11 @@ enum ResponseType {
 type TestRecords = Vec<(&'static str, Option<(ResponseType, A)>)>;
 
 fn inner_lookup(
-    name: &LowerName,
+    name: &Name,
     records: &TestRecords,
     lookup_options: &LookupOptions,
 ) -> Option<LookupControlFlow<AuthLookup>> {
-    let ascii_name = &Name::from(name).to_ascii()[..];
+    let ascii_name = &name.to_ascii()[..];
 
     for record in records.iter() {
         let (record_name, action) = record;
@@ -303,9 +303,9 @@ fn inner_lookup(
                 panic!("unexpected query for {record_name} in lookup");
             };
 
-            let mut rset = RecordSet::new(name.into(), RecordType::A, 1);
+            let mut rset = RecordSet::new(name.clone(), RecordType::A, 1);
             rset.insert(
-                Record::from_rdata(name.into(), 3600, RData::A(*response_record)),
+                Record::from_rdata(name.clone(), 3600, RData::A(*response_record)),
                 1,
             );
 

@@ -379,7 +379,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     );
 
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
+    catalog.upsert(origin, vec![Arc::new(handler)]);
 
     // Server setup
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();

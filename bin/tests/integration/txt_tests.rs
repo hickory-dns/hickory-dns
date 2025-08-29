@@ -110,7 +110,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     }
 
     let lowercase_record = block_on(handler.lookup(
-        &Name::from_str("tech.").unwrap().into(),
+        &Name::from_str("tech.").unwrap(),
         RecordType::SOA,
         None,
         LookupOptions::default(),
@@ -142,7 +142,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // NS
     let mut ns_records: Vec<Record> = block_on(handler.lookup(
-        &Name::from_str("isi.edu.").unwrap().into(),
+        &Name::from_str("isi.edu.").unwrap(),
         RecordType::NS,
         None,
         LookupOptions::default(),
@@ -176,7 +176,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // MX
     let mut mx_records: Vec<Record> = block_on(handler.lookup(
-        &Name::from_str("isi.edu.").unwrap().into(),
+        &Name::from_str("isi.edu.").unwrap(),
         RecordType::MX,
         None,
         LookupOptions::default(),
@@ -209,7 +209,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // A
     let a_record: Record = block_on(handler.lookup(
-        &Name::from_str("a.isi.edu.").unwrap().into(),
+        &Name::from_str("a.isi.edu.").unwrap(),
         RecordType::A,
         None,
         LookupOptions::default(),
@@ -231,7 +231,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // AAAA
     let aaaa_record: Record = block_on(handler.lookup(
-        &Name::from_str("aaaa.isi.edu.").unwrap().into(),
+        &Name::from_str("aaaa.isi.edu.").unwrap(),
         RecordType::AAAA,
         None,
         LookupOptions::default(),
@@ -253,7 +253,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // SHORT
     let short_record: Record = block_on(handler.lookup(
-        &Name::from_str("short.isi.edu.").unwrap().into(),
+        &Name::from_str("short.isi.edu.").unwrap(),
         RecordType::A,
         None,
         LookupOptions::default(),
@@ -276,7 +276,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // TXT
     let mut txt_records: Vec<Record> = block_on(handler.lookup(
-        &Name::from_str("a.isi.edu.").unwrap().into(),
+        &Name::from_str("a.isi.edu.").unwrap(),
         RecordType::TXT,
         None,
         LookupOptions::default(),
@@ -321,7 +321,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // PTR
     let ptr_record: Record = block_on(handler.lookup(
-        &Name::from_str("103.0.3.26.in-addr.arpa.").unwrap().into(),
+        &Name::from_str("103.0.3.26.in-addr.arpa.").unwrap(),
         RecordType::PTR,
         None,
         LookupOptions::default(),
@@ -338,16 +338,12 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     }
 
     // SRV
-    let srv_record: Record = block_on(
-        handler.lookup(
-            &Name::from_str("_ldap._tcp.service.isi.edu.")
-                .unwrap()
-                .into(),
-            RecordType::SRV,
-            None,
-            LookupOptions::default(),
-        ),
-    )
+    let srv_record: Record = block_on(handler.lookup(
+        &Name::from_str("_ldap._tcp.service.isi.edu.").unwrap(),
+        RecordType::SRV,
+        None,
+        LookupOptions::default(),
+    ))
     .unwrap()
     .iter()
     .next()
@@ -364,7 +360,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // IDNA name: rust-❤️-🦀    A  192.0.2.1
     let idna_record: Record = block_on(handler.lookup(
-        &Name::from_str("rust-❤️-🦀.isi.edu.").unwrap().into(),
+        &Name::from_str("rust-❤️-🦀.isi.edu.").unwrap(),
         RecordType::A,
         None,
         LookupOptions::default(),
@@ -386,7 +382,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     // CAA
     let caa_record: Record = block_on(handler.lookup(
-        &Name::parse("nocerts.isi.edu.", None).unwrap().into(),
+        &Name::parse("nocerts.isi.edu.", None).unwrap(),
         RecordType::CAA,
         None,
         LookupOptions::default(),
@@ -404,16 +400,12 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     }
 
     // TLSA
-    let tlsa_record: Record = block_on(
-        handler.lookup(
-            &Name::parse("_443._tcp.www.example.com.", None)
-                .unwrap()
-                .into(),
-            RecordType::TLSA,
-            None,
-            LookupOptions::default(),
-        ),
-    )
+    let tlsa_record: Record = block_on(handler.lookup(
+        &Name::parse("_443._tcp.www.example.com.", None).unwrap(),
+        RecordType::TLSA,
+        None,
+        LookupOptions::default(),
+    ))
     .unwrap()
     .iter()
     .next()
@@ -562,7 +554,7 @@ fn test_named_root() {
     }
 
     let (_, records) = records.unwrap();
-    let key = RrKey::new(LowerName::from(Name::root()), RecordType::NS);
+    let key = RrKey::new(Name::root(), RecordType::NS);
 
     assert!(records.contains_key(&key));
     assert_eq!(records[&key].dns_class(), DNSClass::IN)

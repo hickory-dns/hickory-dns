@@ -268,7 +268,7 @@ async fn test_exclude_nsec(
         .public_key();
 
     let mock = MockHandler::new(
-        query_name.into(),
+        query_name.clone(),
         query_type,
         modified_response,
         dnskey_response.clone(),
@@ -292,7 +292,7 @@ fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
     let handler = example_zone_handler(origin.clone(), key);
 
     let mut catalog = Catalog::new();
-    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
+    catalog.upsert(origin, vec![Arc::new(handler)]);
     catalog
 }
 

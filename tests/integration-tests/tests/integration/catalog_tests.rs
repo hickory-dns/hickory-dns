@@ -3,7 +3,7 @@ use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        DNSClass, LowerName, Name, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType,
         rdata::{
             A, AAAA, CNAME, NS, SOA,
             opt::{EdnsCode, EdnsOption, NSIDPayload},
@@ -31,7 +31,7 @@ use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
 pub fn create_records(records: &mut InMemoryZoneHandler) {
-    let origin: Name = records.origin().into();
+    let origin = records.origin().clone();
     records.upsert_mut(
         Record::from_rdata(
             origin.clone(),
@@ -144,7 +144,7 @@ async fn test_catalog_lookup() {
     let mut question = Message::query();
 
     let mut query = Query::new();
-    query.set_name(origin.into());
+    query.set_name(origin);
 
     question.add_query(query);
 
@@ -183,7 +183,7 @@ async fn test_catalog_lookup() {
     // other zone
     let mut question = Message::query();
     let mut query = Query::new();
-    query.set_name(test_origin.into());
+    query.set_name(test_origin);
 
     question.add_query(query);
 
@@ -233,7 +233,7 @@ async fn test_catalog_lookup_soa() {
     let mut question = Message::query();
 
     let mut query = Query::new();
-    query.set_name(origin.into());
+    query.set_name(origin);
     query.set_query_type(RecordType::SOA);
 
     question.add_query(query);
@@ -401,7 +401,7 @@ async fn test_axfr_allow_all() {
 
     let origin = test.origin().clone();
     let soa = Record::from_rdata(
-        origin.clone().into(),
+        origin.clone(),
         3600,
         RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -420,7 +420,7 @@ async fn test_axfr_allow_all() {
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
     let mut query = Query::new();
-    query.set_name(origin.clone().into());
+    query.set_name(origin.clone());
     query.set_query_type(RecordType::AXFR);
 
     let mut question = Message::query();
@@ -452,7 +452,7 @@ async fn test_axfr_allow_all() {
     let www_name = Name::parse("www.test.com.", None).unwrap();
     let mut expected_set = vec![
         Record::from_rdata(
-            origin.clone().into(),
+            origin.clone(),
             3600,
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -467,28 +467,24 @@ async fn test_axfr_allow_all() {
         .set_dns_class(DNSClass::IN)
         .clone(),
         Record::from_rdata(
-            origin.clone().into(),
+            origin.clone(),
             86400,
             RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
         )
         .set_dns_class(DNSClass::IN)
         .clone(),
         Record::from_rdata(
-            origin.clone().into(),
+            origin.clone(),
             86400,
             RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
         )
         .set_dns_class(DNSClass::IN)
         .clone(),
+        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
+            .set_dns_class(DNSClass::IN)
+            .clone(),
         Record::from_rdata(
-            origin.clone().into(),
-            86400,
-            RData::A(A::new(94, 184, 216, 34)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
-        Record::from_rdata(
-            origin.clone().into(),
+            origin.clone(),
             86400,
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
@@ -509,7 +505,7 @@ async fn test_axfr_allow_all() {
         .set_dns_class(DNSClass::IN)
         .clone(),
         Record::from_rdata(
-            origin.into(),
+            origin,
             3600,
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
@@ -543,7 +539,7 @@ async fn test_axfr_deny_all() {
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
     let mut query = Query::new();
-    query.set_name(origin.into());
+    query.set_name(origin);
     query.set_query_type(RecordType::AXFR);
 
     let mut question = Message::query();
@@ -584,7 +580,7 @@ async fn test_axfr_deny_all_sqlite() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(handler)]);
 
-    let query = Query::query(origin.into(), RecordType::AXFR);
+    let query = Query::query(origin, RecordType::AXFR);
     let mut message = Message::query();
     message.add_query(query);
 
@@ -623,7 +619,7 @@ async fn test_axfr_deny_unsigned() {
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
     let mut query = Query::new();
-    query.set_name(origin.into());
+    query.set_name(origin);
     query.set_query_type(RecordType::AXFR);
 
     let mut question = Message::query();
@@ -753,9 +749,9 @@ async fn test_nsid_enabled_and_requested() {
     assert_eq!(edns.option(EdnsCode::NSID), Some(&EdnsOption::NSID(nsid)));
 }
 
-fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
+fn test_nsid_request(origin: Name, request_nsid: bool) -> Request {
     let mut query = Query::new();
-    query.set_name(origin.into());
+    query.set_name(origin);
     query.set_query_type(RecordType::A);
 
     let mut question_edns = Edns::new();
@@ -913,7 +909,7 @@ async fn test_update_forwarder() {
     .unwrap();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
+    catalog.upsert(Name::root(), vec![Arc::new(handler)]);
 
     let query = Query::query(Name::root(), RecordType::SOA);
     let mut message = Message::new(0, MessageType::Query, OpCode::Update);
@@ -980,7 +976,7 @@ mod dnssec {
         records.secure_zone_mut().unwrap();
 
         let mut catalog = Catalog::new();
-        catalog.upsert(origin.into(), vec![Arc::new(records)]);
+        catalog.upsert(origin, vec![Arc::new(records)]);
         catalog
     }
 

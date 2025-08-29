@@ -731,7 +731,7 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
 pub fn add_auth<A: DnssecZoneHandler>(handler: &mut A) -> Vec<SigSigner> {
     let update_name = Name::from_str("update")
         .unwrap()
-        .append_domain(&handler.origin().to_owned().into())
+        .append_domain(handler.origin())
         .unwrap();
 
     let mut keys = Vec::<SigSigner>::new();

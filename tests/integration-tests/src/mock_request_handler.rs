@@ -5,10 +5,9 @@ use hickory_client::client::{ClientHandle, DnssecClient};
 use hickory_proto::rr::DNSClass;
 use hickory_proto::{
     op::{DnsResponse, Header, MessageType, ResponseCode},
-    rr::{LowerName, RecordType},
+    rr::{Name, RecordType},
     runtime::Time,
 };
-use hickory_resolver::Name;
 use hickory_server::{
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     zone_handler::MessageResponseBuilder,
@@ -17,21 +16,21 @@ use tracing::error;
 
 /// Replacement for `Catalog` that returns one of two canned responses.
 pub struct MockHandler {
-    query_name: LowerName,
+    query_name: Name,
     query_type: RecordType,
     response: DnsResponse,
-    dnskey_name: LowerName,
+    dnskey_name: Name,
     dnskey_response: DnsResponse,
 }
 
 impl MockHandler {
     pub fn new(
-        query_name: LowerName,
+        query_name: Name,
         query_type: RecordType,
         response: DnsResponse,
         dnskey_response: DnsResponse,
     ) -> Self {
-        let dnskey_name = Name::parse("example.", None).unwrap().into();
+        let dnskey_name = Name::parse("example.", None).unwrap();
         Self {
             query_name,
             query_type,
