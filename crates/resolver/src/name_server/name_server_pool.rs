@@ -40,7 +40,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         conn_provider: P,
     ) -> Self {
         Self::from_config(
-            config.name_servers().to_owned(),
+            config.name_servers().iter().cloned(),
             options,
             tls,
             conn_provider,
@@ -49,26 +49,29 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
-        name_servers: Vec<NameServerConfig>,
+        servers: impl IntoIterator<Item = NameServerConfig>,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
-        let mut servers = Vec::with_capacity(name_servers.len());
-        for server in name_servers {
-            servers.push(NameServer::new(
-                server,
-                options.clone(),
-                tls.clone(),
-                conn_provider.clone(),
-            ));
-        }
-
-        Self::from_nameservers(servers, options)
+        Self::from_nameservers(
+            servers.into_iter()
+                .map(|server| {
+                    Arc::new(NameServer::new(
+                        [],
+                        server,
+                        options.clone(),
+                        tls.clone(),
+                        conn_provider.clone(),
+                    ))
+                })
+                .collect(),
+            options,
+        )
     }
 
     #[doc(hidden)]
-    pub fn from_nameservers(servers: Vec<NameServer<P>>, options: Arc<ResolverOpts>) -> Self {
+    pub fn from_nameservers(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
         Self {
             state: Arc::new(PoolState::new(servers, options)),
         }
@@ -94,13 +97,13 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 }
 
 struct PoolState<P: ConnectionProvider> {
-    servers: Vec<NameServer<P>>,
+    servers: Vec<Arc<NameServer<P>>>,
     options: Arc<ResolverOpts>,
     next: AtomicUsize,
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
-    fn new(servers: Vec<NameServer<P>>, options: Arc<ResolverOpts>) -> Self {
+    fn new(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
         Self {
             servers,
             options,
@@ -146,13 +149,13 @@ impl<P: ConnectionProvider> PoolState<P> {
         // to fire than the timeout configured in `ResolverOpts`.
         let mut servers = VecDeque::from(servers);
         let mut backoff = Duration::from_millis(20);
-        let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut busy = SmallVec::<[Arc<NameServer<P>>; 2]>::new();
         let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
         let mut skip_udp = false;
 
         loop {
             // construct the parallel requests, 2 is the default
-            let mut par_servers = SmallVec::<[NameServer<P>; 2]>::new();
+            let mut par_servers = SmallVec::<[_; 2]>::new();
             while !servers.is_empty()
                 && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
             {
@@ -182,7 +185,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             let mut requests = par_servers
                 .into_iter()
                 .map(|server| {
-                    let future = server.send(request.clone(), skip_udp);
+                    let future = server.clone().send(request.clone(), skip_udp);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();
@@ -315,12 +318,13 @@ mod tests {
         });
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
-        let name_server = NameServer::new(
+        let name_server = Arc::new(NameServer::new(
+            [],
             tcp,
             opts.clone(),
             Arc::new(TlsConfig::new().unwrap()),
             conn_provider,
-        );
+        ));
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(name_servers.clone(), opts);
 
