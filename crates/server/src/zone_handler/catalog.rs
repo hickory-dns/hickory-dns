@@ -59,7 +59,7 @@ impl RequestHandler for Catalog {
     async fn handle_request<R: ResponseHandler, T: Time>(
         &self,
         request: &Request,
-        mut response_handle: R,
+        response_handle: R,
     ) -> ResponseInfo {
         trace!("request: {:?}", request);
 
@@ -82,23 +82,13 @@ impl RequestHandler for Catalog {
                     our_version,
                     req_edns.version()
                 );
-                let mut response_header = Header::response_from_request(request.header());
-                response_header.set_response_code(ResponseCode::BADVERS);
-                resp_edns.set_rcode_high(ResponseCode::BADVERS.high());
-                let response = MessageResponseBuilder::new(request.raw_queries(), Some(resp_edns))
-                    .build_no_records(response_header);
-
-                // TODO: should ResponseHandle consume self?
-                let result = response_handle.send_response(response).await;
-
-                // couldn't handle the request
-                return match result {
-                    Err(error) => {
-                        error!(%error, "request error");
-                        ResponseInfo::serve_failed(request)
-                    }
-                    Ok(info) => info,
-                };
+                return send_error_response(
+                    request,
+                    ResponseCode::BADVERS,
+                    Some(resp_edns),
+                    response_handle,
+                )
+                .await;
             }
 
             // RFC 5001 "DNS Name Server Identifier (NSID) Option" handling.
@@ -654,9 +644,12 @@ async fn zone_transfer(
 async fn send_error_response(
     request: &Request,
     response_code: ResponseCode,
-    response_edns: Option<Edns>,
+    mut response_edns: Option<Edns>,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
+    if let Some(edns) = response_edns.as_mut() {
+        edns.set_rcode_high(response_code.high());
+    }
     let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
         .error_msg(request.header(), response_code);
     match response_handle.send_response(response).await {
