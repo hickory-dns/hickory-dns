@@ -1069,7 +1069,10 @@ async fn build_forwarded_response(
                 let record_set = Arc::new(RecordSet::from(soa));
                 let records = LookupRecords::new(LookupOptions::default(), record_set);
 
-                (Answer::NoRecords(AuthLookup::SOA(records)), authorities)
+                (
+                    Answer::NoRecords(AuthLookup::answers(records, None)),
+                    authorities,
+                )
             } else {
                 (Answer::Normal(AuthLookup::default()), authorities)
             }
@@ -1094,7 +1097,7 @@ async fn build_forwarded_response(
                 let records = LookupRecords::new(LookupOptions::default(), record_set);
 
                 (
-                    Answer::NoRecords(AuthLookup::SOA(records)),
+                    Answer::NoRecords(AuthLookup::answers(records, None)),
                     AuthLookup::default(),
                 )
             } else {
