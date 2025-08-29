@@ -7,7 +7,6 @@
 
 use std::cmp;
 use std::fmt::Debug;
-use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 #[cfg(not(test))]
@@ -27,83 +26,11 @@ use crate::proto::{
     xfer::{DnsHandle, FirstAnswer, Protocol},
 };
 
-/// This struct is used to create `DnsHandle` with the help of `P`.
-#[derive(Clone)]
+/// A remote DNS server, identified by its IP address.
+///
+/// This potentially holds multiple open connections to the server, according to the
+/// configured protocols, and will make new connections as needed.
 pub struct NameServer<P: ConnectionProvider> {
-    inner: Arc<NameServerState<P>>,
-}
-
-impl<P: ConnectionProvider> NameServer<P> {
-    /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
-    pub fn new(
-        config: NameServerConfig,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
-        connection_provider: P,
-    ) -> Self {
-        Self::with_connections([], config, options, tls, connection_provider)
-    }
-
-    #[doc(hidden)]
-    pub fn with_connections(
-        connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
-        config: NameServerConfig,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
-        connection_provider: P,
-    ) -> Self {
-        Self {
-            inner: Arc::new(NameServerState::new(
-                connections.into_iter(),
-                config,
-                options,
-                tls,
-                connection_provider,
-            )),
-        }
-    }
-
-    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    pub(super) fn send(
-        &self,
-        request: DnsRequest,
-        skip_udp: bool,
-    ) -> impl Future<Output = Result<DnsResponse, ProtoError>> {
-        self.clone().inner.send(request, skip_udp)
-    }
-
-    pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
-        self.inner
-            .config
-            .connections
-            .iter()
-            .map(|conn| conn.protocol.to_protocol())
-    }
-
-    pub(super) fn decayed_srtt(&self) -> f64 {
-        self.inner.server_srtt.current()
-    }
-
-    #[cfg(test)]
-    #[allow(dead_code)]
-    pub(crate) fn is_connected(&self) -> bool {
-        let Some(connections) = self.inner.connections.try_lock() else {
-            // assuming that if someone has it locked it will be or is connected
-            return true;
-        };
-
-        connections.iter().any(|conn| match conn.meta.status() {
-            Status::Established | Status::Init => true,
-            Status::Failed => false,
-        })
-    }
-
-    pub(super) fn trust_negative_responses(&self) -> bool {
-        self.inner.config.trust_negative_responses
-    }
-}
-
-struct NameServerState<P: ConnectionProvider> {
     config: NameServerConfig,
     options: Arc<ResolverOpts>,
     tls: Arc<TlsConfig>,
@@ -112,9 +39,12 @@ struct NameServerState<P: ConnectionProvider> {
     connection_provider: P,
 }
 
-impl<P: ConnectionProvider> NameServerState<P> {
-    fn new(
-        connections: impl Iterator<Item = (Protocol, P::Conn)>,
+impl<P: ConnectionProvider> NameServer<P> {
+    /// Create a new [`NameServer`] with the given connections and configuration.
+    ///
+    /// The `connections` will usually be empty.
+    pub fn new(
+        connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
         config: NameServerConfig,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
@@ -141,7 +71,8 @@ impl<P: ConnectionProvider> NameServerState<P> {
         }
     }
 
-    async fn send(
+    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
+    pub(super) async fn send(
         self: Arc<Self>,
         request: DnsRequest,
         skip_udp: bool,
@@ -259,6 +190,35 @@ impl<P: ConnectionProvider> NameServerState<P> {
         let meta = state.meta.clone();
         connections.push(state);
         Ok((handle, meta))
+    }
+
+    pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
+        self.config
+            .connections
+            .iter()
+            .map(|conn| conn.protocol.to_protocol())
+    }
+
+    pub(super) fn decayed_srtt(&self) -> f64 {
+        self.server_srtt.current()
+    }
+
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn is_connected(&self) -> bool {
+        let Some(connections) = self.connections.try_lock() else {
+            // assuming that if someone has it locked it will be or is connected
+            return true;
+        };
+
+        connections.iter().any(|conn| match conn.meta.status() {
+            Status::Established | Status::Init => true,
+            Status::Failed => false,
+        })
+    }
+
+    pub(super) fn trust_negative_responses(&self) -> bool {
+        self.config.trust_negative_responses
     }
 }
 
@@ -505,12 +465,13 @@ mod tests {
         subscribe();
 
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
-        let name_server = NameServer::new(
+        let name_server = Arc::new(NameServer::new(
+            [].into_iter(),
             config,
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
-        );
+        ));
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
@@ -536,12 +497,13 @@ mod tests {
         };
 
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)));
-        let name_server = NameServer::new(
+        let name_server = Arc::new(NameServer::new(
+            [],
             config,
             Arc::new(options),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
-        );
+        ));
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
@@ -603,12 +565,13 @@ mod tests {
 
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let ns = NameServer::new(
+        let ns = Arc::new(NameServer::new(
+            [],
             config,
             Arc::new(resolver_opts),
             Arc::new(TlsConfig::new().unwrap()),
             provider,
-        );
+        ));
 
         let response = ns
             .send(

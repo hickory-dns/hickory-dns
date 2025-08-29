@@ -32,7 +32,7 @@ fn mock_nameserver(
     messages: Vec<Result<DnsResponse, ProtoError>>,
     protocol: ProtocolConfig,
     options: ResolverOpts,
-) -> MockedNameServer<DefaultOnSend> {
+) -> Arc<MockedNameServer<DefaultOnSend>> {
     mock_nameserver_on_send_nx(
         vec![(protocol, messages)],
         options,
@@ -47,7 +47,7 @@ fn mock_udp_nameserver_with_addr(
     messages: Vec<Result<DnsResponse, ProtoError>>,
     addr: IpAddr,
     options: ResolverOpts,
-) -> MockedNameServer<DefaultOnSend> {
+) -> Arc<MockedNameServer<DefaultOnSend>> {
     mock_nameserver_on_send_nx(
         vec![(ProtocolConfig::Udp, messages)],
         options,
@@ -62,7 +62,7 @@ fn mock_udp_nameserver_trust_nx(
     messages: Vec<Result<DnsResponse, ProtoError>>,
     options: ResolverOpts,
     trust_negative_responses: bool,
-) -> MockedNameServer<DefaultOnSend> {
+) -> Arc<MockedNameServer<DefaultOnSend>> {
     mock_nameserver_on_send_nx(
         vec![(ProtocolConfig::Udp, messages)],
         options,
@@ -77,7 +77,7 @@ fn mock_udp_nameserver_on_send<O: OnSend + Unpin>(
     messages: Vec<Result<DnsResponse, ProtoError>>,
     options: ResolverOpts,
     on_send: O,
-) -> MockedNameServer<O> {
+) -> Arc<MockedNameServer<O>> {
     mock_nameserver_on_send_nx(
         vec![(ProtocolConfig::Udp, messages)],
         options,
@@ -94,7 +94,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     on_send: O,
     ip: IpAddr,
     trust_negative_responses: bool,
-) -> MockedNameServer<O> {
+) -> Arc<MockedNameServer<O>> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
     };
@@ -110,18 +110,18 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     }
 
     let config = NameServerConfig::new(ip, trust_negative_responses, configs);
-    NameServer::with_connections(
+    Arc::new(NameServer::new(
         conns,
         config,
         Arc::new(options),
         Arc::new(TlsConfig::new().unwrap()),
         conn_provider,
-    )
+    ))
 }
 
 #[cfg(test)]
 fn mock_nameserver_pool(
-    servers: Vec<MockedNameServer<DefaultOnSend>>,
+    servers: Vec<Arc<MockedNameServer<DefaultOnSend>>>,
     _mdns: Option<MockedNameServer<DefaultOnSend>>,
     options: ResolverOpts,
 ) -> MockedNameServerPool<DefaultOnSend> {
@@ -130,7 +130,7 @@ fn mock_nameserver_pool(
 
 #[cfg(test)]
 fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
-    servers: Vec<MockedNameServer<O>>,
+    servers: Vec<Arc<MockedNameServer<O>>>,
     _mdns: Option<MockedNameServer<O>>,
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
