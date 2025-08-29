@@ -19,7 +19,7 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
@@ -67,17 +67,18 @@ impl<P: ConnectionProvider> NameServer<P> {
     pub(super) fn send(
         &self,
         request: DnsRequest,
-        skip_udp: bool,
-    ) -> impl Future<Output = Result<DnsResponse, ProtoError>> {
-        self.clone().inner.send(request, skip_udp)
+        skip: Protocols,
+    ) -> impl Future<Output = (Result<DnsResponse, ProtoError>, Protocols, Option<Protocol>)> {
+        self.clone().inner.send(request, skip)
     }
 
-    pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
-        self.inner
-            .config
-            .connections
-            .iter()
-            .map(|conn| conn.protocol.to_protocol())
+    pub(super) fn skip(&self) -> Protocols {
+        let mut skip = Protocols::ALL;
+        for config in self.inner.config.connections.iter() {
+            skip.set(config.protocol.to_protocol(), false);
+        }
+
+        skip
     }
 
     pub(super) fn decayed_srtt(&self) -> f64 {
@@ -138,7 +139,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
         // Unless the user specified that we should follow the configured order,
         // re-order the connections to prioritize UDP.
         if options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder {
-            connections.sort_by_key(|ns| (ns.protocol != Protocol::Udp) as u8);
+            connections.sort_by_key(|ns| (ns.meta.protocol != Protocol::Udp) as u8);
         }
 
         Self {
@@ -154,13 +155,16 @@ impl<P: ConnectionProvider> NameServerState<P> {
     async fn send(
         self: Arc<Self>,
         request: DnsRequest,
-        skip_udp: bool,
-    ) -> Result<DnsResponse, ProtoError> {
-        let (handle, meta) = self.connected_mut_client(skip_udp).await?;
+        skip: Protocols,
+    ) -> (Result<DnsResponse, ProtoError>, Protocols, Option<Protocol>) {
+        let (handle, meta) = match self.connected_mut_client(skip).await {
+            (Ok((handle, meta)), _) => (handle, meta),
+            (Err(error), protocol) => return (Err(error), skip, protocol),
+        };
+
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
-
         match response {
             Ok(response) => {
                 // First evaluate if the message succeeded.
@@ -172,7 +176,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
 
                         meta.set_status(Status::Established);
 
-                        return Ok(response);
+                        return (Ok(response), skip, Some(meta.protocol));
                     }
                     Err(error) => error,
                 };
@@ -211,7 +215,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
 
                 // take the remote edns options and store them
                 meta.set_status(Status::Established);
-                Err(error)
+                (Err(error), skip, Some(meta.protocol))
             }
             Err(error) => {
                 debug!(config = ?self.config, %error, "failed to connect to name server");
@@ -224,7 +228,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
                 self.server_srtt.record_failure();
 
                 // These are connection failures, not lookup failures, that is handled in the resolver layer
-                Err(error)
+                (Err(error), skip, Some(meta.protocol))
             }
         }
     }
@@ -234,21 +238,28 @@ impl<P: ConnectionProvider> NameServerState<P> {
     /// If the connection is in a failed state, then this will establish a new connection
     async fn connected_mut_client(
         &self,
-        skip_udp: bool,
-    ) -> Result<(P::Conn, Arc<ConnectionMeta>), ProtoError> {
+        skip: Protocols,
+    ) -> (
+        Result<(P::Conn, Arc<ConnectionMeta>), ProtoError>,
+        Option<Protocol>,
+    ) {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
         if !connections.is_empty() {
-            connections.sort_by(|a, b| match (a.protocol, b.protocol) {
+            connections.sort_by(|a, b| match (a.meta.protocol, b.meta.protocol) {
                 (ap, bp) if ap == bp => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
                 (Protocol::Udp, _) => cmp::Ordering::Less,
                 (_, Protocol::Udp) => cmp::Ordering::Greater,
                 (_, _) => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
             });
 
-            let conn = connections.first().unwrap(); // safe to unwrap because we only get here if `connections` is not empty
-            if !(skip_udp && conn.protocol == Protocol::Udp) {
-                return Ok((conn.handle.clone(), conn.meta.clone()));
+            for conn in connections.iter() {
+                if !skip.get(conn.meta.protocol) {
+                    return (
+                        Ok((conn.handle.clone(), conn.meta.clone())),
+                        Some(conn.meta.protocol),
+                    );
+                }
             }
         }
 
@@ -257,27 +268,37 @@ impl<P: ConnectionProvider> NameServerState<P> {
             .config
             .connections
             .iter()
-            .find(|conn| !(matches!(conn.protocol, ProtocolConfig::Udp) && skip_udp))
-            .ok_or_else(|| ProtoError::from(ProtoErrorKind::NoConnections))?;
+            .find(|conn| !skip.get(conn.protocol.to_protocol()));
 
-        let handle = Box::pin(self.connection_provider.new_connection(
+        let Some(config) = config else {
+            return (Err(ProtoError::from(ProtoErrorKind::NoConnections)), None);
+        };
+
+        let protocol = config.protocol.to_protocol();
+        let result = self.connection_provider.new_connection(
             self.config.ip,
             config,
             &self.options,
             &self.tls,
-        )?)
-        .await?;
+        );
+
+        let handle = match result {
+            Ok(future) => match future.await {
+                Ok(handle) => handle,
+                Err(err) => return (Err(err), Some(protocol)),
+            },
+            Err(err) => return (Err(err.into()), Some(protocol)),
+        };
 
         // establish a new connection
-        let state = ConnectionState::new(handle.clone(), config.protocol.to_protocol());
+        let state = ConnectionState::new(handle.clone(), protocol);
         let meta = state.meta.clone();
         connections.push(state);
-        Ok((handle, meta))
+        (Ok((handle, meta)), Some(protocol))
     }
 }
 
 struct ConnectionState<P: ConnectionProvider> {
-    protocol: Protocol,
     handle: P::Conn,
     meta: Arc<ConnectionMeta>,
 }
@@ -285,37 +306,36 @@ struct ConnectionState<P: ConnectionProvider> {
 impl<P: ConnectionProvider> ConnectionState<P> {
     fn new(handle: P::Conn, protocol: Protocol) -> Self {
         Self {
-            protocol,
             handle,
-            meta: Arc::new(ConnectionMeta::default()),
+            meta: Arc::new(ConnectionMeta::new(protocol)),
         }
     }
 }
 
 struct ConnectionMeta {
+    protocol: Protocol,
     status: AtomicU8,
     srtt: DecayingSrtt,
 }
 
 impl ConnectionMeta {
+    fn new(protocol: Protocol) -> Self {
+        // Initialize the SRTT to a randomly generated value that represents a
+        // very low RTT. Such a value helps ensure that each server is attempted
+        // early.
+        Self {
+            protocol,
+            status: AtomicU8::new(Status::Init.into()),
+            srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
+        }
+    }
+
     fn set_status(&self, status: Status) {
         self.status.store(status.into(), Ordering::Release);
     }
 
     fn status(&self) -> Status {
         Status::from(self.status.load(Ordering::Acquire))
-    }
-}
-
-impl Default for ConnectionMeta {
-    fn default() -> Self {
-        // Initialize the SRTT to a randomly generated value that represents a
-        // very low RTT. Such a value helps ensure that each server is attempted
-        // early.
-        Self {
-            status: AtomicU8::new(Status::Init.into()),
-            srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
-        }
     }
 }
 
@@ -496,6 +516,67 @@ impl From<u8> for Status {
     }
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(super) struct Protocols {
+    udp: bool,
+    tcp: bool,
+    #[cfg(feature = "__tls")]
+    tls: bool,
+    #[cfg(feature = "__https")]
+    https: bool,
+    #[cfg(feature = "__quic")]
+    quic: bool,
+    #[cfg(feature = "__h3")]
+    h3: bool,
+}
+
+impl Protocols {
+    fn get(&self, protocol: Protocol) -> bool {
+        match protocol {
+            Protocol::Udp => self.udp,
+            Protocol::Tcp => self.tcp,
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => self.tls,
+            #[cfg(feature = "__https")]
+            Protocol::Https => self.https,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => self.quic,
+            #[cfg(feature = "__h3")]
+            Protocol::H3 => self.h3,
+            _ => unreachable!(),
+        }
+    }
+
+    pub(super) fn set(&mut self, protocol: Protocol, value: bool) {
+        match protocol {
+            Protocol::Udp => self.udp = value,
+            Protocol::Tcp => self.tcp = value,
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => self.tls = value,
+            #[cfg(feature = "__https")]
+            Protocol::Https => self.https = value,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => self.quic = value,
+            #[cfg(feature = "__h3")]
+            Protocol::H3 => self.h3 = value,
+            _ => {}
+        }
+    }
+
+    pub(super) const ALL: Self = Self {
+        udp: true,
+        tcp: true,
+        #[cfg(feature = "__tls")]
+        tls: true,
+        #[cfg(feature = "__https")]
+        https: true,
+        #[cfg(feature = "__quic")]
+        quic: true,
+        #[cfg(feature = "__h3")]
+        h3: true,
+    };
+}
+
 #[cfg(all(test, feature = "tokio"))]
 mod tests {
     use std::cmp;
@@ -528,15 +609,17 @@ mod tests {
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
+        let skip = name_server.skip();
         let response = name_server
             .send(
                 DnsRequest::from_query(
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 ),
-                false,
+                skip,
             )
             .await
+            .0
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
@@ -558,6 +641,7 @@ mod tests {
             TokioRuntimeProvider::default(),
         );
 
+        let skip = name_server.skip();
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
@@ -566,9 +650,10 @@ mod tests {
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default(),
                     ),
-                    false
+                    skip
                 )
                 .await
+                .0
                 .is_err()
         );
     }
@@ -625,15 +710,17 @@ mod tests {
             provider,
         );
 
+        let skip = ns.skip();
         let response = ns
             .send(
                 DnsRequest::from_query(
                     Query::query(name.clone(), RecordType::NULL),
                     request_options,
                 ),
-                false,
+                skip,
             )
             .await
+            .0
             .unwrap();
 
         let response_query_name = response.queries().first().unwrap().name();

@@ -22,7 +22,7 @@ use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
-use crate::name_server::name_server::NameServer;
+use crate::name_server::name_server::{NameServer, Protocols};
 use crate::proto::runtime::{RuntimeProvider, Time};
 use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse, Protocol};
 use crate::proto::{ProtoError, ProtoErrorKind};
@@ -110,13 +110,19 @@ impl<P: ConnectionProvider> PoolState<P> {
     }
 
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
-        let mut servers = self.servers.clone();
+        let mut states = self
+            .servers
+            .iter()
+            .cloned()
+            .map(QueryState::from)
+            .collect::<Vec<_>>();
+
         match self.options.server_ordering_strategy {
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => {
-                servers.sort_by(|a, b| a.decayed_srtt().total_cmp(&b.decayed_srtt()));
+                states.sort_by(|a, b| a.server.decayed_srtt().total_cmp(&b.server.decayed_srtt()));
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
@@ -125,12 +131,12 @@ impl<P: ConnectionProvider> PoolState<P> {
                 } else {
                     1
                 };
-                if num_concurrent_reqs < servers.len() {
+                if num_concurrent_reqs < states.len() {
                     let index = self
                         .next
                         .fetch_add(num_concurrent_reqs, AtomicOrdering::SeqCst)
-                        % servers.len();
-                    servers.rotate_left(index);
+                        % states.len();
+                    states.rotate_left(index);
                 }
             }
         }
@@ -145,21 +151,19 @@ impl<P: ConnectionProvider> PoolState<P> {
         // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
         // close to the connection, which means the top level resolution might take substantially longer
         // to fire than the timeout configured in `ResolverOpts`.
-        let mut servers = VecDeque::from(servers);
+        let mut states = VecDeque::from(states);
         let mut backoff = Duration::from_millis(20);
-        let mut busy = SmallVec::<[NameServer<P>; 2]>::new();
+        let mut busy = SmallVec::<[QueryState<P>; 2]>::new();
         let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
-        let mut skip_udp = false;
-
         loop {
             // construct the parallel requests, 2 is the default
-            let mut par_servers = SmallVec::<[NameServer<P>; 2]>::new();
-            while !servers.is_empty()
+            let mut par_servers = SmallVec::<[QueryState<P>; 2]>::new();
+            while !states.is_empty()
                 && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
             {
-                if let Some(server) = servers.pop_front() {
-                    if !(skip_udp && server.protocols().all(|p| p == Protocol::Udp)) {
-                        par_servers.push(server);
+                if let Some(state) = states.pop_front() {
+                    if state.skip != Protocols::ALL {
+                        par_servers.push(state);
                     }
                 }
             }
@@ -170,10 +174,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     backoff,
                 )
                 .await;
-                    servers
-                        .extend(busy.drain(..).filter(|ns| {
-                            !(skip_udp && ns.protocols().all(|p| p == Protocol::Udp))
-                        }));
+                    states.extend(busy.drain(..).filter(|state| state.skip != Protocols::ALL));
                     backoff *= 2;
                     continue;
                 }
@@ -182,19 +183,21 @@ impl<P: ConnectionProvider> PoolState<P> {
 
             let mut requests = par_servers
                 .into_iter()
-                .map(|server| {
-                    let future = server.send(request.clone(), skip_udp);
+                .map(|state| {
+                    let QueryState { server, skip } = state;
+                    let future = server.send(request.clone(), skip);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();
 
-            while let Some((server, result)) = requests.next().await {
+            while let Some((server, (result, skip, protocol))) = requests.next().await {
                 let e = match result {
                     Ok(response) if response.truncated() => {
                         debug!("truncated response received, retrying over TCP");
-                        skip_udp = true;
+                        if let Some(Protocol::Udp) = protocol {
+                            states.push_front(QueryState::without(server, skip, Protocol::Udp));
+                        }
                         err = ProtoError::from("received truncated response");
-                        servers.push_front(server);
                         continue;
                     }
                     Ok(response) => return Ok(response),
@@ -205,15 +208,20 @@ impl<P: ConnectionProvider> PoolState<P> {
                     // We assume the response is spoofed, so ignore it and avoid UDP server for this
                     // request to try and avoid further spoofing.
                     ProtoErrorKind::QueryCaseMismatch => {
-                        servers.push_front(server);
-                        skip_udp = true;
+                        if let Some(Protocol::Udp) = protocol {
+                            states.push_front(QueryState::without(server, skip, Protocol::Udp));
+                        }
                         continue;
                     }
                     // If the server is busy, try it again later if necessary.
-                    ProtoErrorKind::Busy => busy.push(server),
+                    ProtoErrorKind::Busy => busy.push(QueryState { server, skip }),
                     // If the connection failed, try another one.
-                    ProtoErrorKind::Io(_) => servers.push_front(server),
-                    ProtoErrorKind::NoConnections => {}
+                    ProtoErrorKind::Io(_) | ProtoErrorKind::NoConnections => {
+                        states.push_back(match protocol {
+                            Some(protocol) => QueryState::without(server, skip, protocol),
+                            None => QueryState { server, skip },
+                        })
+                    }
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
                     ProtoErrorKind::NoRecordsFound(NoRecords {
@@ -227,6 +235,27 @@ impl<P: ConnectionProvider> PoolState<P> {
                     err = e;
                 }
             }
+        }
+    }
+}
+
+struct QueryState<P: ConnectionProvider> {
+    server: NameServer<P>,
+    skip: Protocols,
+}
+
+impl<P: ConnectionProvider> QueryState<P> {
+    fn without(server: NameServer<P>, mut skip: Protocols, protocol: Protocol) -> Self {
+        skip.set(protocol, true);
+        Self { server, skip }
+    }
+}
+
+impl<P: ConnectionProvider> From<NameServer<P>> for QueryState<P> {
+    fn from(server: NameServer<P>) -> Self {
+        Self {
+            skip: server.skip(),
+            server,
         }
     }
 }
