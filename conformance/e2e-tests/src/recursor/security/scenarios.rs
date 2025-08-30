@@ -94,7 +94,14 @@ fn case_randomization_enabled() -> Result<(), Error> {
     let _leaf_ns = leaf_ns.start()?;
 
     let settings = *DigSettings::default().recurse().timeout(7);
-    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn)?;
+    let output = match client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn) {
+        Ok(out) => out,
+        Err(e) => {
+            let logs = resolver.logs()?;
+            println!("{logs}");
+            return Err(e);
+        }
+    };
 
     assert_eq!(output.status, DigStatus::SERVFAIL);
     assert!(output.answer.is_empty());

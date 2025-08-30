@@ -5,22 +5,21 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::cmp;
 use std::fmt::{self, Debug, Formatter};
-use std::net::IpAddr;
-use std::pin::Pin;
+use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
 
 use futures_util::lock::Mutex as AsyncMutex;
-use futures_util::stream::{Stream, once};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
 use tracing::debug;
 
-use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts};
+use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
@@ -37,90 +36,71 @@ pub struct NameServer<P: ConnectionProvider> {
 impl<P: ConnectionProvider> NameServer<P> {
     /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new(
-        server_config: &NameServerConfig,
-        config: ConnectionConfig,
+        config: NameServerConfig,
+        options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
+        connection_provider: P,
+    ) -> Self {
+        Self::with_connections([], config, options, tls, connection_provider)
+    }
+
+    #[doc(hidden)]
+    pub fn with_connections(
+        connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
+        config: NameServerConfig,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
         connection_provider: P,
     ) -> Self {
         Self {
             inner: Arc::new(NameServerState::new(
-                server_config,
+                connections.into_iter(),
                 config,
                 options,
                 tls,
-                None,
                 connection_provider,
             )),
         }
     }
 
-    #[doc(hidden)]
-    pub fn from_conn(
-        server_config: &NameServerConfig,
-        config: ConnectionConfig,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
-        client: P::Conn,
-        connection_provider: P,
-    ) -> Self {
-        Self {
-            inner: Arc::new(NameServerState::new(
-                server_config,
-                config,
-                options,
-                tls,
-                Some(client),
-                connection_provider,
-            )),
+    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
+    pub(super) fn send(
+        &self,
+        request: DnsRequest,
+        skip: Protocols,
+    ) -> impl Future<Output = (Result<DnsResponse, ProtoError>, Protocols, Option<Protocol>)> {
+        self.clone().inner.send(request, skip)
+    }
+
+    pub(super) fn skip(&self) -> Protocols {
+        let mut skip = Protocols::ALL;
+        for config in self.inner.config.connections.iter() {
+            skip.set(config.protocol.to_protocol(), false);
         }
+
+        skip
+    }
+
+    pub(super) fn decayed_srtt(&self) -> f64 {
+        self.inner.server_srtt.current()
     }
 
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
-        use Status::*;
-        match (self.inner.status(), self.inner.client.try_lock()) {
-            (Established | Init, Some(client)) => client.is_some(),
-            (Failed, _) => false,
+        let Some(connections) = self.inner.connections.try_lock() else {
             // assuming that if someone has it locked it will be or is connected
-            (_, None) => true,
-        }
-    }
+            return true;
+        };
 
-    pub(super) fn decayed_srtt(&self) -> f64 {
-        self.inner.stats.decayed_srtt()
-    }
-
-    pub(super) fn protocol(&self) -> Protocol {
-        self.inner.config.protocol.to_protocol()
+        connections.iter().any(|conn| match conn.meta.status() {
+            Status::Established | Status::Init => true,
+            Status::Failed => false,
+        })
     }
 
     pub(super) fn trust_negative_responses(&self) -> bool {
-        self.inner.trust_negative_responses
-    }
-}
-
-impl<P: ConnectionProvider> DnsHandle for NameServer<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
-    type Runtime = P::RuntimeProvider;
-
-    fn is_verifying_dnssec(&self) -> bool {
-        #[cfg(feature = "__dnssec")]
-        {
-            self.inner.options.validate
-        }
-        #[cfg(not(feature = "__dnssec"))]
-        {
-            false
-        }
-    }
-
-    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send(&self, request: DnsRequest) -> Self::Response {
-        let this = self.clone();
-        // if state is failed, return future::err(), unless retry delay expired..
-        Box::pin(once(this.inner.send(request)))
+        self.inner.config.trust_negative_responses
     }
 }
 
@@ -135,68 +115,120 @@ impl<P: ConnectionProvider> Debug for NameServer<P> {
 }
 
 struct NameServerState<P: ConnectionProvider> {
-    ip: IpAddr,
-    config: ConnectionConfig,
+    config: NameServerConfig,
     options: Arc<ResolverOpts>,
     tls: Arc<TlsConfig>,
-    client: AsyncMutex<Option<P::Conn>>,
-    status: AtomicU8,
-    stats: NameServerStats,
-    trust_negative_responses: bool,
+    connections: AsyncMutex<Vec<ConnectionState<P>>>,
+    server_srtt: DecayingSrtt,
     connection_provider: P,
 }
 
 impl<P: ConnectionProvider> NameServerState<P> {
     fn new(
-        server_config: &NameServerConfig,
-        config: ConnectionConfig,
+        connections: impl Iterator<Item = (Protocol, P::Conn)>,
+        config: NameServerConfig,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
-        client: Option<P::Conn>,
         connection_provider: P,
     ) -> Self {
+        let mut connections = connections
+            .into_iter()
+            .map(|(protocol, handle)| ConnectionState::new(handle, protocol))
+            .collect::<Vec<_>>();
+
+        // Unless the user specified that we should follow the configured order,
+        // re-order the connections to prioritize UDP.
+        if options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder {
+            connections.sort_by_key(|ns| (ns.meta.protocol != Protocol::Udp) as u8);
+        }
+
         Self {
-            ip: server_config.ip,
             config,
             options,
             tls,
-            client: AsyncMutex::new(client),
-            status: AtomicU8::new(Status::Init.into()),
-            stats: NameServerStats::default(),
-            trust_negative_responses: server_config.trust_negative_responses,
+            connections: AsyncMutex::new(connections),
+            server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
             connection_provider,
         }
     }
 
-    async fn send(self: Arc<Self>, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
-        let client = self.connected_mut_client().await?;
-        let now = Instant::now();
-        let response = client.send(request).first_answer().await;
-        let rtt = now.elapsed();
+    async fn send(
+        self: Arc<Self>,
+        request: DnsRequest,
+        skip: Protocols,
+    ) -> (Result<DnsResponse, ProtoError>, Protocols, Option<Protocol>) {
+        let (handle, meta) = match self.connected_mut_client(skip).await {
+            (Ok((handle, meta)), _) => (handle, meta),
+            (Err(error), protocol) => return (Err(error), skip, protocol),
+        };
 
+        let now = Instant::now();
+        let response = handle.send(request).first_answer().await;
+        let rtt = now.elapsed();
         match response {
             Ok(response) => {
                 // First evaluate if the message succeeded.
                 let result = ProtoError::from_response(response);
-                self.stats.record(rtt, &result);
-                let response = result?;
+                let error = match result {
+                    Ok(response) => {
+                        meta.srtt.record(rtt);
+                        self.server_srtt.record(rtt);
+
+                        meta.set_status(Status::Established);
+
+                        return (Ok(response), skip, Some(meta.protocol));
+                    }
+                    Err(error) => error,
+                };
+
+                let update = match error.kind() {
+                    ProtoErrorKind::NoRecordsFound(NoRecords {
+                        response_code: ResponseCode::ServFail,
+                        ..
+                    }) => Some(true),
+                    ProtoErrorKind::NoRecordsFound(NoRecords { .. }) => Some(false),
+                    ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
+                        Some(false)
+                    }
+                    #[cfg(feature = "__quic")]
+                    ProtoErrorKind::QuinnConfigError(_)
+                    | ProtoErrorKind::QuinnConnect(_)
+                    | ProtoErrorKind::QuinnConnection(_)
+                    | ProtoErrorKind::QuinnTlsConfigError(_) => Some(false),
+                    #[cfg(feature = "__tls")]
+                    ProtoErrorKind::RustlsError(_) => Some(false),
+                    _ => None,
+                };
+
+                match update {
+                    Some(true) => {
+                        meta.srtt.record(rtt);
+                        self.server_srtt.record(rtt);
+                    }
+                    Some(false) => {
+                        // record the failure
+                        meta.srtt.record_failure();
+                        self.server_srtt.record_failure();
+                    }
+                    None => {}
+                }
 
                 // take the remote edns options and store them
-                self.set_status(Status::Established);
-
-                Ok(response)
+                meta.set_status(Status::Established);
+                (Err(error), skip, Some(meta.protocol))
             }
             Err(error) => {
-                debug!(ip = %self.ip, config = ?self.config, %error, "failed to connect to name server");
+                debug!(config = ?self.config, %error, "failed to connect to name server");
 
                 // this transitions the state to failure
-                self.set_status(Status::Failed);
+                meta.set_status(Status::Failed);
 
                 // record the failure
-                self.stats.record_connection_failure();
+                meta.srtt.record_failure();
+                self.server_srtt.record_failure();
 
                 // These are connection failures, not lookup failures, that is handled in the resolver layer
-                Err(error)
+                (Err(error), skip, Some(meta.protocol))
             }
         }
     }
@@ -204,32 +236,98 @@ impl<P: ConnectionProvider> NameServerState<P> {
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&self) -> Result<P::Conn, ProtoError> {
-        let mut client = self.client.lock().await;
+    async fn connected_mut_client(
+        &self,
+        skip: Protocols,
+    ) -> (
+        Result<(P::Conn, Arc<ConnectionMeta>), ProtoError>,
+        Option<Protocol>,
+    ) {
+        let mut connections = self.connections.lock().await;
+        connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
+        if !connections.is_empty() {
+            connections.sort_by(|a, b| match (a.meta.protocol, b.meta.protocol) {
+                (ap, bp) if ap == bp => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
+                (Protocol::Udp, _) => cmp::Ordering::Less,
+                (_, Protocol::Udp) => cmp::Ordering::Greater,
+                (_, _) => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
+            });
 
-        // if this is in a failure state
-        if self.status() == Status::Failed || client.is_none() {
-            debug!("reconnecting: {:?}", self.config);
-
-            self.set_status(Status::Init);
-
-            let new_client = Box::pin(self.connection_provider.new_connection(
-                self.ip,
-                &self.config,
-                &self.options,
-                &self.tls,
-            )?)
-            .await?;
-
-            // establish a new connection
-            *client = Some(new_client);
-        } else {
-            debug!("existing connection: {:?}", self.config);
+            for conn in connections.iter() {
+                if !skip.get(conn.meta.protocol) {
+                    return (
+                        Ok((conn.handle.clone(), conn.meta.clone())),
+                        Some(conn.meta.protocol),
+                    );
+                }
+            }
         }
 
-        Ok((*client)
-            .clone()
-            .expect("bad state, client should be connected"))
+        debug!(config = ?self.config, "connecting");
+        let config = self
+            .config
+            .connections
+            .iter()
+            .find(|conn| !skip.get(conn.protocol.to_protocol()));
+
+        let Some(config) = config else {
+            return (Err(ProtoError::from(ProtoErrorKind::NoConnections)), None);
+        };
+
+        let protocol = config.protocol.to_protocol();
+        let result = self.connection_provider.new_connection(
+            self.config.ip,
+            config,
+            &self.options,
+            &self.tls,
+        );
+
+        let handle = match result {
+            Ok(future) => match future.await {
+                Ok(handle) => handle,
+                Err(err) => return (Err(err), Some(protocol)),
+            },
+            Err(err) => return (Err(err.into()), Some(protocol)),
+        };
+
+        // establish a new connection
+        let state = ConnectionState::new(handle.clone(), protocol);
+        let meta = state.meta.clone();
+        connections.push(state);
+        (Ok((handle, meta)), Some(protocol))
+    }
+}
+
+struct ConnectionState<P: ConnectionProvider> {
+    handle: P::Conn,
+    meta: Arc<ConnectionMeta>,
+}
+
+impl<P: ConnectionProvider> ConnectionState<P> {
+    fn new(handle: P::Conn, protocol: Protocol) -> Self {
+        Self {
+            handle,
+            meta: Arc::new(ConnectionMeta::new(protocol)),
+        }
+    }
+}
+
+struct ConnectionMeta {
+    protocol: Protocol,
+    status: AtomicU8,
+    srtt: DecayingSrtt,
+}
+
+impl ConnectionMeta {
+    fn new(protocol: Protocol) -> Self {
+        // Initialize the SRTT to a randomly generated value that represents a
+        // very low RTT. Such a value helps ensure that each server is attempted
+        // early.
+        Self {
+            protocol,
+            status: AtomicU8::new(Status::Init.into()),
+            srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
+        }
     }
 
     fn set_status(&self, status: Status) {
@@ -241,7 +339,7 @@ impl<P: ConnectionProvider> NameServerState<P> {
     }
 }
 
-struct NameServerStats {
+struct DecayingSrtt {
     /// The smoothed round-trip time (SRTT).
     ///
     /// This value represents an exponentially weighted moving average (EWMA) of
@@ -272,57 +370,23 @@ struct NameServerStats {
     srtt_microseconds: AtomicU32,
 
     /// The last time the `srtt_microseconds` value was updated.
-    last_update: Arc<SyncMutex<Option<Instant>>>,
+    last_update: SyncMutex<Option<Instant>>,
 }
 
-impl NameServerStats {
+impl DecayingSrtt {
     fn new(initial_srtt: Duration) -> Self {
         Self {
             srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
-            last_update: Arc::new(SyncMutex::new(None)),
+            last_update: SyncMutex::new(None),
         }
     }
 
-    /// Records the measured `rtt` for a particular result.
-    ///
-    /// Tries to guess if the result was a failure that should penalize the expected RTT.
-    fn record(&self, rtt: Duration, result: &Result<DnsResponse, ProtoError>) {
-        let error = match result {
-            Ok(_) => {
-                self.record_rtt(rtt);
-                return;
-            }
-            Err(err) => err,
-        };
-
-        use ResponseCode::*;
-        match error.kind() {
-            ProtoErrorKind::NoRecordsFound(NoRecords { response_code, .. }) => {
-                match response_code {
-                    ServFail => self.record_connection_failure(),
-                    _ => self.record_rtt(rtt),
-                }
-            }
-            ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
-                self.record_connection_failure()
-            }
-            #[cfg(feature = "__quic")]
-            ProtoErrorKind::QuinnConfigError(_)
-            | ProtoErrorKind::QuinnConnect(_)
-            | ProtoErrorKind::QuinnConnection(_)
-            | ProtoErrorKind::QuinnTlsConfigError(_) => self.record_connection_failure(),
-            #[cfg(feature = "__tls")]
-            ProtoErrorKind::RustlsError(_) => self.record_connection_failure(),
-            _ => {}
-        }
-    }
-
-    fn record_rtt(&self, rtt: Duration) {
+    fn record(&self, rtt: Duration) {
         // If the cast on the result does overflow (it shouldn't), then the
         // value is saturated to u32::MAX, which is above the `MAX_SRTT_MICROS`
         // limit (meaning that any potential overflow is inconsequential).
         // See https://github.com/rust-lang/rust/issues/10184.
-        self.update_srtt(
+        self.update(
             rtt.as_micros() as u32,
             |cur_srtt_microseconds, last_update| {
                 // An arbitrarily low weight is used when computing the factor
@@ -337,21 +401,13 @@ impl NameServerStats {
     }
 
     /// Records a connection failure for a particular query.
-    fn record_connection_failure(&self) {
-        self.update_srtt(
-            Self::CONNECTION_FAILURE_PENALTY,
+    fn record_failure(&self) {
+        self.update(
+            Self::FAILURE_PENALTY,
             |cur_srtt_microseconds, _last_update| {
-                cur_srtt_microseconds.saturating_add(Self::CONNECTION_FAILURE_PENALTY)
+                cur_srtt_microseconds.saturating_add(Self::FAILURE_PENALTY)
             },
         );
-    }
-
-    /// Returns the raw SRTT value.
-    ///
-    /// Prefer to use `decayed_srtt` when ordering name servers.
-    #[cfg(all(test, feature = "tokio"))]
-    fn srtt(&self) -> Duration {
-        Duration::from_micros(u64::from(self.srtt_microseconds.load(Ordering::Acquire)))
     }
 
     /// Returns the SRTT value after applying a time based decay.
@@ -362,7 +418,7 @@ impl NameServerStats {
     /// 1. It helps distribute query load.
     /// 2. It helps detect positive network changes. For example, decreases in
     ///    latency or a server that has recovered from a failure.
-    fn decayed_srtt(&self) -> f64 {
+    fn current(&self) -> f64 {
         let srtt = f64::from(self.srtt_microseconds.load(Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
             // In general, if the time between queries is relatively short, then
@@ -384,7 +440,7 @@ impl NameServerStats {
     /// If the `last_update` value has not been set, then uses the `default`
     /// value to update the SRTT. Otherwise, invokes the `update_fn` with the
     /// current SRTT value and the `last_update` timestamp.
-    fn update_srtt(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
+    fn update(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
         let last_update = self.last_update.lock().replace(Instant::now());
         let _ = self.srtt_microseconds.fetch_update(
             Ordering::SeqCst,
@@ -401,17 +457,16 @@ impl NameServerStats {
         );
     }
 
-    const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
-    const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
-}
-
-impl Default for NameServerStats {
-    fn default() -> Self {
-        // Initialize the SRTT to a randomly generated value that represents a
-        // very low RTT. Such a value helps ensure that each server is attempted
-        // early.
-        Self::new(Duration::from_micros(rand::random_range(1..32)))
+    /// Returns the raw SRTT value.
+    ///
+    /// Prefer to use `decayed_srtt` when ordering name servers.
+    #[cfg(all(test, feature = "tokio"))]
+    fn as_duration(&self) -> Duration {
+        Duration::from_micros(u64::from(self.srtt_microseconds.load(Ordering::Acquire)))
     }
+
+    const FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
+    const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
 }
 
 /// Returns an exponentially weighted value in the range of 0.0 < x < 1.0
@@ -461,6 +516,67 @@ impl From<u8> for Status {
     }
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(super) struct Protocols {
+    udp: bool,
+    tcp: bool,
+    #[cfg(feature = "__tls")]
+    tls: bool,
+    #[cfg(feature = "__https")]
+    https: bool,
+    #[cfg(feature = "__quic")]
+    quic: bool,
+    #[cfg(feature = "__h3")]
+    h3: bool,
+}
+
+impl Protocols {
+    fn get(&self, protocol: Protocol) -> bool {
+        match protocol {
+            Protocol::Udp => self.udp,
+            Protocol::Tcp => self.tcp,
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => self.tls,
+            #[cfg(feature = "__https")]
+            Protocol::Https => self.https,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => self.quic,
+            #[cfg(feature = "__h3")]
+            Protocol::H3 => self.h3,
+            _ => unreachable!(),
+        }
+    }
+
+    pub(super) fn set(&mut self, protocol: Protocol, value: bool) {
+        match protocol {
+            Protocol::Udp => self.udp = value,
+            Protocol::Tcp => self.tcp = value,
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => self.tls = value,
+            #[cfg(feature = "__https")]
+            Protocol::Https => self.https = value,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => self.quic = value,
+            #[cfg(feature = "__h3")]
+            Protocol::H3 => self.h3 = value,
+            _ => {}
+        }
+    }
+
+    pub(super) const ALL: Self = Self {
+        udp: true,
+        tcp: true,
+        #[cfg(feature = "__tls")]
+        tls: true,
+        #[cfg(feature = "__https")]
+        https: true,
+        #[cfg(feature = "__quic")]
+        quic: true,
+        #[cfg(feature = "__h3")]
+        h3: true,
+    };
+}
+
 #[cfg(all(test, feature = "tokio"))]
 mod tests {
     use std::cmp;
@@ -473,35 +589,37 @@ mod tests {
     use tokio::spawn;
 
     use super::*;
-    use crate::config::ProtocolConfig;
+    use crate::config::{ConnectionConfig, ProtocolConfig};
     use crate::proto::op::{Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
+    use crate::proto::xfer::DnsRequestOptions;
 
     #[tokio::test]
     async fn test_name_server() {
         subscribe();
 
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
-        let connection_config = config.connections.first().unwrap().clone();
         let name_server = NameServer::new(
-            &config,
-            connection_config,
+            config,
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
+        let skip = name_server.skip();
         let response = name_server
-            .lookup(
-                Query::query(name.clone(), RecordType::A),
-                DnsRequestOptions::default(),
+            .send(
+                DnsRequest::from_query(
+                    Query::query(name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                ),
+                skip,
             )
-            .first_answer()
             .await
+            .0
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
@@ -516,24 +634,26 @@ mod tests {
         };
 
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)));
-        let connection_config = config.connections.first().unwrap().clone();
         let name_server = NameServer::new(
-            &config,
-            connection_config,
+            config,
             Arc::new(options),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
         );
 
+        let skip = name_server.skip();
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
-                .lookup(
-                    Query::query(name.clone(), RecordType::A),
-                    DnsRequestOptions::default(),
+                .send(
+                    DnsRequest::from_query(
+                        Query::query(name.clone(), RecordType::A),
+                        DnsRequestOptions::default(),
+                    ),
+                    skip
                 )
-                .first_answer()
                 .await
+                .0
                 .is_err()
         );
     }
@@ -583,20 +703,25 @@ mod tests {
 
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let connection_config = config.connections.first().unwrap().clone();
         let ns = NameServer::new(
-            &config,
-            connection_config,
+            config,
             Arc::new(resolver_opts),
             Arc::new(TlsConfig::new().unwrap()),
             provider,
         );
 
-        let stream = ns.lookup(
-            Query::query(name.clone(), RecordType::NULL),
-            request_options,
-        );
-        let response = stream.first_answer().await.unwrap();
+        let skip = ns.skip();
+        let response = ns
+            .send(
+                DnsRequest::from_query(
+                    Query::query(name.clone(), RecordType::NULL),
+                    request_options,
+                ),
+                skip,
+            )
+            .await
+            .0
+            .unwrap();
 
         let response_query_name = response.queries().first().unwrap().name();
         assert!(response_query_name.eq_case(&name));
@@ -609,92 +734,92 @@ mod tests {
 
     #[test]
     fn stats_are_sync() {
-        assert!(is_send_sync::<NameServerStats>());
+        assert!(is_send_sync::<ConnectionMeta>());
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_stats_cmp() {
         use std::cmp::Ordering;
-        let server_a = NameServerStats::new(Duration::from_micros(10));
-        let server_b = NameServerStats::new(Duration::from_micros(20));
+        let srtt_a = DecayingSrtt::new(Duration::from_micros(10));
+        let srtt_b = DecayingSrtt::new(Duration::from_micros(20));
 
         // No RTTs or failures have been recorded. The initial SRTTs should be
         // compared.
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Less);
 
         // Server A was used. Unused server B should now be preferred.
-        server_a.record_rtt(Duration::from_millis(30));
+        srtt_a.record(Duration::from_millis(30));
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Greater);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Greater);
 
         // Both servers have been used. Server A has a lower SRTT and should be
         // preferred.
-        server_b.record_rtt(Duration::from_millis(50));
+        srtt_b.record(Duration::from_millis(50));
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Less);
 
         // Server A experiences a connection failure, which results in Server B
         // being preferred.
-        server_a.record_connection_failure();
+        srtt_a.record_failure();
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Greater);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Greater);
 
         // Server A should eventually recover and once again be preferred.
-        while cmp(&server_a, &server_b) != Ordering::Less {
-            server_b.record_rtt(Duration::from_millis(50));
+        while cmp(&srtt_a, &srtt_b) != Ordering::Less {
+            srtt_b.record(Duration::from_millis(50));
             tokio::time::advance(Duration::from_secs(5)).await;
         }
 
-        server_a.record_rtt(Duration::from_millis(30));
+        srtt_a.record(Duration::from_millis(30));
         tokio::time::advance(Duration::from_secs(3)).await;
-        assert_eq!(cmp(&server_a, &server_b), Ordering::Less);
+        assert_eq!(cmp(&srtt_a, &srtt_b), Ordering::Less);
     }
 
-    fn cmp(a: &NameServerStats, b: &NameServerStats) -> cmp::Ordering {
-        a.decayed_srtt().total_cmp(&b.decayed_srtt())
+    fn cmp(a: &DecayingSrtt, b: &DecayingSrtt) -> cmp::Ordering {
+        a.current().total_cmp(&b.current())
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_rtt() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
         let first_rtt = Duration::from_millis(50);
-        server.record_rtt(first_rtt);
+        srtt.record(first_rtt);
 
         // The first recorded RTT should replace the initial value.
-        assert_eq!(server.srtt(), first_rtt);
+        assert_eq!(srtt.as_duration(), first_rtt);
 
         tokio::time::advance(Duration::from_secs(3)).await;
 
         // Subsequent RTTs should factor in previously recorded values.
-        server.record_rtt(Duration::from_millis(100));
-        assert_eq!(server.srtt(), Duration::from_micros(81606));
+        srtt.record(Duration::from_millis(100));
+        assert_eq!(srtt.as_duration(), Duration::from_micros(81606));
     }
 
     #[test]
     fn test_record_rtt_maximum_value() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
-        server.record_rtt(Duration::MAX);
+        srtt.record(Duration::MAX);
         // Updates to the SRTT are capped at a maximum value.
         assert_eq!(
-            server.srtt(),
-            Duration::from_micros(NameServerStats::MAX_SRTT_MICROS.into())
+            srtt.as_duration(),
+            Duration::from_micros(DecayingSrtt::MAX_SRTT_MICROS.into())
         );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_connection_failure() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
         // Verify that the SRTT value is initially replaced with the penalty and
         // subsequent failures result in the penalty being added.
         for failure_count in 1..4 {
-            server.record_connection_failure();
+            srtt.record_failure();
             assert_eq!(
-                server.srtt(),
+                srtt.as_duration(),
                 Duration::from_micros(
-                    NameServerStats::CONNECTION_FAILURE_PENALTY
+                    DecayingSrtt::FAILURE_PENALTY
                         .checked_mul(failure_count)
                         .expect("checked_mul overflow")
                         .into()
@@ -705,44 +830,43 @@ mod tests {
 
         // Verify that the `last_update` timestamp was updated for a connection
         // failure and is used in subsequent calculations.
-        server.record_rtt(Duration::from_millis(50));
-        assert_eq!(server.srtt(), Duration::from_micros(197152));
+        srtt.record(Duration::from_millis(50));
+        assert_eq!(srtt.as_duration(), Duration::from_micros(197152));
     }
 
     #[test]
     fn test_record_connection_failure_maximum_value() {
-        let server = NameServerStats::new(Duration::from_micros(10));
+        let srtt = DecayingSrtt::new(Duration::from_micros(10));
 
-        let num_failures =
-            (NameServerStats::MAX_SRTT_MICROS / NameServerStats::CONNECTION_FAILURE_PENALTY) + 1;
+        let num_failures = (DecayingSrtt::MAX_SRTT_MICROS / DecayingSrtt::FAILURE_PENALTY) + 1;
         for _ in 0..num_failures {
-            server.record_connection_failure();
+            srtt.record_failure();
         }
 
         // Updates to the SRTT are capped at a maximum value.
         assert_eq!(
-            server.srtt(),
-            Duration::from_micros(NameServerStats::MAX_SRTT_MICROS.into())
+            srtt.as_duration(),
+            Duration::from_micros(DecayingSrtt::MAX_SRTT_MICROS.into())
         );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_decayed_srtt() {
         let initial_srtt = 10;
-        let server = NameServerStats::new(Duration::from_micros(initial_srtt));
+        let srtt = DecayingSrtt::new(Duration::from_micros(initial_srtt));
 
         // No decay should be applied to the initial value.
-        assert_eq!(server.decayed_srtt() as u32, initial_srtt as u32);
+        assert_eq!(srtt.current() as u32, initial_srtt as u32);
 
         tokio::time::advance(Duration::from_secs(5)).await;
-        server.record_rtt(Duration::from_millis(100));
+        srtt.record(Duration::from_millis(100));
 
         // The decay function should assume a minimum of one second has elapsed
         // since the last update.
         tokio::time::advance(Duration::from_millis(500)).await;
-        assert_eq!(server.decayed_srtt() as u32, 99445);
+        assert_eq!(srtt.current() as u32, 99445);
 
         tokio::time::advance(Duration::from_secs(5)).await;
-        assert_eq!(server.decayed_srtt() as u32, 96990);
+        assert_eq!(srtt.current() as u32, 96990);
     }
 }
