@@ -16,38 +16,38 @@ use serde::Deserialize;
 
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
+#[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions,
-        ZoneTransfer, ZoneType,
-    },
+    dnssec::NxProofKind,
+    proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
+    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
+};
+use crate::{
     proto::{
         op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
     },
     server::{Request, RequestInfo},
-    store::in_memory::{InMemoryAuthority, zone_from_path},
-};
-#[cfg(feature = "__dnssec")]
-use crate::{
-    authority::{DnssecAuthority, Nsec3QueryInfo},
-    dnssec::NxProofKind,
-    proto::dnssec::{DnsSecResult, SigSigner, rdata::key::KEY},
+    store::in_memory::{InMemoryZoneHandler, zone_from_path},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneTransfer, ZoneType,
+    },
 };
 
-/// FileAuthority is responsible for storing the resource records for a particular zone.
+/// FileZoneHandler is responsible for storing the resource records for a particular zone.
 ///
-/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
+/// Zone handlers default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
-pub struct FileAuthority {
-    in_memory: InMemoryAuthority,
+pub struct FileZoneHandler {
+    in_memory: InMemoryZoneHandler,
     #[cfg(feature = "metrics")]
     #[allow(unused)]
     metrics: PersistentStoreMetrics,
 }
 
-impl FileAuthority {
-    /// Creates a new Authority.
+impl FileZoneHandler {
+    /// Creates a new ZoneHandler.
     ///
     /// # Arguments
     ///
@@ -60,8 +60,8 @@ impl FileAuthority {
     ///
     /// # Return value
     ///
-    /// The new `Authority`.
-    pub async fn new(in_memory: InMemoryAuthority) -> Self {
+    /// The new `ZoneHandler`.
+    pub async fn new(in_memory: InMemoryZoneHandler) -> Self {
         Self {
             #[cfg(feature = "metrics")]
             metrics: {
@@ -74,7 +74,7 @@ impl FileAuthority {
         }
     }
 
-    /// Read the Authority for the origin from the specified configuration
+    /// Read the ZoneHandler for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
@@ -95,7 +95,7 @@ impl FileAuthority {
                 new.zone_records.increment(records.len() as f64);
                 new
             },
-            in_memory: InMemoryAuthority::new(
+            in_memory: InMemoryZoneHandler::new(
                 origin,
                 records,
                 zone_type,
@@ -107,22 +107,22 @@ impl FileAuthority {
     }
 }
 
-impl Deref for FileAuthority {
-    type Target = InMemoryAuthority;
+impl Deref for FileZoneHandler {
+    type Target = InMemoryZoneHandler;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory
     }
 }
 
-impl DerefMut for FileAuthority {
+impl DerefMut for FileZoneHandler {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.in_memory
     }
 }
 
 #[async_trait::async_trait]
-impl Authority for FileAuthority {
+impl ZoneHandler for FileZoneHandler {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -231,7 +231,7 @@ impl Authority for FileAuthority {
         self.in_memory.nsec3_records(info, lookup_options).await
     }
 
-    /// Returns the SOA of the authority.
+    /// Returns the SOA of the zone handler.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
@@ -257,8 +257,8 @@ impl Authority for FileAuthority {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl DnssecAuthority for FileAuthority {
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
+impl DnssecZoneHandler for FileZoneHandler {
+    /// Add a (Sig0) key that is authorized to perform updates against this zone
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
     }
@@ -270,7 +270,7 @@ impl DnssecAuthority for FileAuthority {
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()> {
-        DnssecAuthority::secure_zone(&self.in_memory).await
+        DnssecZoneHandler::secure_zone(&self.in_memory).await
     }
 }
 
@@ -299,7 +299,7 @@ mod tests {
     use test_support::subscribe;
 
     use super::*;
-    use crate::authority::ZoneType;
+    use crate::zone_handler::ZoneType;
 
     #[test]
     fn test_load_zone() {
@@ -313,7 +313,7 @@ mod tests {
         let config = FileConfig {
             zone_path: PathBuf::from("../../tests/test-data/test_configs/example.com.zone"),
         };
-        let authority = FileAuthority::try_from_config(
+        let handler = FileZoneHandler::try_from_config(
             Name::from_str("example.com.").unwrap(),
             ZoneType::Primary,
             AxfrPolicy::Deny,
@@ -324,8 +324,8 @@ mod tests {
         )
         .expect("failed to load file");
 
-        let lookup = block_on(Authority::lookup(
-            &authority,
+        let lookup = block_on(ZoneHandler::lookup(
+            &handler,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
             None,
@@ -336,15 +336,15 @@ mod tests {
         match lookup
             .into_iter()
             .next()
-            .expect("A record not found in authority")
+            .expect("A record not found in zone handler")
             .data()
         {
             RData::A(ip) => assert_eq!(A::new(127, 0, 0, 1), *ip),
             _ => panic!("wrong rdata type returned"),
         }
 
-        let include_lookup = block_on(Authority::lookup(
-            &authority,
+        let include_lookup = block_on(ZoneHandler::lookup(
+            &handler,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
             RecordType::A,
             None,
@@ -355,7 +355,7 @@ mod tests {
         match include_lookup
             .into_iter()
             .next()
-            .expect("A record not found in authority")
+            .expect("A record not found in zone handler")
             .data()
         {
             RData::A(ip) => assert_eq!(A::new(127, 0, 0, 5), *ip),

@@ -81,7 +81,7 @@ use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::default_tls_server_config;
-use hickory_server::{authority::Catalog, server::Server};
+use hickory_server::{server::Server, zone_handler::Catalog};
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
@@ -335,7 +335,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
             .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
         match zone.load(&zone_dir).await {
-            Ok(authority) => catalog.upsert(zone_name.into(), authority),
+            Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
             Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
         }
 

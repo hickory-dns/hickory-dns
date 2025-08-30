@@ -16,7 +16,7 @@ use hickory_client::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_integration::example_authority::create_example;
+use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::ProtoError;
@@ -41,7 +41,7 @@ use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::DnsMultiplexerConnect;
 use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::authority::{Authority, AxfrPolicy, Catalog};
+use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -424,14 +424,14 @@ async fn test_nsec3_no_data() {
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
-    use hickory_server::store::sqlite::SqliteAuthority;
+    use hickory_server::store::sqlite::SqliteZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
-    let authority = create_example();
-    let mut authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(authority, AxfrPolicy::Deny, true, false);
-    authority.set_allow_update(true);
-    let origin = authority.origin().clone();
+    let handler = create_example();
+    let mut handler =
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(handler, AxfrPolicy::Deny, true, false);
+    handler.set_allow_update(true);
+    let origin = handler.origin().clone();
 
     const KEY: &[u8] = include_bytes!("../rsa-2048.pk8");
     let key =
@@ -460,9 +460,9 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
             pub_key.public_bytes().to_vec(),
         ))),
     );
-    authority.upsert_mut(auth_key, 0);
+    handler.upsert_mut(auth_key, 0);
 
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
     let multiplexer = TestClientConnection::new(catalog).to_multiplexer(Some(Arc::new(signer)));
     let (client, driver) = Client::connect(multiplexer)
         .await

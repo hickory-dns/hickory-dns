@@ -22,7 +22,6 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    authority::MessageResponse,
     proto::{
         ProtoError,
         h3::{
@@ -33,6 +32,7 @@ use crate::{
         rr::Record,
         xfer::Protocol,
     },
+    zone_handler::MessageResponse,
 };
 
 pub(super) async fn handle_h3(

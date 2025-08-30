@@ -1,5 +1,5 @@
 #[macro_use]
-mod authority_battery;
+mod zone_handler_battery;
 mod config_tests;
 mod forwarder;
 mod in_memory;

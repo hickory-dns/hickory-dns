@@ -2,7 +2,7 @@ use hickory_proto::op::{Header, OpCode, ResponseCode};
 use hickory_proto::xfer::Protocol;
 use metrics::{Counter, Unit, counter, describe_counter};
 
-use crate::authority::metrics::Direction;
+use crate::zone_handler::metrics::Direction;
 
 #[derive(Clone)]
 pub(super) struct ResponseHandlerMetrics {

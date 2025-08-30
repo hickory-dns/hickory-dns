@@ -7,10 +7,10 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::udp::UdpClientStream;
 use hickory_proto::xfer::{DnsRequest, FirstAnswer};
 use hickory_server::Server;
-use hickory_server::authority::{AxfrPolicy, Catalog, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::in_memory::InMemoryZoneHandler;
+use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneType};
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
@@ -102,7 +102,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
         RrKey::new(name.clone().into(), RecordType::SOA),
         soa_record_set,
     );
-    let authority = InMemoryAuthority::<TokioRuntimeProvider>::new(
+    let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::new(
         name,
         records,
         ZoneType::Primary,
@@ -113,7 +113,7 @@ pub fn new_large_catalog(num_records: u32) -> Catalog {
     .unwrap();
 
     let mut catalog = Catalog::new();
-    catalog.upsert(Name::root().into(), vec![Arc::new(authority)]);
+    catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     catalog
 }
 

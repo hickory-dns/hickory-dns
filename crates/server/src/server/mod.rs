@@ -38,7 +38,6 @@ use crate::proto::quic::QuicServer;
 use crate::proto::rustls::default_provider;
 use crate::{
     access::AccessControl,
-    authority::{MessageRequest, MessageResponseBuilder, Queries},
     proto::{
         BufDnsStreamHandle, ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
@@ -49,6 +48,7 @@ use crate::{
         udp::UdpStream,
         xfer::{Protocol, SerialMessage},
     },
+    zone_handler::{MessageRequest, MessageResponseBuilder, Queries},
 };
 
 #[cfg(feature = "__https")]
@@ -688,7 +688,7 @@ struct ReportingResponseHandler<R: ResponseHandler> {
 impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
     async fn send_response<'a>(
         &mut self,
-        response: crate::authority::MessageResponse<
+        response: crate::zone_handler::MessageResponse<
             '_,
             'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
@@ -1007,7 +1007,7 @@ fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::authority::Catalog;
+    use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
     use rustls::{

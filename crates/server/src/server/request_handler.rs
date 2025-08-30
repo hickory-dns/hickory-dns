@@ -14,7 +14,6 @@ use std::net::SocketAddr;
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
-    authority::MessageRequest,
     proto::{
         ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
@@ -22,6 +21,7 @@ use crate::{
         xfer::Protocol,
     },
     server::ResponseHandler,
+    zone_handler::MessageRequest,
 };
 
 /// An incoming request to the DNS catalog
@@ -130,7 +130,7 @@ impl<'a> RequestInfo<'a> {
     /// * `src` - The source address from which the request came
     /// * `protocol` - The protocol used for the request
     /// * `header` - The header from the original request
-    /// * `query` - The query from the request, LowerQuery is intended to reduce complexity for lookups in authorities
+    /// * `query` - The query from the request, LowerQuery is intended to reduce complexity for lookups in zone handlers
     pub fn new(
         src: SocketAddr,
         protocol: Protocol,

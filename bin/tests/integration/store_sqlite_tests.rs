@@ -10,15 +10,15 @@ use hickory_proto::rr::Name;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
-    authority::{AxfrPolicy, ZoneType},
-    store::sqlite::{SqliteAuthority, SqliteConfig},
+    store::sqlite::{SqliteConfig, SqliteZoneHandler},
+    zone_handler::{AxfrPolicy, ZoneType},
 };
 
-fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
+fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
-        .join("authority_battery.jrnl");
+        .join("zone_handler_battery.jrnl");
     let _ = fs::create_dir_all(journal_path.parent().unwrap());
 
     // cleanup anything from previous test
@@ -32,7 +32,7 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
         tsig_keys: Vec::new(),
     };
 
-    block_on(SqliteAuthority::try_from_config(
+    block_on(SqliteZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -46,11 +46,11 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
 }
 
 #[cfg_attr(not(feature = "__dnssec"), allow(unused))]
-fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAuthority {
+fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler {
     let journal_path = PathBuf::from("target/tests")
         .join(module.replace("::", "_"))
         .join(test_name)
-        .join("authority_battery.jrnl");
+        .join("zone_handler_battery.jrnl");
     let _ = fs::create_dir_all(journal_path.parent().unwrap());
 
     // cleanup anything from previous test
@@ -64,7 +64,7 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteAutho
         tsig_keys: Vec::new(),
     };
 
-    block_on(SqliteAuthority::try_from_config(
+    block_on(SqliteZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         AxfrPolicy::Deny,

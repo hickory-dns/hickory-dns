@@ -11,8 +11,8 @@ use hickory_proto::{
 };
 use hickory_resolver::Name;
 use hickory_server::{
-    authority::MessageResponseBuilder,
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
+    zone_handler::MessageResponseBuilder,
 };
 use tracing::error;
 

@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
+//! Module for `Catalog` of `ZoneHandler` zones which are responsible for storing `RRSet` records.
 
 use std::{io, sync::Arc};
 
@@ -19,23 +19,23 @@ use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 use crate::recursor::ErrorKind;
 
 mod auth_lookup;
-#[allow(clippy::module_inception)]
-mod authority;
 mod catalog;
 pub(crate) mod message_request;
 mod message_response;
 #[cfg(feature = "metrics")]
 pub(crate) mod metrics;
+#[allow(clippy::module_inception)]
+mod zone_handler;
 
 pub use self::auth_lookup::{
     AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter, ZoneTransfer,
 };
-pub use self::authority::{Authority, AxfrPolicy, LookupControlFlow, LookupOptions};
-#[cfg(feature = "__dnssec")]
-pub use self::authority::{DnssecAuthority, Nsec3QueryInfo};
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
+pub use self::zone_handler::{AxfrPolicy, LookupControlFlow, LookupOptions, ZoneHandler};
+#[cfg(feature = "__dnssec")]
+pub use self::zone_handler::{DnssecZoneHandler, Nsec3QueryInfo};
 
 /// A query could not be fulfilled
 #[derive(Debug, EnumAsInner, Error)]

@@ -2,14 +2,14 @@ use std::str::FromStr;
 
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record};
-use hickory_server::authority::{AxfrPolicy, ZoneType};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
-use hickory_server::store::in_memory::InMemoryAuthority;
+use hickory_server::store::in_memory::InMemoryZoneHandler;
+use hickory_server::zone_handler::{AxfrPolicy, ZoneType};
 
-pub fn create_example() -> InMemoryAuthority {
+pub fn create_example() -> InMemoryZoneHandler {
     let origin = Name::parse("example.com.", None).unwrap();
-    let mut records = InMemoryAuthority::empty(
+    let mut records = InMemoryZoneHandler::empty(
         origin.clone(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
@@ -183,15 +183,15 @@ pub fn create_example() -> InMemoryAuthority {
 }
 
 #[cfg(feature = "__dnssec")]
-pub fn create_secure_example() -> InMemoryAuthority {
+pub fn create_secure_example() -> InMemoryZoneHandler {
     use hickory_proto::dnssec::{
         Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
-    use hickory_server::authority::Authority;
+    use hickory_server::zone_handler::ZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
     use time::Duration;
 
-    let mut authority = create_example();
+    let mut handler = create_example();
 
     const KEY: &[u8] = include_bytes!("../tests/rsa-2048.pk8");
     let key =
@@ -199,12 +199,12 @@ pub fn create_secure_example() -> InMemoryAuthority {
     let signer = SigSigner::dnssec(
         DNSKEY::from_key(&key.to_public_key().unwrap()),
         Box::new(key),
-        authority.origin().clone().into(),
+        handler.origin().clone().into(),
         Duration::weeks(1).try_into().unwrap(),
     );
 
-    authority.add_zone_signing_key_mut(signer).unwrap();
-    authority.secure_zone_mut().unwrap();
+    handler.add_zone_signing_key_mut(signer).unwrap();
+    handler.secure_zone_mut().unwrap();
 
-    authority
+    handler
 }

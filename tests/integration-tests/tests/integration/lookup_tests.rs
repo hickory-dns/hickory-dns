@@ -15,19 +15,19 @@ use hickory_resolver::{
     lookup_ip::LookupIpFuture,
 };
 use hickory_server::{
-    authority::{Authority, Catalog},
-    store::in_memory::InMemoryAuthority,
+    store::in_memory::InMemoryZoneHandler,
+    zone_handler::{Catalog, ZoneHandler},
 };
 use test_support::subscribe;
 
-use hickory_integration::{TestClientStream, example_authority::create_example, mock_client::*};
+use hickory_integration::{TestClientStream, example_zone::create_example, mock_client::*};
 
 #[tokio::test]
 async fn test_lookup() {
     subscribe();
-    let authority = create_example();
+    let handler = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
@@ -53,9 +53,9 @@ async fn test_lookup() {
 #[tokio::test]
 async fn test_lookup_hosts() {
     subscribe();
-    let authority = create_example();
+    let handler = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
@@ -92,9 +92,9 @@ async fn test_lookup_hosts() {
     assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
 }
 
-fn create_ip_like_example() -> InMemoryAuthority {
-    let mut authority = create_example();
-    authority.upsert_mut(
+fn create_ip_like_example() -> InMemoryZoneHandler {
+    let mut handler = create_example();
+    handler.upsert_mut(
         Record::from_rdata(
             Name::from_str("1.2.3.4.example.com.").unwrap(),
             86400,
@@ -105,15 +105,15 @@ fn create_ip_like_example() -> InMemoryAuthority {
         0,
     );
 
-    authority
+    handler
 }
 
 #[tokio::test]
 async fn test_lookup_ipv4_like() {
     subscribe();
-    let authority = create_ip_like_example();
+    let handler = create_ip_like_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);
@@ -141,9 +141,9 @@ async fn test_lookup_ipv4_like() {
 #[tokio::test]
 async fn test_lookup_ipv4_like_fall_through() {
     subscribe();
-    let authority = create_ip_like_example();
+    let handler = create_ip_like_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, None);

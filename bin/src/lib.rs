@@ -45,23 +45,23 @@ use hickory_server::dnssec::NxProofKind;
 #[cfg(any(feature = "recursor", feature = "sqlite"))]
 use hickory_server::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "blocklist")]
-use hickory_server::store::blocklist::BlocklistAuthority;
-#[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
-#[cfg(feature = "resolver")]
-use hickory_server::store::forwarder::ForwardAuthority;
+#[cfg(feature = "blocklist")]
+use hickory_server::store::blocklist::BlocklistZoneHandler;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardConfig;
-#[cfg(feature = "recursor")]
-use hickory_server::store::recursor::RecursiveAuthority;
+#[cfg(feature = "resolver")]
+use hickory_server::store::forwarder::ForwardZoneHandler;
 #[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveConfig;
+#[cfg(feature = "recursor")]
+use hickory_server::store::recursor::RecursiveZoneHandler;
 #[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use hickory_server::store::sqlite::{SqliteConfig, SqliteZoneHandler};
 use hickory_server::{
     ConfigError,
-    authority::{Authority, AxfrPolicy, ZoneType},
-    store::file::{FileAuthority, FileConfig},
+    store::file::{FileConfig, FileZoneHandler},
+    zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
 };
 
 #[cfg(feature = "prometheus-metrics")]
@@ -376,7 +376,7 @@ pub struct ZoneConfig {
 
 impl ZoneConfig {
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn Authority>>, String> {
+    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, String> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -384,24 +384,24 @@ impl ZoneConfig {
             .map_err(|err| format!("failed to read zone name: {err}"))?;
         let zone_type = self.zone_type();
 
-        // load the zone and insert any configured authorities in the catalog.
+        // load the zone and insert any configured zone handlers in the catalog.
 
-        let mut authorities: Vec<Arc<dyn Authority>> = vec![];
+        let mut handlers: Vec<Arc<dyn ZoneHandler>> = vec![];
         match &self.zone_type_config {
             ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
                 debug!(
-                    "loading authorities for {zone_name} with stores {:?}",
+                    "loading zone handlers for {zone_name} with stores {:?}",
                     server_config.stores
                 );
 
                 let axfr_policy = server_config.axfr_policy();
                 for store in &server_config.stores {
-                    let authority: Arc<dyn Authority> = match store {
+                    let handler: Arc<dyn ZoneHandler> = match store {
                         #[cfg(feature = "sqlite")]
                         ServerStoreConfig::Sqlite(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut authority =
-                                SqliteAuthority::<TokioRuntimeProvider>::try_from_config(
+                            let mut handler =
+                                SqliteZoneHandler::<TokioRuntimeProvider>::try_from_config(
                                     zone_name.clone(),
                                     zone_type,
                                     axfr_policy,
@@ -414,14 +414,14 @@ impl ZoneConfig {
                                 .await?;
 
                             #[cfg(feature = "__dnssec")]
-                            dnssec::load_keys(&mut authority, &zone_name, &server_config.keys)
+                            dnssec::load_keys(&mut handler, &zone_name, &server_config.keys)
                                 .await?;
-                            Arc::new(authority)
+                            Arc::new(handler)
                         }
 
                         ServerStoreConfig::File(config) => {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut authority = FileAuthority::try_from_config(
+                            let mut handler = FileZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
                                 axfr_policy,
@@ -432,19 +432,19 @@ impl ZoneConfig {
                             )?;
 
                             #[cfg(feature = "__dnssec")]
-                            dnssec::load_keys(&mut authority, &zone_name, &server_config.keys)
+                            dnssec::load_keys(&mut handler, &zone_name, &server_config.keys)
                                 .await?;
-                            Arc::new(authority)
+                            Arc::new(handler)
                         }
                         _ => return empty_stores_error(),
                     };
 
-                    authorities.push(authority);
+                    handlers.push(handler);
                 }
             }
             ZoneTypeConfig::External { stores } => {
                 debug!(
-                    "loading authorities for {zone_name} with stores {:?}",
+                    "loading zone handlers for {zone_name} with stores {:?}",
                     stores
                 );
 
@@ -453,10 +453,10 @@ impl ZoneConfig {
                     allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
-                    let authority: Arc<dyn Authority> = match store {
+                    let handler: Arc<dyn ZoneHandler> = match store {
                         #[cfg(feature = "blocklist")]
                         ExternalStoreConfig::Blocklist(config) => {
-                            Arc::new(BlocklistAuthority::try_from_config(
+                            Arc::new(BlocklistZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 config,
                                 Some(zone_dir),
@@ -464,7 +464,7 @@ impl ZoneConfig {
                         }
                         #[cfg(feature = "resolver")]
                         ExternalStoreConfig::Forward(config) => {
-                            let forwarder = ForwardAuthority::builder_tokio(config.clone())
+                            let forwarder = ForwardZoneHandler::builder_tokio(config.clone())
                                 .with_origin(zone_name.clone())
                                 .build()?;
 
@@ -472,7 +472,7 @@ impl ZoneConfig {
                         }
                         #[cfg(feature = "recursor")]
                         ExternalStoreConfig::Recursor(config) => {
-                            let recursor = RecursiveAuthority::try_from_config(
+                            let recursor = RecursiveZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
                                 config,
@@ -486,13 +486,13 @@ impl ZoneConfig {
                         _ => return empty_stores_error(),
                     };
 
-                    authorities.push(authority);
+                    handlers.push(handler);
                 }
             }
         }
 
         info!("zone successfully loaded: {}", self.zone()?);
-        Ok(authorities)
+        Ok(handlers)
     }
 
     // TODO this is a little ugly for the parse, b/c there is no terminal char

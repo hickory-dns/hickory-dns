@@ -15,13 +15,13 @@ use hickory_proto::{
     xfer::Protocol,
 };
 use hickory_server::{
-    authority::{Authority, LookupError, LookupOptions, MessageRequest},
     server::Request,
+    zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-pub fn test_a_lookup(authority: impl Authority) {
+pub fn test_a_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -32,14 +32,14 @@ pub fn test_a_lookup(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
     match lookup
         .into_iter()
         .next()
-        .expect("A record not found in authority")
+        .expect("A record not found in zone handler")
         .data()
         .as_a()
     {
@@ -49,13 +49,13 @@ pub fn test_a_lookup(authority: impl Authority) {
 }
 
 #[allow(clippy::unreadable_literal)]
-pub fn test_soa(authority: impl Authority) {
-    let lookup = block_on(authority.soa()).unwrap();
+pub fn test_soa(handler: impl ZoneHandler) {
+    let lookup = block_on(handler.soa()).unwrap();
 
     match lookup
         .into_iter()
         .next()
-        .expect("SOA record not found in authority")
+        .expect("SOA record not found in zone handler")
         .data()
     {
         RData::SOA(soa) => {
@@ -74,13 +74,13 @@ pub fn test_soa(authority: impl Authority) {
     }
 }
 
-pub fn test_ns(authority: impl Authority) {
-    let lookup = block_on(authority.ns(LookupOptions::default())).unwrap();
+pub fn test_ns(handler: impl ZoneHandler) {
+    let lookup = block_on(handler.ns(LookupOptions::default())).unwrap();
 
     match lookup
         .into_iter()
         .next()
-        .expect("NS record not found in authority")
+        .expect("NS record not found in zone handler")
         .data()
     {
         RData::NS(name) => assert_eq!(Name::from_str("bbb.example.com.").unwrap(), name.0),
@@ -88,7 +88,7 @@ pub fn test_ns(authority: impl Authority) {
     }
 }
 
-pub fn test_ns_lookup(authority: impl Authority) {
+pub fn test_ns_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -99,7 +99,7 @@ pub fn test_ns_lookup(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -108,7 +108,7 @@ pub fn test_ns_lookup(authority: impl Authority) {
     let ns = lookup
         .into_iter()
         .next()
-        .expect("NS record not found in authority")
+        .expect("NS record not found in zone handler")
         .data()
         .as_ns()
         .expect("Not an NS record");
@@ -125,7 +125,7 @@ pub fn test_ns_lookup(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 2), *a);
 }
 
-pub fn test_mx(authority: impl Authority) {
+pub fn test_mx(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -136,7 +136,7 @@ pub fn test_mx(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -145,7 +145,7 @@ pub fn test_mx(authority: impl Authority) {
     let mx = lookup
         .into_iter()
         .next()
-        .expect("MX record not found in authority")
+        .expect("MX record not found in zone handler")
         .data()
         .as_mx()
         .expect("Not an MX record");
@@ -183,7 +183,7 @@ pub fn test_mx(authority: impl Authority) {
     assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
-pub fn test_mx_to_null(authority: impl Authority) {
+pub fn test_mx_to_null(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -197,7 +197,7 @@ pub fn test_mx_to_null(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -207,7 +207,7 @@ pub fn test_mx_to_null(authority: impl Authority) {
     let mx = lookup
         .into_iter()
         .next()
-        .expect("MX record not found in authority")
+        .expect("MX record not found in zone handler")
         .data()
         .as_mx()
         .expect("Not an MX record");
@@ -215,7 +215,7 @@ pub fn test_mx_to_null(authority: impl Authority) {
     assert_eq!(Name::from_str(".").unwrap(), *mx.exchange());
 }
 
-pub fn test_cname(authority: impl Authority) {
+pub fn test_cname(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -229,14 +229,14 @@ pub fn test_cname(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
     let cname = lookup
         .into_iter()
         .next()
-        .expect("CNAME record not found in authority")
+        .expect("CNAME record not found in zone handler")
         .data()
         .as_cname()
         .expect("Not an A record");
@@ -244,7 +244,7 @@ pub fn test_cname(authority: impl Authority) {
     assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
 }
 
-pub fn test_cname_alias(authority: impl Authority) {
+pub fn test_cname_alias(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -255,7 +255,7 @@ pub fn test_cname_alias(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -265,7 +265,7 @@ pub fn test_cname_alias(authority: impl Authority) {
     let cname = lookup
         .into_iter()
         .next()
-        .expect("CNAME record not found in authority")
+        .expect("CNAME record not found in zone handler")
         .data()
         .as_cname()
         .expect("Not a CNAME record");
@@ -283,7 +283,7 @@ pub fn test_cname_alias(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_cname_chain(authority: impl Authority) {
+pub fn test_cname_chain(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -297,7 +297,7 @@ pub fn test_cname_chain(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -307,7 +307,7 @@ pub fn test_cname_chain(authority: impl Authority) {
     let cname = lookup
         .into_iter()
         .next()
-        .expect("CNAME record not found in authority")
+        .expect("CNAME record not found in zone handler")
         .data()
         .as_cname()
         .expect("Not a CNAME record");
@@ -336,7 +336,7 @@ pub fn test_cname_chain(authority: impl Authority) {
 
 /// In this the ANAME , should, return A and AAAA records in additional section
 /// the answer should be the A record
-pub fn test_aname(authority: impl Authority) {
+pub fn test_aname(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -347,14 +347,14 @@ pub fn test_aname(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
     let aname = lookup
         .into_iter()
         .next()
-        .expect("ANAME record not found in authority")
+        .expect("ANAME record not found in zone handler")
         .data()
         .as_aname()
         .expect("Not an ANAME record");
@@ -384,7 +384,7 @@ pub fn test_aname(authority: impl Authority) {
 /// In this test the A record that the ANAME resolves to should be returned as the answer,
 ///
 /// The additionals should include the ANAME.
-pub fn test_aname_a_lookup(authority: impl Authority) {
+pub fn test_aname_a_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -395,7 +395,7 @@ pub fn test_aname_a_lookup(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -416,7 +416,7 @@ pub fn test_aname_a_lookup(authority: impl Authority) {
     let aname = additionals
         .into_iter()
         .next()
-        .expect("ANAME record not found in authority")
+        .expect("ANAME record not found in zone handler")
         .data()
         .as_aname()
         .expect("Not an ANAME record");
@@ -427,7 +427,7 @@ pub fn test_aname_a_lookup(authority: impl Authority) {
 /// In this test the A record that the ANAME resolves to should be returned as the answer, not at the apex
 ///
 /// The additionals should include the ANAME, this one should include the CNAME chain as well.
-pub fn test_aname_chain(authority: impl Authority) {
+pub fn test_aname_chain(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -441,7 +441,7 @@ pub fn test_aname_chain(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -462,7 +462,7 @@ pub fn test_aname_chain(authority: impl Authority) {
 
     let aname = additionals
         .next()
-        .expect("ANAME record not found in authority")
+        .expect("ANAME record not found in zone handler")
         .data()
         .as_aname()
         .expect("Not an ANAME record");
@@ -486,7 +486,7 @@ pub fn test_aname_chain(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_update_errors(authority: impl Authority) {
+pub fn test_update_errors(handler: impl ZoneHandler) {
     let mut message = Message::query();
     message.add_query(Query::new());
     let bytes = message.to_vec().unwrap();
@@ -499,14 +499,14 @@ pub fn test_update_errors(authority: impl Authority) {
 
     // this is expected to fail, i.e. updates are not allowed
     assert!(
-        block_on(authority.update(&request, TokioTime::current_time()))
+        block_on(handler.update(&request, TokioTime::current_time()))
             .0
             .is_err()
     );
 }
 
 #[allow(clippy::uninlined_format_args)]
-pub fn test_dots_in_name(authority: impl Authority) {
+pub fn test_dots_in_name(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -520,7 +520,7 @@ pub fn test_dots_in_name(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -528,7 +528,7 @@ pub fn test_dots_in_name(authority: impl Authority) {
         *lookup
             .into_iter()
             .next()
-            .expect("A record not found in authority")
+            .expect("A record not found in zone handler")
             .data()
             .as_a()
             .expect("wrong rdata type returned"),
@@ -549,7 +549,7 @@ pub fn test_dots_in_name(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap_err();
 
@@ -566,7 +566,7 @@ pub fn test_dots_in_name(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap_err();
 
@@ -586,14 +586,14 @@ pub fn test_dots_in_name(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap_err();
 
     assert!(lookup.is_nx_domain());
 }
 
-pub fn test_wildcard(authority: impl Authority) {
+pub fn test_wildcard(handler: impl ZoneHandler) {
     // check direct lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -608,7 +608,7 @@ pub fn test_wildcard(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -616,7 +616,7 @@ pub fn test_wildcard(authority: impl Authority) {
         lookup
             .into_iter()
             .next()
-            .expect("CNAME record not found in authority")
+            .expect("CNAME record not found in zone handler")
             .data()
             .as_cname()
             .expect("wrong rdata type returned")
@@ -638,7 +638,7 @@ pub fn test_wildcard(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .expect("lookup of www.wildcard.example.com. failed");
 
@@ -653,7 +653,7 @@ pub fn test_wildcard(authority: impl Authority) {
                 );
                 r
             })
-            .expect("CNAME record not found in authority")
+            .expect("CNAME record not found in zone handler")
             .data()
             .as_cname()
             .expect("wrong rdata type returned")
@@ -662,7 +662,7 @@ pub fn test_wildcard(authority: impl Authority) {
     );
 }
 
-pub fn test_wildcard_subdomain(authority: impl Authority) {
+pub fn test_wildcard_subdomain(handler: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -677,7 +677,7 @@ pub fn test_wildcard_subdomain(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
@@ -692,7 +692,7 @@ pub fn test_wildcard_subdomain(authority: impl Authority) {
                 );
                 r
             })
-            .expect("CNAME record not found in authority")
+            .expect("CNAME record not found in zone handler")
             .data()
             .as_cname()
             .expect("wrong rdata type returned")
@@ -701,7 +701,7 @@ pub fn test_wildcard_subdomain(authority: impl Authority) {
     );
 }
 
-pub fn test_wildcard_chain(authority: impl Authority) {
+pub fn test_wildcard_chain(handler: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
@@ -716,7 +716,7 @@ pub fn test_wildcard_chain(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .expect("lookup of www.wildcard.example.com. failed");
 
@@ -727,7 +727,7 @@ pub fn test_wildcard_chain(authority: impl Authority) {
         lookup
             .into_iter()
             .next()
-            .expect("CNAME record not found in authority")
+            .expect("CNAME record not found in zone handler")
             .data()
             .as_cname()
             .expect("wrong rdata type returned")
@@ -745,7 +745,7 @@ pub fn test_wildcard_chain(authority: impl Authority) {
     assert_eq!(A4::new(127, 0, 0, 1), *a);
 }
 
-pub fn test_srv(authority: impl Authority) {
+pub fn test_srv(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -759,7 +759,7 @@ pub fn test_srv(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()))
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
         .0
         .unwrap();
 
@@ -768,7 +768,7 @@ pub fn test_srv(authority: impl Authority) {
     let srv = lookup
         .into_iter()
         .next()
-        .expect("SRV record not found in authority")
+        .expect("SRV record not found in zone handler")
         .data()
         .as_srv()
         .expect("Not an SRV record");
@@ -803,7 +803,7 @@ pub fn test_srv(authority: impl Authority) {
     assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
-pub fn test_invalid_lookup(authority: impl Authority) {
+pub fn test_invalid_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
@@ -814,7 +814,7 @@ pub fn test_invalid_lookup(authority: impl Authority) {
     )
     .unwrap();
 
-    let lookup = block_on(authority.search(&request, LookupOptions::default()));
+    let lookup = block_on(handler.search(&request, LookupOptions::default()));
 
     let err = lookup.0.expect_err("Lookup for www.google.com succeeded");
     match err {
@@ -832,8 +832,8 @@ macro_rules! define_basic_test {
             fn $f () {
                 subscribe();
                 use std::path::Path;
-                let authority = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
-                crate::authority_battery::basic::$f(authority);
+                let handler = $new(&Path::new("../tests/test-data/test_configs/example.com.zone"), module_path!(), stringify!($f));
+                crate::zone_handler_battery::basic::$f(handler);
             }
         )*
     }

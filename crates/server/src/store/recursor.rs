@@ -26,11 +26,8 @@ use serde::Deserialize;
 use tracing::{debug, info};
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
+use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
-    authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneType,
-    },
     error::ConfigError,
     proto::{
         op::Query,
@@ -42,18 +39,22 @@ use crate::{
     recursor::{DnssecPolicy, Recursor},
     resolver::TtlConfig,
     server::{Request, RequestInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
+    },
 };
 
-/// An authority that performs recursive resolutions.
+/// A zone handler that performs recursive resolutions.
 ///
 /// This uses the hickory-recursor crate for resolving requests.
-pub struct RecursiveAuthority<P: RuntimeProvider> {
+pub struct RecursiveZoneHandler<P: RuntimeProvider> {
     origin: LowerName,
     recursor: Recursor<P>,
 }
 
-impl<P: RuntimeProvider> RecursiveAuthority<P> {
-    /// Read the Authority for the origin from the specified configuration
+impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
+    /// Read the ZoneHandler for the origin from the specified configuration
     pub async fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,
@@ -101,7 +102,7 @@ impl<P: RuntimeProvider> RecursiveAuthority<P> {
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider> Authority for RecursiveAuthority<P> {
+impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External

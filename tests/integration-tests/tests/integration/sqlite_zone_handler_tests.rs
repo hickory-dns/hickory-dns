@@ -28,30 +28,30 @@ use hickory_proto::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 use hickory_proto::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
-use hickory_server::authority::MessageResponseBuilder;
-use hickory_server::authority::{
-    Authority, AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneType,
-};
-#[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
-use hickory_server::store::in_memory::InMemoryAuthority;
-use hickory_server::store::sqlite::{Journal, SqliteAuthority};
+use hickory_server::store::in_memory::InMemoryZoneHandler;
+use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
+#[cfg(feature = "__dnssec")]
+use hickory_server::zone_handler::MessageResponseBuilder;
+use hickory_server::zone_handler::{
+    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
+};
 use test_support::subscribe;
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
-fn create_example() -> SqliteAuthority {
-    let mut authority = hickory_integration::example_authority::create_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowAll); // policy is applied in SqliteAuthority.
-    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, false)
+fn create_example() -> SqliteZoneHandler {
+    let mut handler = hickory_integration::example_zone::create_example();
+    handler.set_axfr_policy(AxfrPolicy::AllowAll); // policy is applied in SqliteZoneHandler.
+    SqliteZoneHandler::new(handler, AxfrPolicy::AllowAll, true, false)
 }
 
 #[cfg(feature = "__dnssec")]
-fn create_secure_example() -> SqliteAuthority {
-    let mut authority = hickory_integration::example_authority::create_secure_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowAll);
-    SqliteAuthority::new(authority, AxfrPolicy::AllowAll, true, true)
+fn create_secure_example() -> SqliteZoneHandler {
+    let mut handler = hickory_integration::example_zone::create_secure_example();
+    handler.set_axfr_policy(AxfrPolicy::AllowAll);
+    SqliteZoneHandler::new(handler, AxfrPolicy::AllowAll, true, true)
 }
 
 #[tokio::test]
@@ -116,13 +116,13 @@ async fn test_search_www() {
 }
 
 #[tokio::test]
-async fn test_authority() {
+async fn test_zone_handler() {
     subscribe();
 
-    let authority = create_example();
+    let handler = create_example();
 
     assert_eq!(
-        authority
+        handler
             .soa()
             .await
             .unwrap()
@@ -134,9 +134,9 @@ async fn test_authority() {
     );
 
     assert!(
-        !authority
+        !handler
             .lookup(
-                authority.origin(),
+                handler.origin(),
                 RecordType::NS,
                 None,
                 LookupOptions::default()
@@ -146,7 +146,7 @@ async fn test_authority() {
             .was_empty()
     );
 
-    let mut lookup: Vec<_> = authority
+    let mut lookup: Vec<_> = handler
         .ns(LookupOptions::default())
         .await
         .unwrap()
@@ -158,7 +158,7 @@ async fn test_authority() {
     assert_eq!(
         *lookup.first().unwrap(),
         Record::from_rdata(
-            authority.origin().clone().into(),
+            handler.origin().clone().into(),
             86400,
             RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
         )
@@ -168,7 +168,7 @@ async fn test_authority() {
     assert_eq!(
         *lookup.last().unwrap(),
         Record::from_rdata(
-            authority.origin().clone().into(),
+            handler.origin().clone().into(),
             86400,
             RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
         )
@@ -177,9 +177,9 @@ async fn test_authority() {
     );
 
     assert!(
-        !authority
+        !handler
             .lookup(
-                authority.origin(),
+                handler.origin(),
                 RecordType::TXT,
                 None,
                 LookupOptions::default()
@@ -189,9 +189,9 @@ async fn test_authority() {
             .was_empty()
     );
 
-    let mut lookup: Vec<_> = authority
+    let mut lookup: Vec<_> = handler
         .lookup(
-            authority.origin(),
+            handler.origin(),
             RecordType::TXT,
             None,
             LookupOptions::default(),
@@ -206,7 +206,7 @@ async fn test_authority() {
     assert_eq!(
         *lookup.first().unwrap(),
         Record::from_rdata(
-            authority.origin().clone().into(),
+            handler.origin().clone().into(),
             60,
             RData::TXT(TXT::new(vec![
                 "$Id: example.com 4415 2015-08-24 \
@@ -219,9 +219,9 @@ async fn test_authority() {
     );
 
     assert_eq!(
-        *authority
+        *handler
             .lookup(
-                authority.origin(),
+                handler.origin(),
                 RecordType::A,
                 None,
                 LookupOptions::default()
@@ -232,7 +232,7 @@ async fn test_authority() {
             .next()
             .unwrap(),
         Record::from_rdata(
-            authority.origin().clone().into(),
+            handler.origin().clone().into(),
             86400,
             RData::A(A::new(93, 184, 215, 14)),
         )
@@ -248,7 +248,7 @@ async fn test_authorize_update() {
 
     subscribe();
 
-    let authority = create_example();
+    let handler = create_example();
 
     let mut message = Message::query();
     message.set_op_code(OpCode::Update);
@@ -259,16 +259,12 @@ async fn test_authorize_update() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     assert_eq!(
-        authority
+        handler
             .authorize_update(&request, TokioTime::current_time())
             .await
             .0,
         Err(ResponseCode::Refused)
     );
-
-    // TODO: this will nee to be more complex as additional policies are added
-    // authority.set_allow_update(true);
-    // assert!(authority.authorize(&message).is_ok());
 }
 
 #[tokio::test]
@@ -277,12 +273,12 @@ async fn test_prerequisites() {
     let not_zone = Name::from_str("not.a.domain.com").unwrap();
     let not_in_zone = Name::from_str("not.example.com").unwrap();
 
-    let mut authority = create_example();
-    authority.set_allow_update(true);
+    let mut handler = create_example();
+    handler.set_allow_update(true);
 
     // first check the initial negatives, ttl = 0, and the zone is the same
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(not_in_zone.clone(), 86400, RecordType::A)
                 .set_dns_class(DNSClass::IN)
                 .clone()],)
@@ -290,7 +286,7 @@ async fn test_prerequisites() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(not_zone, 0, RecordType::A)
                 .set_dns_class(DNSClass::IN)
                 .clone()],)
@@ -300,9 +296,9 @@ async fn test_prerequisites() {
 
     // *   ANY      ANY      empty    Name is in use
     assert!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RecordType::ANY,
             )
@@ -312,7 +308,7 @@ async fn test_prerequisites() {
             .is_ok()
     );
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::from_rdata(
                 not_in_zone.clone(),
                 0,
@@ -326,9 +322,9 @@ async fn test_prerequisites() {
 
     // *   ANY      rrset    empty    RRset exists (value independent)
     assert!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RecordType::A,
             )
@@ -338,7 +334,7 @@ async fn test_prerequisites() {
             .is_ok()
     );
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(not_in_zone.clone(), 0, RecordType::A,)
                 .set_dns_class(DNSClass::ANY)
                 .clone()],)
@@ -348,7 +344,7 @@ async fn test_prerequisites() {
 
     // *   NONE     ANY      empty    Name is not in use
     assert!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(not_in_zone.clone(), 0, RecordType::ANY,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()])
@@ -356,9 +352,9 @@ async fn test_prerequisites() {
             .is_ok()
     );
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RecordType::ANY,
             )
@@ -370,7 +366,7 @@ async fn test_prerequisites() {
 
     // *   NONE     rrset    empty    RRset does not exist
     assert!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(not_in_zone.clone(), 0, RecordType::A,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()])
@@ -378,9 +374,9 @@ async fn test_prerequisites() {
             .is_ok()
     );
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::update0(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RecordType::A,
             )
@@ -392,9 +388,9 @@ async fn test_prerequisites() {
 
     // *   zone     rrset    rr       RRset exists (value dependent)
     assert!(
-        authority
+        handler
             .verify_prerequisites(&[Record::from_rdata(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RData::A(A::new(93, 184, 215, 14)),
             )
@@ -405,9 +401,9 @@ async fn test_prerequisites() {
     );
     // wrong class
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::from_rdata(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RData::A(A::new(93, 184, 215, 14)),
             )
@@ -418,7 +414,7 @@ async fn test_prerequisites() {
     );
     // wrong Name
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::from_rdata(
                 not_in_zone,
                 0,
@@ -431,9 +427,9 @@ async fn test_prerequisites() {
     );
     // wrong IP
     assert_eq!(
-        authority
+        handler
             .verify_prerequisites(&[Record::from_rdata(
-                authority.origin().clone().into(),
+                handler.origin().clone().into(),
                 0,
                 RData::A(A::new(93, 184, 216, 24)),
             )
@@ -451,10 +447,10 @@ async fn test_pre_scan() {
     let up_name = Name::from_str("www.example.com").unwrap();
     let not_zone = Name::from_str("not.zone.com").unwrap();
 
-    let authority = create_example();
+    let handler = create_example();
 
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[
                 Record::from_rdata(not_zone, 86400, RData::A(A::new(93, 184, 216, 24)),)
                     .set_dns_class(DNSClass::IN)
@@ -465,7 +461,7 @@ async fn test_pre_scan() {
     );
 
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 86400, RecordType::ANY,)
                 .set_dns_class(DNSClass::IN)
                 .clone()],)
@@ -473,7 +469,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 86400, RecordType::AXFR,)
                 .set_dns_class(DNSClass::IN)
                 .clone()],)
@@ -481,7 +477,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 86400, RecordType::IXFR,)
                 .set_dns_class(DNSClass::IN)
                 .clone()],)
@@ -489,7 +485,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert!(
-        authority
+        handler
             .pre_scan(&[Record::from_rdata(
                 up_name.clone(),
                 86400,
@@ -501,7 +497,7 @@ async fn test_pre_scan() {
             .is_ok()
     );
     assert!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 86400, RecordType::A,)
                 .set_dns_class(DNSClass::IN)
                 .clone()])
@@ -510,7 +506,7 @@ async fn test_pre_scan() {
     );
 
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::from_rdata(
                 up_name.clone(),
                 86400,
@@ -522,7 +518,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[
                 Record::from_rdata(up_name.clone(), 0, RData::A(A::new(93, 184, 216, 24)),)
                     .set_dns_class(DNSClass::ANY)
@@ -532,7 +528,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::AXFR,)
                 .set_dns_class(DNSClass::ANY)
                 .clone()],)
@@ -540,7 +536,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::IXFR,)
                 .set_dns_class(DNSClass::ANY)
                 .clone()],)
@@ -548,7 +544,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::ANY,)
                 .set_dns_class(DNSClass::ANY)
                 .clone()])
@@ -556,7 +552,7 @@ async fn test_pre_scan() {
             .is_ok()
     );
     assert!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::A,)
                 .set_dns_class(DNSClass::ANY)
                 .clone()])
@@ -565,7 +561,7 @@ async fn test_pre_scan() {
     );
 
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 86400, RecordType::A,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()],)
@@ -573,7 +569,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::ANY,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()],)
@@ -581,7 +577,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::AXFR,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()],)
@@ -589,7 +585,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::IXFR,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()],)
@@ -597,7 +593,7 @@ async fn test_pre_scan() {
         Err(ResponseCode::FormErr)
     );
     assert!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name.clone(), 0, RecordType::A,)
                 .set_dns_class(DNSClass::NONE)
                 .clone()])
@@ -605,7 +601,7 @@ async fn test_pre_scan() {
             .is_ok()
     );
     assert!(
-        authority
+        handler
             .pre_scan(&[
                 Record::from_rdata(up_name.clone(), 0, RData::A(A::new(93, 184, 216, 24)),)
                     .set_dns_class(DNSClass::NONE)
@@ -616,7 +612,7 @@ async fn test_pre_scan() {
     );
 
     assert_eq!(
-        authority
+        handler
             .pre_scan(&[Record::update0(up_name, 86400, RecordType::A,)
                 .set_dns_class(DNSClass::CH)
                 .clone()],)
@@ -631,10 +627,10 @@ async fn test_update() {
     let origin_name = Name::from_str("example.com.").unwrap();
     let new_name = Name::from_str("new.example.com.").unwrap();
     let www_name = Name::from_str("www.example.com.").unwrap();
-    let mut authority = create_example();
-    let serial = authority.serial().await;
+    let mut handler = create_example();
+    let serial = handler.serial().await;
 
-    authority.set_allow_update(true);
+    handler.set_allow_update(true);
 
     let mut original_vec: Vec<Record> = vec![
         Record::from_rdata(
@@ -673,7 +669,7 @@ async fn test_update() {
 
     {
         // assert that the correct set of records is there.
-        let mut www_records = authority
+        let mut www_records = handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -693,7 +689,7 @@ async fn test_update() {
 
         // assert new record doesn't exist
         assert!(
-            !authority
+            !handler
                 .zone_transfer(
                     &request,
                     LookupOptions::default(),
@@ -717,13 +713,13 @@ async fn test_update() {
                 .clone(),
         ];
     assert!(
-        authority
+        handler
             .update_records(add_record, true,)
             .await
             .expect("update failed",)
     );
     assert_eq!(
-        authority
+        handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -738,7 +734,7 @@ async fn test_update() {
             .collect::<Vec<_>>(),
         add_record.iter().collect::<Vec<_>>()
     );
-    assert_eq!(serial + 1, authority.serial().await);
+    assert_eq!(serial + 1, handler.serial().await);
 
     let add_www_record =
         &[
@@ -747,15 +743,15 @@ async fn test_update() {
                 .clone(),
         ];
     assert!(
-        authority
+        handler
             .update_records(add_www_record, true,)
             .await
             .expect("update failed",)
     );
-    assert_eq!(serial + 2, authority.serial().await);
+    assert_eq!(serial + 2, handler.serial().await);
 
     {
-        let mut www_records = authority
+        let mut www_records = handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -786,14 +782,14 @@ async fn test_update() {
                 .clone(),
         ];
     assert!(
-        authority
+        handler
             .update_records(del_record, true,)
             .await
             .expect("update failed",)
     );
-    assert_eq!(serial + 3, authority.serial().await);
+    assert_eq!(serial + 3, handler.serial().await);
     {
-        let records = authority
+        let records = handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -819,14 +815,14 @@ async fn test_update() {
             .clone(),
     ];
     assert!(
-        authority
+        handler
             .update_records(del_record, true,)
             .await
             .expect("update failed",)
     );
-    assert_eq!(serial + 4, authority.serial().await);
+    assert_eq!(serial + 4, handler.serial().await);
     {
-        let mut www_records = authority
+        let mut www_records = handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -851,12 +847,12 @@ async fn test_update() {
         .set_dns_class(DNSClass::ANY)
         .clone()];
     assert!(
-        authority
+        handler
             .update_records(del_record, true,)
             .await
             .expect("update failed",)
     );
-    assert_eq!(serial + 5, authority.serial().await);
+    assert_eq!(serial + 5, handler.serial().await);
     let mut removed_a_vec: Vec<_> = vec![
         Record::from_rdata(
             www_name.clone(),
@@ -878,7 +874,7 @@ async fn test_update() {
     removed_a_vec.sort();
 
     {
-        let mut www_records = authority
+        let mut www_records = handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -905,14 +901,14 @@ async fn test_update() {
         .clone()];
 
     assert!(
-        authority
+        handler
             .update_records(del_record, true,)
             .await
             .expect("update failed",)
     );
 
     assert!(
-        !authority
+        !handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -926,7 +922,7 @@ async fn test_update() {
             .any(|record| record.name() == &www_name)
     );
 
-    assert_eq!(serial + 6, authority.serial().await);
+    assert_eq!(serial + 6, handler.serial().await);
 }
 
 #[cfg(feature = "__dnssec")]
@@ -937,10 +933,10 @@ async fn test_update_tsig_valid() {
     // First, we construct a test TSIG signer.
     let signer = test_tsig_signer(Name::from_str("test-tsig-key").unwrap());
 
-    // Next we construct an authority, configured to allow updates authenticated with the signer.
-    let mut authority = create_example();
-    authority.set_allow_update(true);
-    authority.set_tsig_signers(vec![signer.clone()]);
+    // Next we construct a zone handler, configured to allow updates authenticated with the signer.
+    let mut handler = create_example();
+    handler.set_allow_update(true);
+    handler.set_tsig_signers(vec![signer.clone()]);
 
     // We want to add a new A record for a name. Let's first verify it doesn't exist yet.
     let new_name = Name::from_str("new.example.com.").unwrap();
@@ -956,7 +952,7 @@ async fn test_update_tsig_valid() {
     )
     .unwrap();
     assert!(
-        !authority
+        !handler
             .zone_transfer(
                 &request,
                 LookupOptions::default(),
@@ -1000,7 +996,7 @@ async fn test_update_tsig_valid() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should succeed.
-    let (resp, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
+    let (resp, resp_signer) = handler.update(&request, TokioTime::current_time()).await;
     assert!(resp.unwrap());
 
     // We should have produced a resp_signer.
@@ -1008,7 +1004,7 @@ async fn test_update_tsig_valid() {
 
     // Build an initial unsigned response for the update.
     // The catalog handles this in normal operation, but we're testing at the level of the
-    // SqliteAuthority and so have to do this ourselves. Provide a response EDNS
+    // SqliteZoneHandler and so have to do this ourselves. Provide a response EDNS
     // with an option to ensure the response signature handles this correctly.
     let mut edns = Edns::new();
     edns.options_mut().insert(EdnsOption::NSID(
@@ -1045,7 +1041,7 @@ async fn test_update_tsig_valid() {
     assert!(range.contains(&now));
 
     // And we should now be able to look up the new record.
-    let records = authority
+    let records = handler
         .zone_transfer(
             &request,
             LookupOptions::default(),
@@ -1073,10 +1069,10 @@ async fn test_update_tsig_valid() {
 async fn test_update_tsig_invalid_unknown_signer() {
     subscribe();
 
-    // Create an authority, configured to allow updates authenticated with a test signer.
-    let mut authority = create_example();
-    authority.set_allow_update(true);
-    authority.set_tsig_signers(vec![test_tsig_signer(
+    // Create a zone handler, configured to allow updates authenticated with a test signer.
+    let mut handler = create_example();
+    handler.set_allow_update(true);
+    handler.set_tsig_signers(vec![test_tsig_signer(
         Name::from_str("test-tsig-key").unwrap(),
     )]);
 
@@ -1100,7 +1096,7 @@ async fn test_update_tsig_invalid_unknown_signer() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    let (res, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
+    let (res, resp_signer) = handler.update(&request, TokioTime::current_time()).await;
 
     // The update should have been rejected as not authorized.
     assert_eq!(res, Err(ResponseCode::NotAuth));
@@ -1129,11 +1125,11 @@ async fn test_update_tsig_invalid_unknown_signer() {
 async fn test_update_tsig_invalid_sig() {
     subscribe();
 
-    // Create an authority, configured to allow updates authenticated with a test signer.
+    // Create a zone handler, configured to allow updates authenticated with a test signer.
     let signer_name = Name::from_str("test-tsig-key").unwrap();
-    let mut authority = create_example();
-    authority.set_allow_update(true);
-    authority.set_tsig_signers(vec![test_tsig_signer(signer_name.clone())]);
+    let mut handler = create_example();
+    handler.set_allow_update(true);
+    handler.set_tsig_signers(vec![test_tsig_signer(signer_name.clone())]);
 
     // Now, construct an update message but sign it with a **different** TSIG signer that
     // has a different MAC key but the same key name.
@@ -1161,7 +1157,7 @@ async fn test_update_tsig_invalid_sig() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    let (res, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
+    let (res, resp_signer) = handler.update(&request, TokioTime::current_time()).await;
 
     // The update should have been rejected as not authorized.
     assert_eq!(res, Err(ResponseCode::NotAuth));
@@ -1190,14 +1186,14 @@ async fn test_update_tsig_invalid_sig() {
 async fn test_update_tsig_invalid_stale_sig() {
     subscribe();
 
-    // Create an authority, configured to allow updates authenticated with a test signer.
+    // Create a zone handler, configured to allow updates authenticated with a test signer.
     let signer = test_tsig_signer(Name::from_labels(["test-tsig-key"]).unwrap());
-    let mut authority = create_example();
-    authority.set_allow_update(true);
-    authority.set_tsig_signers(vec![signer.clone()]);
+    let mut handler = create_example();
+    handler.set_allow_update(true);
+    handler.set_tsig_signers(vec![signer.clone()]);
 
     // Now, construct an update message and sign it with the correct signer, but providing a
-    // timestamp that's too far in the past based on the authority signer's fudge value.
+    // timestamp that's too far in the past based on the signer's fudge value.
     let new_name = Name::from_str("new.example.com.").unwrap();
     let mut message = test_update_message(new_name.clone());
     let now = SystemTime::now()
@@ -1227,7 +1223,7 @@ async fn test_update_tsig_invalid_stale_sig() {
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
     // The update should have been rejected as not authorized.
-    let (resp, resp_signer) = authority.update(&request, TokioTime::current_time()).await;
+    let (resp, resp_signer) = handler.update(&request, TokioTime::current_time()).await;
     assert_eq!(resp, Err(ResponseCode::NotAuth));
 
     // We should have produced a resp_signer.
@@ -1235,7 +1231,7 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // Build an initial unsigned response for the update.
     // The catalog handles this in normal operation, but we're testing at the level of the
-    // SqliteAuthority and so have to do this ourselves.
+    // SqliteZoneHandler and so have to do this ourselves.
     let response = MessageResponseBuilder::new(request.raw_queries(), None);
     let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NotAuth);
@@ -1317,11 +1313,11 @@ async fn test_zone_signing() {
 
     subscribe();
 
-    let authority = create_secure_example();
+    let handler = create_secure_example();
 
     let message_request = MessageRequest::mock(
         Header::new(0, MessageType::Query, OpCode::Query),
-        Query::query(authority.origin().clone().into(), RecordType::AXFR),
+        Query::query(handler.origin().clone().into(), RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -1329,7 +1325,7 @@ async fn test_zone_signing() {
         Protocol::Tcp,
     )
     .unwrap();
-    let (results, _) = authority
+    let (results, _) = handler
         .zone_transfer(
             &request,
             LookupOptions::for_dnssec(),
@@ -1378,10 +1374,10 @@ async fn test_zone_signing() {
 async fn test_get_nsec() {
     subscribe();
     let name = Name::from_str("zzz.example.com.").unwrap();
-    let authority = create_secure_example();
+    let handler = create_secure_example();
     let lower_name = LowerName::from(name.clone());
 
-    let results = authority
+    let results = handler
         .nsec_records(&lower_name, LookupOptions::for_dnssec())
         .await
         .unwrap();
@@ -1399,9 +1395,9 @@ async fn test_journal() {
     let mut journal = Journal::new(conn).unwrap();
     journal.schema_up().unwrap();
 
-    let mut authority = create_example();
-    authority.set_journal(journal).await;
-    authority.persist_to_journal().await.unwrap();
+    let mut handler = create_example();
+    handler.set_journal(journal).await;
+    handler.persist_to_journal().await.unwrap();
 
     let new_name = Name::from_str("new.example.com.").unwrap();
     let delete_name = Name::from_str("www.example.com.").unwrap();
@@ -1411,13 +1407,13 @@ async fn test_journal() {
         Record::from_rdata(delete_name.clone(), 0, RData::A(A::new(93, 184, 215, 14)))
             .set_dns_class(DNSClass::NONE)
             .clone();
-    authority
+    handler
         .update_records(&[new_record.clone(), delete_record], true)
         .await
         .unwrap();
 
     // assert that the correct set of records is there.
-    let new_rrset: Vec<Record> = authority
+    let new_rrset: Vec<Record> = handler
         .lookup(
             &new_name.clone().into(),
             RecordType::A,
@@ -1432,7 +1428,7 @@ async fn test_journal() {
     assert!(new_rrset.iter().all(|r| *r == new_record));
     let lower_delete_name = LowerName::from(delete_name);
 
-    let delete_rrset = authority
+    let delete_rrset = handler
         .lookup(
             &lower_delete_name,
             RecordType::A,
@@ -1444,29 +1440,23 @@ async fn test_journal() {
     assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
-    let in_memory = InMemoryAuthority::empty(
-        authority.origin().clone().into(),
+    let in_memory = InMemoryZoneHandler::empty(
+        handler.origin().clone().into(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 
-    let mut recovered_authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
-    recovered_authority
-        .recover_with_journal(
-            authority
-                .journal()
-                .await
-                .as_ref()
-                .expect("journal not Some"),
-        )
+    let mut recovered_handler =
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
+    recovered_handler
+        .recover_with_journal(handler.journal().await.as_ref().expect("journal not Some"))
         .await
         .expect("recovery");
 
     // assert that the correct set of records is there.
-    let new_rrset: Vec<Record> = recovered_authority
+    let new_rrset: Vec<Record> = recovered_handler
         .lookup(
             &new_name.into(),
             RecordType::A,
@@ -1480,7 +1470,7 @@ async fn test_journal() {
         .collect();
     assert!(new_rrset.iter().all(|r| *r == new_record));
 
-    let delete_rrset = authority
+    let delete_rrset = handler
         .lookup(
             &lower_delete_name,
             RecordType::A,
@@ -1500,47 +1490,47 @@ async fn test_recovery() {
     let mut journal = Journal::new(conn).unwrap();
     journal.schema_up().unwrap();
 
-    let mut authority = create_example();
-    authority.set_journal(journal).await;
-    authority.persist_to_journal().await.unwrap();
+    let mut handler = create_example();
+    handler.set_journal(journal).await;
+    handler.persist_to_journal().await.unwrap();
 
-    let journal = authority.journal().await;
+    let journal = handler.journal().await;
     let journal = journal
         .as_ref()
         .expect("test should have associated journal");
-    let in_memory = InMemoryAuthority::empty(
-        authority.origin().clone().into(),
+    let in_memory = InMemoryZoneHandler::empty(
+        handler.origin().clone().into(),
         ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
     );
 
-    let mut recovered_authority =
-        SqliteAuthority::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
+    let mut recovered_handler =
+        SqliteZoneHandler::<TokioRuntimeProvider>::new(in_memory, AxfrPolicy::Deny, false, false);
 
-    recovered_authority
+    recovered_handler
         .recover_with_journal(journal)
         .await
         .expect("recovery");
 
     assert_eq!(
-        recovered_authority.records().await.len(),
-        authority.records().await.len()
+        recovered_handler.records().await.len(),
+        handler.records().await.len()
     );
 
     assert!(
-        recovered_authority
+        recovered_handler
             .soa()
             .await
             .unwrap()
             .iter()
-            .zip(authority.soa().await.unwrap().iter())
+            .zip(handler.soa().await.unwrap().iter())
             .all(|(r1, r2)| r1 == r2)
     );
 
-    let recovered_records = recovered_authority.records().await;
-    let records = authority.records().await;
+    let recovered_records = recovered_handler.records().await;
+    let records = handler.records().await;
 
     assert!(recovered_records.iter().all(|(rr_key, rr_set)| {
         let other_rr_set = records
@@ -1570,8 +1560,8 @@ async fn test_recovery() {
 #[tokio::test]
 async fn test_axfr_allow_all() {
     subscribe();
-    let mut authority = create_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowAll);
+    let mut handler = create_example();
+    handler.set_axfr_policy(AxfrPolicy::AllowAll);
 
     let request = Request::from_message(
         MessageRequest::mock(
@@ -1583,7 +1573,7 @@ async fn test_axfr_allow_all() {
     )
     .unwrap();
 
-    let result = authority
+    let result = handler
         .zone_transfer(
             &request,
             LookupOptions::default(),
@@ -1594,15 +1584,15 @@ async fn test_axfr_allow_all() {
         .0
         .unwrap();
 
-    // just update this if the count goes up in the authority
+    // just update this if the count goes up in the zone
     assert_eq!(result.iter().count(), 12);
 }
 
 #[tokio::test]
 async fn test_axfr_deny_all() {
     subscribe();
-    let mut authority = create_example();
-    authority.set_axfr_policy(AxfrPolicy::Deny);
+    let mut handler = create_example();
+    handler.set_axfr_policy(AxfrPolicy::Deny);
 
     let request = Request::from_message(
         MessageRequest::mock(
@@ -1614,7 +1604,7 @@ async fn test_axfr_deny_all() {
     )
     .unwrap();
 
-    let err = authority
+    let err = handler
         .zone_transfer(
             &request,
             LookupOptions::default(),
@@ -1635,8 +1625,8 @@ async fn test_axfr_deny_all() {
 #[tokio::test]
 async fn test_axfr_deny_unsigned() {
     subscribe();
-    let mut authority = create_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowSigned);
+    let mut handler = create_example();
+    handler.set_axfr_policy(AxfrPolicy::AllowSigned);
 
     let query = LowerQuery::from(Query::query(
         Name::from_str("example.com.").unwrap(),
@@ -1649,7 +1639,7 @@ async fn test_axfr_deny_unsigned() {
     )
     .unwrap();
 
-    let err = authority
+    let err = handler
         .zone_transfer(
             &request,
             LookupOptions::default(),
@@ -1673,9 +1663,9 @@ async fn test_axfr_allow_tsig_signed() {
 
     let signer = test_tsig_signer(Name::from_str("test-tsig-key").unwrap());
 
-    let mut authority = create_example();
-    authority.set_axfr_policy(AxfrPolicy::AllowSigned);
-    authority.set_tsig_signers(vec![signer.clone()]);
+    let mut handler = create_example();
+    handler.set_axfr_policy(AxfrPolicy::AllowSigned);
+    handler.set_tsig_signers(vec![signer.clone()]);
 
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR);
     let mut message = Message::query();
@@ -1696,7 +1686,7 @@ async fn test_axfr_allow_tsig_signed() {
     let request =
         Request::from_bytes(bytes, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp).unwrap();
 
-    let (resp, resp_signer) = authority
+    let (resp, resp_signer) = handler
         .zone_transfer(
             &request,
             LookupOptions::default(),

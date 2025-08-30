@@ -28,8 +28,8 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    authority::MessageResponse,
     proto::{ProtoError, h2::h2_server, http::Version, rr::Record, xfer::Protocol},
+    zone_handler::MessageResponse,
 };
 
 /// handle h2 using the default TLS server config.

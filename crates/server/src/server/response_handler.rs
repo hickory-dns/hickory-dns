@@ -10,7 +10,6 @@ use std::{io, net::SocketAddr};
 use tracing::{debug, error, trace};
 
 use crate::{
-    authority::MessageResponse,
     proto::{
         BufDnsStreamHandle, DnsStreamHandle, ProtoError,
         op::{Header, MessageType, OpCode, ResponseCode},
@@ -20,6 +19,7 @@ use crate::{
         xfer::{Protocol, SerialMessage},
     },
     server::ResponseInfo,
+    zone_handler::MessageResponse,
 };
 
 /// A handler for send a response to a client

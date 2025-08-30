@@ -9,19 +9,19 @@ use hickory_proto::{
     xfer::Protocol,
 };
 #[cfg(feature = "__dnssec")]
-use hickory_server::{authority::Nsec3QueryInfo, dnssec::NxProofKind};
+use hickory_server::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use hickory_server::{
-    authority::{
-        AuthLookup, Authority, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
-        LookupRecords, ZoneType,
-    },
     server::{Request, RequestInfo, ResponseInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
+        LookupRecords, ZoneHandler, ZoneType,
+    },
 };
 use test_support::subscribe;
 
-/// Tests for the chained authority catalog.
+/// Tests for the chained zone handler catalog.
 #[tokio::test]
-async fn chained_authority_test() {
+async fn chained_zone_handler_test() {
     subscribe();
     let mut catalog = Catalog::new();
 
@@ -105,43 +105,43 @@ async fn chained_authority_test() {
         ),
     ];
 
-    let primary_authority = TestAuthority::new(
+    let primary_handler = TestZoneHandler::new(
         Name::from_ascii("example.com.").unwrap(),
         pri_lookup_records,
         pri_consult_records,
     );
 
-    let secondary_authority = TestAuthority::new(
+    let secondary_handler = TestZoneHandler::new(
         Name::from_ascii("example.com.").unwrap(),
         sec_lookup_records,
         sec_consult_records,
     );
 
     catalog.upsert(
-        primary_authority.origin().clone(),
-        vec![Arc::new(primary_authority), Arc::new(secondary_authority)],
+        primary_handler.origin().clone(),
+        vec![Arc::new(primary_handler), Arc::new(secondary_handler)],
     );
 
-    // First test - the record only exists in the primary authority
+    // First test - the record only exists in the primary zone handler
     basic_test(&catalog, "primaryonly.example.com.", pri_lookup_ip).await;
 
-    // Second test -- the record exists in both authorities; confirm the primary authority data
+    // Second test -- the record exists in both zone handlers; confirm the primary zone handler data
     // is returned
     basic_test(&catalog, "continueboth.example.com.", pri_lookup_ip).await;
 
-    // Third test -- the record exists in the primary authority, but is overwritten by a record in
-    // the secondary authority
+    // Third test -- the record exists in the primary zone handler, but is overwritten by a record
+    // in the secondary zone handler
     basic_test(&catalog, "overwrite.example.com.", sec_consult_ip).await;
 
-    // Fourth test -- the record exists in the primary authority and is returned with Break -
-    // verify consult methods are not consulted for any authority.
+    // Fourth test -- the record exists in the primary zone handler and is returned with Break -
+    // verify consult methods are not consulted for any zone handler.
     basic_test(&catalog, "breakok.example.com.", pri_lookup_ip).await;
 
-    // Fifth test -- primary returns skip, and the second authority has the record - verify the
-    // rdata from the secondary authority is returned.
+    // Fifth test -- primary returns skip, and the second zone handler has the record - verify the
+    // rdata from the secondary zone handler is returned.
     basic_test(&catalog, "skipprimary.example.com.", sec_lookup_ip).await;
 
-    // Sixth test - both authorities skip.  Verify the catalog returns Servfail
+    // Sixth test - both zone handlers skip.  Verify the catalog returns Servfail
     error_test(&catalog, "skipboth.example.com.", ResponseCode::ServFail).await;
 
     // Seventh test -- Primary returns Continue(Err), secondary returns Ok with a record
@@ -152,16 +152,16 @@ async fn chained_authority_test() {
     error_test(&catalog, "breakerr.example.com.", ResponseCode::NXDomain).await;
 }
 
-struct TestAuthority {
+struct TestZoneHandler {
     origin: LowerName,
     zone_type: ZoneType,
     lookup_records: TestRecords,
     consult_records: TestRecords,
 }
 
-impl TestAuthority {
+impl TestZoneHandler {
     pub fn new(origin: Name, lookup_records: TestRecords, consult_records: TestRecords) -> Self {
-        TestAuthority {
+        TestZoneHandler {
             origin: origin.into(),
             zone_type: ZoneType::External,
             lookup_records,
@@ -171,7 +171,7 @@ impl TestAuthority {
 }
 
 #[async_trait::async_trait]
-impl Authority for TestAuthority {
+impl ZoneHandler for TestZoneHandler {
     fn origin(&self) -> &LowerName {
         &self.origin
     }
@@ -276,7 +276,7 @@ enum ResponseType {
     Skip,
 }
 
-/// This is a lookup table for inner_lookup, which is called by the test authority lookup and
+/// This is a lookup table for inner_lookup, which is called by the test zone handler lookup and
 /// consult methods.  Each entry in the Vec is a tuple, which represent a query string and action
 /// pair.  The action is wrapped in an Option - for None variants, if the lookup or consult method
 /// is queried for that name, the test will panic.  This covers cases where lookup and/or consult
@@ -284,8 +284,8 @@ enum ResponseType {
 /// The Some variant will include a ResponseType and a record. ResponseType is an enum that maps 1:1
 /// to LookupControlFlow, and controls the control flow type returned to the catalog.  The record is
 /// always an A record, and will be returned with the lookup records in Continue(Ok) and Break(Ok)
-/// responses. It is used to distinguish between the primary and secondary authority having been the
-/// source of the answer returned by the catalog.
+/// responses. It is used to distinguish between the primary and secondary zone handler having been
+/// the source of the answer returned by the catalog.
 type TestRecords = Vec<(&'static str, Option<(ResponseType, A)>)>;
 
 fn inner_lookup(

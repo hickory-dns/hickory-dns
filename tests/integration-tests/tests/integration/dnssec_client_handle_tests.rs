@@ -14,9 +14,9 @@ use hickory_proto::rr::{DNSClass, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
-use hickory_server::authority::{Authority, Catalog};
+use hickory_server::zone_handler::{Catalog, ZoneHandler};
 
-use hickory_integration::example_authority::create_secure_example;
+use hickory_integration::example_zone::create_secure_example;
 use hickory_integration::{GOOGLE_V4, TestClientStream};
 use test_support::subscribe;
 
@@ -214,10 +214,10 @@ where
         })
         .unwrap();
 
-    let authority = create_secure_example();
+    let handler = create_secure_example();
 
     let trust_anchor = {
-        let signers = block_on(authority.secure_keys());
+        let signers = block_on(handler.secure_keys());
         let public_key = signers
             .first()
             .expect("expected a key in the authority")
@@ -232,7 +232,7 @@ where
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), vec![Arc::new(authority)]);
+    catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = Client::new(stream, sender, None);

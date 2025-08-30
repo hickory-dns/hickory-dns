@@ -17,11 +17,8 @@ use serde::Deserialize;
 use tracing::{debug, info};
 
 #[cfg(feature = "__dnssec")]
-use crate::{authority::Nsec3QueryInfo, dnssec::NxProofKind, proto::dnssec::TrustAnchors};
+use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
-    authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneType,
-    },
     proto::{
         op::message::ResponseSigner,
         rr::{LowerName, Name, RecordType},
@@ -33,12 +30,16 @@ use crate::{
         name_server::ConnectionProvider,
     },
     server::{Request, RequestInfo},
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
+    },
 };
 
-/// A builder to construct a [`ForwardAuthority`].
+/// A builder to construct a [`ForwardZoneHandler`].
 ///
-/// Created by [`ForwardAuthority::builder`].
-pub struct ForwardAuthorityBuilder<P: ConnectionProvider> {
+/// Created by [`ForwardZoneHandler::builder`].
+pub struct ForwardZoneHandlerBuilder<P: ConnectionProvider> {
     origin: Name,
     config: ForwardConfig,
     domain: Option<Name>,
@@ -49,15 +50,15 @@ pub struct ForwardAuthorityBuilder<P: ConnectionProvider> {
     trust_anchor: Option<Arc<TrustAnchors>>,
 }
 
-impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
-    /// Set the origin of the authority.
+impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
+    /// Set the origin of the zone handler.
     pub fn with_origin(mut self, origin: Name) -> Self {
         self.origin = origin;
         self
     }
 
     /// Enables DNSSEC validation, and sets the DNSSEC trust anchors to be used by the forward
-    /// authority.
+    /// zone handler.
     ///
     /// This overrides the trust anchor path in the `ResolverOpts`.
     #[cfg(feature = "__dnssec")]
@@ -85,8 +86,8 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
         self
     }
 
-    /// Construct the authority.
-    pub fn build(self) -> Result<ForwardAuthority<P>, String> {
+    /// Construct the zone handler.
+    pub fn build(self) -> Result<ForwardZoneHandler<P>, String> {
         let Self {
             origin,
             config,
@@ -147,25 +148,25 @@ impl<P: ConnectionProvider> ForwardAuthorityBuilder<P> {
 
         info!(%origin, "forward resolver configured");
 
-        Ok(ForwardAuthority {
+        Ok(ForwardZoneHandler {
             origin: origin.into(),
             resolver,
         })
     }
 }
 
-/// An authority that will forward resolutions to upstream resolvers.
+/// A zone handler that will forward resolutions to upstream resolvers.
 ///
 /// This uses the hickory-resolver crate for resolving requests.
-pub struct ForwardAuthority<P: ConnectionProvider = TokioRuntimeProvider> {
+pub struct ForwardZoneHandler<P: ConnectionProvider = TokioRuntimeProvider> {
     origin: LowerName,
     resolver: Resolver<P>,
 }
 
-impl<P: ConnectionProvider> ForwardAuthority<P> {
-    /// Construct a new [`ForwardAuthority`] via [`ForwardAuthorityBuilder`], using the operating
+impl<P: ConnectionProvider> ForwardZoneHandler<P> {
+    /// Construct a new [`ForwardZoneHandler`] via [`ForwardZoneHandlerBuilder`], using the operating
     /// system's resolver configuration.
-    pub fn builder(runtime: P) -> Result<ForwardAuthorityBuilder<P>, String> {
+    pub fn builder(runtime: P) -> Result<ForwardZoneHandlerBuilder<P>, String> {
         let (resolver_config, options) = hickory_resolver::system_conf::read_system_conf()
             .map_err(|e| format!("error reading system configuration: {e}"))?;
         let forward_config = ForwardConfig {
@@ -180,9 +181,9 @@ impl<P: ConnectionProvider> ForwardAuthority<P> {
         Ok(builder)
     }
 
-    /// Construct a new [`ForwardAuthority`] via [`ForwardAuthorityBuilder`] with the provided configuration.
-    pub fn builder_with_config(config: ForwardConfig, runtime: P) -> ForwardAuthorityBuilder<P> {
-        ForwardAuthorityBuilder {
+    /// Construct a new [`ForwardZoneHandler`] via [`ForwardZoneHandlerBuilder`] with the provided configuration.
+    pub fn builder_with_config(config: ForwardConfig, runtime: P) -> ForwardZoneHandlerBuilder<P> {
+        ForwardZoneHandlerBuilder {
             origin: Name::root(),
             config,
             domain: None,
@@ -194,15 +195,15 @@ impl<P: ConnectionProvider> ForwardAuthority<P> {
     }
 }
 
-impl ForwardAuthority<TokioRuntimeProvider> {
-    /// Construct a new [`ForwardAuthority`] via [`ForwardAuthorityBuilder`] with the provided configuration.
-    pub fn builder_tokio(config: ForwardConfig) -> ForwardAuthorityBuilder<TokioRuntimeProvider> {
+impl ForwardZoneHandler<TokioRuntimeProvider> {
+    /// Construct a new [`ForwardZoneHandler`] via [`ForwardZoneHandlerBuilder`] with the provided configuration.
+    pub fn builder_tokio(config: ForwardConfig) -> ForwardZoneHandlerBuilder<TokioRuntimeProvider> {
         Self::builder_with_config(config, TokioRuntimeProvider::default())
     }
 }
 
 #[async_trait::async_trait]
-impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
+impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
     /// Always External
     fn zone_type(&self) -> ZoneType {
         ZoneType::External
@@ -213,7 +214,7 @@ impl<P: ConnectionProvider> Authority for ForwardAuthority<P> {
         AxfrPolicy::Deny
     }
 
-    /// Whether the authority can perform DNSSEC validation
+    /// Whether the zone handler can perform DNSSEC validation
     fn can_validate_dnssec(&self) -> bool {
         #[cfg(feature = "__dnssec")]
         {

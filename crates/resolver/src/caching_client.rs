@@ -59,8 +59,6 @@ impl DepthTracker {
     const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 }
 
-// TODO: need to consider this storage type as it compares to Authority in server...
-//       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
 #[doc(hidden)]
 pub struct CachingClient<C>

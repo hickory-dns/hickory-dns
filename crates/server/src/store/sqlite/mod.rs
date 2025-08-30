@@ -22,29 +22,11 @@ use futures_util::lock::Mutex;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
-use crate::authority::ZoneTransfer;
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
-use crate::{
-    authority::{
-        AuthLookup, Authority, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneType,
-    },
-    error::{PersistenceError, PersistenceErrorKind},
-    proto::{
-        op::ResponseCode,
-        op::message::ResponseSigner,
-        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        runtime::{RuntimeProvider, TokioRuntimeProvider},
-    },
-    server::{Request, RequestInfo},
-    store::{
-        file::rooted,
-        in_memory::{InMemoryAuthority, zone_from_path},
-    },
-};
+use crate::zone_handler::ZoneTransfer;
 #[cfg(feature = "__dnssec")]
 use crate::{
-    authority::{DnssecAuthority, Nsec3QueryInfo, UpdateRequest},
     dnssec::NxProofKind,
     proto::{
         dnssec::{
@@ -57,6 +39,25 @@ use crate::{
         },
         op::MessageSignature,
     },
+    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
+};
+use crate::{
+    error::{PersistenceError, PersistenceErrorKind},
+    proto::{
+        op::ResponseCode,
+        op::message::ResponseSigner,
+        rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        runtime::{RuntimeProvider, TokioRuntimeProvider},
+    },
+    server::{Request, RequestInfo},
+    store::{
+        file::rooted,
+        in_memory::{InMemoryZoneHandler, zone_from_path},
+    },
+    zone_handler::{
+        AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
+        ZoneType,
+    },
 };
 #[cfg(feature = "__dnssec")]
 use LookupControlFlow::Continue;
@@ -64,13 +65,13 @@ use LookupControlFlow::Continue;
 pub mod persistence;
 pub use persistence::Journal;
 
-/// SqliteAuthority is responsible for storing the resource records for a particular zone.
+/// SqliteZoneHandler is responsible for storing the resource records for a particular zone.
 ///
-/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
+/// Zone handlers default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
 #[allow(dead_code)]
-pub struct SqliteAuthority<P = TokioRuntimeProvider> {
-    in_memory: InMemoryAuthority<P>,
+pub struct SqliteZoneHandler<P = TokioRuntimeProvider> {
+    in_memory: InMemoryZoneHandler<P>,
     journal: Mutex<Option<Journal>>,
     axfr_policy: AxfrPolicy,
     allow_update: bool,
@@ -82,12 +83,12 @@ pub struct SqliteAuthority<P = TokioRuntimeProvider> {
     _phantom: PhantomData<P>,
 }
 
-impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
-    /// Creates a new Authority.
+impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
+    /// Creates a new ZoneHandler.
     ///
     /// # Arguments
     ///
-    /// * `in_memory` - InMemoryAuthority for all records.
+    /// * `in_memory` - InMemoryZoneHandler for all records.
     /// * `axfr_policy` - A policy for determining if AXFR requests are allowed.
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
@@ -95,9 +96,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     ///
     /// # Return value
     ///
-    /// The new `Authority`.
+    /// The new `ZoneHandler`.
     pub fn new(
-        in_memory: InMemoryAuthority<P>,
+        in_memory: InMemoryZoneHandler<P>,
         axfr_policy: AxfrPolicy,
         allow_update: bool,
         is_dnssec_enabled: bool,
@@ -116,7 +117,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         }
     }
 
-    /// load the authority from the configuration
+    /// load the zone handler from the configuration
     pub async fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
@@ -133,31 +134,30 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         let journal_path = rooted(&config.journal_path, root_dir);
 
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-        let mut authority = if journal_path.exists() {
+        let mut handler = if journal_path.exists() {
             // load the zone
             info!("recovering zone from journal: {journal_path:?}",);
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {journal_path:?}: {e}"))?;
 
-            let in_memory = InMemoryAuthority::empty(
+            let in_memory = InMemoryZoneHandler::empty(
                 zone_name.clone(),
                 zone_type,
-                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
+                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryZoneHandler.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             );
-            let mut authority =
-                Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
+            let mut handler = Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
 
-            authority
+            handler
                 .recover_with_journal(&journal)
                 .await
                 .map_err(|e| format!("error recovering from journal: {e}"))?;
 
-            authority.set_journal(journal).await;
+            handler.set_journal(journal).await;
             info!("recovered zone: {zone_name}");
 
-            authority
+            handler
         } else if zone_path.exists() {
             // TODO: deprecate this portion of loading, instantiate the journal through a separate tool
             info!("loading zone file: {zone_path:?}");
@@ -165,43 +165,42 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
             let records = zone_from_path(&zone_path, zone_name.clone())
                 .map_err(|e| format!("failed to load zone file: {e}"))?;
 
-            let in_memory = InMemoryAuthority::new(
+            let in_memory = InMemoryZoneHandler::new(
                 zone_name.clone(),
                 records,
                 zone_type,
-                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryAuthority.
+                AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryZoneHandler.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
             )?;
 
-            let mut authority =
-                Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
+            let mut handler = Self::new(in_memory, axfr_policy, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
             info!("creating new journal: {journal_path:?}");
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error creating journal {journal_path:?}: {e}"))?;
 
-            authority.set_journal(journal).await;
+            handler.set_journal(journal).await;
 
             // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
-            authority
+            handler
                 .persist_to_journal()
                 .await
                 .map_err(|e| format!("error persisting to journal {journal_path:?}: {e}"))?;
 
             info!("zone file loaded: {zone_name}");
-            authority
+            handler
         } else {
             return Err(format!("no zone file or journal defined at: {zone_path:?}"));
         };
 
         #[cfg(feature = "__dnssec")]
         for config in &config.tsig_keys {
-            authority.tsig_signers.push(config.to_signer(&zone_name)?);
+            handler.tsig_signers.push(config.to_signer(&zone_name)?);
         }
 
-        Ok(authority)
+        Ok(handler)
     }
 
     /// Recovers the zone from a Journal, returns an error on failure to recover the zone.
@@ -222,7 +221,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         for record in journal.iter() {
             // AXFR is special, it is used to mark the dump of a full zone.
             //  when recovering, if an AXFR is encountered, we should remove all the records in the
-            //  authority.
+            //  zone.
             if record.record_type() == RecordType::AXFR {
                 self.in_memory.clear();
             } else {
@@ -271,7 +270,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         Ok(())
     }
 
-    /// Associate a backing Journal with this Authority for Updatable zones
+    /// Associate a backing Journal with this ZoneHandler for Updatable zones
     pub async fn set_journal(&mut self, journal: Journal) {
         *self.journal.lock().await = Some(journal);
     }
@@ -550,10 +549,10 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
         //                if (local option)
         //                     return (REFUSED)
 
-        // does this authority allow_updates?
+        // does this zone handler allow_updates?
         if !self.allow_update {
             warn!(
-                "update attempted on non-updatable Authority: {}",
+                "update attempted on non-updatable ZoneHandler: {}",
                 self.origin()
             );
             return (Err(ResponseCode::Refused), None);
@@ -1012,22 +1011,22 @@ impl<P: RuntimeProvider + Send + Sync> SqliteAuthority<P> {
     }
 }
 
-impl<P> Deref for SqliteAuthority<P> {
-    type Target = InMemoryAuthority<P>;
+impl<P> Deref for SqliteZoneHandler<P> {
+    type Target = InMemoryZoneHandler<P>;
 
     fn deref(&self) -> &Self::Target {
         &self.in_memory
     }
 }
 
-impl<P> DerefMut for SqliteAuthority<P> {
+impl<P> DerefMut for SqliteZoneHandler<P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.in_memory
     }
 }
 
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.in_memory.zone_type()
@@ -1131,7 +1130,7 @@ impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
         if request_info.query.query_type() == RecordType::AXFR {
             return (
                 LookupControlFlow::Break(Err(LookupError::ProtoError(
-                    "AXFR must be handled with Authority::zone_transfer()".into(),
+                    "AXFR must be handled with ZoneHandler::zone_transfer()".into(),
                 ))),
                 None,
             );
@@ -1204,7 +1203,7 @@ impl<P: RuntimeProvider + Send + Sync> Authority for SqliteAuthority<P> {
 
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
-impl<P: RuntimeProvider + Send + Sync> DnssecAuthority for SqliteAuthority<P> {
+impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteZoneHandler<P> {
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key).await
     }
@@ -1292,7 +1291,7 @@ pub(crate) fn default_fudge() -> u16 {
 #[cfg(test)]
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
-    use crate::store::sqlite::SqliteAuthority;
+    use crate::store::sqlite::SqliteZoneHandler;
 
     #[test]
     fn test_is_send_sync() {
@@ -1300,6 +1299,6 @@ mod tests {
             true
         }
 
-        assert!(send_sync::<SqliteAuthority>());
+        assert!(send_sync::<SqliteZoneHandler>());
     }
 }
