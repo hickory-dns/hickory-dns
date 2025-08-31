@@ -7,139 +7,20 @@
 
 //! `DnsResponse` wraps a `Message` and any associated connection details
 
-#[cfg(feature = "std")]
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{
     convert::TryFrom,
     ops::{Deref, DerefMut},
 };
-#[cfg(feature = "std")]
-use core::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
-#[cfg(feature = "std")]
-use std::io;
-
-#[cfg(feature = "std")]
-use futures_channel::mpsc;
-#[cfg(feature = "std")]
-use futures_util::{future::BoxFuture, ready, stream::Stream};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "std")]
-use crate::{ProtoErrorKind, error::ProtoResult};
 use crate::{
     error::ProtoError,
     op::{Message, ResponseCode},
     rr::{RecordType, rdata::SOA, resource::RecordRef},
 };
-
-/// A stream returning DNS responses
-#[cfg(feature = "std")]
-pub struct DnsResponseStream {
-    inner: DnsResponseStreamInner,
-    done: bool,
-}
-
-#[cfg(feature = "std")]
-impl DnsResponseStream {
-    fn new(inner: DnsResponseStreamInner) -> Self {
-        Self { inner, done: false }
-    }
-}
-
-#[cfg(feature = "std")]
-impl Stream for DnsResponseStream {
-    type Item = Result<DnsResponse, ProtoError>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        use DnsResponseStreamInner::*;
-
-        // if the standard futures are done, don't poll again
-        if self.done {
-            return Poll::Ready(None);
-        }
-
-        // split mutable refs to Self
-        let Self { inner, done } = self.get_mut();
-
-        let result = match inner {
-            Timeout(fut) => {
-                let x = match ready!(fut.as_mut().poll(cx)) {
-                    Ok(x) => x,
-                    Err(e) => Err(e.into()),
-                };
-                *done = true;
-                x
-            }
-            Receiver(fut) => match ready!(Pin::new(fut).poll_next(cx)) {
-                Some(x) => x,
-                None => return Poll::Ready(None),
-            },
-            Error(err) => {
-                *done = true;
-                Err(err.take().expect("cannot poll after complete"))
-            }
-            Boxed(fut) => {
-                let x = ready!(fut.as_mut().poll(cx));
-                *done = true;
-                x
-            }
-        };
-
-        match result {
-            Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => Poll::Ready(None),
-            r => Poll::Ready(Some(r)),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<TimeoutFuture> for DnsResponseStream {
-    fn from(f: TimeoutFuture) -> Self {
-        Self::new(DnsResponseStreamInner::Timeout(f))
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
-    fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        Self::new(DnsResponseStreamInner::Receiver(receiver))
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<ProtoError> for DnsResponseStream {
-    fn from(e: ProtoError) -> Self {
-        Self::new(DnsResponseStreamInner::Error(Some(e)))
-    }
-}
-
-#[cfg(feature = "std")]
-impl<F> From<Pin<Box<F>>> for DnsResponseStream
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
-{
-    fn from(f: Pin<Box<F>>) -> Self {
-        Self::new(DnsResponseStreamInner::Boxed(f))
-    }
-}
-
-#[cfg(feature = "std")]
-enum DnsResponseStreamInner {
-    Timeout(TimeoutFuture),
-    Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
-    Error(Option<ProtoError>),
-    Boxed(BoxFuture<'static, Result<DnsResponse, ProtoError>>),
-}
-
-#[cfg(feature = "std")]
-type TimeoutFuture = BoxFuture<'static, Result<Result<DnsResponse, ProtoError>, io::Error>>;
 
 // TODO: this needs to have the IP addr of the remote system...
 // TODO: see https://github.com/hickory-dns/hickory-dns/issues/383 for removing vec of messages and instead returning a Stream
