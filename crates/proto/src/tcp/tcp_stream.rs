@@ -21,8 +21,9 @@ use futures_util::{self, future::Future, ready};
 use tracing::debug;
 
 use crate::BufDnsStreamHandle;
+use crate::op::SerialMessage;
 use crate::runtime::Time;
-use crate::xfer::{SerialMessage, StreamReceiver};
+use crate::xfer::StreamReceiver;
 
 /// Trait for TCP connection
 pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {

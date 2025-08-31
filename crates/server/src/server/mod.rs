@@ -40,13 +40,13 @@ use crate::{
     access::AccessControl,
     proto::{
         BufDnsStreamHandle, ProtoError,
-        op::{Header, LowerQuery, MessageType, ResponseCode},
+        op::{Header, LowerQuery, MessageType, ResponseCode, SerialMessage},
         rr::Record,
         runtime::{TokioRuntimeProvider, iocompat::AsyncIoTokioAsStd},
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,
-        xfer::{Protocol, SerialMessage},
+        xfer::Protocol,
     },
     zone_handler::{MessageRequest, MessageResponseBuilder, Queries},
 };

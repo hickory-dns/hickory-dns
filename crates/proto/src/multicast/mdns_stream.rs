@@ -26,9 +26,9 @@ use tracing::{debug, trace};
 
 use crate::BufDnsStreamHandle;
 use crate::multicast::MdnsQueryType;
+use crate::op::SerialMessage;
 use crate::runtime::TokioRuntimeProvider;
 use crate::udp::UdpStream;
-use crate::xfer::SerialMessage;
 
 pub(crate) const MDNS_PORT: u16 = 5353;
 /// mDNS ipv4 address, see [multicast-addresses](https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml)

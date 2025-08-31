@@ -39,7 +39,7 @@ use tracing::{debug, warn};
 use crate::error::ProtoResult;
 use crate::error::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "std")]
-use crate::op::DnsRequest;
+use crate::op::{DnsRequest, SerialMessage};
 #[cfg(feature = "std")]
 use crate::runtime::{RuntimeProvider, Time};
 
@@ -67,9 +67,6 @@ pub use dns_response::DnsResponse;
 pub mod retry_dns_handle;
 #[cfg(feature = "std")]
 pub use retry_dns_handle::RetryDnsHandle;
-
-mod serial_message;
-pub use serial_message::SerialMessage;
 
 /// A stream returning DNS responses
 #[cfg(feature = "std")]

@@ -27,11 +27,11 @@ use tokio::time::{Duration, Instant, Sleep};
 use hickory_client::client::DnssecClient;
 use hickory_proto::{
     BufDnsStreamHandle, ProtoError,
-    op::Message,
+    op::{Message, SerialMessage},
     rr::Record,
     runtime::TokioTime,
     serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
-    xfer::{DnsClientStream, DnsResponse, Protocol, SerialMessage, StreamReceiver},
+    xfer::{DnsClientStream, DnsResponse, Protocol, StreamReceiver},
 };
 #[cfg(feature = "__dnssec")]
 use hickory_proto::{

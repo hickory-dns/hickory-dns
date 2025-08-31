@@ -12,11 +12,11 @@ use tracing::{debug, error, trace};
 use crate::{
     proto::{
         BufDnsStreamHandle, DnsStreamHandle, ProtoError,
-        op::{Header, MessageType, OpCode, ResponseCode},
+        op::{Header, MessageType, OpCode, ResponseCode, SerialMessage},
         rr::Record,
         serialize::binary::BinEncodable,
         serialize::binary::BinEncoder,
-        xfer::{Protocol, SerialMessage},
+        xfer::Protocol,
     },
     server::ResponseInfo,
     zone_handler::MessageResponse,

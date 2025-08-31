@@ -12,9 +12,9 @@ use tracing::debug;
 
 use crate::{
     error::ProtoError,
-    op::{DnsRequest, DnsRequestOptions, Edns, Message, Query},
+    op::{DnsRequest, DnsRequestOptions, Edns, Message, Query, SerialMessage},
     runtime::RuntimeProvider,
-    xfer::{DnsResponse, SerialMessage},
+    xfer::DnsResponse,
 };
 
 // TODO: this should be configurable

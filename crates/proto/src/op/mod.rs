@@ -44,5 +44,8 @@ pub use query::Query;
 mod response_code;
 pub use response_code::ResponseCode;
 
+mod serial_message;
+pub use serial_message::SerialMessage;
+
 pub mod update_message;
 pub use update_message::UpdateMessage;
