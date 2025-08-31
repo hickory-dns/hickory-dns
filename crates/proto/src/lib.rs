@@ -74,8 +74,6 @@ pub mod rustls;
 pub mod serialize;
 #[cfg(feature = "std")]
 pub mod tcp;
-#[cfg(all(feature = "std", any(test, feature = "testing")))]
-pub mod tests;
 #[cfg(feature = "std")]
 pub mod udp;
 pub mod xfer;

@@ -88,7 +88,7 @@ fn tcp_server_setup(
 }
 
 /// Test tcp_stream.
-pub async fn tcp_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
+pub(super) async fn tcp_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_stream:server", server_addr);
 
@@ -119,7 +119,7 @@ pub async fn tcp_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider
 }
 
 /// Test tcp_client_stream.
-pub async fn tcp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
+pub(super) async fn tcp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_client_stream:server", server_addr);
 

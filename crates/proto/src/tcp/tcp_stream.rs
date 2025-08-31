@@ -382,7 +382,7 @@ mod tests {
     use test_support::subscribe;
 
     use crate::runtime::TokioRuntimeProvider;
-    use crate::tests::tcp_stream_test;
+    use crate::tcp::tests::tcp_stream_test;
 
     #[tokio::test]
     async fn test_tcp_stream_ipv4() {
