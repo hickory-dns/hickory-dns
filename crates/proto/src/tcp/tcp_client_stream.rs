@@ -17,13 +17,14 @@ use tracing::warn;
 
 use crate::BufDnsStreamHandle;
 use crate::error::ProtoError;
+use crate::op::SerialMessage;
 use crate::runtime::RuntimeProvider;
 #[cfg(feature = "tokio")]
 use crate::runtime::TokioTime;
 #[cfg(feature = "tokio")]
 use crate::runtime::iocompat::AsyncIoTokioAsStd;
 use crate::tcp::{DnsTcpStream, TcpStream};
-use crate::xfer::{DnsClientStream, SerialMessage};
+use crate::xfer::DnsClientStream;
 
 /// Tcp client stream
 ///

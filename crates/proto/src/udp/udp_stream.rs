@@ -22,9 +22,10 @@ use futures_util::{
 };
 use tracing::{debug, trace, warn};
 
+use crate::op::SerialMessage;
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
-use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
+use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// Trait for DnsUdpSocket
 #[async_trait]

@@ -7,9 +7,9 @@ use std::println;
 
 use futures_util::stream::StreamExt;
 
+use crate::op::SerialMessage;
 use crate::runtime::RuntimeProvider;
 use crate::tcp::TcpStream;
-use crate::xfer::SerialMessage;
 use crate::xfer::dns_handle::DnsStreamHandle;
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
