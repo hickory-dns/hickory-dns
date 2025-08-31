@@ -34,9 +34,9 @@ use crate::{
     proto::{
         NoRecords, ProtoError,
         dnssec::{DnssecDnsHandle, TrustAnchors},
-        op::ResponseCode,
+        op::{DnsRequestOptions, ResponseCode},
         rr::RecordType,
-        xfer::{DnsHandle as _, DnsRequestOptions, FirstAnswer as _},
+        xfer::{DnsHandle as _, FirstAnswer as _},
     },
     resolver::ResponseCache,
 };
@@ -553,8 +553,8 @@ mod for_dnssec {
     use crate::ErrorKind;
     use crate::proto::{
         ProtoError,
-        op::{Message, OpCode},
-        xfer::{DnsHandle, DnsRequest, DnsResponse},
+        op::{DnsRequest, Message, OpCode},
+        xfer::{DnsHandle, DnsResponse},
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
     use crate::resolver::name_server::ConnectionProvider;

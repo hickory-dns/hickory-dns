@@ -24,10 +24,10 @@ use crate::{
         rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
     },
     error::{NoRecords, ProtoError, ProtoErrorKind},
-    op::{Edns, Message, OpCode, Query, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, Edns, Message, OpCode, Query, ResponseCode},
     rr::{Name, RData, Record, RecordType, RecordTypeSet, SerialNumber, resource::RecordRef},
     runtime::{RuntimeProvider, Time},
-    xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer, dns_handle::DnsHandle},
+    xfer::{DnsResponse, FirstAnswer, dns_handle::DnsHandle},
 };
 
 use self::rrset::Rrset;

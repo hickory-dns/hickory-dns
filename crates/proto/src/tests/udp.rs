@@ -9,15 +9,13 @@ use std::{println, process, thread};
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
-use crate::op::{Message, Query};
+use crate::op::{DnsRequest, DnsRequestOptions, Message, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
 use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
-use crate::xfer::{
-    DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse, FirstAnswer, SerialMessage,
-};
+use crate::xfer::{DnsRequestSender, DnsResponse, FirstAnswer, SerialMessage};
 use crate::{ProtoError, ProtoErrorKind};
 
 /// Test next random udpsocket.

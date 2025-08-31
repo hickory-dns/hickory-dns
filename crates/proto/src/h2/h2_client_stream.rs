@@ -33,10 +33,11 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
+use crate::op::DnsRequest;
 use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::tcp::DnsTcpStream;
-use crate::xfer::{CONNECT_TIMEOUT, DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
+use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -572,13 +573,12 @@ mod tests {
     use rustls::KeyLogFile;
     use test_support::subscribe;
 
-    use crate::op::{Edns, Message, Query};
+    use super::*;
+    use crate::op::{DnsRequestOptions, Edns, Message, Query};
     use crate::rr::{Name, RecordType};
     use crate::runtime::TokioRuntimeProvider;
     use crate::rustls::client_config;
-    use crate::xfer::{DnsRequestOptions, FirstAnswer};
-
-    use super::*;
+    use crate::xfer::FirstAnswer;
 
     #[tokio::test]
     async fn test_https_google() {

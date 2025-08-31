@@ -15,7 +15,7 @@ use hickory_integration::{
 };
 use hickory_proto::{
     DnsHandle, ProtoErrorKind,
-    op::{Edns, Message, Query, ResponseCode},
+    op::{DnsRequest, Edns, Message, Query, ResponseCode},
     rr::{
         DNSClass, Name, RecordSet, RecordType,
         rdata::opt::{EdnsCode, EdnsOption},
@@ -23,7 +23,7 @@ use hickory_proto::{
     runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
     udp::UdpClientStream,
-    xfer::{DnsRequest, FirstAnswer},
+    xfer::FirstAnswer,
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::{

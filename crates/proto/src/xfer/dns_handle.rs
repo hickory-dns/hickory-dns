@@ -11,10 +11,10 @@ use futures_util::stream::Stream;
 use tracing::debug;
 
 use crate::{
-    error::*,
-    op::{Edns, Message, Query},
+    error::ProtoError,
+    op::{DnsRequest, DnsRequestOptions, Edns, Message, Query},
     runtime::RuntimeProvider,
-    xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage},
+    xfer::{DnsResponse, SerialMessage},
 };
 
 // TODO: this should be configurable

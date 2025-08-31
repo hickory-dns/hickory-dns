@@ -13,8 +13,8 @@ use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
 use hickory_proto::{
     ProtoError,
-    op::Query,
-    xfer::{DnsHandle, DnsRequest, DnsResponse},
+    op::{DnsRequest, Query},
+    xfer::{DnsHandle, DnsResponse},
 };
 
 use crate::client::ClientHandle;
@@ -94,15 +94,15 @@ mod test {
     use std::sync::Arc;
 
     use futures::lock::Mutex;
-    use futures::*;
+    use futures::stream;
 
-    use crate::client::*;
+    use super::*;
     use hickory_proto::{
         ProtoError,
-        op::{Message, MessageType, OpCode, Query},
+        op::{DnsRequest, Message, MessageType, OpCode, Query},
         rr::RecordType,
         runtime::TokioRuntimeProvider,
-        xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer},
+        xfer::{DnsHandle, DnsResponse, FirstAnswer},
     };
     use test_support::subscribe;
 
