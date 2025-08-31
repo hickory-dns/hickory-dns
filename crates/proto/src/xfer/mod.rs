@@ -5,6 +5,8 @@
 //! TODO: this module needs some serious refactoring and normalization.
 
 #[cfg(feature = "std")]
+use alloc::boxed::Box;
+#[cfg(feature = "std")]
 use core::fmt::Display;
 use core::fmt::{self, Debug};
 use core::future::Future;
@@ -13,6 +15,10 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
+#[cfg(feature = "std")]
+use futures_util::future::BoxFuture;
+#[cfg(feature = "std")]
+use std::io;
 #[cfg(feature = "std")]
 use std::net::SocketAddr;
 
@@ -29,6 +35,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use tracing::{debug, warn};
 
+#[cfg(feature = "std")]
+use crate::error::ProtoResult;
 use crate::error::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "std")]
 use crate::runtime::{RuntimeProvider, Time};
@@ -55,8 +63,6 @@ pub use dns_request::{DnsRequest, DnsRequestOptions};
 
 pub mod dns_response;
 pub use dns_response::DnsResponse;
-#[cfg(feature = "std")]
-pub use dns_response::DnsResponseStream;
 
 #[cfg(feature = "std")]
 pub mod retry_dns_handle;
@@ -65,6 +71,108 @@ pub use retry_dns_handle::RetryDnsHandle;
 
 mod serial_message;
 pub use serial_message::SerialMessage;
+
+/// A stream returning DNS responses
+#[cfg(feature = "std")]
+pub struct DnsResponseStream {
+    inner: DnsResponseStreamInner,
+    done: bool,
+}
+
+#[cfg(feature = "std")]
+impl DnsResponseStream {
+    fn new(inner: DnsResponseStreamInner) -> Self {
+        Self { inner, done: false }
+    }
+}
+
+#[cfg(feature = "std")]
+impl Stream for DnsResponseStream {
+    type Item = Result<DnsResponse, ProtoError>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        use DnsResponseStreamInner::*;
+
+        // if the standard futures are done, don't poll again
+        if self.done {
+            return Poll::Ready(None);
+        }
+
+        // split mutable refs to Self
+        let Self { inner, done } = self.get_mut();
+
+        let result = match inner {
+            Timeout(fut) => {
+                let x = match ready!(fut.as_mut().poll(cx)) {
+                    Ok(x) => x,
+                    Err(e) => Err(e.into()),
+                };
+                *done = true;
+                x
+            }
+            Receiver(fut) => match ready!(Pin::new(fut).poll_next(cx)) {
+                Some(x) => x,
+                None => return Poll::Ready(None),
+            },
+            Error(err) => {
+                *done = true;
+                Err(err.take().expect("cannot poll after complete"))
+            }
+            Boxed(fut) => {
+                let x = ready!(fut.as_mut().poll(cx));
+                *done = true;
+                x
+            }
+        };
+
+        match result {
+            Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => Poll::Ready(None),
+            r => Poll::Ready(Some(r)),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<TimeoutFuture> for DnsResponseStream {
+    fn from(f: TimeoutFuture) -> Self {
+        Self::new(DnsResponseStreamInner::Timeout(f))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
+    fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
+        Self::new(DnsResponseStreamInner::Receiver(receiver))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<ProtoError> for DnsResponseStream {
+    fn from(e: ProtoError) -> Self {
+        Self::new(DnsResponseStreamInner::Error(Some(e)))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<F> From<Pin<Box<F>>> for DnsResponseStream
+where
+    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
+{
+    fn from(f: Pin<Box<F>>) -> Self {
+        Self::new(DnsResponseStreamInner::Boxed(f))
+    }
+}
+
+#[cfg(feature = "std")]
+enum DnsResponseStreamInner {
+    Timeout(TimeoutFuture),
+    Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
+    Error(Option<ProtoError>),
+    Boxed(BoxFuture<'static, Result<DnsResponse, ProtoError>>),
+}
+
+#[cfg(feature = "std")]
+type TimeoutFuture = BoxFuture<'static, Result<Result<DnsResponse, ProtoError>, io::Error>>;
 
 /// Ignores the result of a send operation and logs and ignores errors
 #[cfg(feature = "std")]
