@@ -18,20 +18,25 @@
 //! be used together to either query or update resource records sets.
 
 mod edns;
-pub mod header;
-mod lower_query;
-pub mod message;
-pub mod op_code;
-pub mod query;
-pub mod response_code;
-pub mod update_message;
+pub use edns::{Edns, EdnsFlags};
 
-pub use self::edns::{Edns, EdnsFlags};
-pub use self::header::Header;
-pub use self::header::MessageType;
-pub use self::message::{Message, MessageParts, MessageSignature, MessageSigner, MessageVerifier};
-pub use self::op_code::OpCode;
-pub use self::query::Query;
-pub use self::response_code::ResponseCode;
+pub mod header;
+pub use header::{Header, MessageType};
+
+mod lower_query;
 pub use lower_query::LowerQuery;
+
+pub mod message;
+pub use message::{Message, MessageParts, MessageSignature, MessageSigner, MessageVerifier};
+
+pub mod op_code;
+pub use op_code::OpCode;
+
+pub mod query;
+pub use query::Query;
+
+pub mod response_code;
+pub use response_code::ResponseCode;
+
+pub mod update_message;
 pub use update_message::UpdateMessage;
