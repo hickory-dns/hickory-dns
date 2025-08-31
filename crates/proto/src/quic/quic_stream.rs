@@ -11,8 +11,7 @@ use tracing::debug;
 
 use crate::{
     error::{ProtoError, ProtoErrorKind},
-    op::Message,
-    xfer::DnsResponse,
+    op::{DnsResponse, Message},
 };
 
 /// ```text

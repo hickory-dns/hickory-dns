@@ -29,11 +29,11 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::op::DnsRequest;
+use crate::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
 use crate::rustls::client_config;
 use crate::udp::UdpSocket;
-use crate::xfer::{DnsRequestSender, DnsResponse, DnsResponseStream};
+use crate::xfer::{DnsRequestSender, DnsResponseStream};
 
 use super::ALPN_H3;
 

@@ -41,12 +41,12 @@ use hickory_proto::rustls::client_config;
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
     ProtoError,
+    op::DnsResponse,
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
     runtime::{RuntimeProvider, TokioRuntimeProvider},
     serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,
-    xfer::DnsResponse,
 };
 #[cfg(feature = "__dnssec")]
 use hickory_proto::{

@@ -33,11 +33,11 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::op::DnsRequest;
+use crate::op::{DnsRequest, DnsResponse};
 use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::tcp::DnsTcpStream;
-use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponse, DnsResponseStream};
+use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
 

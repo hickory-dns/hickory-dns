@@ -20,6 +20,8 @@ use hickory_proto::dnssec::{
     Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,
     rdata::DNSKEY,
 };
+#[cfg(feature = "blocklist")]
+use hickory_proto::op::DnsResponse;
 use hickory_proto::op::MessageSigner;
 use hickory_proto::rr::RData::PTR;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -28,8 +30,6 @@ use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
-#[cfg(feature = "blocklist")]
-use hickory_proto::xfer::DnsResponse;
 use hickory_proto::xfer::Protocol;
 #[cfg(feature = "blocklist")]
 use hickory_proto::{ProtoError, ProtoErrorKind};

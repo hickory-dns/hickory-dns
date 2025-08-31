@@ -20,6 +20,9 @@
 mod dns_request;
 pub use dns_request::{DnsRequest, DnsRequestOptions};
 
+mod dns_response;
+pub use dns_response::DnsResponse;
+
 mod edns;
 pub use edns::{Edns, EdnsFlags};
 

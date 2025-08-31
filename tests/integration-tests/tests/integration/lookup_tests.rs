@@ -5,10 +5,10 @@ use std::{
 };
 
 use hickory_proto::{
-    op::Query,
+    op::{DnsResponse, Query},
     rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
     runtime::TokioRuntimeProvider,
-    xfer::{DnsExchange, DnsMultiplexer, DnsResponse},
+    xfer::{DnsExchange, DnsMultiplexer},
 };
 use hickory_resolver::{
     Hosts, LookupFuture, caching_client::CachingClient, config::LookupIpStrategy, lookup::Lookup,

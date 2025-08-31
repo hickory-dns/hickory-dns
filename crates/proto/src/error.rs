@@ -31,10 +31,9 @@ use tracing::debug;
 use crate::dnssec::Proof;
 #[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
 use crate::dnssec::ring_like::Unspecified;
-use crate::op::{Header, Query, ResponseCode};
+use crate::op::{DnsResponse, Header, Query, ResponseCode};
 use crate::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
-use crate::xfer::DnsResponse;
 
 /// Boolean for checking if backtrace is enabled at runtime
 #[cfg(feature = "backtrace")]

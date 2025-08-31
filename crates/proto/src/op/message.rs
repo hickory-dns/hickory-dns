@@ -17,11 +17,10 @@ use tracing::{debug, warn};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
 use crate::{
-    error::*,
-    op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
+    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
     rr::{Record, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
-    xfer::DnsResponse,
 };
 
 /// The basic request and response data structure, used for all DNS protocols.

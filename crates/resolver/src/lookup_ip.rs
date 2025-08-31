@@ -328,10 +328,10 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::proto::ProtoError;
-    use crate::proto::op::{DnsRequest, Message};
+    use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::{Name, RData, Record};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, DnsResponse};
+    use crate::proto::xfer::DnsHandle;
 
     #[derive(Clone)]
     pub(crate) struct MockDnsHandle {

@@ -13,8 +13,8 @@ use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
 use hickory_proto::{
     ProtoError,
-    op::{DnsRequest, Query},
-    xfer::{DnsHandle, DnsResponse},
+    op::{DnsRequest, DnsResponse, Query},
+    xfer::DnsHandle,
 };
 
 use crate::client::ClientHandle;
@@ -99,10 +99,10 @@ mod test {
     use super::*;
     use hickory_proto::{
         ProtoError,
-        op::{DnsRequest, Message, MessageType, OpCode, Query},
+        op::{DnsRequest, DnsResponse, Message, MessageType, OpCode, Query},
         rr::RecordType,
         runtime::TokioRuntimeProvider,
-        xfer::{DnsHandle, DnsResponse, FirstAnswer},
+        xfer::{DnsHandle, FirstAnswer},
     };
     use test_support::subscribe;
 

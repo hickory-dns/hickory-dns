@@ -24,8 +24,7 @@ use tracing::info;
 
 use crate::proto::{
     DnsHandle, ProtoError,
-    op::{DnsRequestOptions, Query},
-    xfer::DnsResponse,
+    op::{DnsRequestOptions, DnsResponse, Query},
 };
 use crate::resolver::{Name, name_server::ConnectionProvider};
 
