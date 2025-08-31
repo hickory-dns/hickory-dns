@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::ProtoError,
-    op::{Message, ResponseCode},
+    op::Message,
     rr::{RecordType, rdata::SOA, resource::RecordRef},
 };
 
@@ -153,49 +153,6 @@ impl DnsResponse {
         false
     }
 
-    /// Retrieve the type of the negative response.
-    ///   The Various types should be handled when caching or otherwise differently.
-    ///
-    /// See [NegativeType]
-    pub fn negative_type(&self) -> Option<NegativeType> {
-        let response_code = self.response_code();
-        let ttl_from_soa = self.negative_ttl();
-        let has_soa = ttl_from_soa.is_some();
-        let has_ns_records = self.authorities().iter().any(|r| r.record_type().is_ns());
-        let has_cname = self.answers().iter().any(|r| r.record_type().is_cname());
-        let has_non_cname = self.answers().iter().any(|r| !r.record_type().is_cname());
-        let has_additionals = self.additional_count() > 0;
-
-        match (
-            response_code,
-            has_soa,
-            has_ns_records,
-            has_cname,
-            has_non_cname,
-            has_additionals,
-        ) {
-            (ResponseCode::NXDomain, true, true, _, false, _) => Some(NegativeType::NameErrorType1),
-            (ResponseCode::NXDomain, true, false, _, false, _) => {
-                Some(NegativeType::NameErrorType2)
-            }
-            (ResponseCode::NXDomain, false, false, true, false, _) => {
-                Some(NegativeType::NameErrorType3)
-            }
-            (ResponseCode::NXDomain, false, true, _, false, _) => {
-                Some(NegativeType::NameErrorType4)
-            }
-            (ResponseCode::NoError, true, true, false, false, _) => Some(NegativeType::NoDataType1),
-            (ResponseCode::NoError, true, false, false, false, _) => {
-                Some(NegativeType::NoDataType2)
-            }
-            (ResponseCode::NoError, false, false, false, false, false) => {
-                Some(NegativeType::NoDataType3)
-            }
-            (ResponseCode::NoError, false, true, _, false, _) => Some(NegativeType::Referral),
-            _ => None,
-        }
-    }
-
     /// Borrow the inner buffer from the response
     pub fn as_buffer(&self) -> &[u8] {
         &self.buffer
@@ -237,320 +194,11 @@ impl From<DnsResponse> for Message {
     }
 }
 
-/// ```text
-/// [RFC 2308](https://tools.ietf.org/html/rfc2308#section-2) DNS NCACHE March 1998
-///
-///
-/// 2 - Negative Responses
-///
-///    The most common negative responses indicate that a particular RRset
-///    does not exist in the DNS.  The first sections of this document deal
-///    with this case.  Other negative responses can indicate failures of a
-///    nameserver, those are dealt with in section 7 (Other Negative
-///    Responses).
-///
-///    A negative response is indicated by one of the following conditions:
-///
-/// 2.1 - Name Error
-///
-///    Name errors (NXDOMAIN) are indicated by the presence of "Name Error"
-///    in the RCODE field.  In this case the domain referred to by the QNAME
-///    does not exist.  Note: the answer section may have SIG and CNAME RRs
-///    and the authority section may have SOA, NXT [RFC2065] and SIG RRsets.
-///
-///    It is possible to distinguish between a referral and a NXDOMAIN
-///    response by the presence of NXDOMAIN in the RCODE regardless of the
-///    presence of NS or SOA records in the authority section.
-///
-///    NXDOMAIN responses can be categorised into four types by the contents
-///    of the authority section.  These are shown below along with a
-///    referral for comparison.  Fields not mentioned are not important in
-///    terms of the examples.
-///
-///    See [NegativeType] below:
-///        [NegativeType::NameErrorType1]
-///        [NegativeType::NameErrorType2]
-///        [NegativeType::NameErrorType3]
-///        [NegativeType::NameErrorType4]
-///        [NegativeType::Referral]
-///
-///    Note, in the four examples of NXDOMAIN responses, it is known that
-///    the name "AN.EXAMPLE." exists, and has as its value a CNAME record.
-///    The NXDOMAIN refers to "TRIPPLE.XX", which is then known not to
-///    exist.  On the other hand, in the referral example, it is shown that
-///    "AN.EXAMPLE" exists, and has a CNAME RR as its value, but nothing is
-///    known one way or the other about the existence of "TRIPPLE.XX", other
-///    than that "NS1.XX" or "NS2.XX" can be consulted as the next step in
-///    obtaining information about it.
-///
-///    Where no CNAME records appear, the NXDOMAIN response refers to the
-///    name in the label of the RR in the question section.
-///
-/// 2.1.1 Special Handling of Name Error
-///
-///    This section deals with errors encountered when implementing negative
-///    caching of NXDOMAIN responses.
-///
-///    There are a large number of resolvers currently in existence that
-///    fail to correctly detect and process all forms of NXDOMAIN response.
-///    Some resolvers treat a TYPE 1 NXDOMAIN response as a referral.  To
-///    alleviate this problem it is recommended that servers that are
-///    authoritative for the NXDOMAIN response only send TYPE 2 NXDOMAIN
-///    responses, that is the authority section contains a SOA record and no
-///    NS records.  If a non- authoritative server sends a type 1 NXDOMAIN
-///    response to one of these old resolvers, the result will be an
-///    unnecessary query to an authoritative server.  This is undesirable,
-///    but not fatal except when the server is being used a FORWARDER.  If
-///    however the resolver is using the server as a FORWARDER to such a
-///    resolver it will be necessary to disable the sending of TYPE 1
-///    NXDOMAIN response to it, use TYPE 2 NXDOMAIN instead.
-///
-///    Some resolvers incorrectly continue processing if the authoritative
-///    answer flag is not set, looping until the query retry threshold is
-///    exceeded and then returning SERVFAIL.  This is a problem when your
-///    nameserver is listed as a FORWARDER for such resolvers.  If the
-///    nameserver is used as a FORWARDER by such resolver, the authority
-///    flag will have to be forced on for NXDOMAIN responses to these
-///    resolvers.  In practice this causes no problems even if turned on
-///    always, and has been the default behaviour in BIND from 4.9.3
-///    onwards.
-///
-/// 2.2 - No Data
-///
-///    NODATA is indicated by an answer with the RCODE set to NOERROR and no
-///    relevant answers in the answer section.  The authority section will
-///    contain an SOA record, or there will be no NS records there.
-///    NODATA responses have to be algorithmically determined from the
-///    response's contents as there is no RCODE value to indicate NODATA.
-///    In some cases to determine with certainty that NODATA is the correct
-///    response it can be necessary to send another query.
-///
-///    The authority section may contain NXT and SIG RRsets in addition to
-///    NS and SOA records.  CNAME and SIG records may exist in the answer
-///    section.
-///
-///    It is possible to distinguish between a NODATA and a referral
-///    response by the presence of a SOA record in the authority section or
-///    the absence of NS records in the authority section.
-///
-///    NODATA responses can be categorised into three types by the contents
-///    of the authority section.  These are shown below along with a
-///    referral for comparison.  Fields not mentioned are not important in
-///    terms of the examples.
-///
-///    See [NegativeType] below:
-///        [NegativeType::NoDataType1]
-///        [NegativeType::NoDataType2]
-///        [NegativeType::NoDataType3]
-///
-///    These examples, unlike the NXDOMAIN examples above, have no CNAME
-///    records, however they could, in just the same way that the NXDOMAIN
-///    examples did, in which case it would be the value of the last CNAME
-///    (the QNAME) for which NODATA would be concluded.
-///
-/// 2.2.1 - Special Handling of No Data
-///
-///    There are a large number of resolvers currently in existence that
-///    fail to correctly detect and process all forms of NODATA response.
-///    Some resolvers treat a TYPE 1 NODATA response as a referral.  To
-///    alleviate this problem it is recommended that servers that are
-///    authoritative for the NODATA response only send TYPE 2 NODATA
-///    responses, that is the authority section contains a SOA record and no
-///    NS records.  Sending a TYPE 1 NODATA response from a non-
-///    authoritative server to one of these resolvers will only result in an
-///    unnecessary query.  If a server is listed as a FORWARDER for another
-///    resolver it may also be necessary to disable the sending of TYPE 1
-///    NODATA response for non-authoritative NODATA responses.
-///    Some name servers fail to set the RCODE to NXDOMAIN in the presence
-///    of CNAMEs in the answer section.  If a definitive NXDOMAIN / NODATA
-///    answer is required in this case the resolver must query again using
-///    the QNAME as the query label.
-///
-/// 3 - Negative Answers from Authoritative Servers
-///
-///    Name servers authoritative for a zone MUST include the SOA record of
-///    the zone in the authority section of the response when reporting an
-///    NXDOMAIN or indicating that no data of the requested type exists.
-///    This is required so that the response may be cached.  The TTL of this
-///    record is set from the minimum of the MINIMUM field of the SOA record
-///    and the TTL of the SOA itself, and indicates how long a resolver may
-///    cache the negative answer.  The TTL SIG record associated with the
-///    SOA record should also be trimmed in line with the SOA's TTL.
-///
-///    If the containing zone is signed [RFC2065] the SOA and appropriate
-///    NXT and SIG records MUST be added.
-///
-/// ```
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum NegativeType {
-    /// ```text
-    ///            NXDOMAIN RESPONSE: TYPE 1.
-    ///
-    ///            Header:
-    ///                RDCODE=NXDOMAIN
-    ///            Query:
-    ///                AN.EXAMPLE. A
-    ///            Answer:
-    ///                AN.EXAMPLE. CNAME TRIPPLE.XX.
-    ///            Authority:
-    ///                XX. SOA NS1.XX. HOSTMASTER.NS1.XX. ....
-    ///                XX. NS NS1.XX.
-    ///                XX. NS NS2.XX.
-    ///            Additional:
-    ///                NS1.XX. A 127.0.0.2
-    ///                NS2.XX. A 127.0.0.3
-    /// ```
-    NameErrorType1,
-
-    /// ```text
-    ///            NXDOMAIN RESPONSE: TYPE 2.
-    ///
-    ///            Header:
-    ///                RDCODE=NXDOMAIN
-    ///            Query:
-    ///                AN.EXAMPLE. A
-    ///            Answer:
-    ///                AN.EXAMPLE. CNAME TRIPPLE.XX.
-    ///            Authority:
-    ///                XX. SOA NS1.XX. HOSTMASTER.NS1.XX. ....
-    ///            Additional:
-    ///                <empty>
-    /// ```
-    NameErrorType2,
-
-    /// ```text
-    ///            NXDOMAIN RESPONSE: TYPE 3.
-    ///
-    ///            Header:
-    ///                RDCODE=NXDOMAIN
-    ///            Query:
-    ///                AN.EXAMPLE. A
-    ///            Answer:
-    ///                AN.EXAMPLE. CNAME TRIPPLE.XX.
-    ///            Authority:
-    ///                <empty>
-    ///            Additional:
-    ///                <empty>
-    /// ```
-    NameErrorType3,
-
-    /// ```text
-    ///            NXDOMAIN RESPONSE: TYPE 4
-    ///
-    ///            Header:
-    ///                RDCODE=NXDOMAIN
-    ///            Query:
-    ///                AN.EXAMPLE. A
-    ///            Answer:
-    ///                AN.EXAMPLE. CNAME TRIPPLE.XX.
-    ///            Authority:
-    ///                XX. NS NS1.XX.
-    ///                XX. NS NS2.XX.
-    ///            Additional:
-    ///                NS1.XX. A 127.0.0.2
-    ///                NS2.XX. A 127.0.0.3
-    /// ```
-    NameErrorType4,
-
-    /// ```text
-    ///            NODATA RESPONSE: TYPE 1.
-    ///
-    ///            Header:
-    ///                RDCODE=NOERROR
-    ///            Query:
-    ///                ANOTHER.EXAMPLE. A
-    ///            Answer:
-    ///                <empty>
-    ///            Authority:
-    ///                EXAMPLE. SOA NS1.XX. HOSTMASTER.NS1.XX. ....
-    ///                EXAMPLE. NS NS1.XX.
-    ///                EXAMPLE. NS NS2.XX.
-    ///            Additional:
-    ///                NS1.XX. A 127.0.0.2
-    ///                NS2.XX. A 127.0.0.3
-    /// ```
-    NoDataType1,
-
-    /// ```text
-    ///            NO DATA RESPONSE: TYPE 2.
-    ///
-    ///            Header:
-    ///                RDCODE=NOERROR
-    ///            Query:
-    ///                ANOTHER.EXAMPLE. A
-    ///            Answer:
-    ///                <empty>
-    ///            Authority:
-    ///                EXAMPLE. SOA NS1.XX. HOSTMASTER.NS1.XX. ....
-    ///            Additional:
-    ///                <empty>
-    /// ```
-    NoDataType2,
-
-    /// ```text
-    ///            NO DATA RESPONSE: TYPE 3.
-    ///            Header:
-    ///                RDCODE=NOERROR
-    ///            Query:
-    ///                ANOTHER.EXAMPLE. A
-    ///            Answer:
-    ///                <empty>
-    ///            Authority:
-    ///                <empty>
-    ///            Additional:
-    ///                <empty>
-    /// ```
-    NoDataType3,
-
-    /// ```text
-    ///            REFERRAL RESPONSE.
-    ///
-    ///            Header:
-    ///                RDCODE=NOERROR
-    ///            Query:
-    ///                AN.EXAMPLE. A
-    ///            Answer:
-    ///                AN.EXAMPLE. CNAME TRIPPLE.XX.
-    ///            Authority:
-    ///                XX. NS NS1.XX.
-    ///                XX. NS NS2.XX.
-    ///            Additional:
-    ///                NS1.XX. A 127.0.0.2
-    ///                NS2.XX. A 127.0.0.3
-    ///
-    ///            REFERRAL RESPONSE.
-    ///
-    ///            Header:
-    ///                RDCODE=NOERROR
-    ///            Query:
-    ///                ANOTHER.EXAMPLE. A
-    ///            Answer:
-    ///                <empty>
-    ///            Authority:
-    ///                EXAMPLE. NS NS1.XX.
-    ///                EXAMPLE. NS NS2.XX.
-    ///            Additional:
-    ///                NS1.XX. A 127.0.0.2
-    ///                NS2.XX. A 127.0.0.3
-    /// ```
-    Referral,
-}
-
-impl NegativeType {
-    /// The response contains an SOA record
-    pub fn is_authoritative(&self) -> bool {
-        matches!(
-            self,
-            Self::NameErrorType1 | Self::NameErrorType2 | Self::NoDataType1 | Self::NoDataType2
-        )
-    }
-}
-
 #[cfg(all(test, any(feature = "std", feature = "no-std-rand")))]
 mod tests {
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::RData;
-    use crate::rr::rdata::{A, CNAME, NS, SOA};
+    use crate::rr::rdata::{A, NS, SOA};
     use crate::rr::{Name, Record, RecordType};
 
     use super::*;
@@ -563,16 +211,8 @@ mod tests {
         Name::from_ascii("NS1.XX.").unwrap()
     }
 
-    fn ns2() -> Name {
-        Name::from_ascii("NS1.XX.").unwrap()
-    }
-
     fn hostmaster() -> Name {
         Name::from_ascii("HOSTMASTER.NS1.XX.").unwrap()
-    }
-
-    fn tripple_xx() -> Name {
-        Name::from_ascii("TRIPPLE.XX.").unwrap()
     }
 
     fn example() -> Name {
@@ -583,28 +223,12 @@ mod tests {
         Name::from_ascii("AN.EXAMPLE.").unwrap()
     }
 
-    fn another_example() -> Name {
-        Name::from_ascii("ANOTHER.EXAMPLE.").unwrap()
-    }
-
-    fn an_cname_record() -> Record {
-        Record::from_rdata(an_example(), 88640, RData::CNAME(CNAME(tripple_xx())))
-    }
-
     fn ns1_record() -> Record {
         Record::from_rdata(xx(), 88640, RData::NS(NS(ns1())))
     }
 
-    fn ns2_record() -> Record {
-        Record::from_rdata(xx(), 88640, RData::NS(NS(ns2())))
-    }
-
     fn ns1_a() -> Record {
         Record::from_rdata(xx(), 88640, RData::A(A::new(127, 0, 0, 2)))
-    }
-
-    fn ns2_a() -> Record {
-        Record::from_rdata(xx(), 88640, RData::A(A::new(127, 0, 0, 3)))
     }
 
     fn soa() -> Record {
@@ -613,14 +237,6 @@ mod tests {
             88640,
             RData::SOA(SOA::new(ns1(), hostmaster(), 1, 2, 3, 4, 5)),
         )
-    }
-
-    fn an_query() -> Query {
-        Query::query(an_example(), RecordType::A)
-    }
-
-    fn another_query() -> Query {
-        Query::query(another_example(), RecordType::A)
     }
 
     #[test]
@@ -637,148 +253,6 @@ mod tests {
         let response = DnsResponse::from_message(message).unwrap();
 
         assert!(response.contains_answer())
-    }
-
-    #[test]
-    fn test_nx_type1() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NXDomain);
-        message.add_query(an_query());
-        message.add_answer(an_cname_record());
-        message.add_authority(soa());
-        message.add_authority(ns1_record());
-        message.add_authority(ns2_record());
-        message.add_additional(ns1_a());
-        message.add_additional(ns2_a());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NameErrorType1);
-    }
-
-    #[test]
-    fn test_nx_type2() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NXDomain);
-        message.add_query(an_query());
-        message.add_answer(an_cname_record());
-        message.add_authority(soa());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NameErrorType2);
-    }
-
-    #[test]
-    fn test_nx_type3() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NXDomain);
-        message.add_query(an_query());
-        message.add_answer(an_cname_record());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NameErrorType3);
-    }
-
-    #[test]
-    fn test_nx_type4() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NXDomain);
-        message.add_query(an_query());
-        message.add_answer(an_cname_record());
-        message.add_authority(ns1_record());
-        message.add_authority(ns2_record());
-        message.add_additional(ns1_a());
-        message.add_additional(ns2_a());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NameErrorType4);
-    }
-
-    #[test]
-    fn test_no_data_type1() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
-        message.add_query(another_query());
-        message.add_authority(soa());
-        message.add_authority(ns1_record());
-        message.add_authority(ns2_record());
-        message.add_additional(ns1_a());
-        message.add_additional(ns2_a());
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(!response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NoDataType1);
-    }
-
-    #[test]
-    fn test_no_data_type2() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
-        message.add_query(another_query());
-        message.add_authority(soa());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(!response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NoDataType2);
-    }
-
-    #[test]
-    fn test_no_data_type3() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
-        message.add_query(another_query());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(!response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::NoDataType3);
-    }
-
-    #[test]
-    fn referral() {
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
-        message.add_query(an_query());
-        message.add_answer(an_cname_record());
-        message.add_authority(ns1_record());
-        message.add_authority(ns2_record());
-        message.add_additional(ns1_a());
-        message.add_additional(ns2_a());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::Referral);
-
-        let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
-        message.add_query(another_query());
-        message.add_authority(ns1_record());
-        message.add_authority(ns2_record());
-        message.add_additional(ns1_a());
-        message.add_additional(ns2_a());
-
-        let response = DnsResponse::from_message(message).unwrap();
-        let ty = response.negative_type();
-
-        assert!(!response.contains_answer());
-        assert_eq!(ty.unwrap(), NegativeType::Referral);
     }
 
     #[test]
