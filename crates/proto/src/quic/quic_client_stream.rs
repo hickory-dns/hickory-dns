@@ -25,11 +25,11 @@ use tokio::time::timeout;
 
 use crate::{
     error::ProtoError,
-    op::DnsRequest,
+    op::{DnsRequest, DnsResponse},
     quic::quic_stream::{DoqErrorCode, QuicStream},
     rustls::client_config,
     udp::UdpSocket,
-    xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponse, DnsResponseStream},
+    xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream},
 };
 
 use super::{quic_config, quic_stream};

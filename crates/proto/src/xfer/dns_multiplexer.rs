@@ -31,10 +31,10 @@ use tracing::debug;
 use crate::{
     DnsStreamHandle,
     error::{ProtoError, ProtoErrorKind},
-    op::{DnsRequest, MessageSigner, MessageVerifier, SerialMessage},
+    op::{DnsRequest, DnsResponse, MessageSigner, MessageVerifier, SerialMessage},
     runtime::Time,
     xfer::{
-        BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequestSender, DnsResponse,
+        BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequestSender,
         DnsResponseStream, ignore_send,
     },
 };

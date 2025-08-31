@@ -23,9 +23,9 @@ use tracing::debug;
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::NameServer;
-use crate::proto::op::DnsRequest;
+use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::proto::runtime::{RuntimeProvider, Time};
-use crate::proto::xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol};
+use crate::proto::xfer::{DnsHandle, FirstAnswer, Protocol};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// Abstract interface for mocking purpose

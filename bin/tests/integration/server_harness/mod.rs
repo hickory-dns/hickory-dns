@@ -19,10 +19,10 @@ use tracing::{info, warn};
 
 #[cfg(feature = "__dnssec")]
 use hickory_client::client::Client;
-use hickory_client::{client::ClientHandle, proto::xfer::DnsResponse};
+use hickory_client::client::ClientHandle;
 use hickory_proto::{
     ProtoError,
-    op::ResponseCode,
+    op::{DnsResponse, ResponseCode},
     rr::{DNSClass, Name, RData, RecordType, rdata::A},
     xfer::Protocol,
 };

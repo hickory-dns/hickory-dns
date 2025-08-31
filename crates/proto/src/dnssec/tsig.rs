@@ -29,10 +29,11 @@ use super::rdata::tsig::{
 use super::{DnsSecError, DnsSecErrorKind};
 use crate::dnssec::rdata::tsig::TsigError;
 use crate::error::{ProtoError, ProtoResult};
-use crate::op::{Message, MessageSignature, MessageSigner, MessageVerifier, ResponseSigner};
+use crate::op::{
+    DnsResponse, Message, MessageSignature, MessageSigner, MessageVerifier, ResponseSigner,
+};
 use crate::rr::{Name, RData};
 use crate::serialize::binary::{BinEncoder, EncodeMode};
-use crate::xfer::DnsResponse;
 
 /// Context for a TSIG response, used to construct a TSIG response signer
 #[allow(missing_copy_implementations)]

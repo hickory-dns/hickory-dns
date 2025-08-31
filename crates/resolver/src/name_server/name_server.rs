@@ -24,8 +24,8 @@ use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
-    op::{DnsRequest, ResponseCode},
-    xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol},
+    op::{DnsRequest, DnsResponse, ResponseCode},
+    xfer::{DnsHandle, FirstAnswer, Protocol},
 };
 
 /// This struct is used to create `DnsHandle` with the help of `P`.

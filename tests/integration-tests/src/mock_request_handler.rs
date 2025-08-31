@@ -4,10 +4,9 @@ use hickory_client::client::{ClientHandle, DnssecClient};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::DNSClass;
 use hickory_proto::{
-    op::{Header, MessageType, ResponseCode},
+    op::{DnsResponse, Header, MessageType, ResponseCode},
     rr::{LowerName, RecordType},
     runtime::Time,
-    xfer::DnsResponse,
 };
 use hickory_resolver::Name;
 use hickory_server::{

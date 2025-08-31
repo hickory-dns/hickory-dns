@@ -23,12 +23,11 @@ use hickory_proto::{
         crypto::Ed25519SigningKey,
         rdata::{DNSKEY, DNSSECRData, DS},
     },
-    op::ResponseCode,
+    op::{DnsResponse, ResponseCode},
     rr::{
         DNSClass, RData, Record, RecordType,
         rdata::{A, AAAA, HINFO, MX, NS, SOA},
     },
-    xfer::DnsResponse,
 };
 use hickory_resolver::Name;
 use hickory_server::{

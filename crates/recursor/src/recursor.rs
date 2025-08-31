@@ -553,8 +553,8 @@ mod for_dnssec {
     use crate::ErrorKind;
     use crate::proto::{
         ProtoError,
-        op::{DnsRequest, Message, OpCode},
-        xfer::{DnsHandle, DnsResponse},
+        op::{DnsRequest, DnsResponse, Message, OpCode},
+        xfer::DnsHandle,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
     use crate::resolver::name_server::ConnectionProvider;

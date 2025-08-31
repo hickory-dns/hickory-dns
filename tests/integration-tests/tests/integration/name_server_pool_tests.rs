@@ -12,9 +12,9 @@ use std::task::Poll;
 use futures::{executor::block_on, future::BoxFuture};
 
 use hickory_integration::mock_client::*;
-use hickory_proto::op::{Query, ResponseCode};
+use hickory_proto::op::{DnsResponse, Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
-use hickory_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
+use hickory_proto::xfer::{DnsHandle, FirstAnswer};
 use hickory_proto::{NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
