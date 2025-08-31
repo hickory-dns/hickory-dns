@@ -24,8 +24,8 @@ use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     NoRecords, ProtoError, ProtoErrorKind,
-    op::ResponseCode,
-    xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer, Protocol},
+    op::{DnsRequest, ResponseCode},
+    xfer::{DnsHandle, DnsResponse, FirstAnswer, Protocol},
 };
 
 /// This struct is used to create `DnsHandle` with the help of `P`.
@@ -474,11 +474,11 @@ mod tests {
 
     use super::*;
     use crate::config::ProtocolConfig;
-    use crate::proto::op::{Message, Query, ResponseCode};
+    use crate::proto::op::{DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
+    use crate::proto::xfer::{DnsHandle, FirstAnswer};
 
     #[tokio::test]
     async fn test_name_server() {

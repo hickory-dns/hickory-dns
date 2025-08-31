@@ -21,12 +21,14 @@ use tracing::debug;
 
 use hickory_proto::{
     ProtoError, ProtoErrorKind,
-    op::{Edns, Message, MessageSigner, OpCode, Query, update_message},
+    op::{
+        DnsRequest, DnsRequestOptions, Edns, Message, MessageSigner, OpCode, Query, update_message,
+    },
     rr::{DNSClass, Name, Record, RecordSet, RecordType, rdata::SOA},
     runtime::RuntimeProvider,
     xfer::{
         BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
-        DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
+        DnsHandle, DnsMultiplexer, DnsRequestSender, DnsResponse,
     },
 };
 

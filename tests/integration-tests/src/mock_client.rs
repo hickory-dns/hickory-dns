@@ -19,14 +19,14 @@ use futures::{
 };
 
 use hickory_proto::ProtoError;
-use hickory_proto::op::{Message, Query};
+use hickory_proto::op::{DnsRequest, Message, Query};
 use hickory_proto::rr::rdata::{CNAME, NS, SOA};
 use hickory_proto::rr::{Name, RData, Record};
 use hickory_proto::runtime::TokioTime;
 use hickory_proto::runtime::{RuntimeProvider, TokioHandle};
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
-use hickory_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use hickory_proto::xfer::{DnsHandle, DnsResponse};
 use hickory_resolver::config::{ConnectionConfig, ResolverOpts};
 use hickory_resolver::name_server::{ConnectionProvider, TlsConfig};
 

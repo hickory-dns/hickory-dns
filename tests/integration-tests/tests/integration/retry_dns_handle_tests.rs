@@ -7,9 +7,9 @@ use futures::{Stream, executor::block_on, future, stream};
 
 use hickory_proto::{
     DnsHandle, ProtoError, RetryDnsHandle,
-    op::{Message, OpCode, ResponseCode},
+    op::{DnsRequest, Message, OpCode, ResponseCode},
     runtime::TokioRuntimeProvider,
-    xfer::{DnsRequest, DnsResponse, FirstAnswer},
+    xfer::{DnsResponse, FirstAnswer},
 };
 use test_support::subscribe;
 

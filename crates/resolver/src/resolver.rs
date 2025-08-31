@@ -28,12 +28,12 @@ use crate::name_server::TlsConfig;
 use crate::name_server::{ConnectionProvider, NameServerPool};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
-use crate::proto::op::Query;
+use crate::proto::op::{DnsRequest, DnsRequestOptions, Query};
 use crate::proto::rr::domain::usage::ONION;
 use crate::proto::rr::{IntoName, Name, RData, Record, RecordType, rdata};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
-use crate::proto::xfer::{DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, RetryDnsHandle};
+use crate::proto::xfer::{DnsHandle, DnsResponse, RetryDnsHandle};
 use crate::proto::{ProtoError, ProtoErrorKind};
 
 macro_rules! lookup_fn {
@@ -1141,9 +1141,9 @@ mod tests {
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
     use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
-    use crate::proto::op::Message;
+    use crate::proto::op::{DnsRequest, Message};
     use crate::proto::rr::rdata::A;
-    use crate::proto::xfer::{DnsRequest, DnsResponse};
+    use crate::proto::xfer::DnsResponse;
     use crate::proto::{NoRecords, ProtoError, ProtoErrorKind};
 
     fn is_send_t<T: Send>() -> bool {

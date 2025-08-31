@@ -31,11 +31,11 @@ use tracing::debug;
 use crate::{
     DnsStreamHandle,
     error::{ProtoError, ProtoErrorKind},
-    op::{MessageSigner, MessageVerifier},
+    op::{DnsRequest, MessageSigner, MessageVerifier},
     runtime::Time,
     xfer::{
-        BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequest, DnsRequestSender,
-        DnsResponse, DnsResponseStream, SerialMessage, ignore_send,
+        BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequestSender, DnsResponse,
+        DnsResponseStream, SerialMessage, ignore_send,
     },
 };
 
@@ -432,12 +432,12 @@ mod test {
     use test_support::subscribe;
 
     use super::*;
-    use crate::op::{Message, Query};
+    use crate::op::{DnsRequestOptions, Message, Query};
     use crate::rr::record_type::RecordType;
     use crate::rr::{DNSClass, Name, RData, Record};
     use crate::serialize::binary::BinEncodable;
+    use crate::xfer::DnsClientStream;
     use crate::xfer::StreamReceiver;
-    use crate::xfer::{DnsClientStream, DnsRequestOptions};
 
     struct MockClientStream {
         messages: Vec<Message>,

@@ -39,6 +39,8 @@ use tracing::{debug, warn};
 use crate::error::ProtoResult;
 use crate::error::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "std")]
+use crate::op::DnsRequest;
+#[cfg(feature = "std")]
 use crate::runtime::{RuntimeProvider, Time};
 
 #[cfg(feature = "std")]
@@ -57,9 +59,6 @@ pub use dns_handle::{DnsHandle, DnsStreamHandle};
 pub mod dns_multiplexer;
 #[cfg(feature = "std")]
 pub use dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
-
-pub mod dns_request;
-pub use dns_request::{DnsRequest, DnsRequestOptions};
 
 pub mod dns_response;
 pub use dns_response::DnsResponse;

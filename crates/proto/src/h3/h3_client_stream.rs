@@ -29,10 +29,11 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::Version;
+use crate::op::DnsRequest;
 use crate::quic::connect_quic;
 use crate::rustls::client_config;
 use crate::udp::UdpSocket;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
+use crate::xfer::{DnsRequestSender, DnsResponse, DnsResponseStream};
 
 use super::ALPN_H3;
 
@@ -485,11 +486,10 @@ mod tests {
     use tokio::runtime::Runtime;
     use tokio::task::JoinSet;
 
-    use crate::op::{Edns, Message, Query};
-    use crate::rr::{Name, RecordType};
-    use crate::xfer::{DnsRequestOptions, FirstAnswer};
-
     use super::*;
+    use crate::op::{DnsRequestOptions, Edns, Message, Query};
+    use crate::rr::{Name, RecordType};
+    use crate::xfer::FirstAnswer;
 
     #[tokio::test]
     async fn test_h3_google() {

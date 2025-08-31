@@ -23,6 +23,7 @@ use tracing::debug;
 use crate::h2::{HttpsClientConnect, HttpsClientStream};
 #[cfg(all(feature = "__h3", feature = "tokio"))]
 use crate::h3::{H3ClientConnect, H3ClientStream};
+use crate::op::DnsRequest;
 #[cfg(all(feature = "__quic", feature = "tokio"))]
 use crate::quic::{QuicClientConnect, QuicClientStream};
 use crate::runtime::RuntimeProvider;
@@ -35,7 +36,7 @@ use crate::udp::{UdpClientConnect, UdpClientStream};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
-    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequest, DnsRequestSender, DnsResponse,
+    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequestSender, DnsResponse,
     OneshotDnsRequest,
 };
 use crate::xfer::{DnsMultiplexerConnect, DnsResponseReceiver};

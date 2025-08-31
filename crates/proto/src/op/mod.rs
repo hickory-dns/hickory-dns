@@ -17,6 +17,9 @@
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
 //! be used together to either query or update resource records sets.
 
+mod dns_request;
+pub use dns_request::{DnsRequest, DnsRequestOptions};
+
 mod edns;
 pub use edns::{Edns, EdnsFlags};
 

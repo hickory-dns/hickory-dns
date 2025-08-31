@@ -19,11 +19,11 @@ use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
 
 use crate::error::{ProtoError, ProtoErrorKind};
-use crate::op::{Message, MessageSigner, MessageVerifier, Query};
+use crate::op::{DnsRequest, Message, MessageSigner, MessageVerifier, Query};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
 use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
+use crate::xfer::{DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 
 /// A builder to create a UDP client stream.
 ///

@@ -22,16 +22,15 @@ use futures_util::{
 };
 use tracing::debug;
 
-use crate::proto::ProtoError;
-use crate::proto::op::Query;
-use crate::proto::rr::{Name, RData, Record, RecordType};
-use crate::proto::xfer::{DnsHandle, DnsRequestOptions};
-
 use crate::cache::MAX_TTL;
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupIter};
+use crate::proto::ProtoError;
+use crate::proto::op::{DnsRequestOptions, Query};
+use crate::proto::rr::{Name, RData, Record, RecordType};
+use crate::proto::xfer::DnsHandle;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -327,13 +326,12 @@ pub(crate) mod tests {
     use futures_util::stream::{Stream, once};
     use test_support::subscribe;
 
+    use super::*;
     use crate::proto::ProtoError;
-    use crate::proto::op::Message;
+    use crate::proto::op::{DnsRequest, Message};
     use crate::proto::rr::{Name, RData, Record};
     use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
-
-    use super::*;
+    use crate::proto::xfer::{DnsHandle, DnsResponse};
 
     #[derive(Clone)]
     pub(crate) struct MockDnsHandle {

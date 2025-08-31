@@ -20,7 +20,7 @@ use crate::{
     lookup::Lookup,
     proto::{
         NoRecords, ProtoError, ProtoErrorKind,
-        op::{Message, OpCode, Query, ResponseCode},
+        op::{DnsRequestOptions, Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordType,
             domain::usage::{
@@ -30,7 +30,7 @@ use crate::{
             rdata::{A, AAAA, CNAME, PTR},
             resource::RecordRef,
         },
-        xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer},
+        xfer::{DnsHandle, DnsResponse, FirstAnswer},
     },
 };
 

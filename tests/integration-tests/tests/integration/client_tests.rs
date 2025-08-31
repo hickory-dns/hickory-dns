@@ -29,7 +29,7 @@ use hickory_proto::dnssec::{Algorithm, PublicKey, SigSigner, SigningKey, crypto:
 use hickory_proto::op::MessageSigner;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
-use hickory_proto::op::{Edns, Message, Query};
+use hickory_proto::op::{DnsRequest, Edns, Message, Query};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
@@ -39,7 +39,7 @@ use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::udp::UdpClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::xfer::DnsMultiplexerConnect;
-use hickory_proto::xfer::{DnsHandle, DnsMultiplexer, DnsRequest};
+use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;

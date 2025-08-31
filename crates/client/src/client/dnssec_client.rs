@@ -16,8 +16,9 @@ use crate::proto::ProtoError;
 use crate::proto::dnssec::DnssecDnsHandle;
 use crate::proto::dnssec::TrustAnchors;
 use crate::proto::runtime::{TokioRuntimeProvider, TokioTime};
+use crate::proto::op::DnsRequest;
 use crate::proto::xfer::{
-    DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
+    DnsExchangeBackground, DnsHandle, DnsRequestSender, DnsResponse,
 };
 
 /// A DNSSEC Client implemented over futures-rs.
