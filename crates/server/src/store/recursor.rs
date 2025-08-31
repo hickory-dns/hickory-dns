@@ -31,7 +31,7 @@ use crate::{
     error::ConfigError,
     proto::{
         op::Query,
-        op::message::ResponseSigner,
+        op::ResponseSigner,
         rr::{LowerName, Name, RData, Record, RecordSet, RecordType},
         runtime::RuntimeProvider,
         serialize::txt::{ParseError, Parser},

@@ -23,7 +23,7 @@ use crate::{
 };
 use crate::{
     proto::{
-        op::{Edns, ResponseCode, message::ResponseSigner},
+        op::{Edns, ResponseCode, ResponseSigner},
         rr::{LowerName, RecordSet, RecordType, RrsetRecords},
     },
     server::{Request, RequestInfo},

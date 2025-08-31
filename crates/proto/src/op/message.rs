@@ -817,7 +817,7 @@ impl From<Message> for MessageParts {
 ///
 /// This is only used internally during serialization.
 #[derive(Clone, Copy, Debug)]
-pub struct HeaderCounts {
+struct HeaderCounts {
     /// The number of queries in the Message
     pub query_count: usize,
     /// The number of answer records in the Message
@@ -829,7 +829,7 @@ pub struct HeaderCounts {
 }
 
 /// Returns a new Header with accurate counts for each Message section
-pub fn update_header_counts(
+fn update_header_counts(
     current_header: &Header,
     is_truncated: bool,
     counts: HeaderCounts,
@@ -892,7 +892,7 @@ pub trait ResponseSigner: Send + Sync {
 }
 
 /// Returns the count written and a boolean if it was truncated
-pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
+fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
     match result {
         Ok(count) => Ok((count, false)),
         Err(e) => match e.kind() {

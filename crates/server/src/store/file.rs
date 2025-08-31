@@ -24,7 +24,7 @@ use crate::{
 };
 use crate::{
     proto::{
-        op::message::ResponseSigner,
+        op::ResponseSigner,
         rr::{LowerName, Name, RecordType},
     },
     server::{Request, RequestInfo},

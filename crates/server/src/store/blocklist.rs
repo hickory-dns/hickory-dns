@@ -29,7 +29,7 @@ use tracing::{info, trace, warn};
 use crate::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use crate::{
     proto::{
-        op::{Query, message::ResponseSigner},
+        op::{Query, ResponseSigner},
         rr::{
             LowerName, Name, RData, Record, RecordType,
             rdata::{A, AAAA, TXT},

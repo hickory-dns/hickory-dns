@@ -200,7 +200,7 @@ impl Display for ResponseCode {
 /// Convert from `ResponseCode` to `u16`
 ///
 /// ```
-/// use hickory_proto::op::response_code::ResponseCode;
+/// use hickory_proto::op::ResponseCode;
 ///
 /// let var: ResponseCode = From::from(0);
 /// assert_eq!(ResponseCode::NoError, var);
@@ -243,7 +243,7 @@ impl From<ResponseCode> for u16 {
 /// Convert from `u16` to `ResponseCode`
 ///
 /// ```
-/// use hickory_proto::op::response_code::ResponseCode;
+/// use hickory_proto::op::ResponseCode;
 ///
 /// let var: u16 = From::from(ResponseCode::NoError);
 /// assert_eq!(0, var);
