@@ -29,8 +29,7 @@ use super::rdata::tsig::{
 use super::{DnsSecError, DnsSecErrorKind};
 use crate::dnssec::rdata::tsig::TsigError;
 use crate::error::{ProtoError, ProtoResult};
-use crate::op::message::ResponseSigner;
-use crate::op::{Message, MessageSignature, MessageSigner, MessageVerifier};
+use crate::op::{Message, MessageSignature, MessageSigner, MessageVerifier, ResponseSigner};
 use crate::rr::{Name, RData};
 use crate::serialize::binary::{BinEncoder, EncodeMode};
 use crate::xfer::DnsResponse;

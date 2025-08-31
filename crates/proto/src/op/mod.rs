@@ -20,22 +20,25 @@
 mod edns;
 pub use edns::{Edns, EdnsFlags};
 
-pub mod header;
+mod header;
 pub use header::{Header, MessageType};
 
 mod lower_query;
 pub use lower_query::LowerQuery;
 
-pub mod message;
-pub use message::{Message, MessageParts, MessageSignature, MessageSigner, MessageVerifier};
+mod message;
+pub use message::{
+    EmitAndCount, Message, MessageParts, MessageSignature, MessageSigner, MessageVerifier,
+    ResponseSigner, emit_message_parts,
+};
 
-pub mod op_code;
+mod op_code;
 pub use op_code::OpCode;
 
-pub mod query;
+mod query;
 pub use query::Query;
 
-pub mod response_code;
+mod response_code;
 pub use response_code::ResponseCode;
 
 pub mod update_message;

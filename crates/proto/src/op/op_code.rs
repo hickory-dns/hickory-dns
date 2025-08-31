@@ -64,7 +64,7 @@ impl fmt::Display for OpCode {
 /// Convert from `OpCode` to `u8`
 ///
 /// ```
-/// use hickory_proto::op::op_code::OpCode;
+/// use hickory_proto::op::OpCode;
 ///
 /// let var: u8 = From::from(OpCode::Query);
 /// assert_eq!(0, var);
@@ -90,7 +90,7 @@ impl From<OpCode> for u8 {
 /// Convert from `u8` to `OpCode`
 ///
 /// ```
-/// use hickory_proto::op::op_code::OpCode;
+/// use hickory_proto::op::OpCode;
 ///
 /// let var: OpCode = OpCode::from_u8(0);
 /// assert_eq!(OpCode::Query, var);

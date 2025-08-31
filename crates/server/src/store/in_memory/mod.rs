@@ -37,7 +37,7 @@ use crate::{
 };
 use crate::{
     proto::{
-        op::{ResponseCode, message::ResponseSigner},
+        op::{ResponseCode, ResponseSigner},
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
         runtime::{RuntimeProvider, TokioRuntimeProvider},
         serialize::txt::Parser,

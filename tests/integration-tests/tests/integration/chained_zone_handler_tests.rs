@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use hickory_integration::TestResponseHandler;
 use hickory_proto::{
-    op::{Message, MessageType, Query, ResponseCode, message::ResponseSigner},
+    op::{Message, MessageType, Query, ResponseCode, ResponseSigner},
     rr::{LowerName, Name, RData, Record, RecordSet, RecordType, rdata::A},
     runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,

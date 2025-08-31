@@ -20,7 +20,7 @@ use tracing::{debug, info};
 use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
     proto::{
-        op::message::ResponseSigner,
+        op::ResponseSigner,
         rr::{LowerName, Name, RecordType},
         runtime::TokioRuntimeProvider,
     },

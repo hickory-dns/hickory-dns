@@ -8,7 +8,7 @@
 use crate::{
     proto::{
         ProtoError,
-        op::{Edns, Header, MessageSignature, ResponseCode, message},
+        op::{Edns, Header, MessageSignature, ResponseCode, emit_message_parts},
         rr::Record,
         serialize::binary::BinEncoder,
     },
@@ -79,7 +79,7 @@ where
         // soa records are part of the authority section
         let mut authorities = self.authorities.chain(self.soa);
 
-        message::emit_message_parts(
+        emit_message_parts(
             &self.header,
             &mut self.queries.as_emit_and_count(),
             &mut self.answers,

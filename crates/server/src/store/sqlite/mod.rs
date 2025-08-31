@@ -24,7 +24,6 @@ use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::store::metrics::PersistentStoreMetrics;
-use crate::zone_handler::ZoneTransfer;
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
@@ -44,8 +43,7 @@ use crate::{
 use crate::{
     error::{PersistenceError, PersistenceErrorKind},
     proto::{
-        op::ResponseCode,
-        op::message::ResponseSigner,
+        op::{ResponseCode, ResponseSigner},
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
         runtime::{RuntimeProvider, TokioRuntimeProvider},
     },
@@ -56,7 +54,7 @@ use crate::{
     },
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
-        ZoneType,
+        ZoneTransfer, ZoneType,
     },
 };
 #[cfg(feature = "__dnssec")]

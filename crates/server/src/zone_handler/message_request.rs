@@ -8,8 +8,8 @@
 use crate::proto::{
     ProtoError, ProtoErrorKind,
     op::{
-        Edns, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode, ResponseCode,
-        message::{self, EmitAndCount},
+        Edns, EmitAndCount, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode,
+        ResponseCode, emit_message_parts,
     },
     rr::Record,
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding},
@@ -359,7 +359,7 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
 
 impl BinEncodable for MessageRequest {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
-        message::emit_message_parts(
+        emit_message_parts(
             &self.header,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form
             //   in cases where that's necessary, like SIG0 validation
