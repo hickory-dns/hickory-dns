@@ -16,6 +16,9 @@
 
 //! UDP protocol related components for DNS
 
+#[cfg(test)]
+#[allow(clippy::print_stdout)]
+mod tests;
 mod udp_client_stream;
 mod udp_stream;
 

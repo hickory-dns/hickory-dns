@@ -410,7 +410,7 @@ mod tests {
 
     use crate::{
         runtime::TokioRuntimeProvider,
-        tests::{next_random_socket_test, udp_stream_test},
+        udp::tests::{next_random_socket_test, udp_stream_test},
     };
 
     #[tokio::test]

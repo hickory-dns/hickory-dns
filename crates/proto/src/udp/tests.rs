@@ -19,7 +19,7 @@ use crate::xfer::{DnsRequestSender, FirstAnswer};
 use crate::{ProtoError, ProtoErrorKind};
 
 /// Test next random udpsocket.
-pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
+pub(super) async fn next_random_socket_test(provider: impl RuntimeProvider) {
     let (stream, _) = UdpStream::new(
         SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 52),
         None,
@@ -31,7 +31,7 @@ pub async fn next_random_socket_test(provider: impl RuntimeProvider) {
 }
 
 /// Test udp_stream.
-pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: P) {
+pub(super) async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: P) {
     let stop_thread_killer = start_thread_killer();
 
     let server = UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -109,7 +109,7 @@ pub async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, provider: 
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
+pub(super) async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
     udp_client_stream_test_inner(
         server_addr,
         provider,
@@ -135,7 +135,10 @@ pub async fn udp_client_stream_test(server_addr: IpAddr, provider: impl RuntimeP
 
 /// Test udp_client_stream handling of bad response IDs
 #[allow(clippy::print_stdout)]
-pub async fn udp_client_stream_bad_id_test(server_addr: IpAddr, provider: impl RuntimeProvider) {
+pub(super) async fn udp_client_stream_bad_id_test(
+    server_addr: IpAddr,
+    provider: impl RuntimeProvider,
+) {
     udp_client_stream_test_inner(
         server_addr,
         provider,
@@ -164,7 +167,7 @@ pub async fn udp_client_stream_bad_id_test(server_addr: IpAddr, provider: impl R
 
 /// Test udp_client_stream response limit (3 max).
 #[allow(clippy::print_stdout)]
-pub async fn udp_client_stream_response_limit_test(
+pub(super) async fn udp_client_stream_response_limit_test(
     server_addr: IpAddr,
     provider: impl RuntimeProvider,
 ) {
