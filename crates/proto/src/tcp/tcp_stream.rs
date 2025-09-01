@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready};
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::BufDnsStreamHandle;
 use crate::op::SerialMessage;
@@ -277,7 +277,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
             }
         }
 
-        let mut ret_buf: Option<Vec<u8>> = None;
+        let mut ret_buf = None;
 
         // this will loop while there is data to read, or the data has been read, or an IO
         //  event would block
@@ -303,19 +303,19 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                             ))));
                         }
                     }
-                    debug!("in ReadTcpState::LenBytes: {}", pos);
+                    trace!("in ReadTcpState::LenBytes: {}", pos);
                     *pos += read;
 
                     if *pos < bytes.len() {
-                        debug!("remain ReadTcpState::LenBytes: {}", pos);
+                        trace!("remain ReadTcpState::LenBytes: {}", pos);
                         None
                     } else {
                         let length = u16::from_be_bytes(*bytes);
-                        debug!("got length: {}", length);
+                        trace!("got length: {}", length);
                         let mut bytes = vec![0; length as usize];
                         bytes.resize(length as usize, 0);
 
-                        debug!("move ReadTcpState::Bytes: {}", bytes.len());
+                        trace!("move ReadTcpState::Bytes: {}", bytes.len());
                         Some(ReadTcpState::Bytes { pos: 0, bytes })
                     }
                 }
@@ -323,7 +323,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                     let read = ready!(socket.as_mut().poll_read(cx, &mut bytes[*pos..]))?;
                     if read == 0 {
                         // the Stream was closed!
-                        debug!("zero bytes read for message, stream closed?");
+                        trace!("zero bytes read for message, stream closed?");
 
                         // Since this is the start of the next message, we have a clean end
                         // try!(self.socket.shutdown(Shutdown::Both));  // TODO: add generic shutdown function
@@ -333,14 +333,14 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                         ))));
                     }
 
-                    debug!("in ReadTcpState::Bytes: {}", bytes.len());
+                    trace!("in ReadTcpState::Bytes: {}", bytes.len());
                     *pos += read;
 
                     if *pos < bytes.len() {
-                        debug!("remain ReadTcpState::Bytes: {}", bytes.len());
+                        trace!("remain ReadTcpState::Bytes: {}", bytes.len());
                         None
                     } else {
-                        debug!("reset ReadTcpState::LenBytes: {}", 0);
+                        trace!("reset ReadTcpState::LenBytes: {}", 0);
                         Some(ReadTcpState::LenBytes {
                             pos: 0,
                             bytes: [0u8; 2],
@@ -353,7 +353,6 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
             //  if it was a completed receipt of bytes, then it will move out the bytes
             if let Some(state) = new_state {
                 if let ReadTcpState::Bytes { pos, bytes } = mem::replace(read_state, state) {
-                    debug!("returning bytes");
                     assert_eq!(pos, bytes.len());
                     ret_buf = Some(bytes);
                 }
@@ -362,7 +361,6 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 
         // if the buffer is ready, return it, if not we're Pending
         if let Some(buffer) = ret_buf {
-            debug!("returning buffer");
             let src_addr = self.peer_addr;
             Poll::Ready(Some(Ok(SerialMessage::new(buffer, src_addr))))
         } else {
