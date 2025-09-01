@@ -34,7 +34,6 @@ use std::sync::Arc;
 #[cfg(feature = "metrics")]
 use std::time::Duration;
 use std::{
-    fmt,
     io::Error,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::{Path, PathBuf},
@@ -48,7 +47,6 @@ use metrics_process::Collector;
 #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 use rustls::KeyLogFile;
 use socket2::{Domain, Socket, Type};
-use time::OffsetDateTime;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
 #[cfg(feature = "metrics")]
@@ -59,14 +57,8 @@ use tokio::{
 };
 #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 use tracing::warn;
-use tracing::{Event, Level, Subscriber, error, info};
-use tracing_subscriber::{
-    EnvFilter,
-    fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields, format},
-    layer::SubscriberExt,
-    registry::LookupSpan,
-    util::SubscriberInitExt,
-};
+use tracing::{Level, error, info};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use hickory_dns::Config;
 #[cfg(all(feature = "metrics", feature = "resolver"))]
@@ -231,7 +223,7 @@ fn run() -> Result<(), String> {
 
     // Setup tracing for logging based on input
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().event_format(TdnsFormatter))
+        .with(tracing_subscriber::fmt::layer())
         .with(
             EnvFilter::builder()
                 .with_default_directive(level.into())
@@ -709,61 +701,6 @@ fn banner() {
         info!(" {line}");
     }
     info!("");
-}
-
-struct TdnsFormatter;
-
-impl<S, N> FormatEvent<S, N> for TdnsFormatter
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-    N: for<'a> FormatFields<'a> + 'static,
-{
-    fn format_event(
-        &self,
-        ctx: &FmtContext<'_, S, N>,
-        mut writer: format::Writer<'_>,
-        event: &Event<'_>,
-    ) -> fmt::Result {
-        let now = OffsetDateTime::now_utc();
-        let now_secs = now.unix_timestamp();
-
-        // Format values from the event's's metadata:
-        let metadata = event.metadata();
-        write!(
-            &mut writer,
-            "{}:{}:{}",
-            now_secs,
-            metadata.level(),
-            metadata.target()
-        )?;
-
-        if let Some(line) = metadata.line() {
-            write!(&mut writer, ":{line}")?;
-        }
-
-        // Format all the spans in the event's span context.
-        if let Some(scope) = ctx.event_scope() {
-            for span in scope.from_root() {
-                write!(writer, ":{}", span.name())?;
-
-                let ext = span.extensions();
-                let fields = &ext
-                    .get::<FormattedFields<N>>()
-                    .expect("will never be `None`");
-
-                // Skip formatting the fields if the span had no fields.
-                if !fields.is_empty() {
-                    write!(writer, "{{{fields}}}")?;
-                }
-            }
-        }
-
-        // Write fields on the event
-        write!(writer, ":")?;
-        ctx.field_format().format_fields(writer.by_ref(), event)?;
-
-        writeln!(writer)
-    }
 }
 
 #[cfg(feature = "metrics")]
