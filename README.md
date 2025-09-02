@@ -176,7 +176,7 @@ Success for query name: www.example.com. type: A class: IN
 
 - Why are you building another DNS server?
 
-      Because of all the security advisories out there for BIND.
+      To offer a DNS server written in a memory-safe language.
 
   Using Rust semantics it should be possible to develop a high performance and
   safe DNS Server that is more resilient to attacks.
