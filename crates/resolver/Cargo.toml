@@ -68,6 +68,7 @@ futures-util = { workspace = true, default-features = false, features = [
 moka = { workspace = true, features = ["sync"] }
 once_cell.workspace = true
 parking_lot.workspace = true
+pin-project-lite.workspace = true
 quinn = { workspace = true, optional = true, features = [
     "log",
     "runtime-tokio",

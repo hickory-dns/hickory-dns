@@ -20,6 +20,8 @@ use futures_util::{
     FutureExt,
     future::{self, BoxFuture, Either},
 };
+use hickory_proto::runtime::{RuntimeProvider, Time};
+use pin_project_lite::pin_project;
 use tracing::debug;
 
 use crate::proto::ProtoError;
@@ -171,7 +173,7 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
                     options: self.options,
                     hosts: self.hosts.clone(),
                 }
-                .strategic_lookup(name, self.strategy)
+                .strategic_lookup::<<C::Runtime as RuntimeProvider>::Timer>(name, self.strategy)
                 .boxed();
                 // Continue looping with the new query. It will be polled
                 // on the next iteration of the loop.
@@ -202,12 +204,23 @@ struct LookupContext<C: DnsHandle> {
 
 impl<C: DnsHandle> LookupContext<C> {
     /// returns a new future for lookup
-    async fn strategic_lookup(
+    async fn strategic_lookup<T: Time>(
         self,
         name: Name,
         strategy: LookupIpStrategy,
     ) -> Result<Lookup, ProtoError> {
         match strategy {
+            LookupIpStrategy::HappyEyeballs(delay) => {
+                RacingLookup {
+                    a: self.hosts_lookup(Query::query(name.clone(), RecordType::A)),
+                    a_output: None,
+                    aaaa: self.hosts_lookup(Query::query(name, RecordType::AAAA)),
+                    aaaa_output: None,
+                    delay: Some(move || T::delay_for(delay)),
+                    sleeping: None,
+                }
+                .await
+            }
             LookupIpStrategy::Ipv4Only => self.ipv4_only(name).await,
             LookupIpStrategy::Ipv6Only => self.ipv6_only(name).await,
             LookupIpStrategy::Ipv4AndIpv6 => self.ipv4_and_ipv6(name).await,
@@ -314,6 +327,74 @@ impl<C: DnsHandle> LookupContext<C> {
             Some(lookup) => Ok(lookup),
             None => self.client.lookup(query, self.options).await,
         }
+    }
+}
+
+pin_project! {
+    struct RacingLookup<A, Aaaa, F> {
+        #[pin]
+        a: A,
+        a_output: Option<Result<Lookup, ProtoError>>,
+        #[pin]
+        aaaa: Aaaa,
+        aaaa_output: Option<Result<Lookup, ProtoError>>,
+        delay: Option<F>,
+        sleeping: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
+    }
+}
+
+impl<A, Aaaa, F> Future for RacingLookup<A, Aaaa, F>
+where
+    A: Future<Output = Result<Lookup, ProtoError>>,
+    Aaaa: Future<Output = Result<Lookup, ProtoError>>,
+    F: FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send>> + Send,
+{
+    type Output = Result<Lookup, ProtoError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        // Kick off the AAAA query first
+        if this.aaaa_output.is_none() {
+            match this.aaaa.poll(cx) {
+                Poll::Ready(Ok(aaaa)) if !aaaa.is_empty() => return Poll::Ready(Ok(aaaa)),
+                Poll::Ready(res @ Err(_) | res @ Ok(_)) => match this.a_output.take() {
+                    None => *this.aaaa_output = Some(res),
+                    Some(Ok(a)) if !a.is_empty() => return Poll::Ready(Ok(a.clone())),
+                    Some(_) => return Poll::Ready(res),
+                },
+                Poll::Pending => {}
+            }
+        }
+
+        if this.a_output.is_none() {
+            match this.a.poll(cx) {
+                Poll::Ready(Ok(a)) if !a.is_empty() => {
+                    if let Some(sleep) = this.delay.take() {
+                        *this.a_output = Some(Ok(a));
+                        *this.sleeping = Some((sleep)());
+                    }
+                }
+                Poll::Ready(res) => {
+                    *this.a_output = Some(res);
+                    if let Some(res) = this.aaaa_output.take() {
+                        return Poll::Ready(res);
+                    }
+                }
+                Poll::Pending => {}
+            }
+        }
+
+        if let Some(sleep) = this.sleeping.as_mut() {
+            if let Poll::Ready(()) = sleep.poll_unpin(cx) {
+                *this.sleeping = None;
+                return match this.a_output.take() {
+                    Some(a) => Poll::Ready(a),
+                    None => Poll::Ready(Err("internal error: no A result after sleep".into())),
+                };
+            }
+        }
+
+        Poll::Pending
     }
 }
 

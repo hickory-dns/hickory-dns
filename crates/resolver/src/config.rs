@@ -607,9 +607,16 @@ fn default_recursion_desired() -> bool {
 }
 
 /// The lookup ip strategy
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum LookupIpStrategy {
+    /// Query for AAAA and A in parallel and prefer the AAAA result
+    ///
+    /// If the A result comes in first, wait for the given delay to
+    /// see if the AAAA result comes in. Only if the delay expires,
+    /// return the A result.
+    HappyEyeballs(Duration),
     /// Only query for A (Ipv4) records
     Ipv4Only,
     /// Only query for AAAA (Ipv6) records

@@ -970,6 +970,7 @@ dependencies = [
  "moka",
  "once_cell",
  "parking_lot",
+ "pin-project-lite",
  "quinn",
  "rand",
  "resolv-conf",
