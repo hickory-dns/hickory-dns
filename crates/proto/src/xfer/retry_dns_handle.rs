@@ -15,6 +15,7 @@ use futures_util::stream::{Stream, StreamExt};
 
 use crate::error::ProtoError;
 use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use crate::{DnsError, ProtoErrorKind};
 
 /// Can be used to reattempt queries if they fail
 ///
@@ -23,9 +24,6 @@ use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
 /// query will not be retried. It only reattempts queries that effectively
 /// failed to get a response, such as queries that resulted in IO or timeout
 /// errors.
-///
-/// Whether an error is retryable by the [`RetryDnsHandle`] is determined by the
-/// [`crate::ProtoError::should_retry()`] method.
 ///
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
@@ -86,12 +84,22 @@ impl<H: DnsHandle> Stream for RetrySendStream<H> {
                 poll => return poll,
             };
 
-            if self.remaining_attempts == 0 || !err.should_retry() {
-                return Poll::Ready(Some(Err(err)));
-            }
-
-            if err.attempted() {
-                self.remaining_attempts -= 1;
+            use ProtoErrorKind::*;
+            match (self.remaining_attempts, err) {
+                // No attempts left, return the error
+                (0, err) => return Poll::Ready(Some(Err(err))),
+                // Don't retry some kinds of errors
+                (
+                    _,
+                    err @ ProtoError {
+                        kind: NoConnections | Dns(DnsError::NoRecordsFound { .. }),
+                        ..
+                    },
+                ) => return Poll::Ready(Some(Err(err))),
+                // Don't count `Busy` as an attempt
+                (_, ProtoError { kind: Busy, .. }) => {}
+                // Try again and count this as one attempt
+                (_, _) => self.remaining_attempts -= 1,
             }
 
             // TODO: if the "sent" Message is part of the error result,

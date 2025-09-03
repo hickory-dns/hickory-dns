@@ -147,19 +147,6 @@ impl ProtoError {
 
         Ordering::Equal
     }
-
-    /// Whether the query should be retried after this error
-    pub fn should_retry(&self) -> bool {
-        !matches!(
-            self.kind(),
-            ProtoErrorKind::NoConnections | ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })
-        )
-    }
-
-    /// Whether this error should count as an attempt
-    pub fn attempted(&self) -> bool {
-        !matches!(self.kind(), ProtoErrorKind::Busy)
-    }
 }
 
 impl fmt::Display for ProtoError {
