@@ -17,7 +17,7 @@ use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::fmt;
 #[cfg(feature = "std")]
-use std::{io, sync};
+use std::io;
 
 #[cfg(feature = "backtrace")]
 pub use backtrace::Backtrace as ExtBacktrace;
@@ -136,10 +136,6 @@ pub enum ProtoErrorKind {
     #[cfg(feature = "std")]
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
-
-    /// Any sync poised error
-    #[error("lock poisoned error")]
-    Poisoned,
 
     /// A request was Refused due to some access check
     #[error("request refused")]
@@ -409,13 +405,6 @@ impl From<io::Error> for ProtoErrorKind {
 }
 
 #[cfg(feature = "std")]
-impl<T> From<sync::PoisonError<T>> for ProtoError {
-    fn from(_e: sync::PoisonError<T>) -> Self {
-        ProtoErrorKind::Poisoned.into()
-    }
-}
-
-#[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
         match e.kind() {
@@ -459,7 +448,6 @@ impl Clone for ProtoErrorKind {
             RequestRefused => RequestRefused,
             #[cfg(feature = "std")]
             Io(ref e) => Io(e.clone()),
-            Poisoned => Poisoned,
             #[cfg(feature = "__dnssec")]
             Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
