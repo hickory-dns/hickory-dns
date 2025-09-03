@@ -35,10 +35,10 @@ where
     soa: Soa,
     additionals: Additionals,
     signature: MessageSignature,
-    edns: Option<Edns>,
+    edns: Option<&'q Edns>,
 }
 
-impl<'a, A, N, S, D> MessageResponse<'_, 'a, A, N, S, D>
+impl<'q, 'a, A, N, S, D> MessageResponse<'q, 'a, A, N, S, D>
 where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
@@ -56,14 +56,14 @@ where
     }
 
     /// Set the EDNS options for the Response
-    pub fn set_edns(&mut self, edns: Edns) -> &mut Self {
+    pub fn set_edns(&mut self, edns: &'q Edns) -> &mut Self {
         self.edns = Some(edns);
         self
     }
 
     /// Gets a reference to the EDNS options for the Response.
-    pub fn edns(&self) -> &Option<Edns> {
-        &self.edns
+    pub fn edns(&self) -> Option<&'q Edns> {
+        self.edns
     }
 
     /// Set the message signature
@@ -85,7 +85,7 @@ where
             &mut self.answers,
             &mut authorities,
             &mut self.additionals,
-            self.edns.as_ref(),
+            self.edns,
             &self.signature,
             encoder,
         )
@@ -97,7 +97,7 @@ where
 pub struct MessageResponseBuilder<'q> {
     queries: &'q Queries,
     signature: MessageSignature,
-    edns: Option<Edns>,
+    edns: Option<&'q Edns>,
 }
 
 impl<'q> MessageResponseBuilder<'q> {
@@ -107,7 +107,7 @@ impl<'q> MessageResponseBuilder<'q> {
     ///
     /// * `queries` - queries (from the Request) to associate with the Response
     /// * `edns` - Optional Edns data to associate with the Response
-    pub fn new(queries: &'q Queries, edns: Option<Edns>) -> Self {
+    pub fn new(queries: &'q Queries, edns: Option<&'q Edns>) -> Self {
         MessageResponseBuilder {
             queries,
             signature: MessageSignature::default(),
@@ -147,7 +147,7 @@ impl<'q> MessageResponseBuilder<'q> {
     }
 
     /// Associate EDNS with the Response
-    pub fn edns(&mut self, edns: Edns) -> &mut Self {
+    pub fn edns(&mut self, edns: &'q Edns) -> &mut Self {
         self.edns = Some(edns);
         self
     }

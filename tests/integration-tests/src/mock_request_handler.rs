@@ -88,7 +88,7 @@ async fn send_response(
 
     let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
     if let Some(edns) = response.extensions() {
-        message_response_builder.edns(edns.clone());
+        message_response_builder.edns(edns);
     }
     let message_response = message_response_builder.build(
         response_header,
