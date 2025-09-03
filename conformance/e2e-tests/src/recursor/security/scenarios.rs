@@ -9,7 +9,7 @@ use dns_test::{
     zone_file::Root,
 };
 
-/// Transaction ID check - verify that Hickory will drop an invalidate transaction id.
+/// Transaction ID check - verify that Hickory will drop an invalid transaction id.
 #[test]
 fn tx_id_validation_test() -> Result<(), Error> {
     let target_fqdn = FQDN("www.example.testing.")?;
@@ -17,11 +17,11 @@ fn tx_id_validation_test() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-
-    let script = fs::read_to_string("src/recursor/security/bad_txid.py")?;
-
-    leaf_ns.cp("/script.py", &script[..])?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bad_txid", "udp"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral(
         FQDN::TEST_TLD,
