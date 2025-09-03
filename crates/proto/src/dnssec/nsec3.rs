@@ -942,7 +942,7 @@ impl Nsec3HashAlgorithm {
                     name.emit(&mut encoder)?;
                 }
 
-                Digest::iterated(salt, &buf, DigestType::SHA1, iterations)
+                Ok(Digest::iterated(salt, &buf, DigestType::SHA1, iterations)?)
             }
         }
     }
