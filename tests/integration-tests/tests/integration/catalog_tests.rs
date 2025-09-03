@@ -941,6 +941,92 @@ async fn test_update_forwarder() {
     assert!(response.additionals().is_empty());
 }
 
+#[tokio::test]
+async fn test_empty_chain_query() {
+    subscribe();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(Name::root().into(), vec![]);
+
+    let query = Query::query(Name::root(), RecordType::SOA);
+    let mut message = Message::new(0, MessageType::Query, OpCode::Query);
+    message.add_query(query);
+
+    let message_bytes = message.to_bytes().unwrap();
+    let request =
+        Request::from_bytes(message_bytes, ([127, 0, 0, 1], 53).into(), Protocol::Tcp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .handle_request::<_, TokioTime>(&request, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+
+    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert!(response.answers().is_empty());
+    assert!(response.authorities().is_empty());
+    assert!(response.additionals().is_empty());
+}
+
+#[tokio::test]
+async fn test_empty_chain_update() {
+    subscribe();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(Name::root().into(), vec![]);
+
+    let query = Query::query(Name::root(), RecordType::SOA);
+    let mut message = Message::new(0, MessageType::Query, OpCode::Update);
+    message.add_query(query);
+    message.add_answer(Record::from_rdata(
+        Name::root(),
+        86400,
+        RData::A(A(Ipv4Addr::LOCALHOST)),
+    ));
+
+    let message_bytes = message.to_bytes().unwrap();
+    let request =
+        Request::from_bytes(message_bytes, ([127, 0, 0, 1], 53).into(), Protocol::Tcp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .handle_request::<_, TokioTime>(&request, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+
+    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert!(response.answers().is_empty());
+    assert!(response.authorities().is_empty());
+    assert!(response.additionals().is_empty());
+}
+
+#[tokio::test]
+async fn test_empty_chain_axfr() {
+    subscribe();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(Name::root().into(), vec![]);
+
+    let query = Query::query(Name::root(), RecordType::AXFR);
+    let mut message = Message::new(0, MessageType::Query, OpCode::Query);
+    message.add_query(query);
+
+    let message_bytes = message.to_bytes().unwrap();
+    let request =
+        Request::from_bytes(message_bytes, ([127, 0, 0, 1], 53).into(), Protocol::Tcp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .handle_request::<_, TokioTime>(&request, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+
+    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert!(response.answers().is_empty());
+    assert!(response.authorities().is_empty());
+    assert!(response.additionals().is_empty());
+}
+
 #[cfg(feature = "__dnssec")]
 mod dnssec {
     use super::*;
