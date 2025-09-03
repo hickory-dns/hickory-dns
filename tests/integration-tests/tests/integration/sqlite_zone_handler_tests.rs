@@ -123,7 +123,12 @@ async fn test_zone_handler() {
 
     assert_eq!(
         handler
-            .soa()
+            .lookup(
+                handler.origin(),
+                RecordType::SOA,
+                None,
+                LookupOptions::default()
+            )
             .await
             .unwrap()
             .iter()
@@ -1526,11 +1531,27 @@ async fn test_recovery() {
 
     assert!(
         recovered_handler
-            .soa()
+            .lookup(
+                handler.origin(),
+                RecordType::SOA,
+                None,
+                LookupOptions::default()
+            )
             .await
             .unwrap()
             .iter()
-            .zip(handler.soa().await.unwrap().iter())
+            .zip(
+                handler
+                    .lookup(
+                        handler.origin(),
+                        RecordType::SOA,
+                        None,
+                        LookupOptions::default()
+                    )
+                    .await
+                    .unwrap()
+                    .iter()
+            )
             .all(|(r1, r2)| r1 == r2)
     );
 

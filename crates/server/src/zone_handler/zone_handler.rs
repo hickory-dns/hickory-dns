@@ -207,21 +207,6 @@ pub trait ZoneHandler: Send + Sync {
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
 
-    /// Returns the SOA of the zone handler.
-    ///
-    /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
-    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    async fn soa(&self) -> LookupControlFlow<AuthLookup> {
-        // SOA should be origin|SOA
-        self.lookup(
-            self.origin(),
-            RecordType::SOA,
-            None,
-            LookupOptions::default(),
-        )
-        .await
-    }
-
     /// Returns all records in the zone.
     ///
     /// This will return `None` if the next zone handler in the zone handler chain should be used instead.

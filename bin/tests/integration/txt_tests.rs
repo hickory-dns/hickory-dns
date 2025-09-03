@@ -80,12 +80,15 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     // not validating everything, just one of each...
 
     // SOA
-    let soa_record = block_on(handler.soa())
-        .unwrap()
-        .iter()
-        .next()
-        .cloned()
-        .unwrap();
+    let lookup = block_on(handler.lookup(
+        handler.origin(),
+        RecordType::SOA,
+        None,
+        LookupOptions::default(),
+    ))
+    .unwrap();
+
+    let soa_record = lookup.iter().next().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.record_type());
     assert_eq!(&Name::from_str("isi.edu.").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());
