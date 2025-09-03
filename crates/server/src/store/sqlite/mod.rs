@@ -1122,7 +1122,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
         };
 
         if request_info.query.query_type() == RecordType::AXFR {

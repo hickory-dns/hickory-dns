@@ -67,10 +67,6 @@ pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 #[derive(Debug, EnumAsInner, Error)]
 #[non_exhaustive]
 pub enum ProtoErrorKind {
-    /// Query count is not one
-    #[error("there should only be one query per request, got: {0}")]
-    BadQueryCount(usize),
-
     /// A UDP response was received with an incorrect transaction id, likely indicating a
     /// cache-poisoning attempt.
     #[error("bad transaction id received")]
@@ -555,7 +551,6 @@ impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
         use self::ProtoErrorKind::*;
         match *self {
-            BadQueryCount(count) => BadQueryCount(count),
             BadTransactionId => BadTransactionId,
             Busy => Busy,
             Canceled(ref c) => Canceled(*c),
