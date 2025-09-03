@@ -18,7 +18,7 @@ use tracing::warn;
 use crate::proto::{
     DnsError, ForwardNSData, ProtoErrorKind,
     op::ResponseCode,
-    rr::{Name, Record, rdata::SOA},
+    rr::{Name, Record, RecordType, rdata::SOA},
     {AuthorityData, NoRecords, ProtoError},
 };
 #[cfg(feature = "backtrace")]
@@ -28,6 +28,15 @@ use crate::proto::{ExtBacktrace, trace};
 #[derive(Debug, EnumAsInner, Error)]
 #[non_exhaustive]
 pub enum ErrorKind {
+    /// Maximum record limit was exceeded
+    #[error("maximum record limit for {record_type} exceeded: {count} records")]
+    MaxRecordLimitExceeded {
+        /// number of records
+        count: usize,
+        /// The record type that triggered the error.
+        record_type: RecordType,
+    },
+
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
     Message(&'static str),
@@ -229,6 +238,10 @@ impl Clone for ErrorKind {
     fn clone(&self) -> Self {
         use self::ErrorKind::*;
         match self {
+            MaxRecordLimitExceeded { count, record_type } => MaxRecordLimitExceeded {
+                count: *count,
+                record_type: *record_type,
+            },
             Message(msg) => Message(msg),
             Msg(msg) => Msg(msg.clone()),
             Negative(ns) => Negative(ns.clone()),

@@ -111,15 +111,6 @@ pub enum ProtoErrorKind {
     #[error("maximum buffer size exceeded: {0}")]
     MaxBufferSizeExceeded(usize),
 
-    /// Maximum record limit was exceeded
-    #[error("maximum record limit for {record_type} exceeded: {count} records")]
-    MaxRecordLimitExceeded {
-        /// number of records
-        count: usize,
-        /// The record type that triggered the error.
-        record_type: RecordType,
-    },
-
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
     Message(&'static str),
@@ -493,9 +484,6 @@ impl Clone for ProtoErrorKind {
                 error: error.clone(),
             },
             MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
-            MaxRecordLimitExceeded { count, record_type } => {
-                MaxRecordLimitExceeded { count, record_type }
-            }
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             NoConnections => NoConnections,
