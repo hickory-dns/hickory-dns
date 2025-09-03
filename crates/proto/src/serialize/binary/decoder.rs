@@ -18,7 +18,7 @@ use alloc::{borrow::ToOwned, vec::Vec};
 
 use thiserror::Error;
 
-use crate::serialize::binary::Restrict;
+use crate::{rr::Name, serialize::binary::Restrict};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -36,13 +36,17 @@ pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
 
 /// An error that can occur deep in a decoder
 /// This type is kept very small so that function that use it inline often
-#[derive(Clone, Copy, Debug, Error)]
+#[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum DecodeError {
     /// DNS key protocol version doesn't have the expected version 3
     #[cfg(feature = "__dnssec")]
     #[error("dns key value unknown, must be 3: {0}")]
     DnsKeyProtocolNot3(u8),
+
+    /// EDNS resource record label is not the root label, although required
+    #[error("edns resource record label must be the root label (.): {0}")]
+    EdnsNameNotRoot(Name),
 
     /// Insufficient data in the buffer for a read operation
     #[error("unexpected end of input reached")]
