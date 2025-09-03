@@ -42,3 +42,11 @@ pub(crate) fn bad_txid_handler(
         .to_vec()
         .map(Some)
 }
+
+/// This handler responds to any messages with an empty message (no response records)
+pub(crate) fn empty_response_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>, ProtoError> {
+    Message::from_vec(bytes)?.to_response().to_vec().map(Some)
+}
