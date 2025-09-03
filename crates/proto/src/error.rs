@@ -107,16 +107,6 @@ pub enum ProtoErrorKind {
         error: Box<ProtoError>,
     },
 
-    /// The length of rdata read was not as expected
-    #[non_exhaustive]
-    #[error("incorrect rdata length read: {read} expected: {len}")]
-    IncorrectRDataLengthRead {
-        /// The amount of read data
-        read: usize,
-        /// The expected length of the data
-        len: usize,
-    },
-
     /// The maximum buffer size was exceeded
     #[error("maximum buffer size exceeded: {0}")]
     MaxBufferSizeExceeded(usize),
@@ -502,7 +492,6 @@ impl Clone for ProtoErrorKind {
                 header,
                 error: error.clone(),
             },
-            IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
             MaxRecordLimitExceeded { count, record_type } => {
                 MaxRecordLimitExceeded { count, record_type }
