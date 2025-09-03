@@ -131,10 +131,6 @@ pub enum ProtoErrorKind {
         count: usize,
     },
 
-    /// An unknown algorithm type was found
-    #[error("algorithm type value unknown: {0}")]
-    UnknownAlgorithmTypeValue(u8),
-
     /// An unknown digest type was found
     #[error("digest type value unknown: {0}")]
     UnknownDigestTypeValue(u8),
@@ -489,7 +485,6 @@ impl Clone for ProtoErrorKind {
             NoConnections => NoConnections,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             RequestRefused => RequestRefused,
-            UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
             UnknownDigestTypeValue(value) => UnknownDigestTypeValue(value),
             UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
             UnknownDnsClassValue(value) => UnknownDnsClassValue(value),

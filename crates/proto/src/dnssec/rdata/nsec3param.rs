@@ -184,7 +184,7 @@ impl BinEncodable for NSEC3PARAM {
 
 impl<'r> BinDecodable<'r> for NSEC3PARAM {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let hash_algorithm = Nsec3HashAlgorithm::from_u8(
+        let hash_algorithm = Nsec3HashAlgorithm::try_from(
             decoder.read_u8()?.unverified(/*Algorithm verified as safe*/),
         )?;
         let flags: u8 = decoder

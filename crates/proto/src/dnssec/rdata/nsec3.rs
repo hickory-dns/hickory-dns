@@ -302,7 +302,7 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
-        let hash_algorithm = Nsec3HashAlgorithm::from_u8(
+        let hash_algorithm = Nsec3HashAlgorithm::try_from(
             decoder.read_u8()?.unverified(/*Algorithm verified as safe*/),
         )?;
         let flags: u8 = decoder

@@ -95,6 +95,10 @@ pub enum DecodeError {
         /// Start of the other label
         other: usize,
     },
+
+    /// An unknown algorithm type was found
+    #[error("unknown NSEC3 hash algorithm: {0}")]
+    UnknownNsec3HashAlgorithm(u8),
 }
 
 impl<'a> BinDecoder<'a> {

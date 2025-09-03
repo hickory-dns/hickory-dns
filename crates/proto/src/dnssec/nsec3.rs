@@ -101,10 +101,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{DigestType, Proof, crypto::Digest, handle::proof_log_yield, rdata::NSEC3};
 use crate::{
-    error::{ProtoErrorKind, ProtoResult},
+    error::ProtoResult,
     op::{Query, ResponseCode},
     rr::{Name, Record, RecordType, domain::Label},
-    serialize::binary::{BinEncodable, BinEncoder, NameEncoding},
+    serialize::binary::{BinEncodable, BinEncoder, DecodeError, NameEncoding},
 };
 
 pub(super) fn verify_nsec3(
@@ -899,15 +899,6 @@ pub enum Nsec3HashAlgorithm {
 }
 
 impl Nsec3HashAlgorithm {
-    /// <https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
-    pub fn from_u8(value: u8) -> ProtoResult<Self> {
-        match value {
-            1 => Ok(Self::SHA1),
-            // TODO: where/when is SHA2?
-            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
-        }
-    }
-
     /// ```text
     /// Laurie, et al.              Standards Track                    [Page 14]
     ///
@@ -953,6 +944,19 @@ impl Nsec3HashAlgorithm {
 
                 Digest::iterated(salt, &buf, DigestType::SHA1, iterations)
             }
+        }
+    }
+}
+
+impl TryFrom<u8> for Nsec3HashAlgorithm {
+    type Error = DecodeError;
+
+    /// <https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::SHA1),
+            // TODO: where/when is SHA2?
+            _ => Err(DecodeError::UnknownNsec3HashAlgorithm(value)),
         }
     }
 }
