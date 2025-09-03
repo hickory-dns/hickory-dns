@@ -8,7 +8,7 @@
 //! `Server` component for hosting a domain name servers operations.
 
 use std::{
-    io,
+    fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
     time::Duration,
@@ -18,7 +18,6 @@ use std::{
 use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
 use futures_util::StreamExt;
-use hickory_proto::{ProtoErrorKind, runtime::TokioTime};
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -42,6 +41,7 @@ use crate::{
         BufDnsStreamHandle, ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode, SerialMessage},
         rr::Record,
+        runtime::TokioTime,
         runtime::{TokioRuntimeProvider, iocompat::AsyncIoTokioAsStd},
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
@@ -812,7 +812,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 header,
                 queries,
                 ResponseCode::Refused,
-                Box::new(ProtoErrorKind::RequestRefused.into()),
+                "request refused",
                 response_handler,
             )
             .await;
@@ -918,7 +918,7 @@ async fn error_response_handler(
     header: Header,
     queries: Queries,
     response_code: ResponseCode,
-    error: Box<ProtoError>,
+    error: impl fmt::Display,
     response_handler: impl ResponseHandler,
 ) {
     // debug for more info on why the message parsing failed
