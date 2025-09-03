@@ -142,10 +142,6 @@ pub enum ProtoErrorKind {
     #[error("ring error: {0}")]
     Ring(#[from] Unspecified),
 
-    /// A tokio timer error
-    #[error("timer error")]
-    Timer,
-
     /// A request timed out
     #[error("request timed out")]
     Timeout,
@@ -446,7 +442,6 @@ impl Clone for ProtoErrorKind {
             #[cfg(feature = "__dnssec")]
             Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
-            Timer => Timer,
             UrlParsing(ref e) => UrlParsing(*e),
             Utf8(ref e) => Utf8(*e),
             FromUtf8(ref e) => FromUtf8(e.clone()),
