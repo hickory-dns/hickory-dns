@@ -38,3 +38,15 @@ pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Op
         .map(Some)
         .with_context(|| "bad txid handler: could not serialize Message")
 }
+
+/// This handler responds to any messages with an empty message (no response records)
+pub(crate) fn empty_response_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>> {
+    Message::from_vec(bytes)?
+        .to_response()
+        .to_vec()
+        .map(Some)
+        .with_context(|| "empty response handler: could not serialize Message")
+}

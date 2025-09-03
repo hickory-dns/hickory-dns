@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
     let handler = match &args.handler[..] {
         "base" => handlers::base_handler,
         "bad_txid" => handlers::bad_txid_handler,
+        "empty_response" => handlers::empty_response_handler,
         _ => {
             return Err(anyhow::Error::msg("unknown handler"));
         }
