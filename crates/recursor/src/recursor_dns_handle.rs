@@ -22,7 +22,6 @@ use tracing::{debug, info, trace, warn};
 use crate::{
     Error, ErrorKind,
     proto::{
-        ProtoErrorKind,
         op::{Message, Query},
         rr::{
             RData,
@@ -299,13 +298,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
             if count > MAX_CNAME_LOOKUPS {
                 warn!("cname limit exceeded for query {query}");
-                return Err(ErrorKind::Proto(
-                    ProtoErrorKind::MaxRecordLimitExceeded {
-                        count: count as usize,
-                        record_type: RecordType::CNAME,
-                    }
-                    .into(),
-                )
+                return Err(ErrorKind::MaxRecordLimitExceeded {
+                    count: count as usize,
+                    record_type: RecordType::CNAME,
+                }
                 .into());
             }
 
