@@ -818,13 +818,13 @@ impl From<Message> for MessageParts {
 #[derive(Clone, Copy, Debug)]
 struct HeaderCounts {
     /// The number of queries in the Message
-    pub query_count: usize,
+    query_count: usize,
     /// The number of answer records in the Message
-    pub answer_count: usize,
+    answer_count: usize,
     /// The number of authority records in the Message
-    pub authority_count: usize,
+    authority_count: usize,
     /// The number of additional records in the Message
-    pub additional_count: usize,
+    additional_count: usize,
 }
 
 /// Returns a new Header with accurate counts for each Message section
