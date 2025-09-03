@@ -29,8 +29,6 @@ use tracing::debug;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::Proof;
-#[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
-use crate::dnssec::ring_like::Unspecified;
 use crate::op::{DnsResponse, Header, Query, ResponseCode};
 use crate::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
@@ -90,6 +88,11 @@ pub enum ProtoErrorKind {
         len: usize,
     },
 
+    /// Crypto operation failed
+    #[error("crypto error: {0}")]
+    #[cfg(feature = "__dnssec")]
+    Crypto(&'static str),
+
     /// Message decoding error
     #[error("decoding error: {0}")]
     Decode(#[from] DecodeError),
@@ -136,11 +139,6 @@ pub enum ProtoErrorKind {
     #[cfg(feature = "std")]
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
-
-    /// A ring error
-    #[cfg(feature = "__dnssec")]
-    #[error("ring error: {0}")]
-    Ring(#[from] Unspecified),
 
     /// A request timed out
     #[error("request timed out")]
@@ -426,6 +424,8 @@ impl Clone for ProtoErrorKind {
             BadTransactionId => BadTransactionId,
             Busy => Busy,
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
+            #[cfg(feature = "__dnssec")]
+            Crypto(op) => Crypto(op),
             Decode(ref e) => Decode(e.clone()),
             Dns(ref e) => Dns(e.clone()),
             FormError { header, ref error } => FormError {
@@ -439,8 +439,6 @@ impl Clone for ProtoErrorKind {
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             #[cfg(feature = "std")]
             Io(ref e) => Io(e.clone()),
-            #[cfg(feature = "__dnssec")]
-            Ring(ref _e) => Ring(Unspecified),
             Timeout => Timeout,
             UrlParsing(ref e) => UrlParsing(*e),
             Utf8(ref e) => Utf8(*e),
