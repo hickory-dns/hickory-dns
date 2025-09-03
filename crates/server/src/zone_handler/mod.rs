@@ -10,6 +10,7 @@
 use std::{io, sync::Arc};
 
 use enum_as_inner::EnumAsInner;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::proto::op::ResponseCode;
@@ -141,20 +142,13 @@ impl From<LookupError> for io::Error {
     }
 }
 
-#[allow(deprecated)]
-mod zone_type {
-    use serde::{Deserialize, Serialize};
-
-    /// The type of zone stored in a Catalog
-    #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Copy)]
-    pub enum ZoneType {
-        /// This authority for a zone
-        Primary,
-        /// A secondary, i.e. replicated from the Primary
-        Secondary,
-        /// A cached zone that queries other nameservers
-        External,
-    }
+/// The type of zone stored in a Catalog
+#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Copy)]
+pub enum ZoneType {
+    /// This authority for a zone
+    Primary,
+    /// A secondary, i.e. replicated from the Primary
+    Secondary,
+    /// A cached zone that queries other nameservers
+    External,
 }
-
-pub use zone_type::ZoneType;
