@@ -98,10 +98,6 @@ pub enum ProtoErrorKind {
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
 
-    /// EDNS resource record label is not the root label, although required
-    #[error("edns resource record label must be the root label (.): {0}")]
-    EdnsNameNotRoot(crate::rr::Name),
-
     /// Format error in Message Parsing
     #[error("message format error: {error}")]
     FormError {
@@ -502,7 +498,6 @@ impl Clone for ProtoErrorKind {
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
             Decode(ref e) => Decode(e.clone()),
             Dns(ref e) => Dns(e.clone()),
-            EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
             FormError { header, ref error } => FormError {
                 header,
                 error: error.clone(),

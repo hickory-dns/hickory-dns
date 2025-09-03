@@ -16,9 +16,11 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{Proof, Proven};
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordType, dns_class::DNSClass},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
+    },
 };
 
 #[cfg(feature = "mdns")]
@@ -418,7 +420,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
         let class: DNSClass = if record_type == RecordType::OPT {
             // verify that the OPT record is Root
             if !name_labels.is_root() {
-                return Err(ProtoErrorKind::EdnsNameNotRoot(name_labels).into());
+                return Err(DecodeError::EdnsNameNotRoot(name_labels).into());
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
