@@ -71,6 +71,11 @@ pub enum Implementation {
     #[default]
     Unbound,
     EdeDotCom,
+    TestServer {
+        handler: String,
+        repo: Repository<'static>,
+        transport: String,
+    },
 }
 
 impl Implementation {
@@ -82,6 +87,7 @@ impl Implementation {
             Implementation::Pdns => true,
             Implementation::Unbound => true,
             Implementation::EdeDotCom => false, // does not support running a resolver
+            Implementation::TestServer { .. } => true,
         }
     }
 
@@ -90,6 +96,15 @@ impl Implementation {
         Self::Hickory {
             repo: Repository(crate::repo_root()),
             crypto_provider: HickoryCryptoProvider::AwsLcRs,
+        }
+    }
+
+    /// Returns the latest dns-test local revision
+    pub fn test_server(handler: &'static str, transport: &'static str) -> Self {
+        Self::TestServer {
+            repo: Repository(crate::repo_root()),
+            handler: String::from(handler),
+            transport: String::from(transport),
         }
     }
 
@@ -118,6 +133,11 @@ impl Implementation {
     #[must_use]
     pub fn is_pdns(&self) -> bool {
         matches!(self, Self::Pdns)
+    }
+
+    #[must_use]
+    pub fn is_test_server(&self) -> bool {
+        matches!(self, Self::TestServer { .. })
     }
 
     #[must_use]
@@ -181,6 +201,11 @@ impl Implementation {
                     // Does not support running a resolver
                     "".into()
                 }
+
+                Self::TestServer { .. } => {
+                    // TestServer instances don't have a config
+                    "".into()
+                }
             },
 
             Config::NameServer {
@@ -232,6 +257,11 @@ impl Implementation {
                 ),
 
                 Self::EdeDotCom => include_str!("templates/named.ede-dot-com.conf").into(),
+
+                Self::TestServer { .. } => {
+                    // TestServer instances don't have a config
+                    "".into()
+                }
             },
 
             Config::Forwarder {
@@ -271,6 +301,11 @@ impl Implementation {
                     // Does not support running a forwarder
                     "".into()
                 }
+
+                Self::TestServer { .. } => {
+                    // Does not support running a forwarder
+                    "".into()
+                }
             },
         }
     }
@@ -294,6 +329,8 @@ impl Implementation {
             },
 
             Self::EdeDotCom => Some("/etc/named.conf"),
+
+            Self::TestServer { .. } => None,
         }
     }
 
@@ -310,6 +347,9 @@ impl Implementation {
                 Role::NameServer => "nsd -d",
                 Role::Resolver | Role::Forwarder => "unbound -d",
             },
+            Implementation::TestServer {
+                handler, transport, ..
+            } => &format!("test-server --handler {handler} --transport {transport}")[..],
         };
 
         vec![
@@ -347,6 +387,8 @@ impl Implementation {
                 Role::NameServer => "/tmp/nsd",
                 Role::Resolver | Role::Forwarder => "/tmp/unbound",
             },
+
+            Implementation::TestServer { .. } => "/tmp/test-server",
         };
 
         format!("{path}.{suffix}")

@@ -33,6 +33,11 @@ pub enum Image {
     Pdns,
     Unbound,
     EdeDotCom,
+    TestServer {
+        handler: String,
+        repo: Repository<'static>,
+        transport: String,
+    },
 }
 
 impl Image {
@@ -52,6 +57,7 @@ impl Image {
             Self::Pdns => include_str!("docker/pdns.Dockerfile"),
             Self::Unbound => include_str!("docker/unbound.Dockerfile"),
             Self::EdeDotCom => include_str!("docker/ede-dot-com/Dockerfile"),
+            Self::TestServer { .. } => include_str!("docker/test-server.Dockerfile"),
         }
     }
 
@@ -91,6 +97,11 @@ impl Image {
                 static EDE_ONCE: Once = Once::new();
                 &EDE_ONCE
             }
+
+            Self::TestServer { .. } => {
+                static TESTSERVER_ONCE: Once = Once::new();
+                &TESTSERVER_ONCE
+            }
         }
     }
 }
@@ -110,6 +121,15 @@ impl From<Implementation> for Image {
             },
             Implementation::EdeDotCom => Self::EdeDotCom,
             Implementation::Pdns => Self::Pdns,
+            Implementation::TestServer {
+                handler,
+                repo,
+                transport,
+            } => Self::TestServer {
+                handler,
+                repo,
+                transport,
+            },
         }
     }
 }
@@ -126,6 +146,7 @@ impl fmt::Display for Image {
             Self::Pdns => f.write_str("pdns"),
             Self::Unbound => f.write_str("unbound"),
             Self::EdeDotCom => f.write_str("ede-dot-com"),
+            Self::TestServer { .. } => f.write_str("test-server"),
         }
     }
 }
@@ -178,6 +199,7 @@ impl Container {
                         Image::Pdns => "pdns",
                         Image::Unbound => "unbound",
                         Image::EdeDotCom => "ede-dot-com",
+                        Image::TestServer { .. } => "test-server",
                     };
 
                     command.arg(format!("--cache-from=type=gha,scope=${scope}"));
@@ -216,6 +238,19 @@ impl Container {
                         include_str!("docker/ede-dot-com/configure_parent.sh"),
                     )
                     .expect("could not copy configure_parent.sh");
+                }
+
+                if let Image::TestServer { repo, .. } = image {
+                    let mut cp_r = Command::new("git");
+                    cp_r.args([
+                        "clone",
+                        "--depth",
+                        "1",
+                        repo.as_str(),
+                        &docker_build_dir.join("src").display().to_string(),
+                    ]);
+
+                    exec_or_panic(&mut cp_r, false);
                 }
 
                 fs::write(docker_build_dir.join(".dockerignore"), "src/.git")

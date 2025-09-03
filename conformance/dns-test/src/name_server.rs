@@ -608,7 +608,10 @@ impl NameServer<Running> {
 
     /// Returns the logs collected so far
     pub fn logs(&self) -> Result<String, Error> {
-        if self.implementation.is_hickory() || self.implementation.is_dnslib() {
+        if self.implementation.is_hickory()
+            || self.implementation.is_dnslib()
+            || self.implementation.is_test_server()
+        {
             Ok(format!(
                 "STDOUT:\n{}\nSTDERR:\n{}",
                 self.stdout()?,
