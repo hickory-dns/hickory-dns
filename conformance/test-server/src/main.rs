@@ -18,6 +18,7 @@ async fn main() -> Result<()> {
     let transport = args.transport;
     let handler = match &args.handler[..] {
         "base" => handlers::base_handler,
+        "bad_txid" => handlers::bad_txid_handler,
         _ => {
             return Err(anyhow::Error::msg("unknown handler"));
         }
