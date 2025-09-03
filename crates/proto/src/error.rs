@@ -616,68 +616,6 @@ impl NoRecords {
     }
 }
 
-impl From<AuthorityData> for NoRecords {
-    fn from(value: AuthorityData) -> Self {
-        let response_code = match value.is_nx_domain() {
-            true => ResponseCode::NXDomain,
-            false => ResponseCode::NoError,
-        };
-
-        Self {
-            query: value.query,
-            soa: value.soa,
-            ns: None,
-            negative_ttl: None,
-            response_code,
-            authorities: value.authorities,
-        }
-    }
-}
-
-/// Data from the authority section of a response.
-#[derive(Clone, Debug)]
-pub struct AuthorityData {
-    /// Query
-    pub query: Box<Query>,
-    /// SOA
-    pub soa: Option<Box<Record<SOA>>>,
-    /// No records found?
-    no_records_found: bool,
-    /// IS nx domain?
-    nx_domain: bool,
-    /// Authority records
-    pub authorities: Option<Arc<[Record]>>,
-}
-
-impl AuthorityData {
-    /// Construct a new AuthorityData
-    pub fn new(
-        query: Box<Query>,
-        soa: Option<Box<Record<SOA>>>,
-        no_records_found: bool,
-        nx_domain: bool,
-        authorities: Option<Arc<[Record]>>,
-    ) -> Self {
-        Self {
-            query,
-            soa,
-            no_records_found,
-            nx_domain,
-            authorities,
-        }
-    }
-
-    /// are there records?
-    pub fn is_no_records_found(&self) -> bool {
-        self.no_records_found
-    }
-
-    /// is this nxdomain?
-    pub fn is_nx_domain(&self) -> bool {
-        self.nx_domain
-    }
-}
-
 /// Data needed to process a NS-record-based referral.
 #[derive(Clone, Debug)]
 pub struct ForwardNSData {

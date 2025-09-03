@@ -12,6 +12,7 @@
 use std::{fmt, io, sync::Arc};
 
 use enum_as_inner::EnumAsInner;
+use hickory_proto::op::Query;
 use thiserror::Error;
 use tracing::warn;
 
@@ -19,7 +20,7 @@ use crate::proto::{
     DnsError, ForwardNSData, ProtoErrorKind,
     op::ResponseCode,
     rr::{Name, Record, RecordType, rdata::SOA},
-    {AuthorityData, NoRecords, ProtoError},
+    {NoRecords, ProtoError},
 };
 #[cfg(feature = "backtrace")]
 use crate::proto::{ExtBacktrace, trace};
@@ -257,8 +258,66 @@ impl Clone for ErrorKind {
 impl From<Error> for ProtoError {
     fn from(e: Error) -> Self {
         match e.kind {
-            ErrorKind::Negative(fwd) => NoRecords::from(fwd).into(),
+            ErrorKind::Negative(fwd) => DnsError::NoRecordsFound(fwd.into()).into(),
             _ => ProtoError::from(e.to_string()),
         }
+    }
+}
+
+/// Data from the authority section of a response.
+#[derive(Clone, Debug)]
+pub struct AuthorityData {
+    /// Query
+    pub query: Box<Query>,
+    /// SOA
+    pub soa: Option<Box<Record<SOA>>>,
+    /// No records found?
+    no_records_found: bool,
+    /// IS nx domain?
+    nx_domain: bool,
+    /// Authority records
+    pub authorities: Option<Arc<[Record]>>,
+}
+
+impl AuthorityData {
+    /// Construct a new AuthorityData
+    pub fn new(
+        query: Box<Query>,
+        soa: Option<Box<Record<SOA>>>,
+        no_records_found: bool,
+        nx_domain: bool,
+        authorities: Option<Arc<[Record]>>,
+    ) -> Self {
+        Self {
+            query,
+            soa,
+            no_records_found,
+            nx_domain,
+            authorities,
+        }
+    }
+
+    /// are there records?
+    pub fn is_no_records_found(&self) -> bool {
+        self.no_records_found
+    }
+
+    /// is this nxdomain?
+    pub fn is_nx_domain(&self) -> bool {
+        self.nx_domain
+    }
+}
+
+impl From<AuthorityData> for NoRecords {
+    fn from(data: AuthorityData) -> NoRecords {
+        let response_code = match data.is_nx_domain() {
+            true => ResponseCode::NXDomain,
+            false => ResponseCode::NoError,
+        };
+
+        let mut new = NoRecords::new(data.query, response_code);
+        new.soa = data.soa;
+        new.authorities = data.authorities;
+        new
     }
 }
