@@ -48,6 +48,16 @@ pub enum DecodeError {
     #[error("edns resource record label must be the root label (.): {0}")]
     EdnsNameNotRoot(Name),
 
+    /// The length of rdata read was not as expected
+    #[non_exhaustive]
+    #[error("incorrect rdata length read: {read} expected: {len}")]
+    IncorrectRDataLengthRead {
+        /// The amount of read data
+        read: usize,
+        /// The expected length of the data
+        len: usize,
+    },
+
     /// Insufficient data in the buffer for a read operation
     #[error("unexpected end of input reached")]
     InsufficientBytes,

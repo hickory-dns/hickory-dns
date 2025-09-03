@@ -32,7 +32,9 @@ use crate::{
         },
         record_type::RecordType,
     },
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
+    },
 };
 
 #[cfg(feature = "__dnssec")]
@@ -895,7 +897,7 @@ impl RData {
             .map(|u| u as usize)
             .verify_unwrap(|rdata_length| read == *rdata_length)
             .map_err(|rdata_length| {
-                ProtoError::from(ProtoErrorKind::IncorrectRDataLengthRead {
+                ProtoError::from(DecodeError::IncorrectRDataLengthRead {
                     read,
                     len: rdata_length,
                 })
