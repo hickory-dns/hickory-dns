@@ -230,7 +230,7 @@ impl ZoneHandler for TestZoneHandler {
     ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
         };
         (
             self.lookup(

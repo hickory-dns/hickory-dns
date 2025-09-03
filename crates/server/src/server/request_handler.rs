@@ -21,7 +21,7 @@ use crate::{
         xfer::Protocol,
     },
     server::ResponseHandler,
-    zone_handler::MessageRequest,
+    zone_handler::{LookupError, MessageRequest},
 };
 
 /// An incoming request to the DNS catalog
@@ -74,7 +74,7 @@ impl Request {
     /// Return just the header and request information from the Request Message
     ///
     /// Returns an error if there is not exactly one query
-    pub fn request_info(&self) -> Result<RequestInfo<'_>, ProtoError> {
+    pub fn request_info(&self) -> Result<RequestInfo<'_>, LookupError> {
         Ok(RequestInfo {
             src: self.src,
             protocol: self.protocol,

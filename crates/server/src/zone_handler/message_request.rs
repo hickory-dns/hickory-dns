@@ -5,14 +5,17 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::proto::{
-    ProtoError, ProtoErrorKind,
-    op::{
-        Edns, EmitAndCount, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode,
-        ResponseCode, emit_message_parts,
+use crate::{
+    proto::{
+        ProtoError, ProtoErrorKind,
+        op::{
+            Edns, EmitAndCount, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode,
+            ResponseCode, emit_message_parts,
+        },
+        rr::Record,
+        serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding},
     },
-    rr::Record,
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding},
+    zone_handler::LookupError,
 };
 
 /// A Message which captures the data from an inbound request
@@ -316,10 +319,10 @@ impl Queries {
 
     /// Validate that this set of Queries contains exactly one Query, and return a reference to the
     /// `LowerQuery` if so.
-    pub(crate) fn try_as_query(&self) -> Result<&LowerQuery, ProtoError> {
+    pub(crate) fn try_as_query(&self) -> Result<&LowerQuery, LookupError> {
         let count = self.queries.len();
         if count != 1 {
-            return Err(ProtoErrorKind::BadQueryCount(count).into());
+            return Err(LookupError::BadQueryCount(count));
         }
         Ok(&self.queries[0])
     }
@@ -382,7 +385,7 @@ pub trait UpdateRequest {
     fn id(&self) -> u16;
 
     /// Zone being updated, this should be the query of a Message
-    fn zone(&self) -> Result<&LowerQuery, ProtoError>;
+    fn zone(&self) -> Result<&LowerQuery, LookupError>;
 
     /// Prerequisites map to the Answer section of a Message
     fn prerequisites(&self) -> &[Record];
@@ -402,7 +405,7 @@ impl UpdateRequest for MessageRequest {
         Self::id(self)
     }
 
-    fn zone(&self) -> Result<&LowerQuery, ProtoError> {
+    fn zone(&self) -> Result<&LowerQuery, LookupError> {
         // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
         self.raw_queries().try_as_query()
     }

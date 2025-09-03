@@ -507,7 +507,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     ) {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(LookupError::from(e))), None),
+            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
         };
         debug!("searching InMemoryZoneHandler for: {}", request_info.query);
 
@@ -557,7 +557,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     )> {
         let request_info = match request.request_info() {
             Ok(info) => info,
-            Err(e) => return Some((Err(LookupError::from(e)), None)),
+            Err(e) => return Some((Err(e), None)),
         };
 
         if request_info.query.query_type() == RecordType::AXFR {
