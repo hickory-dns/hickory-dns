@@ -61,161 +61,6 @@ macro_rules! trace {
 /// An alias for results returned by functions of this crate
 pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
-/// The error kind for errors that get returned in the crate
-#[derive(Debug, EnumAsInner, Error)]
-#[non_exhaustive]
-pub enum ProtoErrorKind {
-    /// A UDP response was received with an incorrect transaction id, likely indicating a
-    /// cache-poisoning attempt.
-    #[error("bad transaction id received")]
-    BadTransactionId,
-
-    /// The underlying resource is too busy
-    ///
-    /// This is a signal that an internal resource is too busy. The intended action should be tried
-    /// again, ideally after waiting for a little while for the situation to improve. Alternatively,
-    /// the action could be tried on another resource (for example, in a name server pool).
-    #[error("resource too busy")]
-    Busy,
-
-    /// Character data length exceeded the limit
-    #[non_exhaustive]
-    #[error("char data length exceeds {max}: {len}")]
-    CharacterDataTooLong {
-        /// Specified maximum
-        max: usize,
-        /// Actual length
-        len: usize,
-    },
-
-    /// Crypto operation failed
-    #[error("crypto error: {0}")]
-    #[cfg(feature = "__dnssec")]
-    Crypto(&'static str),
-
-    /// Message decoding error
-    #[error("decoding error: {0}")]
-    Decode(#[from] DecodeError),
-
-    /// Semantic DNS errors
-    #[error("DNS error: {0}")]
-    Dns(#[from] DnsError),
-
-    /// Format error in Message Parsing
-    #[error("message format error: {error}")]
-    FormError {
-        /// Header of the bad Message
-        header: Header,
-        /// Error that occurred while parsing the Message
-        error: Box<ProtoError>,
-    },
-
-    /// The maximum buffer size was exceeded
-    #[error("maximum buffer size exceeded: {0}")]
-    MaxBufferSizeExceeded(usize),
-
-    /// An error with an arbitrary message, referenced as &'static str
-    #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
-
-    /// No resolvers available
-    #[error("no connections available")]
-    NoConnections,
-
-    /// Not all records were able to be written
-    #[non_exhaustive]
-    #[error("not all records could be written, wrote: {count}")]
-    NotAllRecordsWritten {
-        /// Number of records that were written before the error
-        count: usize,
-    },
-
-    // foreign
-    /// An error got returned from IO
-    #[cfg(feature = "std")]
-    #[error("io error: {0}")]
-    Io(Arc<io::Error>),
-
-    /// A request timed out
-    #[error("request timed out")]
-    Timeout,
-
-    /// An url parsing error
-    #[error("url parsing error")]
-    UrlParsing(#[from] url::ParseError),
-
-    /// A utf8 parsing error
-    #[error("error parsing utf8 string")]
-    Utf8(#[from] core::str::Utf8Error),
-
-    /// A utf8 parsing error
-    #[error("error parsing utf8 string")]
-    FromUtf8(#[from] alloc::string::FromUtf8Error),
-
-    /// An int parsing error
-    #[error("error parsing int")]
-    ParseInt(#[from] core::num::ParseIntError),
-
-    /// A Quinn (Quic) connection error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error creating quic connection: {0}")]
-    QuinnConnect(#[from] quinn::ConnectError),
-
-    /// A Quinn (QUIC) connection error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error with quic connection: {0}")]
-    QuinnConnection(#[from] quinn::ConnectionError),
-
-    /// A Quinn (QUIC) write error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error writing to quic connection: {0}")]
-    QuinnWriteError(#[from] quinn::WriteError),
-
-    /// A Quinn (QUIC) read error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error writing to quic read: {0}")]
-    QuinnReadError(#[from] quinn::ReadExactError),
-
-    /// A Quinn (QUIC) stream error occurred
-    #[cfg(feature = "__quic")]
-    #[error("referenced a closed QUIC stream: {0}")]
-    QuinnStreamError(#[from] quinn::ClosedStream),
-
-    /// A Quinn (QUIC) configuration error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error constructing quic configuration: {0}")]
-    QuinnConfigError(#[from] quinn::ConfigError),
-
-    /// QUIC TLS config must include an AES-128-GCM cipher suite
-    #[cfg(feature = "__quic")]
-    #[error("QUIC TLS config must include an AES-128-GCM cipher suite")]
-    QuinnTlsConfigError(#[from] quinn::crypto::rustls::NoInitialCipherSuite),
-
-    /// Unknown QUIC stream used
-    #[cfg(feature = "__quic")]
-    #[error("an unknown quic stream was used")]
-    QuinnUnknownStreamError,
-
-    /// A quic message id should always be 0
-    #[cfg(feature = "__quic")]
-    #[error("quic messages should always be 0, got: {0}")]
-    QuicMessageIdNot0(u16),
-
-    /// A Rustls error occurred
-    #[cfg(feature = "__tls")]
-    #[error("rustls construction error: {0}")]
-    RustlsError(#[from] rustls::Error),
-
-    /// Case randomization is enabled, and a server did not echo a query name back with the same
-    /// case.
-    #[error("case of query name in response did not match")]
-    QueryCaseMismatch,
-}
-
 /// The error type for errors that get returned in the crate
 #[derive(Error, Clone, Debug)]
 #[non_exhaustive]
@@ -385,16 +230,6 @@ impl From<String> for ProtoError {
 }
 
 #[cfg(feature = "std")]
-impl From<io::Error> for ProtoErrorKind {
-    fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::TimedOut => Self::Timeout,
-            _ => Self::Io(e.into()),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
         match e.kind() {
@@ -414,6 +249,171 @@ impl From<ProtoError> for String {
 impl From<ProtoError> for wasm_bindgen_crate::JsValue {
     fn from(e: ProtoError) -> Self {
         js_sys::Error::new(&e.to_string()).into()
+    }
+}
+
+/// The error kind for errors that get returned in the crate
+#[derive(Debug, EnumAsInner, Error)]
+#[non_exhaustive]
+pub enum ProtoErrorKind {
+    /// A UDP response was received with an incorrect transaction id, likely indicating a
+    /// cache-poisoning attempt.
+    #[error("bad transaction id received")]
+    BadTransactionId,
+
+    /// The underlying resource is too busy
+    ///
+    /// This is a signal that an internal resource is too busy. The intended action should be tried
+    /// again, ideally after waiting for a little while for the situation to improve. Alternatively,
+    /// the action could be tried on another resource (for example, in a name server pool).
+    #[error("resource too busy")]
+    Busy,
+
+    /// Character data length exceeded the limit
+    #[non_exhaustive]
+    #[error("char data length exceeds {max}: {len}")]
+    CharacterDataTooLong {
+        /// Specified maximum
+        max: usize,
+        /// Actual length
+        len: usize,
+    },
+
+    /// Crypto operation failed
+    #[error("crypto error: {0}")]
+    #[cfg(feature = "__dnssec")]
+    Crypto(&'static str),
+
+    /// Message decoding error
+    #[error("decoding error: {0}")]
+    Decode(#[from] DecodeError),
+
+    /// Semantic DNS errors
+    #[error("DNS error: {0}")]
+    Dns(#[from] DnsError),
+
+    /// Format error in Message Parsing
+    #[error("message format error: {error}")]
+    FormError {
+        /// Header of the bad Message
+        header: Header,
+        /// Error that occurred while parsing the Message
+        error: Box<ProtoError>,
+    },
+
+    /// The maximum buffer size was exceeded
+    #[error("maximum buffer size exceeded: {0}")]
+    MaxBufferSizeExceeded(usize),
+
+    /// An error with an arbitrary message, referenced as &'static str
+    #[error("{0}")]
+    Message(&'static str),
+
+    /// An error with an arbitrary message, stored as String
+    #[error("{0}")]
+    Msg(String),
+
+    /// No resolvers available
+    #[error("no connections available")]
+    NoConnections,
+
+    /// Not all records were able to be written
+    #[non_exhaustive]
+    #[error("not all records could be written, wrote: {count}")]
+    NotAllRecordsWritten {
+        /// Number of records that were written before the error
+        count: usize,
+    },
+
+    // foreign
+    /// An error got returned from IO
+    #[cfg(feature = "std")]
+    #[error("io error: {0}")]
+    Io(Arc<io::Error>),
+
+    /// A request timed out
+    #[error("request timed out")]
+    Timeout,
+
+    /// An url parsing error
+    #[error("url parsing error")]
+    UrlParsing(#[from] url::ParseError),
+
+    /// A utf8 parsing error
+    #[error("error parsing utf8 string")]
+    Utf8(#[from] core::str::Utf8Error),
+
+    /// A utf8 parsing error
+    #[error("error parsing utf8 string")]
+    FromUtf8(#[from] alloc::string::FromUtf8Error),
+
+    /// An int parsing error
+    #[error("error parsing int")]
+    ParseInt(#[from] core::num::ParseIntError),
+
+    /// A Quinn (Quic) connection error occurred
+    #[cfg(feature = "__quic")]
+    #[error("error creating quic connection: {0}")]
+    QuinnConnect(#[from] quinn::ConnectError),
+
+    /// A Quinn (QUIC) connection error occurred
+    #[cfg(feature = "__quic")]
+    #[error("error with quic connection: {0}")]
+    QuinnConnection(#[from] quinn::ConnectionError),
+
+    /// A Quinn (QUIC) write error occurred
+    #[cfg(feature = "__quic")]
+    #[error("error writing to quic connection: {0}")]
+    QuinnWriteError(#[from] quinn::WriteError),
+
+    /// A Quinn (QUIC) read error occurred
+    #[cfg(feature = "__quic")]
+    #[error("error writing to quic read: {0}")]
+    QuinnReadError(#[from] quinn::ReadExactError),
+
+    /// A Quinn (QUIC) stream error occurred
+    #[cfg(feature = "__quic")]
+    #[error("referenced a closed QUIC stream: {0}")]
+    QuinnStreamError(#[from] quinn::ClosedStream),
+
+    /// A Quinn (QUIC) configuration error occurred
+    #[cfg(feature = "__quic")]
+    #[error("error constructing quic configuration: {0}")]
+    QuinnConfigError(#[from] quinn::ConfigError),
+
+    /// QUIC TLS config must include an AES-128-GCM cipher suite
+    #[cfg(feature = "__quic")]
+    #[error("QUIC TLS config must include an AES-128-GCM cipher suite")]
+    QuinnTlsConfigError(#[from] quinn::crypto::rustls::NoInitialCipherSuite),
+
+    /// Unknown QUIC stream used
+    #[cfg(feature = "__quic")]
+    #[error("an unknown quic stream was used")]
+    QuinnUnknownStreamError,
+
+    /// A quic message id should always be 0
+    #[cfg(feature = "__quic")]
+    #[error("quic messages should always be 0, got: {0}")]
+    QuicMessageIdNot0(u16),
+
+    /// A Rustls error occurred
+    #[cfg(feature = "__tls")]
+    #[error("rustls construction error: {0}")]
+    RustlsError(#[from] rustls::Error),
+
+    /// Case randomization is enabled, and a server did not echo a query name back with the same
+    /// case.
+    #[error("case of query name in response did not match")]
+    QueryCaseMismatch,
+}
+
+#[cfg(feature = "std")]
+impl From<io::Error> for ProtoErrorKind {
+    fn from(e: io::Error) -> Self {
+        match e.kind() {
+            io::ErrorKind::TimedOut => Self::Timeout,
+            _ => Self::Io(e.into()),
+        }
     }
 }
 
