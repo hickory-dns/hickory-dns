@@ -184,17 +184,13 @@ async fn connect_tls<P: RuntimeProvider>(
     .await
 }
 
-async fn connect_tls_with_future<S, F>(
+async fn connect_tls_with_future<S: DnsTcpStream>(
     tls_connector: TlsConnector,
-    future: F,
+    future: impl Future<Output = io::Result<S>> + Send + Unpin,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     outbound_messages: StreamReceiver,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>>
-where
-    S: DnsTcpStream,
-    F: Future<Output = io::Result<S>> + Send + Unpin,
-{
+) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
     let stream = AsyncIoStdAsTokio(future.await?);
     let s = match timeout(CONNECT_TIMEOUT, tls_connector.connect(server_name, stream)).await {
         Ok(Ok(s)) => s,

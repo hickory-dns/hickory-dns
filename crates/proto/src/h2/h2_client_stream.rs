@@ -395,7 +395,7 @@ impl<S> Future for HttpsClientConnect<S>
 where
     S: DnsTcpStream,
 {
-    type Output = Result<HttpsClientStream, ProtoError>;
+    type Output = Result<HttpsClientStream, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
@@ -444,14 +444,14 @@ where
         query_path: Arc<str>,
     },
     Connected(Option<HttpsClientStream>),
-    Errored(Option<ProtoError>),
+    Errored(Option<io::Error>),
 }
 
 impl<S> Future for HttpsClientConnectState<S>
 where
     S: DnsTcpStream,
 {
-    type Output = Result<HttpsClientStream, ProtoError>;
+    type Output = Result<HttpsClientStream, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -481,10 +481,10 @@ where
                             )),
                             query_path,
                         },
-                        Err(_) => Self::Errored(Some(ProtoError::from(format!(
-                            "bad dns_name: {}",
-                            &tls.server_name
-                        )))),
+                        Err(err) => Self::Errored(Some(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("bad server name {:?}: {err}", &tls.server_name),
+                        ))),
                     }
                 }
                 Self::TlsConnecting {
@@ -493,12 +493,16 @@ where
                     query_path,
                     tls,
                 } => {
-                    let Ok(res) = ready!(tls.poll_unpin(cx)) else {
-                        return Poll::Ready(Err(format!(
-                            "TLS handshake timed out after {CONNECT_TIMEOUT:?}"
-                        )
-                        .into()));
+                    let res = match ready!(tls.poll_unpin(cx)) {
+                        Ok(res) => res,
+                        Err(_) => {
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::TimedOut,
+                                format!("TLS handshake timed out after {CONNECT_TIMEOUT:?}"),
+                            )));
+                        }
                     };
+
                     let tls = res?;
                     debug!("tls connection established to: {}", name_server);
                     let mut handshake = h2::client::Builder::new();

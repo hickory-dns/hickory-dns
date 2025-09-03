@@ -10,6 +10,7 @@ use core::fmt::{self, Display};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
+use std::io;
 use std::net::SocketAddr;
 
 use futures_util::{StreamExt, future::BoxFuture, stream::Stream};
@@ -45,7 +46,7 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
         timeout: Option<Duration>,
         provider: P,
     ) -> (
-        BoxFuture<'static, Result<Self, ProtoError>>,
+        BoxFuture<'static, Result<Self, io::Error>>,
         BufDnsStreamHandle,
     ) {
         let (sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);

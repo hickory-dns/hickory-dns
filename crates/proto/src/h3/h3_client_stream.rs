@@ -13,6 +13,7 @@ use core::future::{Future, poll_fn};
 use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
+use std::io;
 use std::net::SocketAddr;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -358,7 +359,7 @@ impl H3ClientStreamBuilder {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> Result<H3ClientStream, ProtoError> {
+    ) -> Result<H3ClientStream, io::Error> {
         let endpoint = Endpoint::new_with_abstract_socket(
             EndpointConfig::default(),
             None,
@@ -374,7 +375,7 @@ impl H3ClientStreamBuilder {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> Result<H3ClientStream, ProtoError> {
+    ) -> Result<H3ClientStream, io::Error> {
         let connect = if let Some(bind_addr) = self.bind_addr {
             <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
         } else {
@@ -399,14 +400,19 @@ impl H3ClientStreamBuilder {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> Result<H3ClientStream, ProtoError> {
+    ) -> Result<H3ClientStream, io::Error> {
         let quic_connection = connect_quic(
             name_server,
             server_name.clone(),
             ALPN_H3,
             match self.crypto_config {
                 Some(crypto_config) => crypto_config,
-                None => client_config()?,
+                None => client_config().map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("failed to initialize default TLS client config: {e}"),
+                    )
+                })?,
             },
             self.transport_config,
             endpoint,
@@ -450,10 +456,10 @@ impl H3ClientStreamBuilder {
 }
 
 /// A future that resolves to an H3ClientStream
-pub struct H3ClientConnect(BoxFuture<'static, Result<H3ClientStream, ProtoError>>);
+pub struct H3ClientConnect(BoxFuture<'static, Result<H3ClientStream, io::Error>>);
 
 impl Future for H3ClientConnect {
-    type Output = Result<H3ClientStream, ProtoError>;
+    type Output = Result<H3ClientStream, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)

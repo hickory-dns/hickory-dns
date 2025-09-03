@@ -240,7 +240,7 @@ impl QuicClientStreamBuilder {
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> Result<QuicClientStream, ProtoError> {
+    ) -> Result<QuicClientStream, io::Error> {
         let endpoint_config = quic_config::endpoint();
         let endpoint = Endpoint::new_with_abstract_socket(
             endpoint_config,
@@ -255,7 +255,7 @@ impl QuicClientStreamBuilder {
         self,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> Result<QuicClientStream, ProtoError> {
+    ) -> Result<QuicClientStream, io::Error> {
         let connect = if let Some(bind_addr) = self.bind_addr {
             <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
         } else {
@@ -274,12 +274,17 @@ impl QuicClientStreamBuilder {
         endpoint: Endpoint,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> Result<QuicClientStream, ProtoError> {
+    ) -> Result<QuicClientStream, io::Error> {
         // ensure the ALPN protocol is set correctly
         let crypto_config = if let Some(crypto_config) = self.crypto_config {
             crypto_config
         } else {
-            client_config()?
+            client_config().map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("failed to initialize default TLS client config: {e}"),
+                )
+            })?
         };
 
         let quic_connection = connect_quic(
@@ -358,10 +363,10 @@ impl Default for QuicClientStreamBuilder {
 }
 
 /// A future that resolves to an QuicClientStream
-pub struct QuicClientConnect(BoxFuture<'static, Result<QuicClientStream, ProtoError>>);
+pub struct QuicClientConnect(BoxFuture<'static, Result<QuicClientStream, io::Error>>);
 
 impl Future for QuicClientConnect {
-    type Output = Result<QuicClientStream, ProtoError>;
+    type Output = Result<QuicClientStream, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)

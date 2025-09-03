@@ -13,6 +13,7 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 use std::collections::HashSet;
+use std::io;
 use std::net::SocketAddr;
 
 use futures_util::{future::Future, stream::Stream};
@@ -246,7 +247,7 @@ pub struct UdpClientConnect<P> {
 }
 
 impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
-    type Output = Result<UdpClientStream<P>, ProtoError>;
+    type Output = Result<UdpClientStream<P>, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         // TODO: this doesn't need to be a future?
