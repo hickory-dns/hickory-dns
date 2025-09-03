@@ -473,9 +473,6 @@ impl Clone for ProtoErrorKind {
 #[derive(Clone, Debug, EnumAsInner, Error)]
 #[non_exhaustive]
 pub enum DnsError {
-    /// A request was refused due to some access check
-    #[error("request refused")]
-    Refused,
     /// Received an error response code from the server
     #[error("error response: {0}")]
     ResponseCode(ResponseCode),
@@ -503,7 +500,7 @@ impl DnsError {
         debug!("response: {}", *response);
 
         match response.response_code() {
-                Refused => Err(Self::Refused),
+                Refused => Err(Self::ResponseCode(Refused)),
                 code @ ServFail
                 | code @ FormErr
                 | code @ NotImp
