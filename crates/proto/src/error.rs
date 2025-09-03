@@ -131,10 +131,6 @@ pub enum ProtoErrorKind {
         count: usize,
     },
 
-    /// An unknown digest type was found
-    #[error("digest type value unknown: {0}")]
-    UnknownDigestTypeValue(u8),
-
     /// An unknown dns class was found
     #[error("dns class string unknown: {0}")]
     UnknownDnsClassStr(String),
@@ -485,7 +481,6 @@ impl Clone for ProtoErrorKind {
             NoConnections => NoConnections,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             RequestRefused => RequestRefused,
-            UnknownDigestTypeValue(value) => UnknownDigestTypeValue(value),
             UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
             UnknownDnsClassValue(value) => UnknownDnsClassValue(value),
             UnknownRecordTypeStr(ref value) => UnknownRecordTypeStr(value.clone()),

@@ -96,6 +96,10 @@ pub enum DecodeError {
         other: usize,
     },
 
+    /// An unknown digest algorithm was found
+    #[error("unknown digest algorithm: {0}")]
+    UnknownDigestAlgorithm(u8),
+
     /// An unknown algorithm type was found
     #[error("unknown NSEC3 hash algorithm: {0}")]
     UnknownNsec3HashAlgorithm(u8),

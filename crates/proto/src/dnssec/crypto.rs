@@ -11,7 +11,8 @@ use super::{
     Algorithm, DigestType, DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
     ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey,
 };
-use crate::{ProtoError, ProtoErrorKind, error::ProtoResult};
+use crate::error::ProtoResult;
+use crate::serialize::binary::DecodeError;
 
 /// Decode private key
 pub fn signing_key_from_der(
@@ -475,7 +476,7 @@ impl Digest {
         bytes: &[u8],
         r#type: DigestType,
         mut iterations: u16,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, DecodeError> {
         let alg = r#type.try_into()?;
         let mut cur = hash_iter([bytes, salt], alg);
         while iterations > 0 {
@@ -489,12 +490,12 @@ impl Digest {
     pub fn from_iter<'a>(
         bytes: impl IntoIterator<Item = &'a [u8]>,
         r#type: DigestType,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, DecodeError> {
         Ok(Self(hash_iter(bytes, r#type.try_into()?)))
     }
 
     /// Hashes
-    pub fn new(bytes: &[u8], r#type: DigestType) -> Result<Self, ProtoError> {
+    pub fn new(bytes: &[u8], r#type: DigestType) -> Result<Self, DecodeError> {
         Ok(Self(digest::digest(r#type.try_into()?, bytes)))
     }
 }
@@ -517,14 +518,14 @@ impl AsRef<[u8]> for Digest {
 }
 
 impl TryFrom<DigestType> for &'static digest::Algorithm {
-    type Error = ProtoError;
+    type Error = DecodeError;
 
-    fn try_from(value: DigestType) -> Result<&'static digest::Algorithm, ProtoError> {
+    fn try_from(value: DigestType) -> Result<&'static digest::Algorithm, Self::Error> {
         match value {
             DigestType::SHA1 => Ok(&digest::SHA1_FOR_LEGACY_USE_ONLY),
             DigestType::SHA256 => Ok(&digest::SHA256),
             DigestType::SHA384 => Ok(&digest::SHA384),
-            DigestType::Unknown(other) => Err(ProtoErrorKind::UnknownDigestTypeValue(other).into()),
+            DigestType::Unknown(other) => Err(DecodeError::UnknownDigestAlgorithm(other)),
         }
     }
 }
