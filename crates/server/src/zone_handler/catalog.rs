@@ -8,7 +8,7 @@
 // TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
-use std::{collections::HashMap, io, iter, sync::Arc};
+use std::{collections::HashMap, iter, sync::Arc};
 
 use hickory_proto::runtime::Time;
 use tracing::{debug, error, info, trace, warn};
@@ -131,16 +131,8 @@ impl RequestHandler for Catalog {
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.id());
-                    let result = self
-                        .update(request, response_edns, now, response_handle)
-                        .await;
-                    match result {
-                        Ok(info) => info,
-                        Err(error) => {
-                            error!(%error, "request failed");
-                            ResponseInfo::serve_failed(request)
-                        }
-                    }
+                    self.update(request, response_edns, now, response_handle)
+                        .await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
@@ -273,7 +265,7 @@ impl Catalog {
         response_edns: Option<Edns>,
         now: u64,
         mut response_handle: R,
-    ) -> io::Result<ResponseInfo> {
+    ) -> ResponseInfo {
         // 2.3 - Zone Section
         //
         //  All records to be updated must be in the same zone, and
@@ -281,12 +273,27 @@ impl Catalog {
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
 
-        let request_info = update.request_info()?;
+        let Ok(request_info) = update.request_info() else {
+            warn!("invalid update request, zone count must be one");
+            return send_error_response(
+                update,
+                ResponseCode::FormErr,
+                response_edns,
+                response_handle,
+            )
+            .await;
+        };
         let ztype = request_info.query.query_type();
 
         if ztype != RecordType::SOA {
             warn!("invalid update request zone type must be SOA, ztype: {ztype}");
-            return Ok(ResponseInfo::serve_failed(update));
+            return send_error_response(
+                update,
+                ResponseCode::FormErr,
+                response_edns,
+                response_handle,
+            )
+            .await;
         }
 
         // verify the zone type and number of zones in request, then find the zone to update
@@ -324,17 +331,50 @@ impl Catalog {
                         Header::new(update.id(), MessageType::Response, OpCode::Update);
                     response_header.set_response_code(response_code);
                     let tbs_response =
-                        MessageResponseBuilder::new(update.raw_queries(), response_edns)
+                        MessageResponseBuilder::new(update.raw_queries(), response_edns.clone())
                             .build_no_records(response_header);
-                    tbs_response.destructive_emit(&mut encoder)?;
-                    response.set_signature(signer.sign(&tbs_response_buf)?);
+                    if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
+                        error!(%error, "error encoding response");
+                        return send_error_response(
+                            update,
+                            ResponseCode::ServFail,
+                            response_edns,
+                            response_handle,
+                        )
+                        .await;
+                    }
+                    match signer.sign(&tbs_response_buf) {
+                        Ok(signature) => response.set_signature(signature),
+                        Err(error) => {
+                            error!(%error, "error signing response");
+                            return send_error_response(
+                                update,
+                                ResponseCode::ServFail,
+                                response_edns,
+                                response_handle,
+                            )
+                            .await;
+                        }
+                    }
                 }
 
-                return response_handle.send_response(response).await;
+                match response_handle.send_response(response).await {
+                    Err(error) => {
+                        error!(%error, "error sending message");
+                        return ResponseInfo::serve_failed(update);
+                    }
+                    Ok(response_info) => return response_info,
+                }
             }
         };
 
-        Ok(ResponseInfo::serve_failed(update))
+        send_error_response(
+            update,
+            ResponseCode::ServFail,
+            response_edns,
+            response_handle,
+        )
+        .await
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -387,7 +427,7 @@ impl Catalog {
             .await;
         };
 
-        let result = if request_info.query.query_type() == RecordType::AXFR {
+        if request_info.query.query_type() == RecordType::AXFR {
             zone_transfer(
                 request_info,
                 handlers,
@@ -408,11 +448,6 @@ impl Catalog {
                 &self.metrics,
             )
             .await
-        };
-
-        match result {
-            Ok(response_info) => response_info,
-            Err(_) => ResponseInfo::serve_failed(request),
         }
     }
 
@@ -437,7 +472,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     response_edns: Option<Edns>,
     mut response_handle: R,
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
-) -> Result<ResponseInfo, LookupError> {
+) -> ResponseInfo {
     let edns = request.edns();
     let lookup_options = LookupOptions::from_edns(edns);
     let request_id = request.id();
@@ -498,7 +533,13 @@ async fn lookup<R: ResponseHandler + Unpin>(
         // to clean up the rest of the match conditions
         let Some(result) = result.map_result() else {
             error!("impossible skip detected after final lookup result");
-            return Err(LookupError::ResponseCode(ResponseCode::ServFail));
+            return send_error_response(
+                request,
+                ResponseCode::ServFail,
+                response_edns,
+                response_handle,
+            )
+            .await;
         };
 
         let (response_header, sections) = build_response(
@@ -523,16 +564,37 @@ async fn lookup<R: ResponseHandler + Unpin>(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
-            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                .build(
+            let tbs_response =
+                MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
                     response_header,
                     sections.answers.iter(),
                     sections.ns.iter(),
                     sections.soa.iter(),
                     sections.additionals.iter(),
                 );
-            tbs_response.destructive_emit(&mut encoder)?;
-            message_response.set_signature(signer.sign(&tbs_response_buf)?);
+            if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
+                error!(%error, "error encoding response");
+                return send_error_response(
+                    request,
+                    ResponseCode::ServFail,
+                    response_edns,
+                    response_handle,
+                )
+                .await;
+            }
+            match signer.sign(&tbs_response_buf) {
+                Ok(signature) => message_response.set_signature(signature),
+                Err(error) => {
+                    error!(%error, "error signing response");
+                    return send_error_response(
+                        request,
+                        ResponseCode::ServFail,
+                        response_edns,
+                        response_handle,
+                    )
+                    .await;
+                }
+            }
         }
 
         #[cfg(feature = "metrics")]
@@ -541,14 +603,20 @@ async fn lookup<R: ResponseHandler + Unpin>(
         match response_handle.send_response(message_response).await {
             Err(error) => {
                 error!(%error, "error sending response");
-                return Err(LookupError::Io(error));
+                return ResponseInfo::serve_failed(request);
             }
-            Ok(l) => return Ok(l),
+            Ok(response_info) => return response_info,
         }
     }
 
     error!("end of chained zone handler loop reached with all zone handlers not answering");
-    Err(LookupError::ResponseCode(ResponseCode::ServFail))
+    send_error_response(
+        request,
+        ResponseCode::ServFail,
+        response_edns,
+        response_handle,
+    )
+    .await
 }
 
 async fn zone_transfer(
@@ -558,7 +626,7 @@ async fn zone_transfer(
     response_edns: Option<Edns>,
     now: u64,
     mut response_handle: impl ResponseHandler,
-) -> Result<ResponseInfo, LookupError> {
+) -> ResponseInfo {
     let request_edns = request.edns();
     let lookup_options = LookupOptions::from_edns(request_edns);
     for handler in handlers.iter() {
@@ -612,8 +680,8 @@ async fn zone_transfer(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
-            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                .build(
+            let tbs_response =
+                MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
                     response_header,
                     zone_transfer
                         .iter()
@@ -622,21 +690,48 @@ async fn zone_transfer(
                     iter::empty(),
                     iter::empty(),
                 );
-            tbs_response.destructive_emit(&mut encoder)?;
-            message_response.set_signature(signer.sign(&tbs_response_buf)?);
+            if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
+                error!(%error, "error encoding response");
+                return send_error_response(
+                    request,
+                    ResponseCode::ServFail,
+                    response_edns,
+                    response_handle,
+                )
+                .await;
+            }
+            match signer.sign(&tbs_response_buf) {
+                Ok(signature) => message_response.set_signature(signature),
+                Err(error) => {
+                    error!(%error, "error signing response");
+                    return send_error_response(
+                        request,
+                        ResponseCode::ServFail,
+                        response_edns,
+                        response_handle,
+                    )
+                    .await;
+                }
+            }
         }
 
         match response_handle.send_response(message_response).await {
             Err(error) => {
                 error!(%error, "error sending response");
-                return Err(LookupError::Io(error));
+                return ResponseInfo::serve_failed(request);
             }
-            Ok(l) => return Ok(l),
+            Ok(response_info) => return response_info,
         }
     }
 
     error!("end of chained zone handler loop with all zone handlers not answering");
-    Err(LookupError::ResponseCode(ResponseCode::ServFail))
+    send_error_response(
+        request,
+        ResponseCode::ServFail,
+        response_edns,
+        response_handle,
+    )
+    .await
 }
 
 /// Helper function to construct a response message with an error response code, and send it via a
