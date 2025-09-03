@@ -376,7 +376,7 @@ pub struct ZoneConfig {
 
 impl ZoneConfig {
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, String> {
+    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, ProtoError> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -436,7 +436,7 @@ impl ZoneConfig {
                                 .await?;
                             Arc::new(handler)
                         }
-                        _ => return empty_stores_error(),
+                        _ => return Err(ProtoError::from(EMPTY_STORES)),
                     };
 
                     handlers.push(handler);
@@ -483,7 +483,7 @@ impl ZoneConfig {
 
                             Arc::new(recursor)
                         }
-                        _ => return empty_stores_error(),
+                        _ => return Err(ProtoError::from(EMPTY_STORES)),
                     };
 
                     handlers.push(handler);
@@ -511,9 +511,7 @@ impl ZoneConfig {
     }
 }
 
-fn empty_stores_error<T>() -> Result<T, String> {
-    Result::Err("empty [[zones.stores]] in config".to_owned())
-}
+const EMPTY_STORES: &str = "empty [[zones.stores]] in config";
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "zone_type")]
