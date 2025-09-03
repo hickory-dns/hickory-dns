@@ -80,10 +80,6 @@ pub enum ProtoErrorKind {
     #[error("resource too busy")]
     Busy,
 
-    /// An error caused by a canceled future
-    #[error("future was canceled: {0:?}")]
-    Canceled(futures_channel::oneshot::Canceled),
-
     /// Character data length exceeded the limit
     #[non_exhaustive]
     #[error("char data length exceeds {max}: {len}")]
@@ -553,7 +549,6 @@ impl Clone for ProtoErrorKind {
         match *self {
             BadTransactionId => BadTransactionId,
             Busy => Busy,
-            Canceled(ref c) => Canceled(*c),
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
             Dns(ref e) => Dns(e.clone()),
             LabelOverlapsWithOther { label, other } => LabelOverlapsWithOther { label, other },
