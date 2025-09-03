@@ -176,15 +176,10 @@ impl<P: ConnectionProvider> NameServerState<P> {
 
         match response {
             Ok(response) => {
-                // First evaluate if the message succeeded.
+                self.set_status(Status::Established);
                 let result = DnsError::from_response(response);
                 self.stats.record(rtt, &result);
-                let response = result?;
-
-                // take the remote edns options and store them
-                self.set_status(Status::Established);
-
-                Ok(response)
+                Ok(result?)
             }
             Err(error) => {
                 debug!(ip = %self.ip, config = ?self.config, %error, "failed to connect to name server");
