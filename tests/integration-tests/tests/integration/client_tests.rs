@@ -1,3 +1,4 @@
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
@@ -18,8 +19,6 @@ use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::ProtoError;
 use hickory_proto::ProtoErrorKind;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
@@ -61,7 +60,7 @@ impl TestClientConnection {
         &self,
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<
-        BoxFuture<'static, Result<TestClientStream, ProtoError>>,
+        BoxFuture<'static, Result<TestClientStream, io::Error>>,
         TestClientStream,
     > {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
@@ -289,7 +288,7 @@ async fn test_timeout_query_tcp() {
 
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
     match Client::<TokioRuntimeProvider>::connect(multiplexer).await {
-        Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => {}
+        Err(e) if matches!(e.kind(), io::ErrorKind::TimedOut) => {}
         _ => panic!("expected timeout"),
     }
 }

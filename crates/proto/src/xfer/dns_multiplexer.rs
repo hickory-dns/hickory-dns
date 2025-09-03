@@ -17,6 +17,7 @@ use core::{
     time::Duration,
 };
 use std::collections::{HashMap, hash_map::Entry};
+use std::io;
 
 use futures_channel::mpsc;
 use futures_util::{
@@ -123,7 +124,7 @@ where
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<F, S>
     where
-        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+        F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
     {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
@@ -145,7 +146,7 @@ where
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<F, S>
     where
-        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+        F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
     {
         DnsMultiplexerConnect {
             stream,
@@ -215,7 +216,7 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsMultiplexerConnect<F, S>
 where
-    F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+    F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
     S: Stream<Item = Result<SerialMessage, ProtoError>> + Unpin,
 {
     stream: F,
@@ -226,10 +227,10 @@ where
 
 impl<F, S> Future for DnsMultiplexerConnect<F, S>
 where
-    F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+    F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
     S: DnsClientStream + Unpin + 'static,
 {
-    type Output = Result<DnsMultiplexer<S>, ProtoError>;
+    type Output = Result<DnsMultiplexer<S>, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let stream: S = ready!(self.stream.poll_unpin(cx))?;
@@ -450,7 +451,7 @@ mod test {
         fn new(
             mut messages: Vec<Message>,
             addr: SocketAddr,
-        ) -> BoxFuture<'static, Result<Self, ProtoError>> {
+        ) -> BoxFuture<'static, Result<Self, io::Error>> {
             messages.reverse(); // so we can pop() and get messages in order
             Box::pin(future::ok(Self {
                 messages,

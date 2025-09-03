@@ -7,6 +7,7 @@
 
 use std::{
     future::Future,
+    io,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -52,15 +53,11 @@ impl<P: RuntimeProvider> Client<P> {
     ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub async fn new<F, S>(
-        stream: F,
+    pub async fn new<S: DnsClientStream + 'static + Unpin>(
+        stream: impl Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), ProtoError>
-    where
-        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
-        S: DnsClientStream + 'static + Unpin,
-    {
+    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), io::Error> {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
     }
 
@@ -79,9 +76,9 @@ impl<P: RuntimeProvider> Client<P> {
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), io::Error>
     where
-        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
         S: DnsClientStream + 'static + Unpin,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
@@ -99,10 +96,10 @@ impl<P: RuntimeProvider> Client<P> {
     ///  If it is None, then another thread has already run the background.
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(Self, DnsExchangeBackground<S, P::Timer>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<S, P::Timer>), io::Error>
     where
         S: DnsRequestSender,
-        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
     {
         let result = DnsExchange::connect(connect_future).await;
         let use_edns = true;

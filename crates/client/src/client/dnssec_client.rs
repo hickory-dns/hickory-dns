@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::future::Future;
+use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -29,9 +30,9 @@ pub struct DnssecClient {
 
 impl DnssecClient {
     /// Returns a DNSSEC verifying client with a TrustAnchor that can be replaced
-    pub fn builder<F, S>(connect_future: F) -> AsyncSecureClientBuilder<F, S>
+    pub fn builder<F, S>(connect_future: F) -> AsyncSecureClientBuilder<F>
     where
-        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
         S: DnsRequestSender + 'static,
     {
         AsyncSecureClientBuilder {
@@ -43,10 +44,10 @@ impl DnssecClient {
     /// Returns a DNSSEC verifying client with the default TrustAnchor
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), io::Error>
     where
         S: DnsRequestSender,
-        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
     {
         Self::builder(connect_future).build().await
     }
@@ -76,18 +77,14 @@ impl DnsHandle for DnssecClient {
 }
 
 /// A builder to allow a custom trust to be used for validating all signed records
-pub struct AsyncSecureClientBuilder<F, S>
-where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
-{
+pub struct AsyncSecureClientBuilder<F> {
     connect_future: F,
     trust_anchor: Option<TrustAnchors>,
 }
 
-impl<F, S> AsyncSecureClientBuilder<F, S>
+impl<F, S> AsyncSecureClientBuilder<F>
 where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+    F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static,
 {
     /// This variant allows for the trust_anchor to be replaced
@@ -104,7 +101,7 @@ where
     /// Construct the new client
     pub async fn build(
         mut self,
-    ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError> {
+    ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), io::Error> {
         let trust_anchor = Arc::new(self.trust_anchor.take().unwrap_or_default());
         let result = Client::connect(self.connect_future).await;
 
