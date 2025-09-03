@@ -202,7 +202,7 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: ProtoError) {
-        debug!(error = error.as_dyn(), stream = %self.stream);
+        debug!(%error, stream = %self.stream);
 
         for (_, active_request) in self.active_requests.drain() {
             // complete the request, it's failed...
@@ -323,14 +323,14 @@ where
                     Err(err) => return err.into(),
                 };
             }
-            Err(e) => {
+            Err(error) => {
                 debug!(
                     id = %active_request.request_id(),
-                    error = e.as_dyn(),
+                    %error,
                     "error message"
                 );
                 // complete with the error, don't add to the map of active requests
-                return e.into();
+                return error.into();
             }
         }
 
@@ -389,7 +389,7 @@ where
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", response.id()),
                         },
                         // TODO: return src address for diagnostics
-                        Err(error) => debug!(error = error.as_dyn(), "error decoding message"),
+                        Err(error) => debug!(%error, "error decoding message"),
                     }
                 }
                 Poll::Ready(err) => {
