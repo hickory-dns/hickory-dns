@@ -81,18 +81,6 @@ impl ProtoError {
         &self.kind
     }
 
-    /// If this is a ProtoErrorKind::Busy
-    #[inline]
-    pub fn is_busy(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::Busy)
-    }
-
-    /// Returns true if this error represents NoConnections
-    #[inline]
-    pub fn is_no_connections(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::NoConnections)
-    }
-
     /// Returns true if the domain does not exist
     #[inline]
     pub fn is_nx_domain(&self) -> bool {
@@ -121,18 +109,6 @@ impl ProtoError {
             ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
             _ => None,
         }
-    }
-
-    /// Returns true if this is a std::io::Error
-    #[inline]
-    #[cfg(feature = "std")]
-    pub fn is_io(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::Io(..))
-    }
-
-    #[cfg(feature = "std")]
-    pub(crate) fn as_dyn(&self) -> &(dyn std::error::Error + 'static) {
-        self
     }
 
     /// Compare two errors to see if one contains a server response.
