@@ -20,6 +20,7 @@ use tinyvec::TinyVec;
 use tracing::debug;
 
 use crate::error::*;
+use crate::serialize::binary::DecodeError;
 
 const WILDCARD: &[u8] = b"*";
 const IDNA_PREFIX: &[u8] = b"xn--";
@@ -41,7 +42,7 @@ impl Label {
             return Err("Label requires a minimum length of 1".into());
         }
         if bytes.len() > 63 {
-            return Err(ProtoErrorKind::LabelBytesTooLong(bytes.len()).into());
+            return Err(DecodeError::LabelBytesTooLong(bytes.len()).into());
         };
         Ok(Self(TinyVec::from(bytes)))
     }
@@ -76,7 +77,7 @@ impl Label {
     /// This will return an Error if the label is not an ascii string
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
         if s.len() > 63 {
-            return Err(ProtoErrorKind::LabelBytesTooLong(s.len()).into());
+            return Err(DecodeError::LabelBytesTooLong(s.len()).into());
         }
 
         if s.as_bytes() == WILDCARD {
@@ -405,8 +406,8 @@ mod tests {
         eprintln!("{error:?}");
         assert!(error.is_err());
         match error.unwrap_err().kind() {
-            ProtoErrorKind::LabelBytesTooLong(n) if *n == len => (),
-            ProtoErrorKind::LabelBytesTooLong(e) => {
+            ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(n)) if *n == len => (),
+            ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(e)) => {
                 panic!(
                     "LabelTooLongError error don't report expected size {} of the label provided.",
                     e
