@@ -6,7 +6,7 @@ use crate::trace;
 use crate::{
     error::{ProtoError, ProtoErrorKind},
     rr::RecordType,
-    serialize::txt::Token,
+    serialize::{binary::DecodeError, txt::Token},
 };
 
 #[cfg(feature = "backtrace")]
@@ -166,6 +166,12 @@ impl From<&'static str> for ParseError {
 impl From<String> for ParseError {
     fn from(msg: String) -> Self {
         ParseErrorKind::Msg(msg).into()
+    }
+}
+
+impl From<DecodeError> for ParseError {
+    fn from(e: DecodeError) -> Self {
+        ParseErrorKind::from(ProtoError::from(e)).into()
     }
 }
 

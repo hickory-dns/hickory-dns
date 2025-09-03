@@ -131,30 +131,6 @@ pub enum ProtoErrorKind {
         count: usize,
     },
 
-    /// An unknown dns class was found
-    #[error("dns class string unknown: {0}")]
-    UnknownDnsClassStr(String),
-
-    /// An unknown dns class value was found
-    #[error("dns class value unknown: {0}")]
-    UnknownDnsClassValue(u16),
-
-    /// An unknown record type string was found
-    #[error("record type string unknown: {0}")]
-    UnknownRecordTypeStr(String),
-
-    /// An unknown record type value was found
-    #[error("record type value unknown: {0}")]
-    UnknownRecordTypeValue(u16),
-
-    /// Unrecognized nsec3 flags were found
-    #[error("nsec3 flags should be 0b0000000*: {0:b}")]
-    UnrecognizedNsec3Flags(u8),
-
-    /// Unrecognized csync flags were found
-    #[error("csync flags should be 0b000000**: {0:b}")]
-    UnrecognizedCsyncFlags(u16),
-
     // foreign
     /// An error got returned from IO
     #[cfg(feature = "std")]
@@ -481,12 +457,6 @@ impl Clone for ProtoErrorKind {
             NoConnections => NoConnections,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             RequestRefused => RequestRefused,
-            UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
-            UnknownDnsClassValue(value) => UnknownDnsClassValue(value),
-            UnknownRecordTypeStr(ref value) => UnknownRecordTypeStr(value.clone()),
-            UnknownRecordTypeValue(value) => UnknownRecordTypeValue(value),
-            UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
-            UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
             #[cfg(feature = "std")]
             Io(ref e) => Io(e.clone()),
             Poisoned => Poisoned,

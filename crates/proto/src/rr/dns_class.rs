@@ -8,7 +8,7 @@
 //! class of DNS operations, in general always IN for internet
 #![allow(clippy::use_self)]
 
-use alloc::string::ToString;
+use alloc::borrow::ToOwned;
 use core::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
@@ -44,7 +44,7 @@ pub enum DNSClass {
 }
 
 impl FromStr for DNSClass {
-    type Err = ProtoError;
+    type Err = DecodeError;
 
     /// Convert from `&str` to `DNSClass`
     ///
@@ -55,7 +55,7 @@ impl FromStr for DNSClass {
     /// let var: DNSClass = DNSClass::from_str("IN").unwrap();
     /// assert_eq!(DNSClass::IN, var);
     /// ```
-    fn from_str(str: &str) -> ProtoResult<Self> {
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
         debug_assert!(str.chars().all(|x| !char::is_ascii_lowercase(&x)));
         match str {
             "IN" => Ok(Self::IN),
@@ -63,7 +63,7 @@ impl FromStr for DNSClass {
             "HS" => Ok(Self::HS),
             "NONE" => Ok(Self::NONE),
             "ANY" | "*" => Ok(Self::ANY),
-            _ => Err(ProtoErrorKind::UnknownDnsClassStr(str.to_string()).into()),
+            _ => Err(DecodeError::UnknownDnsClassStr(str.to_owned())),
         }
     }
 }
@@ -207,6 +207,9 @@ mod tests {
     #[test]
     fn check_dns_class_parse_wont_panic_with_symbols() {
         let dns_class = "a-b-c".to_ascii_uppercase().parse::<DNSClass>();
-        assert!(matches!(&dns_class, Err(ProtoError { .. })));
+        assert!(matches!(
+            &dns_class,
+            Err(DecodeError::UnknownDnsClassStr(_))
+        ));
     }
 }

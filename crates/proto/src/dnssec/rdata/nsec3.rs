@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
     dnssec::Nsec3HashAlgorithm,
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet, domain::Label},
     serialize::binary::*,
 };
@@ -308,7 +308,7 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
         let flags: u8 = decoder
             .read_u8()?
             .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
-            .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
+            .map_err(DecodeError::UnrecognizedNsec3Flags)?;
 
         let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
         let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);

@@ -146,7 +146,7 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
         let flags: u16 = decoder
             .read_u16()?
             .verify_unwrap(|flags| flags & 0b1111_1100 == 0)
-            .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedCsyncFlags(flags)))?;
+            .map_err(DecodeError::UnrecognizedCsyncFlags)?;
 
         let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
         let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
