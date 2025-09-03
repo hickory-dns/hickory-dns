@@ -18,10 +18,11 @@ use crate::{
         Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier,
         crypto::{Digest, decode_public_key},
     },
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     rr::{Name, RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -387,7 +388,7 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
 
                 *protocol == 3
             })
-            .map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
+            .map_err(DecodeError::DnsKeyProtocolNot3)?;
 
         let algorithm: Algorithm = Algorithm::read(decoder)?;
 

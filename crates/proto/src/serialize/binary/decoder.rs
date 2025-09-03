@@ -39,6 +39,11 @@ pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
 #[derive(Clone, Copy, Debug, Error)]
 #[non_exhaustive]
 pub enum DecodeError {
+    /// DNS key protocol version doesn't have the expected version 3
+    #[cfg(feature = "__dnssec")]
+    #[error("dns key value unknown, must be 3: {0}")]
+    DnsKeyProtocolNot3(u8),
+
     /// Insufficient data in the buffer for a read operation
     #[error("unexpected end of input reached")]
     InsufficientBytes,

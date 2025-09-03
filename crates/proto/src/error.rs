@@ -98,10 +98,6 @@ pub enum ProtoErrorKind {
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
 
-    /// DNS protocol version doesn't have the expected version 3
-    #[error("dns key value unknown, must be 3: {0}")]
-    DnsKeyProtocolNot3(u8),
-
     /// EDNS resource record label is not the root label, although required
     #[error("edns resource record label must be the root label (.): {0}")]
     EdnsNameNotRoot(crate::rr::Name),
@@ -506,7 +502,6 @@ impl Clone for ProtoErrorKind {
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
             Decode(ref e) => Decode(e.clone()),
             Dns(ref e) => Dns(e.clone()),
-            DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
             FormError { header, ref error } => FormError {
                 header,

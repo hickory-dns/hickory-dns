@@ -14,11 +14,13 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ProtoError, ProtoErrorKind,
+    ProtoError,
     dnssec::{Algorithm, PublicKeyBuf},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
+    serialize::binary::{
+        BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
+    },
 };
 
 use super::DNSSECRData;
@@ -150,7 +152,7 @@ impl<'r> RecordDataDecodable<'r> for CDNSKEY {
         let _protocol = decoder
             .read_u8()?
             .verify_unwrap(|protocol| *protocol == 3)
-            .map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
+            .map_err(DecodeError::DnsKeyProtocolNot3)?;
 
         let algorithm_value = decoder.read_u8()?.unverified(/* no further validation required */);
         let algorithm = match algorithm_value {
