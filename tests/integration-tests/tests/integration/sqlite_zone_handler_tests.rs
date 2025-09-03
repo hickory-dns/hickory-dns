@@ -1020,7 +1020,7 @@ async fn test_update_tsig_valid() {
     edns.options_mut().insert(EdnsOption::NSID(
         NSIDPayload::new([0xC0, 0xFF, 0xEE]).unwrap(),
     ));
-    let response = MessageResponseBuilder::new(request.raw_queries(), Some(edns.clone()));
+    let response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns));
     let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NoError);
     let mut response = response.build_no_records(response_header);
@@ -1030,7 +1030,7 @@ async fn test_update_tsig_valid() {
     let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
     let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NoError);
-    let tbs_response = MessageResponseBuilder::new(request.raw_queries(), Some(edns))
+    let tbs_response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns))
         .build_no_records(response_header);
     tbs_response.destructive_emit(&mut encoder).unwrap();
 

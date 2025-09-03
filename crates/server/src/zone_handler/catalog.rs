@@ -63,11 +63,11 @@ impl RequestHandler for Catalog {
     ) -> ResponseInfo {
         trace!("request: {:?}", request);
 
-        let response_edns: Option<Edns>;
+        let mut resp_edns: Edns;
 
         // check if it's edns
-        if let Some(req_edns) = request.edns() {
-            let mut resp_edns: Edns = Edns::new();
+        let response_edns = if let Some(req_edns) = request.edns() {
+            resp_edns = Edns::new();
 
             // check our version against the request
             // TODO: what version are we?
@@ -85,7 +85,7 @@ impl RequestHandler for Catalog {
                 return send_error_response(
                     request,
                     ResponseCode::BADVERS,
-                    Some(resp_edns),
+                    Some(&resp_edns),
                     response_handle,
                 )
                 .await;
@@ -114,10 +114,10 @@ impl RequestHandler for Catalog {
                 (None, _) => {}
             };
 
-            response_edns = Some(resp_edns);
+            Some(&resp_edns)
         } else {
-            response_edns = None;
-        }
+            None
+        };
 
         let now = T::current_time();
         match request.message_type() {
@@ -262,7 +262,7 @@ impl Catalog {
     pub async fn update<R: ResponseHandler>(
         &self,
         update: &Request,
-        response_edns: Option<Edns>,
+        response_edns: Option<&Edns>,
         now: u64,
         mut response_handle: R,
     ) -> ResponseInfo {
@@ -316,8 +316,7 @@ impl Catalog {
                     _ => (ResponseCode::NotAuth, None),
                 };
 
-                let response =
-                    MessageResponseBuilder::new(update.raw_queries(), response_edns.clone());
+                let response = MessageResponseBuilder::new(update.raw_queries(), response_edns);
                 let mut response_header =
                     Header::new(update.id(), MessageType::Response, OpCode::Update);
                 response_header.set_response_code(response_code);
@@ -331,7 +330,7 @@ impl Catalog {
                         Header::new(update.id(), MessageType::Response, OpCode::Update);
                     response_header.set_response_code(response_code);
                     let tbs_response =
-                        MessageResponseBuilder::new(update.raw_queries(), response_edns.clone())
+                        MessageResponseBuilder::new(update.raw_queries(), response_edns)
                             .build_no_records(response_header);
                     if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                         error!(%error, "error encoding response");
@@ -400,7 +399,7 @@ impl Catalog {
     pub async fn lookup<R: ResponseHandler>(
         &self,
         request: &Request,
-        response_edns: Option<Edns>,
+        response_edns: Option<&Edns>,
         now: u64,
         response_handle: R,
     ) -> ResponseInfo {
@@ -432,7 +431,7 @@ impl Catalog {
                 request_info,
                 handlers,
                 request,
-                response_edns.clone(),
+                response_edns,
                 now,
                 response_handle.clone(),
             )
@@ -442,7 +441,7 @@ impl Catalog {
                 request_info,
                 handlers,
                 request,
-                response_edns.clone(),
+                response_edns,
                 response_handle.clone(),
                 #[cfg(feature = "metrics")]
                 &self.metrics,
@@ -469,7 +468,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     request_info: RequestInfo<'_>,
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
-    response_edns: Option<Edns>,
+    response_edns: Option<&Edns>,
     mut response_handle: R,
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> ResponseInfo {
@@ -516,7 +515,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                         request_info.query.name(),
                         request_info.query.query_type(),
                         Some(&request_info),
-                        LookupOptions::from_edns(response_edns.as_ref()),
+                        LookupOptions::from_edns(response_edns),
                         result,
                     )
                     .await;
@@ -553,7 +552,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         .await;
 
         let mut message_response =
-            MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
+            MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
                 response_header,
                 sections.answers.iter(),
                 sections.ns.iter(),
@@ -564,8 +563,8 @@ async fn lookup<R: ResponseHandler + Unpin>(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
-            let tbs_response =
-                MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
+            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                .build(
                     response_header,
                     sections.answers.iter(),
                     sections.ns.iter(),
@@ -623,7 +622,7 @@ async fn zone_transfer(
     request_info: RequestInfo<'_>,
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
-    response_edns: Option<Edns>,
+    response_edns: Option<&Edns>,
     now: u64,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
@@ -667,7 +666,7 @@ async fn zone_transfer(
 
         // TODO(issue #351): Send more than one message in response as needed.
         let mut message_response =
-            MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
+            MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
                 response_header,
                 zone_transfer
                     .iter()
@@ -680,8 +679,8 @@ async fn zone_transfer(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
-            let tbs_response =
-                MessageResponseBuilder::new(request.raw_queries(), response_edns.clone()).build(
+            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+                .build(
                     response_header,
                     zone_transfer
                         .iter()
@@ -739,11 +738,16 @@ async fn zone_transfer(
 async fn send_error_response(
     request: &Request,
     response_code: ResponseCode,
-    mut response_edns: Option<Edns>,
+    mut response_edns: Option<&Edns>,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
-    if let Some(edns) = response_edns.as_mut() {
-        edns.set_rcode_high(response_code.high());
+    let mut new_edns: Edns;
+    if response_code.high() != 0 {
+        if let Some(edns) = response_edns {
+            new_edns = edns.clone();
+            new_edns.set_rcode_high(response_code.high());
+            response_edns = Some(&new_edns);
+        }
     }
     let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
         .error_msg(request.header(), response_code);
