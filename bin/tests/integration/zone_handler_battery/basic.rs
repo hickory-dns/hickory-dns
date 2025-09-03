@@ -50,7 +50,13 @@ pub fn test_a_lookup(handler: impl ZoneHandler) {
 
 #[allow(clippy::unreadable_literal)]
 pub fn test_soa(handler: impl ZoneHandler) {
-    let lookup = block_on(handler.soa()).unwrap();
+    let lookup = block_on(handler.lookup(
+        handler.origin(),
+        RecordType::SOA,
+        None,
+        LookupOptions::default(),
+    ))
+    .unwrap();
 
     match lookup
         .into_iter()

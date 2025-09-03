@@ -574,7 +574,13 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             LookupRecords::Empty
         };
 
-        let end_soa = if let LookupControlFlow::Continue(Ok(res)) = self.soa().await {
+        let future = self.lookup(
+            self.origin(),
+            RecordType::SOA,
+            None,
+            LookupOptions::default(),
+        );
+        let end_soa = if let LookupControlFlow::Continue(Ok(res)) = future.await {
             res.unwrap_records()
         } else {
             LookupRecords::Empty
