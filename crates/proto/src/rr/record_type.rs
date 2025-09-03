@@ -8,7 +8,7 @@
 //! record type definitions
 #![allow(clippy::use_self)]
 
-use alloc::string::ToString;
+use alloc::borrow::ToOwned;
 use core::cmp::Ordering;
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
@@ -198,7 +198,7 @@ impl RecordType {
 }
 
 impl FromStr for RecordType {
-    type Err = ProtoError;
+    type Err = DecodeError;
 
     /// Convert `&str` to `RecordType`
     ///
@@ -209,7 +209,7 @@ impl FromStr for RecordType {
     /// let var: RecordType = RecordType::from_str("A").unwrap();
     /// assert_eq!(RecordType::A, var);
     /// ```
-    fn from_str(str: &str) -> ProtoResult<Self> {
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
         // TODO missing stuff?
         debug_assert!(str.chars().all(|x| !char::is_ascii_lowercase(&x)));
         match str {
@@ -247,7 +247,7 @@ impl FromStr for RecordType {
             "TXT" => Ok(Self::TXT),
             "TSIG" => Ok(Self::TSIG),
             "ANY" | "*" => Ok(Self::ANY),
-            _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
+            _ => Err(DecodeError::UnknownRecordTypeStr(str.to_owned())),
         }
     }
 }
@@ -460,6 +460,7 @@ impl Display for RecordType {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::string::ToString;
     #[cfg(feature = "std")]
     use std::println;
 
@@ -572,6 +573,9 @@ mod tests {
     #[test]
     fn check_record_type_parse_wont_panic_with_symbols() {
         let dns_class = "a-b-c".to_ascii_uppercase().parse::<RecordType>();
-        assert!(matches!(&dns_class, Err(ProtoError { .. })));
+        assert!(matches!(
+            &dns_class,
+            Err(DecodeError::UnknownRecordTypeStr(_))
+        ));
     }
 }

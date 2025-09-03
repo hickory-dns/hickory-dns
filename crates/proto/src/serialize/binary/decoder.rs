@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 
 use thiserror::Error;
 
@@ -99,6 +99,30 @@ pub enum DecodeError {
     /// An unknown digest algorithm was found
     #[error("unknown digest algorithm: {0}")]
     UnknownDigestAlgorithm(u8),
+
+    /// An unknown dns class was found
+    #[error("dns class string unknown: {0}")]
+    UnknownDnsClassStr(String),
+
+    /// An unknown dns class value was found
+    #[error("dns class value unknown: {0}")]
+    UnknownDnsClassValue(u16),
+
+    /// An unknown record type string was found
+    #[error("record type string unknown: {0}")]
+    UnknownRecordTypeStr(String),
+
+    /// An unknown record type value was found
+    #[error("record type value unknown: {0}")]
+    UnknownRecordTypeValue(u16),
+
+    /// Unrecognized nsec3 flags were found
+    #[error("nsec3 flags should be 0b0000000*: {0:b}")]
+    UnrecognizedNsec3Flags(u8),
+
+    /// Unrecognized csync flags were found
+    #[error("csync flags should be 0b000000**: {0:b}")]
+    UnrecognizedCsyncFlags(u16),
 
     /// An unknown algorithm type was found
     #[error("unknown NSEC3 hash algorithm: {0}")]

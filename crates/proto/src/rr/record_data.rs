@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     rr::{
         RecordData, RecordDataDecodable,
         rdata::{
@@ -795,7 +795,7 @@ impl RData {
                 ANAME::read(decoder).map(Self::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
-                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
+                return Err(DecodeError::UnknownRecordTypeValue(rt.into()).into());
             }
             RecordType::CAA => {
                 trace!("reading CAA");
