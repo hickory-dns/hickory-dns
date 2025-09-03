@@ -137,10 +137,6 @@ pub enum ProtoErrorKind {
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
 
-    /// A request was Refused due to some access check
-    #[error("request refused")]
-    RequestRefused,
-
     /// A ring error
     #[cfg(feature = "__dnssec")]
     #[error("ring error: {0}")]
@@ -445,7 +441,6 @@ impl Clone for ProtoErrorKind {
             Msg(ref msg) => Msg(msg.clone()),
             NoConnections => NoConnections,
             NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
-            RequestRefused => RequestRefused,
             #[cfg(feature = "std")]
             Io(ref e) => Io(e.clone()),
             #[cfg(feature = "__dnssec")]
