@@ -567,12 +567,13 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             }
         }
 
-        let start_soa =
-            if let LookupControlFlow::Continue(Ok(res)) = self.soa_secure(lookup_options).await {
-                res.unwrap_records()
-            } else {
-                LookupRecords::Empty
-            };
+        let future = self.lookup(self.origin(), RecordType::SOA, None, lookup_options);
+        let start_soa = if let LookupControlFlow::Continue(Ok(res)) = future.await {
+            res.unwrap_records()
+        } else {
+            LookupRecords::Empty
+        };
+
         let end_soa = if let LookupControlFlow::Continue(Ok(res)) = self.soa().await {
             res.unwrap_records()
         } else {

@@ -53,7 +53,13 @@ pub fn test_a_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 
 #[allow(clippy::unreadable_literal)]
 pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
-    let lookup = block_on(handler.soa_secure(LookupOptions::for_dnssec())).unwrap();
+    let lookup = block_on(handler.lookup(
+        handler.origin(),
+        RecordType::SOA,
+        None,
+        LookupOptions::for_dnssec(),
+    ))
+    .unwrap();
 
     let (soa_records, other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()

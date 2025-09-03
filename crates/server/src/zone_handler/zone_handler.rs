@@ -222,12 +222,6 @@ pub trait ZoneHandler: Send + Sync {
         .await
     }
 
-    /// Returns the SOA record for the zone
-    async fn soa_secure(&self, lookup_options: LookupOptions) -> LookupControlFlow<AuthLookup> {
-        self.lookup(self.origin(), RecordType::SOA, None, lookup_options)
-            .await
-    }
-
     /// Returns all records in the zone.
     ///
     /// This will return `None` if the next zone handler in the zone handler chain should be used instead.

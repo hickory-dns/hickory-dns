@@ -853,7 +853,8 @@ async fn build_authoritative_response(
             None
         };
 
-        match handler.soa_secure(lookup_options).await.map_result() {
+        let future = handler.lookup(handler.origin(), RecordType::SOA, None, lookup_options);
+        match future.await.map_result() {
             Some(Ok(soa)) => (nsecs, Some(soa)),
             Some(Err(error)) => {
                 warn!(%error, "failed to lookup soa");
