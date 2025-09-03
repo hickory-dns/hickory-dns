@@ -90,27 +90,17 @@ pub enum ProtoErrorKind {
         len: usize,
     },
 
+    /// Message decoding error
+    #[error("decoding error: {0}")]
+    Decode(#[from] DecodeError),
+
     /// Semantic DNS errors
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
 
-    /// Overlapping labels
-    #[non_exhaustive]
-    #[error("overlapping labels name {label} other {other}")]
-    LabelOverlapsWithOther {
-        /// Start of the label that is overlaps
-        label: usize,
-        /// Start of the other label
-        other: usize,
-    },
-
     /// DNS protocol version doesn't have the expected version 3
     #[error("dns key value unknown, must be 3: {0}")]
     DnsKeyProtocolNot3(u8),
-
-    /// A domain name was too long
-    #[error("name label data exceed 255: {0}")]
-    DomainNameTooLong(usize),
 
     /// EDNS resource record label is not the root label, although required
     #[error("edns resource record label must be the root label (.): {0}")]
@@ -133,20 +123,6 @@ pub enum ProtoErrorKind {
         read: usize,
         /// The expected length of the data
         len: usize,
-    },
-
-    /// Label bytes exceeded the limit of 63
-    #[error("label bytes exceed 63: {0}")]
-    LabelBytesTooLong(usize),
-
-    /// Pointer points to an index within or after the current name
-    #[non_exhaustive]
-    #[error("label points to data not prior to idx: {idx} ptr: {ptr}")]
-    PointerNotPriorToLabel {
-        /// index of the label containing this pointer
-        idx: usize,
-        /// location to which the pointer is directing
-        ptr: u16,
     },
 
     /// The maximum buffer size was exceeded
@@ -205,10 +181,6 @@ pub enum ProtoErrorKind {
     /// An unknown record type value was found
     #[error("record type value unknown: {0}")]
     UnknownRecordTypeValue(u16),
-
-    /// An unrecognized label code was found
-    #[error("unrecognized label code: {0:b}")]
-    UnrecognizedLabelCode(u8),
 
     /// Unrecognized nsec3 flags were found
     #[error("nsec3 flags should be 0b0000000*: {0:b}")]
@@ -473,24 +445,6 @@ impl From<NoRecords> for ProtoError {
     }
 }
 
-impl From<DecodeError> for ProtoError {
-    fn from(err: DecodeError) -> Self {
-        match err {
-            DecodeError::PointerNotPriorToLabel { idx, ptr } => {
-                ProtoErrorKind::PointerNotPriorToLabel { idx, ptr }
-            }
-            DecodeError::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
-            DecodeError::UnrecognizedLabelCode(code) => ProtoErrorKind::UnrecognizedLabelCode(code),
-            DecodeError::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
-            DecodeError::LabelOverlapsWithOther { label, other } => {
-                ProtoErrorKind::LabelOverlapsWithOther { label, other }
-            }
-            _ => ProtoErrorKind::Msg(err.to_string()),
-        }
-        .into()
-    }
-}
-
 impl From<&'static str> for ProtoError {
     fn from(msg: &'static str) -> Self {
         ProtoErrorKind::Message(msg).into()
@@ -550,18 +504,15 @@ impl Clone for ProtoErrorKind {
             BadTransactionId => BadTransactionId,
             Busy => Busy,
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
+            Decode(ref e) => Decode(e.clone()),
             Dns(ref e) => Dns(e.clone()),
-            LabelOverlapsWithOther { label, other } => LabelOverlapsWithOther { label, other },
             DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
-            DomainNameTooLong(len) => DomainNameTooLong(len),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
             FormError { header, ref error } => FormError {
                 header,
                 error: error.clone(),
             },
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
-            LabelBytesTooLong(len) => LabelBytesTooLong(len),
-            PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },
             MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
             MaxRecordLimitExceeded { count, record_type } => {
                 MaxRecordLimitExceeded { count, record_type }
@@ -577,7 +528,6 @@ impl Clone for ProtoErrorKind {
             UnknownDnsClassValue(value) => UnknownDnsClassValue(value),
             UnknownRecordTypeStr(ref value) => UnknownRecordTypeStr(value.clone()),
             UnknownRecordTypeValue(value) => UnknownRecordTypeValue(value),
-            UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
             UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
             #[cfg(feature = "std")]

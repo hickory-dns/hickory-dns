@@ -25,7 +25,7 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use tinyvec::TinyVec;
 
-use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
+use crate::error::{ProtoError, ProtoResult};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::{
@@ -59,11 +59,11 @@ impl Name {
     }
 
     /// Extend the name with the offered label, and ensure maximum name length is not exceeded.
-    fn extend_name(&mut self, label: &[u8]) -> Result<(), ProtoError> {
+    fn extend_name(&mut self, label: &[u8]) -> Result<(), DecodeError> {
         let new_len = self.encoded_len() + label.len() + 1;
 
         if new_len > Self::MAX_LENGTH {
-            return Err(ProtoErrorKind::DomainNameTooLong(new_len).into());
+            return Err(DecodeError::DomainNameTooLong(new_len));
         };
 
         self.label_data.extend_from_slice(label);
@@ -230,7 +230,7 @@ impl Name {
         let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
 
         if labels.len() > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(labels.len()).into());
+            return Err(DecodeError::DomainNameTooLong(labels.len()).into());
         };
         if !errors.is_empty() {
             return Err(format!("error converting some labels: {errors:?}").into());
@@ -1173,7 +1173,7 @@ impl BinEncodable for Name {
         //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
         for label in labels {
             if label.len() > 63 {
-                return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
+                return Err(DecodeError::LabelBytesTooLong(label.len()).into());
             }
 
             labels_written.push(encoder.offset());
@@ -1212,7 +1212,7 @@ impl BinEncodable for Name {
         // the entire name needs to be less than 256.
         let length = encoder.len() - buf_len;
         if length > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(length).into());
+            return Err(DecodeError::DomainNameTooLong(length).into());
         }
 
         Ok(())
@@ -1516,7 +1516,7 @@ mod tests {
     use std::{collections::hash_map::DefaultHasher, println};
 
     use super::*;
-
+    use crate::error::ProtoErrorKind;
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
@@ -2090,7 +2090,7 @@ mod tests {
             .expect_err("should have errored, too long");
 
         match error.kind() {
-            ProtoErrorKind::DomainNameTooLong(_) => (),
+            ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(_)) => (),
             _ => panic!("expected too long message"),
         }
     }
@@ -2106,7 +2106,7 @@ mod tests {
             .expect_err("should have errored, too long");
 
         match error.kind() {
-            ProtoErrorKind::DomainNameTooLong(_) => (),
+            ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(_)) => (),
             _ => panic!("expected too long message"),
         }
     }
@@ -2176,13 +2176,13 @@ mod tests {
         let long_label_error = Name::parse(&format!("a{expected_name_str}"), None).unwrap_err();
         assert!(matches!(
             long_label_error.kind(),
-            ProtoErrorKind::LabelBytesTooLong(64)
+            ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(64))
         ));
         let long_name_error =
             Name::parse(&format!("a.{}", &expected_name_str[1..]), None).unwrap_err();
         assert!(matches!(
             long_name_error.kind(),
-            ProtoErrorKind::DomainNameTooLong(256)
+            ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(256))
         ))
     }
 
