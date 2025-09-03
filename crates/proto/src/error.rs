@@ -11,7 +11,9 @@
 
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
-use alloc::string::{String, ToString};
+use alloc::string::String;
+#[cfg(feature = "wasm-bindgen")]
+use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
@@ -236,12 +238,6 @@ impl From<ProtoError> for io::Error {
             ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::other(e),
         }
-    }
-}
-
-impl From<ProtoError> for String {
-    fn from(e: ProtoError) -> Self {
-        e.to_string()
     }
 }
 
