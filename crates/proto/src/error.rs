@@ -249,7 +249,7 @@ impl From<ProtoError> for wasm_bindgen_crate::JsValue {
 }
 
 /// The error kind for errors that get returned in the crate
-#[derive(Debug, EnumAsInner, Error)]
+#[derive(Clone, Debug, EnumAsInner, Error)]
 #[non_exhaustive]
 pub enum ProtoErrorKind {
     /// A UDP response was received with an incorrect transaction id, likely indicating a
@@ -409,58 +409,6 @@ impl From<io::Error> for ProtoErrorKind {
         match e.kind() {
             io::ErrorKind::TimedOut => Self::Timeout,
             _ => Self::Io(e.into()),
-        }
-    }
-}
-
-impl Clone for ProtoErrorKind {
-    fn clone(&self) -> Self {
-        use self::ProtoErrorKind::*;
-        match *self {
-            BadTransactionId => BadTransactionId,
-            Busy => Busy,
-            CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
-            #[cfg(feature = "__dnssec")]
-            Crypto(op) => Crypto(op),
-            Decode(ref e) => Decode(e.clone()),
-            Dns(ref e) => Dns(e.clone()),
-            FormError { header, ref error } => FormError {
-                header,
-                error: error.clone(),
-            },
-            MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
-            Message(msg) => Message(msg),
-            Msg(ref msg) => Msg(msg.clone()),
-            NoConnections => NoConnections,
-            NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
-            #[cfg(feature = "std")]
-            Io(ref e) => Io(e.clone()),
-            Timeout => Timeout,
-            UrlParsing(ref e) => UrlParsing(*e),
-            Utf8(ref e) => Utf8(*e),
-            FromUtf8(ref e) => FromUtf8(e.clone()),
-            ParseInt(ref e) => ParseInt(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnConnect(ref e) => QuinnConnect(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnConnection(ref e) => QuinnConnection(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnWriteError(ref e) => QuinnWriteError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuicMessageIdNot0(val) => QuicMessageIdNot0(val),
-            #[cfg(feature = "__quic")]
-            QuinnReadError(ref e) => QuinnReadError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnStreamError(ref e) => QuinnStreamError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnConfigError(ref e) => QuinnConfigError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnTlsConfigError(ref e) => QuinnTlsConfigError(e.clone()),
-            #[cfg(feature = "__quic")]
-            QuinnUnknownStreamError => QuinnUnknownStreamError,
-            #[cfg(feature = "__tls")]
-            RustlsError(ref e) => RustlsError(e.clone()),
-            QueryCaseMismatch => QueryCaseMismatch,
         }
     }
 }
