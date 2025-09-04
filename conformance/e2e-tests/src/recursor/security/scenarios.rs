@@ -1,4 +1,4 @@
-/// These scenarios use a Dnslib-based server which returns invalid answers that should be dropped
+/// These scenarios use the TestServer which returns invalid answers that should be dropped
 use std::{fs, net::Ipv4Addr, thread, time::Duration};
 
 use dns_test::{
@@ -71,10 +71,11 @@ fn case_randomization_enabled() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-
-    let script = fs::read_to_string("src/recursor/security/bad_case.py")?;
-    leaf_ns.cp("/script.py", &script[..])?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bad_case", "udp"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral(
         FQDN::TEST_TLD,
@@ -118,7 +119,7 @@ fn case_randomization_enabled() -> Result<(), Error> {
     Ok(())
 }
 
-/// Test resolving against the same dnslib server, but without enabling the case randomization setting.
+/// Test resolving against the same TestServer, but without enabling the case randomization setting.
 #[test]
 fn case_randomization_disabled() -> Result<(), Error> {
     let target_fqdn = FQDN("example-123.testing.").unwrap();
@@ -127,10 +128,11 @@ fn case_randomization_disabled() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-
-    let script = fs::read_to_string("src/recursor/security/bad_case.py")?;
-    leaf_ns.cp("/script.py", &script[..])?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bad_case", "udp"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral(
         FQDN::TEST_TLD,
@@ -149,6 +151,8 @@ fn case_randomization_disabled() -> Result<(), Error> {
     let settings = *DigSettings::default().recurse().timeout(7);
     let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn)?;
 
+    println!("Resolver logs: {}", resolver.logs().unwrap());
+    println!("Test server logs: {}", _leaf_ns.logs().unwrap());
     assert_eq!(output.status, DigStatus::NOERROR);
     assert_eq!(output.answer.len(), 1);
     assert_eq!(
@@ -193,10 +197,11 @@ fn case_randomization_tcp_fallback() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-
-    let script = fs::read_to_string("src/recursor/security/bad_case_with_tcp.py")?;
-    leaf_ns.cp("/script.py", &script[..])?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bad_case", "both"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral(
         FQDN::TEST_TLD,
