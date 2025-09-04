@@ -131,6 +131,42 @@ pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result
         .with_context(|| "packet loss handler: could not serialize Message")
 }
 
+/// This handler does not preserve the case of query names in responses.
+pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut queries = msg.take_queries();
+
+    // This doesn't use Name::randomize_case_labels since that doesn't guarantee
+    // input != output.
+    let mut mod_name = Name::new();
+    for label in queries[0].name.iter() {
+        let mut new_label = label.to_vec();
+        for ch in &mut new_label {
+            if ch.is_ascii_alphabetic() {
+                *ch ^= 0x20; // flip case
+            }
+        }
+        mod_name = mod_name.append_label(new_label).unwrap();
+    }
+    queries[0].name = mod_name;
+    let name = queries[0].name().clone();
+    msg.add_queries(queries);
+
+    msg.set_authoritative(true)
+        .set_recursion_desired(false)
+        .add_answer(Record::from_rdata(
+            name,
+            0,
+            RData::A(rdata::A(match transport {
+                Transport::Tcp => [192, 0, 2, 2].into(),
+                Transport::Udp => [192, 0, 2, 1].into(),
+            })),
+        ))
+        .to_vec()
+        .map(Some)
+        .with_context(|| "bad case handler: could not serialize Message")
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);

@@ -21,6 +21,7 @@ async fn main() -> Result<()> {
     let transport = args.transport;
     let handler = match &args.handler[..] {
         "base" => handlers::base_handler,
+        "bad_case" => handlers::bad_case_handler,
         "bad_txid" => handlers::bad_txid_handler,
         "empty_response" => handlers::empty_response_handler,
         "packet_loss" => handlers::packet_loss_handler,
