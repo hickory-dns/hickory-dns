@@ -22,8 +22,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use crate::rr::Name;
 use crate::serialize::binary::*;
 
-/// TODO: all LowerNames should be stored in a global "intern" space, and then everything that uses
-///  them should be through references. As a workaround the Strings are all Rc as well as the array
+/// Like [`Name`], except guaranteed to be in lower case form.
+///
+/// This guarantee is helpful for performance reasons, as case-sensitive comparisons
+/// can be done faster. Name comparison is a frequent operation and so overall performance
+/// benefits.
+// TODO: all LowerNames should be stored in a global "intern" space, and then everything that uses
+//  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]
 pub struct LowerName(Name);
 

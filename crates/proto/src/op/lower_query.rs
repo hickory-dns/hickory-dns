@@ -13,7 +13,11 @@ use crate::rr::LowerName;
 use crate::rr::{DNSClass, RecordType};
 use crate::serialize::binary::*;
 
-/// Identical to [crate::op::Query], except that the Name is guaranteed to be in lower case form
+/// Identical to [`Query`], except that the Name is guaranteed to be in lower case form.
+///
+/// This guarantee is helpful for performance reasons, as case-sensitive comparisons
+/// can be done faster. Name comparison is a frequent operation and so overall performance
+/// benefits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LowerQuery {
     name: LowerName,
