@@ -17,7 +17,6 @@
 ///  www10.example2.testing IN CNAME www11.example.testing.
 ///  www12.example2.testing IN CNAME www13.example.testing.
 ///
-use std::fs;
 use std::net::Ipv4Addr;
 use std::thread;
 use std::time::Duration;
@@ -175,11 +174,11 @@ fn cname_lookup_limit_test() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-
-    let script = fs::read_to_string("src/recursor/cname/cname_loop.py")?;
-
-    leaf_ns.cp("/script.py", &script[..])?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("cname_loop", "both"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral(
         FQDN::TEST_TLD,

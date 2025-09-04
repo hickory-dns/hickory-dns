@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
         "base" => handlers::base_handler,
         "bad_case" => handlers::bad_case_handler,
         "bad_txid" => handlers::bad_txid_handler,
+        "cname_loop" => handlers::cname_loop_handler,
         "empty_response" => handlers::empty_response_handler,
         "packet_loss" => handlers::packet_loss_handler,
         "truncated_response" => handlers::truncated_response_handler,
