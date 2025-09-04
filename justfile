@@ -96,9 +96,9 @@ clippy-inner feature='':
 
 # Run clippy on all targets and all sources
 clippy:
+    just clippy-inner --all-features
     just clippy-inner --no-default-features
     just clippy-inner
-    just clippy-inner --all-features
     cargo clippy --manifest-path fuzz/Cargo.toml --locked --all-targets -- -D warnings
 
 # Check the format of all the Rust code with rustfmt
