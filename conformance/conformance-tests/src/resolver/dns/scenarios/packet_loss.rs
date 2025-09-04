@@ -1,6 +1,6 @@
 //! Test how resolvers respond to packet loss.
 
-use std::{fs, net::Ipv4Addr};
+use std::net::Ipv4Addr;
 
 use dns_test::{
     Error, FQDN, Implementation, Network, PEER, Resolver,
@@ -16,9 +16,11 @@ fn packet_loss_udp() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-    let script = fs::read_to_string("src/resolver/dns/scenarios/packet_loss.py")?;
-    leaf_ns.cp("/script.py", &script)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("packet_loss", "udp"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral_nameserver(&leaf_ns);
 
