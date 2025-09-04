@@ -3,7 +3,7 @@
 //! response is truncated, and a resolver doesn't know whether it has a complete set, it should not
 //! cache a possibly partial set of RRs."
 
-use std::{fs, thread, time::Duration};
+use std::{thread, time::Duration};
 
 use dns_test::{
     Error, FQDN, Implementation, Network, PEER, Resolver,
@@ -17,8 +17,7 @@ use dns_test::{
 #[test]
 fn truncated_response_caching_with_tcp_fallback() -> Result<(), Error> {
     let target_fqdn = FQDN("example.testing.")?;
-    let (resolver, client, _graph) =
-        setup("src/resolver/dns/rfc1035/truncated_with_tcp_fallback.py")?;
+    let (resolver, client, _graph) = setup("both")?;
 
     let dig_settings = *DigSettings::default().recurse().timeout(7);
 
@@ -64,7 +63,7 @@ fn truncated_response_caching_with_tcp_fallback() -> Result<(), Error> {
 #[test]
 fn truncated_response_caching_udp_only() -> Result<(), Error> {
     let target_fqdn = FQDN("example.testing.")?;
-    let (resolver, client, _graph) = setup("src/resolver/dns/rfc1035/truncated_udp_only.py")?;
+    let (resolver, client, _graph) = setup("udp")?;
 
     let dig_settings = *DigSettings::default().recurse().timeout(7);
 
@@ -106,13 +105,15 @@ fn truncated_response_caching_udp_only() -> Result<(), Error> {
     Ok(())
 }
 
-fn setup(script_path: &str) -> Result<(Resolver, Client, Graph), Error> {
+fn setup(transport: &'static str) -> Result<(Resolver, Client, Graph), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-    let script = fs::read_to_string(script_path)?;
-    leaf_ns.cp("/script.py", &script)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("truncated_response", transport),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral_nameserver(&leaf_ns);
 
