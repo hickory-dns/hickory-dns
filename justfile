@@ -92,7 +92,7 @@ build-bench:
 
 [private]
 clippy-inner feature='':
-    cargo ws exec cargo {{MSRV}} clippy --locked --all-targets {{feature}} -- -D warnings
+    cargo ws exec --no-bail cargo {{MSRV}} clippy --locked --all-targets {{feature}} -- -D warnings
 
 # Run clippy on all targets and all sources
 clippy:
