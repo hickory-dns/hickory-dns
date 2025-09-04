@@ -173,6 +173,17 @@ fn case_randomization_disabled() -> Result<(), Error> {
     Ok(())
 }
 
+/*
+Commenting this out since it is flaky. It usually works locally but often fails in CI.
+Notably, it does not always fail in CI, and ignored tests are supposed to always fail
+(we check for this in our CI setup).
+
+In my investigation, it seems that the dnslib server allows only request per TCP connection
+which means the second connection to a TCP server will fail. This then triggers fallback in
+the resolver name server pool which doesn't entirely make sense. It seems to vary whether
+the TCP stream fails with `Busy` or `Message("stream closed")`, which we handle differently
+(for what seem like good reasons).
+
 /// Check that enabling the case randomization setting causes Hickory to fall back to TCP when
 /// talking to incompatible servers.
 #[test]
@@ -223,3 +234,4 @@ fn case_randomization_tcp_fallback() -> Result<(), Error> {
 
     Ok(())
 }
+*/
