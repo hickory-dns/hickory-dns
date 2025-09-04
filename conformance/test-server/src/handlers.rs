@@ -167,6 +167,51 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
         .with_context(|| "bad case handler: could not serialize Message")
 }
 
+/// This handler generates a large number of lengthy CNAME records to resolve
+pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let name = msg.queries()[0].name().clone();
+
+    let Some(host) = name.iter().next() else {
+        return Ok(None);
+    };
+
+    let Ok(host_str) = std::str::from_utf8(host) else {
+        return Ok(None);
+    };
+
+    let round = host_str
+        .split('-')
+        .nth(1)
+        .and_then(|s| s.parse::<usize>().ok())
+        .map(|n| n + 1)
+        .unwrap_or(0);
+
+    if round > 9 {
+        msg.add_answer(Record::from_rdata(
+            name,
+            1,
+            RData::A(rdata::A([192, 0, 2, 1].into())),
+        ));
+    } else {
+        for i in 0..40 {
+            msg.add_answer(Record::from_rdata(
+                name.clone(),
+                1,
+                RData::CNAME(rdata::CNAME(
+                    Name::from_ascii(format!("c-{round}-{i}.testing.")).unwrap(),
+                )),
+            ));
+        }
+    }
+
+    msg.set_authoritative(true)
+        .set_recursion_desired(false)
+        .to_vec()
+        .map(Some)
+        .with_context(|| "cname loop handler: could not serialize Message")
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);
