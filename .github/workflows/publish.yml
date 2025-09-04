@@ -6,7 +6,7 @@ on:
       - published
 
 env:
-  CARGO_WS_VERSION: "0.3.6"
+  CARGO_WS_VERSION: "0.4.1"
 
 jobs:
   publish:
