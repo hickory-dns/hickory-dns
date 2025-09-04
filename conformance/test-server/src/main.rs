@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
         "base" => handlers::base_handler,
         "bad_txid" => handlers::bad_txid_handler,
         "empty_response" => handlers::empty_response_handler,
+        "packet_loss" => handlers::packet_loss_handler,
         "truncated_response" => handlers::truncated_response_handler,
         _ => {
             return Err(anyhow::Error::msg("unknown handler"));

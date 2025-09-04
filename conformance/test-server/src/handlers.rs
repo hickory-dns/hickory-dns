@@ -4,7 +4,7 @@ use hickory_proto::{
     op::{Message, ResponseCode},
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 /// This handler generates a valid A-record response to any query
 pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
@@ -105,5 +105,32 @@ pub(crate) fn truncated_response_handler(
         .with_context(|| "truncated response handler: could not serialize Message")
 }
 
+/// This handler simulates packet loss by not responding to the first query it receives
+pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let name = msg.queries()[0].name().clone();
+
+    if name == Name::from_ascii("example.testing.").unwrap() {
+        if !PACKET_LOSS_MARKER.load(Ordering::Relaxed) {
+            PACKET_LOSS_MARKER.store(true, Ordering::Relaxed);
+            return Ok(None);
+        }
+        msg.set_recursion_desired(false)
+            .set_authoritative(true)
+            .add_answer(Record::from_rdata(
+                name,
+                86400,
+                RData::A(rdata::A([192, 0, 2, 1].into())),
+            ));
+    } else {
+        msg.set_response_code(ResponseCode::NXDomain);
+    }
+
+    msg.to_vec()
+        .map(Some)
+        .with_context(|| "packet loss handler: could not serialize Message")
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
+static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);
