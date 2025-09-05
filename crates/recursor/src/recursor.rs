@@ -33,7 +33,7 @@ use crate::{
     ErrorKind,
     proto::{
         DnsError, NoRecords, ProtoError,
-        dnssec::{DnssecDnsHandle, TrustAnchors},
+        dnssec::DnssecDnsHandle,
         op::{DnsRequestOptions, ResponseCode},
         rr::RecordType,
         xfer::{DnsHandle as _, FirstAnswer as _},
@@ -44,21 +44,21 @@ use crate::{
 /// A `Recursor` builder
 #[derive(Clone)]
 pub struct RecursorBuilder<P: ConnectionProvider> {
-    ns_cache_size: usize,
-    response_cache_size: u64,
+    pub(super) ns_cache_size: usize,
+    pub(super) response_cache_size: u64,
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
     /// to None will disable the recursion limit check, and is not recommended.
-    recursion_limit: Option<u8>,
+    pub(super) recursion_limit: Option<u8>,
     /// This controls how many nested lookups will be attempted when trying to build an NS pool.
     /// Setting it to None will disable the recursion limit check, and is not recommended.
-    ns_recursion_limit: Option<u8>,
-    dnssec_policy: DnssecPolicy,
-    allow_servers: Vec<IpNet>,
-    deny_servers: Vec<IpNet>,
-    avoid_local_udp_ports: HashSet<u16>,
-    ttl_config: TtlConfig,
-    case_randomization: bool,
-    conn_provider: P,
+    pub(super) ns_recursion_limit: Option<u8>,
+    pub(super) dnssec_policy: DnssecPolicy,
+    pub(super) allow_servers: Vec<IpNet>,
+    pub(super) deny_servers: Vec<IpNet>,
+    pub(super) avoid_local_udp_ports: HashSet<u16>,
+    pub(super) ttl_config: TtlConfig,
+    pub(super) case_randomization: bool,
+    pub(super) conn_provider: P,
 }
 
 impl<P: ConnectionProvider> RecursorBuilder<P> {
@@ -149,7 +149,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
 pub struct Recursor<P: ConnectionProvider> {
-    mode: RecursorMode<P>,
+    pub(super) mode: RecursorMode<P>,
 }
 
 impl Recursor<TokioRuntimeProvider> {
@@ -187,71 +187,13 @@ impl<P: ConnectionProvider> Recursor<P> {
     }
 
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
-        let RecursorBuilder {
-            ns_cache_size,
-            response_cache_size,
-            recursion_limit,
-            ns_recursion_limit,
-            dnssec_policy,
-            allow_servers,
-            deny_servers,
-            avoid_local_udp_ports,
-            ttl_config,
-            case_randomization,
-            conn_provider,
-        } = builder;
-
-        let handle = RecursorDnsHandle::new(
-            roots,
-            ns_cache_size,
-            response_cache_size,
-            recursion_limit,
-            ns_recursion_limit,
-            dnssec_policy.is_security_aware(),
-            allow_servers,
-            deny_servers,
-            Arc::new(avoid_local_udp_ports),
-            ttl_config.clone(),
-            case_randomization,
-            Arc::new(TlsConfig::new()?),
-            conn_provider,
-        );
-
-        let mode = match dnssec_policy {
-            DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
-
-            #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
-
-            #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidateWithStaticKey {
-                trust_anchor,
-                nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit,
-            } => {
-                let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config);
-                let trust_anchor = match trust_anchor {
-                    Some(anchor) if anchor.is_empty() => {
-                        return Err(Error::from("trust anchor must not be empty"));
-                    }
-                    Some(anchor) => anchor,
-                    None => Arc::new(TrustAnchors::default()),
-                };
-
-                RecursorMode::Validating {
-                    validated_response_cache,
-                    #[cfg(feature = "metrics")]
-                    cache_metrics: handle.cache_metrics().clone(),
-                    handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
-                        .nsec3_iteration_limits(
-                            nsec3_soft_iteration_limit,
-                            nsec3_hard_iteration_limit,
-                        ),
-                }
-            }
-        };
-
-        Ok(Self { mode })
+        Ok(Self {
+            mode: RecursorDnsHandle::build_recursor_mode(
+                roots,
+                Arc::new(TlsConfig::new()?),
+                builder,
+            )?,
+        })
     }
 
     /// Perform a recursive resolution
@@ -528,7 +470,7 @@ impl<P: ConnectionProvider> Recursor<P> {
     }
 }
 
-enum RecursorMode<P: ConnectionProvider> {
+pub(super) enum RecursorMode<P: ConnectionProvider> {
     NonValidating {
         handle: RecursorDnsHandle<P>,
     },
