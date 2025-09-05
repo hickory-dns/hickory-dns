@@ -35,9 +35,6 @@ std = [
     "rand/thread_rng",
     "ring?/std",
     "thiserror/std",
-    "tracing-subscriber/env-filter",
-    "tracing-subscriber/fmt",
-    "tracing-subscriber/std",
     "tracing/std",
     "url/std",
 ]
@@ -128,7 +125,6 @@ webpki-roots = { workspace = true, optional = true }
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 test-support.workspace = true
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
-tracing-subscriber.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
