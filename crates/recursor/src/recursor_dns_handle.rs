@@ -662,7 +662,7 @@ fn recursor_opts(
     options.preserve_intermediates = true;
     options.recursion_desired = false;
     options.num_concurrent_reqs = 1;
-    options.avoid_local_udp_ports = avoid_local_udp_ports;
+    options.connection_opts.avoid_local_udp_ports = avoid_local_udp_ports;
     options.case_randomization = case_randomization;
 
     options

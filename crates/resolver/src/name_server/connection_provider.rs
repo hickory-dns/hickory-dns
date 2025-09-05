@@ -21,7 +21,7 @@ use futures_util::ready;
 #[cfg(feature = "__tls")]
 use rustls::pki_types::ServerName;
 
-use crate::config::{ConnectionConfig, ProtocolConfig, ResolverOpts};
+use crate::config::{ConnectionConfig, ConnectionOptions, ProtocolConfig};
 #[cfg(feature = "__https")]
 use crate::proto::h2::HttpsClientConnect;
 #[cfg(feature = "__h3")]
@@ -55,7 +55,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         &self,
         ip: IpAddr,
         config: &ConnectionConfig,
-        options: &ResolverOpts,
+        options: &ConnectionOptions,
         tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error>;
 }
@@ -120,7 +120,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
         &self,
         ip: IpAddr,
         config: &ConnectionConfig,
-        options: &ResolverOpts,
+        options: &ConnectionOptions,
         #[cfg_attr(not(feature = "__tls"), allow(unused_variables))] tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error> {
         let remote_addr = SocketAddr::new(ip, config.port);

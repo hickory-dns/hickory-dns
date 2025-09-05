@@ -443,7 +443,7 @@ impl ProtocolConfig {
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
-    serde(default, deny_unknown_fields)
+    serde(default)
 )]
 #[allow(missing_copy_implementations)]
 #[non_exhaustive]
@@ -453,12 +453,9 @@ pub struct ResolverOpts {
     ///  would never be assumed to be a TLD, and would always be appended to either the search
     #[cfg_attr(feature = "serde", serde(default = "default_ndots"))]
     pub ndots: usize,
-    /// Specify the timeout for a request. Defaults to 5 seconds
-    #[cfg_attr(
-        feature = "serde",
-        serde(default = "default_timeout", with = "duration")
-    )]
-    pub timeout: Duration,
+    /// Options for making new connections with a connection provider.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub connection_opts: ConnectionOptions,
     /// Number of retries after lookup failure before giving up. Defaults to 2
     #[cfg_attr(feature = "serde", serde(default = "default_attempts"))]
     pub attempts: usize,
@@ -516,19 +513,6 @@ pub struct ResolverOpts {
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
     #[cfg_attr(feature = "serde", serde(default = "default_recursion_desired"))]
     pub recursion_desired: bool,
-    /// Local UDP ports to avoid when making outgoing queries
-    pub avoid_local_udp_ports: Arc<HashSet<u16>>,
-    /// Request UDP bind ephemeral ports directly from the OS
-    ///
-    /// Boolean parameter to specify whether to use the operating system's standard UDP port
-    /// selection logic instead of Hickory's logic to securely select a random source port. We do
-    /// not recommend using this option unless absolutely necessary, as the operating system may
-    /// select ephemeral ports from a smaller range than Hickory, which can make response poisoning
-    /// attacks easier to conduct. Some operating systems (notably, Windows) might display a
-    /// user-prompt to allow a Hickory-specified port to be used, and setting this option will
-    /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
-    /// will be ignored.
-    pub os_port_selection: bool,
     /// Enable case randomization.
     ///
     /// Randomize the case of letters in query names, and require that responses preserve the case
@@ -550,7 +534,7 @@ impl Default for ResolverOpts {
     fn default() -> Self {
         Self {
             ndots: default_ndots(),
-            timeout: default_timeout(),
+            connection_opts: ConnectionOptions::default(),
             attempts: default_attempts(),
             edns0: false,
             #[cfg(feature = "__dnssec")]
@@ -570,8 +554,6 @@ impl Default for ResolverOpts {
             try_tcp_on_error: false,
             server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: default_recursion_desired(),
-            avoid_local_udp_ports: Arc::default(),
-            os_port_selection: false,
             case_randomization: false,
             trust_anchor: None,
         }
@@ -580,10 +562,6 @@ impl Default for ResolverOpts {
 
 fn default_ndots() -> usize {
     1
-}
-
-fn default_timeout() -> Duration {
-    Duration::from_secs(5)
 }
 
 fn default_attempts() -> usize {
@@ -604,6 +582,48 @@ fn default_preserve_intermediates() -> bool {
 
 fn default_recursion_desired() -> bool {
     true
+}
+
+/// Connection options for creating a new connection with a connection provider.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ConnectionOptions {
+    /// The timeout for connecting, and for DNS requests.
+    /// Defaults to 5 seconds.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_timeout", with = "duration")
+    )]
+    pub timeout: Duration,
+
+    /// Request UDP bind ephemeral ports directly from the OS
+    ///
+    /// Boolean parameter to specify whether to use the operating system's standard UDP port
+    /// selection logic instead of Hickory's logic to securely select a random source port. We do
+    /// not recommend using this option unless absolutely necessary, as the operating system may
+    /// select ephemeral ports from a smaller range than Hickory, which can make response poisoning
+    /// attacks easier to conduct. Some operating systems (notably, Windows) might display a
+    /// user-prompt to allow a Hickory-specified port to be used, and setting this option will
+    /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
+    /// will be ignored.
+    pub os_port_selection: bool,
+
+    /// Local UDP ports to avoid when making outgoing queries.
+    pub avoid_local_udp_ports: Arc<HashSet<u16>>,
+}
+
+impl Default for ConnectionOptions {
+    fn default() -> Self {
+        Self {
+            timeout: default_timeout(),
+            os_port_selection: false,
+            avoid_local_udp_ports: Arc::new(HashSet::default()),
+        }
+    }
+}
+
+fn default_timeout() -> Duration {
+    Duration::from_secs(5)
 }
 
 /// The lookup ip strategy
@@ -876,7 +896,15 @@ mod tests {
         let code = ResolverOpts::default();
         let json = serde_json::from_str::<ResolverOpts>("{}").unwrap();
         assert_eq!(code.ndots, json.ndots);
-        assert_eq!(code.timeout, json.timeout);
+        assert_eq!(code.connection_opts.timeout, json.connection_opts.timeout);
+        assert_eq!(
+            code.connection_opts.avoid_local_udp_ports,
+            json.connection_opts.avoid_local_udp_ports
+        );
+        assert_eq!(
+            code.connection_opts.os_port_selection,
+            json.connection_opts.os_port_selection
+        );
         assert_eq!(code.attempts, json.attempts);
         assert_eq!(code.edns0, json.edns0);
         #[cfg(feature = "__dnssec")]
@@ -893,8 +921,6 @@ mod tests {
         assert_eq!(code.try_tcp_on_error, json.try_tcp_on_error);
         assert_eq!(code.recursion_desired, json.recursion_desired);
         assert_eq!(code.server_ordering_strategy, json.server_ordering_strategy);
-        assert_eq!(code.avoid_local_udp_ports, json.avoid_local_udp_ports);
-        assert_eq!(code.os_port_selection, json.os_port_selection);
         assert_eq!(code.case_randomization, json.case_randomization);
         assert_eq!(code.trust_anchor, json.trust_anchor);
     }

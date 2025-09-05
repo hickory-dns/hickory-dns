@@ -180,7 +180,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
-            &self.options,
+            &self.options.connection_opts,
             &self.tls,
         )?)
         .await?;
@@ -454,7 +454,7 @@ mod tests {
     use tokio::spawn;
 
     use super::*;
-    use crate::config::{ConnectionConfig, ProtocolConfig};
+    use crate::config::{ConnectionConfig, ConnectionOptions, ProtocolConfig};
     use crate::proto::op::{DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -492,7 +492,10 @@ mod tests {
         subscribe();
 
         let options = ResolverOpts {
-            timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
+            connection_opts: ConnectionOptions {
+                timeout: Duration::from_millis(1),
+                ..ConnectionOptions::default()
+            }, // this is going to fail, make it fail fast...
             ..ResolverOpts::default()
         };
 
