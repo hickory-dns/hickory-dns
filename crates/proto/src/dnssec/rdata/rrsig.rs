@@ -7,6 +7,7 @@
 
 //! RRSIG type and related implementations
 
+use alloc::vec::Vec;
 use core::{fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
@@ -46,6 +47,11 @@ impl RRSIG {
 
         let sig = signer.sign(&tbs)?;
         Ok(Self(SIG { input, sig }))
+    }
+
+    /// Create a new RRSIG record from the given SIG data and signature
+    pub fn from_sig(input: SigInput, sig: Vec<u8>) -> Self {
+        Self(SIG { input, sig })
     }
 
     /// Returns the authenticated TTL of this RRSIG with a Record.
