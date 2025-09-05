@@ -18,7 +18,9 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
-use crate::config::{ConnectionOptions, NameServerConfig, ResolverConfig, ResolverOpts};
+use crate::config::{
+    ConnectionOptions, NameServerConfig, NameServerOptions, ResolverConfig, ResolverOpts,
+};
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
 
@@ -83,9 +85,12 @@ fn into_resolver_config(
 
     let options = ResolverOpts {
         ndots: parsed_config.ndots as usize,
-        connection_opts: ConnectionOptions {
-            timeout: Duration::from_secs(u64::from(parsed_config.timeout)),
-            ..ConnectionOptions::default()
+        name_server_options: NameServerOptions {
+            connection_opts: ConnectionOptions {
+                timeout: Duration::from_secs(u64::from(parsed_config.timeout)),
+                ..ConnectionOptions::default()
+            },
+            ..NameServerOptions::default()
         },
         attempts: parsed_config.attempts as usize,
         edns0: parsed_config.edns0,
@@ -184,7 +189,10 @@ mod tests {
     /// Validate that all options set in `into_resolver_config()` are at default values
     fn is_default_opts(opts: ResolverOpts) {
         assert_eq!(opts.ndots, 1);
-        assert_eq!(opts.connection_opts.timeout, Duration::from_secs(5));
+        assert_eq!(
+            opts.name_server_options.connection_opts.timeout,
+            Duration::from_secs(5)
+        );
         assert_eq!(opts.attempts, 2);
     }
 }

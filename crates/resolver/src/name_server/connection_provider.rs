@@ -318,7 +318,10 @@ mod tests {
         let mut builder =
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         // Prefer IPv4 addresses for this test.
-        builder.options_mut().server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+        builder
+            .options_mut()
+            .name_server_options
+            .server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
         let resolver = builder.build().unwrap();
 
         let response = resolver
@@ -365,8 +368,10 @@ mod tests {
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
         // Prefer IPv4 addresses for this test.
-        resolver_builder.options_mut().server_ordering_strategy =
-            ServerOrderingStrategy::UserProvidedOrder;
+        resolver_builder
+            .options_mut()
+            .name_server_options
+            .server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
         resolver_builder = resolver_builder.with_tls_config(tls_config);
         let resolver = resolver_builder.build().unwrap();
 

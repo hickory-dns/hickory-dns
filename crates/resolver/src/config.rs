@@ -453,9 +453,9 @@ pub struct ResolverOpts {
     ///  would never be assumed to be a TLD, and would always be appended to either the search
     #[cfg_attr(feature = "serde", serde(default = "default_ndots"))]
     pub ndots: usize,
-    /// Options for making new connections with a connection provider.
+    /// Options specific to connecting to a name server.
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub connection_opts: ConnectionOptions,
+    pub name_server_options: NameServerOptions,
     /// Number of retries after lookup failure before giving up. Defaults to 2
     #[cfg_attr(feature = "serde", serde(default = "default_attempts"))]
     pub attempts: usize,
@@ -495,19 +495,11 @@ pub struct ResolverOpts {
     /// `negative_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`](crate::MAX_TTL) seconds.
     #[cfg_attr(feature = "serde", serde(with = "duration_opt"))]
     pub negative_max_ttl: Option<Duration>,
-    /// Number of concurrent requests per query
-    ///
-    /// Where more than one nameserver is configured, this configures the resolver to send queries
-    /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
-    #[cfg_attr(feature = "serde", serde(default = "default_num_concurrent_reqs"))]
-    pub num_concurrent_reqs: usize,
     /// Preserve all intermediate records in the lookup response, such as CNAME records
     #[cfg_attr(feature = "serde", serde(default = "default_preserve_intermediates"))]
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,
-    /// The server ordering strategy that the resolver should use.
-    pub server_ordering_strategy: ServerOrderingStrategy,
     /// Request upstream recursive resolvers to not perform any recursion.
     ///
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
@@ -534,7 +526,7 @@ impl Default for ResolverOpts {
     fn default() -> Self {
         Self {
             ndots: default_ndots(),
-            connection_opts: ConnectionOptions::default(),
+            name_server_options: NameServerOptions::default(),
             attempts: default_attempts(),
             edns0: false,
             #[cfg(feature = "__dnssec")]
@@ -546,13 +538,11 @@ impl Default for ResolverOpts {
             negative_min_ttl: None,
             positive_max_ttl: None,
             negative_max_ttl: None,
-            num_concurrent_reqs: default_num_concurrent_reqs(),
 
             // Defaults to `true` to match the behavior of dig and nslookup.
             preserve_intermediates: default_preserve_intermediates(),
 
             try_tcp_on_error: false,
-            server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: default_recursion_desired(),
             case_randomization: false,
             trust_anchor: None,
@@ -572,16 +562,45 @@ fn default_cache_size() -> u64 {
     32
 }
 
-fn default_num_concurrent_reqs() -> usize {
-    2
-}
-
 fn default_preserve_intermediates() -> bool {
     true
 }
 
 fn default_recursion_desired() -> bool {
     true
+}
+
+/// Options specific to interacting with name servers.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct NameServerOptions {
+    /// Number of concurrent requests per query
+    ///
+    /// Where more than one nameserver is configured, this configures the resolver to send queries
+    /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
+    #[cfg_attr(feature = "serde", serde(default = "default_num_concurrent_reqs"))]
+    pub num_concurrent_reqs: usize,
+
+    /// The ordering strategy for choosing between name servers.
+    pub server_ordering_strategy: ServerOrderingStrategy,
+
+    /// Options for making new connections with a connection provider.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub connection_opts: ConnectionOptions,
+}
+
+impl Default for NameServerOptions {
+    fn default() -> Self {
+        Self {
+            num_concurrent_reqs: default_num_concurrent_reqs(),
+            server_ordering_strategy: ServerOrderingStrategy::default(),
+            connection_opts: ConnectionOptions::default(),
+        }
+    }
+}
+
+fn default_num_concurrent_reqs() -> usize {
+    2
 }
 
 /// Connection options for creating a new connection with a connection provider.
@@ -896,14 +915,29 @@ mod tests {
         let code = ResolverOpts::default();
         let json = serde_json::from_str::<ResolverOpts>("{}").unwrap();
         assert_eq!(code.ndots, json.ndots);
-        assert_eq!(code.connection_opts.timeout, json.connection_opts.timeout);
         assert_eq!(
-            code.connection_opts.avoid_local_udp_ports,
-            json.connection_opts.avoid_local_udp_ports
+            code.name_server_options.num_concurrent_reqs,
+            json.name_server_options.num_concurrent_reqs
         );
         assert_eq!(
-            code.connection_opts.os_port_selection,
-            json.connection_opts.os_port_selection
+            code.name_server_options.server_ordering_strategy,
+            json.name_server_options.server_ordering_strategy
+        );
+        assert_eq!(
+            code.name_server_options.connection_opts.timeout,
+            json.name_server_options.connection_opts.timeout
+        );
+        assert_eq!(
+            code.name_server_options
+                .connection_opts
+                .avoid_local_udp_ports,
+            json.name_server_options
+                .connection_opts
+                .avoid_local_udp_ports
+        );
+        assert_eq!(
+            code.name_server_options.connection_opts.os_port_selection,
+            json.name_server_options.connection_opts.os_port_selection
         );
         assert_eq!(code.attempts, json.attempts);
         assert_eq!(code.edns0, json.edns0);
@@ -916,11 +950,9 @@ mod tests {
         assert_eq!(code.negative_min_ttl, json.negative_min_ttl);
         assert_eq!(code.positive_max_ttl, json.positive_max_ttl);
         assert_eq!(code.negative_max_ttl, json.negative_max_ttl);
-        assert_eq!(code.num_concurrent_reqs, json.num_concurrent_reqs);
         assert_eq!(code.preserve_intermediates, json.preserve_intermediates);
         assert_eq!(code.try_tcp_on_error, json.try_tcp_on_error);
         assert_eq!(code.recursion_desired, json.recursion_desired);
-        assert_eq!(code.server_ordering_strategy, json.server_ordering_strategy);
         assert_eq!(code.case_randomization, json.case_randomization);
         assert_eq!(code.trust_anchor, json.trust_anchor);
     }

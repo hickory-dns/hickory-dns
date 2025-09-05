@@ -100,7 +100,8 @@ impl<P: ConnectionProvider> PoolState<P> {
 
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
         let mut servers = self.servers.clone();
-        match self.options.server_ordering_strategy {
+        let name_server_opts = &self.options.name_server_options;
+        match name_server_opts.server_ordering_strategy {
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
@@ -109,8 +110,8 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
-                let num_concurrent_reqs = if self.options.num_concurrent_reqs > 1 {
-                    self.options.num_concurrent_reqs
+                let num_concurrent_reqs = if name_server_opts.num_concurrent_reqs > 1 {
+                    name_server_opts.num_concurrent_reqs
                 } else {
                     1
                 };
@@ -144,7 +145,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             // construct the parallel requests, 2 is the default
             let mut par_servers = SmallVec::<[_; 2]>::new();
             while !servers.is_empty()
-                && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
+                && par_servers.len() < Ord::max(name_server_opts.num_concurrent_reqs, 1)
             {
                 if let Some(server) = servers.pop_front() {
                     if !(skip_udp && server.protocols().all(|p| p == Protocol::Udp)) {

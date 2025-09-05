@@ -163,7 +163,7 @@ fn test_datagram() {
     );
 
     let mut opts = ResolverOpts::default();
-    opts.num_concurrent_reqs = 1;
+    opts.name_server_options.num_concurrent_reqs = 1;
     let pool = mock_nameserver_pool(vec![nameserver], None, opts);
 
     // lookup on UDP succeeds, any other would fail
@@ -351,7 +351,7 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
     let mut options = ResolverOpts::default();
-    options.num_concurrent_reqs = 1;
+    options.name_server_options.num_concurrent_reqs = 1;
     options.try_tcp_on_error = true;
     let nameserver = mock_nameserver_on_send_nx(
         vec![
@@ -496,7 +496,7 @@ fn test_trust_nx_responses_fails() {
     );
 
     let mut opts = ResolverOpts::default();
-    opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    opts.name_server_options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(vec![fail_nameserver, succeed_nameserver], None, opts);
 
     // Lookup on UDP should fail, since we trust nx responses.
@@ -547,8 +547,9 @@ fn test_noerror_doesnt_leak() {
     );
 
     let mut options = ResolverOpts::default();
-    options.num_concurrent_reqs = 1;
-    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    options.name_server_options.num_concurrent_reqs = 1;
+    options.name_server_options.server_ordering_strategy =
+        ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(vec![udp_nameserver, second_nameserver], None, options);
 
     // lookup should only hit the first server
@@ -596,8 +597,8 @@ fn test_distrust_nx_responses() {
     );
 
     let mut opts = ResolverOpts::default();
-    opts.num_concurrent_reqs = 1;
-    opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    opts.name_server_options.num_concurrent_reqs = 1;
+    opts.name_server_options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(vec![error_nameserver, fallback_nameserver], None, opts);
     for response_code in RETRYABLE_ERRORS.iter() {
         let fut = pool.send(build_request(query.clone())).first_answer();
@@ -619,8 +620,9 @@ fn test_user_provided_server_order() {
 
     let mut options = ResolverOpts::default();
 
-    options.num_concurrent_reqs = 1;
-    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    options.name_server_options.num_concurrent_reqs = 1;
+    options.name_server_options.server_ordering_strategy =
+        ServerOrderingStrategy::UserProvidedOrder;
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -708,7 +710,7 @@ fn test_return_error_from_highest_priority_nameserver() {
         .collect();
 
     let mut opts = ResolverOpts::default();
-    opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    opts.name_server_options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
     let pool = mock_nameserver_pool(name_servers, None, opts);
 
     let future = pool.send(build_request(query)).first_answer();
@@ -785,10 +787,11 @@ fn test_concurrent_requests_2_conns() {
     subscribe();
 
     let mut options = ResolverOpts::default();
-    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    options.name_server_options.server_ordering_strategy =
+        ServerOrderingStrategy::UserProvidedOrder;
 
     // there are only 2 conns, so this matches that count
-    options.num_concurrent_reqs = 2;
+    options.name_server_options.num_concurrent_reqs = 2;
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -825,10 +828,11 @@ fn test_concurrent_requests_more_than_conns() {
     subscribe();
 
     let mut options = ResolverOpts::default();
-    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    options.name_server_options.server_ordering_strategy =
+        ServerOrderingStrategy::UserProvidedOrder;
 
     // there are only two conns, but this requests 3 concurrent requests, only 2 called
-    options.num_concurrent_reqs = 3;
+    options.name_server_options.num_concurrent_reqs = 3;
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -867,7 +871,7 @@ fn test_concurrent_requests_1_conn() {
     let mut options = ResolverOpts::default();
 
     // there are two connections, but no concurrency requested
-    options.num_concurrent_reqs = 1;
+    options.name_server_options.num_concurrent_reqs = 1;
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -906,7 +910,7 @@ fn test_concurrent_requests_0_conn() {
     let mut options = ResolverOpts::default();
 
     // there are two connections, but no concurrency requested, 0==1
-    options.num_concurrent_reqs = 0;
+    options.name_server_options.num_concurrent_reqs = 0;
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.

@@ -57,7 +57,9 @@ impl<P: ConnectionProvider> NameServer<P> {
 
         // Unless the user specified that we should follow the configured order,
         // re-order the connections to prioritize UDP.
-        if options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder {
+        if options.name_server_options.server_ordering_strategy
+            != ServerOrderingStrategy::UserProvidedOrder
+        {
             connections.sort_by_key(|ns| ns.protocol != Protocol::Udp);
         }
 
@@ -180,7 +182,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
-            &self.options.connection_opts,
+            &self.options.name_server_options.connection_opts,
             &self.tls,
         )?)
         .await?;
@@ -454,7 +456,7 @@ mod tests {
     use tokio::spawn;
 
     use super::*;
-    use crate::config::{ConnectionConfig, ConnectionOptions, ProtocolConfig};
+    use crate::config::{ConnectionConfig, ConnectionOptions, NameServerOptions, ProtocolConfig};
     use crate::proto::op::{DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -492,10 +494,14 @@ mod tests {
         subscribe();
 
         let options = ResolverOpts {
-            connection_opts: ConnectionOptions {
-                timeout: Duration::from_millis(1),
-                ..ConnectionOptions::default()
-            }, // this is going to fail, make it fail fast...
+            name_server_options: NameServerOptions {
+                connection_opts: ConnectionOptions {
+                    // this is going to fail, make it fail fast...
+                    timeout: Duration::from_millis(1),
+                    ..ConnectionOptions::default()
+                },
+                ..NameServerOptions::default()
+            },
             ..ResolverOpts::default()
         };
 
