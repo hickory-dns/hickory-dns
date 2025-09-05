@@ -94,16 +94,21 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
-    /// Add networks that should not be queried during recursive resolution
+    /// Clear the networks that should not be queried during recursive resolution.
+    ///
+    /// This will remove the default recommended filters and should be used with care.
+    pub fn clear_nameserver_filter(mut self) -> Self {
+        self.allow_servers.clear();
+        self.deny_servers.clear();
+        self
+    }
+
+    /// Add additional networks that should not be queried during recursive resolution
     pub fn nameserver_filter<'a>(
         mut self,
         allow: impl Iterator<Item = &'a IpNet>,
         deny: impl Iterator<Item = &'a IpNet>,
     ) -> Self {
-        for addr in RECOMMENDED_SERVER_FILTERS {
-            self.deny_servers.push(addr);
-        }
-
         self.allow_servers.extend(allow);
         self.deny_servers.extend(deny);
         self
@@ -167,7 +172,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             ns_recursion_limit: Some(24),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             allow_servers: vec![],
-            deny_servers: vec![],
+            deny_servers: RECOMMENDED_SERVER_FILTERS.to_vec(),
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
             case_randomization: false,
