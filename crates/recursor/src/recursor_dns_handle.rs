@@ -19,8 +19,10 @@ use parking_lot::Mutex;
 use prefix_trie::PrefixSet;
 use tracing::{debug, info, trace, warn};
 
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::{
-    Error, ErrorKind,
+    DnssecPolicy, Error, ErrorKind, RecursorBuilder,
     proto::{
         op::{Message, Query},
         rr::{
@@ -30,9 +32,10 @@ use crate::{
             rdata::{A, AAAA, NS},
         },
     },
+    recursor::RecursorMode,
     recursor_pool::RecursorPool,
     resolver::{
-        Name, ResponseCache, TtlConfig,
+        Name, ResponseCache,
         config::{NameServerConfig, ResolverOpts},
         name_server::{ConnectionProvider, NameServerPool},
     },
@@ -59,28 +62,33 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
+    pub(super) fn build_recursor_mode(
         roots: &[IpAddr],
-        ns_cache_size: usize,
-        response_cache_size: u64,
-        recursion_limit: Option<u8>,
-        ns_recursion_limit: Option<u8>,
-        security_aware: bool,
-        allow_server: Vec<IpNet>,
-        deny_server: Vec<IpNet>,
-        avoid_local_udp_ports: Arc<HashSet<u16>>,
-        ttl_config: TtlConfig,
-        case_randomization: bool,
         tls: Arc<TlsConfig>,
-        conn_provider: P,
-    ) -> Self {
+        builder: RecursorBuilder<P>,
+    ) -> Result<RecursorMode<P>, Error> {
         assert!(!roots.is_empty(), "roots must not be empty");
         let servers = roots
             .iter()
             .copied()
             .map(NameServerConfig::udp_and_tcp)
             .collect::<Vec<_>>();
+
+        let RecursorBuilder {
+            ns_cache_size,
+            response_cache_size,
+            recursion_limit,
+            ns_recursion_limit,
+            dnssec_policy,
+            allow_servers,
+            deny_servers,
+            avoid_local_udp_ports,
+            ttl_config,
+            case_randomization,
+            conn_provider,
+        } = builder;
+
+        let avoid_local_udp_ports = Arc::new(avoid_local_udp_ports);
 
         debug!(
             "Using cache sizes {}/{}",
@@ -96,12 +104,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
-        let response_cache = ResponseCache::new(response_cache_size, ttl_config);
+        let response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
 
         let mut deny_server_v4 = PrefixSet::new();
         let mut deny_server_v6 = PrefixSet::new();
 
-        for network in deny_server {
+        for network in deny_servers {
             info!("adding {network} to the do not query list");
             match network {
                 IpNet::V4(network) => {
@@ -116,7 +124,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut allow_server_v4 = PrefixSet::new();
         let mut allow_server_v6 = PrefixSet::new();
 
-        for network in allow_server {
+        for network in allow_servers {
             info!("adding {network} to the do not query override list");
             match network {
                 IpNet::V4(network) => {
@@ -128,7 +136,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
         }
 
-        Self {
+        let handle = Self {
             roots,
             name_server_cache,
             response_cache,
@@ -136,7 +144,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             cache_metrics: RecursorCacheMetrics::new(),
             recursion_limit,
             ns_recursion_limit,
-            security_aware,
+            security_aware: dnssec_policy.is_security_aware(),
             deny_server_v4,
             deny_server_v6,
             allow_server_v4,
@@ -145,7 +153,41 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             case_randomization,
             tls,
             conn_provider,
-        }
+        };
+
+        Ok(match dnssec_policy {
+            DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
+
+            #[cfg(feature = "__dnssec")]
+            DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
+
+            #[cfg(feature = "__dnssec")]
+            DnssecPolicy::ValidateWithStaticKey {
+                trust_anchor,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+            } => {
+                let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config);
+                let trust_anchor = match trust_anchor {
+                    Some(anchor) if anchor.is_empty() => {
+                        return Err(Error::from("trust anchor must not be empty"));
+                    }
+                    Some(anchor) => anchor,
+                    None => Arc::new(TrustAnchors::default()),
+                };
+
+                RecursorMode::Validating {
+                    validated_response_cache,
+                    #[cfg(feature = "metrics")]
+                    cache_metrics: handle.cache_metrics().clone(),
+                    handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
+                        .nsec3_iteration_limits(
+                            nsec3_soft_iteration_limit,
+                            nsec3_hard_iteration_limit,
+                        ),
+                }
+            }
+        })
     }
 
     pub(crate) async fn resolve(
@@ -703,44 +745,34 @@ const MAX_CNAME_LOOKUPS: u8 = 64;
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashSet,
-        net::{IpAddr, Ipv4Addr},
-        sync::Arc,
-    };
+    use std::net::{IpAddr, Ipv4Addr};
 
     use ipnet::IpNet;
 
-    use crate::{
-        proto::runtime::TokioRuntimeProvider,
-        recursor_dns_handle::RecursorDnsHandle,
-        resolver::{TtlConfig, name_server::TlsConfig},
-    };
+    use crate::Recursor;
+    use crate::recursor::RecursorMode;
 
     #[test]
     fn test_nameserver_filter() {
-        let allow_server = vec![IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
-        let deny_server = vec![
+        let allow_server = [IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
+        let deny_server = [
             IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
             IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
             IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
         ];
 
-        let recursor = RecursorDnsHandle::new(
-            &[IpAddr::from([192, 0, 2, 1])],
-            1,
-            1,
-            Some(1),
-            Some(1),
-            true,
-            allow_server,
-            deny_server,
-            Arc::new(HashSet::new()),
-            TtlConfig::default(),
-            false,
-            Arc::new(TlsConfig::new().unwrap()),
-            TokioRuntimeProvider::default(),
-        );
+        let builder = Recursor::builder()
+            .clear_deny_servers() // We use addresses in the default recommended deny list.
+            .deny_servers(deny_server.iter())
+            .allow_servers(allow_server.iter());
+
+        #[cfg_attr(not(feature = "__dnssec"), allow(irrefutable_let_patterns))]
+        let Recursor {
+            mode: RecursorMode::NonValidating { handle },
+        } = builder.build(&[IpAddr::from([192, 0, 2, 1])]).unwrap()
+        else {
+            panic!("unexpected DNSSEC validation mode");
+        };
 
         for addr in [
             [127, 0, 0, 0],
@@ -749,11 +781,11 @@ mod tests {
             [192, 168, 1, 254],
             [172, 17, 0, 1],
         ] {
-            assert!(recursor.matches_nameserver_filter(IpAddr::from(addr)));
+            assert!(handle.matches_nameserver_filter(IpAddr::from(addr)));
         }
 
         for addr in [[128, 0, 0, 0], [192, 168, 2, 0], [192, 168, 0, 1]] {
-            assert!(!recursor.matches_nameserver_filter(IpAddr::from(addr)));
+            assert!(!handle.matches_nameserver_filter(IpAddr::from(addr)));
         }
     }
 }
