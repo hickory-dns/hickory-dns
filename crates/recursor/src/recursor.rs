@@ -94,18 +94,41 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
-    /// Add networks that should not be queried during recursive resolution
-    pub fn nameserver_filter<'a>(
-        mut self,
-        allow: impl Iterator<Item = &'a IpNet>,
-        deny: impl Iterator<Item = &'a IpNet>,
-    ) -> Self {
-        for addr in RECOMMENDED_SERVER_FILTERS {
-            self.deny_servers.push(addr);
-        }
-
-        self.allow_servers.extend(allow);
+    /// Skip querying nameservers within the provided networks during recursive resolution.
+    ///
+    /// The provided `deny` networks will be added to any existing networks denied
+    /// by default, or that were added by previous calls to [`Self::deny_servers`].
+    pub fn deny_servers<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
         self.deny_servers.extend(deny);
+        self
+    }
+
+    /// Allow querying nameservers within the provided networks during recursive resolution.
+    ///
+    /// The provided `allow` networks will be added to any existing networks that were added by
+    /// previous calls to [`Self::allow_servers`].
+    ///
+    /// Allowed networks take precedence over deny networks added with [`Self::deny_servers`].
+    pub fn allow_servers<'a>(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.allow_servers.extend(allow);
+        self
+    }
+
+    /// Clear the networks that should be allowed to be queried during recursive resolution.
+    ///
+    /// This will remove any allow filter networks previously added by [`Self::allow_servers`],
+    pub fn clear_allow_servers(mut self) -> Self {
+        self.allow_servers.clear();
+        self
+    }
+
+    /// Clear the networks that should not be queried during recursive resolution.
+    ///
+    /// This will remove any deny filter networks previously added by [`Self::deny_servers`],
+    /// as well as the default recommended server filters (internal networks, broadcast addresses,
+    /// etc.).
+    pub fn clear_deny_servers(mut self) -> Self {
+        self.deny_servers.clear();
         self
     }
 
@@ -167,7 +190,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             ns_recursion_limit: Some(24),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             allow_servers: vec![],
-            deny_servers: vec![],
+            deny_servers: RECOMMENDED_SERVER_FILTERS.to_vec(),
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
             case_randomization: false,
