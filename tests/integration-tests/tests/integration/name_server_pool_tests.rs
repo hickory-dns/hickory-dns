@@ -17,7 +17,7 @@ use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, FirstAnswer};
 use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
-    ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
+    ConnectionConfig, NameServerConfig, NameServerOptions, ProtocolConfig, ServerOrderingStrategy,
 };
 use hickory_resolver::name_server::{NameServer, NameServerPool, TlsConfig};
 use test_support::subscribe;
@@ -31,7 +31,7 @@ type MockedNameServerPool<O> = NameServerPool<MockConnProvider<O>>;
 fn mock_nameserver(
     messages: Vec<Result<DnsResponse, ProtoError>>,
     protocol: ProtocolConfig,
-    options: ResolverOpts,
+    options: NameServerOptions,
 ) -> Arc<MockedNameServer<DefaultOnSend>> {
     mock_nameserver_on_send_nx(
         vec![(protocol, messages)],
@@ -46,7 +46,7 @@ fn mock_nameserver(
 fn mock_udp_nameserver_with_addr(
     messages: Vec<Result<DnsResponse, ProtoError>>,
     addr: IpAddr,
-    options: ResolverOpts,
+    options: NameServerOptions,
 ) -> Arc<MockedNameServer<DefaultOnSend>> {
     mock_nameserver_on_send_nx(
         vec![(ProtocolConfig::Udp, messages)],
@@ -60,7 +60,7 @@ fn mock_udp_nameserver_with_addr(
 #[cfg(test)]
 fn mock_udp_nameserver_trust_nx(
     messages: Vec<Result<DnsResponse, ProtoError>>,
-    options: ResolverOpts,
+    options: NameServerOptions,
     trust_negative_responses: bool,
 ) -> Arc<MockedNameServer<DefaultOnSend>> {
     mock_nameserver_on_send_nx(
@@ -75,7 +75,7 @@ fn mock_udp_nameserver_trust_nx(
 #[cfg(test)]
 fn mock_udp_nameserver_on_send<O: OnSend + Unpin>(
     messages: Vec<Result<DnsResponse, ProtoError>>,
-    options: ResolverOpts,
+    options: NameServerOptions,
     on_send: O,
 ) -> Arc<MockedNameServer<O>> {
     mock_nameserver_on_send_nx(
@@ -90,7 +90,7 @@ fn mock_udp_nameserver_on_send<O: OnSend + Unpin>(
 #[cfg(test)]
 fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     protocols: Vec<(ProtocolConfig, Vec<Result<DnsResponse, ProtoError>>)>,
-    options: ResolverOpts,
+    options: NameServerOptions,
     on_send: O,
     ip: IpAddr,
     trust_negative_responses: bool,
@@ -123,7 +123,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
 fn mock_nameserver_pool(
     servers: Vec<Arc<MockedNameServer<DefaultOnSend>>>,
     _mdns: Option<MockedNameServer<DefaultOnSend>>,
-    options: ResolverOpts,
+    options: NameServerOptions,
 ) -> MockedNameServerPool<DefaultOnSend> {
     mock_nameserver_pool_on_send::<DefaultOnSend>(servers, _mdns, options)
 }
@@ -132,7 +132,7 @@ fn mock_nameserver_pool(
 fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     servers: Vec<Arc<MockedNameServer<O>>>,
     _mdns: Option<MockedNameServer<O>>,
-    options: ResolverOpts,
+    options: NameServerOptions,
 ) -> MockedNameServerPool<O> {
     NameServerPool::from_nameservers(servers, Arc::new(options))
 }
@@ -156,15 +156,20 @@ fn test_datagram() {
             (ProtocolConfig::Udp, vec![Ok(udp_response)]),
             (ProtocolConfig::Tcp, vec![Ok(tcp_response)]),
         ],
-        ResolverOpts::default(),
+        NameServerOptions::default(),
         DefaultOnSend,
         DEFAULT_SERVER_ADDR,
         false,
     );
 
-    let mut opts = ResolverOpts::default();
-    opts.name_server_options.num_concurrent_reqs = 1;
-    let pool = mock_nameserver_pool(vec![nameserver], None, opts);
+    let pool = mock_nameserver_pool(
+        vec![nameserver],
+        None,
+        NameServerOptions {
+            num_concurrent_reqs: 1,
+            ..NameServerOptions::default()
+        },
+    );
 
     // lookup on UDP succeeds, any other would fail
     let request = build_request(query);
@@ -284,9 +289,11 @@ fn test_datagram_fails_to_stream() {
         Default::default(),
     );
 
-    let mut options = ResolverOpts::default();
-    options.try_tcp_on_error = true;
-    let pool = mock_nameserver_pool(vec![udp_nameserver, tcp_nameserver], None, options);
+    let pool = mock_nameserver_pool(
+        vec![udp_nameserver, tcp_nameserver],
+        None,
+        NameServerOptions::default(),
+    );
 
     let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).unwrap();
@@ -315,7 +322,7 @@ fn test_tcp_fallback_only_on_truncated() {
             (ProtocolConfig::Udp, vec![Ok(udp_response)]),
             (ProtocolConfig::Tcp, vec![Ok(tcp_response)]),
         ],
-        ResolverOpts::default(),
+        NameServerOptions::default(),
         DefaultOnSend,
         DEFAULT_SERVER_ADDR,
         false,
@@ -350,9 +357,10 @@ fn test_no_tcp_fallback_on_non_io_error() {
     tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
     let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
-    let mut options = ResolverOpts::default();
-    options.name_server_options.num_concurrent_reqs = 1;
-    options.try_tcp_on_error = true;
+    let options = NameServerOptions {
+        num_concurrent_reqs: 1,
+        ..NameServerOptions::default()
+    };
     let nameserver = mock_nameserver_on_send_nx(
         vec![
             (ProtocolConfig::Udp, vec![Ok(udp_response)]),
@@ -406,9 +414,11 @@ fn test_tcp_fallback_on_io_error() {
         Default::default(),
     );
 
-    let mut options = ResolverOpts::default();
-    options.try_tcp_on_error = true;
-    let pool = mock_nameserver_pool(vec![udp_nameserver, tcp_nameserver], None, options);
+    let pool = mock_nameserver_pool(
+        vec![udp_nameserver, tcp_nameserver],
+        None,
+        NameServerOptions::default(),
+    );
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
@@ -447,9 +457,11 @@ fn test_tcp_fallback_on_no_connections() {
         Default::default(),
     );
 
-    let mut options = ResolverOpts::default();
-    options.try_tcp_on_error = true;
-    let pool = mock_nameserver_pool(vec![udp_nameserver, tcp_nameserver], None, options);
+    let pool = mock_nameserver_pool(
+        vec![udp_nameserver, tcp_nameserver],
+        None,
+        NameServerOptions::default(),
+    );
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
@@ -486,18 +498,23 @@ fn test_trust_nx_responses_fails() {
     // Fail the first UDP request.
     let fail_nameserver = mock_udp_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(nx_message).unwrap())],
-        ResolverOpts::default(),
+        NameServerOptions::default(),
         true,
     );
     let succeed_nameserver = mock_udp_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(success_msg).unwrap())],
-        ResolverOpts::default(),
+        NameServerOptions::default(),
         true,
     );
 
-    let mut opts = ResolverOpts::default();
-    opts.name_server_options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
-    let pool = mock_nameserver_pool(vec![fail_nameserver, succeed_nameserver], None, opts);
+    let pool = mock_nameserver_pool(
+        vec![fail_nameserver, succeed_nameserver],
+        None,
+        NameServerOptions {
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..NameServerOptions::default()
+        },
+    );
 
     // Lookup on UDP should fail, since we trust nx responses.
     // (If we retried the query with the second name server, we'd see a successful response.)
@@ -546,11 +563,15 @@ fn test_noerror_doesnt_leak() {
         true,
     );
 
-    let mut options = ResolverOpts::default();
-    options.name_server_options.num_concurrent_reqs = 1;
-    options.name_server_options.server_ordering_strategy =
-        ServerOrderingStrategy::UserProvidedOrder;
-    let pool = mock_nameserver_pool(vec![udp_nameserver, second_nameserver], None, options);
+    let pool = mock_nameserver_pool(
+        vec![udp_nameserver, second_nameserver],
+        None,
+        NameServerOptions {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..NameServerOptions::default()
+        },
+    );
 
     // lookup should only hit the first server
     let future = pool.send(build_request(query)).first_answer();
@@ -583,7 +604,7 @@ fn test_distrust_nx_responses() {
                 Ok(DnsResponse::from_message(error_message).unwrap())
             })
             .collect(),
-        ResolverOpts::default(),
+        NameServerOptions::default(),
         false,
     );
 
@@ -592,14 +613,19 @@ fn test_distrust_nx_responses() {
     let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
     let fallback_nameserver = mock_udp_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(success_message).unwrap()); RETRYABLE_ERRORS.len()],
-        ResolverOpts::default(),
+        NameServerOptions::default(),
         false,
     );
 
-    let mut opts = ResolverOpts::default();
-    opts.name_server_options.num_concurrent_reqs = 1;
-    opts.name_server_options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
-    let pool = mock_nameserver_pool(vec![error_nameserver, fallback_nameserver], None, opts);
+    let pool = mock_nameserver_pool(
+        vec![error_nameserver, fallback_nameserver],
+        None,
+        NameServerOptions {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..NameServerOptions::default()
+        },
+    );
     for response_code in RETRYABLE_ERRORS.iter() {
         let fut = pool.send(build_request(query.clone())).first_answer();
         let response = block_on(fut).expect("query did not eventually succeed");
@@ -617,12 +643,6 @@ fn test_user_provided_server_order() {
     use hickory_proto::rr::Record;
 
     subscribe();
-
-    let mut options = ResolverOpts::default();
-
-    options.name_server_options.num_concurrent_reqs = 1;
-    options.name_server_options.server_ordering_strategy =
-        ServerOrderingStrategy::UserProvidedOrder;
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -665,7 +685,11 @@ fn test_user_provided_server_order() {
     let pool = mock_nameserver_pool(
         vec![preferred_nameserver, secondary_nameserver],
         None,
-        options,
+        NameServerOptions {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..NameServerOptions::default()
+        },
     );
 
     // The returned records should consistently be from the preferred name
@@ -704,14 +728,19 @@ fn test_return_error_from_highest_priority_nameserver() {
             mock_nameserver(
                 vec![Err(response.into())],
                 ProtocolConfig::Udp,
-                ResolverOpts::default(),
+                NameServerOptions::default(),
             )
         })
         .collect();
 
-    let mut opts = ResolverOpts::default();
-    opts.name_server_options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
-    let pool = mock_nameserver_pool(name_servers, None, opts);
+    let pool = mock_nameserver_pool(
+        name_servers,
+        None,
+        NameServerOptions {
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..NameServerOptions::default()
+        },
+    );
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err(
@@ -786,12 +815,12 @@ where
 fn test_concurrent_requests_2_conns() {
     subscribe();
 
-    let mut options = ResolverOpts::default();
-    options.name_server_options.server_ordering_strategy =
-        ServerOrderingStrategy::UserProvidedOrder;
-
-    // there are only 2 conns, so this matches that count
-    options.name_server_options.num_concurrent_reqs = 2;
+    let options = NameServerOptions {
+        // there are only 2 conns, so this matches that count
+        num_concurrent_reqs: 2,
+        server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+        ..NameServerOptions::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -827,12 +856,12 @@ fn test_concurrent_requests_2_conns() {
 fn test_concurrent_requests_more_than_conns() {
     subscribe();
 
-    let mut options = ResolverOpts::default();
-    options.name_server_options.server_ordering_strategy =
-        ServerOrderingStrategy::UserProvidedOrder;
-
-    // there are only two conns, but this requests 3 concurrent requests, only 2 called
-    options.name_server_options.num_concurrent_reqs = 3;
+    let options = NameServerOptions {
+        // there are only two conns, but this requests 3 concurrent requests, only 2 called
+        num_concurrent_reqs: 3,
+        server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+        ..NameServerOptions::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -868,10 +897,12 @@ fn test_concurrent_requests_more_than_conns() {
 fn test_concurrent_requests_1_conn() {
     subscribe();
 
-    let mut options = ResolverOpts::default();
-
-    // there are two connections, but no concurrency requested
-    options.name_server_options.num_concurrent_reqs = 1;
+    let options = NameServerOptions {
+        // there are two connections, but no concurrency requested
+        num_concurrent_reqs: 1,
+        server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+        ..NameServerOptions::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -907,10 +938,11 @@ fn test_concurrent_requests_1_conn() {
 fn test_concurrent_requests_0_conn() {
     subscribe();
 
-    let mut options = ResolverOpts::default();
-
-    // there are two connections, but no concurrency requested, 0==1
-    options.name_server_options.num_concurrent_reqs = 0;
+    let options = NameServerOptions {
+        // there are two connections, but no concurrency requested, 0==1
+        num_concurrent_reqs: 0,
+        ..NameServerOptions::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.

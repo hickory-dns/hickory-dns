@@ -440,11 +440,7 @@ impl ProtocolConfig {
 
 /// Configuration for the Resolver
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(default)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
 #[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {

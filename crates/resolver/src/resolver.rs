@@ -456,10 +456,9 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             options.validate = true;
         }
 
-        let options = Arc::new(options);
         let pool = NameServerPool::from_config(
             config.name_servers().iter().cloned(),
-            options.clone(),
+            Arc::new(options.name_server_options.clone()),
             Arc::new(match tls {
                 Some(config) => config,
                 None => TlsConfig::new()?,
@@ -492,7 +491,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
 
         Ok(Resolver {
             config,
-            options,
+            options: Arc::new(options),
             client_cache,
             hosts,
         })

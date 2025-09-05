@@ -18,7 +18,7 @@ use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{NameServerConfig, NameServerOptions, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::NameServer;
 use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
@@ -36,7 +36,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         servers: impl IntoIterator<Item = NameServerConfig>,
-        options: Arc<ResolverOpts>,
+        options: Arc<NameServerOptions>,
         tls: Arc<TlsConfig>,
         conn_provider: P,
     ) -> Self {
@@ -58,14 +58,17 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     }
 
     #[doc(hidden)]
-    pub fn from_nameservers(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
+    pub fn from_nameservers(
+        servers: Vec<Arc<NameServer<P>>>,
+        options: Arc<NameServerOptions>,
+    ) -> Self {
         Self {
             state: Arc::new(PoolState::new(servers, options)),
         }
     }
 
     /// Returns the pool's options.
-    pub fn options(&self) -> &ResolverOpts {
+    pub fn options(&self) -> &NameServerOptions {
         &self.state.options
     }
 }
@@ -85,12 +88,12 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
 struct PoolState<P: ConnectionProvider> {
     servers: Vec<Arc<NameServer<P>>>,
-    options: Arc<ResolverOpts>,
+    options: Arc<NameServerOptions>,
     next: AtomicUsize,
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
-    fn new(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
+    fn new(servers: Vec<Arc<NameServer<P>>>, options: Arc<NameServerOptions>) -> Self {
         Self {
             servers,
             options,
@@ -100,8 +103,7 @@ impl<P: ConnectionProvider> PoolState<P> {
 
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
         let mut servers = self.servers.clone();
-        let name_server_opts = &self.options.name_server_options;
-        match name_server_opts.server_ordering_strategy {
+        match &self.options.server_ordering_strategy {
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
@@ -110,8 +112,8 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
-                let num_concurrent_reqs = if name_server_opts.num_concurrent_reqs > 1 {
-                    name_server_opts.num_concurrent_reqs
+                let num_concurrent_reqs = if self.options.num_concurrent_reqs > 1 {
+                    self.options.num_concurrent_reqs
                 } else {
                     1
                 };
@@ -145,7 +147,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             // construct the parallel requests, 2 is the default
             let mut par_servers = SmallVec::<[_; 2]>::new();
             while !servers.is_empty()
-                && par_servers.len() < Ord::max(name_server_opts.num_concurrent_reqs, 1)
+                && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
             {
                 if let Some(server) = servers.pop_front() {
                     if !(skip_udp && server.protocols().all(|p| p == Protocol::Udp)) {
@@ -254,7 +256,7 @@ mod tests {
         let io_loop = Runtime::new().unwrap();
         let pool = NameServerPool::from_config(
             resolver_config.name_servers,
-            Arc::new(ResolverOpts::default()),
+            Arc::new(NameServerOptions::default()),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::new(),
         );
@@ -300,10 +302,7 @@ mod tests {
         subscribe();
 
         let conn_provider = TokioRuntimeProvider::default();
-        let opts = Arc::new(ResolverOpts {
-            try_tcp_on_error: true,
-            ..ResolverOpts::default()
-        });
+        let opts = Arc::new(NameServerOptions::default());
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
         let name_server = Arc::new(NameServer::new(

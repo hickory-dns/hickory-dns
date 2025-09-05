@@ -5,7 +5,7 @@ use std::{
         Arc,
         atomic::{AtomicU8, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use async_recursion::async_recursion;
@@ -33,7 +33,7 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache, TtlConfig,
-        config::{NameServerConfig, ResolverOpts},
+        config::{ConnectionOptions, NameServerConfig, NameServerOptions, ServerOrderingStrategy},
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -86,10 +86,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
-        let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
         let roots = NameServerPool::from_config(
             servers,
-            Arc::new(opts),
+            // TODO(XXX): Some of these options (e.g. timeout) should be configurable.
+            Arc::new(NameServerOptions {
+                num_concurrent_reqs: 1,
+                server_ordering_strategy: ServerOrderingStrategy::default(),
+                connection_opts: ConnectionOptions {
+                    timeout: Duration::from_secs(5),
+                    os_port_selection: false,
+                    avoid_local_udp_ports: avoid_local_udp_ports.clone(),
+                },
+            }),
             tls.clone(),
             conn_provider.clone(),
         );
@@ -466,6 +474,17 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         self.add_glue_to_map(&mut glue_ips, response.all_sections());
 
+        // TODO(XXX): Some of these options (e.g. timeout) should be configurable.
+        let ns_opts = Arc::new(NameServerOptions {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::default(),
+            connection_opts: ConnectionOptions {
+                timeout: Duration::from_secs(5),
+                os_port_selection: false,
+                avoid_local_udp_ports: self.avoid_local_udp_ports.clone(),
+            },
+        });
+
         for zns in response.all_sections() {
             let Some(ns_data) = zns.data().as_ns() else {
                 continue;
@@ -522,7 +541,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // now construct a namesever pool based off the NS and glue records
         let ns = NameServerPool::from_config(
             config_group,
-            Arc::new(self.recursor_opts()),
+            ns_opts.clone(),
             self.tls.clone(),
             self.conn_provider.clone(),
         );
@@ -642,33 +661,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         Ok(depth)
     }
-
-    fn recursor_opts(&self) -> ResolverOpts {
-        recursor_opts(self.avoid_local_udp_ports.clone(), self.case_randomization)
-    }
-}
-
-fn recursor_opts(
-    avoid_local_udp_ports: Arc<HashSet<u16>>,
-    case_randomization: bool,
-) -> ResolverOpts {
-    let mut options = ResolverOpts::default();
-    options.ndots = 0;
-    options.edns0 = true;
-    #[cfg(feature = "__dnssec")]
-    {
-        options.validate = false; // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
-    }
-    options.preserve_intermediates = true;
-    options.recursion_desired = false;
-    options.name_server_options.num_concurrent_reqs = 1;
-    options
-        .name_server_options
-        .connection_opts
-        .avoid_local_udp_ports = avoid_local_udp_ports;
-    options.case_randomization = case_randomization;
-
-    options
 }
 
 #[cfg(feature = "metrics")]
