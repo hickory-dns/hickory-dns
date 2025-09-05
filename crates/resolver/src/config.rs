@@ -642,7 +642,7 @@ fn default_timeout() -> Duration {
 }
 
 /// The lookup ip strategy
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum LookupIpStrategy {
     /// Only query for A (Ipv4) records
@@ -650,6 +650,7 @@ pub enum LookupIpStrategy {
     /// Only query for AAAA (Ipv6) records
     Ipv6Only,
     /// Query for A and AAAA in parallel
+    #[default]
     Ipv4AndIpv6,
     /// Query for Ipv6 if that fails, query for Ipv4
     Ipv6thenIpv4,
@@ -657,20 +658,14 @@ pub enum LookupIpStrategy {
     Ipv4thenIpv6,
 }
 
-impl Default for LookupIpStrategy {
-    /// Returns [`LookupIpStrategy::Ipv4thenIpv6`] as the default.
-    fn default() -> Self {
-        Self::Ipv4thenIpv6
-    }
-}
-
 /// The strategy for establishing the query order of name servers in a pool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum ServerOrderingStrategy {
     /// Servers are ordered based on collected query statistics. The ordering
     /// may vary over time.
+    #[default]
     QueryStatistics,
     /// The order provided to the resolver is used. The ordering does not vary
     /// over time.
@@ -678,13 +673,6 @@ pub enum ServerOrderingStrategy {
     /// The order of servers is rotated in a round-robin fashion. This is useful for
     /// load balancing and ensuring that all servers are used evenly.
     RoundRobin,
-}
-
-impl Default for ServerOrderingStrategy {
-    /// Returns [`ServerOrderingStrategy::QueryStatistics`] as the default.
-    fn default() -> Self {
-        Self::QueryStatistics
-    }
 }
 
 /// Whether the system hosts file should be respected by the resolver.
