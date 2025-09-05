@@ -45,6 +45,7 @@ impl Future for SharedLookup {
 #[derive(Clone)]
 pub(crate) struct RecursorPool<P: ConnectionProvider> {
     zone: Name,
+    case_randomization: bool,
     ns: NameServerPool<P>,
     active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
     #[cfg(feature = "metrics")]
@@ -52,7 +53,7 @@ pub(crate) struct RecursorPool<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> RecursorPool<P> {
-    pub(crate) fn from(zone: Name, ns: NameServerPool<P>) -> Self {
+    pub(crate) fn from(zone: Name, case_randomization: bool, ns: NameServerPool<P>) -> Self {
         #[cfg(feature = "metrics")]
         let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
         #[cfg(feature = "metrics")]
@@ -64,6 +65,7 @@ impl<P: ConnectionProvider> RecursorPool<P> {
 
         Self {
             zone,
+            case_randomization,
             ns,
             active_requests: Arc::new(Mutex::new(HashMap::default())),
             #[cfg(feature = "metrics")]
@@ -83,7 +85,7 @@ impl<P: ConnectionProvider> RecursorPool<P> {
         let ns = self.ns.clone();
 
         let query_cpy = query.clone();
-        let case_randomization = self.ns.options().case_randomization;
+        let case_randomization = self.case_randomization;
 
         // block concurrent requests
         let lookup = self

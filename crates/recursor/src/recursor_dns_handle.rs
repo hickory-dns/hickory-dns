@@ -94,7 +94,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             conn_provider.clone(),
         );
 
-        let roots = RecursorPool::from(Name::root(), roots);
+        let roots = RecursorPool::from(Name::root(), case_randomization, roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config);
 
@@ -526,7 +526,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             self.tls.clone(),
             self.conn_provider.clone(),
         );
-        let ns = RecursorPool::from(zone.clone(), ns);
+        let ns = RecursorPool::from(zone.clone(), self.case_randomization, ns);
 
         // store in cache for future usage
         debug!("found nameservers for {zone}");
