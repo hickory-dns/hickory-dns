@@ -924,7 +924,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
- "tracing-subscriber",
  "url",
  "wasm-bindgen",
  "webpki-roots",
