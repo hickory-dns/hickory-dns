@@ -18,7 +18,7 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{NameServerConfig, NameServerOptions, ProtocolConfig, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
@@ -32,7 +32,7 @@ use crate::proto::{
 /// configured protocols, and will make new connections as needed.
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
-    options: Arc<ResolverOpts>,
+    options: Arc<NameServerOptions>,
     tls: Arc<TlsConfig>,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
     server_srtt: DecayingSrtt,
@@ -46,7 +46,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     pub fn new(
         connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
         config: NameServerConfig,
-        options: Arc<ResolverOpts>,
+        options: Arc<NameServerOptions>,
         tls: Arc<TlsConfig>,
         connection_provider: P,
     ) -> Self {
@@ -180,7 +180,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
-            &self.options,
+            &self.options.connection_opts,
             &self.tls,
         )?)
         .await?;
@@ -454,7 +454,7 @@ mod tests {
     use tokio::spawn;
 
     use super::*;
-    use crate::config::{ConnectionConfig, ProtocolConfig};
+    use crate::config::{ConnectionConfig, ConnectionOptions, NameServerOptions, ProtocolConfig};
     use crate::proto::op::{DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -468,7 +468,7 @@ mod tests {
         let name_server = Arc::new(NameServer::new(
             [].into_iter(),
             config,
-            Arc::new(ResolverOpts::default()),
+            Arc::new(NameServerOptions::default()),
             Arc::new(TlsConfig::new().unwrap()),
             TokioRuntimeProvider::default(),
         ));
@@ -491,9 +491,13 @@ mod tests {
     async fn test_failed_name_server() {
         subscribe();
 
-        let options = ResolverOpts {
-            timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
-            ..ResolverOpts::default()
+        let options = NameServerOptions {
+            connection_opts: ConnectionOptions {
+                // this is going to fail, make it fail fast...
+                timeout: Duration::from_millis(1),
+                ..ConnectionOptions::default()
+            },
+            ..NameServerOptions::default()
         };
 
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)));
@@ -558,17 +562,12 @@ mod tests {
             }],
         };
 
-        let resolver_opts = ResolverOpts {
-            case_randomization: true,
-            ..Default::default()
-        };
-
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
         let ns = Arc::new(NameServer::new(
             [],
             config,
-            Arc::new(resolver_opts),
+            Arc::new(NameServerOptions::default()),
             Arc::new(TlsConfig::new().unwrap()),
             provider,
         ));

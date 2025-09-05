@@ -61,11 +61,12 @@ use serde::{Deserialize, Serialize};
 ///
 ///                 6-15            Reserved for future use.
 ///  ```
-#[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
+#[derive(Debug, Default, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[allow(dead_code)]
 pub enum ResponseCode {
     /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    #[default]
     NoError,
 
     /// Format Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
@@ -182,12 +183,6 @@ impl ResponseCode {
             Self::BADCOOKIE => "Bad server cookie", // 23    BADCOOKIE     Bad/missing Server Cookie           [RFC7873]
             Self::Unknown(_) => "Unknown response code",
         }
-    }
-}
-
-impl Default for ResponseCode {
-    fn default() -> Self {
-        Self::NoError
     }
 }
 

@@ -59,7 +59,7 @@ pub enum Role {
     Forwarder,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Implementation {
     Bind,
     Dnslib,
@@ -68,6 +68,7 @@ pub enum Implementation {
         crypto_provider: HickoryCryptoProvider,
     },
     Pdns,
+    #[default]
     Unbound,
     EdeDotCom,
 }
@@ -423,10 +424,4 @@ pub fn Repository(input: impl Into<Cow<'static, str>>) -> Repository<'static> {
         "{input} is not a valid repository"
     );
     Repository { inner: input }
-}
-
-impl Default for Implementation {
-    fn default() -> Self {
-        Self::Unbound
-    }
 }

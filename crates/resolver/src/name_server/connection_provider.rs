@@ -21,7 +21,7 @@ use futures_util::ready;
 #[cfg(feature = "__tls")]
 use rustls::pki_types::ServerName;
 
-use crate::config::{ConnectionConfig, ProtocolConfig, ResolverOpts};
+use crate::config::{ConnectionConfig, ConnectionOptions, ProtocolConfig};
 #[cfg(feature = "__https")]
 use crate::proto::h2::HttpsClientConnect;
 #[cfg(feature = "__h3")]
@@ -55,7 +55,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         &self,
         ip: IpAddr,
         config: &ConnectionConfig,
-        options: &ResolverOpts,
+        options: &ConnectionOptions,
         tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error>;
 }
@@ -120,7 +120,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
         &self,
         ip: IpAddr,
         config: &ConnectionConfig,
-        options: &ResolverOpts,
+        options: &ConnectionOptions,
         #[cfg_attr(not(feature = "__tls"), allow(unused_variables))] tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error> {
         let remote_addr = SocketAddr::new(ip, config.port);
@@ -318,7 +318,10 @@ mod tests {
         let mut builder =
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         // Prefer IPv4 addresses for this test.
-        builder.options_mut().server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+        builder
+            .options_mut()
+            .name_server_options
+            .server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
         let resolver = builder.build().unwrap();
 
         let response = resolver
@@ -365,8 +368,10 @@ mod tests {
             TokioResolver::builder_with_config(config, TokioRuntimeProvider::default());
         resolver_builder.options_mut().try_tcp_on_error = true;
         // Prefer IPv4 addresses for this test.
-        resolver_builder.options_mut().server_ordering_strategy =
-            ServerOrderingStrategy::UserProvidedOrder;
+        resolver_builder
+            .options_mut()
+            .name_server_options
+            .server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
         resolver_builder = resolver_builder.with_tls_config(tls_config);
         let resolver = resolver_builder.build().unwrap();
 

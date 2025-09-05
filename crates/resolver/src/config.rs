@@ -440,11 +440,7 @@ impl ProtocolConfig {
 
 /// Configuration for the Resolver
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(default, deny_unknown_fields)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
 #[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {
@@ -453,12 +449,9 @@ pub struct ResolverOpts {
     ///  would never be assumed to be a TLD, and would always be appended to either the search
     #[cfg_attr(feature = "serde", serde(default = "default_ndots"))]
     pub ndots: usize,
-    /// Specify the timeout for a request. Defaults to 5 seconds
-    #[cfg_attr(
-        feature = "serde",
-        serde(default = "default_timeout", with = "duration")
-    )]
-    pub timeout: Duration,
+    /// Options specific to connecting to a name server.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub name_server_options: NameServerOptions,
     /// Number of retries after lookup failure before giving up. Defaults to 2
     #[cfg_attr(feature = "serde", serde(default = "default_attempts"))]
     pub attempts: usize,
@@ -498,37 +491,16 @@ pub struct ResolverOpts {
     /// `negative_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`](crate::MAX_TTL) seconds.
     #[cfg_attr(feature = "serde", serde(with = "duration_opt"))]
     pub negative_max_ttl: Option<Duration>,
-    /// Number of concurrent requests per query
-    ///
-    /// Where more than one nameserver is configured, this configures the resolver to send queries
-    /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
-    #[cfg_attr(feature = "serde", serde(default = "default_num_concurrent_reqs"))]
-    pub num_concurrent_reqs: usize,
     /// Preserve all intermediate records in the lookup response, such as CNAME records
     #[cfg_attr(feature = "serde", serde(default = "default_preserve_intermediates"))]
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,
-    /// The server ordering strategy that the resolver should use.
-    pub server_ordering_strategy: ServerOrderingStrategy,
     /// Request upstream recursive resolvers to not perform any recursion.
     ///
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
     #[cfg_attr(feature = "serde", serde(default = "default_recursion_desired"))]
     pub recursion_desired: bool,
-    /// Local UDP ports to avoid when making outgoing queries
-    pub avoid_local_udp_ports: Arc<HashSet<u16>>,
-    /// Request UDP bind ephemeral ports directly from the OS
-    ///
-    /// Boolean parameter to specify whether to use the operating system's standard UDP port
-    /// selection logic instead of Hickory's logic to securely select a random source port. We do
-    /// not recommend using this option unless absolutely necessary, as the operating system may
-    /// select ephemeral ports from a smaller range than Hickory, which can make response poisoning
-    /// attacks easier to conduct. Some operating systems (notably, Windows) might display a
-    /// user-prompt to allow a Hickory-specified port to be used, and setting this option will
-    /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
-    /// will be ignored.
-    pub os_port_selection: bool,
     /// Enable case randomization.
     ///
     /// Randomize the case of letters in query names, and require that responses preserve the case
@@ -550,7 +522,7 @@ impl Default for ResolverOpts {
     fn default() -> Self {
         Self {
             ndots: default_ndots(),
-            timeout: default_timeout(),
+            name_server_options: NameServerOptions::default(),
             attempts: default_attempts(),
             edns0: false,
             #[cfg(feature = "__dnssec")]
@@ -562,16 +534,12 @@ impl Default for ResolverOpts {
             negative_min_ttl: None,
             positive_max_ttl: None,
             negative_max_ttl: None,
-            num_concurrent_reqs: default_num_concurrent_reqs(),
 
             // Defaults to `true` to match the behavior of dig and nslookup.
             preserve_intermediates: default_preserve_intermediates(),
 
             try_tcp_on_error: false,
-            server_ordering_strategy: ServerOrderingStrategy::default(),
             recursion_desired: default_recursion_desired(),
-            avoid_local_udp_ports: Arc::default(),
-            os_port_selection: false,
             case_randomization: false,
             trust_anchor: None,
         }
@@ -582,20 +550,12 @@ fn default_ndots() -> usize {
     1
 }
 
-fn default_timeout() -> Duration {
-    Duration::from_secs(5)
-}
-
 fn default_attempts() -> usize {
     2
 }
 
 fn default_cache_size() -> u64 {
     32
-}
-
-fn default_num_concurrent_reqs() -> usize {
-    2
 }
 
 fn default_preserve_intermediates() -> bool {
@@ -606,8 +566,83 @@ fn default_recursion_desired() -> bool {
     true
 }
 
+/// Options specific to interacting with name servers.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct NameServerOptions {
+    /// Number of concurrent requests per query
+    ///
+    /// Where more than one nameserver is configured, this configures the resolver to send queries
+    /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
+    #[cfg_attr(feature = "serde", serde(default = "default_num_concurrent_reqs"))]
+    pub num_concurrent_reqs: usize,
+
+    /// The ordering strategy for choosing between name servers.
+    pub server_ordering_strategy: ServerOrderingStrategy,
+
+    /// Options for making new connections with a connection provider.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub connection_opts: ConnectionOptions,
+}
+
+impl Default for NameServerOptions {
+    fn default() -> Self {
+        Self {
+            num_concurrent_reqs: default_num_concurrent_reqs(),
+            server_ordering_strategy: ServerOrderingStrategy::default(),
+            connection_opts: ConnectionOptions::default(),
+        }
+    }
+}
+
+fn default_num_concurrent_reqs() -> usize {
+    2
+}
+
+/// Connection options for creating a new connection with a connection provider.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(default))]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ConnectionOptions {
+    /// The timeout for connecting, and for DNS requests.
+    /// Defaults to 5 seconds.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_timeout", with = "duration")
+    )]
+    pub timeout: Duration,
+
+    /// Request UDP bind ephemeral ports directly from the OS
+    ///
+    /// Boolean parameter to specify whether to use the operating system's standard UDP port
+    /// selection logic instead of Hickory's logic to securely select a random source port. We do
+    /// not recommend using this option unless absolutely necessary, as the operating system may
+    /// select ephemeral ports from a smaller range than Hickory, which can make response poisoning
+    /// attacks easier to conduct. Some operating systems (notably, Windows) might display a
+    /// user-prompt to allow a Hickory-specified port to be used, and setting this option will
+    /// prevent those prompts from being displayed. If os_port_selection is true, avoid_local_udp_ports
+    /// will be ignored.
+    pub os_port_selection: bool,
+
+    /// Local UDP ports to avoid when making outgoing queries.
+    pub avoid_local_udp_ports: Arc<HashSet<u16>>,
+}
+
+impl Default for ConnectionOptions {
+    fn default() -> Self {
+        Self {
+            timeout: default_timeout(),
+            os_port_selection: false,
+            avoid_local_udp_ports: Arc::new(HashSet::default()),
+        }
+    }
+}
+
+fn default_timeout() -> Duration {
+    Duration::from_secs(5)
+}
+
 /// The lookup ip strategy
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum LookupIpStrategy {
     /// Only query for A (Ipv4) records
@@ -615,6 +650,7 @@ pub enum LookupIpStrategy {
     /// Only query for AAAA (Ipv6) records
     Ipv6Only,
     /// Query for A and AAAA in parallel
+    #[default]
     Ipv4AndIpv6,
     /// Query for Ipv6 if that fails, query for Ipv4
     Ipv6thenIpv4,
@@ -622,20 +658,14 @@ pub enum LookupIpStrategy {
     Ipv4thenIpv6,
 }
 
-impl Default for LookupIpStrategy {
-    /// Returns [`LookupIpStrategy::Ipv4thenIpv6`] as the default.
-    fn default() -> Self {
-        Self::Ipv4thenIpv6
-    }
-}
-
 /// The strategy for establishing the query order of name servers in a pool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum ServerOrderingStrategy {
     /// Servers are ordered based on collected query statistics. The ordering
     /// may vary over time.
+    #[default]
     QueryStatistics,
     /// The order provided to the resolver is used. The ordering does not vary
     /// over time.
@@ -643,13 +673,6 @@ pub enum ServerOrderingStrategy {
     /// The order of servers is rotated in a round-robin fashion. This is useful for
     /// load balancing and ensuring that all servers are used evenly.
     RoundRobin,
-}
-
-impl Default for ServerOrderingStrategy {
-    /// Returns [`ServerOrderingStrategy::QueryStatistics`] as the default.
-    fn default() -> Self {
-        Self::QueryStatistics
-    }
 }
 
 /// Whether the system hosts file should be respected by the resolver.
@@ -876,7 +899,30 @@ mod tests {
         let code = ResolverOpts::default();
         let json = serde_json::from_str::<ResolverOpts>("{}").unwrap();
         assert_eq!(code.ndots, json.ndots);
-        assert_eq!(code.timeout, json.timeout);
+        assert_eq!(
+            code.name_server_options.num_concurrent_reqs,
+            json.name_server_options.num_concurrent_reqs
+        );
+        assert_eq!(
+            code.name_server_options.server_ordering_strategy,
+            json.name_server_options.server_ordering_strategy
+        );
+        assert_eq!(
+            code.name_server_options.connection_opts.timeout,
+            json.name_server_options.connection_opts.timeout
+        );
+        assert_eq!(
+            code.name_server_options
+                .connection_opts
+                .avoid_local_udp_ports,
+            json.name_server_options
+                .connection_opts
+                .avoid_local_udp_ports
+        );
+        assert_eq!(
+            code.name_server_options.connection_opts.os_port_selection,
+            json.name_server_options.connection_opts.os_port_selection
+        );
         assert_eq!(code.attempts, json.attempts);
         assert_eq!(code.edns0, json.edns0);
         #[cfg(feature = "__dnssec")]
@@ -888,13 +934,9 @@ mod tests {
         assert_eq!(code.negative_min_ttl, json.negative_min_ttl);
         assert_eq!(code.positive_max_ttl, json.positive_max_ttl);
         assert_eq!(code.negative_max_ttl, json.negative_max_ttl);
-        assert_eq!(code.num_concurrent_reqs, json.num_concurrent_reqs);
         assert_eq!(code.preserve_intermediates, json.preserve_intermediates);
         assert_eq!(code.try_tcp_on_error, json.try_tcp_on_error);
         assert_eq!(code.recursion_desired, json.recursion_desired);
-        assert_eq!(code.server_ordering_strategy, json.server_ordering_strategy);
-        assert_eq!(code.avoid_local_udp_ports, json.avoid_local_udp_ports);
-        assert_eq!(code.os_port_selection, json.os_port_selection);
         assert_eq!(code.case_randomization, json.case_randomization);
         assert_eq!(code.trust_anchor, json.trust_anchor);
     }

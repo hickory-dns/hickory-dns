@@ -18,10 +18,11 @@ use crate::zone_handler::LookupOptions;
 
 /// The result of a lookup on a ZoneHandler
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[non_exhaustive]
 pub enum AuthLookup {
     /// No records
+    #[default]
     Empty,
     // TODO: change the result of a lookup to a set of chained iterators...
     /// Records
@@ -109,12 +110,6 @@ impl AuthLookup {
 impl From<Lookup> for AuthLookup {
     fn from(lookup: Lookup) -> Self {
         Self::Resolved(lookup)
-    }
-}
-
-impl Default for AuthLookup {
-    fn default() -> Self {
-        Self::Empty
     }
 }
 
@@ -242,9 +237,10 @@ impl<'r> Iterator for AxfrRecordsIter<'r> {
 }
 
 /// The result of a lookup
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum LookupRecords {
     /// The empty set of records
+    #[default]
     Empty,
     /// The associate records
     Records {
@@ -285,12 +281,6 @@ impl LookupRecords {
     /// Conversion to an iterator
     pub fn iter(&self) -> LookupRecordsIter<'_> {
         self.into_iter()
-    }
-}
-
-impl Default for LookupRecords {
-    fn default() -> Self {
-        Self::Empty
     }
 }
 
