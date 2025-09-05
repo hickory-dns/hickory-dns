@@ -62,7 +62,6 @@ pub enum Role {
 #[derive(Clone, Debug)]
 pub enum Implementation {
     Bind,
-    Dnslib,
     Hickory {
         repo: Repository<'static>,
         crypto_provider: HickoryCryptoProvider,
@@ -81,7 +80,6 @@ impl Implementation {
     pub fn supports_ede(&self) -> bool {
         match self {
             Implementation::Bind => false,
-            Implementation::Dnslib => true,
             Implementation::Hickory { .. } => true,
             Implementation::Pdns => true,
             Implementation::Unbound => true,
@@ -120,11 +118,6 @@ impl Implementation {
     }
 
     #[must_use]
-    pub fn is_dnslib(&self) -> bool {
-        matches!(self, Self::Dnslib)
-    }
-
-    #[must_use]
     pub fn is_hickory(&self) -> bool {
         matches!(self, Self::Hickory { .. })
     }
@@ -155,11 +148,6 @@ impl Implementation {
                         use_dnssec => use_dnssec,
                         netmask => netmask,
                     )
-                }
-
-                Self::Dnslib => {
-                    // Dnslib resolvers don't have a config
-                    "".into()
                 }
 
                 Self::Hickory { .. } => {
@@ -217,11 +205,6 @@ impl Implementation {
                     )
                 }
 
-                Self::Dnslib => {
-                    // Dnslib name servers don't have a config
-                    "".into()
-                }
-
                 Self::Unbound => {
                     minijinja::render!(
                         include_str!("templates/nsd.conf.jinja"),
@@ -268,11 +251,6 @@ impl Implementation {
                     use_dnssec => use_dnssec,
                 ),
 
-                Self::Dnslib => {
-                    // Dnslib servers don't have a config
-                    "".into()
-                }
-
                 Self::Hickory { .. } => minijinja::render!(
                     include_str!("templates/hickory.forwarder.toml.jinja"),
                     resolver_ip => resolver_ip,
@@ -308,8 +286,6 @@ impl Implementation {
         match self {
             Self::Bind => Some("/etc/bind/named.conf"),
 
-            Self::Dnslib => None,
-
             Self::Hickory { .. } => Some("/etc/named.toml"),
 
             Self::Pdns => match role {
@@ -331,7 +307,6 @@ impl Implementation {
     pub(crate) fn cmd_args(&self, role: Role) -> Vec<String> {
         let base = match self {
             Implementation::Bind | Implementation::EdeDotCom => "named -g -d5",
-            Implementation::Dnslib => "python3 /script.py",
             Implementation::Hickory { .. } => "hickory-dns -d",
             Implementation::Pdns => match role {
                 Role::Resolver | Role::Forwarder => "pdns_recursor",
@@ -370,8 +345,6 @@ impl Implementation {
 
         let path = match self {
             Implementation::Bind | Implementation::EdeDotCom => "/tmp/named",
-
-            Implementation::Dnslib => "/tmp/dnslib",
 
             Implementation::Hickory { .. } => "/tmp/hickory",
 
