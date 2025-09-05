@@ -523,22 +523,17 @@ impl From<KEY> for RData {
 
 /// Specifies in what contexts this key may be trusted for use
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum KeyTrust {
     /// Use of the key is prohibited for authentication
     NotAuth,
     /// Use of the key is prohibited for confidentiality
     NotPrivate,
     /// Use of the key for authentication and/or confidentiality is permitted
+    #[default]
     AuthOrPrivate,
     /// If both bits are one, the "no key" value, (revocation?)
     DoNotTrust,
-}
-
-impl Default for KeyTrust {
-    fn default() -> Self {
-        Self::AuthOrPrivate
-    }
 }
 
 impl From<u16> for KeyTrust {
@@ -574,7 +569,7 @@ impl From<KeyTrust> for u16 {
 }
 
 /// Declares what this key is for
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum KeyUsage {
     /// key associated with a "user" or "account" at an end entity, usually a host
@@ -583,15 +578,10 @@ pub enum KeyUsage {
     #[deprecated = "For Zone signing DNSKEY should be used"]
     Zone,
     /// associated with the non-zone "entity" whose name is the RR owner name
+    #[default]
     Entity,
     /// Reserved
     Reserved,
-}
-
-impl Default for KeyUsage {
-    fn default() -> Self {
-        Self::Entity
-    }
 }
 
 impl From<u16> for KeyUsage {
@@ -830,7 +820,7 @@ impl From<UpdateScope> for u16 {
 /// All Protocol Octet values except DNSSEC (3) are eliminated
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Protocol {
     /// Not in use
     #[deprecated = "Deprecated by RFC3445"]
@@ -842,6 +832,7 @@ pub enum Protocol {
     #[deprecated = "Deprecated by RFC3445"]
     Email,
     /// Reserved for use with DNSSEC (Hickory DNS only supports DNSKEY with DNSSEC)
+    #[default]
     DNSSEC,
     /// Reserved to refer to the Oakley/IPSEC
     #[deprecated = "Deprecated by RFC3445"]
@@ -852,12 +843,6 @@ pub enum Protocol {
     /// the key can be used in connection with any protocol
     #[deprecated = "Deprecated by RFC3445"]
     All,
-}
-
-impl Default for Protocol {
-    fn default() -> Self {
-        Self::DNSSEC
-    }
 }
 
 impl From<u8> for Protocol {

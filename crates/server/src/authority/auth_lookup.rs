@@ -21,10 +21,11 @@ use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords};
 /// * `'c` - the catalogue lifetime
 /// * `'r` - the recordset lifetime, subset of 'c
 /// * `'q` - the queries lifetime
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[allow(clippy::large_enum_variant)]
 pub enum AuthLookup {
     /// No records
+    #[default]
     Empty,
     // TODO: change the result of a lookup to a set of chained iterators...
     /// Records
@@ -105,12 +106,6 @@ impl LookupObject for AuthLookup {
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         let additionals = Self::take_additionals(self);
         additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
-    }
-}
-
-impl Default for AuthLookup {
-    fn default() -> Self {
-        Self::Empty
     }
 }
 
@@ -282,9 +277,10 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
 }
 
 /// The result of a lookup
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum LookupRecords {
     /// The empty set of records
+    #[default]
     Empty,
     /// The associate records
     Records {
@@ -326,12 +322,6 @@ impl LookupRecords {
     /// Conversion to an iterator
     pub fn iter(&self) -> LookupRecordsIter<'_> {
         self.into_iter()
-    }
-}
-
-impl Default for LookupRecords {
-    fn default() -> Self {
-        Self::Empty
     }
 }
 
