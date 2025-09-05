@@ -79,7 +79,8 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
 
         let recursor = builder
             .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
-            .nameserver_filter(config.allow_server.iter(), config.deny_server.iter())
+            .deny_servers(config.deny_server.iter())
+            .allow_servers(config.allow_server.iter())
             .recursion_limit(match config.recursion_limit {
                 0 => None,
                 limit => Some(limit),
