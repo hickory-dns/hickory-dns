@@ -1,4 +1,4 @@
-use std::{fs, net::Ipv4Addr};
+use std::net::Ipv4Addr;
 
 use dns_test::{
     Error, FQDN, Implementation, Network, PEER, Resolver,
@@ -13,14 +13,13 @@ fn does_not_cover() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 
-    let mut leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_DOMAIN, &network)?;
-    let script =
-        fs::read_to_string("src/resolver/dnssec/scenarios/nsec3/does_not_cover/server.py")?;
-    leaf_ns.cp("/script.py", &script)?;
+    let mut leaf_ns = NameServer::new(
+        &Implementation::test_server("nsec3_nocover", "both"),
+        FQDN::TEST_DOMAIN,
+        &network,
+    )?;
 
-    // Add many records with different owner names to reduce the range covered by each NSEC3 record
-    // in the chain.
-    for i in 0..100 {
+    for i in 0..4 {
         leaf_ns.add(A {
             fqdn: FQDN::TEST_DOMAIN.push_label(&format!("subdomain-{i}")),
             ttl: 86400,
@@ -52,16 +51,15 @@ fn does_not_cover() -> Result<(), Error> {
     let client = Client::new(&network)?;
     let dig_settings = *DigSettings::default().recurse().dnssec().tcp();
 
-    // These subdomains are not covered by the arbitrary NSEC3 record chosen by the server. This
-    // will be stable so long as the subdomains, NSEC3 algorithms, iterations, salt, and software
-    // versions are held constant. If the hashed names change, this test is unlikely to break,
-    // since there are so many more NSEC3 records in the chain than probed subdomains below.
-    for subdomain in 'a'..='d' {
+    // These subdomains exist in the zone file, but the test server has been configured to return
+    // NXDOMAIN for any A record queries along with NSEC3 and RRSIG records.  Since these names
+    // do exist, the NSEC3 records will not cover those names.
+    for i in 0..4 {
         let response = client.dig(
             dig_settings,
             resolver.ipv4_addr(),
             RecordType::A,
-            &FQDN::TEST_DOMAIN.push_label(&subdomain.to_string()),
+            &FQDN::TEST_DOMAIN.push_label(&format!("subdomain-{i}")),
         )?;
 
         assert_eq!(response.status, DigStatus::SERVFAIL);

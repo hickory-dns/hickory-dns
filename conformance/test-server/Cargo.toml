@@ -1,0 +1,35 @@
+[package]
+name = "test-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+base64 = "0.22"
+clap = { version = "4.0", features = ["derive", "std"] }
+futures = { version = "0.3.5", default-features = false }
+hickory-proto = { version = "0.26.0-alpha.1", path = "../../crates/proto", default-features = false, features = ["std", "dnssec-aws-lc-rs"] }
+tokio = { version = "1.21", features = ["macros", "net", "io-util", "rt-multi-thread"] }
+time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
+
+[dev-dependencies]
+hickory-client = { version = "0.26.0-alpha.1", path = "../../crates/client"}
+
+[features]
+tls-aws-lc-rs = []
+https-aws-lc-rs = []
+quic-aws-lc-rs = []
+h3-aws-lc-rs = []
+
+tls-ring = []
+https-ring = []
+quic-ring = []
+h3-ring = []
+
+__tls = []
+__https = []
+__quic = []
+__h3 = []
+
+dnssec-aws-lc-rs = []
+dnssec-ring = []
+__dnssec = []

@@ -1,5 +1,3 @@
-use std::fs;
-
 use dns_test::{
     Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
@@ -13,9 +11,11 @@ fn no_soa() -> Result<(), Error> {
     let network = Network::new()?;
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(&Implementation::Dnslib, FQDN::TEST_TLD, &network)?;
-    let script = fs::read_to_string("src/resolver/dns/scenarios/empty_response.py")?;
-    leaf_ns.cp("/script.py", &script)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("empty_response", "both"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
 
     root_ns.referral_nameserver(&leaf_ns);
 
