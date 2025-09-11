@@ -435,25 +435,7 @@ impl NameServer<Stopped> {
             container.cp(&format!("{ZONES_DIR}/{key}zone"), &zone_file.to_string())?;
         }
 
-        let mut child = container.spawn(&implementation.cmd_args(config.role()))?;
-
-        // For Dnslib, make sure the python interpreter is still running after two seconds
-        if let Implementation::Dnslib = implementation {
-            thread::sleep(Duration::from_secs(2));
-
-            match child.try_wait() {
-                Ok(None) => {} // the process is still running
-                Ok(Some(status)) => {
-                    return Err(format!(
-                        "unable to start dnslib server: {status:?}; logs: {:?}",
-                        container
-                            .stdout(&["cat", &implementation.stderr_logfile(Role::NameServer)]),
-                    )
-                    .into());
-                }
-                Err(e) => println!("unable to determine if dnslib started: {e}"),
-            }
-        }
+        let child = container.spawn(&implementation.cmd_args(config.role()))?;
 
         Ok(NameServer {
             container,
@@ -608,10 +590,7 @@ impl NameServer<Running> {
 
     /// Returns the logs collected so far
     pub fn logs(&self) -> Result<String, Error> {
-        if self.implementation.is_hickory()
-            || self.implementation.is_dnslib()
-            || self.implementation.is_test_server()
-        {
+        if self.implementation.is_hickory() || self.implementation.is_test_server() {
             Ok(format!(
                 "STDOUT:\n{}\nSTDERR:\n{}",
                 self.stdout()?,
