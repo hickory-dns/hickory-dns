@@ -1269,6 +1269,7 @@ dependencies = [
  "anyhow",
  "base64",
  "clap",
+ "data-encoding",
  "futures",
  "hickory-client",
  "hickory-proto",
