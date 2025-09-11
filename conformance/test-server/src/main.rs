@@ -14,6 +14,7 @@ use hickory_proto::{
 use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
+mod zone_file;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,6 +26,7 @@ async fn main() -> Result<()> {
         "bad_txid" => handlers::bad_txid_handler,
         "cname_loop" => handlers::cname_loop_handler,
         "empty_response" => handlers::empty_response_handler,
+        "nsec3_nocover" => handlers::nsec3_nocover_handler,
         "packet_loss" => handlers::packet_loss_handler,
         "truncated_response" => handlers::truncated_response_handler,
         _ => {

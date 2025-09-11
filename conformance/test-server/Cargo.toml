@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = "1.0"
 base64 = "0.22"
 clap = { version = "4.0", features = ["derive", "std"] }
+data-encoding = "2.9"
 futures = { version = "0.3", default-features = false }
 hickory-proto = { version = "0.26.0-alpha.1", path = "../../crates/proto", default-features = false, features = ["std", "dnssec-aws-lc-rs", "tokio"] }
 tokio = { version = "1.21", features = ["macros", "net", "io-util", "rt-multi-thread"] }
