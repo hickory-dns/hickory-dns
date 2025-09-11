@@ -24,7 +24,6 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 #[derive(Clone)]
 pub enum Image {
     Bind,
-    Dnslib,
     Client,
     Hickory {
         repo: Repository<'static>,
@@ -51,7 +50,6 @@ impl Image {
     fn dockerfile(&self) -> &'static str {
         match self {
             Self::Bind => include_str!("docker/bind.Dockerfile"),
-            Self::Dnslib => include_str!("docker/dnslib.Dockerfile"),
             Self::Client => include_str!("docker/client.Dockerfile"),
             Self::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
             Self::Pdns => include_str!("docker/pdns.Dockerfile"),
@@ -66,11 +64,6 @@ impl Image {
             Self::Bind => {
                 static BIND_ONCE: Once = Once::new();
                 &BIND_ONCE
-            }
-
-            Self::Dnslib => {
-                static DNSLIB_ONCE: Once = Once::new();
-                &DNSLIB_ONCE
             }
 
             Self::Client => {
@@ -110,7 +103,6 @@ impl From<Implementation> for Image {
     fn from(implementation: Implementation) -> Self {
         match implementation {
             Implementation::Bind => Self::Bind,
-            Implementation::Dnslib => Self::Dnslib,
             Implementation::Unbound => Self::Unbound,
             Implementation::Hickory {
                 repo,
@@ -139,7 +131,6 @@ impl fmt::Display for Image {
         match self {
             Self::Client => f.write_str("client"),
             Self::Bind => f.write_str("bind"),
-            Self::Dnslib => f.write_str("dnslib"),
             Self::Hickory {
                 crypto_provider, ..
             } => write!(f, "hickory-{crypto_provider}"),
@@ -186,7 +177,6 @@ impl Container {
                 if docker_build_gha_cache() {
                     let scope = match image {
                         Image::Bind => "bind",
-                        Image::Dnslib => "dnslib",
                         Image::Client => "client",
                         Image::Hickory {
                             crypto_provider: HickoryCryptoProvider::AwsLcRs,
