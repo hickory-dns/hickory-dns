@@ -1,7 +1,11 @@
 use crate::{Transport, zone_file};
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
+use data_encoding::BASE32_DNSSEC;
 use hickory_proto::{
-    dnssec::rdata::{NSEC3, RRSIG},
+    dnssec::{
+        Nsec3HashAlgorithm,
+        rdata::{NSEC3, NSEC3PARAM, RRSIG},
+    },
     op::{Message, ResponseCode},
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
@@ -217,12 +221,24 @@ pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<
         .with_context(|| "cname loop handler: could not serialize Message")
 }
 
-/// This handler responds to A record requests with invalid (non-covering) NSEC3 records
+/// This handler is for testing that NSEC3 coverage validation. It should respond to queries in the
+/// following way:
+///  * DNSKEY queries - return the correct records
+///  * SOA queries - return the correct records
+///  * A query for subdomain-0.hickory-dns.testing. - Return correct A + RRSIG RRset.
+///  * A query for validnx.hickory-dns.testing. - Return NXDOMAIN + valid NSEC3/RRSIG RRSet.
+///  * A query for any other name - Return NXDOMAIN + invalid (non-covering) NSEC3/RRSIG RRset.
 pub(crate) fn nsec3_nocover_handler(
     bytes: &[u8],
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
+    let query_name = msg.queries()[0].name().clone();
+    let query_type = msg.queries()[0].query_type();
+
+    let origin_name = Name::from_ascii("hickory-dns.testing.").unwrap();
+    let correct_name = origin_name.prepend_label("subdomain-0")?;
+    let valid_nx_name = origin_name.prepend_label("validnx")?;
 
     let records = zone_file::parse_zone_file(Path::new(
         &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
@@ -233,23 +249,155 @@ pub(crate) fn nsec3_nocover_handler(
         ))
     })?;
 
-    match msg.queries()[0].query_type() {
-        RecordType::DNSKEY => {
-            let dnskey_records = records
-                .into_iter()
-                .filter(|x| match x.record_type() {
-                    RecordType::DNSKEY => true,
-                    RecordType::RRSIG => {
-                        let Some(rrsig) = x.try_borrow::<RRSIG>() else {
-                            return false;
-                        };
-                        rrsig.data().input().type_covered == RecordType::DNSKEY
+    match query_type {
+        RecordType::DNSKEY | RecordType::SOA => {
+            msg.add_answers(records.into_iter().filter(|x| match x.record_type() {
+                RecordType::DNSKEY | RecordType::SOA => x.record_type() == query_type,
+                RecordType::RRSIG => {
+                    let Some(rrsig) = x.try_borrow::<RRSIG>() else {
+                        return false;
+                    };
+                    rrsig.data().input().type_covered == query_type
+                }
+                _ => false,
+            }));
+        }
+        RecordType::A if query_name == correct_name => {
+            for record in records {
+                if *record.name() != correct_name {
+                    continue;
+                }
+
+                if record.record_type() == RecordType::A {
+                    msg.add_answer(record.clone());
+                } else if record.record_type() == RecordType::RRSIG {
+                    let Some(rrsig) = record.try_borrow::<RRSIG>() else {
+                        continue;
+                    };
+
+                    if rrsig.data().input().type_covered == RecordType::A {
+                        msg.add_answer(record.clone());
                     }
-                    _ => false,
-                })
+                }
+            }
+        }
+        RecordType::A if query_name == valid_nx_name => {
+            msg.set_response_code(ResponseCode::NXDomain);
+
+            let Some(params_rec) = records
+                .clone()
+                .into_iter()
+                .filter(|x| x.record_type() == RecordType::NSEC3PARAM)
                 .to_owned()
-                .collect::<Vec<Record>>();
-            msg.add_answers(dnskey_records);
+                .next()
+            else {
+                return Err(Error::msg("Could not get nsec3param record"));
+            };
+
+            let Some(params_inner) = params_rec.try_borrow::<NSEC3PARAM>() else {
+                return Err(Error::msg("Could not get nsec3param record data"));
+            };
+
+            let b32_hasher = |name: &Name| {
+                BASE32_DNSSEC.encode(
+                    Nsec3HashAlgorithm::SHA1
+                        .hash(
+                            params_inner.data().salt(),
+                            name,
+                            params_inner.data().iterations(),
+                        )
+                        .unwrap()
+                        .as_ref(),
+                )
+            };
+
+            let mut names = vec![];
+            for rec in records.iter().filter(|x| {
+                x.record_type() != RecordType::NSEC3 && x.record_type() != RecordType::RRSIG
+            }) {
+                let hash = b32_hasher(rec.name());
+                if !names.contains(&hash) {
+                    names.push(hash);
+                }
+            }
+
+            names.sort();
+
+            println!("Names: {names:?}");
+            let b32_hashed_valid_name = b32_hasher(&valid_nx_name);
+            let b32_hashed_closest_name = b32_hasher(&origin_name);
+            let b32_hashed_wildcard_name = b32_hasher(&origin_name.prepend_label("*")?);
+
+            let mut closest_encloser = None;
+            let mut covering_name = None;
+            let mut wildcard_name = None;
+
+            // Get NSEC3 covering, closest encloser, and next closer proofs
+            for (i, name) in names.iter().enumerate() {
+                if **name > *b32_hashed_valid_name && covering_name.is_none() {
+                    covering_name =
+                        Some(names[if i == 0 { names.len() - 1 } else { i - 1 }].clone());
+                    println!(
+                        "Covering record for {b32_hashed_valid_name}: {}",
+                        names[if i == 0 { names.len() - 1 } else { i - 1 }]
+                    );
+                }
+
+                if **name > *b32_hashed_wildcard_name && wildcard_name.is_none() {
+                    wildcard_name =
+                        Some(names[if i == 0 { names.len() - 1 } else { i - 1 }].clone());
+                    println!(
+                        "Wildcard record for {b32_hashed_valid_name}: {}",
+                        names[if i == 0 { names.len() - 1 } else { i - 1 }]
+                    );
+                }
+
+                if **name == b32_hashed_closest_name {
+                    closest_encloser = Some(name.clone());
+                    println!("Closest encloser record for {b32_hashed_valid_name}: {name}",);
+                }
+            }
+
+            let nsec3_name = origin_name.prepend_label(covering_name.unwrap())?;
+            let nsec3_closest_name = origin_name.prepend_label(closest_encloser.unwrap())?;
+            let nsec3_wildcard_name = origin_name.prepend_label(wildcard_name.unwrap())?;
+
+            for record in records {
+                match record.record_type() {
+                    RecordType::NSEC3 => {
+                        if *record.name() == nsec3_name
+                            || *record.name() == nsec3_closest_name
+                            || *record.name() == nsec3_wildcard_name
+                        {
+                            msg.add_authority(record);
+                        }
+                    }
+                    RecordType::SOA => {
+                        msg.add_authority(record);
+                    }
+                    RecordType::RRSIG => {
+                        let Some(rrsig) = record.try_borrow::<RRSIG>() else {
+                            continue;
+                        };
+
+                        match rrsig.data().input().type_covered {
+                            RecordType::SOA => {
+                                msg.add_authority(record);
+                            }
+                            RecordType::NSEC3 => {
+                                if *record.name() == nsec3_name
+                                    || *record.name() == nsec3_closest_name
+                                    || *record.name() == nsec3_wildcard_name
+                                {
+                                    msg.add_authority(record);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
         RecordType::A => {
             msg.set_response_code(ResponseCode::NXDomain);
@@ -265,7 +413,8 @@ pub(crate) fn nsec3_nocover_handler(
                             continue;
                         };
                         for rtype in nsec3.data().type_bit_maps() {
-                            // Find the first NSEC3 record that covers an A record
+                            // Find the first NSEC3 record that covers an A record and save
+                            // the record name so we can find a matching RRSIG.
                             if rtype == RecordType::A {
                                 nsec3_name = Some(nsec3.name().clone());
                                 msg.add_additional(record);
