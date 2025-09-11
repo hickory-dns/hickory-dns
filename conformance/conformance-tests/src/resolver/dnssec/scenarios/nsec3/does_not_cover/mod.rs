@@ -51,10 +51,30 @@ fn does_not_cover() -> Result<(), Error> {
     let client = Client::new(&network)?;
     let dig_settings = *DigSettings::default().recurse().dnssec().tcp();
 
+    // This record should be NoError/AD
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::TEST_DOMAIN.push_label("subdomain-0"),
+    )?;
+    assert_eq!(response.status, DigStatus::NOERROR);
+    assert!(response.flags.authenticated_data);
+
+    // This record doesn't exist in the zone file and has a valid covering NSEC3 proof
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::TEST_DOMAIN.push_label("validnx"),
+    )?;
+    assert_eq!(response.status, DigStatus::NXDOMAIN);
+    assert!(response.flags.authenticated_data);
+
     // These subdomains exist in the zone file, but the test server has been configured to return
     // NXDOMAIN for any A record queries along with NSEC3 and RRSIG records.  Since these names
     // do exist, the NSEC3 records will not cover those names.
-    for i in 0..4 {
+    for i in 1..4 {
         let response = client.dig(
             dig_settings,
             resolver.ipv4_addr(),
