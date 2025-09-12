@@ -24,7 +24,6 @@ const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 #[derive(Clone)]
 pub enum Image {
     Bind,
-    Dnslib,
     Client,
     Hickory {
         repo: Repository<'static>,
@@ -33,6 +32,11 @@ pub enum Image {
     Pdns,
     Unbound,
     EdeDotCom,
+    TestServer {
+        handler: String,
+        repo: Repository<'static>,
+        transport: String,
+    },
 }
 
 impl Image {
@@ -46,12 +50,12 @@ impl Image {
     fn dockerfile(&self) -> &'static str {
         match self {
             Self::Bind => include_str!("docker/bind.Dockerfile"),
-            Self::Dnslib => include_str!("docker/dnslib.Dockerfile"),
             Self::Client => include_str!("docker/client.Dockerfile"),
             Self::Hickory { .. } => include_str!("docker/hickory.Dockerfile"),
             Self::Pdns => include_str!("docker/pdns.Dockerfile"),
             Self::Unbound => include_str!("docker/unbound.Dockerfile"),
             Self::EdeDotCom => include_str!("docker/ede-dot-com/Dockerfile"),
+            Self::TestServer { .. } => include_str!("docker/test-server.Dockerfile"),
         }
     }
 
@@ -60,11 +64,6 @@ impl Image {
             Self::Bind => {
                 static BIND_ONCE: Once = Once::new();
                 &BIND_ONCE
-            }
-
-            Self::Dnslib => {
-                static DNSLIB_ONCE: Once = Once::new();
-                &DNSLIB_ONCE
             }
 
             Self::Client => {
@@ -91,6 +90,11 @@ impl Image {
                 static EDE_ONCE: Once = Once::new();
                 &EDE_ONCE
             }
+
+            Self::TestServer { .. } => {
+                static TESTSERVER_ONCE: Once = Once::new();
+                &TESTSERVER_ONCE
+            }
         }
     }
 }
@@ -99,7 +103,6 @@ impl From<Implementation> for Image {
     fn from(implementation: Implementation) -> Self {
         match implementation {
             Implementation::Bind => Self::Bind,
-            Implementation::Dnslib => Self::Dnslib,
             Implementation::Unbound => Self::Unbound,
             Implementation::Hickory {
                 repo,
@@ -110,6 +113,15 @@ impl From<Implementation> for Image {
             },
             Implementation::EdeDotCom => Self::EdeDotCom,
             Implementation::Pdns => Self::Pdns,
+            Implementation::TestServer {
+                handler,
+                repo,
+                transport,
+            } => Self::TestServer {
+                handler,
+                repo,
+                transport,
+            },
         }
     }
 }
@@ -119,13 +131,13 @@ impl fmt::Display for Image {
         match self {
             Self::Client => f.write_str("client"),
             Self::Bind => f.write_str("bind"),
-            Self::Dnslib => f.write_str("dnslib"),
             Self::Hickory {
                 crypto_provider, ..
             } => write!(f, "hickory-{crypto_provider}"),
             Self::Pdns => f.write_str("pdns"),
             Self::Unbound => f.write_str("unbound"),
             Self::EdeDotCom => f.write_str("ede-dot-com"),
+            Self::TestServer { .. } => f.write_str("test-server"),
         }
     }
 }
@@ -165,7 +177,6 @@ impl Container {
                 if docker_build_gha_cache() {
                     let scope = match image {
                         Image::Bind => "bind",
-                        Image::Dnslib => "dnslib",
                         Image::Client => "client",
                         Image::Hickory {
                             crypto_provider: HickoryCryptoProvider::AwsLcRs,
@@ -178,6 +189,7 @@ impl Container {
                         Image::Pdns => "pdns",
                         Image::Unbound => "unbound",
                         Image::EdeDotCom => "ede-dot-com",
+                        Image::TestServer { .. } => "test-server",
                     };
 
                     command.arg(format!("--cache-from=type=gha,scope=${scope}"));
@@ -216,6 +228,19 @@ impl Container {
                         include_str!("docker/ede-dot-com/configure_parent.sh"),
                     )
                     .expect("could not copy configure_parent.sh");
+                }
+
+                if let Image::TestServer { repo, .. } = image {
+                    let mut cp_r = Command::new("git");
+                    cp_r.args([
+                        "clone",
+                        "--depth",
+                        "1",
+                        repo.as_str(),
+                        &docker_build_dir.join("src").display().to_string(),
+                    ]);
+
+                    exec_or_panic(&mut cp_r, false);
                 }
 
                 fs::write(docker_build_dir.join(".dockerignore"), "src/.git")
