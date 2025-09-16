@@ -1,5 +1,5 @@
 use core::sync::atomic::{self, AtomicUsize};
-use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, rc::Rc, thread, time::Duration};
+use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, rc::Rc};
 
 use rcgen::CertifiedKey;
 
@@ -436,6 +436,7 @@ impl NameServer<Stopped> {
         }
 
         let child = container.spawn(&implementation.cmd_args(config.role()))?;
+        container.wait(&implementation, Role::NameServer)?;
 
         Ok(NameServer {
             container,
@@ -540,6 +541,7 @@ impl NameServer<Signed> {
         }
 
         let child = container.spawn(&implementation.cmd_args(config.role()))?;
+        container.wait(&implementation, Role::NameServer)?;
 
         Ok(NameServer {
             container,

@@ -52,7 +52,7 @@ pub struct TlsServerConfig {
     pub private_key: PathBuf,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Role {
     NameServer,
     Resolver,
