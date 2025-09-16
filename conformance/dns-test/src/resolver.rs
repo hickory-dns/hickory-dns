@@ -133,6 +133,7 @@ impl ResolverSettings {
         }
 
         let child = container.spawn(&implementation.cmd_args(Role::Resolver))?;
+        container.wait(implementation, Role::Resolver)?;
 
         Ok(Resolver {
             _child: child,

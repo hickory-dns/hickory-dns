@@ -1,18 +1,21 @@
 mod network;
 
 use core::{fmt, str};
-use std::ffi::OsStr;
-use std::net::Ipv4Addr;
-use std::process::{self, ChildStderr, ChildStdout, ExitStatus};
-use std::process::{Command, Stdio};
-use std::sync::atomic::AtomicUsize;
-use std::sync::{Arc, Once, atomic};
-use std::{env, fs};
+use std::{
+    env,
+    ffi::OsStr,
+    fs,
+    net::Ipv4Addr,
+    process::{self, ChildStderr, ChildStdout, Command, ExitStatus, Stdio},
+    sync::{Arc, Once, atomic, atomic::AtomicUsize},
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
 use tempfile::{NamedTempFile, TempDir};
 
 pub use crate::container::network::Network;
-use crate::{Error, HickoryCryptoProvider, Implementation, Repository};
+use crate::{Error, HickoryCryptoProvider, Implementation, Repository, implementation::Role};
 
 #[derive(Clone)]
 pub struct Container {
@@ -367,6 +370,47 @@ impl Container {
         })
     }
 
+    /// Wait up to 10 seconds for a nameserver/resolver to start to avoid test failures
+    pub fn wait(&self, implementation: &Implementation, role: Role) -> Result<(), Error> {
+        let start = Instant::now();
+        let timeout = Duration::from_secs(10);
+        loop {
+            if start.elapsed() >= timeout {
+                return Err("unable to start name server: timeout expired".into());
+            }
+
+            let Ok(logs) = self.stdout(&[
+                "cat",
+                &implementation.stdout_logfile(role),
+                &implementation.stderr_logfile(role),
+            ]) else {
+                continue;
+            };
+
+            let match_str = match implementation {
+                Implementation::EdeDotCom if role == Role::Resolver => {
+                    panic!("EdeDotCom unsupported as resolver")
+                }
+                Implementation::Bind | Implementation::EdeDotCom => "running",
+                Implementation::Hickory { .. } => "server starting up, awaiting connections...",
+                Implementation::Pdns if role == Role::Resolver => "Enabled multiplexer",
+                Implementation::Pdns => panic!("Pdns unsupported as name server"),
+                Implementation::TestServer { .. } if role == Role::Resolver => {
+                    panic!("TestServer unsupported as resolver")
+                }
+                Implementation::TestServer { .. } => "TEST SERVER STARTED",
+                Implementation::Unbound if role == Role::Resolver => "start of service",
+                Implementation::Unbound => "nsd started",
+            };
+
+            if logs.contains(match_str) {
+                break;
+            }
+            sleep(Duration::from_millis(500));
+        }
+
+        Ok(())
+    }
     pub fn ipv4_addr(&self) -> Ipv4Addr {
         self.inner.ipv4_addr
     }
