@@ -144,6 +144,10 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
             self.on_send.clone(),
         ))))
     }
+
+    fn runtime_provider(&self) -> &Self::RuntimeProvider {
+        &MockRuntimeProvider
+    }
 }
 
 #[derive(Clone)]
