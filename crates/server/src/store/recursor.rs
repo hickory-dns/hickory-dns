@@ -37,7 +37,7 @@ use crate::{
         serialize::txt::{ParseError, Parser},
     },
     recursor::{DnssecPolicy, Recursor},
-    resolver::TtlConfig,
+    resolver::{TtlConfig, config::OpportunisticEncryption},
     server::{Request, RequestInfo},
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
@@ -100,6 +100,7 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
             .case_randomization(config.case_randomization)
+            .opportunistic_encryption(config.opportunistic_encryption)
             .build(&root_addrs)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
@@ -276,6 +277,10 @@ pub struct RecursiveConfig {
     /// [draft-vixie-dnsext-dns0x20-00](https://datatracker.ietf.org/doc/html/draft-vixie-dnsext-dns0x20-00).
     #[serde(default)]
     pub case_randomization: bool,
+
+    /// Configure RFC 9539 opportunistic encryption.
+    #[serde(default)]
+    pub opportunistic_encryption: OpportunisticEncryption,
 }
 
 impl RecursiveConfig {
@@ -366,6 +371,13 @@ impl DnssecPolicyConfig {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(all(
+        feature = "recursor",
+        feature = "toml",
+        any(feature = "__tls", feature = "__quic")
+    ))]
+    use hickory_resolver::config::OpportunisticEncryptionConfig;
+
     #[cfg(all(feature = "__dnssec", feature = "toml"))]
     use super::*;
 
@@ -416,5 +428,26 @@ positive_max_ttl = 3600"#;
                 .end(),
             Duration::from_secs(3600)
         )
+    }
+
+    #[cfg(all(
+        feature = "recursor",
+        feature = "toml",
+        any(feature = "__tls", feature = "__quic")
+    ))]
+    #[test]
+    fn can_parse_recursor_opportunistic_enc_policy() {
+        let input = r#"roots = "/etc/root.hints"
+[opportunistic_encryption]
+enabled = {}
+"#;
+
+        let config: RecursiveConfig = toml::from_str(input).unwrap();
+        assert_eq!(
+            config.opportunistic_encryption,
+            OpportunisticEncryption::Enabled {
+                config: OpportunisticEncryptionConfig::default()
+            }
+        );
     }
 }

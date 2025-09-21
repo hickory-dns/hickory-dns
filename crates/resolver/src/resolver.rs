@@ -20,7 +20,7 @@ use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
-use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
+use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -113,6 +113,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             options: ResolverOpts::default(),
             provider,
             tls: None,
+            opportunistic_encryption: OpportunisticEncryption::default(),
             #[cfg(feature = "__dnssec")]
             trust_anchor: None,
             #[cfg(feature = "__dnssec")]
@@ -375,6 +376,7 @@ pub struct ResolverBuilder<P> {
     provider: P,
 
     tls: Option<TlsConfig>,
+    opportunistic_encryption: OpportunisticEncryption,
     #[cfg(feature = "__dnssec")]
     trust_anchor: Option<Arc<TrustAnchors>>,
     #[cfg(feature = "__dnssec")]
@@ -416,6 +418,15 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         self
     }
 
+    /// Set the opportunistic encryption configuration to be used by the resolver.
+    pub fn with_opportunistic_encryption(
+        mut self,
+        opportunistic_encryption: OpportunisticEncryption,
+    ) -> Self {
+        self.opportunistic_encryption = opportunistic_encryption;
+        self
+    }
+
     /// Set maximum limits on NSEC3 additional iterations.
     ///
     /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
@@ -451,6 +462,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             nsec3_soft_iteration_limit,
             #[cfg(feature = "__dnssec")]
             nsec3_hard_iteration_limit,
+            opportunistic_encryption,
         } = self;
 
         #[cfg(feature = "__dnssec")]
@@ -464,6 +476,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
                 Some(config) => config,
                 None => TlsConfig::new()?,
             },
+            opportunistic_encryption,
         });
 
         let pool = NameServerPool::from_config(name_servers, context.clone(), provider);

@@ -25,6 +25,7 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{
         TtlConfig,
+        config::OpportunisticEncryption,
         name_server::{ConnectionProvider, TlsConfig},
     },
 };
@@ -58,6 +59,7 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     pub(super) avoid_local_udp_ports: HashSet<u16>,
     pub(super) ttl_config: TtlConfig,
     pub(super) case_randomization: bool,
+    pub(super) opportunistic_encryption: OpportunisticEncryption,
     pub(super) conn_provider: P,
 }
 
@@ -192,6 +194,12 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
+    /// Configure RFC9539 opportunistic encryption.
+    pub fn opportunistic_encryption(mut self, config: OpportunisticEncryption) -> Self {
+        self.opportunistic_encryption = config;
+        self
+    }
+
     /// Construct a new recursor using the list of root zone name server addresses
     ///
     /// # Panics
@@ -239,6 +247,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
             case_randomization: false,
+            opportunistic_encryption: OpportunisticEncryption::default(),
             conn_provider,
         }
     }

@@ -18,7 +18,9 @@ use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{
+    NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
+};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
@@ -217,12 +219,22 @@ pub struct PoolContext {
     pub options: ResolverOpts,
     /// TLS configuration
     pub tls: TlsConfig,
+    /// Opportunistic encryption configuration
+    pub opportunistic_encryption: OpportunisticEncryption,
 }
 
 impl PoolContext {
     /// Creates a new PoolContext
-    pub fn new(options: ResolverOpts, tls: TlsConfig) -> Self {
-        Self { options, tls }
+    pub fn new(
+        options: ResolverOpts,
+        tls: TlsConfig,
+        opportunistic_encryption: OpportunisticEncryption,
+    ) -> Self {
+        Self {
+            options,
+            tls,
+            opportunistic_encryption,
+        }
     }
 }
 
@@ -263,6 +275,7 @@ mod tests {
             Arc::new(PoolContext::new(
                 ResolverOpts::default(),
                 TlsConfig::new().unwrap(),
+                OpportunisticEncryption::default(),
             )),
             TokioRuntimeProvider::new(),
         );
@@ -318,7 +331,11 @@ mod tests {
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(
             name_servers.clone(),
-            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+            Arc::new(PoolContext::new(
+                opts,
+                TlsConfig::new().unwrap(),
+                OpportunisticEncryption::default(),
+            )),
         );
 
         let name = Name::from_str("www.example.com.").unwrap();
