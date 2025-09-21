@@ -9,7 +9,7 @@ use std::{
 };
 
 use async_recursion::async_recursion;
-use futures_util::{StreamExt, stream::FuturesUnordered};
+use futures_util::{StreamExt, lock::Mutex as AsyncMutex, stream::FuturesUnordered};
 use hickory_resolver::name_server::TlsConfig;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
@@ -36,7 +36,9 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache,
-        config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
+        config::{
+            NameServerConfig, NameServerTransportState, OpportunisticEncryption, ResolverOpts,
+        },
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -58,6 +60,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
     opportunistic_encryption: OpportunisticEncryption,
+    encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
     tls: Arc<TlsConfig>,
     conn_provider: P,
 }
@@ -87,6 +90,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ttl_config,
             case_randomization,
             opportunistic_encryption,
+            encrypted_transport_state,
             conn_provider,
         } = builder;
 
@@ -105,6 +109,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             servers,
             Arc::new(opts),
             tls.clone(),
+            encrypted_transport_state.clone(),
             conn_provider.clone(),
         );
 
@@ -158,6 +163,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             avoid_local_udp_ports,
             case_randomization,
             opportunistic_encryption,
+            encrypted_transport_state,
             tls,
             conn_provider,
         };
@@ -577,6 +583,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             config_group,
             Arc::new(self.recursor_opts()),
             self.tls.clone(),
+            self.encrypted_transport_state.clone(),
             self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);

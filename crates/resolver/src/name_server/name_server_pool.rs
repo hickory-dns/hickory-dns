@@ -14,11 +14,14 @@ use std::sync::{
 };
 use std::time::Duration;
 
+use futures_util::lock::Mutex as AsyncMutex;
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{
+    NameServerConfig, NameServerTransportState, ResolverOpts, ServerOrderingStrategy,
+};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
@@ -38,6 +41,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         servers: impl IntoIterator<Item = NameServerConfig>,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
+        encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
@@ -49,6 +53,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                         server,
                         options.clone(),
                         tls.clone(),
+                        encrypted_transport_state.clone(),
                         conn_provider.clone(),
                     ))
                 })
@@ -252,6 +257,7 @@ mod tests {
             resolver_config.name_servers,
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(AsyncMutex::new(NameServerTransportState::default())),
             TokioRuntimeProvider::new(),
         );
 
@@ -307,6 +313,7 @@ mod tests {
             tcp,
             opts.clone(),
             Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(AsyncMutex::new(NameServerTransportState::default())),
             conn_provider,
         ));
         let name_servers = vec![name_server];

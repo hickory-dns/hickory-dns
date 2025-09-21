@@ -8,11 +8,11 @@
 //! Configuration for a resolver
 #![allow(clippy::use_self)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
 use crate::proto::rr::Name;
 use crate::proto::xfer::Protocol;
+use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// Configuration for the upstream nameservers to use for resolution
 #[non_exhaustive]
@@ -777,6 +778,75 @@ fn default_damping_period() -> Duration {
 /// A conservative default for the maximum number of in-flight opportunistic probe requests.
 fn default_max_concurrent_probes() -> u8 {
     10
+}
+
+/// A mapping from nameserver IP address and protocol to encrypted transport state.
+#[derive(Debug, Default)]
+#[repr(transparent)]
+pub struct NameServerTransportState(HashMap<(IpAddr, Protocol), TransportState>);
+
+impl NameServerTransportState {
+    /// Update the transport state for the given IP and protocol to record a connection initiation.
+    pub fn initiate_connection(&mut self, ip: IpAddr, protocol: Protocol) {
+        self.0.insert((ip, protocol), TransportState::default());
+    }
+
+    /// Update the transport state for the given IP and protocol to record a connection completion.
+    pub fn complete_connection(&mut self, ip: IpAddr, protocol: Protocol) {
+        self.0.insert(
+            (ip, protocol),
+            TransportState::Success {
+                completed_at: Instant::now(),
+                last_response: None,
+            },
+        );
+    }
+
+    /// Update the successful transport state for the given IP and protocol to record a response received.
+    pub fn response_received(&mut self, ip: IpAddr, protocol: Protocol) {
+        let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
+        else {
+            return;
+        };
+        *last_response = Some(Instant::now());
+    }
+
+    /// Update the transport state for the given IP and protocol to record a received error.
+    pub fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
+        let completed_at = Instant::now();
+        self.0.insert(
+            (ip, protocol),
+            match error.kind() {
+                ProtoErrorKind::Timeout => TransportState::TimedOut { completed_at },
+                _ => TransportState::Failed { completed_at },
+            },
+        );
+    }
+}
+
+/// State tracked per nameserver IP/protocol to inform opportunistic encryption.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum TransportState {
+    /// Connection attempt has been initiated.
+    #[default]
+    Initiated,
+    /// Connection completed successfully.
+    Success {
+        /// The instant the connection attempt was completed at.
+        completed_at: Instant,
+        /// The last instant at which a response was read on the connection (if any).
+        last_response: Option<Instant>,
+    },
+    /// Connection failed with an error.
+    Failed {
+        /// The instant the connection attempt was completed at.
+        completed_at: Instant,
+    },
+    /// Connection timed out.
+    TimedOut {
+        /// The instant the connection attempt was completed at.
+        completed_at: Instant,
+    },
 }
 
 /// Google Public DNS configuration.

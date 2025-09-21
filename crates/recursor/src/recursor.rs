@@ -12,6 +12,7 @@ use std::{
     time::Instant,
 };
 
+use futures_util::lock::Mutex as AsyncMutex;
 use ipnet::IpNet;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
@@ -25,7 +26,7 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{
         TtlConfig,
-        config::OpportunisticEncryption,
+        config::{NameServerTransportState, OpportunisticEncryption},
         name_server::{ConnectionProvider, TlsConfig},
     },
 };
@@ -60,6 +61,7 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     pub(super) ttl_config: TtlConfig,
     pub(super) case_randomization: bool,
     pub(super) opportunistic_encryption: OpportunisticEncryption,
+    pub(super) encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
     pub(super) conn_provider: P,
 }
 
@@ -161,6 +163,15 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
+    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
+    pub fn transport_state(
+        mut self,
+        encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
+    ) -> Self {
+        self.encrypted_transport_state = encrypted_transport_state;
+        self
+    }
+
     /// Construct a new recursor using the list of root zone name server addresses
     ///
     /// # Panics
@@ -203,6 +214,9 @@ impl<P: ConnectionProvider> Recursor<P> {
             ttl_config: TtlConfig::default(),
             case_randomization: false,
             opportunistic_encryption: OpportunisticEncryption::default(),
+            encrypted_transport_state: Arc::new(AsyncMutex::new(
+                NameServerTransportState::default(),
+            )),
             conn_provider,
         }
     }

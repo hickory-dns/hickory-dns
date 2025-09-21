@@ -15,12 +15,13 @@ use std::task::{Context, Poll};
 use futures_util::{
     FutureExt, Stream,
     future::{self, BoxFuture},
+    lock::Mutex as AsyncMutex,
 };
 use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
-use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
+use crate::config::{NameServerTransportState, ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -110,6 +111,7 @@ impl<R: ConnectionProvider> Resolver<R> {
         ResolverBuilder {
             config,
             options: ResolverOpts::default(),
+            transport_state: Arc::new(AsyncMutex::new(NameServerTransportState::default())),
             provider,
             tls: None,
             #[cfg(feature = "__dnssec")]
@@ -375,6 +377,7 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
 pub struct ResolverBuilder<P> {
     config: ResolverConfig,
     options: ResolverOpts,
+    transport_state: Arc<AsyncMutex<NameServerTransportState>>,
     provider: P,
 
     tls: Option<TlsConfig>,
@@ -441,6 +444,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         let Self {
             config,
             mut options,
+            transport_state,
             provider,
             tls,
             #[cfg(feature = "__dnssec")]
@@ -464,6 +468,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
                 Some(config) => config,
                 None => TlsConfig::new()?,
             }),
+            transport_state,
             provider,
         );
         let client = RetryDnsHandle::new(pool, options.attempts);

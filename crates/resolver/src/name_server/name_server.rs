@@ -18,7 +18,10 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::debug;
 
-use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{
+    ConnectionConfig, NameServerConfig, NameServerTransportState, ResolverOpts,
+    ServerOrderingStrategy,
+};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
@@ -36,6 +39,7 @@ pub struct NameServer<P: ConnectionProvider> {
     tls: Arc<TlsConfig>,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
     server_srtt: DecayingSrtt,
+    encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
     connection_provider: P,
 }
 
@@ -48,6 +52,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         config: NameServerConfig,
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
+        encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
         connection_provider: P,
     ) -> Self {
         let mut connections = connections
@@ -67,6 +72,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             tls,
             connections: AsyncMutex::new(connections),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
+            encrypted_transport_state,
             connection_provider,
         }
     }
@@ -77,7 +83,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         request: DnsRequest,
         policy: ConnectionPolicy,
     ) -> Result<DnsResponse, ProtoError> {
-        let (handle, meta) = self.connected_mut_client(policy).await?;
+        let (handle, meta, protocol) = self.connected_mut_client(policy).await?;
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -90,6 +96,14 @@ impl<P: ConnectionProvider> NameServer<P> {
                     Ok(response) => {
                         meta.srtt.record(rtt);
                         self.server_srtt.record(rtt);
+                        if self.options.opportunistic_encryption.is_enabled()
+                            && protocol.is_encrypted()
+                        {
+                            self.encrypted_transport_state
+                                .lock()
+                                .await
+                                .response_received(self.config.ip, protocol);
+                        }
                         return Ok(response);
                     }
                     Err(error) => error,
@@ -117,7 +131,15 @@ impl<P: ConnectionProvider> NameServer<P> {
                     None => {}
                 }
 
-                Err(ProtoError::from(error))
+                let err = ProtoError::from(error);
+                if self.options.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
+                    self.encrypted_transport_state.lock().await.error_received(
+                        self.config.ip,
+                        protocol,
+                        &err,
+                    );
+                }
+                Err(err)
             }
             Err(error) => {
                 debug!(config = ?self.config, %error, "failed to connect to name server");
@@ -140,6 +162,14 @@ impl<P: ConnectionProvider> NameServer<P> {
                     _ => {}
                 }
 
+                if self.options.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
+                    self.encrypted_transport_state.lock().await.error_received(
+                        self.config.ip,
+                        protocol,
+                        &error,
+                    );
+                }
+
                 // These are connection failures, not lookup failures, that is handled in the resolver layer
                 Err(error)
             }
@@ -152,17 +182,25 @@ impl<P: ConnectionProvider> NameServer<P> {
     async fn connected_mut_client(
         &self,
         policy: ConnectionPolicy,
-    ) -> Result<(P::Conn, Arc<ConnectionMeta>), ProtoError> {
+    ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), ProtoError> {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
         if let Some(conn) = policy.select_connection(&connections) {
-            return Ok((conn.handle.clone(), conn.meta.clone()));
+            return Ok((conn.handle.clone(), conn.meta.clone(), conn.protocol));
         }
 
         debug!(config = ?self.config, "connecting");
         let config = policy
             .select_connection_config(&self.config.connections)
             .ok_or_else(|| ProtoError::from(ProtoErrorKind::NoConnections))?;
+
+        let protocol = config.protocol.to_protocol();
+        if self.options.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
+            self.encrypted_transport_state
+                .lock()
+                .await
+                .initiate_connection(self.config.ip, protocol);
+        }
 
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
@@ -172,11 +210,18 @@ impl<P: ConnectionProvider> NameServer<P> {
         )?)
         .await?;
 
+        if self.options.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
+            self.encrypted_transport_state
+                .lock()
+                .await
+                .complete_connection(self.config.ip, protocol);
+        }
+
         // establish a new connection
-        let state = ConnectionState::new(handle.clone(), config.protocol.to_protocol());
+        let state = ConnectionState::new(handle.clone(), protocol);
         let meta = state.meta.clone();
         connections.push(state);
-        Ok((handle, meta))
+        Ok((handle, meta, protocol))
     }
 
     pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
@@ -513,6 +558,7 @@ mod tests {
             config,
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(AsyncMutex::new(NameServerTransportState::default())),
             TokioRuntimeProvider::default(),
         ));
 
@@ -545,6 +591,7 @@ mod tests {
             config,
             Arc::new(options),
             Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(AsyncMutex::new(NameServerTransportState::default())),
             TokioRuntimeProvider::default(),
         ));
 
@@ -613,6 +660,7 @@ mod tests {
             config,
             Arc::new(resolver_opts),
             Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(AsyncMutex::new(NameServerTransportState::default())),
             provider,
         ));
 

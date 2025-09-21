@@ -108,6 +108,7 @@ metrics = ["hickory-server/metrics"]
 [dependencies]
 async-trait.workspace = true
 futures = { workspace = true, features = ["executor"] }
+futures-util.workspace = true
 once_cell.workspace = true
 rand.workspace = true
 rusqlite = { workspace = true, features = ["bundled"], optional = true }
