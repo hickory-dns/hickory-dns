@@ -759,6 +759,15 @@ mod tests {
         .unwrap();
     }
 
+    #[cfg(all(feature = "recursor", any(feature = "__tls", feature = "__quic")))]
+    #[test]
+    fn example_recursor_opportunistic_enc_config() {
+        toml::from_str::<Config>(include_str!(
+            "../../tests/test-data/test_configs/example_recursor_opportunistic_enc.toml"
+        ))
+        .unwrap();
+    }
+
     #[cfg(feature = "resolver")]
     #[test]
     fn single_store_config_error_message() {
