@@ -494,7 +494,7 @@ mod tests {
     use tokio::spawn;
 
     use super::*;
-    use crate::config::{ConnectionConfig, ProtocolConfig};
+    use crate::config::{ConnectionConfig, OpportunisticEncryption, ProtocolConfig};
     use crate::name_server::TlsConfig;
     use crate::proto::op::{DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
@@ -514,7 +514,11 @@ mod tests {
             TokioRuntimeProvider::default(),
         ));
 
-        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
+        let cx = PoolContext::new(
+            options,
+            TlsConfig::new().unwrap(),
+            OpportunisticEncryption::default(),
+        );
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
             .send(
@@ -547,7 +551,11 @@ mod tests {
             TokioRuntimeProvider::default(),
         ));
 
-        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
+        let cx = PoolContext::new(
+            options,
+            TlsConfig::new().unwrap(),
+            OpportunisticEncryption::default(),
+        );
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
@@ -607,7 +615,11 @@ mod tests {
             ..Default::default()
         };
 
-        let cx = PoolContext::new(resolver_opts, TlsConfig::new().unwrap());
+        let cx = PoolContext::new(
+            resolver_opts,
+            TlsConfig::new().unwrap(),
+            OpportunisticEncryption::default(),
+        );
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
         let ns = Arc::new(NameServer::new([], config, &cx.options, provider));

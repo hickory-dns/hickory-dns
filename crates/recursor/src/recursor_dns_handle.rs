@@ -36,7 +36,7 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache,
-        config::{NameServerConfig, ResolverOpts},
+        config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -69,7 +69,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let servers = roots
             .iter()
             .copied()
-            .map(NameServerConfig::udp_and_tcp)
+            .map(|ip| name_server_config(ip, &builder.opportunistic_encryption))
             .collect::<Vec<_>>();
 
         let RecursorBuilder {
@@ -83,6 +83,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             avoid_local_udp_ports,
             ttl_config,
             case_randomization,
+            opportunistic_encryption,
             conn_provider,
         } = builder;
 
@@ -96,6 +97,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let pool_context = Arc::new(PoolContext::new(
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
+            opportunistic_encryption,
         ));
         let roots =
             NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());
@@ -529,7 +531,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             match glue_ips.get(&ns_data.0) {
                 Some(glue) if !glue.is_empty() => {
-                    config_group.extend(glue.iter().copied().map(NameServerConfig::udp_and_tcp));
+                    config_group.extend(glue.iter().copied().map(|ip| {
+                        name_server_config(ip, &self.pool_context.opportunistic_encryption)
+                    }));
                 }
                 _ => {
                     debug!("glue not found for {ns_data}");
@@ -669,7 +673,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             } else {
                                 Some(ip)
                             }
-                        }).map(NameServerConfig::udp_and_tcp));
+                        }).map(|ip| name_server_config(ip, &self.pool_context.opportunistic_encryption)));
                 }
                 Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
@@ -699,6 +703,22 @@ fn recursor_opts(
     options.case_randomization = case_randomization;
 
     options
+}
+
+fn name_server_config(
+    ip: IpAddr,
+    opportunistic_encryption: &OpportunisticEncryption,
+) -> NameServerConfig {
+    match opportunistic_encryption {
+        #[cfg(any(
+            feature = "tls-aws-lc-rs",
+            feature = "tls-ring",
+            feature = "quic-aws-lc-rs",
+            feature = "quic-ring"
+        ))]
+        OpportunisticEncryption::Enabled { .. } => NameServerConfig::opportunistic_encryption(ip),
+        _ => NameServerConfig::udp_and_tcp(ip),
+    }
 }
 
 #[cfg(feature = "metrics")]

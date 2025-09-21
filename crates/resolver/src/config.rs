@@ -257,6 +257,31 @@ impl NameServerConfig {
         }
     }
 
+    /// Constructs a nameserver configuration for opportunistic encryption.
+    ///
+    /// This will include configurations for plaintext UDP/TCP as well as DNS-over-TLS and/or
+    /// DNS-over-QUIC depending on feature flag support.
+    ///
+    /// Notably, the TLS and QUIC configurations will **not** verify peer certificates, in
+    /// keeping with RFC 9539's requirement. See [RFC 9539 §4.6.3.4] for more information.
+    ///
+    /// [RFC 9539 §4.6.3.4]: https://www.rfc-editor.org/rfc/rfc9539.html#section-4.6.3.4
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub fn opportunistic_encryption(ip: IpAddr) -> Self {
+        Self {
+            ip,
+            trust_negative_responses: true,
+            connections: vec![
+                ConnectionConfig::udp(),
+                ConnectionConfig::tcp(),
+                #[cfg(feature = "__tls")]
+                ConnectionConfig::tls(Arc::from(ip.to_string())),
+                #[cfg(feature = "__quic")]
+                ConnectionConfig::quic(Arc::from(ip.to_string())),
+            ],
+        }
+    }
+
     /// Create a new [`NameServerConfig`] from its constituent parts.
     pub fn new(
         ip: IpAddr,
@@ -653,6 +678,93 @@ pub enum ResolveHosts {
     /// a DNS forwarder. This is the default.
     #[default]
     Auto,
+}
+
+/// Configuration for enabling RFC 9539 opportunistic encryption.
+///
+/// Controls how a recursive resolver probes name servers to discover if they support
+/// encrypted transports.
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(rename_all = "snake_case")
+)]
+#[non_exhaustive]
+pub enum OpportunisticEncryption {
+    /// Opportunistic encryption will not be performed.
+    #[default]
+    Disabled,
+    /// Opportunistic encryption will be performed.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    Enabled {
+        /// Configuration parameters for opportunistic encryption.
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        config: OpportunisticEncryptionConfig,
+    },
+}
+
+impl OpportunisticEncryption {
+    /// Returns true if opportunistic encryption is enabled.
+    pub fn is_enabled(&self) -> bool {
+        match self {
+            Self::Disabled => false,
+            #[cfg(any(feature = "__tls", feature = "__quic"))]
+            Self::Enabled { .. } => true,
+        }
+    }
+
+    /// Returns the maximum number of concurrent probes if opportunistic encrypt is enabled.
+    pub fn max_concurrent_probes(&self) -> Option<u8> {
+        match self {
+            Self::Disabled => None,
+            #[cfg(any(feature = "__tls", feature = "__quic"))]
+            Self::Enabled { config, .. } => Some(config.max_concurrent_probes),
+        }
+    }
+}
+
+/// Configuration parameters for opportunistic encryption.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
+pub struct OpportunisticEncryptionConfig {
+    /// How long the recursive resolver remembers a successful encrypted transport connection.
+    #[cfg_attr(feature = "serde", serde(default = "default_persistence_period"))]
+    pub persistence_period: Duration,
+
+    /// How long the recursive resolver remembers a failed encrypted transport connection.
+    #[cfg_attr(feature = "serde", serde(default = "default_damping_period"))]
+    pub damping_period: Duration,
+
+    /// Maximum number of concurrent opportunistic encryption probes.
+    #[cfg_attr(feature = "serde", serde(default = "default_max_concurrent_probes"))]
+    pub max_concurrent_probes: u8,
+}
+
+impl Default for OpportunisticEncryptionConfig {
+    fn default() -> Self {
+        Self {
+            persistence_period: default_persistence_period(),
+            damping_period: default_damping_period(),
+            max_concurrent_probes: default_max_concurrent_probes(),
+        }
+    }
+}
+
+/// The RFC 9539 suggested default for the resolver persistence period.
+fn default_persistence_period() -> Duration {
+    Duration::from_secs(60 * 60 * 24 * 3) // 3 days
+}
+
+/// The RFC 9539 suggested default for the resolver damping period.
+fn default_damping_period() -> Duration {
+    Duration::from_secs(24 * 60 * 60) // 1 day
+}
+
+/// A conservative default for the maximum number of in-flight opportunistic probe requests.
+fn default_max_concurrent_probes() -> u8 {
+    10
 }
 
 /// Google Public DNS configuration.
