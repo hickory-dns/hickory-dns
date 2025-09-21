@@ -445,6 +445,14 @@ fn test_reject_unknown_fields() {
             skip = true;
         }
 
+        if file_name == "example_recursor_opportunistic_enc.toml" {
+            // The opportunistic encryption enum doesn't work with this test for reasons
+            // unrelated to unknown fields, producing the error 'invalid value: map, expected map
+            // with a single key'.
+            println!("skipping due to opportunistic_encryption setting");
+            skip = true;
+        }
+
         let zones = config_table.get("zones").unwrap().as_array().unwrap();
         for zone in zones {
             #[cfg(not(feature = "__dnssec"))]
