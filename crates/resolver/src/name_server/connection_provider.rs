@@ -66,6 +66,9 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         config: &ConnectionConfig,
         cx: &PoolContext,
     ) -> Result<Self::FutureConn, io::Error>;
+
+    /// Get a reference to a [`RuntimeProvider`].
+    fn runtime_provider(&self) -> &Self::RuntimeProvider;
 }
 
 /// Resolves to a new Connection
@@ -257,6 +260,10 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             connect: dns_connect,
             spawner: self.create_handle(),
         })
+    }
+
+    fn runtime_provider(&self) -> &Self::RuntimeProvider {
+        self
     }
 }
 
