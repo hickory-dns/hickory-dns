@@ -15,7 +15,7 @@ use core::time::Duration;
 use std::io;
 use std::net::SocketAddr;
 
-use futures_io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite, IoSlice};
 use futures_util::stream::Stream;
 use futures_util::{self, FutureExt, future::Future, ready};
 use tracing::debug;
@@ -202,8 +202,11 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
             if send_state.is_some() {
                 // sending...
                 match send_state {
-                    Some(WriteTcpState::LenBytes { pos, length, .. }) => {
-                        let wrote = ready!(socket.as_mut().poll_write(cx, &length[*pos..]))?;
+                    Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
+                        let wrote = ready!(socket.as_mut().poll_write_vectored(
+                            cx,
+                            &[IoSlice::new(&length[*pos..]), IoSlice::new(bytes)]
+                        ))?;
                         *pos += wrote;
                     }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
@@ -224,8 +227,13 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                     Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
                         if pos < length.len() {
                             *send_state = Some(WriteTcpState::LenBytes { pos, length, bytes });
+                        } else if pos < length.len() + bytes.len() {
+                            *send_state = Some(WriteTcpState::Bytes {
+                                pos: pos - length.len(),
+                                bytes,
+                            });
                         } else {
-                            *send_state = Some(WriteTcpState::Bytes { pos: 0, bytes });
+                            *send_state = Some(WriteTcpState::Flushing);
                         }
                     }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
