@@ -121,6 +121,9 @@ url = { workspace = true }
 wasm-bindgen-crate = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { workspace = true }
+
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 test-support.workspace = true

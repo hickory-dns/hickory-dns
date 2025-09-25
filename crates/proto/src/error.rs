@@ -194,6 +194,13 @@ impl From<String> for ProtoError {
     }
 }
 
+#[cfg(target_os = "android")]
+impl From<jni::errors::Error> for ProtoError {
+    fn from(e: jni::errors::Error) -> Self {
+        ProtoErrorKind::Jni(Arc::new(e)).into()
+    }
+}
+
 #[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
@@ -364,6 +371,11 @@ pub enum ProtoErrorKind {
     /// case.
     #[error("case of query name in response did not match")]
     QueryCaseMismatch,
+
+    /// A JNI call error
+    #[cfg(target_os = "android")]
+    #[error("JNI call error: {0}")]
+    Jni(Arc<jni::errors::Error>),
 }
 
 #[cfg(feature = "std")]

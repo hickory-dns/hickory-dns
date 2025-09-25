@@ -100,10 +100,12 @@ hostname = "0.4"
 idna = { version = "1.0.3", default-features = false, features = ["alloc", "compiled_data"] }
 ipconfig = "0.3.0"
 ipnet = { version = "2.3.0", default-features = false }
-libc = "0.2"
+jni = "0.21.1"
 js-sys = "0.3.44"
+libc = "0.2"
 lru-cache = "0.1.2"
 moka = "0.12"
+ndk-context = "0.1.1"
 once_cell = { version = "1.20.0", default-features = false, features = ["critical-section"] }
 prefix-trie = "0.8"
 radix_trie = "0.2.0"
