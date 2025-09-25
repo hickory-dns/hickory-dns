@@ -37,23 +37,27 @@ metrics = ["hickory-recursor?/metrics", "dep:metrics"]
 
 tls-aws-lc-rs = [
     "hickory-proto/tls-aws-lc-rs",
+    "hickory-recursor?/tls-aws-lc-rs",
     "hickory-resolver?/tls-aws-lc-rs",
     "__tls",
 ]
 https-aws-lc-rs = [
     "hickory-proto/https-aws-lc-rs",
+    "hickory-recursor?/https-aws-lc-rs",
     "hickory-resolver?/https-aws-lc-rs",
     "tls-aws-lc-rs",
     "__https",
 ]
 quic-aws-lc-rs = [
     "hickory-proto/quic-aws-lc-rs",
+    "hickory-recursor?/quic-aws-lc-rs",
     "hickory-resolver?/quic-aws-lc-rs",
     "tls-aws-lc-rs",
     "__quic",
 ]
 h3-aws-lc-rs = [
     "hickory-proto/h3-aws-lc-rs",
+    "hickory-recursor?/h3-aws-lc-rs",
     "hickory-resolver?/h3-aws-lc-rs",
     "quic-aws-lc-rs",
     "__h3",
@@ -61,23 +65,27 @@ h3-aws-lc-rs = [
 
 tls-ring = [
     "hickory-proto/tls-ring",
+    "hickory-recursor?/tls-ring",
     "hickory-resolver?/tls-ring",
     "__tls",
 ]
 https-ring = [
     "hickory-proto/https-ring",
+    "hickory-recursor?/https-ring",
     "hickory-resolver?/https-ring",
     "tls-ring",
     "__https",
 ]
 quic-ring = [
     "hickory-proto/quic-ring",
+    "hickory-recursor?/quic-ring",
     "hickory-resolver?/quic-ring",
     "tls-ring",
     "__quic",
 ]
 h3-ring = [
     "hickory-proto/h3-ring",
+    "hickory-recursor?/h3-ring",
     "hickory-resolver?/h3-ring",
     "quic-ring",
     "__h3",
