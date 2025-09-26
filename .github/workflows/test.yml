@@ -287,3 +287,31 @@ jobs:
 
       - name: Build proto crate for aarch64-unknown-none
         run: just proto-aarch64-none
+
+  cross:
+    name: cross-target building
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - aarch64-linux-android
+          - x86_64-linux-android
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: extractions/setup-just@v3
+
+      - name: Install cross
+        run: just init-cross
+
+      - name: Build crates for ${{ matrix.target }}
+        run: just cross-build ${{ matrix.target }}
+
+      - name: Test android implementation
+        run: just cross-test ${{ matrix.target }} hickory-resolver
