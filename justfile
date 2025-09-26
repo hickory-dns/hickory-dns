@@ -282,6 +282,14 @@ ede-dot-com-ignored:
 proto-aarch64-none:
     cargo build --package hickory-proto -v --lib --target aarch64-unknown-none --no-default-features --features=no-std-rand
 
+# builds hickory for a target
+cross-build target:
+    cross build --target {{target}}
+
+# tests the resolver for android
+cross-test target package:
+    cross test --target {{target}} --package {{package}}
+
 [private]
 [macos]
 init-openssl:
@@ -344,6 +352,10 @@ init-cargo-workspaces:
 # Install audit tools
 init-audit:
     @cargo audit --version || cargo install cargo-audit
+
+# Install cross compilation tool. c7dee4d is known to work, current release (0.2.5) causes linking problems
+init-cross:
+    cross --version || cargo install cross --rev c7dee4d --git https://github.com/cross-rs/cross
 
 # Install the code coverage components for LLVM
 init-llvm-cov:
