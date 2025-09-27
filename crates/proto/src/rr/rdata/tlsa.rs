@@ -96,7 +96,6 @@ pub struct TLSA {
 ///    |  255  | PrivCert | Reserved for Private Use       | [RFC6698]   |
 ///    +-------+----------+--------------------------------+-------------+
 /// ```
-
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum CertUsage {
