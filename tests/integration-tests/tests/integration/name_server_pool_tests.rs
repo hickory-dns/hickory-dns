@@ -1,6 +1,7 @@
 use std::future::{Future, poll_fn};
 use std::net::*;
 use std::pin::Pin;
+use std::slice;
 use std::str::FromStr;
 use std::sync::{
     Arc,
@@ -619,7 +620,7 @@ fn test_distrust_nx_responses() {
         let response = block_on(fut).expect("query did not eventually succeed");
         assert_eq!(
             response.answers(),
-            [v4_record.clone()],
+            slice::from_ref(&v4_record),
             "did not see expected fallback behavior on response code `{}`",
             response_code
         );
