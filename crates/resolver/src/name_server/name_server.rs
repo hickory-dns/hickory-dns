@@ -18,7 +18,7 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::debug;
 
-use crate::config::{NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy};
+use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
@@ -75,9 +75,9 @@ impl<P: ConnectionProvider> NameServer<P> {
     pub(super) async fn send(
         self: Arc<Self>,
         request: DnsRequest,
-        skip_udp: bool,
+        preferences: Preferences,
     ) -> Result<DnsResponse, ProtoError> {
-        let (handle, meta) = self.connected_mut_client(skip_udp).await?;
+        let (handle, meta) = self.connected_mut_client(preferences).await?;
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -151,30 +151,17 @@ impl<P: ConnectionProvider> NameServer<P> {
     /// If the connection is in a failed state, then this will establish a new connection
     async fn connected_mut_client(
         &self,
-        skip_udp: bool,
+        preferences: Preferences,
     ) -> Result<(P::Conn, Arc<ConnectionMeta>), ProtoError> {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
-        if !connections.is_empty() {
-            connections.sort_by(|a, b| match (a.protocol, b.protocol) {
-                (ap, bp) if ap == bp => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
-                (Protocol::Udp, _) => cmp::Ordering::Less,
-                (_, Protocol::Udp) => cmp::Ordering::Greater,
-                (_, _) => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
-            });
-
-            let conn = connections.first().unwrap(); // safe to unwrap because we only get here if `connections` is not empty
-            if !(skip_udp && conn.protocol == Protocol::Udp) {
-                return Ok((conn.handle.clone(), conn.meta.clone()));
-            }
+        if let Some(conn) = preferences.select_connection(&connections) {
+            return Ok((conn.handle.clone(), conn.meta.clone()));
         }
 
         debug!(config = ?self.config, "connecting");
-        let config = self
-            .config
-            .connections
-            .iter()
-            .find(|conn| !(matches!(conn.protocol, ProtocolConfig::Udp) && skip_udp))
+        let config = preferences
+            .select_connection_config(&self.config.connections)
             .ok_or_else(|| ProtoError::from(ProtoErrorKind::NoConnections))?;
 
         let handle = Box::pin(self.connection_provider.new_connection(
@@ -442,6 +429,59 @@ impl From<u8> for Status {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
+pub(crate) struct Preferences {
+    pub(crate) exclude_udp: bool,
+}
+
+impl Preferences {
+    /// Checks if the given server has any protocols compatible with current preferences.
+    pub(crate) fn allows_server<P: ConnectionProvider>(&self, server: &NameServer<P>) -> bool {
+        server.protocols().any(|p| self.allows_protocol(p))
+    }
+
+    /// Select the best pre-existing connection to use.
+    ///
+    /// This choice is made based on protocol preference, and the SRTT performance metrics.
+    fn select_connection<'a, P: ConnectionProvider>(
+        &self,
+        connections: &'a [ConnectionState<P>],
+    ) -> Option<&'a ConnectionState<P>> {
+        connections
+            .iter()
+            .filter(|conn| self.allows_protocol(conn.protocol))
+            .min_by(|a, b| self.compare_connections(a, b))
+    }
+
+    fn select_connection_config<'a>(
+        &self,
+        connection_configs: &'a [ConnectionConfig],
+    ) -> Option<&'a ConnectionConfig> {
+        connection_configs
+            .iter()
+            .find(|c| self.allows_protocol(c.protocol.to_protocol()))
+    }
+
+    /// Checks if the given protocol is allowed by current preferences.
+    fn allows_protocol(&self, protocol: Protocol) -> bool {
+        !(self.exclude_udp && protocol == Protocol::Udp)
+    }
+
+    /// Compare two connections according to preferences and performance.
+    fn compare_connections<P: ConnectionProvider>(
+        &self,
+        a: &ConnectionState<P>,
+        b: &ConnectionState<P>,
+    ) -> cmp::Ordering {
+        match (a.protocol, b.protocol) {
+            (ap, bp) if ap == bp => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
+            (Protocol::Udp, _) => cmp::Ordering::Less,
+            (_, Protocol::Udp) => cmp::Ordering::Greater,
+            _ => a.meta.srtt.current().total_cmp(&b.meta.srtt.current()),
+        }
+    }
+}
+
 #[cfg(all(test, feature = "tokio"))]
 mod tests {
     use std::cmp;
@@ -480,7 +520,7 @@ mod tests {
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 ),
-                false,
+                Preferences::default(),
             )
             .await
             .expect("query failed");
@@ -513,7 +553,7 @@ mod tests {
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default(),
                     ),
-                    false
+                    Preferences::default(),
                 )
                 .await
                 .is_err()
@@ -579,7 +619,7 @@ mod tests {
                     Query::query(name.clone(), RecordType::NULL),
                     request_options,
                 ),
-                false,
+                Preferences::default(),
             )
             .await
             .unwrap();

@@ -20,10 +20,10 @@ use tracing::debug;
 
 use crate::config::{NameServerConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
-use crate::name_server::name_server::NameServer;
+use crate::name_server::name_server::{NameServer, Preferences};
 use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
 use crate::proto::runtime::{RuntimeProvider, Time};
-use crate::proto::xfer::{DnsHandle, Protocol};
+use crate::proto::xfer::DnsHandle;
 use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 
 /// Abstract interface for mocking purpose
@@ -138,7 +138,7 @@ impl<P: ConnectionProvider> PoolState<P> {
         let mut backoff = Duration::from_millis(20);
         let mut busy = SmallVec::<[Arc<NameServer<P>>; 2]>::new();
         let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
-        let mut skip_udp = false;
+        let mut preferences = Preferences::default();
 
         loop {
             // construct the parallel requests, 2 is the default
@@ -147,7 +147,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                 && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
             {
                 if let Some(server) = servers.pop_front() {
-                    if !(skip_udp && server.protocols().all(|p| p == Protocol::Udp)) {
+                    if preferences.allows_server(&server) {
                         par_servers.push(server);
                     }
                 }
@@ -159,10 +159,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     backoff,
                 )
                 .await;
-                    servers
-                        .extend(busy.drain(..).filter(|ns| {
-                            !(skip_udp && ns.protocols().all(|p| p == Protocol::Udp))
-                        }));
+                    servers.extend(busy.drain(..).filter(|ns| preferences.allows_server(ns)));
                     backoff *= 2;
                     continue;
                 }
@@ -172,7 +169,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             let mut requests = par_servers
                 .into_iter()
                 .map(|server| {
-                    let future = server.clone().send(request.clone(), skip_udp);
+                    let future = server.clone().send(request.clone(), preferences);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();
@@ -181,7 +178,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                 let e = match result {
                     Ok(response) if response.truncated() => {
                         debug!("truncated response received, retrying over TCP");
-                        skip_udp = true;
+                        preferences.exclude_udp = true;
                         err = ProtoError::from("received truncated response");
                         servers.push_front(server);
                         continue;
@@ -195,7 +192,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     // request to try and avoid further spoofing.
                     ProtoErrorKind::QueryCaseMismatch => {
                         servers.push_front(server);
-                        skip_udp = true;
+                        preferences.exclude_udp = true;
                         continue;
                     }
                     // If the server is busy, try it again later if necessary.
