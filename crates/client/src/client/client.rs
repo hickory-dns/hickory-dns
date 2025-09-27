@@ -686,6 +686,7 @@ impl<R> ClientStreamXfrState<R> {
 
     /// Helper to ingest answer Records
     // TODO: this is complex enough it should get its own tests
+    #[allow(clippy::result_large_err)]
     fn process(&mut self, answers: &[Record]) -> Result<(), ClientError> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
