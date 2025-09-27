@@ -282,6 +282,7 @@ where
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum DnsExchangeConnectInner<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send,
