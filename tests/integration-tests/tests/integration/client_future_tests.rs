@@ -390,8 +390,8 @@ async fn test_create_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(result.answers().iter().any(|rr| *rr == record));
-    assert!(result.answers().iter().any(|rr| *rr == record2));
+    assert!(result.answers().contains(&record));
+    assert!(result.answers().contains(&record2));
 
     // trying to create again should error
     // TODO: it would be cool to make this
@@ -472,8 +472,8 @@ async fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(result.answers().iter().any(|rr| *rr == record));
-    assert!(result.answers().iter().any(|rr| *rr == record2));
+    assert!(result.answers().contains(&record));
+    assert!(result.answers().contains(&record2));
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
@@ -562,9 +562,9 @@ async fn test_append_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
 
-    assert!(result.answers().iter().any(|rr| *rr == record));
-    assert!(result.answers().iter().any(|rr| *rr == record2));
-    assert!(result.answers().iter().any(|rr| *rr == record3));
+    assert!(result.answers().contains(&record));
+    assert!(result.answers().contains(&record2));
+    assert!(result.answers().contains(&record3));
 
     // show that appending the same thing again is ok, but doesn't add any records
     // TODO: technically this is a test for the Server, not client...
@@ -623,8 +623,8 @@ async fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().iter().any(|rr| *rr == new));
-    assert!(!result.answers().iter().any(|rr| *rr == current));
+    assert!(result.answers().contains(&new));
+    assert!(!result.answers().contains(&current));
 
     // check the it fails if tried again.
     let mut not = new.clone();
@@ -643,8 +643,8 @@ async fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().iter().any(|rr| *rr == new));
-    assert!(!result.answers().iter().any(|rr| *rr == not));
+    assert!(result.answers().contains(&new));
+    assert!(!result.answers().contains(&not));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -692,10 +692,10 @@ async fn test_compare_and_swap_multi() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
-    assert!(result.answers().iter().any(|rr| *rr == new1));
-    assert!(result.answers().iter().any(|rr| *rr == new2));
-    assert!(!result.answers().iter().any(|rr| *rr == current1));
-    assert!(!result.answers().iter().any(|rr| *rr == current2));
+    assert!(result.answers().contains(&new1));
+    assert!(result.answers().contains(&new2));
+    assert!(!result.answers().contains(&current1));
+    assert!(!result.answers().contains(&current2));
 
     // check the it fails if tried again.
     let mut not = new1.clone();
@@ -714,8 +714,8 @@ async fn test_compare_and_swap_multi() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
-    assert!(result.answers().iter().any(|rr| *rr == new1));
-    assert!(!result.answers().iter().any(|rr| *rr == not));
+    assert!(result.answers().contains(&new1));
+    assert!(!result.answers().contains(&not));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -771,7 +771,7 @@ async fn test_delete_by_rdata() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().iter().any(|rr| *rr == record1));
+    assert!(result.answers().contains(&record1));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -850,10 +850,10 @@ async fn test_delete_by_rdata_multi() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
-    assert!(!result.answers().iter().any(|rr| *rr == record1));
-    assert!(result.answers().iter().any(|rr| *rr == record2));
-    assert!(!result.answers().iter().any(|rr| *rr == record3));
-    assert!(result.answers().iter().any(|rr| *rr == record4));
+    assert!(!result.answers().contains(&record1));
+    assert!(result.answers().contains(&record2));
+    assert!(!result.answers().contains(&record3));
+    assert!(result.answers().contains(&record4));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
