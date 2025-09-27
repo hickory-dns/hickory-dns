@@ -68,7 +68,7 @@ impl Clone for DnssecClient {
 }
 
 impl DnsHandle for DnssecClient {
-    type Response = Pin<Box<(dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static>>;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&self, request: R) -> Self::Response {
         self.client.send(request)
