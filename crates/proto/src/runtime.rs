@@ -34,7 +34,7 @@ pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
 pub mod iocompat {
     use core::pin::Pin;
     use core::task::{Context, Poll};
-    use std::io;
+    use std::io::{self, IoSlice};
 
     use futures_io::{AsyncRead, AsyncWrite};
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
@@ -63,6 +63,13 @@ pub mod iocompat {
             buf: &[u8],
         ) -> Poll<io::Result<usize>> {
             Pin::new(&mut self.0).poll_write(cx, buf)
+        }
+        fn poll_write_vectored(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bufs: &[IoSlice<'_>],
+        ) -> Poll<io::Result<usize>> {
+            Pin::new(&mut self.0).poll_write_vectored(cx, bufs)
         }
         fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
             Pin::new(&mut self.0).poll_flush(cx)
