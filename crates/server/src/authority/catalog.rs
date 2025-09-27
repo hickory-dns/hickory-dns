@@ -624,6 +624,7 @@ async fn build_authoritative_response(
                 }) = authority.nx_proof_kind()
                 {
                     // This unwrap will not panic as we know that `answers` is `Some`.
+                    #[allow(clippy::unnecessary_unwrap)]
                     let has_wildcard_match =
                         answers.as_ref().unwrap().iter().any(|rr| {
                             rr.record_type() == RecordType::RRSIG && rr.name().is_wildcard()
