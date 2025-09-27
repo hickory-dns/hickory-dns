@@ -385,6 +385,7 @@ impl<'a> Parser<'a> {
             };
 
             // All allowed chars are ASCII, so using char indexes to slice &[u8] is OK
+            #[allow(clippy::char_indices_as_byte_indices)]
             let number = u32::from_str(&ttl_str[start..i])
                 .map_err(|_| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
 
