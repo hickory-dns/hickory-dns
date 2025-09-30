@@ -19,7 +19,15 @@ use std::task::{Context, Poll};
 use futures_util::future::FutureExt;
 use futures_util::ready;
 #[cfg(feature = "__tls")]
-use rustls::pki_types::ServerName;
+use rustls::DigitallySignedStruct;
+#[cfg(feature = "__tls")]
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+#[cfg(feature = "__tls")]
+use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
+#[cfg(feature = "__tls")]
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+#[cfg(not(feature = "__tls"))]
+use tracing::warn;
 
 use crate::config::{ConnectionConfig, ProtocolConfig};
 use crate::name_server::PoolContext;
@@ -39,7 +47,7 @@ use crate::proto::{
     xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
 };
 #[cfg(feature = "__tls")]
-use hickory_proto::rustls::client_config;
+use hickory_proto::rustls::{client_config, default_provider};
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
 /// This trait is designed for customization.
@@ -267,6 +275,87 @@ impl TlsConfig {
             #[cfg(feature = "__tls")]
             config: client_config()?,
         })
+    }
+
+    /// Disable certificate verification.
+    ///
+    /// This is typically unsafe and insecure, except in the context of RFC 9539 opportunistic
+    /// encryption which requires the peer certificate not be verified.
+    #[cfg(feature = "__tls")]
+    pub fn insecure_skip_verify(&mut self) {
+        self.config
+            .dangerous()
+            .set_certificate_verifier(Arc::new(NoCertificateVerification::default()))
+    }
+
+    /// Disable certificate verification.
+    ///
+    /// This is typically unsafe and insecure, except in the context of RFC 9539 opportunistic
+    /// encryption which requires the peer certificate not be verified.
+    #[cfg(not(feature = "__tls"))]
+    pub fn insecure_skip_verify(&mut self) {
+        warn!("asked to skip TLS verification without TLS support")
+    }
+}
+
+/// A rustls ServerCertVerifier that performs **no** certificate verification.
+///
+/// This should only be used with great care, as skipping certificate verification is insecure
+/// and could allow person-in-the-middle attacks.
+#[cfg(feature = "__tls")]
+#[derive(Debug)]
+struct NoCertificateVerification(CryptoProvider);
+
+#[cfg(feature = "__tls")]
+impl Default for NoCertificateVerification {
+    fn default() -> Self {
+        Self(default_provider())
+    }
+}
+
+#[cfg(feature = "__tls")]
+impl ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
     }
 }
 
