@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::{
     Arc,
-    atomic::{AtomicUsize, Ordering as AtomicOrdering},
+    atomic::{AtomicU8, AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::time::Duration;
 
@@ -42,6 +42,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         options: Arc<ResolverOpts>,
         tls: Arc<TlsConfig>,
         encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
+        opportunistic_probe_budget: Arc<AtomicU8>,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
@@ -54,6 +55,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                         options.clone(),
                         tls.clone(),
                         encrypted_transport_state.clone(),
+                        opportunistic_probe_budget.clone(),
                         conn_provider.clone(),
                     ))
                 })
@@ -258,6 +260,7 @@ mod tests {
             Arc::new(ResolverOpts::default()),
             Arc::new(TlsConfig::new().unwrap()),
             Arc::new(AsyncMutex::new(NameServerTransportState::default())),
+            Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::new(),
         );
 
@@ -314,6 +317,7 @@ mod tests {
             opts.clone(),
             Arc::new(TlsConfig::new().unwrap()),
             Arc::new(AsyncMutex::new(NameServerTransportState::default())),
+            Arc::new(AtomicU8::default()),
             conn_provider,
         ));
         let name_servers = vec![name_server];

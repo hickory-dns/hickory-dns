@@ -14,6 +14,13 @@ use std::{
 
 use futures_util::lock::Mutex as AsyncMutex;
 use ipnet::IpNet;
+#[cfg(any(
+    feature = "tls-aws-lc-rs",
+    feature = "tls-ring",
+    feature = "quic-aws-lc-rs",
+    feature = "quic-ring"
+))]
+use tracing::warn;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorCacheMetrics;
@@ -228,12 +235,29 @@ impl<P: ConnectionProvider> Recursor<P> {
     }
 
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
+        #[cfg_attr(
+            not(any(
+                feature = "tls-aws-lc-rs",
+                feature = "tls-ring",
+                feature = "quic-aws-lc-rs",
+                feature = "quic-ring"
+            )),
+            allow(unused_mut)
+        )]
+        let mut tls_config = TlsConfig::new()?;
+        #[cfg(any(
+            feature = "tls-aws-lc-rs",
+            feature = "tls-ring",
+            feature = "quic-aws-lc-rs",
+            feature = "quic-ring"
+        ))]
+        if builder.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
+
         Ok(Self {
-            mode: RecursorDnsHandle::build_recursor_mode(
-                roots,
-                Arc::new(TlsConfig::new()?),
-                builder,
-            )?,
+            mode: RecursorDnsHandle::build_recursor_mode(roots, Arc::new(tls_config), builder)?,
         })
     }
 
