@@ -8,8 +8,8 @@
 #![allow(clippy::print_stdout)] // this is a test module
 
 use alloc::{borrow::ToOwned, sync::Arc, vec::Vec};
-use core::str::FromStr;
-use std::{env, net::SocketAddr, path::Path, println};
+use core::{net::SocketAddr, str::FromStr};
+use std::{env, path::Path, println};
 
 use futures_util::StreamExt;
 use rustls::{

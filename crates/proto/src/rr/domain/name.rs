@@ -14,11 +14,8 @@ use core::char;
 use core::cmp::{Ordering, PartialEq};
 use core::fmt::{self, Write};
 use core::hash::{Hash, Hasher};
-#[cfg(not(feature = "std"))]
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::str::FromStr;
-#[cfg(feature = "std")]
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
@@ -1511,7 +1508,6 @@ mod tests {
 
     use alloc::string::ToString;
     use core::cmp::Ordering;
-    use core::iter;
     #[cfg(feature = "std")]
     use std::{collections::hash_map::DefaultHasher, println};
 
@@ -1665,7 +1661,7 @@ mod tests {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         let n: u8 = 31;
         for _ in 0..=5 {
-            bytes.extend(iter::repeat(n).take(n as usize));
+            bytes.extend(core::iter::repeat_n(n, n as usize));
         }
         bytes.push(n + 1);
         for b in 0..n {

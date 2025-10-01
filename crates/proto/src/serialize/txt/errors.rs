@@ -46,15 +46,8 @@ pub enum ParseErrorKind {
 
     // foreign
     /// An address parse error
-    #[cfg(not(feature = "std"))]
     #[error("network address parse error: {0}")]
     AddrParse(#[from] core::net::AddrParseError),
-
-    // foreign
-    /// An address parse error
-    #[cfg(feature = "std")]
-    #[error("network address parse error: {0}")]
-    AddrParse(#[from] std::net::AddrParseError),
 
     /// A data encoding error
     #[error("data encoding error: {0}")]
@@ -183,8 +176,8 @@ impl From<core::net::AddrParseError> for ParseError {
 }
 
 #[cfg(feature = "std")]
-impl From<std::net::AddrParseError> for ParseError {
-    fn from(e: std::net::AddrParseError) -> Self {
+impl From<core::net::AddrParseError> for ParseError {
+    fn from(e: core::net::AddrParseError) -> Self {
         ParseErrorKind::from(e).into()
     }
 }

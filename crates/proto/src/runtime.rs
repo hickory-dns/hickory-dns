@@ -5,10 +5,10 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
 use core::marker::Send;
+use core::net::SocketAddr;
 use core::pin::Pin;
 use core::time::Duration;
 use std::io;
-use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;

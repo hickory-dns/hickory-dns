@@ -424,7 +424,7 @@ where
 #[cfg(test)]
 mod test {
     use alloc::{boxed::Box, vec::Vec};
-    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+    use core::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
     use futures_util::{
         future::{self, BoxFuture},

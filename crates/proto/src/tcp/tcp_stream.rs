@@ -9,11 +9,11 @@
 
 use alloc::vec::Vec;
 use core::mem;
+use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 use std::io;
-use std::net::SocketAddr;
 
 use futures_io::{AsyncRead, AsyncWrite, IoSlice};
 use futures_util::stream::Stream;
@@ -383,7 +383,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     use test_support::subscribe;
 

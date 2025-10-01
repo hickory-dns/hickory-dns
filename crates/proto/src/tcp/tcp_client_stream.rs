@@ -7,11 +7,11 @@
 
 use alloc::boxed::Box;
 use core::fmt::{self, Display};
+use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 use std::io;
-use std::net::SocketAddr;
 
 use futures_util::{StreamExt, future::BoxFuture, stream::Stream};
 use tracing::warn;
@@ -111,7 +111,7 @@ where
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     use test_support::subscribe;
 

@@ -12,6 +12,8 @@ use core::fmt::{self, Debug};
 use core::future::Future;
 #[cfg(feature = "std")]
 use core::marker::PhantomData;
+#[cfg(feature = "std")]
+use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
@@ -19,8 +21,6 @@ use core::time::Duration;
 use futures_util::future::BoxFuture;
 #[cfg(feature = "std")]
 use std::io;
-#[cfg(feature = "std")]
-use std::net::SocketAddr;
 
 #[cfg(feature = "std")]
 use futures_channel::mpsc;

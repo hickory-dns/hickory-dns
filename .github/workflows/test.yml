@@ -178,7 +178,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        version: ["1.75", beta, "nightly-2025-01-19"]
+        version: ["1.83", beta, "nightly-2025-01-19"]
     steps:
       - uses: actions/checkout@v5
 

@@ -6,10 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
 use core::net::SocketAddr;
-#[cfg(feature = "std")]
-use std::net::SocketAddr;
 
 use crate::error::ProtoResult;
 use crate::op::Message;

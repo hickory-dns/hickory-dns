@@ -8,11 +8,11 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::poll_fn;
+use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use std::collections::HashSet;
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use async_trait::async_trait;
 use futures_util::{
@@ -404,7 +404,7 @@ impl DnsUdpSocket for tokio::net::UdpSocket {
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     use test_support::subscribe;
 

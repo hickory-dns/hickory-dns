@@ -11,11 +11,8 @@
 use alloc::vec::Vec;
 #[cfg(test)]
 use core::convert::From;
-#[cfg(not(feature = "std"))]
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::{cmp::Ordering, fmt};
-#[cfg(feature = "std")]
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use enum_as_inner::EnumAsInner;
 #[cfg(feature = "serde")]

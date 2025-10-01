@@ -8,9 +8,9 @@
 use alloc::boxed::Box;
 use core::fmt::{self, Display};
 use core::future::Future;
+use core::net::{Ipv4Addr, SocketAddr};
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use std::net::{Ipv4Addr, SocketAddr};
 
 use futures_util::{
     future::BoxFuture,

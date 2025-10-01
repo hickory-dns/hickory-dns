@@ -8,7 +8,8 @@
 //! HTTP/3 related server items
 
 use alloc::sync::Arc;
-use std::{io, net::SocketAddr};
+use core::net::SocketAddr;
+use std::io;
 
 use bytes::Bytes;
 use h3::server::{Connection, RequestStream};

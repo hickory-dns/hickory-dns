@@ -9,12 +9,12 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::fmt::{self, Display};
+use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 use std::collections::HashSet;
 use std::io;
-use std::net::SocketAddr;
 
 use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
@@ -422,7 +422,7 @@ mod tests {
             udp_client_stream_test,
         },
     };
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use test_support::subscribe;
 
     #[tokio::test]

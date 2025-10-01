@@ -10,8 +10,8 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
+use core::net::SocketAddr;
 use std::io;
-use std::net::SocketAddr;
 
 use futures_util::future::BoxFuture;
 use rustls::ClientConfig;

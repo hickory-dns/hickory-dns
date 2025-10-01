@@ -10,11 +10,11 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use core::fmt::{self, Display};
 use core::future::{Future, poll_fn};
+use core::net::SocketAddr;
 use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
 use std::io;
-use std::net::SocketAddr;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures_util::{
@@ -483,8 +483,8 @@ impl Future for H3ClientResponse {
 ))]
 mod tests {
     use alloc::string::ToString;
+    use core::net::SocketAddr;
     use core::str::FromStr;
-    use std::net::SocketAddr;
     use std::println;
 
     use rustls::KeyLogFile;

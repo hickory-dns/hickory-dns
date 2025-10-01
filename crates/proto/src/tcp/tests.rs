@@ -1,8 +1,8 @@
 use alloc::string::ToString;
 use alloc::sync::Arc;
+use core::net::{IpAddr, SocketAddr};
 use core::sync::atomic::AtomicBool;
 use std::io::{Read, Write};
-use std::net::{IpAddr, SocketAddr};
 use std::println;
 
 use futures_util::stream::StreamExt;
