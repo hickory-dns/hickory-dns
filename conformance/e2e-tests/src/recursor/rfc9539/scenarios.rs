@@ -16,8 +16,8 @@ fn hickory_opportunistic_probe_success() -> Result<(), Error> {
         FQDN::TEST_DOMAIN,
         network.clone(),
     )
-        .pki(Pki::new()?.into())
-        .build()?;
+    .pki(Pki::new()?.into())
+    .build()?;
 
     let Graph {
         root: root_info,
@@ -54,7 +54,7 @@ fn hickory_opportunistic_probe_success() -> Result<(), Error> {
     let resp = client.dig(query_settings, resolver_ip, RecordType::A, &FQDN::ROOT)?;
     assert!(resp.status.is_noerror());
 
-    // Wait until we've captured at least one incoming DoT probe at the nameserver.
+    // Wait until we've captured an incoming DoT probe at the nameserver.
     tshark.wait_until(
         |captures| {
             captures.iter().any(|c| {
@@ -76,7 +76,7 @@ fn hickory_opportunistic_probe_success() -> Result<(), Error> {
             captures.iter().any(|c| {
                 matches!(c.direction, Direction::Incoming { .. })
                     && c.dst_port == DOT_PORT
-                    && query_name_and_type(c) == ("<Root>", record_types::MX)
+                    && query_name_and_type(c) == Some(("<Root>", record_types::MX))
             })
         },
         Duration::from_secs(10),
@@ -94,11 +94,11 @@ fn hickory_opportunistic_probe_success() -> Result<(), Error> {
     //  * Second: A query for root (the actual requested record)
     assert_eq!(udp_queries.len(), 2);
     assert_eq!(
-        query_name_and_type(&udp_queries[0]),
+        query_name_and_type(&udp_queries[0]).unwrap(),
         ("<Root>", record_types::NS)
     );
     assert_eq!(
-        query_name_and_type(&udp_queries[1]),
+        query_name_and_type(&udp_queries[1]).unwrap(),
         ("<Root>", record_types::A)
     );
 
@@ -112,21 +112,19 @@ fn hickory_opportunistic_probe_success() -> Result<(), Error> {
     Ok(())
 }
 
-
 /// Test that after an opportunistic probe failure, we continue to use plaintext Do53 for queries.
 #[test]
 fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
-    // TODO(XXX): need to find a way to configure the Hickory leaf/graph nameservers to **not**
-    // support DoT, using some kind of custom config....
-
     let network = &Network::new()?;
+
+    // NOTE: importantly we do **not** call .pki() here - this will skip
+    // configuring DoT support on the authoritative nameservers.
     let leaf_ns = NameServer::builder(
         Implementation::hickory(),
         FQDN::TEST_DOMAIN,
         network.clone(),
     )
-        .pki(Pki::new()?.into())
-        .build()?;
+    .build()?;
 
     let Graph {
         root: root_info,
@@ -141,6 +139,7 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
 
     // Capture nameserver traffic on UDP 53 and TCP 853 to get both plaintext DNS
     // and DoT requests/responses.
+    // Include non-DNS packets to capture failed connection attempts.
     let mut tshark = Tshark::builder()
         .filters(vec![
             ProtocolFilter::default(),
@@ -149,6 +148,7 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
                 .port(DOT_PORT),
         ])
         .ssl_keylog_file("/tmp/sslkeys.log") // See hickory.Dockerfile
+        .include_non_dns_packets(true)
         .build(root_ns.container())?;
 
     // Create a HickoryDNS resolver configured for DoT probing.
@@ -163,7 +163,7 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
     let resp = client.dig(query_settings, resolver_ip, RecordType::A, &FQDN::ROOT)?;
     assert!(resp.status.is_noerror());
 
-    // Wait until we've captured at least one incoming DoT probe at the nameserver.
+    // Wait until we've captured an incoming DoT probe at the nameserver.
     tshark.wait_until(
         |captures| {
             captures.iter().any(|c| {
@@ -184,7 +184,7 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
             captures.iter().any(|c| {
                 matches!(c.direction, Direction::Incoming { .. })
                     && c.dst_port == 53
-                    && query_name_and_type(c) == ("<Root>", record_types::MX)
+                    && query_name_and_type(c) == Some(("<Root>", record_types::MX))
             })
         },
         Duration::from_secs(10),
@@ -201,17 +201,17 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
     //  * First: NS query for root (internal to find nameservers)
     //  * Second: A query for root (the first requested record)
     //  * Third: MX query for root (the second requested record)
-    assert_eq!(udp_queries.len(), 2);
+    assert_eq!(udp_queries.len(), 3);
     assert_eq!(
-        query_name_and_type(&udp_queries[0]),
+        query_name_and_type(&udp_queries[0]).unwrap(),
         ("<Root>", record_types::NS)
     );
     assert_eq!(
-        query_name_and_type(&udp_queries[1]),
+        query_name_and_type(&udp_queries[1]).unwrap(),
         ("<Root>", record_types::A)
     );
     assert_eq!(
-        query_name_and_type(&udp_queries[2]),
+        query_name_and_type(&udp_queries[2]).unwrap(),
         ("<Root>", record_types::MX)
     );
 
@@ -221,9 +221,10 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
 }
 
 // Perform serde_json::Value acrobatics to extract the qry name and rr type from capture's first query.
-fn query_name_and_type(c: &Capture) -> (&str, u16) {
+fn query_name_and_type(c: &Capture) -> Option<(&str, u16)> {
     let message_map = c.message.as_value().as_object().unwrap();
-    let queries_map = message_map.get("Queries").unwrap().as_object().unwrap();
+
+    let queries_map = message_map.get("Queries")?.as_object().unwrap();
     let first_query = queries_map.values().next().unwrap().as_object().unwrap();
     let name = first_query.get("dns.qry.name").unwrap().as_str().unwrap();
     let r#type = first_query
@@ -233,7 +234,7 @@ fn query_name_and_type(c: &Capture) -> (&str, u16) {
         .unwrap()
         .parse::<u16>()
         .unwrap();
-    (name, r#type)
+    Some((name, r#type))
 }
 
 static HICKORY_RECURSOR_PROBE_CONFIG: &str = r#"
