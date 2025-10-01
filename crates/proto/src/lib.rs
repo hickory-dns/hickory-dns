@@ -102,10 +102,7 @@ pub(crate) use no_std_rand::random;
 #[cfg(all(not(feature = "std"), feature = "no-std-rand"))]
 pub use no_std_rand::seed;
 
-#[cfg(not(feature = "std"))]
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-#[cfg(feature = "std")]
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// A simple shim that allows us to use a [`random`] in `no_std` environments.
 #[cfg(all(not(feature = "std"), feature = "no-std-rand"))]

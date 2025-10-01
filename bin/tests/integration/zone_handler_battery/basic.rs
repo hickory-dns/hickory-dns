@@ -658,12 +658,11 @@ pub fn test_wildcard(handler: impl ZoneHandler) {
         lookup
             .into_iter()
             .next()
-            .map(|r| {
+            .inspect(|r| {
                 assert_eq!(
                     *r.name(),
                     Name::from_str("www.wildcard.example.com.").unwrap()
                 );
-                r
             })
             .expect("CNAME record not found in zone handler")
             .data()
@@ -697,12 +696,11 @@ pub fn test_wildcard_subdomain(handler: impl ZoneHandler) {
         lookup
             .into_iter()
             .next()
-            .map(|r| {
+            .inspect(|r| {
                 assert_eq!(
                     *r.name(),
                     Name::from_str("subdomain.www.wildcard.example.com.").unwrap()
                 );
-                r
             })
             .expect("CNAME record not found in zone handler")
             .data()

@@ -1,9 +1,10 @@
 use alloc::string::ToString;
 use alloc::sync::Arc;
+use core::net::{IpAddr, Ipv4Addr, SocketAddr};
 use core::str::FromStr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::{ToSocketAddrs, UdpSocket};
 use std::{println, process, thread};
 
 use futures_util::stream::StreamExt;

@@ -10,12 +10,12 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use core::fmt::{self, Display};
 use core::future::Future;
+use core::net::SocketAddr;
 use core::ops::DerefMut;
 use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
 use std::io;
-use std::net::SocketAddr;
 
 use bytes::{Buf, Bytes, BytesMut};
 use futures_util::{
@@ -572,7 +572,7 @@ impl Future for HttpsClientResponse {
 #[cfg(test)]
 mod tests {
     use alloc::string::ToString;
-    use std::net::SocketAddr;
+    use core::net::SocketAddr;
 
     use rustls::KeyLogFile;
     use test_support::subscribe;

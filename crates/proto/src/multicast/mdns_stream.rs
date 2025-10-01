@@ -8,10 +8,10 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
+use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use futures_util::{
     FutureExt,

@@ -112,7 +112,7 @@ impl fmt::Display for Proof {
     }
 }
 
-impl std::error::Error for Proof {}
+impl core::error::Error for Proof {}
 
 #[test]
 fn test_order() {

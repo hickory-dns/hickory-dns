@@ -9,10 +9,11 @@ use alloc::{boxed::Box, sync::Arc};
 use core::{
     fmt::{self, Display},
     future::Future,
+    net::SocketAddr,
     pin::Pin,
     task::{Context, Poll},
 };
-use std::{io, net::SocketAddr};
+use std::io;
 
 use futures_util::{
     future::{BoxFuture, FutureExt},
