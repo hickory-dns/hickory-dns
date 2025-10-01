@@ -64,7 +64,6 @@ data-encoding.workspace = true
 futures-channel = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 once_cell.workspace = true
-radix_trie.workspace = true
 rand.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
