@@ -782,7 +782,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hickory-client"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -804,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-compatibility"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "data-encoding",
  "futures",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-dns"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "cfg-if",
  "clap",
@@ -856,7 +856,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-integration"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "async-trait",
  "data-encoding",
@@ -880,7 +880,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-proto"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "async-trait",
  "aws-lc-rs",
@@ -927,7 +927,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-recursor"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -952,7 +952,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-resolver"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "backtrace",
  "cfg-if",
@@ -982,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-server"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1017,7 +1017,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-util"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "clap",
  "console",
@@ -2460,7 +2460,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "test-support"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "tracing",
  "tracing-subscriber",
