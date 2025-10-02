@@ -20,11 +20,13 @@ use hickory_resolver::name_server::NameServerPool;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
-use tracing::info;
+use tracing::{error, info};
 
+use crate::is_subzone;
 use crate::proto::{
     DnsHandle, ProtoError,
     op::{DnsRequestOptions, DnsResponse, Query},
+    rr::Record,
 };
 use crate::resolver::{Name, name_server::ConnectionProvider};
 
@@ -122,7 +124,24 @@ impl<P: ConnectionProvider> RecursorPool<P> {
 
         // remove the concurrent request marker
         self.active_requests.lock().remove(&query);
+        let mut result = result?;
 
-        result
+        let bailiwick_filter = |record: &Record| {
+            if !is_subzone(self.zone(), record.name()) {
+                error!(
+                    "Dropping out of bailiwick record {record} for zone {}",
+                    self.zone(),
+                );
+                false
+            } else {
+                true
+            }
+        };
+
+        result.additionals_mut().retain(bailiwick_filter);
+        result.answers_mut().retain(bailiwick_filter);
+        result.authorities_mut().retain(bailiwick_filter);
+
+        Ok(result)
     }
 }

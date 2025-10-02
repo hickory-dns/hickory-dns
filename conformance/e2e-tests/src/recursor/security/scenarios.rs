@@ -243,7 +243,6 @@ fn case_randomization_tcp_fallback() -> Result<(), Error> {
 
 /// Test that Hickory rejects out-of-bailiwick records
 #[test]
-#[ignore]
 fn out_of_bailiwick_rejection() -> Result<(), Error> {
     let target_fqdn = FQDN("example-123.valid.testing.")?;
     let target_out_of_bailiwick = FQDN("host.invalid.testing.")?;
@@ -315,7 +314,6 @@ fn out_of_bailiwick_rejection() -> Result<(), Error> {
 
 /// Test that Hickory rejects out-of-bailiwick records for records that are part of a CNAME chain
 #[test]
-#[ignore]
 fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
     let target_fqdn = FQDN("cname.example.testing.")?;
 
