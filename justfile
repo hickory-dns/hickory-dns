@@ -287,7 +287,7 @@ cross-build target:
     cross build --target {{target}}
 
 # tests the resolver for android
-crost-test target package:
+cross-test target package:
     cross test --target {{target}} --package {{package}}
 
 [private]
