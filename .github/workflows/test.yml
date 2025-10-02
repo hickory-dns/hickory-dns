@@ -306,15 +306,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install cross
-        uses: taiki-e/cache-cargo-install-action@v2
-        with:
-          tool: cross
-          git: https://github.com/cross-rs/cross
-          # known-working main in feb 2025, bump as needed
-          rev: c7dee4d
+        run: just init-cross
 
       - name: Build crates for ${{ matrix.target }}
-        run: cross build --target ${{ matrix.target }}
+        run: just cross-build ${{ matrix.target }}
 
       - name: Test android implementation
-        run: cross test --target ${{ matrix.target }} --package hickory-resolver
+        run: just cross-test ${{ matrix.target }} hickory-resolver
