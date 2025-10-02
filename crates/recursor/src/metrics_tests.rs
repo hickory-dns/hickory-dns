@@ -123,8 +123,8 @@ impl MockNetworkHandler {
         let tld_name = Name::parse("testing.", None).unwrap();
         let leaf_name = Name::parse("hickory-dns.testing.", None).unwrap();
 
-        let tld_server_name = Name::parse("testing.nameservers.net.", None).unwrap();
-        let leaf_server_name = Name::parse("leaf.nameservers.net.", None).unwrap();
+        let tld_server_name = Name::parse("testing.testing.", None).unwrap();
+        let leaf_server_name = Name::parse("leaf.testing.", None).unwrap();
 
         let mut root_responses = HashMap::new();
 
