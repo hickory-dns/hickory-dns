@@ -305,6 +305,8 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: extractions/setup-just@v3
+
       - name: Install cross
         run: just init-cross
 
