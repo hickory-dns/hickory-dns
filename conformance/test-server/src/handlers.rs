@@ -456,6 +456,44 @@ pub(crate) fn nsec3_nocover_handler(
         .with_context(|| "nsec3 no cover handler: could not serialize Message")
 }
 
+/// This handler generates a response with a an out-of-bailiwick record included.  There are two
+/// variations: a CNAME test that returns an out of bailiwick response for that is part of a CNAME
+/// chain, and a default case that returns a superfluous out of bailiwick record along with a
+/// responsive A record.
+pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let name = msg.queries()[0].name().clone();
+
+    if name == Name::from_ascii("cname.example.testing.")? {
+        msg.add_answer(Record::from_rdata(
+            name,
+            1,
+            RData::CNAME(rdata::CNAME(Name::from_ascii("host.otherdomain.testing.")?)),
+        ))
+        .add_answer(Record::from_rdata(
+            Name::from_ascii("host.otherdomain.testing.")?,
+            86400,
+            RData::A(rdata::A([192, 0, 2, 1].into())),
+        ));
+    } else {
+        msg.add_answer(Record::from_rdata(
+            name,
+            1,
+            RData::A(rdata::A([192, 0, 2, 1].into())),
+        ))
+        .add_answer(Record::from_rdata(
+            Name::from_ascii("host.invalid.testing.")?,
+            86400,
+            RData::A(rdata::A([192, 0, 2, 2].into())),
+        ));
+    }
+
+    msg.set_recursion_desired(false)
+        .to_vec()
+        .map(Some)
+        .with_context(|| "base handler: could not serialize Message")
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);

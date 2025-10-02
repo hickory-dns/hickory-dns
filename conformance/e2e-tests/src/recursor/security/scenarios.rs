@@ -5,7 +5,7 @@ use dns_test::{
     Error, FQDN, Implementation, Network, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
-    record::RecordType,
+    record::{Record, RecordType},
     zone_file::Root,
 };
 
@@ -240,3 +240,142 @@ fn case_randomization_tcp_fallback() -> Result<(), Error> {
     Ok(())
 }
 */
+
+/// Test that Hickory rejects out-of-bailiwick records
+#[test]
+#[ignore]
+fn out_of_bailiwick_rejection() -> Result<(), Error> {
+    let target_fqdn = FQDN("example-123.valid.testing.")?;
+    let target_out_of_bailiwick = FQDN("host.invalid.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bailiwick", "udp"),
+        FQDN::TEST_TLD.push_label("valid"),
+        &network,
+    )?;
+
+    let invalid_ns = NameServer::new(
+        &Implementation::test_peer(),
+        FQDN::TEST_TLD.push_label("invalid"),
+        &network,
+    )?;
+
+    root_ns.referral(
+        FQDN::TEST_TLD.push_label("valid"),
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    root_ns.referral(
+        FQDN::TEST_TLD.push_label("invalid"),
+        FQDN("primary.tld-server.invalid.")?,
+        invalid_ns.ipv4_addr(),
+    );
+
+    let root_hint = root_ns.root_hint();
+    let resolver =
+        Resolver::new(&network, root_hint).start_with_subject(&Implementation::hickory())?;
+    let client = Client::new(&network)?;
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+    let _invalid_ns = invalid_ns.start()?;
+
+    let settings = *DigSettings::default().recurse().timeout(7);
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn)?;
+
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert_eq!(output.answer.len(), 1);
+    assert_eq!(
+        output.answer[0].clone().try_into_a().unwrap().ipv4_addr,
+        Ipv4Addr::new(192, 0, 2, 1)
+    );
+
+    // Try to lookup the poisoned record from the cache
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &target_out_of_bailiwick,
+    )?;
+    assert_eq!(output.status, DigStatus::NXDOMAIN);
+    assert_eq!(output.answer.len(), 0);
+
+    assert!(
+        resolver
+            .logs()?
+            .contains("Dropping out of bailiwick record host.invalid.testing.")
+    );
+
+    Ok(())
+}
+
+/// Test that Hickory rejects out-of-bailiwick records for records that are part of a CNAME chain
+#[test]
+#[ignore]
+fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
+    let target_fqdn = FQDN("cname.example.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bailiwick", "udp"),
+        FQDN::TEST_TLD.push_label("example"),
+        &network,
+    )?;
+
+    let mut other_ns = NameServer::new(
+        &Implementation::test_peer(),
+        FQDN::TEST_TLD.push_label("otherdomain"),
+        &network,
+    )?;
+
+    // The out-of-bailiwick record from the test server is 192.0.2.1
+    other_ns.add(Record::a(
+        FQDN("host.otherdomain.testing.")?,
+        Ipv4Addr::new(192, 0, 2, 2),
+    ));
+
+    root_ns.referral(
+        FQDN::TEST_TLD.push_label("example"),
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    root_ns.referral(
+        FQDN::TEST_TLD.push_label("otherdomain"),
+        FQDN("primary.tld-server.invalid.")?,
+        other_ns.ipv4_addr(),
+    );
+
+    let root_hint = root_ns.root_hint();
+    let resolver =
+        Resolver::new(&network, root_hint).start_with_subject(&Implementation::hickory())?;
+    let client = Client::new(&network)?;
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+    let _other_ns = other_ns.start()?;
+
+    let settings = *DigSettings::default().recurse().timeout(7);
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn)?;
+
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert_eq!(output.answer.len(), 2);
+    assert_eq!(
+        output.answer[1].clone().try_into_a().unwrap().ipv4_addr,
+        Ipv4Addr::new(192, 0, 2, 2)
+    );
+
+    assert!(
+        resolver
+            .logs()?
+            .contains("Dropping out of bailiwick record host.otherdomain.testing.")
+    );
+
+    Ok(())
+}

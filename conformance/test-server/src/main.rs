@@ -21,6 +21,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let transport = args.transport;
     let handler = match &args.handler[..] {
+        "bailiwick" => handlers::bailiwick_handler,
         "base" => handlers::base_handler,
         "bad_case" => handlers::bad_case_handler,
         "bad_txid" => handlers::bad_txid_handler,
