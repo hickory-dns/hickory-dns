@@ -110,13 +110,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     }
 
     let config = NameServerConfig::new(ip, trust_negative_responses, configs);
-    Arc::new(NameServer::new(
-        conns,
-        config,
-        Arc::new(options),
-        Arc::new(TlsConfig::new().unwrap()),
-        conn_provider,
-    ))
+    Arc::new(NameServer::new(conns, config, &options, conn_provider))
 }
 
 #[cfg(test)]
@@ -134,7 +128,11 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     _mdns: Option<MockedNameServer<O>>,
     options: ResolverOpts,
 ) -> MockedNameServerPool<O> {
-    NameServerPool::from_nameservers(servers, Arc::new(options))
+    NameServerPool::from_nameservers(
+        servers,
+        Arc::new(options),
+        Arc::new(TlsConfig::new().unwrap()),
+    )
 }
 
 #[test]

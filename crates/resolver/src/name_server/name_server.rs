@@ -32,8 +32,6 @@ use crate::proto::{
 /// configured protocols, and will make new connections as needed.
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
-    options: Arc<ResolverOpts>,
-    tls: Arc<TlsConfig>,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
     server_srtt: DecayingSrtt,
     connection_provider: P,
@@ -46,8 +44,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     pub fn new(
         connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
         config: NameServerConfig,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
+        options: &ResolverOpts,
         connection_provider: P,
     ) -> Self {
         let mut connections = connections
@@ -63,8 +60,6 @@ impl<P: ConnectionProvider> NameServer<P> {
 
         Self {
             config,
-            options,
-            tls,
             connections: AsyncMutex::new(connections),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
             connection_provider,
@@ -76,8 +71,10 @@ impl<P: ConnectionProvider> NameServer<P> {
         self: Arc<Self>,
         request: DnsRequest,
         policy: ConnectionPolicy,
+        options: &ResolverOpts,
+        tls: &TlsConfig,
     ) -> Result<DnsResponse, ProtoError> {
-        let (handle, meta) = self.connected_mut_client(policy).await?;
+        let (handle, meta) = self.connected_mut_client(policy, options, tls).await?;
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -152,6 +149,8 @@ impl<P: ConnectionProvider> NameServer<P> {
     async fn connected_mut_client(
         &self,
         policy: ConnectionPolicy,
+        options: &ResolverOpts,
+        tls: &TlsConfig,
     ) -> Result<(P::Conn, Arc<ConnectionMeta>), ProtoError> {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
@@ -167,8 +166,8 @@ impl<P: ConnectionProvider> NameServer<P> {
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
-            &self.options,
-            &self.tls,
+            options,
+            tls,
         )?)
         .await?;
 
@@ -507,15 +506,16 @@ mod tests {
     async fn test_name_server() {
         subscribe();
 
+        let options = ResolverOpts::default();
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
         let name_server = Arc::new(NameServer::new(
             [].into_iter(),
             config,
-            Arc::new(ResolverOpts::default()),
-            Arc::new(TlsConfig::new().unwrap()),
+            &options,
             TokioRuntimeProvider::default(),
         ));
 
+        let tls = TlsConfig::new().unwrap();
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
             .send(
@@ -524,6 +524,8 @@ mod tests {
                     DnsRequestOptions::default(),
                 ),
                 ConnectionPolicy::default(),
+                &options,
+                &tls,
             )
             .await
             .expect("query failed");
@@ -543,11 +545,11 @@ mod tests {
         let name_server = Arc::new(NameServer::new(
             [],
             config,
-            Arc::new(options),
-            Arc::new(TlsConfig::new().unwrap()),
+            &options,
             TokioRuntimeProvider::default(),
         ));
 
+        let tls = TlsConfig::new().unwrap();
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
@@ -557,6 +559,8 @@ mod tests {
                         DnsRequestOptions::default(),
                     ),
                     ConnectionPolicy::default(),
+                    &options,
+                    &tls,
                 )
                 .await
                 .is_err()
@@ -606,16 +610,10 @@ mod tests {
             ..Default::default()
         };
 
+        let tls = TlsConfig::new().unwrap();
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let ns = Arc::new(NameServer::new(
-            [],
-            config,
-            Arc::new(resolver_opts),
-            Arc::new(TlsConfig::new().unwrap()),
-            provider,
-        ));
-
+        let ns = Arc::new(NameServer::new([], config, &resolver_opts, provider));
         let response = ns
             .send(
                 DnsRequest::from_query(
@@ -623,6 +621,8 @@ mod tests {
                     request_options,
                 ),
                 ConnectionPolicy::default(),
+                &resolver_opts,
+                &tls,
             )
             .await
             .unwrap();
