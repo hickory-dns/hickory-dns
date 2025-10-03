@@ -47,7 +47,7 @@ impl Future for SharedLookup {
 #[derive(Clone)]
 pub(crate) struct RecursorPool<P: ConnectionProvider> {
     zone: Name,
-    ns: NameServerPool<P>,
+    pub(super) ns: NameServerPool<P>,
     active_requests: Arc<Mutex<HashMap<Query, SharedLookup>>>,
     #[cfg(feature = "metrics")]
     outgoing_query_counter: Counter,

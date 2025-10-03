@@ -55,8 +55,6 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     deny_server_v6: PrefixSet<Ipv6Net>,
     allow_server_v4: PrefixSet<Ipv4Net>,
     allow_server_v6: PrefixSet<Ipv6Net>,
-    avoid_local_udp_ports: Arc<HashSet<u16>>,
-    case_randomization: bool,
     tls: Arc<TlsConfig>,
     conn_provider: P,
 }
@@ -94,10 +92,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
-        let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
         let roots = NameServerPool::from_config(
             servers,
-            Arc::new(opts),
+            Arc::new(recursor_opts(
+                avoid_local_udp_ports.clone(),
+                case_randomization,
+            )),
             tls.clone(),
             conn_provider.clone(),
         );
@@ -149,8 +149,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             deny_server_v6,
             allow_server_v4,
             allow_server_v6,
-            avoid_local_udp_ports,
-            case_randomization,
             tls,
             conn_provider,
         };
@@ -564,7 +562,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // now construct a namesever pool based off the NS and glue records
         let ns = NameServerPool::from_config(
             config_group,
-            Arc::new(self.recursor_opts()),
+            self.roots.ns.options().clone(),
             self.tls.clone(),
             self.conn_provider.clone(),
         );
@@ -683,10 +681,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         Ok(depth)
-    }
-
-    fn recursor_opts(&self) -> ResolverOpts {
-        recursor_opts(self.avoid_local_udp_ports.clone(), self.case_randomization)
     }
 }
 
