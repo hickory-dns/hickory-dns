@@ -17,7 +17,7 @@ use ipnet::IpNet;
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorCacheMetrics;
 use crate::{
-    DnssecPolicy, Error,
+    AccessControlSet, AccessControlSetBuilder, DnssecPolicy, Error,
     proto::{
         op::{Message, Query},
         runtime::TokioRuntimeProvider,
@@ -53,8 +53,7 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     /// Setting it to None will disable the recursion limit check, and is not recommended.
     pub(super) ns_recursion_limit: Option<u8>,
     pub(super) dnssec_policy: DnssecPolicy,
-    pub(super) allow_servers: Vec<IpNet>,
-    pub(super) deny_servers: Vec<IpNet>,
+    pub(super) name_server_filter: AccessControlSet,
     pub(super) avoid_local_udp_ports: HashSet<u16>,
     pub(super) ttl_config: TtlConfig,
     pub(super) case_randomization: bool,
@@ -99,7 +98,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     /// The provided `deny` networks will be added to any existing networks denied
     /// by default, or that were added by previous calls to [`Self::deny_servers`].
     pub fn deny_servers<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.deny_servers.extend(deny);
+        self.name_server_filter.deny(deny);
         self
     }
 
@@ -110,7 +109,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     ///
     /// Allowed networks take precedence over deny networks added with [`Self::deny_servers`].
     pub fn allow_servers<'a>(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.allow_servers.extend(allow);
+        self.name_server_filter.allow(allow);
         self
     }
 
@@ -118,7 +117,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     ///
     /// This will remove any allow filter networks previously added by [`Self::allow_servers`],
     pub fn clear_allow_servers(mut self) -> Self {
-        self.allow_servers.clear();
+        self.name_server_filter.clear_allow();
         self
     }
 
@@ -128,7 +127,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     /// as well as the default recommended server filters (internal networks, broadcast addresses,
     /// etc.).
     pub fn clear_deny_servers(mut self) -> Self {
-        self.deny_servers.clear();
+        self.name_server_filter.clear_deny();
         self
     }
 
@@ -189,8 +188,10 @@ impl<P: ConnectionProvider> Recursor<P> {
             recursion_limit: Some(24),
             ns_recursion_limit: Some(24),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
-            allow_servers: vec![],
-            deny_servers: RECOMMENDED_SERVER_FILTERS.to_vec(),
+            name_server_filter: AccessControlSetBuilder::new("name_servers")
+                .allow([].iter() /* no recommended exceptions */)
+                .deny(RECOMMENDED_SERVER_FILTERS.iter())
+                .build(),
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
             case_randomization: false,
