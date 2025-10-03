@@ -206,11 +206,7 @@ impl<P: ConnectionProvider> Recursor<P> {
 
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
         Ok(Self {
-            mode: RecursorDnsHandle::build_recursor_mode(
-                roots,
-                Arc::new(TlsConfig::new()?),
-                builder,
-            )?,
+            mode: RecursorDnsHandle::build_recursor_mode(roots, TlsConfig::new()?, builder)?,
         })
     }
 
