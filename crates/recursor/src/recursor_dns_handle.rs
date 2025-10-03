@@ -62,7 +62,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     pub(super) fn build_recursor_mode(
         roots: &[IpAddr],
-        tls: Arc<TlsConfig>,
+        tls: TlsConfig,
         builder: RecursorBuilder<P>,
     ) -> Result<RecursorMode<P>, Error> {
         assert!(!roots.is_empty(), "roots must not be empty");
@@ -92,6 +92,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
+        let tls = Arc::new(tls);
         let roots = NameServerPool::from_config(
             servers,
             Arc::new(recursor_opts(
