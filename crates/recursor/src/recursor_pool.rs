@@ -129,8 +129,8 @@ impl<P: ConnectionProvider> RecursorPool<P> {
         let bailiwick_filter = |record: &Record| {
             if !is_subzone(self.zone(), record.name()) {
                 error!(
-                    "Dropping out of bailiwick record {record} for zone {}",
-                    self.zone(),
+                    %record, zone = %self.zone(),
+                    "dropping out of bailiwick record",
                 );
                 false
             } else {
