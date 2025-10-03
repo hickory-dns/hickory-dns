@@ -43,6 +43,16 @@ response_cache_size = 1048576
 recursion_limit = 24
 ns_recursion_limit = 24
 
+## allow_answers: these networks will override entries in deny_answers and allow you to make
+## granular exceptions to networks you otherwise want to filter from upstream responses.  This
+## example allows responses containing the A record 192.0.2.1 to be received, even though the
+## configured deny_answers list includes 192.0.2.0/24.
+allow_answers = ["192.0.2.1/32"]
+
+## deny_answers: any answers containing addresses from these networks will be dropped by the
+## recursor.  This list is empty by default - any address will be accepted as an answer
+deny_answers = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "192.0.2.0/24", "::/128", "::1/128"]
+
 ## allow_server: these networks will override entries in deny_server and allow you to make
 ## granular exceptions to networks you otherwise want to deny.  This allows queries to be
 ## made to the nameserver at 127.0.0.254, even though 127.0.0.0/8 is in the deny_server list.

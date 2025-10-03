@@ -53,6 +53,7 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     /// Setting it to None will disable the recursion limit check, and is not recommended.
     pub(super) ns_recursion_limit: Option<u8>,
     pub(super) dnssec_policy: DnssecPolicy,
+    pub(super) answer_address_filter: AccessControlSet,
     pub(super) name_server_filter: AccessControlSet,
     pub(super) avoid_local_udp_ports: HashSet<u16>,
     pub(super) ttl_config: TtlConfig,
@@ -90,6 +91,45 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     /// Sets the DNSSEC policy
     pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
         self.dnssec_policy = dnssec_policy;
+        self
+    }
+
+    /// Allow listed addresses in responses during recursive resolution.
+    ///
+    /// The provided `allow` networks will be added to any existing networks that were added by
+    /// previous calls to [`Self::answer_address_filter_allow`].
+    ///
+    /// Allowed networks take precedence over deny networks added with [`Self::answer_address_filter_deny`].
+    pub fn answer_address_filter_allow<'a>(
+        mut self,
+        allow: impl Iterator<Item = &'a IpNet>,
+    ) -> Self {
+        self.answer_address_filter.allow(allow);
+        self
+    }
+
+    /// Deny listed addresses in responses during recursive resolution.
+    ///
+    /// The provided `deny` networks will be added to any existing networks denied
+    /// by default, or that were added by previous calls to [`Self::answer_address_filter_deny`].
+    pub fn answer_address_filter_deny<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.answer_address_filter.deny(deny);
+        self
+    }
+
+    /// Clear the networks that should be allowed as answers during recursive resolution.
+    ///
+    /// This will remove any allow filter networks previously added by [`Self::answer_address_filter_allow`],
+    pub fn clear_answer_address_filter_allow(mut self) -> Self {
+        self.answer_address_filter.clear_allow();
+        self
+    }
+
+    /// Clear the networks that should not be allowed as answers during recursive resolution.
+    ///
+    /// This will remove any deny filter networks previously added by [`Self::answer_address_filter_deny`].
+    pub fn clear_answer_address_filter_deny(mut self) -> Self {
+        self.answer_address_filter.clear_deny();
         self
     }
 
@@ -188,6 +228,10 @@ impl<P: ConnectionProvider> Recursor<P> {
             recursion_limit: Some(24),
             ns_recursion_limit: Some(24),
             dnssec_policy: DnssecPolicy::SecurityUnaware,
+            answer_address_filter: AccessControlSetBuilder::new("answers")
+                .allow([].iter() /* no recommended exceptions */)
+                .deny([].iter() /* no recommeneded default filters */)
+                .build(),
             name_server_filter: AccessControlSetBuilder::new("name_servers")
                 .allow([].iter() /* no recommended exceptions */)
                 .deny(RECOMMENDED_SERVER_FILTERS.iter())

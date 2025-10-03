@@ -15,12 +15,13 @@ use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
-use tracing::{debug, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::{
     AccessControlSet, DnssecPolicy, Error, ErrorKind, RecursorBuilder,
+    error::AuthorityData,
     proto::{
         op::{Message, Query},
         rr::{
@@ -49,6 +50,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
+    answer_address_filter: AccessControlSet,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
     conn_provider: P,
@@ -73,6 +75,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy,
+            answer_address_filter,
             name_server_filter,
             avoid_local_udp_ports,
             ttl_config,
@@ -107,6 +110,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             security_aware: dnssec_policy.is_security_aware(),
+            answer_address_filter,
             name_server_filter,
             pool_context,
             conn_provider,
@@ -377,17 +381,61 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
-        match response_future.await {
-            Ok(r) => {
-                let message = r.into_message();
-                self.response_cache.insert(query, Ok(message.clone()), now);
-                Ok(message)
-            }
+        let mut response = match response_future.await {
+            Ok(r) => r,
             Err(e) => {
                 warn!("lookup error: {e}");
-                Err(Error::from(e))
+                return Err(Error::from(e));
             }
+        };
+
+        let answer_filter = |record: &Record| {
+            let ip = match record.data() {
+                RData::A(A(ipv4)) => (*ipv4).into(),
+                RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+                _ => return true,
+            };
+
+            if self.answer_address_filter.denied(ip) {
+                error!(
+                    %query,
+                    %ip,
+                    "removing ip from response: answer filter matched"
+                );
+
+                false
+            } else {
+                true
+            }
+        };
+
+        let answers_len = response.answers().len();
+        let authorities_len = response.authorities().len();
+
+        response.additionals_mut().retain(answer_filter);
+        response.answers_mut().retain(answer_filter);
+        response.authorities_mut().retain(answer_filter);
+
+        // If we stripped all of the answers out, or if we stripped all of the authorities
+        // out and there are no answers, return an NXDomain response.
+        if response.answers().is_empty() && answers_len != 0
+            || (response.answers().is_empty()
+                && response.authorities().is_empty()
+                && authorities_len != 0)
+        {
+            return Err(ErrorKind::Negative(AuthorityData::new(
+                Box::new(query),
+                None,
+                false,
+                true,
+                None,
+            ))
+            .into());
         }
+
+        let message = response.into_message();
+        self.response_cache.insert(query, Ok(message.clone()), now);
+        Ok(message)
     }
 
     #[async_recursion]
