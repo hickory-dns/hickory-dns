@@ -69,7 +69,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     }
 
     /// Returns the pool's options.
-    pub fn options(&self) -> &ResolverOpts {
+    pub fn options(&self) -> &Arc<ResolverOpts> {
         &self.state.options
     }
 }
