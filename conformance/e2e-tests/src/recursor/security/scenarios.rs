@@ -306,7 +306,7 @@ fn out_of_bailiwick_rejection() -> Result<(), Error> {
     assert!(
         resolver
             .logs()?
-            .contains("Dropping out of bailiwick record host.invalid.testing.")
+            .contains("dropping out of bailiwick record record=host.invalid.testing.")
     );
 
     Ok(())
@@ -372,7 +372,7 @@ fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
     assert!(
         resolver
             .logs()?
-            .contains("Dropping out of bailiwick record host.otherdomain.testing.")
+            .contains("dropping out of bailiwick record record=host.otherdomain.testing.")
     );
 
     Ok(())
