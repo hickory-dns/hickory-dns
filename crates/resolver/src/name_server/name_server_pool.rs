@@ -36,41 +36,39 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
         servers: impl IntoIterator<Item = NameServerConfig>,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
+        cx: Arc<PoolContext>,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
             servers
                 .into_iter()
                 .map(|server| {
-                    Arc::new(NameServer::new([], server, &options, conn_provider.clone()))
+                    Arc::new(NameServer::new(
+                        [],
+                        server,
+                        &cx.options,
+                        conn_provider.clone(),
+                    ))
                 })
                 .collect(),
-            options,
-            tls,
+            cx,
         )
     }
 
     #[doc(hidden)]
-    pub fn from_nameservers(
-        servers: Vec<Arc<NameServer<P>>>,
-        options: Arc<ResolverOpts>,
-        tls: Arc<TlsConfig>,
-    ) -> Self {
+    pub fn from_nameservers(servers: Vec<Arc<NameServer<P>>>, cx: Arc<PoolContext>) -> Self {
         Self {
             state: Arc::new(PoolState {
                 servers,
-                options,
-                tls,
+                cx,
                 next: AtomicUsize::new(0),
             }),
         }
     }
 
     /// Returns the pool's options.
-    pub fn options(&self) -> &Arc<ResolverOpts> {
-        &self.state.options
+    pub fn context(&self) -> &Arc<PoolContext> {
+        &self.state.cx
     }
 }
 
@@ -89,15 +87,14 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
 struct PoolState<P: ConnectionProvider> {
     servers: Vec<Arc<NameServer<P>>>,
-    options: Arc<ResolverOpts>,
-    tls: Arc<TlsConfig>,
+    cx: Arc<PoolContext>,
     next: AtomicUsize,
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
         let mut servers = self.servers.clone();
-        match self.options.server_ordering_strategy {
+        match self.cx.options.server_ordering_strategy {
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
@@ -106,8 +103,8 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
-                let num_concurrent_reqs = if self.options.num_concurrent_reqs > 1 {
-                    self.options.num_concurrent_reqs
+                let num_concurrent_reqs = if self.cx.options.num_concurrent_reqs > 1 {
+                    self.cx.options.num_concurrent_reqs
                 } else {
                     1
                 };
@@ -141,7 +138,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             // construct the parallel requests, 2 is the default
             let mut par_servers = SmallVec::<[_; 2]>::new();
             while !servers.is_empty()
-                && par_servers.len() < Ord::max(self.options.num_concurrent_reqs, 1)
+                && par_servers.len() < Ord::max(self.cx.options.num_concurrent_reqs, 1)
             {
                 if let Some(server) = servers.pop_front() {
                     if policy.allows_server(&server) {
@@ -166,10 +163,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             let mut requests = par_servers
                 .into_iter()
                 .map(|server| {
-                    let future =
-                        server
-                            .clone()
-                            .send(request.clone(), policy, &self.options, &self.tls);
+                    let future = server.clone().send(request.clone(), policy, &self.cx);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();
@@ -216,6 +210,22 @@ impl<P: ConnectionProvider> PoolState<P> {
     }
 }
 
+/// Context for a [`NameServerPool`]
+#[non_exhaustive]
+pub struct PoolContext {
+    /// Resolver options
+    pub options: ResolverOpts,
+    /// TLS configuration
+    pub tls: TlsConfig,
+}
+
+impl PoolContext {
+    /// Creates a new PoolContext
+    pub fn new(options: ResolverOpts, tls: TlsConfig) -> Self {
+        Self { options, tls }
+    }
+}
+
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
@@ -250,8 +260,10 @@ mod tests {
         let io_loop = Runtime::new().unwrap();
         let pool = NameServerPool::from_config(
             resolver_config.name_servers,
-            Arc::new(ResolverOpts::default()),
-            Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(PoolContext::new(
+                ResolverOpts::default(),
+                TlsConfig::new().unwrap(),
+            )),
             TokioRuntimeProvider::new(),
         );
 
@@ -296,18 +308,17 @@ mod tests {
         subscribe();
 
         let conn_provider = TokioRuntimeProvider::default();
-        let opts = Arc::new(ResolverOpts {
+        let opts = ResolverOpts {
             try_tcp_on_error: true,
             ..ResolverOpts::default()
-        });
+        };
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
         let name_server = Arc::new(NameServer::new([], tcp, &opts, conn_provider));
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(
             name_servers.clone(),
-            opts,
-            Arc::new(TlsConfig::new().unwrap()),
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
         );
 
         let name = Name::from_str("www.example.com.").unwrap();

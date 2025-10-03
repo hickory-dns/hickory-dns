@@ -21,7 +21,8 @@ use futures_util::ready;
 #[cfg(feature = "__tls")]
 use rustls::pki_types::ServerName;
 
-use crate::config::{ConnectionConfig, ProtocolConfig, ResolverOpts};
+use crate::config::{ConnectionConfig, ProtocolConfig};
+use crate::name_server::PoolContext;
 #[cfg(feature = "__https")]
 use crate::proto::h2::HttpsClientConnect;
 #[cfg(feature = "__h3")]
@@ -55,8 +56,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         &self,
         ip: IpAddr,
         config: &ConnectionConfig,
-        options: &ResolverOpts,
-        tls: &TlsConfig,
+        cx: &PoolContext,
     ) -> Result<Self::FutureConn, io::Error>;
 }
 
@@ -120,17 +120,16 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
         &self,
         ip: IpAddr,
         config: &ConnectionConfig,
-        options: &ResolverOpts,
-        #[cfg_attr(not(feature = "__tls"), allow(unused_variables))] tls: &TlsConfig,
+        cx: &PoolContext,
     ) -> Result<Self::FutureConn, io::Error> {
         let remote_addr = SocketAddr::new(ip, config.port);
         let dns_connect = match (&config.protocol, self.quic_binder()) {
             (ProtocolConfig::Udp, _) => {
                 let provider_handle = self.clone();
                 let stream = UdpClientStream::builder(remote_addr, provider_handle)
-                    .with_timeout(Some(options.timeout))
-                    .with_os_port_selection(options.os_port_selection)
-                    .avoid_local_ports(options.avoid_local_udp_ports.clone())
+                    .with_timeout(Some(cx.options.timeout))
+                    .with_os_port_selection(cx.options.os_port_selection)
+                    .avoid_local_ports(cx.options.avoid_local_udp_ports.clone())
                     .with_bind_addr(config.bind_addr)
                     .build();
                 let exchange = DnsExchange::connect(stream);
@@ -140,18 +139,19 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 let (future, handle) = TcpClientStream::new(
                     remote_addr,
                     config.bind_addr,
-                    Some(options.timeout),
+                    Some(cx.options.timeout),
                     self.clone(),
                 );
 
                 // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(future, handle, options.timeout, None);
+                let dns_conn =
+                    DnsMultiplexer::with_timeout(future, handle, cx.options.timeout, None);
                 let exchange = DnsExchange::connect(dns_conn);
                 Connecting::Tcp(exchange)
             }
             #[cfg(feature = "__tls")]
             (ProtocolConfig::Tls { server_name }, _) => {
-                let timeout = options.timeout;
+                let timeout = cx.options.timeout;
                 let tcp_future = self.connect_tcp(remote_addr, None, None);
 
                 let Ok(server_name) = ServerName::try_from(&**server_name) else {
@@ -161,7 +161,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     ));
                 };
 
-                let mut tls_config = tls.config.clone();
+                let mut tls_config = cx.tls.config.clone();
                 // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
                 tls_config.enable_sni = false;
 
@@ -180,7 +180,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             (ProtocolConfig::Https { server_name, path }, _) => {
                 Connecting::Https(DnsExchange::connect(HttpsClientConnect::new(
                     self.connect_tcp(remote_addr, None, None),
-                    Arc::new(tls.config.clone()),
+                    Arc::new(cx.tls.config.clone()),
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
@@ -195,7 +195,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Connecting::Quic(DnsExchange::connect(
                     QuicClientStream::builder()
-                        .crypto_config(tls.config.clone())
+                        .crypto_config(cx.tls.config.clone())
                         .build_with_future(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -219,7 +219,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Connecting::H3(DnsExchange::connect(
                     H3ClientStream::builder()
-                        .crypto_config(tls.config.clone())
+                        .crypto_config(cx.tls.config.clone())
                         .disable_grease(*disable_grease)
                         .build_with_future(
                             binder.bind_quic(bind_addr, remote_addr)?,

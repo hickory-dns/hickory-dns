@@ -10,7 +10,7 @@ use std::{
 
 use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
-use hickory_resolver::name_server::TlsConfig;
+use hickory_resolver::name_server::{PoolContext, TlsConfig};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
@@ -55,7 +55,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     deny_server_v6: PrefixSet<Ipv6Net>,
     allow_server_v4: PrefixSet<Ipv4Net>,
     allow_server_v6: PrefixSet<Ipv6Net>,
-    tls: Arc<TlsConfig>,
+    pool_context: Arc<PoolContext>,
     conn_provider: P,
 }
 
@@ -92,16 +92,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
-        let tls = Arc::new(tls);
-        let roots = NameServerPool::from_config(
-            servers,
-            Arc::new(recursor_opts(
-                avoid_local_udp_ports.clone(),
-                case_randomization,
-            )),
-            tls.clone(),
-            conn_provider.clone(),
-        );
+
+        let pool_context = Arc::new(PoolContext::new(
+            recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
+            tls,
+        ));
+        let roots =
+            NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());
 
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
@@ -150,7 +147,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             deny_server_v6,
             allow_server_v4,
             allow_server_v6,
-            tls,
+            pool_context,
             conn_provider,
         };
 
@@ -563,8 +560,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // now construct a namesever pool based off the NS and glue records
         let ns = NameServerPool::from_config(
             config_group,
-            self.roots.ns.options().clone(),
-            self.tls.clone(),
+            self.pool_context.clone(),
             self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);

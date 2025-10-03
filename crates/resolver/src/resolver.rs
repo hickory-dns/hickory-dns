@@ -24,8 +24,8 @@ use crate::config::{ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::name_server::TlsConfig;
 use crate::name_server::{ConnectionProvider, NameServerPool};
+use crate::name_server::{PoolContext, TlsConfig};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};
@@ -85,7 +85,7 @@ impl TokioResolver {
 pub struct Resolver<P: ConnectionProvider> {
     domain: Option<Name>,
     search: Vec<Name>,
-    options: Arc<ResolverOpts>,
+    context: Arc<PoolContext>,
     client_cache: CachingClient<LookupEither<P>>,
     hosts: Arc<Hosts>,
 }
@@ -189,7 +189,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
             //   but `:` is not a valid DNS character, so technically this will fail parsing.
             //   TODO: should we always do search before returning this?
-            if self.options.ndots > 4 {
+            if self.context.options.ndots > 4 {
                 finally_ip_addr = Some(record);
             } else {
                 let query = Query::query(name, ip_addr.record_type());
@@ -214,7 +214,7 @@ impl<R: ConnectionProvider> Resolver<R> {
 
         LookupIpFuture::lookup(
             names,
-            self.options.ip_strategy,
+            self.context.options.ip_strategy,
             self.client_cache.clone(),
             self.request_options(),
             hosts,
@@ -245,7 +245,7 @@ impl<R: ConnectionProvider> Resolver<R> {
 
             // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
             let raw_name_first: bool =
-                name.num_labels() as usize > self.options.ndots || name.is_localhost();
+                name.num_labels() as usize > self.context.options.ndots || name.is_localhost();
 
             // if not meeting ndots, we always do the raw name in the final lookup
             if !raw_name_first {
@@ -317,16 +317,16 @@ impl<R: ConnectionProvider> Resolver<R> {
     /// Per request options based on the ResolverOpts
     pub(crate) fn request_options(&self) -> DnsRequestOptions {
         let mut request_opts = DnsRequestOptions::default();
-        request_opts.recursion_desired = self.options.recursion_desired;
-        request_opts.use_edns = self.options.edns0;
-        request_opts.case_randomization = self.options.case_randomization;
+        request_opts.recursion_desired = self.context.options.recursion_desired;
+        request_opts.use_edns = self.context.options.edns0;
+        request_opts.case_randomization = self.context.options.case_randomization;
 
         request_opts
     }
 
     /// Read the options for this resolver.
     pub fn options(&self) -> &ResolverOpts {
-        &self.options
+        &self.context.options
     }
 }
 
@@ -457,20 +457,19 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             options.validate = true;
         }
 
-        let options = Arc::new(options);
-        let pool = NameServerPool::from_config(
-            name_servers,
-            options.clone(),
-            Arc::new(match tls {
+        let context = Arc::new(PoolContext {
+            options,
+            tls: match tls {
                 Some(config) => config,
                 None => TlsConfig::new()?,
-            }),
-            provider,
-        );
-        let client = RetryDnsHandle::new(pool, options.attempts);
+            },
+        });
+
+        let pool = NameServerPool::from_config(name_servers, context.clone(), provider);
+        let client = RetryDnsHandle::new(pool, context.options.attempts);
 
         #[cfg(feature = "__dnssec")]
-        let either = if options.validate {
+        let either = if context.options.validate {
             let trust_anchor = trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
 
             LookupEither::Secure(
@@ -483,10 +482,14 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         #[cfg(not(feature = "__dnssec"))]
         let either = LookupEither::Retry(client);
 
-        let cache = ResponseCache::new(options.cache_size, TtlConfig::from_opts(&options));
-        let client_cache = CachingClient::with_cache(cache, either, options.preserve_intermediates);
+        let cache = ResponseCache::new(
+            context.options.cache_size,
+            TtlConfig::from_opts(&context.options),
+        );
+        let client_cache =
+            CachingClient::with_cache(cache, either, context.options.preserve_intermediates);
 
-        let hosts = Arc::new(match options.use_hosts_file {
+        let hosts = Arc::new(match context.options.use_hosts_file {
             ResolveHosts::Always | ResolveHosts::Auto => Hosts::from_system().unwrap_or_default(),
             ResolveHosts::Never => Hosts::default(),
         });
@@ -494,7 +497,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         Ok(Resolver {
             domain,
             search,
-            options,
+            context,
             client_cache,
             hosts,
         })
