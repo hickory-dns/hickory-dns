@@ -33,6 +33,8 @@ mod recursor;
 mod recursor_dns_handle;
 pub(crate) mod recursor_pool;
 
+use std::net::IpAddr;
+
 #[cfg(feature = "__dnssec")]
 use std::sync::Arc;
 
@@ -47,8 +49,11 @@ use proto::{
     rr::Record,
 };
 pub use recursor::{Recursor, RecursorBuilder};
+
+use ipnet::{IpNet, Ipv4Net, Ipv6Net};
+use prefix_trie::PrefixSet;
 use resolver::Name;
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// `Recursor`'s DNSSEC policy
 // `Copy` can only be implemented when `dnssec` is disabled we don't want to remove a trait
@@ -82,6 +87,79 @@ pub enum DnssecPolicy {
 impl DnssecPolicy {
     pub(crate) fn is_security_aware(&self) -> bool {
         !matches!(self, Self::SecurityUnaware)
+    }
+}
+
+/// An IPv4/IPv6 access control set.  This mainly hides the complexity of supporting v4 and v6
+/// addresses concurrently in a given set.  The AccessControlSet differs from a typical Access
+/// Control List in that there is no order.  The access semantics are:
+///
+/// +-----------------------+----------------------+----------+
+/// | Present in allow list | Present in deny list |  Result  |
+/// +-----------------------+----------------------+----------+
+/// |                  true |                false |  allowed |
+/// |                  true |                 true |  allowed |
+/// |                 false |                false |  allowed |
+/// |                 false |                 true |   denied |
+/// +-----------------------+----------------------+----------+
+#[derive(Clone)]
+pub(crate) struct AccessControlSet {
+    v4_allow: PrefixSet<Ipv4Net>,
+    v4_deny: PrefixSet<Ipv4Net>,
+    v6_allow: PrefixSet<Ipv6Net>,
+    v6_deny: PrefixSet<Ipv6Net>,
+}
+
+impl AccessControlSet {
+    pub(crate) fn new(name: &'static str, allow: &[IpNet], deny: &[IpNet]) -> Self {
+        let mut v4_allow = PrefixSet::new();
+        let mut v4_deny = PrefixSet::new();
+        let mut v6_allow = PrefixSet::new();
+        let mut v6_deny = PrefixSet::new();
+
+        for network in allow {
+            debug!("adding {network} to the {name} list");
+            match network {
+                IpNet::V4(network) => {
+                    v4_allow.insert(*network);
+                }
+                IpNet::V6(network) => {
+                    v6_allow.insert(*network);
+                }
+            }
+        }
+
+        for network in deny {
+            debug!("adding {network} to the {name} list");
+            match network {
+                IpNet::V4(network) => {
+                    v4_deny.insert(*network);
+                }
+                IpNet::V6(network) => {
+                    v6_deny.insert(*network);
+                }
+            }
+        }
+
+        Self {
+            v4_allow,
+            v4_deny,
+            v6_allow,
+            v6_deny,
+        }
+    }
+
+    pub(crate) fn denied(&self, ip: IpAddr) -> bool {
+        match ip {
+            IpAddr::V4(ip) => {
+                self.v4_allow.get_spm(&ip.into()).is_none()
+                    && self.v4_deny.get_spm(&ip.into()).is_some()
+            }
+            IpAddr::V6(ip) => {
+                self.v6_allow.get_spm(&ip.into()).is_none()
+                    && self.v6_deny.get_spm(&ip.into()).is_some()
+            }
+        }
     }
 }
 
