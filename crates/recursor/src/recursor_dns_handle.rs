@@ -15,7 +15,7 @@ use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
-use tracing::{debug, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
@@ -49,6 +49,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
+    answer_filter: AccessControlSet,
     name_server_filter: AccessControlSet,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
@@ -75,6 +76,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy,
+            allow_answers,
+            deny_answers,
             allow_servers,
             deny_servers,
             avoid_local_udp_ports,
@@ -101,6 +104,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
 
+        let answer_filter = AccessControlSet::new("answer_filter", &allow_answers, &deny_answers);
+
         let name_server_filter =
             AccessControlSet::new("name_server_filter", &allow_servers, &deny_servers);
 
@@ -113,6 +118,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             security_aware: dnssec_policy.is_security_aware(),
+            answer_filter,
             name_server_filter,
             avoid_local_udp_ports,
             case_randomization,
@@ -386,7 +392,31 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
         match response_future.await {
-            Ok(r) => {
+            Ok(mut r) => {
+                let answer_filter = |record: &Record| {
+                    let ip = match record.data() {
+                        RData::A(A(ipv4)) => (*ipv4).into(),
+                        RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+                        _ => return true,
+                    };
+
+                    if self.answer_filter.denied(ip) {
+                        error!(
+                            query = %query,
+                            ip = %ip,
+                            "removing ip from response: answer filter matched"
+                        );
+
+                        false
+                    } else {
+                        true
+                    }
+                };
+
+                // authority filtering is handled by the name_server_filter logic/AccessControlSet
+                r.additionals_mut().retain(answer_filter);
+                r.answers_mut().retain(answer_filter);
+
                 let message = r.into_message();
                 self.response_cache.insert(query, Ok(message.clone()), now);
                 Ok(message)
