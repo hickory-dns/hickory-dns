@@ -33,6 +33,7 @@ use crate::{
     proto::rr::{
         DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
     },
+    store::StoreBackend,
     zone_handler::LookupOptions,
 };
 
@@ -866,4 +867,39 @@ fn finish_nsec_record(
 ) -> Record {
     let rdata = NSEC::new_cover_self(next_name.clone(), mem::take(record_type_set));
     Record::from_rdata(name.clone(), ttl, RData::DNSSEC(DNSSECRData::NSEC(rdata)))
+}
+
+impl StoreBackend for InnerInMemory {
+    #[cfg(feature = "__dnssec")]
+    fn as_mut_tuple(&mut self) -> (&mut BTreeMap<RrKey, Arc<RecordSet>>, &mut Vec<SigSigner>) {
+        let Self {
+            records,
+            secure_keys,
+            ..
+        } = self;
+        (records, secure_keys)
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn secure_keys_mut(&mut self) -> &mut Vec<SigSigner> {
+        &mut self.secure_keys
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn secure_keys(&self) -> &[SigSigner] {
+        &self.secure_keys
+    }
+
+    fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
+        &mut self.records
+    }
+
+    fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
+        &self.records
+    }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        todo!()
+    }
 }
