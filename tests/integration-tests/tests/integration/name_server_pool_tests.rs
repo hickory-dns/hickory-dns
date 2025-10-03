@@ -19,7 +19,7 @@ use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
 };
-use hickory_resolver::name_server::{NameServer, NameServerPool, TlsConfig};
+use hickory_resolver::name_server::{NameServer, NameServerPool, PoolContext, TlsConfig};
 use test_support::subscribe;
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
@@ -130,8 +130,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
 ) -> MockedNameServerPool<O> {
     NameServerPool::from_nameservers(
         servers,
-        Arc::new(options),
-        Arc::new(TlsConfig::new().unwrap()),
+        Arc::new(PoolContext::new(options, TlsConfig::new().unwrap())),
     )
 }
 

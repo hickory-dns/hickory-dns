@@ -19,7 +19,8 @@ use tokio::time::{Duration, Instant};
 use tracing::debug;
 
 use crate::config::{ConnectionConfig, NameServerConfig, ResolverOpts, ServerOrderingStrategy};
-use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
+use crate::name_server::PoolContext;
+use crate::name_server::connection_provider::ConnectionProvider;
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
     op::{DnsRequest, DnsResponse, ResponseCode},
@@ -71,10 +72,9 @@ impl<P: ConnectionProvider> NameServer<P> {
         self: Arc<Self>,
         request: DnsRequest,
         policy: ConnectionPolicy,
-        options: &ResolverOpts,
-        tls: &TlsConfig,
+        cx: &PoolContext,
     ) -> Result<DnsResponse, ProtoError> {
-        let (handle, meta) = self.connected_mut_client(policy, options, tls).await?;
+        let (handle, meta) = self.connected_mut_client(policy, cx).await?;
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -149,8 +149,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     async fn connected_mut_client(
         &self,
         policy: ConnectionPolicy,
-        options: &ResolverOpts,
-        tls: &TlsConfig,
+        cx: &PoolContext,
     ) -> Result<(P::Conn, Arc<ConnectionMeta>), ProtoError> {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
@@ -166,8 +165,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
-            options,
-            tls,
+            cx,
         )?)
         .await?;
 
@@ -497,6 +495,7 @@ mod tests {
 
     use super::*;
     use crate::config::{ConnectionConfig, ProtocolConfig};
+    use crate::name_server::TlsConfig;
     use crate::proto::op::{DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -515,7 +514,7 @@ mod tests {
             TokioRuntimeProvider::default(),
         ));
 
-        let tls = TlsConfig::new().unwrap();
+        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
             .send(
@@ -524,8 +523,7 @@ mod tests {
                     DnsRequestOptions::default(),
                 ),
                 ConnectionPolicy::default(),
-                &options,
-                &tls,
+                &cx,
             )
             .await
             .expect("query failed");
@@ -549,7 +547,7 @@ mod tests {
             TokioRuntimeProvider::default(),
         ));
 
-        let tls = TlsConfig::new().unwrap();
+        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
@@ -559,8 +557,7 @@ mod tests {
                         DnsRequestOptions::default(),
                     ),
                     ConnectionPolicy::default(),
-                    &options,
-                    &tls,
+                    &cx
                 )
                 .await
                 .is_err()
@@ -610,10 +607,10 @@ mod tests {
             ..Default::default()
         };
 
-        let tls = TlsConfig::new().unwrap();
+        let cx = PoolContext::new(resolver_opts, TlsConfig::new().unwrap());
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let ns = Arc::new(NameServer::new([], config, &resolver_opts, provider));
+        let ns = Arc::new(NameServer::new([], config, &cx.options, provider));
         let response = ns
             .send(
                 DnsRequest::from_query(
@@ -621,8 +618,7 @@ mod tests {
                     request_options,
                 ),
                 ConnectionPolicy::default(),
-                &resolver_opts,
-                &tls,
+                &cx,
             )
             .await
             .unwrap();
