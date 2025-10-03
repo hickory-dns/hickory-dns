@@ -76,6 +76,14 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
         if let Some(response_cache_size) = config.response_cache_size {
             builder = builder.response_cache_size(response_cache_size);
         }
+        if !config.allow_answers.is_empty() {
+            builder = builder.clear_answer_address_filter_allow();
+            builder = builder.answer_address_filter_allow(config.allow_answers.iter());
+        }
+        if !config.deny_answers.is_empty() {
+            builder = builder.clear_answer_address_filter_deny();
+            builder = builder.answer_address_filter_deny(config.deny_answers.iter());
+        }
 
         let recursor = builder
             .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
@@ -233,6 +241,15 @@ pub struct RecursiveConfig {
     /// DNSSEC policy
     #[serde(default)]
     pub dnssec_policy: DnssecPolicyConfig,
+
+    /// Networks that will not be filtered from responses.  This overrides anything present in
+    /// deny_answers
+    #[serde(default)]
+    pub allow_answers: Vec<IpNet>,
+
+    /// Networks that will be filtered from responses
+    #[serde(default)]
+    pub deny_answers: Vec<IpNet>,
 
     /// Networks that will be queried during resolution
     #[serde(default)]

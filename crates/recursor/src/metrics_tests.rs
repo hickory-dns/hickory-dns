@@ -54,7 +54,7 @@ fn test_recursor_metrics() {
         let provider = MockProvider::new(handler);
         runtime.block_on(async {
             let recursor = Recursor::builder_with_provider(provider)
-                .clear_deny_servers() // We use addresses in the default deny filter.
+                .clear_deny_servers() // We use addresses in the default deny filters.
                 .build(&[ROOT_IP.into()])
                 .unwrap();
             for _ in 0..3 {
