@@ -848,6 +848,7 @@ dependencies = [
  "async-trait",
  "data-encoding",
  "futures",
+ "futures-util",
  "hickory-client",
  "hickory-proto",
  "hickory-resolver",

@@ -9,7 +9,7 @@ use std::{
 };
 
 use async_recursion::async_recursion;
-use futures_util::{StreamExt, stream::FuturesUnordered};
+use futures_util::{StreamExt, lock::Mutex as AsyncMutex, stream::FuturesUnordered};
 use hickory_resolver::name_server::TlsConfig;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
@@ -36,7 +36,9 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache,
-        config::{NameServerConfig, ResolverOpts},
+        config::{
+            NameServerConfig, NameServerTransportState, OpportunisticEncryption, ResolverOpts,
+        },
         name_server::{ConnectionProvider, NameServerPool},
     },
 };
@@ -57,6 +59,9 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     allow_server_v6: PrefixSet<Ipv6Net>,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
+    opportunistic_encryption: OpportunisticEncryption,
+    opportunistic_probe_budget: Arc<AtomicU8>,
+    encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
     tls: Arc<TlsConfig>,
     conn_provider: P,
 }
@@ -71,7 +76,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let servers = roots
             .iter()
             .copied()
-            .map(NameServerConfig::udp_and_tcp)
+            .map(|ip| name_server_config(ip, &builder.opportunistic_encryption))
             .collect::<Vec<_>>();
 
         let RecursorBuilder {
@@ -85,6 +90,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             avoid_local_udp_ports,
             ttl_config,
             case_randomization,
+            opportunistic_encryption,
+            encrypted_transport_state,
             conn_provider,
         } = builder;
 
@@ -94,11 +101,22 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             "Using cache sizes {}/{}",
             ns_cache_size, response_cache_size
         );
-        let opts = recursor_opts(avoid_local_udp_ports.clone(), case_randomization);
+        let opts = recursor_opts(
+            avoid_local_udp_ports.clone(),
+            case_randomization,
+            opportunistic_encryption,
+        );
+        let opportunistic_probe_budget = Arc::new(AtomicU8::new(
+            opportunistic_encryption
+                .max_concurrent_probes()
+                .unwrap_or_default(),
+        ));
         let roots = NameServerPool::from_config(
             servers,
             Arc::new(opts),
             tls.clone(),
+            encrypted_transport_state.clone(),
+            opportunistic_probe_budget.clone(),
             conn_provider.clone(),
         );
 
@@ -151,6 +169,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             allow_server_v6,
             avoid_local_udp_ports,
             case_randomization,
+            opportunistic_encryption,
+            opportunistic_probe_budget,
+            encrypted_transport_state,
             tls,
             conn_provider,
         };
@@ -533,7 +554,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             match glue_ips.get(&ns_data.0) {
                 Some(glue) if !glue.is_empty() => {
-                    config_group.extend(glue.iter().copied().map(NameServerConfig::udp_and_tcp));
+                    config_group.extend(
+                        glue.iter()
+                            .copied()
+                            .map(|ip| name_server_config(ip, &self.opportunistic_encryption)),
+                    );
                 }
                 _ => {
                     debug!("glue not found for {ns_data}");
@@ -566,6 +591,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             config_group,
             Arc::new(self.recursor_opts()),
             self.tls.clone(),
+            self.encrypted_transport_state.clone(),
+            self.opportunistic_probe_budget.clone(),
             self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
@@ -674,7 +701,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             } else {
                                 Some(ip)
                             }
-                        }).map(NameServerConfig::udp_and_tcp));
+                        }).map(|ip| name_server_config(ip, &self.opportunistic_encryption)));
                 }
                 Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
@@ -686,13 +713,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     fn recursor_opts(&self) -> ResolverOpts {
-        recursor_opts(self.avoid_local_udp_ports.clone(), self.case_randomization)
+        recursor_opts(
+            self.avoid_local_udp_ports.clone(),
+            self.case_randomization,
+            self.opportunistic_encryption,
+        )
     }
 }
 
 fn recursor_opts(
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
+    opportunistic_encryption: OpportunisticEncryption,
 ) -> ResolverOpts {
     let mut options = ResolverOpts::default();
     options.ndots = 0;
@@ -706,8 +738,25 @@ fn recursor_opts(
     options.num_concurrent_reqs = 1;
     options.avoid_local_udp_ports = avoid_local_udp_ports;
     options.case_randomization = case_randomization;
+    options.opportunistic_encryption = opportunistic_encryption;
 
     options
+}
+
+fn name_server_config(
+    ip: IpAddr,
+    opportunistic_encryption: &OpportunisticEncryption,
+) -> NameServerConfig {
+    match opportunistic_encryption {
+        #[cfg(any(
+            feature = "tls-aws-lc-rs",
+            feature = "tls-ring",
+            feature = "quic-aws-lc-rs",
+            feature = "quic-ring"
+        ))]
+        OpportunisticEncryption::Enabled { .. } => NameServerConfig::opportunistic_encryption(ip),
+        _ => NameServerConfig::udp_and_tcp(ip),
+    }
 }
 
 #[cfg(feature = "metrics")]

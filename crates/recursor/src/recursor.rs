@@ -12,7 +12,15 @@ use std::{
     time::Instant,
 };
 
+use futures_util::lock::Mutex as AsyncMutex;
 use ipnet::IpNet;
+#[cfg(any(
+    feature = "tls-aws-lc-rs",
+    feature = "tls-ring",
+    feature = "quic-aws-lc-rs",
+    feature = "quic-ring"
+))]
+use tracing::warn;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorCacheMetrics;
@@ -25,6 +33,7 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{
         TtlConfig,
+        config::{NameServerTransportState, OpportunisticEncryption},
         name_server::{ConnectionProvider, TlsConfig},
     },
 };
@@ -58,6 +67,8 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     pub(super) avoid_local_udp_ports: HashSet<u16>,
     pub(super) ttl_config: TtlConfig,
     pub(super) case_randomization: bool,
+    pub(super) opportunistic_encryption: OpportunisticEncryption,
+    pub(super) encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
     pub(super) conn_provider: P,
 }
 
@@ -153,6 +164,21 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
+    /// Configure RFC9539 opportunistic encryption.
+    pub fn opportunistic_encryption(mut self, config: OpportunisticEncryption) -> Self {
+        self.opportunistic_encryption = config;
+        self
+    }
+
+    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
+    pub fn transport_state(
+        mut self,
+        encrypted_transport_state: Arc<AsyncMutex<NameServerTransportState>>,
+    ) -> Self {
+        self.encrypted_transport_state = encrypted_transport_state;
+        self
+    }
+
     /// Construct a new recursor using the list of root zone name server addresses
     ///
     /// # Panics
@@ -194,6 +220,10 @@ impl<P: ConnectionProvider> Recursor<P> {
             avoid_local_udp_ports: HashSet::new(),
             ttl_config: TtlConfig::default(),
             case_randomization: false,
+            opportunistic_encryption: OpportunisticEncryption::default(),
+            encrypted_transport_state: Arc::new(AsyncMutex::new(
+                NameServerTransportState::default(),
+            )),
             conn_provider,
         }
     }
@@ -205,12 +235,29 @@ impl<P: ConnectionProvider> Recursor<P> {
     }
 
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
+        #[cfg_attr(
+            not(any(
+                feature = "tls-aws-lc-rs",
+                feature = "tls-ring",
+                feature = "quic-aws-lc-rs",
+                feature = "quic-ring"
+            )),
+            allow(unused_mut)
+        )]
+        let mut tls_config = TlsConfig::new()?;
+        #[cfg(any(
+            feature = "tls-aws-lc-rs",
+            feature = "tls-ring",
+            feature = "quic-aws-lc-rs",
+            feature = "quic-ring"
+        ))]
+        if builder.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
+
         Ok(Self {
-            mode: RecursorDnsHandle::build_recursor_mode(
-                roots,
-                Arc::new(TlsConfig::new()?),
-                builder,
-            )?,
+            mode: RecursorDnsHandle::build_recursor_mode(roots, Arc::new(tls_config), builder)?,
         })
     }
 

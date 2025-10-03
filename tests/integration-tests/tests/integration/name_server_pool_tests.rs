@@ -5,11 +5,12 @@ use std::slice;
 use std::str::FromStr;
 use std::sync::{
     Arc,
-    atomic::{AtomicIsize, Ordering},
+    atomic::{AtomicIsize, AtomicU8, Ordering},
 };
 use std::task::Poll;
 
 use futures::{executor::block_on, future::BoxFuture};
+use futures_util::lock::Mutex as AsyncMutex;
 
 use hickory_integration::mock_client::*;
 use hickory_proto::op::{DnsResponse, Query, ResponseCode};
@@ -17,7 +18,8 @@ use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, FirstAnswer};
 use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
-    ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
+    ConnectionConfig, NameServerConfig, NameServerTransportState, ProtocolConfig, ResolverOpts,
+    ServerOrderingStrategy,
 };
 use hickory_resolver::name_server::{NameServer, NameServerPool, TlsConfig};
 use test_support::subscribe;
@@ -115,6 +117,8 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
         config,
         Arc::new(options),
         Arc::new(TlsConfig::new().unwrap()),
+        Arc::new(AsyncMutex::new(NameServerTransportState::default())),
+        Arc::new(AtomicU8::default()),
         conn_provider,
     ))
 }

@@ -8,12 +8,15 @@
 //! TLS protocol related components for DNS over TLS
 
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 #[cfg(not(feature = "rustls-platform-verifier"))]
 use rustls::RootCertStore;
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{
-    ClientConfig,
-    crypto::{self, CryptoProvider},
+    ClientConfig, DigitallySignedStruct,
+    client::danger::HandshakeSignatureValid,
+    crypto::{self, CryptoProvider, verify_tls12_signature, verify_tls13_signature},
 };
 #[cfg(feature = "rustls-platform-verifier")]
 use rustls_platform_verifier::BuilderVerifierExt;
@@ -56,4 +59,62 @@ pub fn default_provider() -> CryptoProvider {
 #[cfg(feature = "tls-ring")]
 pub fn default_provider() -> CryptoProvider {
     crypto::ring::default_provider()
+}
+
+/// A rustls ServerCertVerifier that performs **no** certificate verification.
+///
+/// This should only be used with great care, as skipping certificate verification is insecure
+/// and could allow person-in-the-middle attacks.
+#[derive(Debug)]
+pub struct NoCertificateVerification(CryptoProvider);
+
+impl Default for NoCertificateVerification {
+    fn default() -> Self {
+        Self(default_provider())
+    }
+}
+
+impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp: &[u8],
+        _now: UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
+    }
 }

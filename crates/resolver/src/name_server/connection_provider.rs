@@ -38,7 +38,7 @@ use crate::proto::{
     xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
 };
 #[cfg(feature = "__tls")]
-use hickory_proto::rustls::client_config;
+use hickory_proto::rustls::{NoCertificateVerification, client_config};
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
 /// This trait is designed for customization.
@@ -58,6 +58,9 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         options: &ResolverOpts,
         tls: &TlsConfig,
     ) -> Result<Self::FutureConn, io::Error>;
+
+    /// Get a reference to a [`RuntimeProvider`].
+    fn runtime_provider(&self) -> &Self::RuntimeProvider;
 }
 
 /// Resolves to a new Connection
@@ -250,6 +253,10 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             spawner: self.create_handle(),
         })
     }
+
+    fn runtime_provider(&self) -> &Self::RuntimeProvider {
+        self
+    }
 }
 
 /// TLS configuration for the connection provider.
@@ -267,6 +274,17 @@ impl TlsConfig {
             #[cfg(feature = "__tls")]
             config: client_config()?,
         })
+    }
+
+    /// Disable certificate verification.
+    ///
+    /// This is typically unsafe and insecure, except in the context of RFC 9539 opportunistic
+    /// encryption which requires the peer certificate not be verified.
+    #[cfg(feature = "__tls")]
+    pub fn insecure_skip_verify(&mut self) {
+        self.config
+            .dangerous()
+            .set_certificate_verifier(Arc::new(NoCertificateVerification::default()))
     }
 }
 
