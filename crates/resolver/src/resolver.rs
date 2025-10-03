@@ -83,7 +83,8 @@ impl TokioResolver {
 /// should be spawned on the same executor.
 #[derive(Clone)]
 pub struct Resolver<P: ConnectionProvider> {
-    config: ResolverConfig,
+    domain: Option<Name>,
+    search: Vec<Name>,
     options: Arc<ResolverOpts>,
     client_cache: CachingClient<LookupEither<P>>,
     hosts: Arc<Hosts>,
@@ -240,7 +241,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             // Otherwise we have to build the search list
             // Note: the vec is built in reverse order of precedence, for stack semantics
             let mut names =
-                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
+                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.search.len());
 
             // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
             let raw_name_first: bool =
@@ -253,7 +254,7 @@ impl<R: ConnectionProvider> Resolver<R> {
                 names.push(fqdn);
             }
 
-            for search in self.config.search().iter().rev() {
+            for search in self.search.iter().rev() {
                 let name_search = name.clone().append_domain(search);
 
                 match name_search {
@@ -269,7 +270,7 @@ impl<R: ConnectionProvider> Resolver<R> {
                 }
             }
 
-            if let Some(domain) = self.config.domain() {
+            if let Some(domain) = &self.domain {
                 let name_search = name.clone().append_domain(domain);
 
                 match name_search {
@@ -321,11 +322,6 @@ impl<R: ConnectionProvider> Resolver<R> {
         request_opts.case_randomization = self.options.case_randomization;
 
         request_opts
-    }
-
-    /// Read the config for this resolver.
-    pub fn config(&self) -> &ResolverConfig {
-        &self.config
     }
 
     /// Read the options for this resolver.
@@ -439,7 +435,12 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
     pub fn build(self) -> Result<Resolver<P>, ProtoError> {
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
         let Self {
-            config,
+            config:
+                ResolverConfig {
+                    domain,
+                    search,
+                    name_servers,
+                },
             mut options,
             provider,
             tls,
@@ -458,7 +459,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
 
         let options = Arc::new(options);
         let pool = NameServerPool::from_config(
-            config.name_servers().iter().cloned(),
+            name_servers,
             options.clone(),
             Arc::new(match tls {
                 Some(config) => config,
@@ -491,7 +492,8 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         });
 
         Ok(Resolver {
-            config,
+            domain,
+            search,
             options,
             client_cache,
             hosts,
