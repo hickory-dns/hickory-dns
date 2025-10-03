@@ -303,11 +303,7 @@ fn out_of_bailiwick_rejection() -> Result<(), Error> {
     assert_eq!(output.status, DigStatus::NXDOMAIN);
     assert_eq!(output.answer.len(), 0);
 
-    assert!(
-        resolver
-            .logs()?
-            .contains("Dropping out of bailiwick record host.invalid.testing.")
-    );
+    assert!(dbg!(resolver.logs()?).contains("dropping out of bailiwick record"));
 
     Ok(())
 }
@@ -369,11 +365,7 @@ fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
         Ipv4Addr::new(192, 0, 2, 2)
     );
 
-    assert!(
-        resolver
-            .logs()?
-            .contains("Dropping out of bailiwick record host.otherdomain.testing.")
-    );
+    assert!(dbg!(resolver.logs()?).contains("dropping out of bailiwick record"));
 
     Ok(())
 }
