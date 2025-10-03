@@ -11,18 +11,16 @@ use std::{
 use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use hickory_resolver::name_server::TlsConfig;
-use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
-use prefix_trie::PrefixSet;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::{
-    DnssecPolicy, Error, ErrorKind, RecursorBuilder,
+    AccessControlSet, DnssecPolicy, Error, ErrorKind, RecursorBuilder,
     proto::{
         op::{Message, Query},
         rr::{
@@ -51,10 +49,8 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
-    deny_server_v4: PrefixSet<Ipv4Net>,
-    deny_server_v6: PrefixSet<Ipv6Net>,
-    allow_server_v4: PrefixSet<Ipv4Net>,
-    allow_server_v6: PrefixSet<Ipv6Net>,
+    answer_filter: AccessControlSet,
+    name_server_filter: AccessControlSet,
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
     tls: Arc<TlsConfig>,
@@ -80,6 +76,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             dnssec_policy,
+            allow_answers,
+            deny_answers,
             allow_servers,
             deny_servers,
             avoid_local_udp_ports,
@@ -106,35 +104,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
 
-        let mut deny_server_v4 = PrefixSet::new();
-        let mut deny_server_v6 = PrefixSet::new();
+        let answer_filter = AccessControlSet::new("answer_filter", &allow_answers, &deny_answers);
 
-        for network in deny_servers {
-            info!("adding {network} to the do not query list");
-            match network {
-                IpNet::V4(network) => {
-                    deny_server_v4.insert(network);
-                }
-                IpNet::V6(network) => {
-                    deny_server_v6.insert(network);
-                }
-            }
-        }
-
-        let mut allow_server_v4 = PrefixSet::new();
-        let mut allow_server_v6 = PrefixSet::new();
-
-        for network in allow_servers {
-            info!("adding {network} to the do not query override list");
-            match network {
-                IpNet::V4(network) => {
-                    allow_server_v4.insert(network);
-                }
-                IpNet::V6(network) => {
-                    allow_server_v6.insert(network);
-                }
-            }
-        }
+        let name_server_filter =
+            AccessControlSet::new("name_server_filter", &allow_servers, &deny_servers);
 
         let handle = Self {
             roots,
@@ -145,10 +118,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             security_aware: dnssec_policy.is_security_aware(),
-            deny_server_v4,
-            deny_server_v6,
-            allow_server_v4,
-            allow_server_v6,
+            answer_filter,
+            name_server_filter,
             avoid_local_udp_ports,
             case_randomization,
             tls,
@@ -421,7 +392,31 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
         match response_future.await {
-            Ok(r) => {
+            Ok(mut r) => {
+                let answer_filter = |record: &Record| {
+                    let ip = match record.data() {
+                        RData::A(A(ipv4)) => (*ipv4).into(),
+                        RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+                        _ => return true,
+                    };
+
+                    if self.answer_filter.denied(ip) {
+                        error!(
+                            query = %query,
+                            ip = %ip,
+                            "removing ip from response: answer filter matched"
+                        );
+
+                        false
+                    } else {
+                        true
+                    }
+                };
+
+                // authority filtering is handled by the name_server_filter logic/AccessControlSet
+                r.additionals_mut().retain(answer_filter);
+                r.answers_mut().retain(answer_filter);
+
                 let message = r.into_message();
                 self.response_cache.insert(query, Ok(message.clone()), now);
                 Ok(message)
@@ -589,28 +584,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
                 _ => continue,
             };
-            if self.matches_nameserver_filter(ip) {
+            if self.name_server_filter.denied(ip) {
                 debug!(name = %record.name(), %ip, "ignoring address due to do_not_query");
                 continue;
             }
             let ns_glue_ips = glue_map.entry(record.name().clone()).or_default();
             if !ns_glue_ips.contains(&ip) {
                 ns_glue_ips.push(ip);
-            }
-        }
-    }
-
-    /// Check if an IP address matches any networks listed in the configuration that should not be
-    /// sent recursive queries.
-    fn matches_nameserver_filter(&self, ip: IpAddr) -> bool {
-        match ip {
-            IpAddr::V4(ip) => {
-                self.allow_server_v4.get_spm(&ip.into()).is_none()
-                    && self.deny_server_v4.get_spm(&ip.into()).is_some()
-            }
-            IpAddr::V6(ip) => {
-                self.allow_server_v6.get_spm(&ip.into()).is_none()
-                    && self.deny_server_v6.get_spm(&ip.into()).is_some()
             }
         }
     }
@@ -668,7 +648,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         .filter_map(|answer| {
                             let ip = answer.data().ip_addr()?;
 
-                            if self.matches_nameserver_filter(ip) {
+                            if self.name_server_filter.denied(ip) {
                                 debug!(%ip, "append_ips_from_lookup: ignoring address due to do_not_query");
                                 None
                             } else {
@@ -781,11 +761,11 @@ mod tests {
             [192, 168, 1, 254],
             [172, 17, 0, 1],
         ] {
-            assert!(handle.matches_nameserver_filter(IpAddr::from(addr)));
+            assert!(handle.name_server_filter.denied(IpAddr::from(addr)));
         }
 
         for addr in [[128, 0, 0, 0], [192, 168, 2, 0], [192, 168, 0, 1]] {
-            assert!(!handle.matches_nameserver_filter(IpAddr::from(addr)));
+            assert!(!handle.name_server_filter.denied(IpAddr::from(addr)));
         }
     }
 }

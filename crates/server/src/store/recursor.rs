@@ -79,6 +79,8 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
 
         let recursor = builder
             .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
+            .allow_answers(config.allow_answers.iter())
+            .deny_answers(config.deny_answers.iter())
             .deny_servers(config.deny_server.iter())
             .allow_servers(config.allow_server.iter())
             .recursion_limit(match config.recursion_limit {
@@ -233,6 +235,14 @@ pub struct RecursiveConfig {
     /// DNSSEC policy
     #[serde(default)]
     pub dnssec_policy: DnssecPolicyConfig,
+
+    /// Networks that will be queried during resolution
+    #[serde(default)]
+    pub allow_answers: Vec<IpNet>,
+
+    /// Networks that will not be queried during resolution
+    #[serde(default)]
+    pub deny_answers: Vec<IpNet>,
 
     /// Networks that will be queried during resolution
     #[serde(default)]
