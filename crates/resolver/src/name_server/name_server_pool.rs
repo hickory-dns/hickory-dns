@@ -60,7 +60,11 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     #[doc(hidden)]
     pub fn from_nameservers(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
         Self {
-            state: Arc::new(PoolState::new(servers, options)),
+            state: Arc::new(PoolState {
+                servers,
+                options,
+                next: AtomicUsize::new(0),
+            }),
         }
     }
 
@@ -90,14 +94,6 @@ struct PoolState<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
-    fn new(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
-        Self {
-            servers,
-            options,
-            next: AtomicUsize::new(0),
-        }
-    }
-
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
         let mut servers = self.servers.clone();
         match self.options.server_ordering_strategy {
