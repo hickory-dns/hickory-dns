@@ -7,11 +7,11 @@
 
 //! All persistent store implementations
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::SigSigner;
-use hickory_proto::rr::{LowerName, RecordSet, RecordType, RrKey};
+use hickory_proto::rr::{DNSClass, LowerName, Record, RecordSet, RecordType, RrKey};
 
 pub mod blocklist;
 pub mod file;
@@ -67,3 +67,30 @@ pub trait StoreBackend {
     #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str;
 }
+
+/// Private helper functions for working with `StoreBackend` implementations
+trait StoreBackendExt: StoreBackend {
+    /// Inserts or updates a `Record` depending on its existence in the zone.
+    ///
+    /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - The `Record` to be inserted or updated.
+    /// * `serial` - Current serial number to be recorded against updates.
+    ///
+    /// # Return value
+    ///
+    /// true if the value was inserted, false otherwise
+    fn upsert(&mut self, record: Record, serial: u32, dns_class: DNSClass) -> bool {
+        ExtensionPlaceholder::upsert(self, record, serial, dns_class)
+    }
+}
+
+impl<B: StoreBackend> StoreBackendExt for B {}
+
+/// Temporary placeholder type.
+///
+/// Methods will be defined on this type as an intermediate step before moving the methods into the
+/// above `trait StoreBackendExt` block.
+struct ExtensionPlaceholder<T: ?Sized>(PhantomData<T>);
