@@ -44,25 +44,25 @@ impl<P: ConnectionProvider> NameServerPool<P> {
             servers
                 .into_iter()
                 .map(|server| {
-                    Arc::new(NameServer::new(
-                        [],
-                        server,
-                        options.clone(),
-                        tls.clone(),
-                        conn_provider.clone(),
-                    ))
+                    Arc::new(NameServer::new([], server, &options, conn_provider.clone()))
                 })
                 .collect(),
             options,
+            tls,
         )
     }
 
     #[doc(hidden)]
-    pub fn from_nameservers(servers: Vec<Arc<NameServer<P>>>, options: Arc<ResolverOpts>) -> Self {
+    pub fn from_nameservers(
+        servers: Vec<Arc<NameServer<P>>>,
+        options: Arc<ResolverOpts>,
+        tls: Arc<TlsConfig>,
+    ) -> Self {
         Self {
             state: Arc::new(PoolState {
                 servers,
                 options,
+                tls,
                 next: AtomicUsize::new(0),
             }),
         }
@@ -90,6 +90,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 struct PoolState<P: ConnectionProvider> {
     servers: Vec<Arc<NameServer<P>>>,
     options: Arc<ResolverOpts>,
+    tls: Arc<TlsConfig>,
     next: AtomicUsize,
 }
 
@@ -165,7 +166,10 @@ impl<P: ConnectionProvider> PoolState<P> {
             let mut requests = par_servers
                 .into_iter()
                 .map(|server| {
-                    let future = server.clone().send(request.clone(), policy);
+                    let future =
+                        server
+                            .clone()
+                            .send(request.clone(), policy, &self.options, &self.tls);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();
@@ -298,15 +302,13 @@ mod tests {
         });
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
-        let name_server = Arc::new(NameServer::new(
-            [],
-            tcp,
-            opts.clone(),
-            Arc::new(TlsConfig::new().unwrap()),
-            conn_provider,
-        ));
+        let name_server = Arc::new(NameServer::new([], tcp, &opts, conn_provider));
         let name_servers = vec![name_server];
-        let pool = NameServerPool::from_nameservers(name_servers.clone(), opts);
+        let pool = NameServerPool::from_nameservers(
+            name_servers.clone(),
+            opts,
+            Arc::new(TlsConfig::new().unwrap()),
+        );
 
         let name = Name::from_str("www.example.com.").unwrap();
 
