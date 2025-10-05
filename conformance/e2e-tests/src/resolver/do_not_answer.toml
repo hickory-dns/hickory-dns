@@ -1,0 +1,14 @@
+user = "nobody"
+group = "nogroup"
+
+[[zones]]
+zone = "."
+zone_type = "External"
+
+[zones.stores]
+type = "recursor"
+roots = "/etc/root.hints"
+dnssec_policy = "ValidationDisabled"
+allow_server = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+allow_answers = ["192.0.2.1/32", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+deny_answers = ["192.0.2.0/24"]
