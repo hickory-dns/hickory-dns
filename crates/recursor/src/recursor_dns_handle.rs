@@ -22,6 +22,7 @@ use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::{
     AccessControlSet, DnssecPolicy, Error, ErrorKind, RecursorBuilder,
     error::AuthorityData,
+    is_subzone,
     proto::{
         op::{Message, Query},
         rr::{
@@ -380,7 +381,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
-        // TODO: check if data is "authentic"
         let mut response = match response_future.await {
             Ok(r) => r,
             Err(e) => {
@@ -390,6 +390,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         let answer_filter = |record: &Record| {
+            if !is_subzone(ns.zone(), record.name()) {
+                error!(
+                    %record, zone = %ns.zone(),
+                    "dropping out of bailiwick record",
+                );
+                return false;
+            }
+
             let ip = match record.data() {
                 RData::A(A(ipv4)) => (*ipv4).into(),
                 RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
