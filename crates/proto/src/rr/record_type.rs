@@ -99,6 +99,8 @@ pub enum RecordType {
     RRSIG,
     /// [RFC 2535](https://tools.ietf.org/html/rfc2535) (and [RFC 2931](https://tools.ietf.org/html/rfc2931)) Signature, to support [RFC 2137](https://tools.ietf.org/html/rfc2137) Update.
     SIG,
+    /// [RFC 8162](https://datatracker.ietf.org/doc/html/rfc8162)
+    SMIMEA,
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) and [RFC 2308](https://tools.ietf.org/html/rfc2308) Start of [a zone of] authority record
     SOA,
     /// [RFC 2782](https://tools.ietf.org/html/rfc2782) Service locator
@@ -239,6 +241,7 @@ impl FromStr for RecordType {
             "PTR" => Ok(Self::PTR),
             "RRSIG" => Ok(Self::RRSIG),
             "SIG" => Ok(Self::SIG),
+            "SMIMEA" => Ok(Self::SMIMEA),
             "SOA" => Ok(Self::SOA),
             "SRV" => Ok(Self::SRV),
             "SSHFP" => Ok(Self::SSHFP),
@@ -293,6 +296,7 @@ impl From<u16> for RecordType {
             12 => Self::PTR,
             46 => Self::RRSIG,
             24 => Self::SIG,
+            53 => Self::SMIMEA,
             6 => Self::SOA,
             33 => Self::SRV,
             44 => Self::SSHFP,
@@ -369,6 +373,7 @@ impl From<RecordType> for &'static str {
             RecordType::PTR => "PTR",
             RecordType::RRSIG => "RRSIG",
             RecordType::SIG => "SIG",
+            RecordType::SMIMEA => "SMIMEA",
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
             RecordType::SSHFP => "SSHFP",
@@ -423,6 +428,7 @@ impl From<RecordType> for u16 {
             RecordType::PTR => 12,
             RecordType::RRSIG => 46,
             RecordType::SIG => 24,
+            RecordType::SMIMEA => 53,
             RecordType::SOA => 6,
             RecordType::SRV => 33,
             RecordType::SSHFP => 44,
@@ -533,6 +539,7 @@ mod tests {
             "NS",
             "OPENPGPKEY",
             "PTR",
+            "SMIMEA",
             "SOA",
             "SRV",
             "SSHFP",

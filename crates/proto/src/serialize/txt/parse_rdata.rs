@@ -87,6 +87,7 @@ impl RDataParser for RData {
             RecordType::OPENPGPKEY => Self::OPENPGPKEY(openpgpkey::parse(tokens)?),
             RecordType::OPT => return Err(ParseError::from("parsing OPT doesn't make sense")),
             RecordType::PTR => Self::PTR(PTR(name::parse(tokens, origin)?)),
+            RecordType::SMIMEA => Self::SMIMEA(smimea::parse(tokens)?),
             RecordType::SOA => Self::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => Self::SRV(srv::parse(tokens, origin)?),
             RecordType::SSHFP => Self::SSHFP(sshfp::parse(tokens)?),
