@@ -144,6 +144,7 @@ impl Tshark {
 pub struct TsharkBuilder {
     filters: Vec<ProtocolFilter>,
     ssl_keylog_file: Option<String>,
+    include_non_dns_packets: bool,
 }
 
 impl TsharkBuilder {
@@ -158,6 +159,12 @@ impl TsharkBuilder {
     /// Set the `SSLKEYLOGFILE` path to use to decrypt encrypted traffic.
     pub fn ssl_keylog_file(mut self, path: impl Into<String>) -> Self {
         self.ssl_keylog_file = Some(path.into());
+        self
+    }
+
+    /// Include packets without DNS data (e.g., failed connection attempts).
+    pub fn include_non_dns_packets(mut self, include: bool) -> Self {
+        self.include_non_dns_packets = include;
         self
     }
 
@@ -198,9 +205,10 @@ exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '({protocol_filter})'"
         let stdout = child.stdout()?;
         let stdout_handle = thread::spawn({
             let own_addr = container.ipv4_addr();
+            let include_non_dns_packets = self.include_non_dns_packets;
             move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let mut deserializer = serde_json::Deserializer::from_reader(stdout);
-                let adapter = StreamingCapture::new(sender, own_addr);
+                let adapter = StreamingCapture::new(sender, own_addr, include_non_dns_packets);
                 adapter.deserialize(&mut deserializer)?;
                 Ok(())
             }
@@ -241,6 +249,7 @@ impl Default for TsharkBuilder {
         Self {
             filters: vec![ProtocolFilter::default()],
             ssl_keylog_file: None,
+            include_non_dns_packets: false,
         }
     }
 }
@@ -463,11 +472,16 @@ fn deserialize_port<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u16, D
 struct StreamingCapture {
     sender: Sender<Capture>,
     own_addr: Ipv4Addr,
+    include_non_dns_packets: bool,
 }
 
 impl StreamingCapture {
-    fn new(sender: Sender<Capture>, own_addr: Ipv4Addr) -> Self {
-        Self { sender, own_addr }
+    fn new(sender: Sender<Capture>, own_addr: Ipv4Addr, include_non_dns_packets: bool) -> Self {
+        Self {
+            sender,
+            own_addr,
+            include_non_dns_packets,
+        }
     }
 }
 
@@ -478,8 +492,11 @@ impl<'de> DeserializeSeed<'de> for StreamingCapture {
     where
         D: Deserializer<'de>,
     {
-        let visitor = StreamingCaptureVisitor::new(self.sender, self.own_addr);
-        deserializer.deserialize_seq(visitor)
+        deserializer.deserialize_seq(StreamingCaptureVisitor::new(
+            self.sender,
+            self.own_addr,
+            self.include_non_dns_packets,
+        ))
     }
 }
 
@@ -487,11 +504,16 @@ impl<'de> DeserializeSeed<'de> for StreamingCapture {
 struct StreamingCaptureVisitor {
     sender: Sender<Capture>,
     own_addr: Ipv4Addr,
+    include_non_dns_packets: bool,
 }
 
 impl StreamingCaptureVisitor {
-    fn new(sender: Sender<Capture>, own_addr: Ipv4Addr) -> Self {
-        Self { sender, own_addr }
+    fn new(sender: Sender<Capture>, own_addr: Ipv4Addr, include_non_dns_packets: bool) -> Self {
+        Self {
+            sender,
+            own_addr,
+            include_non_dns_packets,
+        }
     }
 }
 
@@ -510,8 +532,11 @@ impl<'de> Visitor<'de> for StreamingCaptureVisitor {
             let Layers { ip, udp, tcp, dns } = entry._source.layers;
 
             // Skip packets without DNS data (e.g., TCP handshake packets)
-            let Some(dns) = dns else {
-                continue;
+            // unless configured to include them.
+            let dns = match dns {
+                Some(dns) => dns,
+                None if self.include_non_dns_packets => serde_json::json!({}),
+                None => continue,
             };
 
             // Determine protocol and extract port information
