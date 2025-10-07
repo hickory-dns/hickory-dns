@@ -25,7 +25,7 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{
         TtlConfig,
-        config::OpportunisticEncryption,
+        config::{OpportunisticEncryption, SharedNameServerTransportState},
         name_server::{ConnectionProvider, TlsConfig},
     },
 };
@@ -60,6 +60,7 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     pub(super) ttl_config: TtlConfig,
     pub(super) case_randomization: bool,
     pub(super) opportunistic_encryption: OpportunisticEncryption,
+    pub(super) encrypted_transport_state: SharedNameServerTransportState,
     pub(super) conn_provider: P,
 }
 
@@ -200,6 +201,15 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         self
     }
 
+    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
+    pub fn encrypted_transport_state(
+        mut self,
+        encrypted_transport_state: SharedNameServerTransportState,
+    ) -> Self {
+        self.encrypted_transport_state = encrypted_transport_state;
+        self
+    }
+
     /// Construct a new recursor using the list of root zone name server addresses
     ///
     /// # Panics
@@ -248,6 +258,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             ttl_config: TtlConfig::default(),
             case_randomization: false,
             opportunistic_encryption: OpportunisticEncryption::default(),
+            encrypted_transport_state: SharedNameServerTransportState::default(),
             conn_provider,
         }
     }

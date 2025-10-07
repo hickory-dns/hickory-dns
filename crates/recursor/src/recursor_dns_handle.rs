@@ -10,7 +10,6 @@ use std::{
 
 use async_recursion::async_recursion;
 use futures_util::{StreamExt, stream::FuturesUnordered};
-use hickory_resolver::name_server::{PoolContext, TlsConfig};
 use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
@@ -36,8 +35,10 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache,
-        config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
-        name_server::{ConnectionProvider, NameServerPool},
+        config::{
+            NameServerConfig, OpportunisticEncryption, ResolverOpts, SharedNameServerTransportState,
+        },
+        name_server::{ConnectionProvider, NameServerPool, PoolContext, TlsConfig},
     },
 };
 
@@ -54,6 +55,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     answer_address_filter: AccessControlSet,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
+    encrypted_transport_state: SharedNameServerTransportState,
     conn_provider: P,
 }
 
@@ -82,6 +84,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ttl_config,
             case_randomization,
             opportunistic_encryption,
+            encrypted_transport_state,
             conn_provider,
         } = builder;
 
@@ -97,8 +100,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             tls,
             opportunistic_encryption,
         ));
-        let roots =
-            NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());
+        let roots = NameServerPool::from_config(
+            servers,
+            pool_context.clone(),
+            &encrypted_transport_state,
+            conn_provider.clone(),
+        );
 
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
@@ -116,6 +123,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             answer_address_filter,
             name_server_filter,
             pool_context,
+            encrypted_transport_state,
             conn_provider,
         };
 
@@ -582,6 +590,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let ns = NameServerPool::from_config(
             config_group,
             self.pool_context.clone(),
+            &self.encrypted_transport_state,
             self.conn_provider.clone(),
         );
         let ns = RecursorPool::from(zone.clone(), ns);

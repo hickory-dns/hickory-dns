@@ -18,7 +18,7 @@ use hickory_proto::xfer::{DnsHandle, FirstAnswer};
 use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, OpportunisticEncryption, ProtocolConfig, ResolverOpts,
-    ServerOrderingStrategy,
+    ServerOrderingStrategy, SharedNameServerTransportState,
 };
 use hickory_resolver::name_server::{NameServer, NameServerPool, PoolContext, TlsConfig};
 use test_support::subscribe;
@@ -111,7 +111,13 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     }
 
     let config = NameServerConfig::new(ip, trust_negative_responses, configs);
-    Arc::new(NameServer::new(conns, config, &options, conn_provider))
+    Arc::new(NameServer::new(
+        conns,
+        config,
+        &options,
+        SharedNameServerTransportState::default(),
+        conn_provider,
+    ))
 }
 
 #[cfg(test)]
