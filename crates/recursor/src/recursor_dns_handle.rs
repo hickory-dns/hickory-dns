@@ -84,6 +84,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ttl_config,
             case_randomization,
             opportunistic_encryption,
+            encrypted_transport_state,
             conn_provider,
         } = builder;
 
@@ -98,6 +99,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
             opportunistic_encryption,
+            encrypted_transport_state,
         ));
         let roots =
             NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());

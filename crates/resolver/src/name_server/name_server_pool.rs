@@ -20,6 +20,7 @@ use tracing::debug;
 
 use crate::config::{
     NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
+    SharedNameServerTransportState,
 };
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
@@ -221,6 +222,8 @@ pub struct PoolContext {
     pub tls: TlsConfig,
     /// Opportunistic encryption configuration
     pub opportunistic_encryption: OpportunisticEncryption,
+    /// Name server transport state for opportunistic encryption
+    pub encrypted_transport_state: SharedNameServerTransportState,
 }
 
 impl PoolContext {
@@ -229,11 +232,13 @@ impl PoolContext {
         options: ResolverOpts,
         tls: TlsConfig,
         opportunistic_encryption: OpportunisticEncryption,
+        encrypted_transport_state: SharedNameServerTransportState,
     ) -> Self {
         Self {
             options,
             tls,
             opportunistic_encryption,
+            encrypted_transport_state,
         }
     }
 }
@@ -276,6 +281,7 @@ mod tests {
                 ResolverOpts::default(),
                 TlsConfig::new().unwrap(),
                 OpportunisticEncryption::default(),
+                SharedNameServerTransportState::default(),
             )),
             TokioRuntimeProvider::new(),
         );
@@ -335,6 +341,7 @@ mod tests {
                 opts,
                 TlsConfig::new().unwrap(),
                 OpportunisticEncryption::default(),
+                SharedNameServerTransportState::default(),
             )),
         );
 

@@ -18,7 +18,7 @@ use hickory_proto::xfer::{DnsHandle, FirstAnswer};
 use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, OpportunisticEncryption, ProtocolConfig, ResolverOpts,
-    ServerOrderingStrategy,
+    ServerOrderingStrategy, SharedNameServerTransportState,
 };
 use hickory_resolver::name_server::{NameServer, NameServerPool, PoolContext, TlsConfig};
 use test_support::subscribe;
@@ -135,6 +135,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
             options,
             TlsConfig::new().unwrap(),
             OpportunisticEncryption::default(),
+            SharedNameServerTransportState::default(),
         )),
     )
 }
