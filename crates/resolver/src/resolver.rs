@@ -10,6 +10,7 @@ use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU8;
 use std::task::{Context, Poll};
 
 use futures_util::{
@@ -492,6 +493,11 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             },
             opportunistic_encryption,
             encrypted_transport_state,
+            opportunistic_probe_budget: Arc::new(AtomicU8::new(
+                opportunistic_encryption
+                    .max_concurrent_probes()
+                    .unwrap_or_default(),
+            )),
         });
 
         let pool = NameServerPool::from_config(name_servers, context.clone(), provider);

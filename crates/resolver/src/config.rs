@@ -838,6 +838,138 @@ impl NameServerTransportState {
             },
         );
     }
+
+    /// Returns true if any supported encrypted protocol had a recent success for the given IP
+    /// within the damping period.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub(crate) fn any_recent_success(&self, ip: IpAddr, config: &OpportunisticEncryption) -> bool {
+        #[allow(unused_assignments, unused_mut)]
+        let mut tls_success = false;
+        #[allow(unused_assignments, unused_mut)]
+        let mut quic_success = false;
+
+        #[cfg(feature = "__tls")]
+        {
+            tls_success = self.recent_success(ip, Protocol::Tls, config);
+        }
+
+        #[cfg(feature = "__quic")]
+        {
+            quic_success = self.recent_success(ip, Protocol::Quic, config);
+        }
+
+        tls_success || quic_success
+    }
+
+    /// Returns true if any encrypted protocol had a recent success for the given IP within the damping period.
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    pub(crate) fn any_recent_success(
+        &self,
+        _ip: IpAddr,
+        _config: &OpportunisticEncryption,
+    ) -> bool {
+        false
+    }
+
+    /// Returns true if there has been a successful response within the persistence period for the
+    /// IP/protocol.
+    ///
+    /// Returns false if opportunistic encryption is disabled, or if there has not been a successful
+    /// response read.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub(crate) fn recent_success(
+        &self,
+        ip: IpAddr,
+        protocol: Protocol,
+        config: &OpportunisticEncryption,
+    ) -> bool {
+        let OpportunisticEncryption::Enabled { config } = config else {
+            return false;
+        };
+
+        let Some(TransportState::Success { last_response, .. }) = self.0.get(&(ip, protocol))
+        else {
+            return false;
+        };
+
+        let Some(last_response) = last_response else {
+            return false;
+        };
+
+        Instant::now().duration_since(*last_response) <= config.persistence_period
+    }
+
+    /// Returns true if there has been a successful response within the persistence period.
+    ///
+    /// Returns false if opportunistic encryption is disabled, or if there has not been a successful
+    /// response read.
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    pub(crate) fn recent_success(
+        &self,
+        _ip: IpAddr,
+        _protocol: Protocol,
+        _config: &OpportunisticEncryption,
+    ) -> bool {
+        false
+    }
+
+    /// Returns true if we should probe encrypted transport based on RFC 9539 damping logic.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub(crate) fn should_probe_encrypted(
+        &self,
+        ip: IpAddr,
+        protocol: Protocol,
+        config: &OpportunisticEncryption,
+    ) -> bool {
+        debug_assert!(protocol.is_encrypted());
+
+        let OpportunisticEncryption::Enabled { config, .. } = config else {
+            return false;
+        };
+
+        let Some(state) = self.0.get(&(ip, protocol)) else {
+            return true;
+        };
+
+        match state {
+            TransportState::Initiated => false,
+            TransportState::Success { .. } => true,
+            TransportState::Failed { completed_at } | TransportState::TimedOut { completed_at } => {
+                completed_at.elapsed() > config.damping_period
+            }
+        }
+    }
+
+    /// Returns true if we should probe encrypted transport based on RFC 9539 damping logic.
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    pub(crate) fn should_probe_encrypted(
+        &self,
+        _ip: IpAddr,
+        _protocol: Protocol,
+        _config: &OpportunisticEncryption,
+    ) -> bool {
+        false
+    }
+
+    /// For testing, set the last response time for successful connections to the ip/protocol.
+    #[cfg(all(test, feature = "__tls"))]
+    pub(crate) fn set_last_response(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
+        let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
+        else {
+            return;
+        };
+
+        *last_response = Some(when);
+    }
+
+    /// For testing, set the completion time for failed connections to the ip/protocol.
+    #[cfg(all(test, feature = "__tls"))]
+    pub(crate) fn set_failure_time(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
+        self.0.insert(
+            (ip, protocol),
+            TransportState::Failed { completed_at: when },
+        );
+    }
 }
 
 /// State tracked per nameserver IP/protocol to inform opportunistic encryption.

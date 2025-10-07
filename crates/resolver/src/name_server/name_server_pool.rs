@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::{
     Arc,
-    atomic::{AtomicUsize, Ordering as AtomicOrdering},
+    atomic::{AtomicU8, AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::time::Duration;
 
@@ -224,6 +224,8 @@ pub struct PoolContext {
     pub opportunistic_encryption: OpportunisticEncryption,
     /// Name server transport state for opportunistic encryption
     pub encrypted_transport_state: SharedNameServerTransportState,
+    /// Budget for opportunstic encryption probes.
+    pub opportunistic_probe_budget: Arc<AtomicU8>,
 }
 
 impl PoolContext {
@@ -233,12 +235,14 @@ impl PoolContext {
         tls: TlsConfig,
         opportunistic_encryption: OpportunisticEncryption,
         encrypted_transport_state: SharedNameServerTransportState,
+        opportunistic_probe_budget: Arc<AtomicU8>,
     ) -> Self {
         Self {
             options,
             tls,
             opportunistic_encryption,
             encrypted_transport_state,
+            opportunistic_probe_budget,
         }
     }
 }
@@ -282,6 +286,7 @@ mod tests {
                 TlsConfig::new().unwrap(),
                 OpportunisticEncryption::default(),
                 SharedNameServerTransportState::default(),
+                Arc::new(AtomicU8::default()),
             )),
             TokioRuntimeProvider::new(),
         );
@@ -342,6 +347,7 @@ mod tests {
                 TlsConfig::new().unwrap(),
                 OpportunisticEncryption::default(),
                 SharedNameServerTransportState::default(),
+                Arc::new(AtomicU8::default()),
             )),
         );
 

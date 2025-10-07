@@ -95,11 +95,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ns_cache_size, response_cache_size
         );
 
+        let opportunistic_probe_budget = Arc::new(AtomicU8::new(
+            opportunistic_encryption
+                .max_concurrent_probes()
+                .unwrap_or_default(),
+        ));
+
         let pool_context = Arc::new(PoolContext::new(
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
             opportunistic_encryption,
             encrypted_transport_state,
+            opportunistic_probe_budget.clone(),
         ));
         let roots =
             NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());
