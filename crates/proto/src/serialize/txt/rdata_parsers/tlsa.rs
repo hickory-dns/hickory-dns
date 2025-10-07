@@ -9,8 +9,9 @@
 //! tlsa records for storing TLS authentication records
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
-use crate::rr::rdata::tlsa::CertUsage;
+use crate::rr::rdata::tlsa::{CertUsage, Matching, Selector};
 use crate::rr::rdata::{TLSA, sshfp};
 use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 
@@ -19,7 +20,12 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 }
 
 /// Parse the RData from a set of Tokens
-///
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
+    parse_impl(tokens).map(|(usage, selector, matching, cert_data)| {
+        TLSA::new(usage, selector, matching, cert_data)
+    })
+}
+
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
 ///
 /// ```text
@@ -41,7 +47,9 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 ///       string of hexadecimal characters.  Whitespace is allowed within
 ///       the string of hexadecimal characters, as described in [RFC1035].
 /// ```
-pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
+pub(super) fn parse_impl<'i, I: Iterator<Item = &'i str>>(
+    tokens: I,
+) -> ParseResult<(CertUsage, Selector, Matching, Vec<u8>)> {
     let mut iter = tokens;
 
     let token: &str = iter
@@ -68,7 +76,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<T
     let cert_data = sshfp::HEX.decode(cert_data.as_bytes())?;
 
     if !cert_data.is_empty() {
-        Ok(TLSA::new(usage, selector, matching, cert_data))
+        Ok((usage, selector, matching, cert_data))
     } else {
         Err(ParseErrorKind::Message("TLSA data field missing").into())
     }
