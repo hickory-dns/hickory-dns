@@ -20,6 +20,7 @@ use tracing::debug;
 
 use crate::config::{
     NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
+    SharedNameServerTransportState,
 };
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
@@ -39,6 +40,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     pub fn from_config(
         servers: impl IntoIterator<Item = NameServerConfig>,
         cx: Arc<PoolContext>,
+        encrypted_transport_state: &SharedNameServerTransportState,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
@@ -49,6 +51,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                         [],
                         server,
                         &cx.options,
+                        encrypted_transport_state.clone(),
                         conn_provider.clone(),
                     ))
                 })
@@ -277,6 +280,7 @@ mod tests {
                 TlsConfig::new().unwrap(),
                 OpportunisticEncryption::default(),
             )),
+            &SharedNameServerTransportState::default(),
             TokioRuntimeProvider::new(),
         );
 
@@ -327,7 +331,13 @@ mod tests {
         };
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
-        let name_server = Arc::new(NameServer::new([], tcp, &opts, conn_provider));
+        let name_server = Arc::new(NameServer::new(
+            [],
+            tcp,
+            &opts,
+            SharedNameServerTransportState::default(),
+            conn_provider,
+        ));
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(
             name_servers.clone(),

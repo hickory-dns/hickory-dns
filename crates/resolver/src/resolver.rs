@@ -20,7 +20,10 @@ use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
-use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
+use crate::config::{
+    OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts,
+    SharedNameServerTransportState,
+};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -114,6 +117,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             provider,
             tls: None,
             opportunistic_encryption: OpportunisticEncryption::default(),
+            encrypted_transport_state: SharedNameServerTransportState::default(),
             #[cfg(feature = "__dnssec")]
             trust_anchor: None,
             #[cfg(feature = "__dnssec")]
@@ -377,6 +381,7 @@ pub struct ResolverBuilder<P> {
 
     tls: Option<TlsConfig>,
     opportunistic_encryption: OpportunisticEncryption,
+    encrypted_transport_state: SharedNameServerTransportState,
     #[cfg(feature = "__dnssec")]
     trust_anchor: Option<Arc<TrustAnchors>>,
     #[cfg(feature = "__dnssec")]
@@ -427,6 +432,15 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         self
     }
 
+    /// Set pre-existing encrypted transport state for use with opportunistic encryption.
+    pub fn with_encrypted_transport_state(
+        mut self,
+        encrypted_transport_state: SharedNameServerTransportState,
+    ) -> Self {
+        self.encrypted_transport_state = encrypted_transport_state;
+        self
+    }
+
     /// Set maximum limits on NSEC3 additional iterations.
     ///
     /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
@@ -463,6 +477,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             #[cfg(feature = "__dnssec")]
             nsec3_hard_iteration_limit,
             opportunistic_encryption,
+            encrypted_transport_state,
         } = self;
 
         #[cfg(feature = "__dnssec")]
@@ -479,7 +494,12 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             opportunistic_encryption,
         });
 
-        let pool = NameServerPool::from_config(name_servers, context.clone(), provider);
+        let pool = NameServerPool::from_config(
+            name_servers,
+            context.clone(),
+            &encrypted_transport_state,
+            provider,
+        );
         let client = RetryDnsHandle::new(pool, context.options.attempts);
 
         #[cfg(feature = "__dnssec")]
