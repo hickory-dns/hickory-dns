@@ -303,6 +303,7 @@ impl<R: ConnectionProvider> Resolver<R> {
     lookup_fn!(ipv6_lookup, rdata::AAAA, RecordType::AAAA);
     lookup_fn!(mx_lookup, rdata::MX, RecordType::MX);
     lookup_fn!(ns_lookup, rdata::NS, RecordType::NS);
+    lookup_fn!(smimea_lookup, rdata::SMIMEA, RecordType::SMIMEA);
     lookup_fn!(soa_lookup, rdata::SOA, RecordType::SOA);
     lookup_fn!(srv_lookup, rdata::SRV, RecordType::SRV);
     lookup_fn!(tlsa_lookup, rdata::TLSA, RecordType::TLSA);

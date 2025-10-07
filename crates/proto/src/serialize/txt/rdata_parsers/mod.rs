@@ -33,6 +33,7 @@ pub(crate) mod mx;
 pub(crate) mod name;
 pub(crate) mod naptr;
 pub(crate) mod openpgpkey;
+pub(crate) mod smimea;
 pub(crate) mod soa;
 pub(crate) mod srv;
 pub(crate) mod sshfp;

@@ -85,6 +85,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
 - [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
 - [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `tls-aws-lc-rs`/`tls-ring`)
+- [RFC 8162](https://tools.ietf.org/html/rfc8162): Using Secure DNS to Associate Certificates with Domain Names for S/MIME
 - [RFC 8484](https://tools.ietf.org/html/rfc8484): DNS over HTTPS, DoH (feature: `https-aws-lc-rs`/`https-ring`)
 
 ## RFCs in progress or not yet implemented
