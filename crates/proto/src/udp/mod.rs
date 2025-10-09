@@ -16,6 +16,8 @@
 
 //! UDP protocol related components for DNS
 
+use core::time::Duration;
+
 #[cfg(test)]
 #[allow(clippy::print_stdout)]
 mod tests;
@@ -28,3 +30,9 @@ pub use self::udp_stream::{DnsUdpSocket, UdpSocket, UdpStream};
 /// Max size for the UDP receive buffer as recommended by
 /// [RFC6891](https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5).
 pub const MAX_RECEIVE_BUFFER_SIZE: usize = 4_096;
+
+/// Default retry interval floor.  This value is somewhat arbitrary, but is based on
+/// observed, real-world latencies and offers the chance to send three queries in a
+/// second to maximize the chance of a successful response in periods of high packet
+/// loss without overwhelming upstream servers.
+pub const DEFAULT_RETRY_FLOOR: Duration = Duration::from_millis(333);

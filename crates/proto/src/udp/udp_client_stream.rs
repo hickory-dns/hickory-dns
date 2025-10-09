@@ -5,9 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::fmt::{self, Display};
 use core::net::SocketAddr;
 use core::pin::Pin;
@@ -16,16 +14,16 @@ use core::time::Duration;
 use std::collections::HashSet;
 use std::io;
 
-use futures_util::{future::Future, stream::Stream};
+use futures_util::{
+    FutureExt, Stream, StreamExt, future::Future, pin_mut, stream::FuturesUnordered,
+};
 use tracing::{debug, trace, warn};
 
 use crate::error::{ProtoError, ProtoErrorKind};
-use crate::op::{
-    DnsRequest, DnsResponse, Message, MessageSigner, MessageVerifier, Query, SerialMessage,
-};
+use crate::op::{DnsRequest, DnsResponse, Message, MessageSigner, SerialMessage};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
-use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
+use crate::udp::{DEFAULT_RETRY_FLOOR, DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
 use crate::xfer::{DnsRequestSender, DnsResponseStream};
 
 /// A builder to create a UDP client stream.
@@ -39,6 +37,8 @@ pub struct UdpClientStreamBuilder<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
     provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
 }
 
 impl<P> UdpClientStreamBuilder<P> {
@@ -58,6 +58,8 @@ impl<P> UdpClientStreamBuilder<P> {
             avoid_local_ports: self.avoid_local_ports,
             os_port_selection: self.os_port_selection,
             provider: self.provider,
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
         }
     }
 
@@ -83,6 +85,18 @@ impl<P> UdpClientStreamBuilder<P> {
         self
     }
 
+    /// Sets the maximum number of retries for a single request
+    pub fn with_max_retries(mut self, max_retries: u8) -> Self {
+        self.max_retries = max_retries;
+        self
+    }
+
+    /// Sets the retry interval floor
+    pub fn with_retry_interval_floor(mut self, floor: u64) -> Self {
+        self.retry_interval_floor = Duration::from_millis(floor);
+        self
+    }
+
     /// Construct a new UDP client stream.
     ///
     /// Returns a future that outputs the client stream.
@@ -95,6 +109,8 @@ impl<P> UdpClientStreamBuilder<P> {
             avoid_local_ports: self.avoid_local_ports.clone(),
             os_port_selection: self.os_port_selection,
             provider: self.provider,
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
         }
     }
 }
@@ -114,6 +130,8 @@ pub struct UdpClientStream<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
     provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
 }
 
 impl<P: RuntimeProvider> UdpClientStream<P> {
@@ -127,6 +145,10 @@ impl<P: RuntimeProvider> UdpClientStream<P> {
             avoid_local_ports: Arc::default(),
             os_port_selection: false,
             provider,
+            max_retries: 3,
+            // This is the default value to use for the retry interval floor, which acts as a lower
+            // bound on the retry interval.
+            retry_interval_floor: DEFAULT_RETRY_FLOOR,
         }
     }
 }
@@ -138,75 +160,58 @@ impl<P> Display for UdpClientStream<P> {
 }
 
 impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
-    fn send_message(&mut self, mut request: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
 
         let case_randomization = request.options().case_randomization;
+        let retry_interval_time = request.options().retry_interval;
 
         let now = P::Timer::current_time();
-
-        let mut verifier = None;
-        if let Some(signer) = &self.signer {
-            if signer.should_sign_message(&request) {
-                match request.finalize(&**signer, now) {
-                    Ok(answer_verifier) => verifier = answer_verifier,
-                    Err(e) => {
-                        debug!("could not sign message: {}", e);
-                        return e.into();
-                    }
-                }
-            }
-        }
 
         // Get an appropriate read buffer size.
         let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize);
 
-        let bytes = match request.to_vec() {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                return err.into();
-            }
+        let bind_addr = self.bind_addr;
+        let os_port_selection = self.os_port_selection;
+
+        // Only smuggle in the signer if we are going to use it.
+        let signer = match &self.signer {
+            Some(signer) if signer.should_sign_message(&request) => self.signer.clone(),
+            _ => None,
         };
 
-        let message_id = request.id();
-        let message = SerialMessage::new(bytes, self.name_server);
+        let closure_data = Arc::new(RequestContext {
+            avoid_local_ports: self.avoid_local_ports.clone(),
+            name_server: self.name_server,
+            request: Arc::new(request),
+            provider: self.provider.clone(),
+            signer,
+            now,
+            bind_addr,
+            os_port_selection,
+            case_randomization,
+            recv_buf_size,
+        });
 
-        debug!(
-            "final message: {}",
-            message
-                .to_message()
-                .expect("bizarre we just made this message")
-        );
-        let provider = self.provider.clone();
-        let addr = message.addr();
-        let bind_addr = self.bind_addr;
-        let avoid_local_ports = self.avoid_local_ports.clone();
-        let os_port_selection = self.os_port_selection;
+        let max_retries = self.max_retries;
+        let retry_interval = if retry_interval_time < self.retry_interval_floor {
+            self.retry_interval_floor
+        } else {
+            retry_interval_time
+        };
 
         P::Timer::timeout(
             self.timeout,
-            Box::pin(async move {
-                let socket = NextRandomUdpSocket::new(
-                    addr,
-                    bind_addr,
-                    avoid_local_ports,
-                    os_port_selection,
-                    provider,
-                )
-                .await?;
-                send_serial_message_inner(
-                    message,
-                    message_id,
-                    verifier,
-                    socket,
-                    recv_buf_size,
-                    case_randomization,
-                    request.original_query(),
-                )
-                .await
-            }),
+            Box::pin(retry::<P, _>(
+                move || {
+                    let context = closure_data.clone();
+                    Box::pin(async move { context.send().await })
+                },
+                retry_interval,
+                max_retries.into(),
+            )),
         )
         .into()
     }
@@ -234,6 +239,26 @@ impl<P> Stream for UdpClientStream<P> {
     }
 }
 
+/// Request context for data send_udp_message needs via the retry handler closure
+struct RequestContext<P> {
+    avoid_local_ports: Arc<HashSet<u16>>,
+    name_server: SocketAddr,
+    request: Arc<DnsRequest>,
+    provider: P,
+    signer: Option<Arc<dyn MessageSigner>>,
+    now: u64,
+    bind_addr: Option<SocketAddr>,
+    os_port_selection: bool,
+    case_randomization: bool,
+    recv_buf_size: usize,
+}
+
+impl<P: RuntimeProvider> RequestContext<P> {
+    async fn send(self: Arc<Self>) -> Result<DnsResponse, ProtoError> {
+        send_udp_message(self).await
+    }
+}
+
 /// A future that resolves to an UdpClientStream
 pub struct UdpClientConnect<P> {
     name_server: SocketAddr,
@@ -243,6 +268,8 @@ pub struct UdpClientConnect<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
     provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
 }
 
 impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
@@ -259,21 +286,67 @@ impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
             avoid_local_ports: self.avoid_local_ports.clone(),
             os_port_selection: self.os_port_selection,
             provider: self.provider.clone(),
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
         }))
     }
 }
 
-async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
-    msg: SerialMessage,
-    msg_id: u16,
-    verifier: Option<MessageVerifier>,
-    socket: S,
-    recv_buf_size: usize,
-    case_randomization: bool,
-    original_query: Option<&Query>,
+async fn send_udp_message<P: RuntimeProvider>(
+    context: Arc<RequestContext<P>>,
 ) -> Result<DnsResponse, ProtoError> {
-    let bytes = msg.bytes();
+    let RequestContext {
+        avoid_local_ports,
+        name_server,
+        request,
+        provider,
+        signer,
+        now,
+        bind_addr,
+        os_port_selection,
+        case_randomization,
+        recv_buf_size,
+    } = &*context;
+
+    let original_query = request.original_query();
+    let mut request = Arc::clone(request);
+    let request = Arc::make_mut(&mut request);
+
+    let mut verifier = None;
+    if let Some(signer) = &signer {
+        match request.finalize(&**signer, *now) {
+            Ok(answer_verifier) => verifier = answer_verifier,
+            Err(e) => {
+                debug!("could not sign message: {}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    let request_bytes = match request.to_vec() {
+        Ok(bytes) => bytes,
+        Err(err) => return Err(err),
+    };
+
+    let msg_id = request.id();
+    let msg = SerialMessage::new(request_bytes, *name_server);
     let addr = msg.addr();
+    let final_message = match msg.to_message() {
+        Ok(m) => m,
+        Err(e) => return Err(e),
+    };
+    debug!(%final_message, "final message");
+
+    let socket = NextRandomUdpSocket::new(
+        addr,
+        *bind_addr,
+        avoid_local_ports.clone(),
+        *os_port_selection,
+        provider.clone(),
+    )
+    .await?;
+
+    let bytes = msg.bytes();
     let len_sent: usize = socket.send_to(bytes, addr).await?;
 
     if bytes.len() != len_sent {
@@ -286,7 +359,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
 
     // Create the receive buffer.
     trace!("creating UDP receive buffer with size {recv_buf_size}");
-    let mut recv_buf = vec![0; recv_buf_size];
+    let mut recv_buf = vec![0; *recv_buf_size];
 
     // Try to process up to 3 responses
     for _ in 0..3 {
@@ -368,7 +441,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
         let question_matches = response_queries
             .iter()
             .all(|elem| request_queries.contains(elem));
-        if case_randomization
+        if *case_randomization
             && question_matches
             && !response_queries.iter().all(|elem| {
                 request_queries
@@ -389,7 +462,7 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
         }
 
         // overwrite the query with the original query if case randomization may have been used
-        if case_randomization {
+        if *case_randomization {
             if let Some(original_query) = original_query {
                 for response_query in response_queries.iter_mut() {
                     if response_query == original_query {
@@ -408,6 +481,47 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
     }
 
     Err("udp receive attempts exceeded".into())
+}
+
+/// This implements a retry handler for tasks that might not complete successfully (e.g.,
+/// DNS requests made via UDP.) It starts a task future immediately, then every
+/// retry_interval_time period up to a maximum of max_tasks. It will immediately return
+/// the first task that completes successfully, or an error if no tasks succeed.
+/// It does not implement an overall timeout to bound the work.
+async fn retry<Provider, Fut>(
+    task: impl Fn() -> Fut + Send,
+    retry_interval_time: Duration,
+    max_tasks: usize,
+) -> Result<DnsResponse, ProtoError>
+where
+    Provider: RuntimeProvider,
+    Fut: Future<Output = Result<DnsResponse, ProtoError>> + Send,
+{
+    let mut futures = FuturesUnordered::new();
+
+    let retry_timer = Provider::Timer::delay_for(retry_interval_time).fuse();
+    pin_mut!(retry_timer);
+
+    futures.push(task());
+    let mut tasks = 1;
+
+    loop {
+        futures_util::select! {
+            result = futures.next() => {
+                match result {
+                    Some(result) => return result,
+                    None => return Err(ProtoError::from("no tasks successful")),
+                }
+            }
+            _ = &mut retry_timer => {
+                if tasks < max_tasks {
+                    tasks += 1;
+                    futures.push(task());
+                    retry_timer.set(Provider::Timer::delay_for(retry_interval_time).fuse());
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -476,4 +590,79 @@ mod tests {
         )
         .await;
     }
+}
+
+#[cfg(all(test, feature = "tokio"))]
+#[tokio::test(start_paused = true)]
+async fn retry_handler_test() -> Result<(), std::io::Error> {
+    use alloc::sync::Arc;
+    use core::sync::atomic::{AtomicU8, Ordering};
+    use std::io::ErrorKind;
+
+    use tokio::time::{Duration, sleep};
+
+    use crate::{
+        error::ProtoError,
+        op::ResponseCode,
+        runtime,
+        runtime::{Time, TokioRuntimeProvider},
+    };
+
+    let mut message = Message::query();
+    message.set_response_code(ResponseCode::NoError);
+    let response = DnsResponse::from_message(message.clone())?;
+
+    // test: retry timer runs a task successfully
+    let task = move || {
+        let response = response.clone();
+        async move { Ok::<DnsResponse, ProtoError>(response) }
+    };
+
+    let ret = retry::<TokioRuntimeProvider, _>(task, Duration::from_millis(200), 5).await?;
+    assert_eq!(ret.response_code(), ResponseCode::NoError);
+
+    // This is used in all of the tests below with a per-test counter and timeout value
+    let task = |timeout: u64, counter: Arc<AtomicU8>| {
+        let response = DnsResponse::from_message(message.clone()).unwrap();
+        move || {
+            let counter = counter.clone();
+            let response = response.clone();
+            async move {
+                let _ = counter.fetch_add(1, Ordering::Relaxed);
+                sleep(Duration::from_millis(timeout)).await;
+                Ok::<DnsResponse, ProtoError>(response)
+            }
+        }
+    };
+
+    // test: retry timer doesn't fire extra tasks before the retry interval
+    let x = Arc::new(AtomicU8::new(0));
+    let ret = x.clone();
+    retry::<TokioRuntimeProvider, _>(task(100, x), Duration::from_millis(200), 5).await?;
+    assert_eq!(ret.load(Ordering::Relaxed), 1);
+
+    // test: retry timer does fire extra tasks after the retry interval
+    let x = Arc::new(AtomicU8::new(0));
+    let ret = x.clone();
+    retry::<TokioRuntimeProvider, _>(task(1500, x), Duration::from_millis(200), 5).await?;
+    assert_eq!(ret.load(Ordering::Relaxed), 5);
+
+    // test: retry timer tasks when nested under a Time::timer
+    let x = Arc::new(AtomicU8::new(0));
+    let ret = x.clone();
+    let timer_ret = <runtime::TokioTime as Time>::timeout(
+        Duration::from_millis(500),
+        retry::<TokioRuntimeProvider, _>(task(1000, x), Duration::from_millis(200), 5),
+    )
+    .await;
+
+    if let Err(e) = timer_ret {
+        assert_eq!(e.kind(), ErrorKind::TimedOut);
+    } else {
+        panic!("timer did not timeout");
+    }
+
+    assert_eq!(ret.load(Ordering::Relaxed), 3);
+
+    Ok(())
 }
