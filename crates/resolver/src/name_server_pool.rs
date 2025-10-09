@@ -279,9 +279,8 @@ impl<P: ConnectionProvider> PoolState<P> {
             if par_servers.is_empty() {
                 if !busy.is_empty() && backoff < Duration::from_millis(300) {
                     <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
-                    backoff,
-                )
-                .await;
+                        backoff,
+                    ).await;
                     servers.extend(busy.drain(..).filter(|ns| policy.allows_server(ns)));
                     backoff *= 2;
                     continue;
