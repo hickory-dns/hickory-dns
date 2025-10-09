@@ -12,6 +12,7 @@ use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
+use futures_util::{FutureExt, StreamExt, pin_mut, stream::FuturesUnordered};
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
@@ -352,6 +353,53 @@ pub trait Time {
             .unwrap()
             .as_secs()
     }
+
+    /// This implements a retry handler for tasks that might not complete successfully (e.g.,
+    /// DNS requests made via UDP.) It starts a task future immediately, then every
+    /// retry_interval_time period up to a maximum of max_tasks. It will immediately return
+    /// the first task that completes successfully, or an error if no tasks succeed.
+    /// It does not implement an overall timeout to bound the work -- use [`Self::timeout`] for
+    /// that.
+    async fn retry<Fut, T, E>(
+        task: impl Fn() -> Fut + Send,
+        retry_interval_time: Duration,
+        max_tasks: usize,
+    ) -> Result<T, E>
+    where
+        Fut: Future<Output = Result<T, E>> + Send,
+        T: Send,
+        E: From<&'static str> + Send,
+    {
+        let mut futures = FuturesUnordered::new();
+
+        let retry_timer = Self::delay_for(retry_interval_time).fuse();
+        pin_mut!(retry_timer);
+
+        futures.push(task());
+        let mut tasks = 1;
+
+        loop {
+            futures_util::select! {
+                result = futures.next() => {
+                    match result {
+                        Some(result) => {
+                            return result;
+                        }
+                        None => {
+                            return Err(E::from("no tasks successful"));
+                        }
+                    }
+                }
+                _ = &mut retry_timer => {
+                    if tasks < max_tasks {
+                        tasks += 1;
+                        futures.push(task());
+                        retry_timer.set(Self::delay_for(retry_interval_time).fuse());
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
@@ -374,4 +422,65 @@ impl Time for TokioTime {
             .await
             .map_err(move |_| std::io::Error::new(std::io::ErrorKind::TimedOut, "future timed out"))
     }
+}
+
+#[cfg(all(test, feature = "tokio"))]
+#[tokio::test(start_paused = true)]
+async fn retry_handler_test() -> Result<(), std::io::Error> {
+    use alloc::sync::Arc;
+    use core::sync::atomic::{AtomicU8, Ordering};
+    use std::io::ErrorKind;
+
+    use tokio::time::{Duration, sleep};
+
+    use crate::{error::ProtoError, runtime, runtime::Time};
+
+    // test: retry timer runs a task successfully
+    let task = move || async move { Ok::<_, ProtoError>(true) };
+
+    let ret = <runtime::TokioTime as Time>::retry(task, Duration::from_millis(200), 5).await?;
+    assert!(ret);
+
+    // This is used in all of the tests below with a per-test counter and timeout value
+    let task = |timeout: u64, counter: Arc<AtomicU8>| {
+        move || {
+            let counter = counter.clone();
+            async move {
+                let _ = counter.fetch_add(1, Ordering::Relaxed);
+                sleep(Duration::from_millis(timeout)).await;
+                Ok::<_, ProtoError>(())
+            }
+        }
+    };
+
+    // test: retry timer doesn't fire extra tasks before the retry interval
+    let x = Arc::new(AtomicU8::new(0));
+    let ret = x.clone();
+    <runtime::TokioTime as Time>::retry(task(100, x), Duration::from_millis(200), 5).await?;
+    assert_eq!(ret.load(Ordering::Relaxed), 1);
+
+    // test: retry timer does fire extra tasks after the retry interval
+    let x = Arc::new(AtomicU8::new(0));
+    let ret = x.clone();
+    <runtime::TokioTime as Time>::retry(task(1500, x), Duration::from_millis(200), 5).await?;
+    assert_eq!(ret.load(Ordering::Relaxed), 5);
+
+    // test: retry timer tasks when nested under a Time::timer
+    let x = Arc::new(AtomicU8::new(0));
+    let ret = x.clone();
+    let timer_ret = <runtime::TokioTime as Time>::timeout(
+        Duration::from_millis(500),
+        <runtime::TokioTime as Time>::retry(task(1000, x), Duration::from_millis(200), 5),
+    )
+    .await;
+
+    if let Err(e) = timer_ret {
+        assert_eq!(e.kind(), ErrorKind::TimedOut);
+    } else {
+        panic!("timer did not timeout");
+    }
+
+    assert_eq!(ret.load(Ordering::Relaxed), 3);
+
+    Ok(())
 }
