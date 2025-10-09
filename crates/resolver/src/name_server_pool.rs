@@ -291,7 +291,15 @@ impl<P: ConnectionProvider> PoolState<P> {
             let mut requests = par_servers
                 .into_iter()
                 .map(|server| {
-                    let future = server.clone().send(request.clone(), policy, &self.cx);
+                    let mut request = request.clone();
+
+                    // Set the retry interval to 1.2 times the current decayed SRTT
+                    let retry_interval =
+                        Duration::from_micros((server.decayed_srtt() * 1.2) as u64);
+                    request.options_mut().retry_interval = retry_interval;
+                    debug!(?retry_interval, ip = ?server.ip(), "setting retry_interval");
+
+                    let future = server.clone().send(request, policy, &self.cx);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();
