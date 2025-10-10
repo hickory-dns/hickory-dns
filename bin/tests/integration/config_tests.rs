@@ -445,6 +445,14 @@ fn test_reject_unknown_fields() {
             skip = true;
         }
 
+        if file_name == "example_recursor_opportunistic_enc.toml" {
+            // The opportunistic encryption enum doesn't work with this test. There's no
+            // serde equivalent to deny_unknown_fields that works for enums - it's specific
+            // to structs.
+            println!("skipping due to opportunistic_encryption setting");
+            skip = true;
+        }
+
         let zones = config_table.get("zones").unwrap().as_array().unwrap();
         for zone in zones {
             #[cfg(not(feature = "__dnssec"))]
