@@ -43,6 +43,7 @@ use crate::{
         serialize::txt::Parser,
     },
     server::{Request, RequestInfo},
+    store::StoreBackendExt,
     zone_handler::{
         AuthLookup, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError, LookupOptions,
         LookupRecords, ZoneHandler, ZoneTransfer, ZoneType,
