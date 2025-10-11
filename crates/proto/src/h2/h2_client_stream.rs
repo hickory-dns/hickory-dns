@@ -34,9 +34,8 @@ use tracing::{debug, warn};
 use crate::error::ProtoError;
 use crate::http::Version;
 use crate::op::{DnsRequest, DnsResponse};
-use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
-use crate::tcp::DnsTcpStream;
+use crate::runtime::{RuntimeProvider, Spawn};
 use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
@@ -327,7 +326,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> HttpsClientConnect<P::Tcp> {
+    ) -> HttpsClientConnect<P> {
         // ensure the ALPN protocol is set correctly
         if self.client_config.alpn_protocols.is_empty() {
             let mut client_config = (*self.client_config).clone();
@@ -344,6 +343,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
 
         let connect = self.provider.connect_tcp(name_server, self.bind_addr, None);
         HttpsClientConnect(HttpsClientConnectState::TcpConnecting {
+            provider: self.provider,
             connect,
             name_server,
             tls: Some(tls),
@@ -352,11 +352,9 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
 }
 
 /// A future that resolves to an HttpsClientStream
-pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
-where
-    S: DnsTcpStream;
+pub struct HttpsClientConnect<P: RuntimeProvider>(HttpsClientConnectState<P>);
 
-impl<S: DnsTcpStream> HttpsClientConnect<S> {
+impl<P: RuntimeProvider> HttpsClientConnect<P> {
     /// Creates a new HttpsStream with existing connection
     pub fn new<F>(
         future: F,
@@ -364,10 +362,10 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
+        provider: P,
     ) -> Self
     where
-        S: DnsTcpStream,
-        F: Future<Output = std::io::Result<S>> + Send + Unpin + 'static,
+        F: Future<Output = std::io::Result<P::Tcp>> + Send + Unpin + 'static,
     {
         // ensure the ALPN protocol is set correctly
         if client_config.alpn_protocols.is_empty() {
@@ -384,6 +382,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
         };
 
         Self(HttpsClientConnectState::TcpConnecting {
+            provider,
             connect: Box::pin(future),
             name_server,
             tls: Some(tls),
@@ -391,10 +390,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
     }
 }
 
-impl<S> Future for HttpsClientConnect<S>
-where
-    S: DnsTcpStream,
-{
+impl<P: RuntimeProvider> Future for HttpsClientConnect<P> {
     type Output = Result<HttpsClientStream, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -409,32 +405,35 @@ struct TlsConfig {
 }
 
 #[allow(clippy::type_complexity)]
-enum HttpsClientConnectState<S>
-where
-    S: DnsTcpStream,
-{
+enum HttpsClientConnectState<P: RuntimeProvider> {
     TcpConnecting {
-        connect: BoxFuture<'static, io::Result<S>>,
+        provider: P,
+        connect: BoxFuture<'static, io::Result<P::Tcp>>,
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
+        provider: P,
         // TODO: also abstract away Tokio TLS in RuntimeProvider.
         tls: BoxFuture<
             'static,
-            Result<Result<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, io::Error>, error::Elapsed>,
+            Result<
+                Result<TokioTlsClientStream<AsyncIoStdAsTokio<P::Tcp>>, io::Error>,
+                error::Elapsed,
+            >,
         >,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
         query_path: Arc<str>,
     },
     H2Handshake {
+        provider: P,
         handshake: BoxFuture<
             'static,
             Result<
                 (
                     SendRequest<Bytes>,
-                    Connection<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, Bytes>,
+                    Connection<TokioTlsClientStream<AsyncIoStdAsTokio<P::Tcp>>, Bytes>,
                 ),
                 h2::Error,
             >,
@@ -447,16 +446,14 @@ where
     Errored(Option<io::Error>),
 }
 
-impl<S> Future for HttpsClientConnectState<S>
-where
-    S: DnsTcpStream,
-{
+impl<P: RuntimeProvider> Future for HttpsClientConnectState<P> {
     type Output = Result<HttpsClientStream, io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let next = match &mut *self.as_mut() {
                 Self::TcpConnecting {
+                    provider,
                     connect,
                     name_server,
                     tls,
@@ -472,6 +469,7 @@ where
 
                     match ServerName::try_from(&*tls.server_name) {
                         Ok(dns_name) => Self::TlsConnecting {
+                            provider: provider.clone(),
                             name_server_name,
                             name_server: *name_server,
                             tls: Box::pin(timeout(
@@ -488,6 +486,7 @@ where
                     }
                 }
                 Self::TlsConnecting {
+                    provider,
                     name_server_name,
                     name_server,
                     query_path,
@@ -510,6 +509,7 @@ where
 
                     let handshake = handshake.handshake(tls);
                     Self::H2Handshake {
+                        provider: provider.clone(),
                         name_server_name: Arc::clone(name_server_name),
                         name_server: *name_server,
                         query_path: Arc::clone(query_path),
@@ -517,6 +517,7 @@ where
                     }
                 }
                 Self::H2Handshake {
+                    provider,
                     name_server_name,
                     name_server,
                     query_path,
@@ -530,7 +531,8 @@ where
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
-                    tokio::spawn(async {
+                    let mut handle = provider.create_handle();
+                    handle.spawn(async move {
                         if let Err(e) = connection.await {
                             warn!("h2 connection failed: {e}");
                         }
