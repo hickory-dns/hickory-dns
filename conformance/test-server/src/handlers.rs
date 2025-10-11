@@ -117,10 +117,12 @@ pub(crate) fn truncated_response_handler(
 /// This handler simulates packet loss by not responding to the first query it receives
 pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
+    let query = msg.queries()[0].clone();
+    let name = query.name().clone();
+    let q_type = query.query_type();
 
     if name == Name::from_ascii("example.testing.").unwrap() {
-        if !PACKET_LOSS_MARKER.load(Ordering::Relaxed) {
+        if !PACKET_LOSS_MARKER.load(Ordering::Relaxed) && q_type == RecordType::A {
             PACKET_LOSS_MARKER.store(true, Ordering::Relaxed);
             return Ok(None);
         }
