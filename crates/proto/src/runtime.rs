@@ -14,21 +14,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
-#[cfg(any(test, feature = "tokio"))]
-use tokio::task::JoinHandle;
 
 use crate::error::ProtoError;
 use crate::tcp::DnsTcpStream;
 use crate::udp::DnsUdpSocket;
-
-/// Spawn a background task, if it was present
-#[cfg(any(test, feature = "tokio"))]
-pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
-    runtime: &Runtime,
-    background: F,
-) -> JoinHandle<R> {
-    runtime.spawn(background)
-}
 
 #[cfg(feature = "tokio")]
 #[doc(hidden)]
@@ -141,6 +130,14 @@ mod tokio_runtime {
     }
 
     impl Spawn for TokioHandle {
+        fn spawn<F>(&mut self, future: F)
+        where
+            F: Future + Send + 'static,
+            F::Output: Send + 'static,
+        {
+            tokio::spawn(future);
+        }
+
         fn spawn_bg<F>(&mut self, future: F)
         where
             F: Future<Output = Result<(), ProtoError>> + Send + 'static,
@@ -300,7 +297,15 @@ pub trait QuicSocketBinder {
 
 /// A type defines the Handle which can spawn future.
 pub trait Spawn {
-    /// Spawn a future in the background
+    /// Spawn a future.
+    fn spawn<F>(&mut self, future: F)
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static;
+
+    /// Spawn a future in the background.
+    ///
+    /// This will periodically reap completed tasks, in order to prevent unbounded memory growth.
     fn spawn_bg<F>(&mut self, future: F)
     where
         F: Future<Output = Result<(), ProtoError>> + Send + 'static;

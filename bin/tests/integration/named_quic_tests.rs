@@ -61,7 +61,7 @@ fn test_example_quic_toml_startup() {
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        hickory_proto::runtime::spawn_bg(&io_loop, bg);
+        io_loop.spawn(bg);
 
         query_a(&mut io_loop, &mut client);
 

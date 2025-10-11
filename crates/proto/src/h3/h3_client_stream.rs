@@ -32,6 +32,7 @@ use crate::error::ProtoError;
 use crate::http::Version;
 use crate::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
+use crate::runtime::{RuntimeProvider, Spawn};
 use crate::rustls::client_config;
 use crate::udp::UdpSocket;
 use crate::xfer::{DnsRequestSender, DnsResponseStream};
@@ -53,8 +54,9 @@ pub struct H3ClientStream {
 
 impl H3ClientStream {
     /// Builder for H3ClientStream
-    pub fn builder() -> H3ClientStreamBuilder {
+    pub fn builder<P: RuntimeProvider>(provider: P) -> H3ClientStreamBuilder<P> {
         H3ClientStreamBuilder {
+            provider,
             crypto_config: None,
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
@@ -299,14 +301,15 @@ impl Display for H3ClientStream {
 
 /// A H3 connection builder for DNS-over-HTTP/3
 #[derive(Clone)]
-pub struct H3ClientStreamBuilder {
+pub struct H3ClientStreamBuilder<P: RuntimeProvider> {
+    provider: P,
     crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
     disable_grease: bool,
 }
 
-impl H3ClientStreamBuilder {
+impl<P: RuntimeProvider> H3ClientStreamBuilder<P> {
     /// Constructs a new H3ClientStreamBuilder with the associated ClientConfig
     pub fn crypto_config(mut self, crypto_config: rustls::ClientConfig) -> Self {
         self.crypto_config = Some(crypto_config);
@@ -430,7 +433,8 @@ impl H3ClientStreamBuilder {
 
         // TODO: hand this back for others to run rather than spawning here?
         debug!("h3 connection is ready: {}", name_server);
-        tokio::spawn(async move {
+        let mut handle = self.provider.create_handle();
+        handle.spawn(async move {
             tokio::select! {
                 error = poll_fn(|cx| driver.poll_close(cx)) => {
                     // `poll_close()` strangely unconditionally returns a `ConnectionError`
@@ -495,6 +499,7 @@ mod tests {
     use super::*;
     use crate::op::{DnsRequestOptions, Edns, Message, Query};
     use crate::rr::{Name, RecordType};
+    use crate::runtime::TokioRuntimeProvider;
     use crate::xfer::FirstAnswer;
 
     #[tokio::test]
@@ -516,7 +521,8 @@ mod tests {
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3 = H3ClientStream::builder()
+        let provider = TokioRuntimeProvider::new();
+        let mut h3 = H3ClientStream::builder(provider)
             .crypto_config(client_config)
             .build(google, Arc::from("dns.google"), Arc::from("/dns-query"))
             .await
@@ -584,7 +590,8 @@ mod tests {
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3 = H3ClientStream::builder()
+        let provider = TokioRuntimeProvider::new();
+        let mut h3 = H3ClientStream::builder(provider)
             .crypto_config(client_config)
             .build(
                 google,
@@ -656,7 +663,8 @@ mod tests {
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let connect = H3ClientStream::builder()
+        let provider = TokioRuntimeProvider::new();
+        let connect = H3ClientStream::builder(provider)
             .crypto_config(client_config)
             // Currently CF is using a broken GREASE implementation, see <https://github.com/hyperium/h3/issues/206>.
             .disable_grease(true)
@@ -720,7 +728,8 @@ mod tests {
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let h3 = H3ClientStream::builder()
+        let provider = TokioRuntimeProvider::new();
+        let h3 = H3ClientStream::builder(provider)
             .crypto_config(client_config)
             .build(google, Arc::from("dns.google"), Arc::from("/dns-query"))
             .await

@@ -71,7 +71,7 @@ pub enum Connecting<P: RuntimeProvider> {
         >,
     ),
     #[cfg(all(feature = "__https", feature = "tokio"))]
-    Https(DnsExchangeConnect<HttpsClientConnect<P::Tcp>, HttpsClientStream, P>),
+    Https(DnsExchangeConnect<HttpsClientConnect<P>, HttpsClientStream, P>),
     #[cfg(all(feature = "__quic", feature = "tokio"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, P>),
     #[cfg(all(feature = "__h3", feature = "tokio"))]

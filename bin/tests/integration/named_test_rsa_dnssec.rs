@@ -67,14 +67,14 @@ fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
         // verify all records are present
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
         let (client, bg) = io_loop.block_on(client);
-        hickory_proto::runtime::spawn_bg(&io_loop, bg);
+        io_loop.spawn(bg);
         query_all_dnssec(&mut io_loop, client, algorithm);
 
         // test that request with Dnssec client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), algorithm);
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider);
         let (client, bg) = io_loop.block_on(client);
-        hickory_proto::runtime::spawn_bg(&io_loop, bg);
+        io_loop.spawn(bg);
         let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);
@@ -200,7 +200,7 @@ fn test_rrsig_ttl() {
         {
             let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
             let (client, bg) = io_loop.block_on(client);
-            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+            io_loop.spawn(bg);
 
             // query www.example.com. expected ttl is 86400.
             let query = Query::query("www.example.com.".parse().unwrap(), RecordType::A);
@@ -234,7 +234,7 @@ fn test_rrsig_ttl() {
         {
             let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
             let (client, bg) = io_loop.block_on(client);
-            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+            io_loop.spawn(bg);
 
             // query shortlived.example.com. expected ttl is 900.
             let query = Query::query("shortlived.example.com.".parse().unwrap(), RecordType::A);

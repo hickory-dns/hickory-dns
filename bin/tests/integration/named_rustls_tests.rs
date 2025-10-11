@@ -69,7 +69,7 @@ fn test_example_tls_toml_startup() {
             let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+            io_loop.spawn(bg);
 
             // ipv4 should succeed
             query_a(&mut io_loop, &mut client);
@@ -84,7 +84,7 @@ fn test_example_tls_toml_startup() {
             let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+            io_loop.spawn(bg);
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);
