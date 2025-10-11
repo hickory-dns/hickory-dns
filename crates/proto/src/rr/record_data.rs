@@ -25,7 +25,7 @@ use crate::{
         RecordData, RecordDataDecodable,
         rdata::{
             A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY,
-            OPT, PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+            OPT, PTR, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
         },
         record_type::RecordType,
     },
@@ -497,6 +497,12 @@ pub enum RData {
     /// ```
     PTR(PTR),
 
+    /// [RFC 8162](https://datatracker.ietf.org/doc/html/rfc8162#section-2)
+    ///
+    /// > The SMIMEA wire format and presentation format are the same as for
+    /// > the [TLSA](Self::TLSA) record
+    SMIMEA(SMIMEA),
+
     /// ```text
     /// 3.3.13. SOA RDATA format
     ///
@@ -747,6 +753,7 @@ impl RData {
             Self::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
             Self::OPT(..) => RecordType::OPT,
             Self::PTR(..) => RecordType::PTR,
+            Self::SMIMEA(..) => RecordType::SMIMEA,
             Self::SOA(..) => RecordType::SOA,
             Self::SRV(..) => RecordType::SRV,
             Self::SSHFP(..) => RecordType::SSHFP,
@@ -852,6 +859,10 @@ impl RData {
             RecordType::PTR => {
                 trace!("reading PTR");
                 PTR::read(decoder).map(Self::PTR)
+            }
+            RecordType::SMIMEA => {
+                trace!("reading SMIMEA");
+                SMIMEA::read_data(decoder, length).map(Self::SMIMEA)
             }
             RecordType::SOA => {
                 trace!("reading SOA");
@@ -991,6 +1002,7 @@ impl BinEncodable for RData {
             Self::NULL(null) => null.emit(encoder),
             Self::OPENPGPKEY(openpgpkey) => openpgpkey.emit(encoder),
             Self::OPT(opt) => opt.emit(encoder),
+            Self::SMIMEA(opt) => opt.emit(encoder),
             Self::SOA(soa) => soa.emit(encoder),
             Self::SRV(srv) => srv.emit(encoder),
             Self::SSHFP(sshfp) => sshfp.emit(encoder),
@@ -1050,6 +1062,7 @@ impl fmt::Display for RData {
             Self::OPENPGPKEY(openpgpkey) => w(f, openpgpkey),
             // Opt has no display representation
             Self::OPT(_) => Err(fmt::Error),
+            Self::SMIMEA(smimea) => w(f, smimea),
             // to_lowercase for rfc4034 and rfc6840
             Self::SOA(soa) => w(f, soa),
             // to_lowercase for rfc4034 and rfc6840
@@ -1317,6 +1330,7 @@ mod tests {
             RData::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
             RData::OPT(..) => RecordType::OPT,
             RData::PTR(..) => RecordType::PTR,
+            RData::SMIMEA(..) => RecordType::SMIMEA,
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::SSHFP(..) => RecordType::SSHFP,

@@ -23,7 +23,7 @@ use crate::{
     serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
 };
 
-/// HEX formatting specific to TLSA and SSHFP encodings
+/// HEX formatting specific to TLSA, SMIMEA and SSHFP encodings
 pub static HEX: Lazy<Encoding> = Lazy::new(|| {
     let mut spec = Specification::new();
     spec.symbols.push_str("0123456789abcdef");
