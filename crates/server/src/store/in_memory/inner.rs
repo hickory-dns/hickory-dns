@@ -712,7 +712,6 @@ impl InnerInMemory {
     pub(super) fn sign_rrset(
         rr_set: &mut RecordSet,
         secure_keys: &[SigSigner],
-        zone_ttl: u32,
         zone_class: DNSClass,
         inception: OffsetDateTime,
     ) -> DnsSecResult<()> {
@@ -735,7 +734,7 @@ impl InnerInMemory {
 
             rr_set.insert_rrsig(Record::from_rdata(
                 rr_set.name().clone(),
-                zone_ttl,
+                rr_set.ttl(),
                 RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
             ));
         }
@@ -753,7 +752,6 @@ impl InnerInMemory {
     ) -> DnsSecResult<()> {
         debug!("signing zone: {}", origin);
 
-        let minimum_ttl = self.minimum_ttl(origin);
         let secure_keys = &self.secure_keys;
         let records = &mut self.records;
 
@@ -769,7 +767,7 @@ impl InnerInMemory {
         for rr_set_orig in records.values_mut() {
             // because the rrset is an Arc, it must be cloned before mutated
             let rr_set = Arc::make_mut(rr_set_orig);
-            Self::sign_rrset(rr_set, secure_keys, minimum_ttl, dns_class, inception)?;
+            Self::sign_rrset(rr_set, secure_keys, dns_class, inception)?;
         }
 
         Ok(())
