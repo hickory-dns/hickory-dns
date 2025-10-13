@@ -9,12 +9,18 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a, query_all_dnssec};
+use futures_util::TryStreamExt;
 use hickory_client::client::Client;
 use hickory_dns::dnssec::key_from_file;
-use hickory_proto::dnssec::{Algorithm, DnssecDnsHandle, TrustAnchors};
+use hickory_proto::DnsHandle;
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
+use hickory_proto::{
+    dnssec::{Algorithm, DnssecDnsHandle, TrustAnchors},
+    op::{DnsRequestOptions, Query},
+    rr::RecordType,
+};
 use test_support::subscribe;
 
 #[cfg(feature = "__dnssec")]
@@ -176,4 +182,87 @@ fn test_dnssec_restart_with_update_journal() {
     // cleanup...
     // TODO: fix journal path so that it doesn't leave the dir dirty... this might make windows an option after that
     std::fs::remove_file(&journal).expect("failed to cleanup after test");
+}
+
+#[cfg(feature = "__dnssec")]
+#[test]
+fn test_rrsig_ttl() {
+    subscribe();
+    let provider = TokioRuntimeProvider::new();
+    named_test_harness(confg_toml(), |socket_ports| {
+        let io_loop = Runtime::new().unwrap();
+        let tcp_port = socket_ports.get_v4(Protocol::Tcp);
+
+        let mut options = DnsRequestOptions::default();
+        options.use_edns = true;
+        options.edns_set_dnssec_ok = true;
+
+        {
+            let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
+            let (client, bg) = io_loop.block_on(client);
+            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+
+            // query www.example.com. expected ttl is 86400.
+            let query = Query::query("www.example.com.".parse().unwrap(), RecordType::A);
+            let response = io_loop
+                .block_on(client.lookup(query, options).try_collect::<Vec<_>>())
+                .unwrap();
+            let answers = response
+                .into_iter()
+                .flat_map(|mut response| response.take_answers())
+                .collect::<Vec<_>>();
+
+            // check the ttl of all answers, of which at least one must be of type A and one
+            // of type RRSIG
+            let expected_ttl = 86400;
+            for answer in &answers {
+                println!("{answer}");
+                assert_eq!(answer.ttl(), expected_ttl);
+            }
+            assert!(
+                answers
+                    .iter()
+                    .any(|answer| answer.record_type() == RecordType::A)
+            );
+            assert!(
+                answers
+                    .iter()
+                    .any(|answer| answer.record_type() == RecordType::RRSIG)
+            );
+        }
+
+        {
+            let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
+            let (client, bg) = io_loop.block_on(client);
+            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+
+            // query shortlived.example.com. expected ttl is 900.
+            let query = Query::query("shortlived.example.com.".parse().unwrap(), RecordType::A);
+            let response = io_loop
+                .block_on(client.lookup(query, options).try_collect::<Vec<_>>())
+                .unwrap();
+            let answers = response
+                .into_iter()
+                .flat_map(|mut response| response.take_answers())
+                .collect::<Vec<_>>();
+
+            // check the ttl of all answers, of which at least one must be of type A and one
+            // of type RRSIG
+            let expected_ttl = 900;
+            for answer in &answers {
+                println!("{answer}");
+                assert_eq!(answer.ttl(), expected_ttl);
+            }
+            assert!(
+                answers
+                    .iter()
+                    .any(|answer| answer.record_type() == RecordType::A)
+            );
+            assert!(
+                answers
+                    .iter()
+                    .any(|answer| answer.record_type() == RecordType::RRSIG)
+            );
+        }
+    });
 }

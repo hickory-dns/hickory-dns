@@ -31,3 +31,8 @@ server          SRV     1 1 443 alias
 no-service 86400 IN MX 0 .
 
 $INCLUDE include.example.com.zone
+
+$TTL 900
+
+shortlived      A       127.0.0.1
+                AAAA    ::1
