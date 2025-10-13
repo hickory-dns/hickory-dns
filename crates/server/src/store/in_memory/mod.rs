@@ -443,7 +443,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
                         InnerInMemory::sign_rrset(
                             &mut new_answer,
                             &inner.secure_keys,
-                            inner.minimum_ttl(self.origin()),
                             self.class(),
                             time,
                         )
