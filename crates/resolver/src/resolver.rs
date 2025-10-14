@@ -10,6 +10,7 @@ use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU8;
 use std::task::{Context, Poll};
 
 use futures_util::{
@@ -498,6 +499,11 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             name_servers,
             context.clone(),
             &encrypted_transport_state,
+            Arc::new(AtomicU8::new(
+                opportunistic_encryption
+                    .max_concurrent_probes()
+                    .unwrap_or_default(),
+            )),
             provider,
         );
         let client = RetryDnsHandle::new(pool, context.options.attempts);

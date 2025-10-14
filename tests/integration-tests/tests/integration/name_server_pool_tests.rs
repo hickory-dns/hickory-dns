@@ -5,7 +5,7 @@ use std::slice;
 use std::str::FromStr;
 use std::sync::{
     Arc,
-    atomic::{AtomicIsize, Ordering},
+    atomic::{AtomicIsize, AtomicU8, Ordering},
 };
 use std::task::Poll;
 
@@ -116,6 +116,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
         config,
         &options,
         SharedNameServerTransportState::default(),
+        Arc::new(AtomicU8::default()),
         conn_provider,
     ))
 }

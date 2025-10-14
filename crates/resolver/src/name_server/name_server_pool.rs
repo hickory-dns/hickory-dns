@@ -8,6 +8,7 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::pin::Pin;
+use std::sync::atomic::AtomicU8;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
@@ -41,6 +42,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         servers: impl IntoIterator<Item = NameServerConfig>,
         cx: Arc<PoolContext>,
         encrypted_transport_state: &SharedNameServerTransportState,
+        opportunistic_probe_budget: Arc<AtomicU8>,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
@@ -52,6 +54,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                         server,
                         &cx.options,
                         encrypted_transport_state.clone(),
+                        opportunistic_probe_budget.clone(),
                         conn_provider.clone(),
                     ))
                 })
@@ -246,7 +249,7 @@ impl PoolContext {
 mod tests {
     use std::net::IpAddr;
     use std::str::FromStr;
-
+    use std::sync::atomic::AtomicU8;
     use test_support::subscribe;
     use tokio::runtime::Runtime;
 
@@ -281,6 +284,7 @@ mod tests {
                 OpportunisticEncryption::default(),
             )),
             &SharedNameServerTransportState::default(),
+            Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::new(),
         );
 
@@ -336,6 +340,7 @@ mod tests {
             tcp,
             &opts,
             SharedNameServerTransportState::default(),
+            Arc::new(AtomicU8::default()),
             conn_provider,
         ));
         let name_servers = vec![name_server];
