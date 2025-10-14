@@ -324,7 +324,6 @@ async fn ds_child_zone_no_data_error() {
 /// Regression test.  Given a response with missing NSEC3 records, Hickory would re-query the
 /// missing records until the DNSSEC depth counter stopped the lookup chain.
 #[tokio::test]
-#[ignore = "Hickory will exhaust its stack with this query"]
 async fn validation_loop_test() {
     subscribe();
 
