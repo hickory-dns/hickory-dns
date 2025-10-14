@@ -156,9 +156,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let authorities = message.take_authorities();
         let additionals = message.take_additionals();
 
-        let answers = self.verify_rrsets(answers, options, current_time).await;
-        let authorities = self.verify_rrsets(authorities, options, current_time).await;
-        let additionals = self.verify_rrsets(additionals, options, current_time).await;
+        let answers = self
+            .verify_rrsets(&query, answers, options, current_time)
+            .await;
+        let authorities = self
+            .verify_rrsets(&query, authorities, options, current_time)
+            .await;
+        let additionals = self
+            .verify_rrsets(&query, additionals, options, current_time)
+            .await;
 
         message.insert_answers(answers);
         message.insert_authorities(authorities);
@@ -273,6 +279,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///  validate all of them.
     async fn verify_rrsets(
         &self,
+        query: &Query,
         records: Vec<Record>,
         options: DnsRequestOptions,
         current_time: u32,
@@ -349,7 +356,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
             // verify this rrset
             let proof = self
-                .verify_rrset(&rrset, rrsigs, options, current_time)
+                .verify_rrset(query, &rrset, rrsigs, options, current_time)
                 .await;
 
             let proof = match proof {
@@ -421,6 +428,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///   the Rrset
     async fn verify_rrset(
         &self,
+        query: &Query,
         rrset: &Rrset<'_>,
         rrsigs: Vec<RecordRef<'_, RRSIG>>,
         options: DnsRequestOptions,
@@ -435,7 +443,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             return Ok(proof);
         }
 
-        self.verify_default_rrset(rrset, &rrsigs, current_time, options)
+        self.verify_default_rrset(query, rrset, &rrsigs, current_time, options)
             .await
     }
 
@@ -776,6 +784,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///  if a DNSKEY RRSET is passed into this method it will always panic.
     async fn verify_default_rrset(
         &self,
+        original_query: &Query,
         rrset: &Rrset<'_>,
         rrsigs: &[RecordRef<'_, RRSIG>],
         current_time: u32,
@@ -839,6 +848,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
 
                 // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
+                // Break verification cycle
+                if query.name() == original_query.name()
+                    && query.query_type() == original_query.query_type()
+                {
+                    warn!(
+                        query_name = %query.name(),
+                        query_type = %query.query_type(),
+                        original_query_name = %original_query.name(),
+                        original_query_type = %original_query.query_type(),
+                        "stopping verification cycle in verify_default_rrset",
+                    );
+                    return None;
+                }
+
                 Some(
                     self.lookup(query.clone(), options)
                         .first_answer()
