@@ -13,6 +13,7 @@ use std::{
 };
 
 use ipnet::IpNet;
+use tracing::warn;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorCacheMetrics;
@@ -270,8 +271,13 @@ impl<P: ConnectionProvider> Recursor<P> {
     }
 
     fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
+        let mut tls_config = TlsConfig::new()?;
+        if builder.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
         Ok(Self {
-            mode: RecursorDnsHandle::build_recursor_mode(roots, TlsConfig::new()?, builder)?,
+            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, builder)?,
         })
     }
 
