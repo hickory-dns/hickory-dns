@@ -6,7 +6,7 @@ use std::{
     io::Write,
     net::{IpAddr, SocketAddr},
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Once},
     task::{Context, Poll, Waker},
     time::Duration,
 };
@@ -26,8 +26,6 @@ use hickory_proto::{
 };
 use hickory_resolver::config::ProtocolConfig;
 use tracing::{error, info};
-
-use std::sync::Once;
 
 /// Registers a global default tracing subscriber when called for the first time. This is intended
 /// for use in tests.
