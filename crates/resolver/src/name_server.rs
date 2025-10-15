@@ -2108,6 +2108,7 @@ mod opportunistic_enc_tests {
         type Timer = TokioTime;
         type Udp = UdpSocket;
         type Tcp = AsyncIoTokioAsStd<tokio::net::TcpStream>;
+        type Tls = AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>;
 
         fn create_handle(&self) -> Self::Handle {
             MockSyncHandle
@@ -2120,6 +2121,16 @@ mod opportunistic_enc_tests {
             _bind_addr: Option<std::net::SocketAddr>,
             _timeout: Option<Duration>,
         ) -> Pin<Box<dyn Future<Output = std::io::Result<Self::Tcp>> + Send>> {
+            unimplemented!();
+        }
+
+        #[allow(clippy::unimplemented)]
+        fn connect_tls(
+            &self,
+            _tcp_stream: Self::Tcp,
+            _server_name: rustls::pki_types::ServerName<'static>,
+            _client_config: std::sync::Arc<rustls::ClientConfig>,
+        ) -> Pin<Box<dyn Future<Output = std::io::Result<Self::Tls>> + Send>> {
             unimplemented!();
         }
 
