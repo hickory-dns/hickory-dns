@@ -170,6 +170,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     remote_addr,
                     server_name.to_owned(),
                     Arc::new(tls_config),
+                    self.clone(),
                 );
 
                 Connecting::Tls(DnsExchange::connect(DnsMultiplexer::with_timeout(
@@ -184,6 +185,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
+                    self.clone(),
                 )))
             }
             #[cfg(feature = "__quic")]

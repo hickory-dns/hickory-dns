@@ -16,25 +16,15 @@ use std::io;
 use futures_util::future::BoxFuture;
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio::{self, time::timeout};
-use tokio_rustls::TlsConnector;
 
-use crate::runtime::RuntimeProvider;
-use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::runtime::{RuntimeProvider, Time};
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, CONNECT_TIMEOUT, StreamReceiver};
 
-/// Predefined type for abstracting the TlsClientStream with TokioTls
-pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
-
-/// Predefined type for abstracting the TlsServerStream with TokioTls
-pub type TokioTlsServerStream = tokio_rustls::server::TlsStream<TokioTcpStream>;
-
-/// Predefined type for abstracting the base I/O TlsStream with TokioTls
+/// Predefined type for abstracting the base I/O TlsStream with Rustls
 pub type TlsStream<S> = TcpStream<S>;
 
-/// Initializes a TlsStream with an existing tokio_tls::TlsStream.
+/// Initializes a TlsStream with an existing TLS stream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
 pub fn tls_from_stream<S: DnsTcpStream>(
@@ -70,8 +60,9 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 /// # Arguments
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
-/// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name associated with a certificate
+/// * `server_name` - The DNS name associated with a certificate
+/// * `client_config` - Rustls client TLS configuration
+/// * `provider` - Async runtime provider, for I/O and timers
 #[allow(clippy::type_complexity)]
 pub fn tls_connect<P: RuntimeProvider>(
     name_server: SocketAddr,
@@ -79,10 +70,7 @@ pub fn tls_connect<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    BoxFuture<
-        'static,
-        Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, io::Error>,
-    >,
+    BoxFuture<'static, Result<TlsStream<P::Tls>, io::Error>>,
     BufDnsStreamHandle,
 ) {
     tls_connect_with_bind_addr(name_server, None, server_name, client_config, provider)
@@ -94,7 +82,9 @@ pub fn tls_connect<P: RuntimeProvider>(
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name associated with a certificate
+/// * `server_name` - The DNS name associated with a certificate
+/// * `client_config` - Rustls client TLS configuration
+/// * `provider` - Async runtime provider, for I/O and timers
 #[allow(clippy::type_complexity)]
 pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     name_server: SocketAddr,
@@ -103,23 +93,18 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    BoxFuture<
-        'static,
-        Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, io::Error>,
-    >,
+    BoxFuture<'static, Result<TlsStream<P::Tls>, io::Error>>,
     BufDnsStreamHandle,
 ) {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-    let early_data_enabled = client_config.enable_early_data;
-    let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
     let stream = Box::pin(connect_tls(
-        tls_connector,
         name_server,
         bind_addr,
         server_name,
+        client_config,
         outbound_messages,
         provider,
     ));
@@ -127,72 +112,84 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     (stream, message_sender)
 }
 
-/// Creates a new TlsStream to the specified name_server connecting from a specific address.
+/// Creates a new TlsStream from an existing TCP connection future.
 ///
 /// # Arguments
 ///
+/// * `future` - A future producing a TCP connection
 /// * `name_server` - IP and Port for the remote DNS resolver
-/// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name associated with a certificate
+/// * `server_name` - The DNS name associated with a certificate
+/// * `client_config` - Rustls client TLS configuration
+/// * `provider` - Async runtime provider, for I/O and timers
 #[allow(clippy::type_complexity)]
-pub fn tls_connect_with_future<S, F>(
+pub fn tls_connect_with_future<P, F>(
     future: F,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
+    provider: P,
 ) -> (
-    BoxFuture<'static, Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, io::Error>>,
+    BoxFuture<'static, Result<TlsStream<P::Tls>, io::Error>>,
     BufDnsStreamHandle,
 )
 where
-    S: DnsTcpStream,
-    F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
+    P: RuntimeProvider,
+    F: Future<Output = io::Result<P::Tcp>> + Send + Unpin + 'static,
 {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-    let early_data_enabled = client_config.enable_early_data;
-    let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
     let stream = Box::pin(connect_tls_with_future(
-        tls_connector,
         future,
         name_server,
         server_name,
+        client_config,
         outbound_messages,
+        provider,
     ));
 
     (stream, message_sender)
 }
 
 async fn connect_tls<P: RuntimeProvider>(
-    tls_connector: TlsConnector,
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     server_name: ServerName<'static>,
+    client_config: Arc<ClientConfig>,
     outbound_messages: StreamReceiver,
     provider: P,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>> {
+) -> io::Result<TcpStream<P::Tls>> {
     let tcp = provider.connect_tcp(name_server, bind_addr, None);
     connect_tls_with_future(
-        tls_connector,
         tcp,
         name_server,
         server_name,
+        client_config,
         outbound_messages,
+        provider,
     )
     .await
 }
 
-async fn connect_tls_with_future<S: DnsTcpStream>(
-    tls_connector: TlsConnector,
-    future: impl Future<Output = io::Result<S>> + Send + Unpin,
+async fn connect_tls_with_future<P: RuntimeProvider, F>(
+    future: F,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
+    client_config: Arc<ClientConfig>,
     outbound_messages: StreamReceiver,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
-    let stream = AsyncIoStdAsTokio(future.await?);
-    let s = match timeout(CONNECT_TIMEOUT, tls_connector.connect(server_name, stream)).await {
+    provider: P,
+) -> io::Result<TcpStream<P::Tls>>
+where
+    F: Future<Output = io::Result<P::Tcp>> + Send + Unpin,
+{
+    let stream = future.await?;
+    let s = match P::Timer::timeout(
+        CONNECT_TIMEOUT,
+        provider.connect_tls(stream, server_name, client_config),
+    )
+    .await
+    {
         Ok(Ok(s)) => s,
         Ok(Err(e)) => {
             return Err(io::Error::new(
@@ -209,7 +206,7 @@ async fn connect_tls_with_future<S: DnsTcpStream>(
     };
 
     Ok(TcpStream::from_stream_with_receiver(
-        AsyncIoTokioAsStd(s),
+        s,
         name_server,
         outbound_messages,
     ))

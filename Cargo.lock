@@ -932,6 +932,8 @@ dependencies = [
  "metrics-util",
  "parking_lot",
  "prefix-trie",
+ "rustls",
+ "rustls-pki-types",
  "serde",
  "test-support",
  "thiserror 2.0.17",
