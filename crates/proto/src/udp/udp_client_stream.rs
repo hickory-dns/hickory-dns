@@ -145,8 +145,13 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         let case_randomization = request.options().case_randomization;
 
-        // TODO: truncates u64 to u32, error on overflow?
-        let now = P::Timer::current_time() as u32;
+        let now = match u32::try_from(P::Timer::current_time()) {
+            Ok(n) => n,
+            Err(e) => {
+                return ProtoError::from(format!("error converting current_time to u32: {e:?}"))
+                    .into();
+            }
+        };
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
