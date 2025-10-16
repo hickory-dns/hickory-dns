@@ -328,9 +328,11 @@ impl Container {
         if status.success() {
             Ok(stdout)
         } else {
-            eprintln!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
-
-            Err(format!("[{}] `{command_and_args:?}` failed", self.inner.name).into())
+            Err(format!(
+                "[{}] `{command_and_args:?}` failed\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}",
+                self.inner.name
+            )
+            .into())
         }
     }
 
