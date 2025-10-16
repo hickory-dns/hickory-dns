@@ -951,6 +951,8 @@ dependencies = [
  "hickory-proto",
  "ipconfig",
  "jni",
+ "metrics",
+ "metrics-util",
  "moka",
  "ndk-context",
  "once_cell",
