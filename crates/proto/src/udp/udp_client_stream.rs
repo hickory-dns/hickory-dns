@@ -5,9 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::fmt::{self, Display};
 use core::net::SocketAddr;
 use core::pin::Pin;
@@ -15,6 +13,7 @@ use core::task::{Context, Poll};
 use core::time::Duration;
 use std::collections::HashSet;
 use std::io;
+use std::sync::Mutex;
 
 use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, trace, warn};
@@ -39,6 +38,8 @@ pub struct UdpClientStreamBuilder<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
     provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
 }
 
 impl<P> UdpClientStreamBuilder<P> {
@@ -58,6 +59,8 @@ impl<P> UdpClientStreamBuilder<P> {
             avoid_local_ports: self.avoid_local_ports,
             os_port_selection: self.os_port_selection,
             provider: self.provider,
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
         }
     }
 
@@ -83,6 +86,18 @@ impl<P> UdpClientStreamBuilder<P> {
         self
     }
 
+    /// Sets the maximum number of retries for a single request
+    pub fn with_max_retries(mut self, max_retries: u8) -> Self {
+        self.max_retries = max_retries;
+        self
+    }
+
+    /// Sets the retry interval floor
+    pub fn with_retry_interval_floor(mut self, floor: u64) -> Self {
+        self.retry_interval_floor = Duration::from_millis(floor);
+        self
+    }
+
     /// Construct a new UDP client stream.
     ///
     /// Returns a future that outputs the client stream.
@@ -95,6 +110,8 @@ impl<P> UdpClientStreamBuilder<P> {
             avoid_local_ports: self.avoid_local_ports.clone(),
             os_port_selection: self.os_port_selection,
             provider: self.provider,
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
         }
     }
 }
@@ -114,6 +131,8 @@ pub struct UdpClientStream<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
     provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
 }
 
 impl<P: RuntimeProvider> UdpClientStream<P> {
@@ -127,6 +146,12 @@ impl<P: RuntimeProvider> UdpClientStream<P> {
             avoid_local_ports: Arc::default(),
             os_port_selection: false,
             provider,
+            max_retries: 3,
+            // This value is somewhat arbitrary, but is based on observed, real-world latencies and
+            // offers the chance to send three queries in a second to maximize the chance of a
+            // successful response in periods of high packet loss without overwhelming upstream
+            // servers.
+            retry_interval_floor: Duration::from_millis(333),
         }
     }
 }
@@ -144,15 +169,22 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         }
 
         let case_randomization = request.options().case_randomization;
+        let retry_interval_time = request.options().retry_interval;
 
-        // TODO: truncates u64 to u32, error on overflow?
-        let now = P::Timer::current_time() as u32;
+        let now = match u32::try_from(P::Timer::current_time()) {
+            Ok(n) => n,
+            Err(e) => {
+                return ProtoError::from(format!("error converting current_time to u32: {e:?}"))
+                    .into();
+            }
+        };
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
             if signer.should_sign_message(&request) {
                 match request.finalize(&**signer, now) {
-                    Ok(answer_verifier) => verifier = answer_verifier,
+                    Ok(Some(answer_verifier)) => verifier = Some(Mutex::new(answer_verifier)),
+                    Ok(None) => {}
                     Err(e) => {
                         debug!("could not sign message: {}", e);
                         return e.into();
@@ -164,6 +196,9 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         // Get an appropriate read buffer size.
         let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize);
 
+        let bind_addr = self.bind_addr;
+        let os_port_selection = self.os_port_selection;
+
         let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
@@ -173,30 +208,41 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         let message_id = request.id();
         let message = SerialMessage::new(bytes, self.name_server);
+        let final_message = match message.to_message() {
+            Ok(m) => m,
+            Err(e) => return e.into(),
+        };
+        debug!(%final_message, "final message");
 
-        debug!(
-            "final message: {}",
-            message
-                .to_message()
-                .expect("bizarre we just made this message")
-        );
-        let provider = self.provider.clone();
-        let addr = message.addr();
-        let bind_addr = self.bind_addr;
-        let avoid_local_ports = self.avoid_local_ports.clone();
-        let os_port_selection = self.os_port_selection;
+        // wrap non-Copy vars in an Arc so the send closure can avoid FnOnce
+        let closure_data = Arc::new(RequestContext {
+            avoid_local_ports: self.avoid_local_ports.clone(),
+            message,
+            request,
+            provider: self.provider.clone(),
+            verifier,
+        });
 
-        P::Timer::timeout(
-            self.timeout,
+        let sender = move || {
+            let data = closure_data.clone();
             Box::pin(async move {
-                let socket = NextRandomUdpSocket::new(
-                    addr,
-                    bind_addr,
+                let RequestContext {
                     avoid_local_ports,
-                    os_port_selection,
+                    message,
+                    request,
                     provider,
+                    verifier,
+                } = &*data;
+
+                let socket = NextRandomUdpSocket::new(
+                    message.addr(),
+                    bind_addr,
+                    avoid_local_ports.clone(),
+                    os_port_selection,
+                    provider.clone(),
                 )
                 .await?;
+
                 send_serial_message_inner(
                     message,
                     message_id,
@@ -207,7 +253,19 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
                     request.original_query(),
                 )
                 .await
-            }),
+            })
+        };
+
+        let max_retries = self.max_retries;
+        let retry_interval = if retry_interval_time < self.retry_interval_floor {
+            self.retry_interval_floor
+        } else {
+            retry_interval_time
+        };
+
+        P::Timer::timeout(
+            self.timeout,
+            Box::pin(P::Timer::retry(sender, retry_interval, max_retries.into())),
         )
         .into()
     }
@@ -235,6 +293,16 @@ impl<P> Stream for UdpClientStream<P> {
     }
 }
 
+/// A structure for holding non-Copy variables sent to send_serial_message_inner via the
+/// retry handler tasks.
+struct RequestContext<P> {
+    avoid_local_ports: Arc<HashSet<u16>>,
+    message: SerialMessage,
+    request: DnsRequest,
+    provider: P,
+    verifier: Option<Mutex<MessageVerifier>>,
+}
+
 /// A future that resolves to an UdpClientStream
 pub struct UdpClientConnect<P> {
     name_server: SocketAddr,
@@ -244,6 +312,8 @@ pub struct UdpClientConnect<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
     provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
 }
 
 impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
@@ -260,14 +330,16 @@ impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
             avoid_local_ports: self.avoid_local_ports.clone(),
             os_port_selection: self.os_port_selection,
             provider: self.provider.clone(),
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
         }))
     }
 }
 
 async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
-    msg: SerialMessage,
+    msg: &SerialMessage,
     msg_id: u16,
-    verifier: Option<MessageVerifier>,
+    verifier: &Option<Mutex<MessageVerifier>>,
     socket: S,
     recv_buf_size: usize,
     case_randomization: bool,
@@ -401,8 +473,11 @@ async fn send_serial_message_inner<S: DnsUdpSocket + Send>(
         }
 
         debug!("received message id: {}", response.id());
-        if let Some(mut verifier) = verifier {
-            return verifier(response_bytes);
+        if let Some(guard) = &verifier {
+            return match guard.lock() {
+                Ok(mut verifier) => verifier(response_bytes),
+                Err(e) => Err(format!("error unlocking mutex: {e:?}").into()),
+            };
         } else {
             return Ok(response);
         }

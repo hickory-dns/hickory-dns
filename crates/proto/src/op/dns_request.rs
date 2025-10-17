@@ -7,7 +7,10 @@
 
 //! `DnsRequest` wraps a `Message` and associates a set of `DnsRequestOptions` for specifying different transfer options.
 
-use core::ops::{Deref, DerefMut};
+use core::{
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
 
 #[cfg(feature = "std")]
 use crate::op::Edns;
@@ -29,6 +32,8 @@ pub struct DnsRequestOptions {
     /// Randomize case of query name, and check that the response matches, for spoofing resistance.
     #[cfg(feature = "std")]
     pub case_randomization: bool,
+    /// Retry interval for unreliable transport protocols (plain UDP)
+    pub retry_interval: Duration,
 }
 
 impl Default for DnsRequestOptions {
@@ -40,6 +45,7 @@ impl Default for DnsRequestOptions {
             recursion_desired: true,
             #[cfg(feature = "std")]
             case_randomization: false,
+            retry_interval: Duration::from_millis(333),
         }
     }
 }
@@ -100,6 +106,11 @@ impl DnsRequest {
     /// Get the set of request options associated with this request
     pub fn options(&self) -> &DnsRequestOptions {
         &self.options
+    }
+
+    /// Get a mutable reference to the request options associated with this request
+    pub fn options_mut(&mut self) -> &mut DnsRequestOptions {
+        &mut self.options
     }
 
     /// Unwraps the raw message
