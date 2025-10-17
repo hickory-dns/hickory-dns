@@ -1387,8 +1387,10 @@ mod tests {
             )
             .await
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(|r| r.ip_addr().unwrap())
+            .map(|r| r.data().ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -1425,8 +1427,10 @@ mod tests {
             )
             .await
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(|r| r.ip_addr().unwrap())
+            .map(|r| r.data().ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );

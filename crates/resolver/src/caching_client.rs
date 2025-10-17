@@ -609,7 +609,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
+            ips.message()
+                .answers()
+                .iter()
+                .map(|r| r.data().clone())
+                .collect::<Vec<_>>(),
             vec![RData::A(A::new(127, 0, 0, 1))]
         );
     }
@@ -632,7 +636,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
+            ips.message()
+                .answers()
+                .iter()
+                .map(|r| r.data().clone())
+                .collect::<Vec<_>>(),
             vec![RData::A(A::new(127, 0, 0, 1))]
         );
 
@@ -650,7 +658,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
+            ips.message()
+                .answers()
+                .iter()
+                .map(|r| r.data().clone())
+                .collect::<Vec<_>>(),
             vec![RData::A(A::new(127, 0, 0, 1))]
         );
     }
@@ -722,7 +734,11 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
+            ips.message()
+                .answers()
+                .iter()
+                .map(|r| r.data().clone())
+                .collect::<Vec<_>>(),
             vec![RData::CNAME(CNAME(
                 Name::from_str("actual.example.com.").unwrap()
             ))]
@@ -764,7 +780,11 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
+            ips.message()
+                .answers()
+                .iter()
+                .map(|r| r.data().clone())
+                .collect::<Vec<_>>(),
             vec![RData::SRV(SRV::new(
                 1,
                 2,
@@ -1704,7 +1724,13 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
+                lookup
+                    .message()
+                    .answers()
+                    .iter()
+                    .map(|r| r.data())
+                    .cloned()
+                    .collect::<Vec<_>>(),
                 vec![LOCALHOST_V4.clone()]
             );
         }
@@ -1715,7 +1741,13 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
+                lookup
+                    .message()
+                    .answers()
+                    .iter()
+                    .map(|r| r.data())
+                    .cloned()
+                    .collect::<Vec<_>>(),
                 vec![LOCALHOST_V6.clone()]
             );
         }
@@ -1726,7 +1758,13 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
+                lookup
+                    .message()
+                    .answers()
+                    .iter()
+                    .map(|r| r.data())
+                    .cloned()
+                    .collect::<Vec<_>>(),
                 vec![LOCALHOST.clone()]
             );
         }
@@ -1740,7 +1778,13 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
+                lookup
+                    .message()
+                    .answers()
+                    .iter()
+                    .map(|r| r.data())
+                    .cloned()
+                    .collect::<Vec<_>>(),
                 vec![LOCALHOST.clone()]
             );
         }
