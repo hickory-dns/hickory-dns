@@ -95,18 +95,6 @@ impl Lookup {
         self.valid_until
     }
 
-    #[doc(hidden)]
-    pub fn is_empty(&self) -> bool {
-        // For backwards compatibility, check all sections
-        self.message.all_sections().next().is_none()
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn len(&self) -> usize {
-        // For backwards compatibility, count all sections
-        self.message.all_sections().count()
-    }
-
     /// Returns all records that were returned during the query, this can include
     ///   additional record types beyond the queried type, e.g. CNAME.
     ///
