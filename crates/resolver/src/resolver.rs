@@ -650,7 +650,7 @@ where
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(lookup)) => lookup.records().is_empty(),
+                Poll::Ready(Ok(lookup)) => lookup.message().answers().is_empty(),
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };
@@ -1454,7 +1454,8 @@ mod tests {
                 )
                 .await
                 .unwrap()
-                .records()[0]
+                .message()
+                .answers()[0]
             )
             .ip_addr()
             .unwrap(),
