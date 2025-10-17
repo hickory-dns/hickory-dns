@@ -7,6 +7,8 @@
 
 use std::cmp;
 use std::fmt::Debug;
+use std::io;
+use std::marker::PhantomData;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
@@ -296,12 +298,9 @@ impl<P: ConnectionProvider> NameServer<P> {
             return;
         }
 
-        if let Err(err) = self.probe_encrypted_transport(
-            cx,
-            probe_config,
-            encrypted_transport_state,
-            opportunistic_probe_budget,
-        ) {
+        if let Err(err) =
+            self.probe_encrypted_transport(cx, probe_config, opportunistic_probe_budget)
+        {
             error!(%err, "opportunistic encrypted probe attempt failed");
         }
     }
@@ -310,7 +309,6 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         cx: &PoolContext,
         probe_config: &ConnectionConfig,
-        encrypted_transport_state: SharedNameServerTransportState,
         opportunistic_probe_budget: Arc<AtomicU8>,
     ) -> Result<(), ProtoError> {
         let budget = opportunistic_probe_budget.load(Ordering::Relaxed);
@@ -323,72 +321,106 @@ impl<P: ConnectionProvider> NameServer<P> {
             return Ok(());
         }
 
-        let mut handle = self.connection_provider.runtime_provider().create_handle();
-        let proto = probe_config.protocol.to_protocol();
-        let ip = self.config.ip;
-        let conn_future = self
-            .connection_provider
-            .new_connection(ip, probe_config, cx)?;
-        let encrypted_transport_state = encrypted_transport_state.clone();
-        let budget = opportunistic_probe_budget.clone();
+        let connect = ProbeRequest::new(probe_config, self, cx)?;
+        self.connection_provider
+            .runtime_provider()
+            .create_handle()
+            .spawn_bg(connect.run());
 
-        handle.spawn_bg(async move {
-            encrypted_transport_state
-                .0
-                .lock()
-                .await
-                .initiate_connection(ip, proto);
+        Ok(())
+    }
+}
 
-            let conn = match conn_future.await {
-                Ok(conn) => conn,
-                Err(err) => {
-                    debug!(?proto, "probe connection failed");
-                    encrypted_transport_state
-                        .0
-                        .lock()
-                        .await
-                        .error_received(ip, proto, &err);
-                    return Ok(());
-                }
-            };
+struct ProbeRequest<P: ConnectionProvider> {
+    ip: IpAddr,
+    proto: Protocol,
+    connecting: P::FutureConn,
+    encrypted_transport_state: SharedNameServerTransportState,
+    budget: Arc<AtomicU8>,
+    provider: PhantomData<P>,
+}
 
-            debug!(?proto, "probe connection succeeded");
-            encrypted_transport_state
-                .0
-                .lock()
-                .await
-                .complete_connection(ip, proto);
+impl<P: ConnectionProvider> ProbeRequest<P> {
+    fn new(
+        config: &ConnectionConfig,
+        ns: &NameServer<P>,
+        cx: &PoolContext,
+    ) -> Result<Self, io::Error> {
+        Ok(Self {
+            ip: ns.config.ip,
+            proto: config.protocol.to_protocol(),
+            connecting: ns
+                .connection_provider
+                .new_connection(ns.config.ip, config, cx)?,
+            encrypted_transport_state: ns.encrypted_transport_state.clone(),
+            budget: ns.opportunistic_probe_budget.clone(),
+            provider: PhantomData,
+        })
+    }
 
-            match conn
-                .send(DnsRequest::from_query(
-                    Query::query(Name::root(), RecordType::NS),
-                    DnsRequestOptions::default(),
-                ))
-                .first_answer()
-                .await
-            {
-                Ok(_) => {
-                    debug!(?proto, "probe query succeeded");
-                    encrypted_transport_state
-                        .0
-                        .lock()
-                        .await
-                        .response_received(ip, proto);
-                }
-                Err(err) => {
-                    debug!(?proto, ?err, "probe query failed");
-                    encrypted_transport_state
-                        .0
-                        .lock()
-                        .await
-                        .error_received(ip, proto, &err);
-                }
+    async fn run(self) -> Result<(), ProtoError> {
+        let Self {
+            ip,
+            proto,
+            connecting,
+            encrypted_transport_state,
+            budget,
+            provider: _,
+        } = self;
+
+        encrypted_transport_state
+            .0
+            .lock()
+            .await
+            .initiate_connection(ip, proto);
+
+        let conn = match connecting.await {
+            Ok(conn) => conn,
+            Err(err) => {
+                debug!(?proto, "probe connection failed");
+                encrypted_transport_state
+                    .0
+                    .lock()
+                    .await
+                    .error_received(ip, proto, &err);
+                return Ok(());
             }
+        };
 
-            budget.fetch_add(1, Ordering::Relaxed);
-            Ok(())
-        });
+        debug!(?proto, "probe connection succeeded");
+        encrypted_transport_state
+            .0
+            .lock()
+            .await
+            .complete_connection(ip, proto);
 
+        match conn
+            .send(DnsRequest::from_query(
+                Query::query(Name::root(), RecordType::NS),
+                DnsRequestOptions::default(),
+            ))
+            .first_answer()
+            .await
+        {
+            Ok(_) => {
+                debug!(?proto, "probe query succeeded");
+                encrypted_transport_state
+                    .0
+                    .lock()
+                    .await
+                    .response_received(ip, proto);
+            }
+            Err(err) => {
+                debug!(?proto, ?err, "probe query failed");
+                encrypted_transport_state
+                    .0
+                    .lock()
+                    .await
+                    .error_received(ip, proto, &err);
+            }
+        }
+
+        budget.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 }
