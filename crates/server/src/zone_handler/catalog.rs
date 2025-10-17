@@ -1177,11 +1177,11 @@ async fn build_forwarded_response(
 
     // Also strip DNSSEC records from answers unless the DO bit is set.
     let answers = match answers {
-        Answer::Normal(answers) => {
-            let stripped =
-                maybe_strip_dnssec_records(answers, query.query_type(), lookup_options.dnssec_ok);
-            Answer::Normal(stripped)
-        }
+        Answer::Normal(answers) => Answer::Normal(maybe_strip_dnssec_records(
+            answers,
+            query.query_type(),
+            lookup_options.dnssec_ok,
+        )),
         Answer::NoRecords(soa) => Answer::NoRecords(soa),
     };
 
