@@ -760,6 +760,35 @@ async fn send_error_response(
     }
 }
 
+/// Strip DNSSEC records from an AuthLookup if DO bit is not set
+///
+/// As per RFC 4035 section 3.2.1, DNSSEC records should be stripped unless:
+/// - The DO bit is set, OR
+/// - The record type matches the query type (explicitly requested)
+fn maybe_strip_dnssec_records(
+    lookup: AuthLookup,
+    query_type: RecordType,
+    dnssec_ok: bool,
+) -> AuthLookup {
+    if dnssec_ok {
+        return lookup;
+    }
+
+    let filtered: Vec<_> = lookup
+        .into_iter()
+        .filter_map(|record| {
+            let record_type = record.record_type();
+            if record_type == query_type || !record_type.is_dnssec() {
+                Some(record.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    AuthLookup::answers(LookupRecords::Section(filtered), None)
+}
+
 /// Build Header and LookupSections (answers) given a query response from a zone handler
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
@@ -1172,22 +1201,17 @@ async fn build_forwarded_response(
     }
 
     // Strip out DNSSEC records unless the DO bit is set.
-    let authorities = if !lookup_options.dnssec_ok {
-        let auth = authorities
-            .into_iter()
-            .filter_map(|record| {
-                let record_type = record.record_type();
-                if record_type == query.query_type() || !record_type.is_dnssec() {
-                    Some(record.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
+    let authorities =
+        maybe_strip_dnssec_records(authorities, query.query_type(), lookup_options.dnssec_ok);
 
-        AuthLookup::answers(LookupRecords::Section(auth), None)
-    } else {
-        authorities
+    // Also strip DNSSEC records from answers unless the DO bit is set.
+    let answers = match answers {
+        Answer::Normal(answers) => {
+            let stripped =
+                maybe_strip_dnssec_records(answers, query.query_type(), lookup_options.dnssec_ok);
+            Answer::Normal(stripped)
+        }
+        Answer::NoRecords(soa) => Answer::NoRecords(soa),
     };
 
     match answers {
