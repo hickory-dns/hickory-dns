@@ -13,4 +13,6 @@ pub use connection_provider::{ConnectionProvider, TlsConfig};
 mod name_server;
 pub use name_server::NameServer;
 mod name_server_pool;
-pub use name_server_pool::{NameServerPool, PoolContext};
+pub use name_server_pool::{
+    NameServerPool, PoolContext, SharedNameServerTransportState, TransportState,
+};

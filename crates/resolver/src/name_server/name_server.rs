@@ -19,9 +19,10 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
+use super::name_server_pool::{NameServerTransportState, SharedNameServerTransportState};
 use crate::config::{
-    ConnectionConfig, NameServerConfig, NameServerTransportState, OpportunisticEncryption,
-    ResolverOpts, ServerOrderingStrategy, SharedNameServerTransportState,
+    ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
+    ServerOrderingStrategy,
 };
 use crate::name_server::PoolContext;
 use crate::name_server::connection_provider::ConnectionProvider;
@@ -788,10 +789,9 @@ mod tests {
     use super::*;
     #[cfg(feature = "__tls")]
     use crate::config::OpportunisticEncryptionConfig;
-    use crate::config::{
-        ConnectionConfig, OpportunisticEncryption, ProtocolConfig, SharedNameServerTransportState,
-    };
+    use crate::config::{ConnectionConfig, OpportunisticEncryption, ProtocolConfig};
     use crate::name_server::TlsConfig;
+    use crate::name_server::name_server_pool::SharedNameServerTransportState;
     #[cfg(feature = "__tls")]
     use crate::proto::ProtoError;
     #[cfg(feature = "__tls")]
