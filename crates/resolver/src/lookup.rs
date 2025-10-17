@@ -84,14 +84,6 @@ impl Lookup {
         &self.message
     }
 
-    /// Returns an iterator over the data of all records returned during the query.
-    ///
-    /// For backwards compatibility, this returns records from all sections (ANSWER, AUTHORITY, ADDITIONAL).
-    /// It may include additional record types beyond the queried type, e.g. CNAME.
-    pub fn iter(&self) -> LookupIter<'_> {
-        LookupIter::new(self.message.all_sections())
-    }
-
     /// Returns a borrowed iterator of the returned data wrapped in a dnssec Proven type
     ///
     /// For backwards compatibility, this returns records from all sections (ANSWER, AUTHORITY, ADDITIONAL).
