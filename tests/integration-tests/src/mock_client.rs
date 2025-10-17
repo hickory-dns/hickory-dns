@@ -29,6 +29,10 @@ use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::DnsHandle;
 use hickory_resolver::config::ConnectionConfig;
 use hickory_resolver::name_server::{ConnectionProvider, PoolContext};
+#[cfg(feature = "__tls")]
+use rustls::ClientConfig;
+#[cfg(feature = "__tls")]
+use rustls_pki_types::ServerName;
 
 pub struct TcpPlaceholder;
 
@@ -98,6 +102,8 @@ impl RuntimeProvider for MockRuntimeProvider {
     type Timer = TokioTime;
     type Udp = UdpPlaceholder;
     type Tcp = TcpPlaceholder;
+    #[cfg(feature = "__tls")]
+    type Tls = TcpPlaceholder;
 
     fn create_handle(&self) -> Self::Handle {
         TokioHandle::default()
@@ -110,6 +116,16 @@ impl RuntimeProvider for MockRuntimeProvider {
         _wait_for: Option<std::time::Duration>,
     ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
         Box::pin(async { Ok(TcpPlaceholder) })
+    }
+
+    #[cfg(feature = "__tls")]
+    fn connect_tls(
+        &self,
+        tcp_stream: Self::Tcp,
+        _server_name: ServerName<'static>,
+        _client_config: Arc<ClientConfig>,
+    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tls>>>> {
+        Box::pin(async move { Ok(tcp_stream) })
     }
 
     fn bind_udp(

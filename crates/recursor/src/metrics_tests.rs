@@ -29,6 +29,8 @@ use metrics_util::{
     CompositeKey, MetricKind,
     debugging::{DebugValue, DebuggingRecorder},
 };
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 use test_support::subscribe;
 use tokio::runtime::Builder;
 use tracing::{error, info};
@@ -227,12 +229,10 @@ impl MockProvider {
 
 impl RuntimeProvider for MockProvider {
     type Handle = TokioHandle;
-
     type Timer = TokioTime;
-
     type Udp = MockUdpSocket;
-
     type Tcp = MockTcpStream;
+    type Tls = MockTcpStream;
 
     fn create_handle(&self) -> Self::Handle {
         self.tokio_handle.clone()
@@ -248,6 +248,15 @@ impl RuntimeProvider for MockProvider {
             self.handler.clone(),
             server_addr.ip(),
         ))))
+    }
+
+    fn connect_tls(
+        &self,
+        tcp_stream: Self::Tcp,
+        _server_name: ServerName<'static>,
+        _client_config: Arc<ClientConfig>,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::Tls>> + Send>> {
+        Box::pin(ready(Ok(tcp_stream)))
     }
 
     fn bind_udp(

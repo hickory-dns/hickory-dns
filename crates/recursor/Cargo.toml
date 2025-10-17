@@ -112,6 +112,8 @@ hickory-resolver = { workspace = true, features = ["tokio"] }
 [dev-dependencies]
 futures-util = { workspace = true, features = ["io"] }
 metrics-util = { workspace = true, features = ["debugging"] }
+rustls = { workspace = true, default-features = false }
+rustls-pki-types = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 test-support.workspace = true

@@ -99,7 +99,7 @@ h3-ring = [
     "quic-ring",
 ]
 
-__tls = ["dep:rustls"]
+__tls = ["dep:rustls", "dep:rustls-pki-types"]
 __https = ["dep:rustls", "dep:webpki-roots"]
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
