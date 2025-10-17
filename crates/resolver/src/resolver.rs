@@ -16,6 +16,7 @@ use std::task::{Context, Poll};
 use futures_util::{
     FutureExt, Stream,
     future::{self, BoxFuture},
+    lock::Mutex as AsyncMutex,
 };
 use tracing::debug;
 
@@ -25,8 +26,8 @@ use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, Resol
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::name_server::{ConnectionProvider, NameServerPool};
-use crate::name_server::{PoolContext, SharedNameServerTransportState, TlsConfig};
+use crate::name_server::{ConnectionProvider, NameServerPool, NameServerTransportState};
+use crate::name_server::{PoolContext, TlsConfig};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};
@@ -115,7 +116,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             provider,
             tls: None,
             opportunistic_encryption: OpportunisticEncryption::default(),
-            encrypted_transport_state: SharedNameServerTransportState::default(),
+            encrypted_transport_state: NameServerTransportState::default(),
             #[cfg(feature = "__dnssec")]
             trust_anchor: None,
             #[cfg(feature = "__dnssec")]
@@ -379,7 +380,7 @@ pub struct ResolverBuilder<P> {
 
     tls: Option<TlsConfig>,
     opportunistic_encryption: OpportunisticEncryption,
-    encrypted_transport_state: SharedNameServerTransportState,
+    encrypted_transport_state: NameServerTransportState,
     #[cfg(feature = "__dnssec")]
     trust_anchor: Option<Arc<TrustAnchors>>,
     #[cfg(feature = "__dnssec")]
@@ -433,7 +434,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
     /// Set pre-existing encrypted transport state for use with opportunistic encryption.
     pub fn with_encrypted_transport_state(
         mut self,
-        encrypted_transport_state: SharedNameServerTransportState,
+        encrypted_transport_state: NameServerTransportState,
     ) -> Self {
         self.encrypted_transport_state = encrypted_transport_state;
         self
@@ -490,12 +491,12 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
                 None => TlsConfig::new()?,
             },
             opportunistic_encryption,
+            transport_state: AsyncMutex::new(encrypted_transport_state),
         });
 
         let pool = NameServerPool::from_config(
             name_servers,
             context.clone(),
-            &encrypted_transport_state,
             Arc::new(AtomicU8::new(
                 opportunistic_encryption
                     .max_concurrent_probes()

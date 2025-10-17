@@ -36,10 +36,7 @@ use crate::{
     resolver::{
         Name, ResponseCache,
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
-        name_server::{
-            ConnectionProvider, NameServerPool, PoolContext, SharedNameServerTransportState,
-            TlsConfig,
-        },
+        name_server::{ConnectionProvider, NameServerPool, PoolContext, TlsConfig},
     },
 };
 
@@ -56,7 +53,6 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     answer_address_filter: AccessControlSet,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
-    encrypted_transport_state: SharedNameServerTransportState,
     opportunistic_probe_budget: Arc<AtomicU8>,
     conn_provider: P,
 }
@@ -106,14 +102,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut pool_context = PoolContext::new(
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
-        );
+        )
+        .with_transport_state(encrypted_transport_state);
         pool_context.opportunistic_encryption = opportunistic_encryption;
         let pool_context = Arc::new(pool_context);
 
         let roots = NameServerPool::from_config(
             servers,
             pool_context.clone(),
-            &encrypted_transport_state,
             opportunistic_probe_budget.clone(),
             conn_provider.clone(),
         );
@@ -134,7 +130,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             answer_address_filter,
             name_server_filter,
             pool_context,
-            encrypted_transport_state,
             opportunistic_probe_budget,
             conn_provider,
         };
@@ -602,7 +597,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let ns = NameServerPool::from_config(
             config_group,
             self.pool_context.clone(),
-            &self.encrypted_transport_state,
             self.opportunistic_probe_budget.clone(),
             self.conn_provider.clone(),
         );
