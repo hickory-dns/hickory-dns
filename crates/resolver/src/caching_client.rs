@@ -609,12 +609,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.message()
-                .answers()
-                .iter()
-                .map(|r| r.data().clone())
-                .collect::<Vec<_>>(),
-            vec![RData::A(A::new(127, 0, 0, 1))]
+            ips.message().answers(),
+            &[Record::from_rdata(
+                query.name().clone(),
+                u32::MAX,
+                RData::A(A::new(127, 0, 0, 1))
+            )]
         );
     }
 
@@ -636,12 +636,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.message()
-                .answers()
-                .iter()
-                .map(|r| r.data().clone())
-                .collect::<Vec<_>>(),
-            vec![RData::A(A::new(127, 0, 0, 1))]
+            ips.message().answers(),
+            &[Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::A(A::new(127, 0, 0, 1))
+            )]
         );
 
         // next should come from cache...
@@ -658,12 +658,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.message()
-                .answers()
-                .iter()
-                .map(|r| r.data().clone())
-                .collect::<Vec<_>>(),
-            vec![RData::A(A::new(127, 0, 0, 1))]
+            ips.message().answers(),
+            &[Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::A(A::new(127, 0, 0, 1))
+            )]
         );
     }
 
@@ -734,14 +734,12 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.message()
-                .answers()
-                .iter()
-                .map(|r| r.data().clone())
-                .collect::<Vec<_>>(),
-            vec![RData::CNAME(CNAME(
-                Name::from_str("actual.example.com.").unwrap()
-            ))]
+            ips.message().answers(),
+            &[Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                86400,
+                RData::CNAME(CNAME(Name::from_str("actual.example.com.").unwrap()))
+            )]
         );
     }
 
@@ -780,17 +778,17 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.message()
-                .answers()
-                .iter()
-                .map(|r| r.data().clone())
-                .collect::<Vec<_>>(),
-            vec![RData::SRV(SRV::new(
-                1,
-                2,
-                443,
-                Name::from_str("www.example.com.").unwrap(),
-            ))]
+            ips.message().answers(),
+            &[Record::from_rdata(
+                Name::from_str("_443._tcp.www.example.com.").unwrap(),
+                86400,
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    443,
+                    Name::from_str("www.example.com.").unwrap(),
+                ))
+            )]
         );
     }
 
@@ -839,31 +837,43 @@ mod tests {
 
         // With the new implementation, sections are preserved
         // Answers section should have SRV + CNAME
-        let answers: Vec<_> = ips
-            .message()
-            .answers()
-            .iter()
-            .map(|r| r.data().clone())
-            .collect();
-        assert!(answers.contains(&RData::SRV(SRV::new(
-            1,
-            2,
-            443,
-            Name::from_str("www.example.com.").unwrap(),
-        ))));
-        assert!(answers.contains(&RData::CNAME(CNAME(
-            Name::from_str("actual.example.com.").unwrap()
-        ))));
+        assert_eq!(
+            ips.message().answers(),
+            &[
+                Record::from_rdata(
+                    Name::from_str("_443._tcp.www.example.com.").unwrap(),
+                    86400,
+                    RData::SRV(SRV::new(
+                        1,
+                        2,
+                        443,
+                        Name::from_str("www.example.com.").unwrap(),
+                    ))
+                ),
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    86400,
+                    RData::CNAME(CNAME(Name::from_str("actual.example.com.").unwrap()))
+                )
+            ]
+        );
 
         // Additionals section should have A + AAAA records
-        let additionals: Vec<_> = ips
-            .message()
-            .additionals()
-            .iter()
-            .map(|r| r.data().clone())
-            .collect();
-        assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
-        assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
+        assert_eq!(
+            ips.message().additionals(),
+            &[
+                Record::from_rdata(
+                    Name::from_str("actual.example.com.").unwrap(),
+                    86400,
+                    RData::A(A::new(127, 0, 0, 1))
+                ),
+                Record::from_rdata(
+                    Name::from_str("actual.example.com.").unwrap(),
+                    86400,
+                    RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))
+                )
+            ]
+        );
     }
 
     // TODO: if we ever enable recursive lookups for SRV, here are the tests...
@@ -957,26 +967,38 @@ mod tests {
 
         // With the new implementation, sections are preserved
         // Answers section should have NS + CNAME
-        let answers: Vec<_> = ips
-            .message()
-            .answers()
-            .iter()
-            .map(|r| r.data().clone())
-            .collect();
-        assert!(answers.contains(&RData::NS(NS(Name::from_str("www.example.com.").unwrap()))));
-        assert!(answers.contains(&RData::CNAME(CNAME(
-            Name::from_str("actual.example.com.").unwrap()
-        ))));
+        assert_eq!(
+            ips.message().answers(),
+            &[
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    86400,
+                    RData::NS(NS(Name::from_str("www.example.com.").unwrap()))
+                ),
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    86400,
+                    RData::CNAME(CNAME(Name::from_str("actual.example.com.").unwrap()))
+                )
+            ]
+        );
 
         // Additionals section should have A + AAAA records
-        let additionals: Vec<_> = ips
-            .message()
-            .additionals()
-            .iter()
-            .map(|r| r.data().clone())
-            .collect();
-        assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
-        assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
+        assert_eq!(
+            ips.message().additionals(),
+            &[
+                Record::from_rdata(
+                    Name::from_str("actual.example.com.").unwrap(),
+                    86400,
+                    RData::A(A::new(127, 0, 0, 1))
+                ),
+                Record::from_rdata(
+                    Name::from_str("actual.example.com.").unwrap(),
+                    86400,
+                    RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))
+                )
+            ]
+        );
     }
 
     /// Purpose: Verify glue records stay in ADDITIONAL section
@@ -1724,14 +1746,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup
-                    .message()
-                    .answers()
-                    .iter()
-                    .map(|r| r.data())
-                    .cloned()
-                    .collect::<Vec<_>>(),
-                vec![LOCALHOST_V4.clone()]
+                lookup.message().answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST_V4.clone()
+                )]
             );
         }
 
@@ -1741,14 +1761,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup
-                    .message()
-                    .answers()
-                    .iter()
-                    .map(|r| r.data())
-                    .cloned()
-                    .collect::<Vec<_>>(),
-                vec![LOCALHOST_V6.clone()]
+                lookup.message().answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST_V6.clone()
+                )]
             );
         }
 
@@ -1758,14 +1776,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup
-                    .message()
-                    .answers()
-                    .iter()
-                    .map(|r| r.data())
-                    .cloned()
-                    .collect::<Vec<_>>(),
-                vec![LOCALHOST.clone()]
+                lookup.message().answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST.clone()
+                )]
             );
         }
 
@@ -1778,14 +1794,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup
-                    .message()
-                    .answers()
-                    .iter()
-                    .map(|r| r.data())
-                    .cloned()
-                    .collect::<Vec<_>>(),
-                vec![LOCALHOST.clone()]
+                lookup.message().answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST.clone()
+                )]
             );
         }
 
