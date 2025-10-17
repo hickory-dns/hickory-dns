@@ -21,6 +21,8 @@ BIND_VER := "9.16.41"
 # Check, build, and test all crates with default features enabled
 default feature='' ignore='': (check feature ignore) (build feature ignore) (test feature ignore)
 
+most: fmt clippy all-features conformance-hickory e2e-tests test-docs
+
 # Check, build, and test all crates with all-features enabled
 all-features: (default "--all-features")
 
