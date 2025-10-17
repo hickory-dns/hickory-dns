@@ -6,22 +6,24 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU8;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use futures_util::lock::Mutex as AsyncMutex;
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
+use hickory_proto::xfer::Protocol;
 use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::config::{
     NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
-    SharedNameServerTransportState,
 };
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
@@ -242,6 +244,241 @@ impl PoolContext {
             opportunistic_encryption,
         }
     }
+}
+
+/// A `NameServerTransportState` that can be safely shared between threads.
+#[derive(Clone, Default)]
+#[repr(transparent)]
+pub struct SharedNameServerTransportState(pub(crate) Arc<AsyncMutex<NameServerTransportState>>);
+
+impl SharedNameServerTransportState {
+    /// Update the transport state for the given IP and protocol to record a connection initiation.
+    pub async fn initiate_connection(&self, ip: IpAddr, protocol: Protocol) {
+        self.0.lock().await.initiate_connection(ip, protocol)
+    }
+
+    /// Update the transport state for the given IP and protocol to record a connection completion.
+    pub async fn complete_connection(&self, ip: IpAddr, protocol: Protocol) {
+        self.0.lock().await.complete_connection(ip, protocol)
+    }
+
+    /// Update the successful transport state for the given IP and protocol to record a response received.
+    pub async fn response_received(&self, ip: IpAddr, protocol: Protocol) {
+        self.0.lock().await.response_received(ip, protocol)
+    }
+
+    /// Update the transport state for the given IP and protocol to record a received error.
+    pub async fn error_received(&self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
+        self.0.lock().await.error_received(ip, protocol, error)
+    }
+}
+
+/// A mapping from nameserver IP address and protocol to encrypted transport state.
+#[derive(Debug, Default)]
+#[repr(transparent)]
+pub(crate) struct NameServerTransportState(HashMap<(IpAddr, Protocol), TransportState>);
+
+impl NameServerTransportState {
+    /// Update the transport state for the given IP and protocol to record a connection initiation.
+    pub(crate) fn initiate_connection(&mut self, ip: IpAddr, protocol: Protocol) {
+        self.0.insert((ip, protocol), TransportState::default());
+    }
+
+    /// Update the transport state for the given IP and protocol to record a connection completion.
+    pub(crate) fn complete_connection(&mut self, ip: IpAddr, protocol: Protocol) {
+        self.0.insert(
+            (ip, protocol),
+            TransportState::Success {
+                connected_at: Instant::now(),
+                last_response: None,
+            },
+        );
+    }
+
+    /// Update the successful transport state for the given IP and protocol to record a response received.
+    pub(crate) fn response_received(&mut self, ip: IpAddr, protocol: Protocol) {
+        let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
+        else {
+            return;
+        };
+        *last_response = Some(Instant::now());
+    }
+
+    /// Update the transport state for the given IP and protocol to record a received error.
+    pub(crate) fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
+        self.0.insert(
+            (ip, protocol),
+            match error.kind() {
+                ProtoErrorKind::Timeout => TransportState::TimedOut {
+                    #[cfg(any(feature = "__tls", feature = "__quic"))]
+                    completed_at: Instant::now(),
+                },
+                _ => TransportState::Failed {
+                    #[cfg(any(feature = "__tls", feature = "__quic"))]
+                    completed_at: Instant::now(),
+                },
+            },
+        );
+    }
+
+    /// Returns true if any supported encrypted protocol had a recent success for the given IP
+    /// within the damping period.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub(crate) fn any_recent_success(&self, ip: IpAddr, config: &OpportunisticEncryption) -> bool {
+        #[allow(unused_assignments, unused_mut)]
+        let mut tls_success = false;
+        #[allow(unused_assignments, unused_mut)]
+        let mut quic_success = false;
+
+        #[cfg(feature = "__tls")]
+        {
+            tls_success = self.recent_success(ip, Protocol::Tls, config);
+        }
+
+        #[cfg(feature = "__quic")]
+        {
+            quic_success = self.recent_success(ip, Protocol::Quic, config);
+        }
+
+        tls_success || quic_success
+    }
+
+    /// Returns true if any encrypted protocol had a recent success for the given IP within the damping period.
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    pub(crate) fn any_recent_success(
+        &self,
+        _ip: IpAddr,
+        _config: &OpportunisticEncryption,
+    ) -> bool {
+        false
+    }
+
+    /// Returns true if there has been a successful response within the persistence period for the
+    /// IP/protocol.
+    ///
+    /// Returns false if opportunistic encryption is disabled, or if there has not been a successful
+    /// response read.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub(crate) fn recent_success(
+        &self,
+        ip: IpAddr,
+        protocol: Protocol,
+        config: &OpportunisticEncryption,
+    ) -> bool {
+        let OpportunisticEncryption::Enabled { config } = config else {
+            return false;
+        };
+
+        let Some(TransportState::Success { last_response, .. }) = self.0.get(&(ip, protocol))
+        else {
+            return false;
+        };
+
+        let Some(last_response) = last_response else {
+            return false;
+        };
+
+        Instant::now().duration_since(*last_response) <= config.persistence_period
+    }
+
+    /// Returns true if there has been a successful response within the persistence period.
+    ///
+    /// Returns false if opportunistic encryption is disabled, or if there has not been a successful
+    /// response read.
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    pub(crate) fn recent_success(
+        &self,
+        _ip: IpAddr,
+        _protocol: Protocol,
+        _config: &OpportunisticEncryption,
+    ) -> bool {
+        false
+    }
+
+    /// Returns true if we should probe encrypted transport based on RFC 9539 damping logic.
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub(crate) fn should_probe_encrypted(
+        &self,
+        ip: IpAddr,
+        protocol: Protocol,
+        config: &OpportunisticEncryption,
+    ) -> bool {
+        debug_assert!(protocol.is_encrypted());
+
+        let OpportunisticEncryption::Enabled { config, .. } = config else {
+            return false;
+        };
+
+        let Some(state) = self.0.get(&(ip, protocol)) else {
+            return true;
+        };
+
+        match state {
+            TransportState::Initiated => false,
+            TransportState::Success { .. } => true,
+            TransportState::Failed { completed_at } | TransportState::TimedOut { completed_at } => {
+                completed_at.elapsed() > config.damping_period
+            }
+        }
+    }
+
+    /// Returns true if we should probe encrypted transport based on RFC 9539 damping logic.
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    pub(crate) fn should_probe_encrypted(
+        &self,
+        _ip: IpAddr,
+        _protocol: Protocol,
+        _config: &OpportunisticEncryption,
+    ) -> bool {
+        false
+    }
+
+    /// For testing, set the last response time for successful connections to the ip/protocol.
+    #[cfg(all(test, feature = "__tls"))]
+    pub(crate) fn set_last_response(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
+        let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
+        else {
+            return;
+        };
+
+        *last_response = Some(when);
+    }
+
+    /// For testing, set the completion time for failed connections to the ip/protocol.
+    #[cfg(all(test, feature = "__tls"))]
+    pub(crate) fn set_failure_time(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
+        self.0.insert(
+            (ip, protocol),
+            TransportState::Failed { completed_at: when },
+        );
+    }
+}
+
+/// State tracked per nameserver IP/protocol to inform opportunistic encryption.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum TransportState {
+    /// Connection attempt has been initiated.
+    #[default]
+    Initiated,
+    /// Connection completed successfully.
+    Success {
+        /// The instant the connection attempt was completed at.
+        connected_at: Instant,
+        /// The last instant at which a response was read on the connection (if any).
+        last_response: Option<Instant>,
+    },
+    /// Connection failed with an error.
+    Failed {
+        /// The instant the connection attempt was completed at.
+        #[cfg(any(feature = "__tls", feature = "__quic"))]
+        completed_at: Instant,
+    },
+    /// Connection timed out.
+    TimedOut {
+        /// The instant the connection attempt was completed at.
+        #[cfg(any(feature = "__tls", feature = "__quic"))]
+        completed_at: Instant,
+    },
 }
 
 #[cfg(test)]

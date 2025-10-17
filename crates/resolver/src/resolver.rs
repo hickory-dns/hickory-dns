@@ -21,15 +21,12 @@ use tracing::debug;
 
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
-use crate::config::{
-    OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts,
-    SharedNameServerTransportState,
-};
+use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::{ConnectionProvider, NameServerPool};
-use crate::name_server::{PoolContext, TlsConfig};
+use crate::name_server::{PoolContext, TlsConfig, SharedNameServerTransportState};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};

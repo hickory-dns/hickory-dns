@@ -26,8 +26,8 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{
         TtlConfig,
-        config::{OpportunisticEncryption, SharedNameServerTransportState},
-        name_server::{ConnectionProvider, TlsConfig},
+        config::OpportunisticEncryption,
+        name_server::{ConnectionProvider, SharedNameServerTransportState, TlsConfig},
     },
 };
 #[cfg(feature = "__dnssec")]

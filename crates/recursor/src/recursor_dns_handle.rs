@@ -35,10 +35,11 @@ use crate::{
     recursor_pool::RecursorPool,
     resolver::{
         Name, ResponseCache,
-        config::{
-            NameServerConfig, OpportunisticEncryption, ResolverOpts, SharedNameServerTransportState,
+        config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
+        name_server::{
+            ConnectionProvider, NameServerPool, PoolContext, SharedNameServerTransportState,
+            TlsConfig,
         },
-        name_server::{ConnectionProvider, NameServerPool, PoolContext, TlsConfig},
     },
 };
 
