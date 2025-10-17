@@ -103,11 +103,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .unwrap_or_default(),
         ));
 
-        let pool_context = Arc::new(PoolContext::new(
+        let mut pool_context = PoolContext::new(
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
-            opportunistic_encryption,
-        ));
+        );
+        pool_context.opportunistic_encryption = opportunistic_encryption;
+        let pool_context = Arc::new(pool_context);
+
         let roots = NameServerPool::from_config(
             servers,
             pool_context.clone(),

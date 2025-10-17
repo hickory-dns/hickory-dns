@@ -23,7 +23,8 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::config::{
-    NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
+    NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig, ResolverOpts,
+    ServerOrderingStrategy,
 };
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
@@ -233,16 +234,21 @@ pub struct PoolContext {
 
 impl PoolContext {
     /// Creates a new PoolContext
-    pub fn new(
-        options: ResolverOpts,
-        tls: TlsConfig,
-        opportunistic_encryption: OpportunisticEncryption,
-    ) -> Self {
+    pub fn new(options: ResolverOpts, tls: TlsConfig) -> Self {
         Self {
             options,
             tls,
-            opportunistic_encryption,
+            opportunistic_encryption: OpportunisticEncryption::default(),
         }
+    }
+
+    /// Enables opportunistic encryption with default configuration
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    pub fn with_opportunistic_encryption(mut self) -> Self {
+        self.opportunistic_encryption = OpportunisticEncryption::Enabled {
+            config: OpportunisticEncryptionConfig::default(),
+        };
+        self
     }
 }
 
@@ -508,7 +514,6 @@ mod tests {
             Arc::new(PoolContext::new(
                 ResolverOpts::default(),
                 TlsConfig::new().unwrap(),
-                OpportunisticEncryption::default(),
             )),
             &SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::default()),
@@ -573,11 +578,7 @@ mod tests {
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(
             name_servers.clone(),
-            Arc::new(PoolContext::new(
-                opts,
-                TlsConfig::new().unwrap(),
-                OpportunisticEncryption::default(),
-            )),
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
         );
 
         let name = Name::from_str("www.example.com.").unwrap();

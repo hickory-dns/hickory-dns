@@ -8,11 +8,11 @@
 //! Configuration for a resolver
 #![allow(clippy::use_self)]
 
-use std::collections::{HashSet};
+use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration};
+use std::time::Duration;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

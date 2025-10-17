@@ -26,7 +26,7 @@ use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::{ConnectionProvider, NameServerPool};
-use crate::name_server::{PoolContext, TlsConfig, SharedNameServerTransportState};
+use crate::name_server::{PoolContext, SharedNameServerTransportState, TlsConfig};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};
