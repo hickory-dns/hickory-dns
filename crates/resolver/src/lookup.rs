@@ -90,21 +90,6 @@ impl Lookup {
         DnssecIter(DnssecLookupRecordIter::new(self.message.answers().iter()))
     }
 
-    /// Returns an iterator over the records returned during the query.
-    ///
-    /// For backwards compatibility, this returns records from all sections (ANSWER, AUTHORITY, ADDITIONAL).
-    pub fn record_iter(&self) -> Box<dyn Iterator<Item = &Record> + '_> {
-        Box::new(self.message.all_sections())
-    }
-
-    /// Returns a borrowed iterator of the returned records wrapped in a dnssec Proven type
-    ///
-    /// For backwards compatibility, this returns records from all sections (ANSWER, AUTHORITY, ADDITIONAL).
-    #[cfg(feature = "__dnssec")]
-    pub fn dnssec_record_iter(&self) -> DnssecLookupRecordIter<'_> {
-        DnssecLookupRecordIter::new(self.message.all_sections())
-    }
-
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
     pub fn valid_until(&self) -> Instant {
         self.valid_until

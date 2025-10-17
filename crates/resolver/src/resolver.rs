@@ -804,12 +804,17 @@ pub(crate) mod testing {
         assert_ne!(response.iter().count(), 0);
         println!(
             "{:?}",
-            response.as_lookup().record_iter().collect::<Vec<_>>()
+            response
+                .as_lookup()
+                .message()
+                .all_sections()
+                .collect::<Vec<_>>()
         );
         assert!(
             response
                 .as_lookup()
-                .record_iter()
+                .message()
+                .all_sections()
                 .any(|record| record.proof().is_secure())
         );
     }
@@ -830,9 +835,13 @@ pub(crate) mod testing {
         let lookup_ip = response.unwrap();
         println!(
             "{:?}",
-            lookup_ip.as_lookup().record_iter().collect::<Vec<_>>()
+            lookup_ip
+                .as_lookup()
+                .message()
+                .all_sections()
+                .collect::<Vec<_>>()
         );
-        for record in lookup_ip.as_lookup().record_iter() {
+        for record in lookup_ip.as_lookup().message().all_sections() {
             assert!(record.proof().is_insecure());
         }
     }
