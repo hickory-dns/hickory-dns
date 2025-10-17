@@ -78,27 +78,27 @@ impl Hosts {
                 let ip = name.parse_arpa_name().ok()?;
 
                 let ip_addr = ip.addr();
-                let records = self
-                    .by_name
-                    .iter()
-                    .filter(|(_, v)| match ip_addr {
-                        IpAddr::V4(ip) => match v.a.as_ref() {
-                            Some(lookup) => lookup
-                                .iter()
-                                .any(|r| r.ip_addr().map(|it| it == ip).unwrap_or_default()),
-                            None => false,
-                        },
-                        IpAddr::V6(ip) => match v.aaaa.as_ref() {
-                            Some(lookup) => lookup
-                                .iter()
-                                .any(|r| r.ip_addr().map(|it| it == ip).unwrap_or_default()),
-                            None => false,
-                        },
-                    })
-                    .map(|(n, _)| {
-                        Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone())))
-                    })
-                    .collect::<Arc<[Record]>>();
+                let records =
+                    self.by_name
+                        .iter()
+                        .filter(|(_, v)| match ip_addr {
+                            IpAddr::V4(ip) => match v.a.as_ref() {
+                                Some(lookup) => lookup.message().answers().iter().any(|r| {
+                                    r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
+                                }),
+                                None => false,
+                            },
+                            IpAddr::V6(ip) => match v.aaaa.as_ref() {
+                                Some(lookup) => lookup.message().answers().iter().any(|r| {
+                                    r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
+                                }),
+                                None => false,
+                            },
+                        })
+                        .map(|(n, _)| {
+                            Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone())))
+                        })
+                        .collect::<Arc<[Record]>>();
 
                 if records.is_empty() {
                     return None;
@@ -255,8 +255,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
 
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::LOCALHOST.into())]);
@@ -264,8 +266,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::AAAA))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
 
         assert_eq!(
@@ -277,8 +281,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
         assert_eq!(
             rdatas,
@@ -289,8 +295,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 102).into())]);
 
@@ -298,8 +306,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
 
@@ -307,8 +317,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
 
@@ -316,8 +328,10 @@ mod tests {
         let mut rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::PTR))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
         rdatas.sort_by_key(|r| r.as_ptr().as_ref().map(|p| p.0.clone()));
         assert_eq!(
@@ -335,8 +349,10 @@ mod tests {
         let rdatas = hosts
             .lookup_static_host(&Query::query(name, RecordType::PTR))
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(ToOwned::to_owned)
+            .map(|r| r.data().to_owned())
             .collect::<Vec<RData>>();
         assert_eq!(
             rdatas,
