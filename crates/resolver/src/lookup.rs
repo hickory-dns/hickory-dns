@@ -84,12 +84,10 @@ impl Lookup {
         &self.message
     }
 
-    /// Returns a borrowed iterator of the returned data wrapped in a dnssec Proven type
-    ///
-    /// For backwards compatibility, this returns records from all sections (ANSWER, AUTHORITY, ADDITIONAL).
+    /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
     #[cfg(feature = "__dnssec")]
-    pub fn dnssec_iter(&self) -> DnssecIter<'_> {
-        DnssecIter(DnssecLookupRecordIter::new(self.message.all_sections()))
+    pub fn dnssec_answers(&self) -> DnssecIter<'_> {
+        DnssecIter(DnssecLookupRecordIter::new(self.message.answers().iter()))
     }
 
     /// Returns an iterator over the records returned during the query.
@@ -443,7 +441,7 @@ mod tests {
             valid_until: Instant::now(),
         };
 
-        let mut lookup = lookup.dnssec_iter();
+        let mut lookup = lookup.dnssec_answers();
 
         assert_eq!(
             *lookup.next().unwrap().require(Proof::Secure).unwrap(),
