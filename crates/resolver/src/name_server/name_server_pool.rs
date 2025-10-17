@@ -16,7 +16,7 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
-use futures_util::lock::Mutex as AsyncMutex;
+use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use hickory_proto::xfer::Protocol;
 use smallvec::SmallVec;
@@ -45,7 +45,6 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     pub fn from_config(
         servers: impl IntoIterator<Item = NameServerConfig>,
         cx: Arc<PoolContext>,
-        encrypted_transport_state: &SharedNameServerTransportState,
         opportunistic_probe_budget: Arc<AtomicU8>,
         conn_provider: P,
     ) -> Self {
@@ -57,7 +56,6 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                         [],
                         server,
                         &cx.options,
-                        encrypted_transport_state.clone(),
                         opportunistic_probe_budget.clone(),
                         conn_provider.clone(),
                     ))
@@ -231,6 +229,7 @@ pub struct PoolContext {
     pub tls: TlsConfig,
     /// Opportunistic encryption configuration
     pub opportunistic_encryption: OpportunisticEncryption,
+    pub(crate) transport_state: AsyncMutex<NameServerTransportState>,
 }
 
 impl PoolContext {
@@ -240,6 +239,7 @@ impl PoolContext {
             options,
             tls,
             opportunistic_encryption: OpportunisticEncryption::default(),
+            transport_state: AsyncMutex::new(NameServerTransportState::default()),
         }
     }
 
@@ -251,39 +251,22 @@ impl PoolContext {
         };
         self
     }
-}
 
-/// A `NameServerTransportState` that can be safely shared between threads.
-#[derive(Clone, Default)]
-#[repr(transparent)]
-pub struct SharedNameServerTransportState(pub(crate) Arc<AsyncMutex<NameServerTransportState>>);
-
-impl SharedNameServerTransportState {
-    /// Update the transport state for the given IP and protocol to record a connection initiation.
-    pub(crate) async fn initiate_connection(&self, ip: IpAddr, protocol: Protocol) {
-        self.0.lock().await.initiate_connection(ip, protocol)
+    /// Sets the transport state
+    pub fn with_transport_state(mut self, transport_state: NameServerTransportState) -> Self {
+        self.transport_state = AsyncMutex::new(transport_state);
+        self
     }
 
-    /// Update the transport state for the given IP and protocol to record a connection completion.
-    pub(crate) async fn complete_connection(&self, ip: IpAddr, protocol: Protocol) {
-        self.0.lock().await.complete_connection(ip, protocol)
-    }
-
-    /// Update the successful transport state for the given IP and protocol to record a response received.
-    pub(crate) async fn response_received(&self, ip: IpAddr, protocol: Protocol) {
-        self.0.lock().await.response_received(ip, protocol)
-    }
-
-    /// Update the transport state for the given IP and protocol to record a received error.
-    pub(crate) async fn error_received(&self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
-        self.0.lock().await.error_received(ip, protocol, error)
+    pub(crate) async fn transport_state(&self) -> MutexGuard<'_, NameServerTransportState> {
+        self.transport_state.lock().await
     }
 }
 
 /// A mapping from nameserver IP address and protocol to encrypted transport state.
 #[derive(Debug, Default)]
 #[repr(transparent)]
-pub(crate) struct NameServerTransportState(HashMap<(IpAddr, Protocol), TransportState>);
+pub struct NameServerTransportState(HashMap<(IpAddr, Protocol), TransportState>);
 
 impl NameServerTransportState {
     /// Update the transport state for the given IP and protocol to record a connection initiation.
@@ -523,7 +506,6 @@ mod tests {
                 ResolverOpts::default(),
                 TlsConfig::new().unwrap(),
             )),
-            &SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::new(),
         );
@@ -579,7 +561,6 @@ mod tests {
             [],
             tcp,
             &opts,
-            SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::default()),
             conn_provider,
         ));

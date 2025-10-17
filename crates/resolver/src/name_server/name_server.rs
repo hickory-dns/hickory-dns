@@ -21,7 +21,7 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
-use super::name_server_pool::{NameServerTransportState, SharedNameServerTransportState};
+use super::name_server_pool::NameServerTransportState;
 use crate::config::{
     ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
     ServerOrderingStrategy,
@@ -43,8 +43,6 @@ use crate::proto::{
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
-    /// Name server transport state for opportunistic encryption
-    encrypted_transport_state: SharedNameServerTransportState,
     /// Budget for opportunstic encryption probes.
     opportunistic_probe_budget: Arc<AtomicU8>,
     server_srtt: DecayingSrtt,
@@ -59,7 +57,6 @@ impl<P: ConnectionProvider> NameServer<P> {
         connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
         config: NameServerConfig,
         options: &ResolverOpts,
-        encrypted_transport_state: SharedNameServerTransportState,
         opportunistic_probe_budget: Arc<AtomicU8>,
         connection_provider: P,
     ) -> Self {
@@ -78,7 +75,6 @@ impl<P: ConnectionProvider> NameServer<P> {
             config,
             connections: AsyncMutex::new(connections),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
-            encrypted_transport_state,
             opportunistic_probe_budget,
             connection_provider,
         }
@@ -89,7 +85,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         self: Arc<Self>,
         request: DnsRequest,
         policy: ConnectionPolicy,
-        cx: &PoolContext,
+        cx: &Arc<PoolContext>,
     ) -> Result<DnsResponse, ProtoError> {
         let (handle, meta, protocol) = self.connected_mut_client(policy, cx).await?;
         let now = Instant::now();
@@ -105,9 +101,9 @@ impl<P: ConnectionProvider> NameServer<P> {
                         meta.srtt.record(rtt);
                         self.server_srtt.record(rtt);
                         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
-                            self.encrypted_transport_state
-                                .response_received(self.config.ip, protocol)
-                                .await;
+                            cx.transport_state()
+                                .await
+                                .response_received(self.config.ip, protocol);
                         }
                         return Ok(response);
                     }
@@ -138,9 +134,9 @@ impl<P: ConnectionProvider> NameServer<P> {
 
                 let err = ProtoError::from(error);
                 if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
-                    self.encrypted_transport_state
+                    cx.transport_state()
+                        .await
                         .error_received(self.config.ip, protocol, &err)
-                        .await;
                 }
                 Err(err)
             }
@@ -166,9 +162,9 @@ impl<P: ConnectionProvider> NameServer<P> {
                 }
 
                 if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
-                    self.encrypted_transport_state
-                        .error_received(self.config.ip, protocol, &error)
-                        .await;
+                    cx.transport_state()
+                        .await
+                        .error_received(self.config.ip, protocol, &error);
                 }
 
                 // These are connection failures, not lookup failures, that is handled in the resolver layer
@@ -183,13 +179,13 @@ impl<P: ConnectionProvider> NameServer<P> {
     async fn connected_mut_client(
         &self,
         policy: ConnectionPolicy,
-        cx: &PoolContext,
+        cx: &Arc<PoolContext>,
     ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), ProtoError> {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
         if let Some(conn) = policy.select_connection(
             self.config.ip,
-            &*self.encrypted_transport_state.0.lock().await,
+            &*cx.transport_state().await,
             &cx.opportunistic_encryption,
             &connections,
         ) {
@@ -200,7 +196,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         let config = policy
             .select_connection_config(
                 self.config.ip,
-                &*self.encrypted_transport_state.0.lock().await,
+                &*cx.transport_state().await,
                 &cx.opportunistic_encryption,
                 &self.config.connections,
             )
@@ -208,14 +204,13 @@ impl<P: ConnectionProvider> NameServer<P> {
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
-            self.encrypted_transport_state
-                .initiate_connection(self.config.ip, protocol)
-                .await;
+            cx.transport_state()
+                .await
+                .initiate_connection(self.config.ip, protocol);
         } else if cx.opportunistic_encryption.is_enabled() && !protocol.is_encrypted() {
             self.consider_probe_encrypted_transport(
                 &policy,
                 cx,
-                self.encrypted_transport_state.clone(),
                 self.opportunistic_probe_budget.clone(),
             )
             .await;
@@ -229,9 +224,9 @@ impl<P: ConnectionProvider> NameServer<P> {
         .await?;
 
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
-            self.encrypted_transport_state
-                .complete_connection(self.config.ip, protocol)
-                .await;
+            cx.transport_state()
+                .await
+                .complete_connection(self.config.ip, protocol);
         }
 
         // establish a new connection
@@ -273,8 +268,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     async fn consider_probe_encrypted_transport(
         &self,
         policy: &ConnectionPolicy,
-        cx: &PoolContext,
-        encrypted_transport_state: SharedNameServerTransportState,
+        cx: &Arc<PoolContext>,
         opportunistic_probe_budget: Arc<AtomicU8>,
     ) {
         let Some(probe_config) =
@@ -286,7 +280,7 @@ impl<P: ConnectionProvider> NameServer<P> {
 
         let probe_protocol = probe_config.protocol.to_protocol();
         let should_probe = {
-            let state = encrypted_transport_state.0.lock().await;
+            let state = cx.transport_state().await;
             state.should_probe_encrypted(
                 self.config.ip,
                 probe_protocol,
@@ -307,7 +301,7 @@ impl<P: ConnectionProvider> NameServer<P> {
 
     fn probe_encrypted_transport(
         &self,
-        cx: &PoolContext,
+        cx: &Arc<PoolContext>,
         probe_config: &ConnectionConfig,
         opportunistic_probe_budget: Arc<AtomicU8>,
     ) -> Result<(), ProtoError> {
@@ -335,8 +329,8 @@ struct ProbeRequest<P: ConnectionProvider> {
     ip: IpAddr,
     proto: Protocol,
     connecting: P::FutureConn,
-    encrypted_transport_state: SharedNameServerTransportState,
     budget: Arc<AtomicU8>,
+    context: Arc<PoolContext>,
     provider: PhantomData<P>,
 }
 
@@ -344,7 +338,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
     fn new(
         config: &ConnectionConfig,
         ns: &NameServer<P>,
-        cx: &PoolContext,
+        cx: &Arc<PoolContext>,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             ip: ns.config.ip,
@@ -352,8 +346,8 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             connecting: ns
                 .connection_provider
                 .new_connection(ns.config.ip, config, cx)?,
-            encrypted_transport_state: ns.encrypted_transport_state.clone(),
             budget: ns.opportunistic_probe_budget.clone(),
+            context: cx.clone(),
             provider: PhantomData,
         })
     }
@@ -363,14 +357,13 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             ip,
             proto,
             connecting,
-            encrypted_transport_state,
             budget,
+            context,
             provider: _,
         } = self;
 
-        encrypted_transport_state
-            .0
-            .lock()
+        context
+            .transport_state()
             .await
             .initiate_connection(ip, proto);
 
@@ -378,9 +371,8 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             Ok(conn) => conn,
             Err(err) => {
                 debug!(?proto, "probe connection failed");
-                encrypted_transport_state
-                    .0
-                    .lock()
+                context
+                    .transport_state()
                     .await
                     .error_received(ip, proto, &err);
                 return Ok(());
@@ -388,9 +380,8 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         };
 
         debug!(?proto, "probe connection succeeded");
-        encrypted_transport_state
-            .0
-            .lock()
+        context
+            .transport_state()
             .await
             .complete_connection(ip, proto);
 
@@ -404,17 +395,12 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         {
             Ok(_) => {
                 debug!(?proto, "probe query succeeded");
-                encrypted_transport_state
-                    .0
-                    .lock()
-                    .await
-                    .response_received(ip, proto);
+                context.transport_state().await.response_received(ip, proto);
             }
             Err(err) => {
                 debug!(?proto, ?err, "probe query failed");
-                encrypted_transport_state
-                    .0
-                    .lock()
+                context
+                    .transport_state()
                     .await
                     .error_received(ip, proto, &err);
             }
@@ -811,6 +797,8 @@ mod tests {
     use std::pin::Pin;
     use std::str::FromStr;
     use std::time::Duration;
+    #[cfg(feature = "__tls")]
+    use std::time::Instant;
 
     #[cfg(feature = "__tls")]
     use futures_util::{Stream, future, stream::once};
@@ -823,7 +811,6 @@ mod tests {
     use crate::config::OpportunisticEncryptionConfig;
     use crate::config::{ConnectionConfig, ProtocolConfig};
     use crate::name_server::TlsConfig;
-    use crate::name_server::name_server_pool::SharedNameServerTransportState;
     #[cfg(feature = "__tls")]
     use crate::proto::ProtoError;
     #[cfg(feature = "__tls")]
@@ -845,12 +832,11 @@ mod tests {
             [].into_iter(),
             config,
             &options,
-            SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::default(),
         ));
 
-        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
+        let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
             .send(
@@ -880,12 +866,11 @@ mod tests {
             [],
             config,
             &options,
-            SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::default(),
         ));
 
-        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
+        let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
@@ -945,14 +930,13 @@ mod tests {
             ..Default::default()
         };
 
-        let cx = PoolContext::new(resolver_opts, TlsConfig::new().unwrap());
+        let cx = Arc::new(PoolContext::new(resolver_opts, TlsConfig::new().unwrap()));
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
         let ns = Arc::new(NameServer::new(
             [],
             config,
             &cx.options,
-            SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::default()),
             provider,
         ));
@@ -1289,7 +1273,7 @@ mod tests {
         state.response_received(ns_ip, Protocol::Tls);
         // And then update the last response time to be too stale for consideration.
         let stale_time =
-            std::time::Instant::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
+            Instant::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
         state.set_last_response(ns_ip, Protocol::Tls, stale_time);
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
@@ -1429,7 +1413,7 @@ mod tests {
         state.response_received(ns_ip, Protocol::Tls);
         // And then update the last response time to be too stale for consideration.
         let stale_time =
-            std::time::Instant::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
+            Instant::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
         state.set_last_response(ns_ip, Protocol::Tls, stale_time);
 
         // When opportunistic encryption is enabled, but our probe state indicates success that is too stale,
@@ -1486,11 +1470,11 @@ mod tests {
             [].into_iter(),
             config,
             &opts,
-            SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::new(10)),
             mock_provider.clone(),
         );
 
+        let cx = Arc::new(cx);
         let result = name_server
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await;
@@ -1520,29 +1504,27 @@ mod tests {
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let mock_provider = MockProvider::default();
         let config = NameServerConfig::opportunistic_encryption(ns_ip);
-
-        let encrypted_transport_state = SharedNameServerTransportState::default();
-
-        // Set up state to show an in-flight connection already initiated
-        {
-            let mut state = encrypted_transport_state.0.lock().await;
-            state.initiate_connection(ns_ip, Protocol::Tls);
-        }
-
-        // Enable opportunistic encryption
         let opts = ResolverOpts::default();
         let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
             .with_opportunistic_encryption();
 
+        // Set up state to show an in-flight connection already initiated
+        {
+            cx.transport_state()
+                .await
+                .initiate_connection(ns_ip, Protocol::Tls);
+        }
+
+        // Enable opportunistic encryption
         let name_server = NameServer::new(
             [].into_iter(),
             config,
             &opts,
-            encrypted_transport_state,
             Arc::new(AtomicU8::new(10)),
             mock_provider.clone(),
         );
 
+        let cx = Arc::new(cx);
         let result = name_server
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await;
@@ -1564,13 +1546,13 @@ mod tests {
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let mock_provider = MockProvider::default();
         let config = NameServerConfig::opportunistic_encryption(ns_ip);
-
-        let encrypted_transport_state = SharedNameServerTransportState::default();
+        let opts = ResolverOpts::default();
+        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+            .with_opportunistic_encryption();
 
         // Set up state to show a recent failure within the damping period
         {
-            let mut state = encrypted_transport_state.0.lock().await;
-            state.error_received(
+            cx.transport_state().await.error_received(
                 ns_ip,
                 Protocol::Tls,
                 &ProtoError::from(std::io::Error::new(
@@ -1580,19 +1562,15 @@ mod tests {
             );
         }
 
-        let opts = ResolverOpts::default();
-        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
-            .with_opportunistic_encryption();
-
         let name_server = NameServer::new(
             [].into_iter(),
             config,
             &opts,
-            encrypted_transport_state,
             Arc::new(AtomicU8::new(10)),
             mock_provider.clone(),
         );
 
+        let cx = Arc::new(cx);
         let result = name_server
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await;
@@ -1615,35 +1593,34 @@ mod tests {
         let mock_provider = MockProvider::default();
         let config = NameServerConfig::opportunistic_encryption(ns_ip);
 
+        let opts = ResolverOpts::default();
+        let mut cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap());
         let opp_enc_config = OpportunisticEncryptionConfig {
             damping_period: Duration::from_secs(5),
             ..OpportunisticEncryptionConfig::default()
         };
-        let encrypted_transport_state = SharedNameServerTransportState::default();
 
-        // Set up state to show an old failure outside the damping period.
-        {
-            let mut state = encrypted_transport_state.0.lock().await;
-            let old_failure_time =
-                std::time::Instant::now() - opp_enc_config.damping_period - Duration::from_secs(1);
-            state.set_failure_time(ns_ip, Protocol::Tls, old_failure_time);
-        }
-
-        let opts = ResolverOpts::default();
-        let mut cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap());
         cx.opportunistic_encryption = OpportunisticEncryption::Enabled {
             config: opp_enc_config,
         };
+
+        // Set up state to show an old failure outside the damping period.
+        {
+            let mut state = cx.transport_state().await;
+            let old_failure_time =
+                Instant::now() - opp_enc_config.damping_period - Duration::from_secs(1);
+            state.set_failure_time(ns_ip, Protocol::Tls, old_failure_time);
+        }
 
         let name_server = NameServer::new(
             [].into_iter(),
             config,
             &opts,
-            encrypted_transport_state,
             Arc::new(AtomicU8::new(10)),
             mock_provider.clone(),
         );
 
+        let cx = Arc::new(cx);
         let result = name_server
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await;
@@ -1678,11 +1655,11 @@ mod tests {
             [].into_iter(),
             config,
             &opts,
-            SharedNameServerTransportState::default(),
             Arc::new(AtomicU8::new(0)),
             mock_provider.clone(),
         );
 
+        let cx = Arc::new(cx);
         let result = name_server
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await;
