@@ -253,22 +253,22 @@ pub struct SharedNameServerTransportState(pub(crate) Arc<AsyncMutex<NameServerTr
 
 impl SharedNameServerTransportState {
     /// Update the transport state for the given IP and protocol to record a connection initiation.
-    pub async fn initiate_connection(&self, ip: IpAddr, protocol: Protocol) {
+    pub(crate) async fn initiate_connection(&self, ip: IpAddr, protocol: Protocol) {
         self.0.lock().await.initiate_connection(ip, protocol)
     }
 
     /// Update the transport state for the given IP and protocol to record a connection completion.
-    pub async fn complete_connection(&self, ip: IpAddr, protocol: Protocol) {
+    pub(crate) async fn complete_connection(&self, ip: IpAddr, protocol: Protocol) {
         self.0.lock().await.complete_connection(ip, protocol)
     }
 
     /// Update the successful transport state for the given IP and protocol to record a response received.
-    pub async fn response_received(&self, ip: IpAddr, protocol: Protocol) {
+    pub(crate) async fn response_received(&self, ip: IpAddr, protocol: Protocol) {
         self.0.lock().await.response_received(ip, protocol)
     }
 
     /// Update the transport state for the given IP and protocol to record a received error.
-    pub async fn error_received(&self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
+    pub(crate) async fn error_received(&self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
         self.0.lock().await.error_received(ip, protocol, error)
     }
 }
@@ -289,7 +289,6 @@ impl NameServerTransportState {
         self.0.insert(
             (ip, protocol),
             TransportState::Success {
-                connected_at: Instant::now(),
                 last_response: None,
             },
         );
@@ -456,14 +455,12 @@ impl NameServerTransportState {
 
 /// State tracked per nameserver IP/protocol to inform opportunistic encryption.
 #[derive(Debug, Clone, Copy, Default)]
-pub enum TransportState {
+enum TransportState {
     /// Connection attempt has been initiated.
     #[default]
     Initiated,
     /// Connection completed successfully.
     Success {
-        /// The instant the connection attempt was completed at.
-        connected_at: Instant,
         /// The last instant at which a response was read on the connection (if any).
         last_response: Option<Instant>,
     },
