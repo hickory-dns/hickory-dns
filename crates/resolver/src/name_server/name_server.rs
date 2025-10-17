@@ -789,7 +789,7 @@ mod tests {
     use super::*;
     #[cfg(feature = "__tls")]
     use crate::config::OpportunisticEncryptionConfig;
-    use crate::config::{ConnectionConfig, OpportunisticEncryption, ProtocolConfig};
+    use crate::config::{ConnectionConfig, ProtocolConfig};
     use crate::name_server::TlsConfig;
     use crate::name_server::name_server_pool::SharedNameServerTransportState;
     #[cfg(feature = "__tls")]
@@ -818,11 +818,7 @@ mod tests {
             TokioRuntimeProvider::default(),
         ));
 
-        let cx = PoolContext::new(
-            options,
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::default(),
-        );
+        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = name_server
             .send(
@@ -857,11 +853,7 @@ mod tests {
             TokioRuntimeProvider::default(),
         ));
 
-        let cx = PoolContext::new(
-            options,
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::default(),
-        );
+        let cx = PoolContext::new(options, TlsConfig::new().unwrap());
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             name_server
@@ -921,11 +913,7 @@ mod tests {
             ..Default::default()
         };
 
-        let cx = PoolContext::new(
-            resolver_opts,
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::default(),
-        );
+        let cx = PoolContext::new(resolver_opts, TlsConfig::new().unwrap());
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
         let ns = Arc::new(NameServer::new(
@@ -1459,13 +1447,8 @@ mod tests {
 
         // Enable opportunistic encryption
         let opts = ResolverOpts::default();
-        let cx = PoolContext::new(
-            opts.clone(),
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::Enabled {
-                config: OpportunisticEncryptionConfig::default(),
-            },
-        );
+        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+            .with_opportunistic_encryption();
 
         let name_server = NameServer::new(
             [].into_iter(),
@@ -1516,13 +1499,8 @@ mod tests {
 
         // Enable opportunistic encryption
         let opts = ResolverOpts::default();
-        let cx = PoolContext::new(
-            opts.clone(),
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::Enabled {
-                config: OpportunisticEncryptionConfig::default(),
-            },
-        );
+        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+            .with_opportunistic_encryption();
 
         let name_server = NameServer::new(
             [].into_iter(),
@@ -1571,13 +1549,8 @@ mod tests {
         }
 
         let opts = ResolverOpts::default();
-        let cx = PoolContext::new(
-            opts.clone(),
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::Enabled {
-                config: OpportunisticEncryptionConfig::default(),
-            },
-        );
+        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+            .with_opportunistic_encryption();
 
         let name_server = NameServer::new(
             [].into_iter(),
@@ -1625,13 +1598,10 @@ mod tests {
         }
 
         let opts = ResolverOpts::default();
-        let cx = PoolContext::new(
-            opts.clone(),
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::Enabled {
-                config: opp_enc_config,
-            },
-        );
+        let mut cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap());
+        cx.opportunistic_encryption = OpportunisticEncryption::Enabled {
+            config: opp_enc_config,
+        };
 
         let name_server = NameServer::new(
             [].into_iter(),
@@ -1668,13 +1638,8 @@ mod tests {
         let config = NameServerConfig::opportunistic_encryption(ns_ip);
 
         let opts = ResolverOpts::default();
-        let cx = PoolContext::new(
-            opts.clone(),
-            TlsConfig::new().unwrap(),
-            OpportunisticEncryption::Enabled {
-                config: OpportunisticEncryptionConfig::default(),
-            },
-        );
+        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+            .with_opportunistic_encryption();
 
         // Set budget to 0 to simulate exhausted probe budget
         let name_server = NameServer::new(
