@@ -13,7 +13,6 @@ use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSec
 
 use crate::{Recursor, RecursorBuilder};
 
-#[ignore = "RecursorPool abstraction does not deduplicate nameserver connections"]
 #[tokio::test]
 async fn recursor_connection_deduplication() -> Result<(), ProtoError> {
     subscribe();
@@ -52,7 +51,6 @@ async fn recursor_connection_deduplication() -> Result<(), ProtoError> {
     Ok(())
 }
 
-#[ignore = "RecursorPool abstraction does not deduplicate nameserver connections"]
 #[tokio::test]
 async fn recursor_connection_deduplication_non_cached() -> Result<(), ProtoError> {
     subscribe();
