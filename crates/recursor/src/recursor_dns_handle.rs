@@ -35,7 +35,8 @@ use crate::{
     recursor::RecursorMode,
     recursor_pool::RecursorPool,
     resolver::{
-        ConnectionProvider, Name, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+        ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache,
+        TlsConfig,
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     },
 };
@@ -54,6 +55,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     pool_context: Arc<PoolContext>,
     opportunistic_probe_budget: Arc<AtomicU8>,
     conn_provider: P,
+    connection_cache: Arc<Mutex<LruCache<IpAddr, Arc<NameServer<P>>>>>,
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
@@ -131,6 +133,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             pool_context,
             opportunistic_probe_budget,
             conn_provider,
+            connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
         };
 
         Ok(match dnssec_policy {
@@ -576,13 +579,29 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .await?;
         }
 
-        // now construct a namesever pool based off the NS and glue records
-        let ns = NameServerPool::from_config(
-            config_group,
-            self.pool_context.clone(),
-            self.opportunistic_probe_budget.clone(),
-            self.conn_provider.clone(),
-        );
+        let servers = {
+            let mut cache = self.connection_cache.lock();
+            config_group
+                .iter()
+                .map(|server| {
+                    if let Some(ns) = cache.get_mut(&server.ip) {
+                        return ns.clone();
+                    }
+
+                    debug!(?server, "adding new name server to cache");
+                    let ns = Arc::new(NameServer::new(
+                        [],
+                        server.clone(),
+                        &self.pool_context.clone().options,
+                        self.opportunistic_probe_budget.clone(),
+                        self.conn_provider.clone(),
+                    ));
+                    cache.insert(server.ip, ns.clone());
+                    ns
+                })
+                .collect()
+        };
+        let ns = NameServerPool::from_nameservers(servers, self.pool_context.clone());
         let ns = RecursorPool::from(zone.clone(), ns);
 
         // store in cache for future usage
