@@ -77,6 +77,8 @@ wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
 backtrace = ["dep:backtrace", "std"]
 
+access-control  = ["std", "dep:prefix-trie"]
+
 [lib]
 name = "hickory_proto"
 path = "src/lib.rs"
@@ -103,6 +105,7 @@ ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
 once_cell = { workspace = true }
 pin-project-lite = { workspace = true, optional = true }
+prefix-trie = {  workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio"] }
 rand = { workspace = true, features = ["std_rng"] }
 ring = { workspace = true, optional = true, features = ["std"] }
