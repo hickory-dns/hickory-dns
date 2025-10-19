@@ -68,6 +68,7 @@ futures-util = { workspace = true, default-features = false, features = [
     "std",
 ] }
 metrics = { workspace = true, optional = true }
+ipnet = { workspace = true, features = ["serde"] }
 moka = { workspace = true, features = ["sync"] }
 once_cell.workspace = true
 parking_lot.workspace = true

@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use ipnet::IpNet;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -566,6 +567,11 @@ pub struct ResolverOpts {
     ///
     /// If this is provided, `validate` will automatically be set to `true`, enabling DNSSEC validation.
     pub trust_anchor: Option<PathBuf>,
+    /// Exceptions to `deny_answer_addresses`. Networks listed here will be allowed, even if the IP address
+    /// matches a network in `deny_answer_addresses`.
+    pub allow_answers: Vec<IpNet>,
+    /// Networks listed here will be removed from any answers returned by an upstream server.
+    pub deny_answers: Vec<IpNet>,
 }
 
 impl Default for ResolverOpts {
@@ -599,6 +605,8 @@ impl Default for ResolverOpts {
             os_port_selection: false,
             case_randomization: false,
             trust_anchor: None,
+            allow_answers: vec![],
+            deny_answers: vec![],
         }
     }
 }
