@@ -51,7 +51,6 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
-    answer_address_filter: AccessControlSet,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
     opportunistic_probe_budget: Arc<AtomicU8>,
@@ -104,7 +103,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
         )
-        .with_transport_state(encrypted_transport_state);
+        .with_transport_state(encrypted_transport_state)
+        .with_answer_filter(answer_address_filter);
         pool_context.opportunistic_encryption = opportunistic_encryption;
         let pool_context = Arc::new(pool_context);
 
@@ -128,7 +128,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             recursion_limit,
             ns_recursion_limit,
             security_aware: dnssec_policy.is_security_aware(),
-            answer_address_filter,
             name_server_filter,
             pool_context,
             opportunistic_probe_budget,
@@ -416,23 +415,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 return false;
             }
 
-            let ip = match record.data() {
-                RData::A(A(ipv4)) => (*ipv4).into(),
-                RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
-                _ => return true,
-            };
-
-            if self.answer_address_filter.denied(ip) {
-                error!(
-                    %query,
-                    %ip,
-                    "removing ip from response: answer filter matched"
-                );
-
-                false
-            } else {
-                true
-            }
+            true
         };
 
         let answers_len = response.answers().len();

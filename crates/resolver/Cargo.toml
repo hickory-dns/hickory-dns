@@ -84,7 +84,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
-hickory-proto.workspace = true
+hickory-proto = { workspace = true, features = ["access-control"] }
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]

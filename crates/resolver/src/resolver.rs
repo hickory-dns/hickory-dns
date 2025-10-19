@@ -492,6 +492,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             },
             opportunistic_encryption,
             transport_state: AsyncMutex::new(encrypted_transport_state),
+            answer_address_filter: None,
         });
 
         let pool = NameServerPool::from_config(
