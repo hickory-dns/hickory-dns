@@ -20,7 +20,7 @@ use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
 use hickory_proto::xfer::Protocol;
 use smallvec::SmallVec;
-use tracing::debug;
+use tracing::{debug, error};
 
 #[cfg(any(feature = "__tls", feature = "__quic"))]
 use crate::config::OpportunisticEncryptionConfig;
@@ -29,10 +29,17 @@ use crate::config::{
 };
 use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
-use crate::proto::op::{DnsRequest, DnsResponse, ResponseCode};
-use crate::proto::runtime::{RuntimeProvider, Time};
-use crate::proto::xfer::DnsHandle;
-use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
+use crate::proto::{
+    DnsError, NoRecords, ProtoError, ProtoErrorKind,
+    access_control::AccessControlSet,
+    op::{DnsRequest, DnsResponse, ResponseCode},
+    rr::{
+        RData, Record,
+        rdata::{A, AAAA},
+    },
+    runtime::{RuntimeProvider, Time},
+    xfer::DnsHandle,
+};
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
@@ -88,9 +95,57 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         let state = self.state.clone();
+        let acs = self.state.cx.answer_address_filter.clone();
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
-            state.try_send(request).await
+            let query = match request.queries().first() {
+                Some(q) => q.clone(),
+                None => return Err("no query in request".into()),
+            };
+            let mut response = state.try_send(request).await?;
+
+            let Some(acs) = acs else {
+                return Ok(response);
+            };
+
+            let answer_filter = |record: &Record| {
+                let ip = match record.data() {
+                    RData::A(A(ipv4)) => (*ipv4).into(),
+                    RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+                    _ => return true,
+                };
+
+                if acs.denied(ip) {
+                    error!(
+                        %query,
+                        %ip,
+                        "removing ip from response: answer filter matched"
+                    );
+
+                    false
+                } else {
+                    true
+                }
+            };
+
+            let answers_len = response.answers().len();
+            let authorities_len = response.authorities().len();
+
+            response.additionals_mut().retain(answer_filter);
+            response.answers_mut().retain(answer_filter);
+            response.authorities_mut().retain(answer_filter);
+
+            if response.answers().is_empty() && answers_len != 0
+                || (response.answers().is_empty()
+                    && response.authorities().is_empty()
+                    && authorities_len != 0)
+            {
+                return Err(NoRecords::new(Box::new(query.clone()), ResponseCode::NXDomain).into());
+            }
+
+            // Since the message might have changed, create a new response from
+            // the message to update the buffer.
+            DnsResponse::from_message(response.into_message())
         }))
     }
 }
@@ -230,6 +285,8 @@ pub struct PoolContext {
     /// Opportunistic encryption configuration
     pub opportunistic_encryption: OpportunisticEncryption,
     pub(crate) transport_state: AsyncMutex<NameServerTransportState>,
+    /// Answer address filter
+    pub answer_address_filter: Option<AccessControlSet>,
 }
 
 impl PoolContext {
@@ -240,7 +297,14 @@ impl PoolContext {
             tls,
             opportunistic_encryption: OpportunisticEncryption::default(),
             transport_state: AsyncMutex::new(NameServerTransportState::default()),
+            answer_address_filter: None,
         }
+    }
+
+    /// Add an answer address filter
+    pub fn with_answer_filter(mut self, answer_filter: AccessControlSet) -> Self {
+        self.answer_address_filter = Some(answer_filter);
+        self
     }
 
     /// Enables opportunistic encryption with default configuration
