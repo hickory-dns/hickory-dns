@@ -20,6 +20,7 @@ impl Forwarder {
             network: network.clone(),
             resolver,
             trust_anchor: TrustAnchor::empty(),
+            custom_config: None,
         }
     }
 
@@ -63,6 +64,7 @@ pub struct ForwarderSettings<'a> {
     network: Network,
     resolver: &'a Resolver,
     trust_anchor: TrustAnchor,
+    custom_config: Option<String>,
 }
 
 impl ForwarderSettings<'_> {
@@ -79,11 +81,16 @@ impl ForwarderSettings<'_> {
         let container = Container::run(&image, &self.network)?;
 
         let use_dnssec = !self.trust_anchor.is_empty();
-        let config = Config::Forwarder {
-            use_dnssec,
-            resolver_ip: self.resolver.ipv4_addr(),
+        let config_contents = if self.custom_config.is_none() {
+            let config = Config::Forwarder {
+                use_dnssec,
+                resolver_ip: self.resolver.ipv4_addr(),
+            };
+            implementation.format_config(config)
+        } else {
+            self.custom_config.clone().unwrap()
         };
-        let config_contents = implementation.format_config(config);
+
         if let Some(conf_file_path) = implementation.conf_file_path(Role::Forwarder) {
             container.cp(conf_file_path, &config_contents)?;
         }
@@ -124,6 +131,12 @@ impl ForwarderSettings<'_> {
         for key in other.keys() {
             self.trust_anchor.add(key.clone());
         }
+        self
+    }
+
+    /// Overrides the automatically-generated configuration file.
+    pub fn custom_config(&mut self, config: String) -> &mut Self {
+        self.custom_config = Some(config);
         self
     }
 }

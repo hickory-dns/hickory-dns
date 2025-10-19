@@ -1,0 +1,16 @@
+user = "nobody"
+group = "nogroup"
+
+[[zones]]
+zone = "."
+zone_type = "External"
+
+[zones.stores]
+type = "forward"
+options.allow_answers = ["192.0.2.1/32", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+options.deny_answers = ["192.0.2.0/24"]
+
+[[zones.stores.name_servers]]
+ip="{{resolver}}"
+trust_negative_responses = true
+connections = [ { protocol = { type = "udp" } } ]

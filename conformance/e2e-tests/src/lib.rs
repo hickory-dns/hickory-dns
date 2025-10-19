@@ -3,6 +3,7 @@
 use std::env;
 
 mod client;
+mod forwarder;
 mod recursor;
 mod resolver;
 mod server;
