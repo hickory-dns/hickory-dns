@@ -30,13 +30,16 @@ use crate::name_server::{ConnectionProvider, NameServerPool, NameServerTransport
 use crate::name_server::{PoolContext, TlsConfig};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
-use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};
-use crate::proto::rr::domain::usage::ONION;
-use crate::proto::rr::{IntoName, Name, RData, Record, RecordType, rdata};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
-use crate::proto::xfer::{DnsHandle, RetryDnsHandle};
-use crate::proto::{ProtoError, ProtoErrorKind};
+use crate::proto::{
+    ProtoError, ProtoErrorKind,
+    access_control::AccessControlSetBuilder,
+    op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
+    rr::domain::usage::ONION,
+    rr::{IntoName, Name, RData, Record, RecordType, rdata},
+    xfer::{DnsHandle, RetryDnsHandle},
+};
 
 macro_rules! lookup_fn {
     ($p:ident, $l:ty, $r:path) => {
@@ -485,6 +488,16 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         }
 
         let context = Arc::new(PoolContext {
+            answer_address_filter: if options.deny_answers.is_empty() {
+                None
+            } else {
+                Some(
+                    AccessControlSetBuilder::new("resolver_answer_filter")
+                        .allow(options.allow_answers.iter())
+                        .deny(options.deny_answers.iter())
+                        .build(),
+                )
+            },
             options,
             tls: match tls {
                 Some(config) => config,
@@ -492,7 +505,6 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             },
             opportunistic_encryption,
             transport_state: AsyncMutex::new(encrypted_transport_state),
-            answer_address_filter: None,
         });
 
         let pool = NameServerPool::from_config(
@@ -505,6 +517,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             )),
             provider,
         );
+
         let client = RetryDnsHandle::new(pool, context.options.attempts);
 
         #[cfg(feature = "__dnssec")]

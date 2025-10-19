@@ -52,3 +52,9 @@ connections = [
 timeout = 20
 positive_max_ttl = 3600
 negative_max_ttl = 3600
+## These options set the answer filter for the forwarder.  Anything listed in deny_answers will be
+## blocked.  If you need to add a granular exception, you can place an address in allow_answers -
+## that will override something in deny_answers.  For example, the following configuration blocks
+## any record containing an RFC-1918 address *except* 192.168.1.1.
+#allow_answers = ["192.168.1.1/32"]
+#deny_answers = ["10.0.0.0/8", "172.16.0.0/12", "192.168.1.0/24"]

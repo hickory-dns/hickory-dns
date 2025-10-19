@@ -950,6 +950,7 @@ dependencies = [
  "futures-util",
  "hickory-proto",
  "ipconfig",
+ "ipnet",
  "jni",
  "metrics",
  "metrics-util",
