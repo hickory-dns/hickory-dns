@@ -19,8 +19,9 @@ use tracing::warn;
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorCacheMetrics;
 use crate::{
-    AccessControlSet, AccessControlSetBuilder, DnssecPolicy, Error,
+    DnssecPolicy, Error,
     proto::{
+        access_control::{AccessControlSet, AccessControlSetBuilder},
         op::{Message, Query},
         runtime::TokioRuntimeProvider,
     },

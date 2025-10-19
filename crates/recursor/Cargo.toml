@@ -101,12 +101,11 @@ ipnet.workspace = true
 lru-cache.workspace = true
 metrics = { workspace = true, optional = true }
 parking_lot.workspace = true
-prefix-trie.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["net"] }
-hickory-proto.workspace = true
+hickory-proto = { workspace = true, features = ["access-control"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 
 [dev-dependencies]

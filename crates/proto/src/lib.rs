@@ -52,6 +52,8 @@ macro_rules! try_ready_stream {
     }};
 }
 
+#[cfg(feature = "access-control")]
+pub mod access_control;
 #[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
 pub mod dnssec;
 mod error;
