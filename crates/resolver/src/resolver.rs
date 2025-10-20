@@ -24,7 +24,7 @@ use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, TypedLookup};
+use crate::lookup::Lookup;
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::{ConnectionProvider, NameServerPool, NameServerTransportState};
 use crate::name_server::{PoolContext, TlsConfig};
@@ -32,7 +32,7 @@ use crate::name_server::{PoolContext, TlsConfig};
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};
 use crate::proto::rr::domain::usage::ONION;
-use crate::proto::rr::{IntoName, Name, RData, Record, RecordType, rdata};
+use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, RetryDnsHandle};
@@ -47,7 +47,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p(&self, query: impl IntoName) -> Result<TypedLookup<$l>, ProtoError> {
+        pub async fn $p(&self, query: impl IntoName) -> Result<Lookup, ProtoError> {
             self.inner_lookup(query.into_name()?, $r, self.request_options())
                 .await
         }

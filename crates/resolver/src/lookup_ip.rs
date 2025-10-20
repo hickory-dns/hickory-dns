@@ -26,7 +26,7 @@ use crate::cache::MAX_TTL;
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, LookupIter};
+use crate::lookup::Lookup;
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequestOptions, Query};
 use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -42,8 +42,8 @@ impl LookupIp {
     /// Returns an iterator over the response records.
     ///
     /// Only IP records will be returned, either A or AAAA record types.
-    pub fn iter(&self) -> LookupIpIter<'_> {
-        LookupIpIter(LookupIter::new(self.0.message().answers().iter())
+    pub fn iter(&self) -> LookupIpIter<std::slice::Iter<'_, Record>> {
+        LookupIpIter(self.0.message().answers().iter())
     }
 
     /// Returns a reference to the `Query` that was used to produce this result.
@@ -82,14 +82,16 @@ impl From<LookupIp> for Lookup {
 }
 
 /// Borrowed view of set of IPs returned from a LookupIp
-pub struct LookupIpIter<'i>(pub(crate) LookupIter<'i>);
+pub struct LookupIpIter<I>(I);
 
-impl Iterator for LookupIpIter<'_> {
+impl<'i, I> Iterator for LookupIpIter<I>
+where
+    I: Iterator<Item = &'i Record>,
+{
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match rdata {
+        self.0.find_map(|record| match record.data() {
             RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(*ip))),
             RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(*ip))),
             _ => None,
