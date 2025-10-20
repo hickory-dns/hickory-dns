@@ -25,7 +25,7 @@ use crate::caching_client::CachingClient;
 use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, TypedLookup};
+use crate::lookup::Lookup;
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
 #[cfg(feature = "__dnssec")]
@@ -36,7 +36,7 @@ use crate::proto::{
     ProtoError, ProtoErrorKind,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
     rr::domain::usage::ONION,
-    rr::{IntoName, Name, RData, Record, RecordType, rdata},
+    rr::{IntoName, Name, RData, Record, RecordType},
     xfer::{DnsHandle, RetryDnsHandle},
 };
 
@@ -49,7 +49,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p(&self, query: impl IntoName) -> Result<TypedLookup<$l>, ProtoError> {
+        pub async fn $p(&self, query: impl IntoName) -> Result<Lookup, ProtoError> {
             self.inner_lookup(query.into_name()?, $r, self.request_options())
                 .await
         }
