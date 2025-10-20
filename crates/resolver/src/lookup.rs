@@ -34,7 +34,7 @@ use crate::proto::dnssec::Proven;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     query: Query,
-    message: Arc<Message>,
+    message: Message,
     valid_until: Instant,
 }
 
@@ -43,7 +43,7 @@ impl Lookup {
     pub fn new(query: Query, message: Message, valid_until: Instant) -> Self {
         Self {
             query,
-            message: Arc::new(message),
+            message,
             valid_until,
         }
     }
@@ -69,7 +69,7 @@ impl Lookup {
 
         Self {
             query,
-            message: Arc::new(message),
+            message,
             valid_until,
         }
     }
@@ -102,15 +102,16 @@ impl Lookup {
         // Clone self to get a mutable copy
         let mut result = self.clone();
 
-        // Get mutable access to the message
-        let message = Arc::make_mut(&mut result.message);
-
         // Append each section separately to preserve structure
-        message.add_answers(other.message.answers().iter().cloned());
+        result
+            .message
+            .add_answers(other.message.answers().iter().cloned());
         for authority in other.message.authorities() {
-            message.add_authority(authority.clone());
+            result.message.add_authority(authority.clone());
         }
-        message.add_additionals(other.message.additionals().iter().cloned());
+        result
+            .message
+            .add_additionals(other.message.additionals().iter().cloned());
 
         // Choose the sooner deadline of the two lookups
         result.valid_until = min(self.valid_until(), other.valid_until());
@@ -122,14 +123,8 @@ impl Lookup {
     ///
     /// Records are added to the ANSWERS section while preserving existing section structure
     pub fn extend_records(&mut self, other: Vec<Record>) {
-        // Get mutable access to the message, cloning if there are other Arc references
-        let message = Arc::make_mut(&mut self.message);
-
         // Add new records to the answers section, preserving existing sections
-        message.add_answers(other);
-
-        // make_mut does the equivalent of this, so would be redundant.
-        // self.message = message
+        self.message.add_answers(other);
     }
 }
 
@@ -405,7 +400,7 @@ mod tests {
 
         let lookup = Lookup {
             query: Query::default(),
-            message: Arc::new(message),
+            message,
             valid_until: Instant::now(),
         };
 
@@ -458,12 +453,9 @@ mod tests {
 
         let mut lookup = Lookup {
             query,
-            message: Arc::new(message),
+            message,
             valid_until: Instant::now(),
         };
-
-        // Clone to increase Arc refcount (this forces Arc::make_mut to clone)
-        let _clone = lookup.clone();
 
         // Extend with new answer record
         let new_record = Record::from_rdata(
@@ -525,7 +517,7 @@ mod tests {
 
         let lookup1 = Lookup {
             query: query.clone(),
-            message: Arc::new(message1),
+            message: message1,
             valid_until: Instant::now(),
         };
 
@@ -550,7 +542,7 @@ mod tests {
 
         let lookup2 = Lookup {
             query,
-            message: Arc::new(message2),
+            message: message2,
             valid_until: Instant::now(),
         };
 
