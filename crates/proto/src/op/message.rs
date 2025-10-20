@@ -475,6 +475,12 @@ impl Message {
         mem::take(&mut self.answers)
     }
 
+    /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
+    #[cfg(feature = "__dnssec")]
+    pub fn dnssec_answers(&self) -> crate::dnssec::DnssecIter<'_> {
+        crate::dnssec::DnssecIter::new(self.answers.iter())
+    }
+
     /// ```text
     /// Authority       Carries RRs which describe other authoritative servers.
     ///                 May optionally carry the SOA RR for the authoritative

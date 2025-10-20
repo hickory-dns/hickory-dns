@@ -42,6 +42,42 @@ pub use proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
 mod public_key;
 pub use public_key::{PublicKey, PublicKeyBuf};
 
+/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
+pub struct DnssecIter<'a>(DnssecRecordIter<'a>);
+
+impl<'a> DnssecIter<'a> {
+    /// Create a new DnssecIter from any iterator of Record references
+    pub fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
+        Self(DnssecRecordIter::new(iter))
+    }
+}
+
+impl<'a> Iterator for DnssecIter<'a> {
+    type Item = Proven<&'a crate::rr::RData>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|r| r.map(Record::data))
+    }
+}
+
+/// An iterator over records with all records wrapped in a Proven type for dnssec validation
+pub struct DnssecRecordIter<'a>(alloc::boxed::Box<dyn Iterator<Item = &'a Record> + 'a>);
+
+impl<'a> DnssecRecordIter<'a> {
+    /// Create a new DnssecRecordIter from any iterator of Record references
+    pub fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
+        Self(alloc::boxed::Box::new(iter))
+    }
+}
+
+impl<'a> Iterator for DnssecRecordIter<'a> {
+    type Item = Proven<&'a Record>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(Proven::from)
+    }
+}
+
 pub mod rdata;
 use rdata::tsig::TsigAlgorithm;
 
