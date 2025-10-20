@@ -1,10 +1,15 @@
 #![recursion_limit = "128"]
 
+#[cfg(all(
+    any(feature = "webpki-roots", feature = "rustls-platform-verifier"),
+    feature = "__https"
+))]
+use hickory_resolver::config::CLOUDFLARE;
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 use {
     hickory_resolver::{
         Resolver,
-        config::{CLOUDFLARE, GOOGLE, ResolverConfig},
+        config::{GOOGLE, ResolverConfig},
         name_server::ConnectionProvider,
         proto::runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
     },
