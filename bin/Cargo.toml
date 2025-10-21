@@ -38,7 +38,7 @@ recursor = ["hickory-server/recursor"]
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 prometheus-metrics = ["metrics", "dep:http", "dep:hyper", "dep:hyper-util", "dep:metrics-exporter-prometheus", "dep:tokio-util"]
-metrics = ["hickory-server/metrics", "dep:metrics", "dep:metrics-process"]
+metrics = ["hickory-server/metrics", "hickory-resolver/metrics", "dep:metrics", "dep:metrics-process"]
 
 tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["hickory-server/https-aws-lc-rs", "tls-aws-lc-rs", "__https"]
