@@ -25,9 +25,8 @@ use crate::{
         runtime::TokioRuntimeProvider,
     },
     resolver::{
-        Resolver,
+        ConnectionProvider, Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
-        name_server::ConnectionProvider,
     },
     server::{Request, RequestInfo},
     zone_handler::{

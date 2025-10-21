@@ -35,9 +35,9 @@ use crate::{
     recursor::RecursorMode,
     recursor_pool::RecursorPool,
     resolver::{
-        Name, ResponseCache,
+        ConnectionProvider, Name, ResponseCache, TlsConfig,
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
-        name_server::{ConnectionProvider, NameServerPool, PoolContext, TlsConfig},
+        name_server::{NameServerPool, PoolContext},
     },
 };
 

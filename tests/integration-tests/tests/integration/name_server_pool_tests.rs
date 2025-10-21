@@ -16,10 +16,11 @@ use hickory_proto::op::{DnsResponse, Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, FirstAnswer};
 use hickory_proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
+use hickory_resolver::TlsConfig;
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
 };
-use hickory_resolver::name_server::{NameServer, NameServerPool, PoolContext, TlsConfig};
+use hickory_resolver::name_server::{NameServer, NameServerPool, PoolContext};
 use test_support::subscribe;
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);

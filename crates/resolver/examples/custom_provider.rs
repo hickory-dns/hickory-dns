@@ -8,9 +8,8 @@ use hickory_resolver::config::CLOUDFLARE;
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 use {
     hickory_resolver::{
-        Resolver,
+        ConnectionProvider, Resolver,
         config::{GOOGLE, ResolverConfig},
-        name_server::ConnectionProvider,
         proto::runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
     },
     std::future::Future,

@@ -26,11 +26,7 @@ use crate::{
         runtime::TokioRuntimeProvider,
     },
     recursor_dns_handle::RecursorDnsHandle,
-    resolver::{
-        TtlConfig,
-        config::OpportunisticEncryption,
-        name_server::{ConnectionProvider, TlsConfig},
-    },
+    resolver::{ConnectionProvider, TlsConfig, TtlConfig, config::OpportunisticEncryption},
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
@@ -590,7 +586,7 @@ mod for_dnssec {
         xfer::DnsHandle,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::resolver::name_server::ConnectionProvider;
+    use crate::resolver::ConnectionProvider;
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;

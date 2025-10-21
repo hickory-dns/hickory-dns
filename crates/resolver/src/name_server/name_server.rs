@@ -28,8 +28,8 @@ use crate::config::{
     ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
     ServerOrderingStrategy,
 };
+use crate::connection_provider::ConnectionProvider;
 use crate::name_server::PoolContext;
-use crate::name_server::connection_provider::ConnectionProvider;
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
@@ -962,7 +962,7 @@ mod tests {
 
     use super::*;
     use crate::config::{ConnectionConfig, ProtocolConfig};
-    use crate::name_server::TlsConfig;
+    use crate::connection_provider::TlsConfig;
     use crate::proto::op::{DnsRequest, DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -1282,10 +1282,9 @@ mod opportunistic_enc_tests {
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
         ProtocolConfig, ResolverOpts,
     };
+    use crate::connection_provider::{ConnectionProvider, TlsConfig};
     use crate::name_server::name_server::{ConnectionPolicy, ConnectionState};
-    use crate::name_server::{
-        ConnectionProvider, NameServer, NameServerTransportState, PoolContext, TlsConfig,
-    };
+    use crate::name_server::{NameServer, NameServerTransportState, PoolContext};
 
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {

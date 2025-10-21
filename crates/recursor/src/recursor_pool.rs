@@ -26,7 +26,7 @@ use crate::proto::{
     DnsHandle, ProtoError,
     op::{DnsRequestOptions, DnsResponse, Query},
 };
-use crate::resolver::{Name, name_server::ConnectionProvider};
+use crate::resolver::{ConnectionProvider, Name};
 
 #[derive(Clone)]
 pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, ProtoError>>>>);

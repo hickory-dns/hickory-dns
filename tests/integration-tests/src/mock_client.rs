@@ -27,8 +27,9 @@ use hickory_proto::runtime::{RuntimeProvider, TokioHandle};
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::DnsHandle;
+use hickory_resolver::ConnectionProvider;
 use hickory_resolver::config::ConnectionConfig;
-use hickory_resolver::name_server::{ConnectionProvider, PoolContext};
+use hickory_resolver::name_server::PoolContext;
 
 pub struct TcpPlaceholder;
 

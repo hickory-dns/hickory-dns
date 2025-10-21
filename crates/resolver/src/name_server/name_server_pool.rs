@@ -27,7 +27,7 @@ use crate::config::OpportunisticEncryptionConfig;
 use crate::config::{
     NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
 };
-use crate::name_server::connection_provider::{ConnectionProvider, TlsConfig};
+use crate::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,

@@ -23,11 +23,11 @@ use tracing::debug;
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
+use crate::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::name_server::{ConnectionProvider, NameServerPool, NameServerTransportState};
-use crate::name_server::{PoolContext, TlsConfig};
+use crate::name_server::{NameServerPool, NameServerTransportState, PoolContext};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 #[cfg(feature = "tokio")]
@@ -687,7 +687,7 @@ pub(crate) mod testing {
 
     use crate::Resolver;
     use crate::config::{GOOGLE, LookupIpStrategy, NameServerConfig, ResolverConfig};
-    use crate::name_server::ConnectionProvider;
+    use crate::connection_provider::ConnectionProvider;
     use crate::proto::{rr::Name, runtime::Executor};
 
     /// Test IP lookup from URLs.
