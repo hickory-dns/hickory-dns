@@ -23,13 +23,12 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
-use super::name_server_pool::NameServerTransportState;
 use crate::config::{
     ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
     ServerOrderingStrategy,
 };
 use crate::connection_provider::ConnectionProvider;
-use crate::name_server::PoolContext;
+use crate::name_server_pool::{NameServerTransportState, PoolContext};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
@@ -88,7 +87,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    pub(super) async fn send(
+    pub(crate) async fn send(
         self: Arc<Self>,
         request: DnsRequest,
         policy: ConnectionPolicy,
@@ -250,7 +249,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             .map(|conn| conn.protocol.to_protocol())
     }
 
-    pub(super) fn decayed_srtt(&self) -> f64 {
+    pub(crate) fn decayed_srtt(&self) -> f64 {
         self.server_srtt.current()
     }
 
@@ -268,7 +267,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         })
     }
 
-    pub(super) fn trust_negative_responses(&self) -> bool {
+    pub(crate) fn trust_negative_responses(&self) -> bool {
         self.config.trust_negative_responses
     }
 
@@ -1283,8 +1282,9 @@ mod opportunistic_enc_tests {
         ProtocolConfig, ResolverOpts,
     };
     use crate::connection_provider::{ConnectionProvider, TlsConfig};
+    use crate::name_server::NameServer;
     use crate::name_server::name_server::{ConnectionPolicy, ConnectionState};
-    use crate::name_server::{NameServer, NameServerTransportState, PoolContext};
+    use crate::name_server_pool::{NameServerTransportState, PoolContext};
 
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {
