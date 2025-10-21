@@ -1248,6 +1248,8 @@ mod tests {
 
 #[cfg(all(test, feature = "__tls"))]
 mod opportunistic_enc_tests {
+    #[cfg(feature = "metrics")]
+    use std::collections::HashMap;
     use std::future::Future;
     use std::net::{IpAddr, Ipv4Addr};
     use std::pin::Pin;
@@ -1259,7 +1261,7 @@ mod opportunistic_enc_tests {
     use futures_util::stream::once;
     use futures_util::{Stream, future};
     #[cfg(feature = "metrics")]
-    use metrics::{Key, Label, Unit, with_local_recorder};
+    use metrics::{Key, Label, Unit, with_local_recorder, KeyName, SharedString};
     #[cfg(feature = "metrics")]
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
     #[cfg(feature = "metrics")]
@@ -1272,7 +1274,9 @@ mod opportunistic_enc_tests {
     use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
     use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
     use crate::proto::xfer::Protocol;
-    use crate::proto::{DnsHandle, ProtoError, ProtoErrorKind};
+    use crate::proto::{DnsHandle, ProtoError};
+    #[cfg(feature = "metrics")]
+    use crate::proto::ProtoErrorKind;
 
     use crate::config::{
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
@@ -1880,43 +1884,13 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // We should have registered 1 TLS protocol probe attempt.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_attempts_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 1);
 
         // We should have registered 1 TLS protocol probe success.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_successes_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 1);
 
         // We should have registered 0 TLS protocol probe errors.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_errors_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(0));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 0);
     }
 
     #[cfg(feature = "metrics")]
@@ -1970,17 +1944,7 @@ mod opportunistic_enc_tests {
         }
 
         // We should not have registered a probe attempt.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_attempts_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(0));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 0);
     }
 
     #[cfg(feature = "metrics")]
@@ -2026,44 +1990,14 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // We should have registered 1 TLS protocol probe attempt.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_attempts_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 1);
 
         // We should have registered 1 TLS protocol probe error.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_errors_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 1);
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_successes_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(0));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
     }
 
     #[cfg(feature = "metrics")]
@@ -2106,57 +2040,38 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // We should have registered 1 TLS protocol probe attempt.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_attempts_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 1);
 
         // We should have registered 1 TLS protocol probe timeout.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_timeouts_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_timeouts_total", 1);
 
         // We shouldn't have registered a more general probe error.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_errors_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(0));
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 0);
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
+        assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
+    }
+
+    /// asserts that the `map` contains a counter metric with the specified `name` reporting
+    /// the `expected `value.
+    ///
+    /// A protocol=tls label is automatically applied by the helper.
+    #[cfg(feature = "metrics")]
+    #[allow(clippy::mutable_key_type)]
+    fn assert_tls_counter_eq(
+        map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
+        name: impl Into<KeyName>,
+        expected: u64,
+    ) {
         let (unit_opt, _, value) = map
             .get(&CompositeKey::new(
                 MetricKind::Counter,
-                Key::from_parts(
-                    "hickory_resolver_probe_successes_total",
-                    vec![Label::new("protocol", "tls")],
-                ),
+                Key::from_parts(name, vec![Label::new("protocol", "tls")]),
             ))
             .unwrap();
         assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(0));
+        assert_eq!(value, &DebugValue::Counter(expected));
     }
 
     /// `MockProvider` is a `ConnectionProvider` that uses a synchronous runtime provider.
