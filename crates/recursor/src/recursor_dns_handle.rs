@@ -47,7 +47,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<P>>>>,
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
-    cache_metrics: RecursorCacheMetrics,
+    metrics: RecursorMetrics,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
@@ -125,7 +125,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             name_server_cache,
             response_cache,
             #[cfg(feature = "metrics")]
-            cache_metrics: RecursorCacheMetrics::new(),
+            metrics: RecursorMetrics::new(),
             recursion_limit,
             ns_recursion_limit,
             security_aware: dnssec_policy.is_security_aware(),
@@ -160,7 +160,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 RecursorMode::Validating {
                     validated_response_cache,
                     #[cfg(feature = "metrics")]
-                    cache_metrics: handle.cache_metrics().clone(),
+                    metrics: handle.metrics().clone(),
                     handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                         .nsec3_iteration_limits(
                             nsec3_soft_iteration_limit,
@@ -183,7 +183,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let response = result?;
             if response.authoritative() {
                 #[cfg(feature = "metrics")]
-                self.cache_metrics.cache_hit_counter.increment(1);
+                self.metrics.cache_hit_counter.increment(1);
 
                 let response = self
                     .resolve_cnames(
@@ -205,7 +205,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         #[cfg(feature = "metrics")]
-        self.cache_metrics.cache_miss_counter.increment(1);
+        self.metrics.cache_miss_counter.increment(1);
 
         // Recursively search for authoritative name servers for the queried record to build an NS
         // pool to use for queries for a given zone. By searching for the query name, (e.g.
@@ -635,8 +635,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     #[cfg(all(feature = "__dnssec", feature = "metrics"))]
-    pub(crate) fn cache_metrics(&self) -> &RecursorCacheMetrics {
-        &self.cache_metrics
+    pub(crate) fn metrics(&self) -> &RecursorMetrics {
+        &self.metrics
     }
 
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
@@ -743,13 +743,13 @@ fn name_server_config(
 
 #[cfg(feature = "metrics")]
 #[derive(Clone)]
-pub(super) struct RecursorCacheMetrics {
+pub(super) struct RecursorMetrics {
     pub(super) cache_hit_counter: Counter,
     pub(super) cache_miss_counter: Counter,
 }
 
 #[cfg(feature = "metrics")]
-impl RecursorCacheMetrics {
+impl RecursorMetrics {
     fn new() -> Self {
         let cache_hit_counter = counter!("hickory_recursor_cache_hit_total");
         describe_counter!(
