@@ -1282,8 +1282,7 @@ mod opportunistic_enc_tests {
         ProtocolConfig, ResolverOpts,
     };
     use crate::connection_provider::{ConnectionProvider, TlsConfig};
-    use crate::name_server::NameServer;
-    use crate::name_server::name_server::{ConnectionPolicy, ConnectionState};
+    use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
 
     #[tokio::test]
