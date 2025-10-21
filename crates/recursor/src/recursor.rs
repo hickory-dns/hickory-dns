@@ -17,7 +17,7 @@ use ipnet::IpNet;
 use tracing::warn;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
-use crate::recursor_dns_handle::RecursorCacheMetrics;
+use crate::recursor_dns_handle::RecursorMetrics;
 use crate::{
     DnssecPolicy, Error,
     proto::{
@@ -467,13 +467,13 @@ impl<P: ConnectionProvider> Recursor<P> {
                 handle,
                 validated_response_cache,
                 #[cfg(feature = "metrics")]
-                cache_metrics,
+                metrics,
             } => {
                 if let Some(Ok(response)) = validated_response_cache.get(&query, request_time) {
                     // Increment metrics on cache hits only. We will check the cache a second time
                     // inside resolve(), thus we only track cache misses there.
                     #[cfg(feature = "metrics")]
-                    cache_metrics.cache_hit_counter.increment(1);
+                    metrics.cache_hit_counter.increment(1);
 
                     let none_indeterminate = response
                         .all_sections()
@@ -563,7 +563,7 @@ pub(super) enum RecursorMode<P: ConnectionProvider> {
         // This is a separate response cache from that inside `RecursorDnsHandle`.
         validated_response_cache: ResponseCache,
         #[cfg(feature = "metrics")]
-        cache_metrics: RecursorCacheMetrics,
+        metrics: RecursorMetrics,
     },
 }
 
