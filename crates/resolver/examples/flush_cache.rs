@@ -58,7 +58,7 @@ async fn tokio_main() {
     drop(resolver);
 }
 
-async fn resolve_list<P: hickory_resolver::name_server::ConnectionProvider>(
+async fn resolve_list<P: hickory_resolver::ConnectionProvider>(
     names: &[&str],
     resolver: &hickory_resolver::Resolver<P>,
 ) -> tokio::time::Duration {
