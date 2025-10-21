@@ -1261,7 +1261,7 @@ mod opportunistic_enc_tests {
     use futures_util::stream::once;
     use futures_util::{Stream, future};
     #[cfg(feature = "metrics")]
-    use metrics::{Key, Label, Unit, with_local_recorder, KeyName, SharedString};
+    use metrics::{Key, KeyName, Label, SharedString, Unit, with_local_recorder};
     #[cfg(feature = "metrics")]
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
     #[cfg(feature = "metrics")]
@@ -1270,13 +1270,13 @@ mod opportunistic_enc_tests {
     use test_support::subscribe;
     use tokio::net::UdpSocket;
 
+    #[cfg(feature = "metrics")]
+    use crate::proto::ProtoErrorKind;
     use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
     use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
     use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
     use crate::proto::xfer::Protocol;
     use crate::proto::{DnsHandle, ProtoError};
-    #[cfg(feature = "metrics")]
-    use crate::proto::ProtoErrorKind;
 
     use crate::config::{
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
@@ -1630,30 +1630,17 @@ mod opportunistic_enc_tests {
     async fn test_opportunistic_probe() {
         subscribe();
 
-        let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
-        let mock_provider = MockProvider::default();
-
-        // Set up a NameServer config with both encrypted and non-encrypted options
-        let config = NameServerConfig::opportunistic_encryption(ns_ip);
-
         // Enable opportunistic encryption
-        let opts = ResolverOpts::default();
-        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+        let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
             .with_opportunistic_encryption();
 
-        let name_server = NameServer::new(
-            [].into_iter(),
-            config,
-            &opts,
-            Arc::new(AtomicU8::new(10)),
-            mock_provider.clone(),
+        let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let mock_provider = MockProvider::default();
+        assert!(
+            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+                .await
+                .is_ok()
         );
-
-        let cx = Arc::new(cx);
-        let result = name_server
-            .connected_mut_client(ConnectionPolicy::default(), &cx)
-            .await;
-        assert!(result.is_ok());
 
         let recorded_calls = mock_provider.new_connection_calls();
         // We should have made two new connection calls.
@@ -1676,33 +1663,20 @@ mod opportunistic_enc_tests {
         subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
-        let mock_provider = MockProvider::default();
-        let config = NameServerConfig::opportunistic_encryption(ns_ip);
-        let opts = ResolverOpts::default();
-        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+        let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
             .with_opportunistic_encryption();
 
         // Set up state to show an in-flight connection already initiated
-        {
-            cx.transport_state()
+        cx.transport_state()
+            .await
+            .initiate_connection(ns_ip, Protocol::Tls);
+
+        let mock_provider = MockProvider::default();
+        assert!(
+            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
                 .await
-                .initiate_connection(ns_ip, Protocol::Tls);
-        }
-
-        // Enable opportunistic encryption
-        let name_server = NameServer::new(
-            [].into_iter(),
-            config,
-            &opts,
-            Arc::new(AtomicU8::new(10)),
-            mock_provider.clone(),
+                .is_ok()
         );
-
-        let cx = Arc::new(cx);
-        let result = name_server
-            .connected_mut_client(ConnectionPolicy::default(), &cx)
-            .await;
-        assert!(result.is_ok());
 
         let recorded_calls = mock_provider.new_connection_calls();
         // We should have made only one connection call (UDP), no probe because one is already in-flight
@@ -1717,37 +1691,25 @@ mod opportunistic_enc_tests {
         subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
-        let mock_provider = MockProvider::default();
-        let config = NameServerConfig::opportunistic_encryption(ns_ip);
-        let opts = ResolverOpts::default();
-        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+        let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
             .with_opportunistic_encryption();
 
         // Set up state to show a recent failure within the damping period
-        {
-            cx.transport_state().await.error_received(
-                ns_ip,
-                Protocol::Tls,
-                &ProtoError::from(std::io::Error::new(
-                    std::io::ErrorKind::ConnectionRefused,
-                    "connection refused",
-                )),
-            );
-        }
-
-        let name_server = NameServer::new(
-            [].into_iter(),
-            config,
-            &opts,
-            Arc::new(AtomicU8::new(10)),
-            mock_provider.clone(),
+        cx.transport_state().await.error_received(
+            ns_ip,
+            Protocol::Tls,
+            &ProtoError::from(std::io::Error::new(
+                std::io::ErrorKind::ConnectionRefused,
+                "connection refused",
+            )),
         );
 
-        let cx = Arc::new(cx);
-        let result = name_server
-            .connected_mut_client(ConnectionPolicy::default(), &cx)
-            .await;
-        assert!(result.is_ok());
+        let mock_provider = MockProvider::default();
+        assert!(
+            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+                .await
+                .is_ok()
+        );
 
         let recorded_calls = mock_provider.new_connection_calls();
         // We should have made only one connection call (UDP), no probe due to recent failure
@@ -1762,16 +1724,11 @@ mod opportunistic_enc_tests {
         subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
-        let mock_provider = MockProvider::default();
-        let config = NameServerConfig::opportunistic_encryption(ns_ip);
-
-        let opts = ResolverOpts::default();
-        let mut cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap());
+        let mut cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap());
         let opp_enc_config = OpportunisticEncryptionConfig {
             damping_period: Duration::from_secs(5),
             ..OpportunisticEncryptionConfig::default()
         };
-
         cx.opportunistic_encryption = OpportunisticEncryption::Enabled {
             config: opp_enc_config,
         };
@@ -1784,19 +1741,12 @@ mod opportunistic_enc_tests {
             state.set_failure_time(ns_ip, Protocol::Tls, old_failure_time);
         }
 
-        let name_server = NameServer::new(
-            [].into_iter(),
-            config,
-            &opts,
-            Arc::new(AtomicU8::new(10)),
-            mock_provider.clone(),
+        let mock_provider = MockProvider::default();
+        assert!(
+            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+                .await
+                .is_ok()
         );
-
-        let cx = Arc::new(cx);
-        let result = name_server
-            .connected_mut_client(ConnectionPolicy::default(), &cx)
-            .await;
-        assert!(result.is_ok());
 
         let recorded_calls = mock_provider.new_connection_calls();
         // We should have made two connection calls (UDP + TLS probe) because the failure is old
@@ -1814,27 +1764,15 @@ mod opportunistic_enc_tests {
         subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
-        let mock_provider = MockProvider::default();
-        let config = NameServerConfig::opportunistic_encryption(ns_ip);
-
-        let opts = ResolverOpts::default();
-        let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
+        let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
             .with_opportunistic_encryption();
-
+        let mock_provider = MockProvider::default();
         // Set budget to 0 to simulate exhausted probe budget
-        let name_server = NameServer::new(
-            [].into_iter(),
-            config,
-            &opts,
-            Arc::new(AtomicU8::new(0)),
-            mock_provider.clone(),
+        assert!(
+            test_connected_mut_client(ns_ip, 0, Arc::new(cx), &mock_provider)
+                .await
+                .is_ok()
         );
-
-        let cx = Arc::new(cx);
-        let result = name_server
-            .connected_mut_client(ConnectionPolicy::default(), &cx)
-            .await;
-        assert!(result.is_ok());
 
         let recorded_calls = mock_provider.new_connection_calls();
         // We should have made only one connection call (UDP), no probe due to exhausted budget
@@ -1861,22 +1799,20 @@ mod opportunistic_enc_tests {
                 .build()
                 .unwrap();
 
-            let opts = ResolverOpts::default();
-            let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
-                .with_opportunistic_encryption();
-
-            let name_server = NameServer::new(
-                [],
-                NameServerConfig::opportunistic_encryption(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))),
-                &opts,
-                Arc::new(AtomicU8::new(10)),
-                MockProvider::default(),
-            );
-
             runtime.block_on(async {
-                let _result = name_server
-                    .connected_mut_client(ConnectionPolicy::default(), &Arc::new(cx))
-                    .await;
+                assert!(
+                    test_connected_mut_client(
+                        IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                        10,
+                        Arc::new(
+                            PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
+                                .with_opportunistic_encryption(),
+                        ),
+                        &MockProvider::default(),
+                    )
+                    .await
+                    .is_ok()
+                );
             });
         });
 
@@ -1906,23 +1842,21 @@ mod opportunistic_enc_tests {
                 .build()
                 .unwrap();
 
-            let opts = ResolverOpts::default();
-            let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
-                .with_opportunistic_encryption();
-
-            // Set budget to 0 to simulate exhausted probe budget
-            let name_server = NameServer::new(
-                [],
-                NameServerConfig::opportunistic_encryption(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))),
-                &opts,
-                Arc::new(AtomicU8::new(0)),
-                MockProvider::default(),
-            );
-
             runtime.block_on(async {
-                let _result = name_server
-                    .connected_mut_client(ConnectionPolicy::default(), &Arc::new(cx))
-                    .await;
+                assert!(
+                    test_connected_mut_client(
+                        IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                        // Set budget to 0 to simulate exhausted probe budget
+                        0,
+                        Arc::new(
+                            PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
+                                .with_opportunistic_encryption(),
+                        ),
+                        &MockProvider::default(),
+                    )
+                    .await
+                    .is_ok()
+                );
             });
         });
 
@@ -1960,29 +1894,24 @@ mod opportunistic_enc_tests {
                 .build()
                 .unwrap();
 
-            let opts = ResolverOpts::default();
-            let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
-                .with_opportunistic_encryption();
-
-            let name_server = NameServer::new(
-                [],
-                NameServerConfig::opportunistic_encryption(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))),
-                &opts,
-                Arc::new(AtomicU8::new(10)),
-                // Configure a mock provider that always produces an error when new connections are requested.
-                MockProvider {
-                    new_connection_error: Some(ProtoError::from(std::io::Error::new(
-                        std::io::ErrorKind::ConnectionRefused,
-                        "connection refused",
-                    ))),
-                    ..MockProvider::default()
-                },
-            );
-
             runtime.block_on(async {
-                let _result = name_server
-                    .connected_mut_client(ConnectionPolicy::default(), &Arc::new(cx))
-                    .await;
+                let _ = test_connected_mut_client(
+                    IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                    10,
+                    Arc::new(
+                        PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
+                            .with_opportunistic_encryption(),
+                    ),
+                    // Configure a mock provider that always produces an error when new connections are requested.
+                    &MockProvider {
+                        new_connection_error: Some(ProtoError::from(std::io::Error::new(
+                            std::io::ErrorKind::ConnectionRefused,
+                            "connection refused",
+                        ))),
+                        ..MockProvider::default()
+                    },
+                )
+                .await;
             });
         });
 
@@ -2013,26 +1942,21 @@ mod opportunistic_enc_tests {
                 .build()
                 .unwrap();
 
-            let opts = ResolverOpts::default();
-            let cx = PoolContext::new(opts.clone(), TlsConfig::new().unwrap())
-                .with_opportunistic_encryption();
-
-            let name_server = NameServer::new(
-                [],
-                NameServerConfig::opportunistic_encryption(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))),
-                &opts,
-                Arc::new(AtomicU8::new(10)),
-                // Configure a mock provider that always produces a Timeout error when new connections are requested.
-                MockProvider {
-                    new_connection_error: Some(ProtoError::from(ProtoErrorKind::Timeout)),
-                    ..MockProvider::default()
-                },
-            );
-
             runtime.block_on(async {
-                let _result = name_server
-                    .connected_mut_client(ConnectionPolicy::default(), &Arc::new(cx))
-                    .await;
+                let _ = test_connected_mut_client(
+                    IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                    10,
+                    Arc::new(
+                        PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
+                            .with_opportunistic_encryption(),
+                    ),
+                    // Configure a mock provider that always produces a Timeout error when new connections are requested.
+                    &MockProvider {
+                        new_connection_error: Some(ProtoError::from(ProtoErrorKind::Timeout)),
+                        ..MockProvider::default()
+                    },
+                )
+                .await;
             });
         });
 
@@ -2051,6 +1975,31 @@ mod opportunistic_enc_tests {
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
         assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
+    }
+
+    /// Construct a nameserver appropriate for opportunistic encryption and assert connected_mut_client
+    /// returns Ok.
+    ///
+    /// Behind the scenes this may provoke probing behaviour that the calling test can observe via
+    /// the `MockProvider`'s recorded calls.
+    async fn test_connected_mut_client(
+        ns_ip: IpAddr,
+        probe_budget: u8,
+        cx: Arc<PoolContext>,
+        provider: &MockProvider,
+    ) -> Result<(), ProtoError> {
+        let name_server = NameServer::new(
+            [].into_iter(),
+            NameServerConfig::opportunistic_encryption(ns_ip),
+            &ResolverOpts::default(),
+            Arc::new(AtomicU8::new(probe_budget)),
+            provider.clone(),
+        );
+
+        name_server
+            .connected_mut_client(ConnectionPolicy::default(), &cx)
+            .await
+            .map(|_| ())
     }
 
     /// asserts that the `map` contains a counter metric with the specified `name` reporting
