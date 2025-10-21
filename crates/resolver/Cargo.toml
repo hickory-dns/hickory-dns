@@ -55,6 +55,8 @@ system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context"
 
 tokio = ["dep:tokio", "tokio/rt", "hickory-proto/tokio"]
 
+metrics = ["dep:metrics"]
+
 [lib]
 name = "hickory_resolver"
 path = "src/lib.rs"
@@ -65,6 +67,7 @@ cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",
 ] }
+metrics = { workspace = true, optional = true }
 moka = { workspace = true, features = ["sync"] }
 once_cell.workspace = true
 parking_lot.workspace = true
@@ -94,6 +97,7 @@ ndk-context = { workspace = true, optional = true }
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 hickory-proto = { workspace = true, features = ["tokio"] }
+metrics-util = { workspace = true, features = ["debugging"] }
 serde_json = { workspace = true }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "test-util"] }
