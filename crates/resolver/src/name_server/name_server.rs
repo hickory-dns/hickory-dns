@@ -952,52 +952,21 @@ impl ConnectionPolicy {
 #[cfg(all(test, feature = "tokio"))]
 mod tests {
     use std::cmp;
-    #[cfg(feature = "__tls")]
-    use std::future::Future;
     use std::net::{IpAddr, Ipv4Addr};
-    #[cfg(feature = "__tls")]
-    use std::pin::Pin;
     use std::str::FromStr;
-    #[cfg(feature = "__tls")]
-    use std::task::{Context, Poll};
     use std::time::Duration;
-    #[cfg(feature = "__tls")]
-    use std::time::Instant;
 
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
-    use crate::proto::runtime::{RuntimeProvider, Spawn};
-    #[cfg(feature = "__tls")]
-    use futures_util::{Stream, future, stream::once};
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
-    use metrics::{Key, Label, Unit, with_local_recorder};
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
-    use metrics_util::{
-        CompositeKey, MetricKind,
-        debugging::{DebugValue, DebuggingRecorder},
-    };
     use test_support::subscribe;
     use tokio::net::UdpSocket;
     use tokio::spawn;
 
     use super::*;
-    #[cfg(feature = "__tls")]
-    use crate::config::OpportunisticEncryptionConfig;
     use crate::config::{ConnectionConfig, ProtocolConfig};
     use crate::name_server::TlsConfig;
-    #[cfg(feature = "__tls")]
-    use crate::proto::ProtoError;
-    #[cfg(feature = "__tls")]
-    use crate::proto::op::DnsResponse;
     use crate::proto::op::{DnsRequest, DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
-    #[cfg(feature = "__tls")]
-    use crate::proto::runtime::TokioTime;
-    #[cfg(feature = "__tls")]
-    use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
-    #[cfg(feature = "__tls")]
-    use crate::proto::xfer::{DnsHandle, Protocol};
 
     #[tokio::test]
     async fn test_name_server() {
@@ -1275,8 +1244,45 @@ mod tests {
         tokio::time::advance(Duration::from_secs(5)).await;
         assert_eq!(srtt.current() as u32, 96990);
     }
+}
 
-    #[cfg(feature = "__tls")]
+#[cfg(all(test, feature = "__tls"))]
+mod opportunistic_enc_tests {
+    use std::future::Future;
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicU8;
+    use std::task::{Context, Poll};
+    use std::time::{Duration, Instant};
+
+    use futures_util::stream::once;
+    use futures_util::{Stream, future};
+    #[cfg(feature = "metrics")]
+    use metrics::{Key, Label, Unit, with_local_recorder};
+    #[cfg(feature = "metrics")]
+    use metrics_util::debugging::{DebugValue, DebuggingRecorder};
+    #[cfg(feature = "metrics")]
+    use metrics_util::{CompositeKey, MetricKind};
+    use parking_lot::Mutex as SyncMutex;
+    use test_support::subscribe;
+    use tokio::net::UdpSocket;
+
+    use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
+    use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
+    use crate::proto::xfer::Protocol;
+    use crate::proto::{DnsHandle, ProtoError, ProtoErrorKind};
+
+    use crate::config::{
+        ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
+        ProtocolConfig, ResolverOpts,
+    };
+    use crate::name_server::name_server::{ConnectionPolicy, ConnectionState};
+    use crate::name_server::{
+        ConnectionProvider, NameServer, NameServerTransportState, PoolContext, TlsConfig,
+    };
+
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {
         let mut policy = ConnectionPolicy::default();
@@ -1303,7 +1309,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, Protocol::Tcp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_enabled() {
         let policy = ConnectionPolicy::default();
@@ -1327,7 +1332,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, Protocol::Tls);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_enabled_no_state() {
         let mut policy = ConnectionPolicy::default();
@@ -1357,7 +1361,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, Protocol::Tcp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_enabled_failed_probe() {
         let policy = ConnectionPolicy::default();
@@ -1390,7 +1393,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_enabled_in_progress_probe() {
         let policy = ConnectionPolicy::default();
@@ -1425,7 +1427,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_enabled_stale_probe() {
         let policy = ConnectionPolicy::default();
@@ -1461,7 +1462,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_enabled_good_probe() {
         let policy = ConnectionPolicy::default();
@@ -1489,7 +1489,6 @@ mod tests {
         assert!(selected.is_none());
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_config_opportunistic_enc_disabled() {
         let mut policy = ConnectionPolicy::default();
@@ -1514,7 +1513,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, ProtocolConfig::Tcp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_config_opportunistic_enc_enabled_no_state() {
         let mut policy = ConnectionPolicy::default();
@@ -1540,7 +1538,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, ProtocolConfig::Tcp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_config_opportunistic_enc_enabled_failed_probe() {
         let policy = ConnectionPolicy::default();
@@ -1569,7 +1566,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, ProtocolConfig::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_config_opportunistic_enc_enabled_stale_probe() {
         let policy = ConnectionPolicy::default();
@@ -1600,7 +1596,6 @@ mod tests {
         assert_eq!(selected.unwrap().protocol, ProtocolConfig::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_select_connection_config_opportunistic_enc_enabled_good_probe() {
         let policy = ConnectionPolicy::default();
@@ -1627,7 +1622,6 @@ mod tests {
         ));
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_opportunistic_probe() {
         subscribe();
@@ -1673,7 +1667,6 @@ mod tests {
         assert!(protocols.contains(&Protocol::Tls));
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_opportunistic_probe_skip_in_progress() {
         subscribe();
@@ -1715,7 +1708,6 @@ mod tests {
         assert_eq!(protocol.to_protocol(), Protocol::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_opportunistic_probe_skip_recent_failure() {
         subscribe();
@@ -1761,7 +1753,6 @@ mod tests {
         assert_eq!(protocol.to_protocol(), Protocol::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_opportunistic_probe_stale_failure() {
         subscribe();
@@ -1814,7 +1805,6 @@ mod tests {
         assert!(protocols.contains(&Protocol::Tls));
     }
 
-    #[cfg(feature = "__tls")]
     #[tokio::test]
     async fn test_opportunistic_probe_skip_no_budget() {
         subscribe();
@@ -1850,12 +1840,11 @@ mod tests {
         assert_eq!(protocol.to_protocol(), Protocol::Udp);
     }
 
-    #[cfg(feature = "__tls")]
     fn mock_connection(protocol: Protocol) -> ConnectionState<MockProvider> {
         ConnectionState::new(MockClientHandle, protocol)
     }
 
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
+    #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_success() {
         subscribe();
@@ -1930,7 +1919,7 @@ mod tests {
         assert_eq!(value, &DebugValue::Counter(0));
     }
 
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
+    #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_budget_exhausted() {
         subscribe();
@@ -1994,7 +1983,7 @@ mod tests {
         assert_eq!(value, &DebugValue::Counter(0));
     }
 
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
+    #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_connection_error() {
         subscribe();
@@ -2077,7 +2066,7 @@ mod tests {
         assert_eq!(value, &DebugValue::Counter(0));
     }
 
-    #[cfg(all(feature = "__tls", feature = "metrics"))]
+    #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_connection_timeout_error() {
         subscribe();
@@ -2176,7 +2165,6 @@ mod tests {
     /// `new_connection_calls` for test to interrogate. The optional `new_connection_error`
     /// `ProtoError` can be set to have `new_connection()` return a future that will error
     /// when polled, mocking a connection failure.
-    #[cfg(feature = "__tls")]
     #[derive(Clone)]
     struct MockProvider {
         runtime: MockSyncRuntimeProvider,
@@ -2184,14 +2172,12 @@ mod tests {
         new_connection_error: Option<ProtoError>,
     }
 
-    #[cfg(feature = "__tls")]
     impl MockProvider {
         fn new_connection_calls(&self) -> Vec<(IpAddr, ProtocolConfig)> {
             self.new_connection_calls.lock().clone()
         }
     }
 
-    #[cfg(feature = "__tls")]
     impl ConnectionProvider for MockProvider {
         type Conn = MockClientHandle;
         type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, ProtoError>>>>;
@@ -2218,7 +2204,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "__tls")]
     impl Default for MockProvider {
         fn default() -> Self {
             Self {
@@ -2233,11 +2218,9 @@ mod tests {
     ///
     /// It's `send` method always returns a `NoError` response when polled, simulating a
     /// successful DNS request exchange.
-    #[cfg(feature = "__tls")]
     #[derive(Clone, Default)]
     struct MockClientHandle;
 
-    #[cfg(feature = "__tls")]
     impl DnsHandle for MockClientHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
         type Runtime = MockSyncRuntimeProvider;
@@ -2255,11 +2238,9 @@ mod tests {
     /// `MockSyncRuntimeProvider` is a `RuntimeProvider` that creates `MockSyncHandle` instances.
     ///
     /// Trait methods other than `create_handle` are not implemented.
-    #[cfg(feature = "__tls")]
     #[derive(Clone)]
     struct MockSyncRuntimeProvider;
 
-    #[cfg(feature = "__tls")]
     impl RuntimeProvider for MockSyncRuntimeProvider {
         type Handle = MockSyncHandle;
         type Timer = TokioTime;
@@ -2294,11 +2275,9 @@ mod tests {
     ///
     /// Provided futures will be polled until completion, allowing tests to avoid needing to
     /// coordinate with background tasks to determine their completion state.
-    #[cfg(feature = "__tls")]
     #[derive(Clone)]
     struct MockSyncHandle;
 
-    #[cfg(feature = "__tls")]
     impl Spawn for MockSyncHandle {
         fn spawn_bg<F>(&mut self, future: F)
         where
