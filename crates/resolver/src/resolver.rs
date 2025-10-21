@@ -24,7 +24,7 @@ use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, TypedLookup};
+use crate::lookup::Lookup;
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server::{ConnectionProvider, NameServerPool, NameServerTransportState};
 use crate::name_server::{PoolContext, TlsConfig};
@@ -32,7 +32,7 @@ use crate::name_server::{PoolContext, TlsConfig};
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Query};
 use crate::proto::rr::domain::usage::ONION;
-use crate::proto::rr::{IntoName, Name, RData, Record, RecordType, rdata};
+use crate::proto::rr::{IntoName, Name, RData, Record, RecordType};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::xfer::{DnsHandle, RetryDnsHandle};
@@ -47,7 +47,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p(&self, query: impl IntoName) -> Result<TypedLookup<$l>, ProtoError> {
+        pub async fn $p(&self, query: impl IntoName) -> Result<Lookup, ProtoError> {
             self.inner_lookup(query.into_name()?, $r, self.request_options())
                 .await
         }
@@ -325,6 +325,12 @@ impl<R: ConnectionProvider> Resolver<R> {
         request_opts.recursion_desired = self.context.options.recursion_desired;
         request_opts.use_edns = self.context.options.edns0;
         request_opts.case_randomization = self.context.options.case_randomization;
+
+        // Set DNSSEC OK bit when DNSSEC validation is enabled
+        #[cfg(feature = "__dnssec")]
+        {
+            request_opts.edns_set_dnssec_ok = self.context.options.validate;
+        }
 
         request_opts
     }
@@ -644,7 +650,7 @@ where
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(lookup)) => lookup.records().is_empty(),
+                Poll::Ready(Ok(lookup)) => lookup.message().answers().is_empty(),
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };
@@ -798,12 +804,17 @@ pub(crate) mod testing {
         assert_ne!(response.iter().count(), 0);
         println!(
             "{:?}",
-            response.as_lookup().record_iter().collect::<Vec<_>>()
+            response
+                .as_lookup()
+                .message()
+                .all_sections()
+                .collect::<Vec<_>>()
         );
         assert!(
             response
                 .as_lookup()
-                .record_iter()
+                .message()
+                .all_sections()
                 .any(|record| record.proof().is_secure())
         );
     }
@@ -824,9 +835,13 @@ pub(crate) mod testing {
         let lookup_ip = response.unwrap();
         println!(
             "{:?}",
-            lookup_ip.as_lookup().record_iter().collect::<Vec<_>>()
+            lookup_ip
+                .as_lookup()
+                .message()
+                .all_sections()
+                .collect::<Vec<_>>()
         );
-        for record in lookup_ip.as_lookup().record_iter() {
+        for record in lookup_ip.as_lookup().message().all_sections() {
             assert!(record.proof().is_insecure());
         }
     }
@@ -1418,8 +1433,10 @@ mod tests {
             )
             .await
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(|r| r.ip_addr().unwrap())
+            .map(|r| r.data().ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -1437,7 +1454,8 @@ mod tests {
                 )
                 .await
                 .unwrap()
-                .records()[0]
+                .message()
+                .answers()[0]
             )
             .ip_addr()
             .unwrap(),
@@ -1456,8 +1474,10 @@ mod tests {
             )
             .await
             .unwrap()
+            .message()
+            .answers()
             .iter()
-            .map(|r| r.ip_addr().unwrap())
+            .map(|r| r.data().ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
