@@ -34,7 +34,6 @@ use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::{
     ProtoError, ProtoErrorKind,
-    access_control::AccessControlSetBuilder,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
     rr::domain::usage::ONION,
     rr::{IntoName, Name, RData, Record, RecordType, rdata},
@@ -488,16 +487,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         }
 
         let context = Arc::new(PoolContext {
-            answer_address_filter: if options.deny_answers.is_empty() {
-                None
-            } else {
-                Some(
-                    AccessControlSetBuilder::new("resolver_answer_filter")
-                        .allow(options.allow_answers.iter())
-                        .deny(options.deny_answers.iter())
-                        .build(),
-                )
-            },
+            answer_address_filter: options.answer_address_filter(),
             options,
             tls: match tls {
                 Some(config) => config,
