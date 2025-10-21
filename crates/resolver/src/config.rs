@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use hickory_proto::access_control::{AccessControlSet, AccessControlSetBuilder};
 use ipnet::IpNet;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -572,6 +573,21 @@ pub struct ResolverOpts {
     pub allow_answers: Vec<IpNet>,
     /// Networks listed here will be removed from any answers returned by an upstream server.
     pub deny_answers: Vec<IpNet>,
+}
+
+impl ResolverOpts {
+    pub(crate) fn answer_address_filter(&self) -> Option<AccessControlSet> {
+        if self.deny_answers.is_empty() {
+            return None;
+        }
+
+        Some(
+            AccessControlSetBuilder::new("resolver_answer_filter")
+                .allow(self.allow_answers.iter())
+                .deny(self.deny_answers.iter())
+                .build(),
+        )
+    }
 }
 
 impl Default for ResolverOpts {

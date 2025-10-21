@@ -293,11 +293,11 @@ impl PoolContext {
     /// Creates a new PoolContext
     pub fn new(options: ResolverOpts, tls: TlsConfig) -> Self {
         Self {
+            answer_address_filter: options.answer_address_filter(),
             options,
             tls,
             opportunistic_encryption: OpportunisticEncryption::default(),
             transport_state: AsyncMutex::new(NameServerTransportState::default()),
-            answer_address_filter: None,
         }
     }
 
