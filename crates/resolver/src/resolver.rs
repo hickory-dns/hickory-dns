@@ -27,7 +27,7 @@ use crate::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::name_server::{NameServerPool, NameServerTransportState, PoolContext};
+use crate::name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 #[cfg(feature = "tokio")]

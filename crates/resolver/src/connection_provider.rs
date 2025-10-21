@@ -30,7 +30,7 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tracing::warn;
 
 use crate::config::{ConnectionConfig, ProtocolConfig};
-use crate::name_server::PoolContext;
+use crate::name_server_pool::PoolContext;
 #[cfg(feature = "__https")]
 use crate::proto::h2::HttpsClientConnect;
 #[cfg(feature = "__h3")]

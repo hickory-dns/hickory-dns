@@ -16,7 +16,7 @@ use futures_util::{
     Future, FutureExt, StreamExt,
     future::{BoxFuture, Shared},
 };
-use hickory_resolver::name_server::NameServerPool;
+use hickory_resolver::NameServerPool;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;

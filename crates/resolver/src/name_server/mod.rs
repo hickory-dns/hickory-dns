@@ -9,6 +9,5 @@
 
 #[allow(clippy::module_inception)]
 mod name_server;
+pub(crate) use name_server::ConnectionPolicy;
 pub use name_server::NameServer;
-mod name_server_pool;
-pub use name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};

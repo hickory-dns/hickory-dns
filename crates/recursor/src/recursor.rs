@@ -12,7 +12,7 @@ use std::{
     time::Instant,
 };
 
-use hickory_resolver::name_server::NameServerTransportState;
+use hickory_resolver::NameServerTransportState;
 use ipnet::IpNet;
 use tracing::warn;
 
