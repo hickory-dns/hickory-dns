@@ -1,3 +1,30 @@
+use std::{
+    cmp,
+    collections::{HashMap, VecDeque},
+    future::{Future, ready},
+    io,
+    net::{IpAddr, SocketAddr},
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll, Waker},
+    time::Duration,
+};
+
+use bytes::Buf;
+use futures_util::{AsyncRead, AsyncWrite};
+use hickory_proto::{
+    op::{Message, OpCode, Query, ResponseCode},
+    rr::{
+        Name, RData, Record, RecordType,
+        rdata::{A, NS},
+    },
+    runtime::{RuntimeProvider, TokioHandle, TokioTime},
+    serialize::binary::BinDecodable,
+    tcp::DnsTcpStream,
+    udp::DnsUdpSocket,
+};
+use tracing::{error, info};
+
 use std::sync::Once;
 
 /// Registers a global default tracing subscriber when called for the first time. This is intended
@@ -11,4 +38,399 @@ pub fn subscribe() {
             .finish();
         tracing::subscriber::set_global_default(subscriber).unwrap();
     });
+}
+
+/// A mock response to be returned by the [`MockHandler`].
+pub struct MockRecord {
+    /// The name server IP.  This is matched by the [`MockHandler`] against the destination address
+    /// when deciding which response to return to the client.
+    ns: IpAddr,
+    /// The query name to match against
+    query_name: Name,
+    /// Query type
+    query_type: RecordType,
+    /// record-level TTL
+    ttl: u32,
+    /// record name
+    record_name: Name,
+    /// record data
+    record_data: RData,
+    /// The response section to place the record in
+    section: MockResponseSection,
+}
+
+/// The section to place the record
+pub enum MockResponseSection {
+    Answer,
+    Additional,
+    Authority,
+}
+
+/// Convenience functions for [`MockRecord`].  These should create records of the
+/// specified type with a sensible TTL and section defaults.
+impl MockRecord {
+    pub fn a(server: IpAddr, rr_name: &Name, record_data: IpAddr) -> Self {
+        let v4 = match record_data {
+            IpAddr::V4(addr) => addr,
+            IpAddr::V6(_) => panic!("a record does not support v6 address"),
+        };
+
+        Self {
+            ns: server,
+            ttl: 3600,
+            query_name: rr_name.clone(),
+            query_type: RecordType::A,
+            record_name: rr_name.clone(),
+            record_data: RData::A(A(v4)),
+            section: MockResponseSection::Answer,
+        }
+    }
+
+    pub fn ns(server: IpAddr, rr_name: &Name, ns_name: &Name) -> Self {
+        Self {
+            ns: server,
+            ttl: 3600,
+            query_name: rr_name.clone(),
+            query_type: RecordType::NS,
+            record_name: rr_name.clone(),
+            record_data: RData::NS(NS(ns_name.clone())),
+            section: MockResponseSection::Authority,
+        }
+    }
+
+    pub fn with_query_name(mut self, query_name: &Name) -> Self {
+        self.query_name = query_name.clone();
+        self
+    }
+
+    pub fn with_query_type(mut self, query_type: RecordType) -> Self {
+        self.query_type = query_type;
+        self
+    }
+
+    pub fn with_section(mut self, section: MockResponseSection) -> Self {
+        self.section = section;
+        self
+    }
+}
+
+/// Request handling functionality that can be plugged into [`MockProvider`].
+pub trait MockHandler {
+    /// Takes in a request message and produces a response message.
+    fn handle(&self, destination: IpAddr, request: Message) -> Message;
+}
+
+/// Handler that stands in for multiple authoritative name servers, with specific canned responses.
+pub struct MockNetworkHandler {
+    responses: HashMap<IpAddr, HashMap<Query, Message>>,
+}
+
+impl MockNetworkHandler {
+    /// Return a [`MockNetworkHandler`] that will respond to queries with [`MockRecord`] answers
+    /// from responses.
+    pub fn new(responses: Vec<MockRecord>) -> Self {
+        let mut hashed_responses = HashMap::<IpAddr, HashMap<Query, Message>>::new();
+        for response in responses {
+            let query = Query::query(response.query_name.clone(), response.query_type);
+            let mut message = Message::response(0, OpCode::Query);
+            message.add_query(query.clone());
+            message.set_authoritative(true);
+
+            if let Some(ns) = hashed_responses.get(&response.ns) {
+                if let Some(existing_message) = ns.get(&query) {
+                    message = existing_message.clone();
+                }
+            }
+
+            let record = Record::from_rdata(
+                response.record_name.clone(),
+                response.ttl,
+                response.record_data,
+            );
+
+            match response.section {
+                MockResponseSection::Additional => message.add_additional(record),
+                MockResponseSection::Answer => message.add_answer(record),
+                MockResponseSection::Authority => message.add_authority(record),
+            };
+
+            let query = message.queries()[0].clone();
+            if let Some(ns) = hashed_responses.get_mut(&response.ns) {
+                ns.insert(query, message);
+            } else {
+                let mut new_map = HashMap::new();
+                new_map.insert(query, message);
+                hashed_responses.insert(response.ns, new_map);
+            }
+        }
+
+        Self {
+            responses: hashed_responses,
+        }
+    }
+}
+
+impl MockHandler for MockNetworkHandler {
+    fn handle(&self, destination: IpAddr, request: Message) -> Message {
+        let Some(server_responses) = self.responses.get(&destination) else {
+            error!(%destination, "unexpected destination IP address");
+            return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
+        };
+        let query = &request.queries()[0];
+        info!(%destination, %query, "handling request");
+        let Some(response) = server_responses.get(query) else {
+            error!(%query, "unexpected query");
+            return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
+        };
+        let mut response = response.clone();
+        response.set_id(request.id());
+
+        response
+    }
+}
+
+#[derive(Clone)]
+pub struct MockProvider {
+    handler: Arc<dyn MockHandler + Send + Sync>,
+    tokio_handle: TokioHandle,
+}
+
+impl MockProvider {
+    pub fn new(handler: impl MockHandler + Send + Sync + 'static) -> Self {
+        Self {
+            handler: Arc::new(handler),
+            tokio_handle: TokioHandle::default(),
+        }
+    }
+}
+
+impl RuntimeProvider for MockProvider {
+    type Handle = TokioHandle;
+
+    type Timer = TokioTime;
+
+    type Udp = MockUdpSocket;
+
+    type Tcp = MockTcpStream;
+
+    fn create_handle(&self) -> Self::Handle {
+        self.tokio_handle.clone()
+    }
+
+    fn connect_tcp(
+        &self,
+        server_addr: SocketAddr,
+        _bind_addr: Option<SocketAddr>,
+        _timeout: Option<Duration>,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::Tcp>> + Send>> {
+        Box::pin(ready(Ok(MockTcpStream::new(
+            self.handler.clone(),
+            server_addr.ip(),
+        ))))
+    }
+
+    fn bind_udp(
+        &self,
+        _local_addr: SocketAddr,
+        _server_addr: SocketAddr,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::Udp>> + Send>> {
+        Box::pin(ready(Ok(MockUdpSocket::new(self.handler.clone()))))
+    }
+}
+
+pub struct MockUdpSocket {
+    inner: Mutex<MockUdpSocketInner>,
+    handler: Arc<dyn MockHandler + Send + Sync + 'static>,
+}
+
+pub struct MockUdpSocketInner {
+    /// Response messages ready to be returned to the client.
+    incoming_datagrams: VecDeque<(Message, SocketAddr)>,
+    /// Waker from the last call to [`DnsUdpSocket::poll_recv_from()`], if it returned `Pending`.
+    waker: Option<Waker>,
+}
+
+impl MockUdpSocket {
+    pub fn new(handler: Arc<dyn MockHandler + Send + Sync + 'static>) -> Self {
+        Self {
+            inner: Mutex::new(MockUdpSocketInner {
+                incoming_datagrams: VecDeque::new(),
+                waker: None,
+            }),
+            handler,
+        }
+    }
+}
+
+impl DnsUdpSocket for MockUdpSocket {
+    type Time = TokioTime;
+
+    fn poll_recv_from(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
+        let mut guard = self.inner.lock().unwrap();
+        let Some((message, socket_addr)) = guard.incoming_datagrams.pop_front() else {
+            guard.waker = Some(cx.waker().clone());
+            return Poll::Pending;
+        };
+
+        let encoded = match message.to_vec() {
+            Ok(vec) => vec,
+            Err(error) => {
+                error!(%error, "encoding response message failed");
+                return Poll::Ready(Err(io::Error::other(error)));
+            }
+        };
+        buf[..encoded.len()].copy_from_slice(&encoded);
+        Poll::Ready(Ok((encoded.len(), socket_addr)))
+    }
+
+    fn poll_send_to(
+        &self,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+        target: SocketAddr,
+    ) -> Poll<io::Result<usize>> {
+        let request = match Message::from_bytes(buf) {
+            Ok(message) => message,
+            Err(error) => {
+                error!(%error, "decoding request message failed");
+                return Poll::Ready(Err(io::Error::other(error)));
+            }
+        };
+        let response = self.handler.handle(target.ip(), request);
+
+        let mut guard = self.inner.lock().unwrap();
+        guard.incoming_datagrams.push_back((response, target));
+
+        if let Some(waker) = guard.waker.take() {
+            waker.wake();
+        }
+
+        Poll::Ready(Ok(buf.len()))
+    }
+}
+
+pub struct MockTcpStream {
+    inner: Mutex<MockTcpStreamInner>,
+    destination: IpAddr,
+    handler: Arc<dyn MockHandler + Send + Sync + 'static>,
+}
+
+struct MockTcpStreamInner {
+    /// Buffered stream data, from the client to the mocked server.
+    ///
+    /// This is produced via [`AsyncWrite::poll_write()`], and consumed whenever a full message has
+    /// been buffered.
+    outgoing_buffer: VecDeque<u8>,
+    /// Buffered stream data, from the mocked server back to the client.
+    ///
+    /// This is consumed via [`AsyncRead::poll_read()`].
+    incoming_buffer: VecDeque<u8>,
+    /// Waker from the last call to [`AsyncRead::poll_read()`], if it returned `Pending`.
+    waker: Option<Waker>,
+}
+
+impl MockTcpStream {
+    fn new(handler: Arc<dyn MockHandler + Send + Sync + 'static>, destination: IpAddr) -> Self {
+        Self {
+            inner: Mutex::new(MockTcpStreamInner {
+                outgoing_buffer: VecDeque::new(),
+                incoming_buffer: VecDeque::new(),
+                waker: None,
+            }),
+            destination,
+            handler,
+        }
+    }
+}
+
+impl DnsTcpStream for MockTcpStream {
+    type Time = TokioTime;
+}
+
+impl AsyncRead for MockTcpStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        let mut guard = self.inner.lock().unwrap();
+        let len = guard.incoming_buffer.len();
+        if len == 0 {
+            guard.waker = Some(cx.waker().clone());
+            return Poll::Pending;
+        }
+        let clamped_len = cmp::min(len, buf.len());
+        guard.incoming_buffer.copy_to_slice(&mut buf[..clamped_len]);
+        Poll::Ready(Ok(clamped_len))
+    }
+}
+
+impl AsyncWrite for MockTcpStream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let mut guard = self.inner.lock().unwrap();
+        guard.outgoing_buffer.extend(buf);
+
+        let mut any_writes = false;
+        while guard.outgoing_buffer.len() >= 2 {
+            let request_length_prefix = u16::from_be_bytes([
+                *guard.outgoing_buffer.front().unwrap(),
+                *guard.outgoing_buffer.get(1).unwrap(),
+            ]);
+            if guard.outgoing_buffer.len() < 2 + request_length_prefix as usize {
+                break;
+            }
+
+            guard.outgoing_buffer.advance(2);
+            let mut message_buf = vec![0u8; request_length_prefix as usize];
+            guard.outgoing_buffer.copy_to_slice(&mut message_buf);
+
+            let request = match Message::from_bytes(&message_buf) {
+                Ok(message) => message,
+                Err(error) => {
+                    error!(%error, "decoding request message failed");
+                    return Poll::Ready(Err(io::Error::other(error)));
+                }
+            };
+            let response = self.handler.handle(self.destination, request);
+
+            let encoded = match response.to_vec() {
+                Ok(vec) => vec,
+                Err(error) => {
+                    error!(%error, "encoding response message failed");
+                    return Poll::Ready(Err(io::Error::other(error)));
+                }
+            };
+
+            guard
+                .incoming_buffer
+                .extend(u16::to_be_bytes(u16::try_from(encoded.len()).unwrap()));
+            guard.incoming_buffer.extend(&encoded);
+
+            any_writes = true;
+        }
+
+        if any_writes {
+            if let Some(waker) = guard.waker.take() {
+                waker.wake();
+            }
+        }
+
+        Poll::Ready(Ok(buf.len()))
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
 }
