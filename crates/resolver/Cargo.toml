@@ -51,7 +51,7 @@ dnssec-ring = ["hickory-proto/dnssec-ring", "__dnssec"]
 __dnssec = []
 
 serde = ["dep:serde", "hickory-proto/serde"]
-system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context"]
+system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
 
 tokio = ["dep:tokio", "tokio/rt", "hickory-proto/tokio"]
 
@@ -93,6 +93,9 @@ ipconfig = { workspace = true, optional = true }
 [target.'cfg(target_os = "android")'.dependencies]
 jni = { workspace = true, optional = true }
 ndk-context = { workspace = true, optional = true }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+system-configuration = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
