@@ -32,6 +32,8 @@ mod metrics_tests;
 mod recursor;
 mod recursor_dns_handle;
 pub(crate) mod recursor_pool;
+#[cfg(test)]
+mod tests;
 
 #[cfg(feature = "__dnssec")]
 use std::sync::Arc;
