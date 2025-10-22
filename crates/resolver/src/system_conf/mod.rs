@@ -12,11 +12,11 @@
 //!  system, e.g. most Unixes have this written to `/etc/resolv.conf`
 #![allow(missing_docs)]
 
-#[cfg(all(unix, not(target_os = "android")))]
+#[cfg(all(unix, not(any(target_os = "android", target_vendor = "apple"))))]
 #[cfg(feature = "system-config")]
 mod unix;
 
-#[cfg(all(unix, not(target_os = "android")))]
+#[cfg(all(unix, not(any(target_os = "android", target_vendor = "apple"))))]
 #[cfg(feature = "system-config")]
 pub use self::unix::{parse_resolv_conf, read_system_conf};
 
@@ -35,3 +35,11 @@ mod android;
 #[cfg(target_os = "android")]
 #[cfg(feature = "system-config")]
 pub use self::android::read_system_conf;
+
+#[cfg(target_vendor = "apple")]
+#[cfg(feature = "system-config")]
+mod apple;
+
+#[cfg(target_vendor = "apple")]
+#[cfg(feature = "system-config")]
+pub use self::apple::read_system_conf;
