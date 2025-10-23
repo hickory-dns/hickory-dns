@@ -29,10 +29,13 @@ use crate::{
 };
 
 use super::maybe_next_name;
+#[cfg(any(feature = "__dnssec", feature = "sqlite"))]
+use crate::store::StoreBackendExt;
 use crate::{
     proto::rr::{
         DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
     },
+    store::{ExtensionPlaceholder, StoreBackend},
     zone_handler::LookupOptions,
 };
 
@@ -381,7 +384,9 @@ impl InnerInMemory {
         self.upsert(record, serial, dns_class);
         serial
     }
+}
 
+impl<B: StoreBackend + ?Sized> ExtensionPlaceholder<B> {
     /// Inserts or updates a `Record` depending on its existence in the zone.
     ///
     /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
@@ -394,7 +399,12 @@ impl InnerInMemory {
     /// # Return value
     ///
     /// true if the value was inserted, false otherwise
-    pub(super) fn upsert(&mut self, record: Record, serial: u32, dns_class: DNSClass) -> bool {
+    pub(in crate::store) fn upsert(
+        this: &mut B,
+        record: Record,
+        serial: u32,
+        dns_class: DNSClass,
+    ) -> bool {
         if dns_class != record.dns_class() {
             warn!(
                 "mismatched dns_class on record insert, zone: {} record: {}",
@@ -435,8 +445,8 @@ impl InnerInMemory {
         let start_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MIN));
         let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MAX));
 
-        let multiple_records_at_label_disallowed = self
-            .records
+        let multiple_records_at_label_disallowed = this
+            .records()
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
             .any(|(key, _)| {
@@ -454,7 +464,7 @@ impl InnerInMemory {
         }
 
         let rr_key = RrKey::new(record.name().into(), record.record_type());
-        let records: &mut Arc<RecordSet> = self.records.entry(rr_key).or_insert_with(|| {
+        let records: &mut Arc<RecordSet> = this.records_mut().entry(rr_key).or_insert_with(|| {
             Arc::new(RecordSet::new(
                 record.name().clone(),
                 record.record_type(),
@@ -471,7 +481,9 @@ impl InnerInMemory {
             false
         }
     }
+}
 
+impl InnerInMemory {
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "__dnssec")]
     pub(super) fn secure_zone_mut(
@@ -864,4 +876,39 @@ fn finish_nsec_record(
 ) -> Record {
     let rdata = NSEC::new_cover_self(next_name.clone(), mem::take(record_type_set));
     Record::from_rdata(name.clone(), ttl, RData::DNSSEC(DNSSECRData::NSEC(rdata)))
+}
+
+impl StoreBackend for InnerInMemory {
+    #[cfg(feature = "__dnssec")]
+    fn as_mut_tuple(&mut self) -> (&mut BTreeMap<RrKey, Arc<RecordSet>>, &mut Vec<SigSigner>) {
+        let Self {
+            records,
+            secure_keys,
+            ..
+        } = self;
+        (records, secure_keys)
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn secure_keys_mut(&mut self) -> &mut Vec<SigSigner> {
+        &mut self.secure_keys
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn secure_keys(&self) -> &[SigSigner] {
+        &self.secure_keys
+    }
+
+    fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
+        &mut self.records
+    }
+
+    fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
+        &self.records
+    }
+
+    #[cfg(feature = "metrics")]
+    fn metrics_label(&self) -> &'static str {
+        todo!()
+    }
 }
