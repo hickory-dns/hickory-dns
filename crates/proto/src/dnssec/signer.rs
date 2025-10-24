@@ -483,7 +483,7 @@ impl MessageSigner for SigSigner {
     fn sign_message(
         &self,
         message: &Message,
-        current_time: u32,
+        current_time: u64,
     ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)> {
         debug!("signing message: {message:?}");
         let key_tag: u16 = self.calculate_key_tag()?;
@@ -497,7 +497,10 @@ impl MessageSigner for SigSigner {
 
         let num_labels = name.num_labels();
 
-        let expiration_time = current_time + (5 * 60); // +5 minutes in seconds
+        // Truncate the current time to 32 bits. Note that signature inception and expiration times
+        // use serial number arithmetic.
+        let current_time = current_time as u32;
+        let expiration_time = current_time.wrapping_add(5 * 60); // +5 minutes in seconds
         let input = SigInput {
             type_covered: RecordType::ZERO,
             algorithm: self.key.algorithm(),

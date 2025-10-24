@@ -145,8 +145,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         let case_randomization = request.options().case_randomization;
 
-        // TODO: truncates u64 to u32, error on overflow?
-        let now = P::Timer::current_time() as u32;
+        let now = P::Timer::current_time();
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {
