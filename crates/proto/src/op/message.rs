@@ -711,7 +711,7 @@ impl Message {
     pub fn finalize(
         &mut self,
         finalizer: &dyn MessageSigner,
-        inception_time: u32,
+        inception_time: u64,
     ) -> ProtoResult<Option<MessageVerifier>> {
         debug!("finalizing message: {:?}", self);
 
@@ -870,7 +870,7 @@ pub trait MessageSigner: Send + Sync + 'static {
     fn sign_message(
         &self,
         message: &Message,
-        current_time: u32,
+        current_time: u64,
     ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)>;
 
     /// Return whether the message requires a signature before being sent.

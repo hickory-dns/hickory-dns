@@ -985,7 +985,7 @@ async fn test_update_tsig_valid() {
         .map(|t| t.as_secs())
         .unwrap();
     let (sig, _) = (&signer as &dyn MessageSigner)
-        .sign_message(&message, now as u32)
+        .sign_message(&message, now)
         .unwrap();
     // Save the MAC of the request so we can verify the response.
     let MessageSignature::Tsig(tsig_rr) = sig.clone() else {
@@ -1096,7 +1096,7 @@ async fn test_update_tsig_invalid_unknown_signer() {
         .map(|t| t.as_secs())
         .unwrap();
     let (sig, _) = (&bad_signer as &dyn MessageSigner)
-        .sign_message(&message, now as u32)
+        .sign_message(&message, now)
         .unwrap();
     message.set_signature(sig);
 
@@ -1157,7 +1157,7 @@ async fn test_update_tsig_invalid_sig() {
         .map(|t| t.as_secs())
         .unwrap();
     let (sig, _) = (&bad_signer as &dyn MessageSigner)
-        .sign_message(&message, now as u32)
+        .sign_message(&message, now)
         .unwrap();
     message.set_signature(sig);
 
@@ -1212,7 +1212,7 @@ async fn test_update_tsig_invalid_stale_sig() {
         .unwrap();
     let too_stale = now - (signer.fudge() as u64) - 1;
     let (sig, _) = (&signer as &dyn MessageSigner)
-        .sign_message(&message, too_stale as u32)
+        .sign_message(&message, too_stale)
         .unwrap();
     // Save the MAC of the request so we can verify the response.
     let MessageSignature::Tsig(tsig_rr) = sig.clone() else {
@@ -1703,7 +1703,7 @@ async fn test_axfr_allow_tsig_signed() {
         .unwrap();
 
     let (sig, _) = (&signer as &dyn MessageSigner)
-        .sign_message(&message, now as u32)
+        .sign_message(&message, now)
         .unwrap();
     message.set_signature(sig);
 

@@ -279,8 +279,7 @@ where
         let (mut request, _) = request.into_parts();
         request.set_id(query_id);
 
-        // TODO: truncates u64 to u32, error on overflow?
-        let now = S::Time::current_time() as u32;
+        let now = S::Time::current_time();
 
         let mut verifier = None;
         if let Some(signer) = &self.signer {

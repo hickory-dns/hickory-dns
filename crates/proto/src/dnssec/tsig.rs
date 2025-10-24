@@ -366,10 +366,9 @@ impl MessageSigner for TSigner {
     fn sign_message(
         &self,
         message: &Message,
-        current_time: u32,
+        current_time: u64,
     ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)> {
         debug!("signing message: {:?}", message);
-        let current_time = current_time as u64;
 
         let pre_tsig = TSIG::stub(message.id(), current_time, self);
         let mut signature = self
@@ -432,7 +431,7 @@ mod tests {
 
         assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question
-            .finalize(&signer, time_begin as u32)
+            .finalize(&signer, time_begin)
             .expect("should have signed");
         assert!(matches!(question.signature(), &MessageSignature::Tsig(_)));
 
@@ -462,7 +461,7 @@ mod tests {
 
         assert_eq!(question.signature(), &MessageSignature::Unsigned);
         question
-            .finalize(&signer, time_begin as u32)
+            .finalize(&signer, time_begin)
             .expect("should have signed");
         assert!(matches!(question.signature(), &MessageSignature::Tsig(_)));
 
