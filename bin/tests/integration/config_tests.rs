@@ -15,8 +15,7 @@
  */
 
 use std::env;
-use std::fs::{File, read_dir};
-use std::io::Read;
+use std::fs::{self, read_dir};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -429,9 +428,7 @@ fn test_reject_unknown_fields() {
         }
         println!("seed file: {file_name}");
 
-        let mut file = File::open(entry.path()).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
+        let contents = fs::read_to_string(entry.path()).unwrap();
         let value = toml::from_str::<toml::Value>(&contents).unwrap();
         let config_table = value.as_table().unwrap();
 

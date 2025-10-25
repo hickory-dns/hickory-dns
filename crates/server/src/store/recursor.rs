@@ -14,8 +14,7 @@ use std::sync::Arc;
 use std::{
     borrow::Cow,
     collections::HashSet,
-    fs::File,
-    io::{self, Read},
+    fs, io,
     net::IpAddr,
     path::{Path, PathBuf},
     time::Instant,
@@ -291,9 +290,7 @@ impl RecursiveConfig {
             Cow::Borrowed(&self.roots)
         };
 
-        let mut roots = File::open(path.as_ref())?;
-        let mut roots_str = String::new();
-        roots.read_to_string(&mut roots_str)?;
+        let roots_str = fs::read_to_string(path.as_ref())?;
 
         let (_zone, roots_zone) =
             Parser::new(roots_str, Some(path.into_owned()), Some(Name::root())).parse()?;
