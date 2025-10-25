@@ -10,14 +10,12 @@
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
 
+#[cfg(feature = "__tls")]
+use std::ffi::OsStr;
 #[cfg(feature = "prometheus-metrics")]
 use std::net::SocketAddr;
-#[cfg(feature = "__tls")]
-use std::{ffi::OsStr, fs};
 use std::{
-    fmt,
-    fs::File,
-    io::Read,
+    fmt, fs,
     net::{AddrParseError, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     str::FromStr,
@@ -162,10 +160,7 @@ pub struct Config {
 impl Config {
     /// read a Config file from the file specified at path.
     pub fn read_config(path: &Path) -> Result<Self, ConfigError> {
-        let mut file = File::open(path)?;
-        let mut toml = String::new();
-        file.read_to_string(&mut toml)?;
-        Self::from_toml(&toml)
+        Self::from_toml(&fs::read_to_string(path)?)
     }
 
     /// Read a [`Config`] from the given TOML string.
