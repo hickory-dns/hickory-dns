@@ -9,7 +9,7 @@ use std::{
 };
 
 use async_recursion::async_recursion;
-use futures_util::{StreamExt, stream::FuturesUnordered};
+use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
 use lru_cache::LruCache;
 #[cfg(feature = "metrics")]
 use metrics::{Counter, Unit, counter, describe_counter};
@@ -23,8 +23,9 @@ use crate::{
     error::AuthorityData,
     is_subzone,
     proto::{
+        DnsHandle,
         access_control::AccessControlSet,
-        op::{Message, Query},
+        op::{DnsRequestOptions, Message, Query},
         rr::{
             RData,
             RData::CNAME,
@@ -33,20 +34,20 @@ use crate::{
         },
     },
     recursor::RecursorMode,
-    recursor_pool::RecursorPool,
     resolver::{
-        ConnectionProvider, Name, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+        ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache,
+        TlsConfig,
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     },
 };
 
 #[derive(Clone)]
 pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
-    roots: RecursorPool<P>,
-    name_server_cache: Arc<Mutex<LruCache<Name, RecursorPool<P>>>>,
+    roots: NameServerPool<P>,
+    name_server_cache: Arc<Mutex<LruCache<Name, NameServerPool<P>>>>,
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
-    cache_metrics: RecursorCacheMetrics,
+    metrics: RecursorMetrics,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     security_aware: bool,
@@ -54,6 +55,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     pool_context: Arc<PoolContext>,
     opportunistic_probe_budget: Arc<AtomicU8>,
     conn_provider: P,
+    name_server_conn_cache: Arc<Mutex<LruCache<IpAddr, Arc<NameServer<P>>>>>,
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
@@ -114,16 +116,16 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             conn_provider.clone(),
         );
 
-        let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
 
+        let name_server_conn_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let handle = Self {
             roots,
             name_server_cache,
             response_cache,
             #[cfg(feature = "metrics")]
-            cache_metrics: RecursorCacheMetrics::new(),
+            metrics: RecursorMetrics::new(),
             recursion_limit,
             ns_recursion_limit,
             security_aware: dnssec_policy.is_security_aware(),
@@ -131,6 +133,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             pool_context,
             opportunistic_probe_budget,
             conn_provider,
+            name_server_conn_cache,
         };
 
         Ok(match dnssec_policy {
@@ -157,7 +160,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 RecursorMode::Validating {
                     validated_response_cache,
                     #[cfg(feature = "metrics")]
-                    cache_metrics: handle.cache_metrics().clone(),
+                    metrics: handle.metrics().clone(),
                     handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                         .nsec3_iteration_limits(
                             nsec3_soft_iteration_limit,
@@ -180,7 +183,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let response = result?;
             if response.authoritative() {
                 #[cfg(feature = "metrics")]
-                self.cache_metrics.cache_hit_counter.increment(1);
+                self.metrics.cache_hit_counter.increment(1);
 
                 let response = self
                     .resolve_cnames(
@@ -202,7 +205,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         #[cfg(feature = "metrics")]
-        self.cache_metrics.cache_miss_counter.increment(1);
+        self.metrics.cache_miss_counter.increment(1);
 
         // Recursively search for authoritative name servers for the queried record to build an NS
         // pool to use for queries for a given zone. By searching for the query name, (e.g.
@@ -247,12 +250,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             Err(e) => return Err(Error::from(format!("no nameserver found for {zone}: {e}"))),
         };
 
-        debug!("found zone {} for {query}", ns.zone());
+        debug!(%zone, %query, "found zone for query");
 
         let cached_response = self.filtered_cache_lookup(&query, request_time);
         let response = match cached_response {
             Some(result) => result?,
-            None => self.lookup(query.clone(), ns, request_time).await?,
+            None => self.lookup(query.clone(), zone, ns, request_time).await?,
         };
 
         let response = self
@@ -390,25 +393,40 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     async fn lookup(
         &self,
         query: Query,
-        ns: RecursorPool<P>,
+        zone: Name,
+        ns: NameServerPool<P>,
         now: Instant,
     ) -> Result<Message, Error> {
-        let response_future = ns.lookup(query.clone(), self.security_aware);
+        let mut options = DnsRequestOptions::default();
+        options.use_edns = self.security_aware;
+        options.edns_set_dnssec_ok = self.security_aware;
+        // Set RD=0 in queries made by the recursive resolver. See the last figure in
+        // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
+        // between recursive resolvers following referrals to each other.
+        options.recursion_desired = false;
+        let mut response = ns.lookup(query.clone(), options);
+
+        #[cfg(feature = "metrics")]
+        self.metrics.outgoing_query_counter.increment(1);
 
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
-        let mut response = match response_future.await {
-            Ok(r) => r,
-            Err(e) => {
+        let mut response = match response.next().await {
+            Some(Ok(r)) => r,
+            Some(Err(e)) => {
                 warn!("lookup error: {e}");
                 return Err(Error::from(e));
+            }
+            None => {
+                warn!("no response to lookup for {query}");
+                return Err("no response to lookup".into());
             }
         };
 
         let answer_filter = |record: &Record| {
-            if !is_subzone(ns.zone(), record.name()) {
+            if !is_subzone(&zone, record.name()) {
                 error!(
-                    %record, zone = %ns.zone(),
+                    %record, %zone,
                     "dropping out of bailiwick record",
                 );
                 return false;
@@ -452,7 +470,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         zone: Name,
         request_time: Instant,
         mut depth: u8,
-    ) -> Result<(u8, RecursorPool<P>), Error> {
+    ) -> Result<(u8, NameServerPool<P>), Error> {
         // TODO: need to check TTLs here.
         if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
             debug!("returning cached pool for {zone}");
@@ -471,7 +489,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             self.roots.clone()
         } else {
             // Discard depth returned from recursive call.
-            self.ns_pool_for_zone(parent_zone, request_time, depth)
+            self.ns_pool_for_zone(parent_zone.clone(), request_time, depth)
                 .await?
                 .1
         };
@@ -486,7 +504,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
             Some(Err(e)) => Err(e.into()),
             None => {
-                self.lookup(query, nameserver_pool.clone(), request_time)
+                self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
                     .await
             }
         };
@@ -576,14 +594,27 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .await?;
         }
 
-        // now construct a namesever pool based off the NS and glue records
-        let ns = NameServerPool::from_config(
-            config_group,
-            self.pool_context.clone(),
-            self.opportunistic_probe_budget.clone(),
-            self.conn_provider.clone(),
-        );
-        let ns = RecursorPool::from(zone.clone(), ns);
+        let servers = {
+            let mut cache = self.name_server_conn_cache.lock();
+            config_group
+                .iter()
+                .map(|server| {
+                    cache.get_mut(&server.ip).cloned().unwrap_or_else(|| {
+                        debug!(?server, "adding new name server to cache");
+                        let ns = Arc::new(NameServer::new(
+                            [],
+                            server.clone(),
+                            &self.pool_context.clone().options,
+                            self.opportunistic_probe_budget.clone(),
+                            self.conn_provider.clone(),
+                        ));
+                        cache.insert(server.ip, ns.clone());
+                        ns
+                    })
+                })
+                .collect()
+        };
+        let ns = NameServerPool::from_nameservers(servers, self.pool_context.clone());
 
         // store in cache for future usage
         debug!("found nameservers for {zone}");
@@ -616,8 +647,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     #[cfg(all(feature = "__dnssec", feature = "metrics"))]
-    pub(crate) fn cache_metrics(&self) -> &RecursorCacheMetrics {
-        &self.cache_metrics
+    pub(crate) fn metrics(&self) -> &RecursorMetrics {
+        &self.metrics
     }
 
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
@@ -625,7 +656,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         zone: &Name,
         depth: u8,
         request_time: Instant,
-        nameserver_pool: RecursorPool<P>,
+        nameserver_pool: NameServerPool<P>,
         nameservers: I,
         config: &mut Vec<NameServerConfig>,
     ) -> Result<u8, Error> {
@@ -651,16 +682,27 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let mut futures = FuturesUnordered::new();
 
+        let mut options = DnsRequestOptions::default();
+        options.use_edns = self.security_aware;
+        options.edns_set_dnssec_ok = self.security_aware;
+        // Set RD=0 in queries made by the recursive resolver. See the last figure in
+        // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
+        // between recursive resolvers following referrals to each other.
+        options.recursion_desired = false;
+
         for (pool, query) in pool_queries.iter() {
             for rec_type in [RecordType::A, RecordType::AAAA] {
-                futures
-                    .push(pool.lookup(Query::query(query.clone(), rec_type), self.security_aware));
+                futures.push(Box::pin(
+                    pool.lookup(Query::query(query.clone(), rec_type), options)
+                        .into_future()
+                        .map(|(first, _rest)| first),
+                ));
             }
         }
 
         while let Some(next) = futures.next().await {
             match next {
-                Ok(mut response) => {
+                Some(Ok(mut response)) => {
                     debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
                     config.extend(response
                         .take_answers()
@@ -676,8 +718,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             }
                         }).map(|ip| name_server_config(ip, &self.pool_context.opportunistic_encryption)));
                 }
-                Err(e) => {
+                Some(Err(e)) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
+                }
+                None => {
+                    warn!("no response to lookup");
                 }
             }
         }
@@ -724,13 +769,14 @@ fn name_server_config(
 
 #[cfg(feature = "metrics")]
 #[derive(Clone)]
-pub(super) struct RecursorCacheMetrics {
+pub(super) struct RecursorMetrics {
     pub(super) cache_hit_counter: Counter,
     pub(super) cache_miss_counter: Counter,
+    pub(super) outgoing_query_counter: Counter,
 }
 
 #[cfg(feature = "metrics")]
-impl RecursorCacheMetrics {
+impl RecursorMetrics {
     fn new() -> Self {
         let cache_hit_counter = counter!("hickory_recursor_cache_hit_total");
         describe_counter!(
@@ -744,9 +790,16 @@ impl RecursorCacheMetrics {
             Unit::Count,
             "Number of recursive requests that could not be answered from the cache."
         );
+        let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
+        describe_counter!(
+            "hickory_recursor_outgoing_queries_total",
+            Unit::Count,
+            "Number of outgoing queries made during resolution."
+        );
         Self {
             cache_hit_counter,
             cache_miss_counter,
+            outgoing_query_counter,
         }
     }
 }
