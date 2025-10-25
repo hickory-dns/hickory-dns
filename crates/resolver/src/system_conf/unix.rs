@@ -11,9 +11,8 @@
 //!  the host system. It will read from the default location on each operating
 //!  system, e.g. most Unixes have this written to `/etc/resolv.conf`
 
-use std::fs::File;
+use std::fs;
 use std::io;
-use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -27,10 +26,7 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
 }
 
 fn read_resolv_conf<P: AsRef<Path>>(path: P) -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
-    let mut data = String::new();
-    let mut file = File::open(path)?;
-    file.read_to_string(&mut data)?;
-    parse_resolv_conf(&data)
+    parse_resolv_conf(fs::read(path)?)
 }
 
 pub fn parse_resolv_conf<T: AsRef<[u8]>>(
