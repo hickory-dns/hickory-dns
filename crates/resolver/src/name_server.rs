@@ -5,15 +5,19 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::cmp;
-use std::fmt::Debug;
-use std::io;
-use std::marker::PhantomData;
-use std::net::IpAddr;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 #[cfg(not(test))]
 use std::time::{Duration, Instant};
+use std::{
+    cmp,
+    fmt::Debug,
+    io,
+    marker::PhantomData,
+    net::IpAddr,
+    sync::{
+        Arc,
+        atomic::{AtomicU8, AtomicU32, Ordering},
+    },
+};
 
 use futures_util::lock::Mutex as AsyncMutex;
 #[cfg(feature = "metrics")]
@@ -247,6 +251,10 @@ impl<P: ConnectionProvider> NameServer<P> {
             .connections
             .iter()
             .map(|conn| conn.protocol.to_protocol())
+    }
+
+    pub(super) fn ip(&self) -> IpAddr {
+        self.config.ip
     }
 
     pub(crate) fn decayed_srtt(&self) -> f64 {

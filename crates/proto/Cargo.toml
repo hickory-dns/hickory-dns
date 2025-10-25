@@ -95,7 +95,7 @@ data-encoding = { workspace = true, features = ["alloc"] }
 enum-as-inner.workspace = true
 futures-channel = { workspace = true, default-features = false, features = ["alloc"] }
 futures-io = { workspace = true, default-features = false, optional = true }
-futures-util = { workspace = true, default-features = false, features = ["alloc"] }
+futures-util = { workspace = true, default-features = false, features = ["alloc", "async-await-macro"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
@@ -130,7 +130,7 @@ jni = { workspace = true }
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 test-support.workspace = true
-tokio = { workspace = true, features = ["rt", "time", "macros"] }
+tokio = { workspace = true, features = ["rt", "time", "macros", "test-util"] }
 
 [package.metadata.docs.rs]
 all-features = true
