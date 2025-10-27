@@ -52,6 +52,7 @@ use crate::proto::{
 pub struct NameServerPool<P: ConnectionProvider> {
     state: Arc<PoolState<P>>,
     active_requests: Arc<Mutex<HashMap<Arc<Vec<u8>>, SharedLookup>>>,
+    ttl: Option<TtlInstant>,
 }
 
 #[derive(Clone)]
@@ -100,6 +101,21 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                 next: AtomicUsize::new(0),
             }),
             active_requests: Arc::new(Mutex::new(HashMap::new())),
+            ttl: None,
+        }
+    }
+
+    /// Set a TTL on the NameServerPool
+    pub fn with_ttl(mut self, ttl: Duration) -> Self {
+        self.ttl = Some(TtlInstant::now() + ttl);
+        self
+    }
+
+    /// Check if the TTL on the NameServerPool (if set) has expired
+    pub fn ttl_expired(&self) -> bool {
+        match self.ttl {
+            Some(ttl) => TtlInstant::now() > ttl,
+            None => false,
         }
     }
 
@@ -108,6 +124,12 @@ impl<P: ConnectionProvider> NameServerPool<P> {
         &self.state.cx
     }
 }
+
+// Type alias for TTL unit tests to use tokio's time pause/advance
+#[cfg(not(feature = "tokio"))]
+type TtlInstant = std::time::Instant;
+#[cfg(feature = "tokio")]
+type TtlInstant = tokio::time::Instant;
 
 impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;

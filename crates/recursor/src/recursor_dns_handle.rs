@@ -5,7 +5,7 @@ use std::{
         Arc,
         atomic::{AtomicU8, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use async_recursion::async_recursion;
@@ -36,7 +36,7 @@ use crate::{
     recursor::RecursorMode,
     resolver::{
         ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache,
-        TlsConfig,
+        TlsConfig, TtlConfig,
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     },
 };
@@ -55,6 +55,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     conn_provider: P,
     connection_cache: Arc<Mutex<LruCache<IpAddr, Arc<NameServer<P>>>>>,
     request_options: DnsRequestOptions,
+    ttl_config: TtlConfig,
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
@@ -135,6 +136,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             conn_provider,
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
+            ttl_config: ttl_config.clone(),
         };
 
         Ok(match dnssec_policy {
@@ -465,10 +467,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         request_time: Instant,
         mut depth: u8,
     ) -> Result<(u8, NameServerPool<P>), Error> {
-        // TODO: need to check TTLs here.
         if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
-            debug!("returning cached pool for {zone}");
-            return Ok((depth, ns.clone()));
+            match ns.ttl_expired() {
+                true => debug!(?zone, "cached name server pool expired"),
+                false => {
+                    debug!(?zone, "returning cached name server pool");
+                    return Ok((depth, ns.clone()));
+                }
+            }
         };
 
         trace!("ns_pool_for_zone: depth {depth} for {zone}");
@@ -525,13 +531,21 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             return Ok((depth, nameserver_pool));
         }
 
-        // TODO: grab TTL and use for cache
         // get all the NS records and glue
         let mut config_group = Vec::new();
         let mut need_ips_for_names = Vec::new();
         let mut glue_ips = HashMap::new();
+        let (positive_min_ttl, positive_max_ttl) = self
+            .ttl_config
+            .positive_response_ttl_bounds(RecordType::NS)
+            .into_inner();
+        let mut ns_pool_ttl = u32::MAX;
 
-        self.add_glue_to_map(&mut glue_ips, response.all_sections());
+        let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
+
+        if ttl < ns_pool_ttl {
+            ns_pool_ttl = ttl;
+        }
 
         for zns in response.all_sections() {
             let Some(ns_data) = zns.data().as_ns() else {
@@ -547,12 +561,19 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 continue;
             }
 
+            if zns.ttl() < ns_pool_ttl {
+                ns_pool_ttl = zns.ttl();
+            }
+
             for record_type in [RecordType::A, RecordType::AAAA] {
                 if let Some(Ok(response)) = self
                     .response_cache
                     .get(&Query::query(ns_data.0.clone(), record_type), request_time)
                 {
-                    self.add_glue_to_map(&mut glue_ips, response.all_sections());
+                    let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
+                    if ttl < ns_pool_ttl {
+                        ns_pool_ttl = ttl;
+                    }
                 }
             }
 
@@ -576,7 +597,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("need glue for {zone}");
 
-            depth = self
+            let ttl;
+            (ttl, depth) = self
                 .append_ips_from_lookup(
                     &zone,
                     depth,
@@ -586,6 +608,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     &mut config_group,
                 )
                 .await?;
+
+            if ttl < ns_pool_ttl {
+                ns_pool_ttl = ttl;
+            }
         }
 
         let servers = {
@@ -609,7 +635,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 })
                 .collect()
         };
-        let ns = NameServerPool::from_nameservers(servers, self.pool_context.clone());
+
+        let ns_pool_ttl =
+            Duration::from_secs(ns_pool_ttl as u64).clamp(positive_min_ttl, positive_max_ttl);
+
+        let ns = NameServerPool::from_nameservers(servers, self.pool_context.clone())
+            .with_ttl(ns_pool_ttl);
 
         // store in cache for future usage
         debug!("found nameservers for {zone}");
@@ -623,7 +654,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         &self,
         glue_map: &mut HashMap<Name, Vec<IpAddr>>,
         records: impl Iterator<Item = &'a Record>,
-    ) {
+    ) -> u32 {
+        let mut ttl = u32::MAX;
+
         for record in records {
             let ip = match record.data() {
                 RData::A(A(ipv4)) => (*ipv4).into(),
@@ -634,11 +667,16 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 debug!(name = %record.name(), %ip, "ignoring address due to do_not_query");
                 continue;
             }
+            if record.ttl() < ttl {
+                ttl = record.ttl();
+            }
             let ns_glue_ips = glue_map.entry(record.name().clone()).or_default();
             if !ns_glue_ips.contains(&ip) {
                 ns_glue_ips.push(ip);
             }
         }
+
+        ttl
     }
 
     #[cfg(all(feature = "__dnssec", feature = "metrics"))]
@@ -654,7 +692,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         nameserver_pool: NameServerPool<P>,
         nameservers: I,
         config: &mut Vec<NameServerConfig>,
-    ) -> Result<u8, Error> {
+    ) -> Result<(u32, u8), Error> {
         let mut pool_queries = vec![];
 
         for ns in nameservers {
@@ -687,6 +725,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
         }
 
+        let mut ttl = u32::MAX;
+
         while let Some(next) = futures.next().await {
             match next {
                 Some(Ok(mut response)) => {
@@ -701,6 +741,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                                 debug!(%ip, "append_ips_from_lookup: ignoring address due to do_not_query");
                                 None
                             } else {
+                                if answer.ttl() < ttl {
+                                    ttl = answer.ttl();
+                                }
                                 Some(ip)
                             }
                         }).map(|ip| name_server_config(ip, &self.pool_context.opportunistic_encryption)));
@@ -714,7 +757,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
         }
 
-        Ok(depth)
+        Ok((ttl, depth))
     }
 }
 

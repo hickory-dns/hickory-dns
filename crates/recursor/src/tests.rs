@@ -119,7 +119,6 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), ProtoError
     Ok(())
 }
 
-#[ignore = "Hickory does not check nameserver TTL in the cache"]
 #[tokio::test(start_paused = true)]
 async fn name_server_cache_ttl() -> Result<(), ProtoError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -154,7 +153,6 @@ async fn name_server_cache_ttl() -> Result<(), ProtoError> {
     Ok(())
 }
 
-#[ignore = "Hickory does not check nameserver TTL in the cache"]
 #[tokio::test(start_paused = true)]
 async fn name_server_cache_ttl_clamp_min() -> Result<(), ProtoError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -204,7 +202,6 @@ async fn name_server_cache_ttl_clamp_min() -> Result<(), ProtoError> {
     Ok(())
 }
 
-#[ignore = "Hickory does not check nameserver TTL in the cache"]
 #[tokio::test(start_paused = true)]
 async fn name_server_cache_ttl_clamp_max() -> Result<(), ProtoError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -246,7 +243,6 @@ async fn name_server_cache_ttl_clamp_max() -> Result<(), ProtoError> {
     Ok(())
 }
 
-#[ignore = "Hickory does not check nameserver TTL in the cache"]
 #[tokio::test(start_paused = true)]
 async fn name_server_cache_ttl_glue() -> Result<(), ProtoError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -284,7 +280,6 @@ async fn name_server_cache_ttl_glue() -> Result<(), ProtoError> {
     Ok(())
 }
 
-#[ignore = "Hickory does not check nameserver TTL in the cache"]
 #[tokio::test(start_paused = true)]
 async fn name_server_cache_ttl_glue_off_domain() -> Result<(), ProtoError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
