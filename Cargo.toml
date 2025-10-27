@@ -70,7 +70,7 @@ pin-project-lite = "0.2"
 aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
 rustls = { version = "0.23.23", default-features = false, features = ["logging", "std", "tls12"] }
 rustls-platform-verifier = "0.6"
-rustls-pki-types = "1.10"
+rustls-pki-types = "1.13"
 tokio-rustls = { version = "0.26", default-features = false }
 webpki-roots = "1"
 ring = "0.17"
