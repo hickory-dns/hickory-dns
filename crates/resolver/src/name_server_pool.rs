@@ -14,13 +14,19 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
-use hickory_proto::xfer::Protocol;
+use futures_util::{
+    Future, FutureExt,
+    future::{BoxFuture, Shared},
+};
+use hickory_proto::{serialize::binary::BinEncodable, xfer::Protocol};
+use parking_lot::Mutex;
 use smallvec::SmallVec;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 #[cfg(any(feature = "__tls", feature = "__quic"))]
 use crate::config::OpportunisticEncryptionConfig;
@@ -32,7 +38,7 @@ use crate::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
     access_control::AccessControlSet,
-    op::{DnsRequest, DnsResponse, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
     rr::{
         RData, Record,
         rdata::{A, AAAA},
@@ -45,6 +51,21 @@ use crate::proto::{
 #[derive(Clone)]
 pub struct NameServerPool<P: ConnectionProvider> {
     state: Arc<PoolState<P>>,
+    active_requests: Arc<Mutex<HashMap<Arc<Vec<u8>>, SharedLookup>>>,
+}
+
+#[derive(Clone)]
+pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, ProtoError>>>>);
+
+impl Future for SharedLookup {
+    type Output = Result<DnsResponse, ProtoError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.0.poll_unpin(cx).map(|o| match o {
+            Some(r) => r,
+            None => Err("no response from nameserver".into()),
+        })
+    }
 }
 
 impl<P: ConnectionProvider> NameServerPool<P> {
@@ -80,6 +101,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                 cx,
                 next: AtomicUsize::new(0),
             }),
+            active_requests: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -93,16 +115,58 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
     type Runtime = P::RuntimeProvider;
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
+    fn lookup(&self, query: Query, mut options: DnsRequestOptions) -> Self::Response {
+        debug!("querying: {} {:?}", query.name(), query.query_type());
+        options.case_randomization = self.state.cx.options.case_randomization;
+        self.send(DnsRequest::from_query(query, options))
+    }
+
+    fn send(&self, mut request: DnsRequest) -> Self::Response {
         let state = self.state.clone();
         let acs = self.state.cx.answer_address_filter.clone();
+        let active_requests = self.active_requests.clone();
+
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
             let query = match request.queries().first() {
                 Some(q) => q.clone(),
                 None => return Err("no query in request".into()),
             };
-            let mut response = state.try_send(request).await?;
+
+            // Save and zero the transaction id so otherwise identical requests will hash identically
+            let tx_id = request.id();
+            request.set_id(0);
+            let key = Arc::new(request.to_bytes()?);
+
+            let lookup = {
+                let mut active = active_requests.lock();
+                if let Some(existing) = active.get(&key) {
+                    debug!(%query, "query currently in progress - returning shared lookup");
+                    existing.clone()
+                } else {
+                    info!(%query, "creating new shared lookup");
+
+                    let lookup = async move {
+                        request.set_id(tx_id);
+                        match state.try_send(request).await {
+                            Ok(response) => Some(Ok(response)),
+                            Err(e) => Some(Err(e)),
+                        }
+                    }
+                    .boxed()
+                    .shared();
+
+                    let shared_lookup = SharedLookup(lookup);
+                    active.insert(key.clone(), shared_lookup.clone());
+                    shared_lookup
+                }
+            };
+
+            let response = lookup.await;
+
+            // remove the concurrent request marker
+            active_requests.lock().remove(&key);
+            let mut response = response?;
 
             let Some(acs) = acs else {
                 return Ok(response);
@@ -535,15 +599,19 @@ enum TransportState {
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::net::IpAddr;
-    use std::str::FromStr;
-    use std::sync::atomic::AtomicU8;
-    use test_support::subscribe;
+    use std::{
+        net::IpAddr,
+        str::FromStr,
+        sync::atomic::{AtomicU8, Ordering},
+        thread::sleep,
+    };
+
+    use test_support::{MockNetworkHandler, MockProvider, MockRecord, ProtocolConfig, subscribe};
     use tokio::runtime::Runtime;
 
     use super::*;
     use crate::config::{NameServerConfig, ResolverConfig};
-    use crate::proto::op::{DnsRequestOptions, Query};
+    use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::{Name, RecordType};
     use crate::proto::runtime::TokioRuntimeProvider;
     use crate::proto::xfer::{DnsHandle, FirstAnswer};
@@ -669,5 +737,66 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
+    }
+
+    #[tokio::test]
+    async fn test_shared_lookup() -> Result<(), ProtoError> {
+        subscribe();
+
+        let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
+        let query_ip = IpAddr::from([10, 0, 0, 1]);
+
+        let responses = vec![MockRecord::a(query_ip, &query_name, query_ip)];
+
+        let counter = Arc::new(AtomicU8::new(0));
+        let counter_copy = counter.clone();
+        let mutator = Box::new(
+            move |_destination: IpAddr, _protocol: ProtocolConfig, _msg: &mut Message| {
+                counter_copy.fetch_add(1, Ordering::Relaxed);
+                // Ensure the first query is still active when the second is polled
+                sleep(Duration::from_millis(250));
+            },
+        );
+
+        let handler = MockNetworkHandler::new(responses).with_mutation(mutator);
+
+        let provider = MockProvider::new(handler);
+        let opts = ResolverOpts::default();
+        let name_server = Arc::new(NameServer::new(
+            [],
+            NameServerConfig::udp(query_ip),
+            &opts,
+            Arc::new(AtomicU8::default()),
+            provider,
+        ));
+        let pool = NameServerPool::from_nameservers(
+            vec![name_server],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        let mut futures = vec![
+            pool.lookup(
+                Query::query(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer(),
+            pool.lookup(
+                Query::query(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer(),
+        ]
+        .into_iter()
+        .collect::<FuturesUnordered<_>>();
+
+        let mut ok_count = 0;
+        while let Some(Ok(response)) = futures.next().await {
+            assert_eq!(response.response_code(), ResponseCode::NoError);
+            ok_count += 1;
+        }
+
+        assert_eq!(ok_count, 2);
+        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        Ok(())
     }
 }
