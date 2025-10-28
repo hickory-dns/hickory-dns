@@ -12,13 +12,16 @@ use {
         config::{GOOGLE, ResolverConfig},
         proto::runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
     },
+    rustls::{ClientConfig, pki_types::ServerName},
     std::future::Future,
     std::io,
     std::net::SocketAddr,
     std::pin::Pin,
+    std::sync::Arc,
     std::time::Duration,
     tokio::net::{TcpSocket, TcpStream, UdpSocket},
     tokio::time::timeout,
+    tokio_rustls::{TlsConnector, client::TlsStream},
 };
 
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
@@ -33,6 +36,7 @@ impl RuntimeProvider for PrintProvider {
     type Timer = TokioTime;
     type Udp = UdpSocket;
     type Tcp = AsyncIoTokioAsStd<TcpStream>;
+    type Tls = AsyncIoTokioAsStd<TlsStream<TcpStream>>;
 
     fn create_handle(&self) -> Self::Handle {
         self.handle.clone()
@@ -65,6 +69,24 @@ impl RuntimeProvider for PrintProvider {
                     format!("connection to {server_addr:?} timed out after {wait_for:?}"),
                 )),
             }
+        })
+    }
+
+    fn connect_tls(
+        &self,
+        tcp_stream: Self::Tcp,
+        server_name: ServerName<'static>,
+        client_config: Arc<ClientConfig>,
+    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tls>>>> {
+        println!("Connecting to server over tls: {server_name:?}");
+        Box::pin(async move {
+            let early_data_enabled = client_config.enable_early_data;
+            Ok(AsyncIoTokioAsStd(
+                TlsConnector::from(client_config)
+                    .early_data(early_data_enabled)
+                    .connect(server_name, tcp_stream.0)
+                    .await?,
+            ))
         })
     }
 
