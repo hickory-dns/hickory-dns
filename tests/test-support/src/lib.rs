@@ -3,6 +3,7 @@ use std::{
     collections::{HashMap, VecDeque},
     future::{Future, ready},
     io,
+    io::Write,
     net::{IpAddr, SocketAddr},
     pin::Pin,
     sync::{Arc, Mutex},
@@ -39,6 +40,32 @@ pub fn subscribe() {
             .finish();
         tracing::subscriber::set_global_default(subscriber).unwrap();
     });
+}
+
+/// This is a writer that can be used with a thread-local tracing subscriber to inspect
+/// logs for a single test.
+#[derive(Clone)]
+pub struct LogWriter(pub Arc<Mutex<Vec<u8>>>);
+
+impl LogWriter {
+    pub fn contains(&self, needle: &str) -> bool {
+        self.logs().contains(needle)
+    }
+
+    pub fn logs(&self) -> String {
+        String::from_utf8(self.0.lock().unwrap().clone()).unwrap()
+    }
+}
+
+impl Write for LogWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        print!("{}", String::from_utf8(buf.to_vec()).unwrap());
+        self.0.lock().unwrap().write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.lock().unwrap().flush()
+    }
 }
 
 /// A mock response to be returned by the [`MockHandler`].

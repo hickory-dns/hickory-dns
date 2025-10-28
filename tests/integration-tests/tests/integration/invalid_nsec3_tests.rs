@@ -6,7 +6,7 @@
 use std::{
     collections::HashSet,
     net::{Ipv4Addr, Ipv6Addr},
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -35,7 +35,9 @@ use hickory_server::{
     store::in_memory::InMemoryZoneHandler,
     zone_handler::{AxfrPolicy, Catalog, ZoneType},
 };
-use test_support::subscribe;
+use test_support::{LogWriter, subscribe};
+use tracing::Dispatch;
+use tracing_subscriber::layer::SubscriberExt;
 
 /// Based on RFC 5155 section B.1.
 #[tokio::test]
@@ -317,6 +319,57 @@ async fn ds_child_zone_no_data_error() {
         "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom",
     )
     .await;
+}
+
+/// Regression test.  Given a response with missing NSEC3 records, Hickory would re-query the
+/// missing records until the DNSSEC depth counter stopped the lookup chain.
+#[tokio::test]
+#[ignore = "Hickory will exhaust its stack with this query"]
+async fn validation_loop_test() {
+    subscribe();
+
+    let logs = LogWriter(Arc::new(Mutex::new(Vec::new())));
+    let logs_clone = logs.clone();
+
+    let writer = move || logs_clone.clone();
+
+    let layer = tracing_subscriber::fmt::layer()
+        .with_writer(writer)
+        .with_ansi(false);
+
+    let subscriber = tracing_subscriber::registry().with(layer);
+    let dispatch = Dispatch::new(subscriber);
+
+    let _guard = tracing::dispatcher::set_default(&dispatch);
+
+    let (key, public_key) = generate_key();
+    let catalog = example_zone_catalog(key);
+    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+
+    let query_name = Name::parse("a.c.x.w.example.", None).unwrap();
+    let query_type = RecordType::A;
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, query_type)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+
+    let dnskey_response = fetch_dnskey(&mut client).await;
+
+    // Exclude "next closer" name.
+    test_exclude_nsec3(
+        &query_name,
+        query_type,
+        &response,
+        &dnskey_response,
+        "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom",
+    )
+    .await;
+
+    assert!(logs.contains(
+        "stopping verification cycle in verify_default_rrset query_name=example. query_type=DNSKEY"
+    ));
 }
 
 /// Modifies a response to remove a specific NSEC3 record, and confirms that the validating client
