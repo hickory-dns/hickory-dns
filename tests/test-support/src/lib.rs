@@ -17,7 +17,7 @@ use hickory_proto::{
     op::{Message, OpCode, Query, ResponseCode},
     rr::{
         Name, RData, Record, RecordType,
-        rdata::{A, NS},
+        rdata::{A, NS, SOA},
     },
     runtime::{RuntimeProvider, TokioHandle, TokioTime},
     serialize::binary::BinDecodable,
@@ -124,6 +124,18 @@ impl MockRecord {
         }
     }
 
+    pub fn soa(server: IpAddr, rr_name: &Name, mname: &Name, rname: &Name) -> Self {
+        Self {
+            ns: server,
+            ttl: 0,
+            query_name: rr_name.clone(),
+            query_type: RecordType::SOA,
+            record_name: rr_name.clone(),
+            record_data: RData::SOA(SOA::new(mname.clone(), rname.clone(), 1, 1, 1, 1, 1)),
+            section: MockResponseSection::Authority,
+        }
+    }
+
     pub fn with_query_name(mut self, query_name: &Name) -> Self {
         self.query_name = query_name.clone();
         self
@@ -136,6 +148,11 @@ impl MockRecord {
 
     pub fn with_section(mut self, section: MockResponseSection) -> Self {
         self.section = section;
+        self
+    }
+
+    pub fn with_ttl(mut self, ttl: u32) -> Self {
+        self.ttl = ttl;
         self
     }
 }
