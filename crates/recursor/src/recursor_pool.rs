@@ -5,13 +5,11 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use futures_util::StreamExt;
 use hickory_resolver::NameServerPool;
-use tracing::info;
 
 use crate::proto::{
-    DnsHandle, ProtoError,
-    op::{DnsRequestOptions, DnsResponse, Query},
+    ProtoError,
+    op::{DnsResponse, Query},
 };
 use crate::resolver::{ConnectionProvider, Name};
 
@@ -35,27 +33,6 @@ impl<P: ConnectionProvider> RecursorPool<P> {
         query: Query,
         security_aware: bool,
     ) -> Result<DnsResponse, ProtoError> {
-        let ns = self.ns.clone();
-
-        let query_cpy = query.clone();
-        let case_randomization = self.ns.context().options.case_randomization;
-
-        info!("querying {} for {}", self.zone, query_cpy);
-
-        let mut options = DnsRequestOptions::default();
-        options.use_edns = security_aware;
-        options.edns_set_dnssec_ok = security_aware;
-        options.case_randomization = case_randomization;
-
-        // Set RD=0 in queries made by the recursive resolver. See the last figure in
-        // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
-        // between recursive resolvers following referrals to each other.
-        options.recursion_desired = false;
-
-        let (Some(result), _) = ns.lookup(query_cpy, options).into_future().await else {
-            return Err(ProtoError::from("no response"));
-        };
-
-        result
+        unreachable!("no longer used.");
     }
 }
