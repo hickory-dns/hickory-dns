@@ -39,20 +39,20 @@ std = [
     "url/std",
 ]
 
-tls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__tls"]
+tls-aws-lc-rs = ["tokio-rustls?/aws-lc-rs", "rustls/aws_lc_rs", "__tls"]
 https-aws-lc-rs = ["tls-aws-lc-rs", "__https"]
 quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
 h3-aws-lc-rs = ["quic-aws-lc-rs", "__h3"]
 
-tls-ring = ["tokio-rustls/ring", "__tls"]
+tls-ring = ["tokio-rustls?/ring", "rustls/ring", "__tls"]
 https-ring = ["tls-ring", "__https"]
 quic-ring = ["quinn/rustls-ring", "tls-ring", "__quic"]
 h3-ring = ["quic-ring", "__h3"]
 
-__tls = ["dep:bytes", "dep:rustls", "dep:tokio-rustls", "std", "tokio"]
-__https = ["dep:bytes", "dep:h2", "dep:http", "std"]
-__quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn", "std"]
-__h3 = ["dep:h3", "dep:h3-quinn", "dep:http", "std"]
+__tls = ["dep:bytes", "dep:rustls", "dep:rustls-pki-types", "std"]
+__https = ["dep:bytes", "dep:h2", "dep:http", "std", "tokio"]
+__quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn", "std", "tokio"]
+__h3 = ["dep:h3", "dep:h3-quinn", "dep:http", "std", "tokio"]
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier", "std"]
 
@@ -62,7 +62,7 @@ __dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time", "std"]
 testing = ["std"]
 
 text-parsing = ["std"]
-tokio = ["dep:tokio", "std", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
+tokio = ["dep:tokio", "dep:tokio-rustls", "std", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["std", "tokio"]
 
 serde = ["dep:serde", "std", "url/serde"]

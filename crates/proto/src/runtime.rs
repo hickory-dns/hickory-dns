@@ -1,7 +1,7 @@
 //! Abstractions to deal with different async runtimes.
 
 use alloc::boxed::Box;
-#[cfg(feature = "__quic")]
+#[cfg(any(feature = "__tls", feature = "__quic"))]
 use alloc::sync::Arc;
 use core::future::Future;
 use core::marker::Send;
@@ -12,6 +12,10 @@ use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
+#[cfg(feature = "__tls")]
+use rustls::ClientConfig;
+#[cfg(feature = "__tls")]
+use rustls_pki_types::ServerName;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
@@ -91,7 +95,7 @@ pub mod iocompat {
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
             Pin::new(&mut self.get_mut().0)
-                .poll_read(cx, buf.initialized_mut())
+                .poll_read(cx, buf.initialize_unfilled())
                 .map_ok(|len| buf.advance(len))
         }
     }
@@ -129,6 +133,8 @@ mod tokio_runtime {
     use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
     use tokio::time::timeout;
+    #[cfg(feature = "__tls")]
+    use tokio_rustls::{TlsConnector, client::TlsStream};
 
     use super::iocompat::AsyncIoTokioAsStd;
     use super::*;
@@ -167,6 +173,8 @@ mod tokio_runtime {
         type Timer = TokioTime;
         type Udp = TokioUdpSocket;
         type Tcp = AsyncIoTokioAsStd<TcpStream>;
+        #[cfg(feature = "__tls")]
+        type Tls = AsyncIoTokioAsStd<TlsStream<TcpStream>>;
 
         fn create_handle(&self) -> Self::Handle {
             self.0.clone()
@@ -199,6 +207,24 @@ mod tokio_runtime {
                         format!("connection to {server_addr:?} timed out after {wait_for:?}"),
                     )),
                 }
+            })
+        }
+
+        #[cfg(feature = "__tls")]
+        fn connect_tls(
+            &self,
+            tcp_stream: Self::Tcp,
+            server_name: ServerName<'static>,
+            client_config: Arc<ClientConfig>,
+        ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tls>>>> {
+            Box::pin(async move {
+                let early_data_enabled = client_config.enable_early_data;
+                Ok(AsyncIoTokioAsStd(
+                    TlsConnector::from(client_config)
+                        .early_data(early_data_enabled)
+                        .connect(server_name, tcp_stream.0)
+                        .await?,
+                ))
             })
         }
 
@@ -254,6 +280,10 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     /// TcpStream
     type Tcp: DnsTcpStream;
 
+    /// TlsStream
+    #[cfg(feature = "__tls")]
+    type Tls: DnsTcpStream;
+
     /// Create a runtime handle
     fn create_handle(&self) -> Self::Handle;
 
@@ -264,6 +294,15 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         bind_addr: Option<SocketAddr>,
         timeout: Option<Duration>,
     ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>>;
+
+    /// Create a TLS connection over an existing TCP stream with custom configuration.
+    #[cfg(feature = "__tls")]
+    fn connect_tls(
+        &self,
+        tcp_stream: Self::Tcp,
+        server_name: ServerName<'static>,
+        client_config: Arc<ClientConfig>,
+    ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tls>>>>;
 
     /// Create a UDP socket bound to `local_addr`. The returned value should **not** be connected to `server_addr`.
     /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
