@@ -398,6 +398,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     ) -> Result<Message, Error> {
         let response_future = ns.lookup(query.clone(), self.security_aware);
 
+        #[cfg(feature = "metrics")]
+        self.metrics.outgoing_query_counter.increment(1);
+
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         let mut response = match response_future.await {
@@ -746,6 +749,7 @@ fn name_server_config(
 pub(super) struct RecursorMetrics {
     pub(super) cache_hit_counter: Counter,
     pub(super) cache_miss_counter: Counter,
+    pub(super) outgoing_query_counter: Counter,
 }
 
 #[cfg(feature = "metrics")]
@@ -763,9 +767,16 @@ impl RecursorMetrics {
             Unit::Count,
             "Number of recursive requests that could not be answered from the cache."
         );
+        let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
+        describe_counter!(
+            "hickory_recursor_outgoing_queries_total",
+            Unit::Count,
+            "Number of outgoing queries made during resolution."
+        );
         Self {
             cache_hit_counter,
             cache_miss_counter,
+            outgoing_query_counter,
         }
     }
 }
