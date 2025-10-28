@@ -23,7 +23,7 @@ use hickory_proto::{
     tcp::DnsTcpStream,
     udp::DnsUdpSocket,
 };
-pub use hickory_resolver::config::ProtocolConfig;
+use hickory_resolver::config::ProtocolConfig;
 use tracing::{error, info};
 
 use std::sync::Once;
