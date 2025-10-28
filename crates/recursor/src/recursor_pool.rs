@@ -7,8 +7,6 @@
 
 use futures_util::StreamExt;
 use hickory_resolver::NameServerPool;
-#[cfg(feature = "metrics")]
-use metrics::{Counter, Unit, counter, describe_counter};
 use tracing::info;
 
 use crate::proto::{
@@ -21,27 +19,11 @@ use crate::resolver::{ConnectionProvider, Name};
 pub(crate) struct RecursorPool<P: ConnectionProvider> {
     zone: Name,
     ns: NameServerPool<P>,
-    #[cfg(feature = "metrics")]
-    outgoing_query_counter: Counter,
 }
 
 impl<P: ConnectionProvider> RecursorPool<P> {
     pub(crate) fn from(zone: Name, ns: NameServerPool<P>) -> Self {
-        #[cfg(feature = "metrics")]
-        let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
-        #[cfg(feature = "metrics")]
-        describe_counter!(
-            "hickory_recursor_outgoing_queries_total",
-            Unit::Count,
-            "Number of outgoing queries made during resolution."
-        );
-
-        Self {
-            zone,
-            ns,
-            #[cfg(feature = "metrics")]
-            outgoing_query_counter,
-        }
+        Self { zone, ns }
     }
 
     pub(crate) fn zone(&self) -> &Name {
@@ -73,9 +55,6 @@ impl<P: ConnectionProvider> RecursorPool<P> {
         let (Some(result), _) = ns.lookup(query_cpy, options).into_future().await else {
             return Err(ProtoError::from("no response"));
         };
-
-        #[cfg(feature = "metrics")]
-        self.outgoing_query_counter.increment(1);
 
         result
     }
