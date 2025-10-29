@@ -95,6 +95,7 @@ hex.workspace = true
 hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
+hickory-resolver = { workspace = true, features = ["tokio"] }
 hostname.workspace = true
 metrics = { workspace = true, optional = true }
 metrics-exporter-prometheus = { workspace = true, optional = true }
