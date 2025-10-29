@@ -24,6 +24,8 @@ use futures_util::{
     future::{BoxFuture, Shared},
 };
 use parking_lot::Mutex;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use tracing::{debug, error, info};
 
@@ -477,7 +479,8 @@ impl PoolContext {
 }
 
 /// A mapping from nameserver IP address and protocol to encrypted transport state.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct NameServerTransportState(HashMap<IpAddr, ProtocolTransportState>);
 
@@ -660,6 +663,7 @@ impl NameServerTransportState {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct ProtocolTransportState {
     #[cfg(feature = "__tls")]
     tls: TransportState,
@@ -693,6 +697,7 @@ impl ProtocolTransportState {
 
 /// State tracked per nameserver IP/protocol to inform opportunistic encryption.
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 enum TransportState {
     /// Connection attempt has been initiated.
     #[default]
