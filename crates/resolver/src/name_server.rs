@@ -48,8 +48,6 @@ use crate::proto::{
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
-    /// Budget for opportunistic encryption probes.
-    opportunistic_probe_budget: Arc<AtomicU8>,
     /// Metrics related to opportunistic encryption probes.
     #[cfg(feature = "metrics")]
     opportunistic_probe_metrics: ProbeMetrics,
@@ -65,7 +63,6 @@ impl<P: ConnectionProvider> NameServer<P> {
         connections: impl IntoIterator<Item = (Protocol, P::Conn)>,
         config: NameServerConfig,
         options: &ResolverOpts,
-        opportunistic_probe_budget: Arc<AtomicU8>,
         connection_provider: P,
     ) -> Self {
         let mut connections = connections
@@ -83,7 +80,6 @@ impl<P: ConnectionProvider> NameServer<P> {
             config,
             connections: AsyncMutex::new(connections),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
-            opportunistic_probe_budget,
             #[cfg(feature = "metrics")]
             opportunistic_probe_metrics: ProbeMetrics::default(),
             connection_provider,
@@ -218,12 +214,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 .await
                 .initiate_connection(self.config.ip, protocol);
         } else if cx.opportunistic_encryption.is_enabled() && !protocol.is_encrypted() {
-            self.consider_probe_encrypted_transport(
-                &policy,
-                cx,
-                self.opportunistic_probe_budget.clone(),
-            )
-            .await;
+            self.consider_probe_encrypted_transport(&policy, cx).await;
         }
 
         let handle = Box::pin(self.connection_provider.new_connection(
@@ -283,7 +274,6 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         policy: &ConnectionPolicy,
         cx: &Arc<PoolContext>,
-        opportunistic_probe_budget: Arc<AtomicU8>,
     ) {
         let Some(probe_config) =
             policy.select_encrypted_connection_config(&self.config.connections)
@@ -306,9 +296,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             return;
         }
 
-        if let Err(err) =
-            self.probe_encrypted_transport(cx, probe_config, opportunistic_probe_budget)
-        {
+        if let Err(err) = self.probe_encrypted_transport(cx, probe_config) {
             error!(%err, "opportunistic encrypted probe attempt failed");
         }
     }
@@ -317,13 +305,13 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         cx: &Arc<PoolContext>,
         probe_config: &ConnectionConfig,
-        opportunistic_probe_budget: Arc<AtomicU8>,
     ) -> Result<(), ProtoError> {
-        let budget = opportunistic_probe_budget.load(Ordering::Relaxed);
+        let budget = cx.opportunistic_probe_budget.load(Ordering::Relaxed);
         #[cfg(feature = "metrics")]
         self.opportunistic_probe_metrics.probe_budget.set(budget);
         if budget == 0
-            || opportunistic_probe_budget
+            || cx
+                .opportunistic_probe_budget
                 .compare_exchange_weak(budget, budget - 1, Ordering::AcqRel, Ordering::Relaxed)
                 .is_err()
         {
@@ -351,7 +339,6 @@ struct ProbeRequest<P: ConnectionProvider> {
     ip: IpAddr,
     proto: Protocol,
     connecting: P::FutureConn,
-    budget: Arc<AtomicU8>,
     context: Arc<PoolContext>,
     #[cfg(feature = "metrics")]
     metrics: ProbeMetrics,
@@ -371,7 +358,6 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             connecting: ns
                 .connection_provider
                 .new_connection(ns.config.ip, config, cx)?,
-            budget: ns.opportunistic_probe_budget.clone(),
             context: cx.clone(),
             #[cfg(feature = "metrics")]
             metrics,
@@ -384,7 +370,6 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             ip,
             proto,
             connecting,
-            budget,
             context,
             #[cfg(feature = "metrics")]
             metrics,
@@ -443,7 +428,9 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             }
         }
 
-        let _prev = budget.fetch_add(1, Ordering::Relaxed);
+        let _prev = context
+            .opportunistic_probe_budget
+            .fetch_add(1, Ordering::Relaxed);
         #[cfg(feature = "metrics")]
         metrics.probe_budget.set(_prev + 1);
         Ok(())
@@ -985,7 +972,6 @@ mod tests {
             [].into_iter(),
             config,
             &options,
-            Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::default(),
         ));
 
@@ -1019,7 +1005,6 @@ mod tests {
             [],
             config,
             &options,
-            Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::default(),
         ));
 
@@ -1086,13 +1071,7 @@ mod tests {
         let cx = Arc::new(PoolContext::new(resolver_opts, TlsConfig::new().unwrap()));
         let mut request_options = DnsRequestOptions::default();
         request_options.case_randomization = true;
-        let ns = Arc::new(NameServer::new(
-            [],
-            config,
-            &cx.options,
-            Arc::new(AtomicU8::default()),
-            provider,
-        ));
+        let ns = Arc::new(NameServer::new([], config, &cx.options, provider));
         let response = ns
             .send(
                 DnsRequest::from_query(
@@ -1261,7 +1240,6 @@ mod opportunistic_enc_tests {
     use std::net::{IpAddr, Ipv4Addr};
     use std::pin::Pin;
     use std::sync::Arc;
-    use std::sync::atomic::AtomicU8;
     use std::task::{Context, Poll};
     use std::time::{Duration, Instant};
 
@@ -1638,12 +1616,13 @@ mod opportunistic_enc_tests {
 
         // Enable opportunistic encryption
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
-            .with_opportunistic_encryption();
+            .with_opportunistic_encryption()
+            .with_probe_budget(10);
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1670,7 +1649,8 @@ mod opportunistic_enc_tests {
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
-            .with_opportunistic_encryption();
+            .with_opportunistic_encryption()
+            .with_probe_budget(10);
 
         // Set up state to show an in-flight connection already initiated
         cx.transport_state()
@@ -1679,7 +1659,7 @@ mod opportunistic_enc_tests {
 
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1698,7 +1678,8 @@ mod opportunistic_enc_tests {
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
-            .with_opportunistic_encryption();
+            .with_opportunistic_encryption()
+            .with_probe_budget(10);
 
         // Set up state to show a recent failure within the damping period
         cx.transport_state().await.error_received(
@@ -1712,7 +1693,7 @@ mod opportunistic_enc_tests {
 
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1730,7 +1711,8 @@ mod opportunistic_enc_tests {
         subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
-        let mut cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap());
+        let mut cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
+            .with_probe_budget(10);
         let opp_enc_config = OpportunisticEncryptionConfig {
             damping_period: Duration::from_secs(5),
             ..OpportunisticEncryptionConfig::default()
@@ -1749,7 +1731,7 @@ mod opportunistic_enc_tests {
 
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, 10, Arc::new(cx), &mock_provider)
+            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1775,7 +1757,7 @@ mod opportunistic_enc_tests {
         let mock_provider = MockProvider::default();
         // Set budget to 0 to simulate exhausted probe budget
         assert!(
-            test_connected_mut_client(ns_ip, 0, Arc::new(cx), &mock_provider)
+            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1809,10 +1791,10 @@ mod opportunistic_enc_tests {
                 assert!(
                     test_connected_mut_client(
                         IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                        10,
                         Arc::new(
                             PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
-                                .with_opportunistic_encryption(),
+                                .with_opportunistic_encryption()
+                                .with_probe_budget(10),
                         ),
                         &MockProvider::default(),
                     )
@@ -1852,8 +1834,6 @@ mod opportunistic_enc_tests {
                 assert!(
                     test_connected_mut_client(
                         IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                        // Set budget to 0 to simulate exhausted probe budget
-                        0,
                         Arc::new(
                             PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
                                 .with_opportunistic_encryption(),
@@ -1903,10 +1883,10 @@ mod opportunistic_enc_tests {
             runtime.block_on(async {
                 let _ = test_connected_mut_client(
                     IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                    10,
                     Arc::new(
                         PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
-                            .with_opportunistic_encryption(),
+                            .with_opportunistic_encryption()
+                            .with_probe_budget(10),
                     ),
                     // Configure a mock provider that always produces an error when new connections are requested.
                     &MockProvider {
@@ -1951,10 +1931,10 @@ mod opportunistic_enc_tests {
             runtime.block_on(async {
                 let _ = test_connected_mut_client(
                     IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                    10,
                     Arc::new(
                         PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
-                            .with_opportunistic_encryption(),
+                            .with_opportunistic_encryption()
+                            .with_probe_budget(10),
                     ),
                     // Configure a mock provider that always produces a Timeout error when new connections are requested.
                     &MockProvider {
@@ -1990,7 +1970,6 @@ mod opportunistic_enc_tests {
     /// the `MockProvider`'s recorded calls.
     async fn test_connected_mut_client(
         ns_ip: IpAddr,
-        probe_budget: u8,
         cx: Arc<PoolContext>,
         provider: &MockProvider,
     ) -> Result<(), ProtoError> {
@@ -1998,7 +1977,6 @@ mod opportunistic_enc_tests {
             [].into_iter(),
             NameServerConfig::opportunistic_encryption(ns_ip),
             &ResolverOpts::default(),
-            Arc::new(AtomicU8::new(probe_budget)),
             provider.clone(),
         );
 

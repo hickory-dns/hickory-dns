@@ -50,7 +50,6 @@ async fn test_shared_lookup() -> Result<(), ProtoError> {
         [],
         NameServerConfig::udp(query_ip),
         &opts,
-        Arc::new(AtomicU8::default()),
         provider,
     ));
     let pool = NameServerPool::from_nameservers(

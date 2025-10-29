@@ -73,7 +73,6 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     pub fn from_config(
         servers: impl IntoIterator<Item = NameServerConfig>,
         cx: Arc<PoolContext>,
-        opportunistic_probe_budget: Arc<AtomicU8>,
         conn_provider: P,
     ) -> Self {
         Self::from_nameservers(
@@ -84,7 +83,6 @@ impl<P: ConnectionProvider> NameServerPool<P> {
                         [],
                         server,
                         &cx.options,
-                        opportunistic_probe_budget.clone(),
                         conn_provider.clone(),
                     ))
                 })
@@ -353,6 +351,8 @@ pub struct PoolContext {
     pub options: ResolverOpts,
     /// TLS configuration
     pub tls: TlsConfig,
+    /// Opportunistic probe budget
+    pub opportunistic_probe_budget: AtomicU8,
     /// Opportunistic encryption configuration
     pub opportunistic_encryption: OpportunisticEncryption,
     pub(crate) transport_state: AsyncMutex<NameServerTransportState>,
@@ -367,9 +367,17 @@ impl PoolContext {
             answer_address_filter: options.answer_address_filter(),
             options,
             tls,
+            opportunistic_probe_budget: AtomicU8::default(),
             opportunistic_encryption: OpportunisticEncryption::default(),
             transport_state: AsyncMutex::new(NameServerTransportState::default()),
         }
+    }
+
+    /// Set the opportunistic probe budget
+    pub fn with_probe_budget(self, budget: u8) -> Self {
+        self.opportunistic_probe_budget
+            .store(budget, AtomicOrdering::SeqCst);
+        self
     }
 
     /// Add an answer address filter
@@ -606,7 +614,7 @@ enum TransportState {
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::{net::IpAddr, str::FromStr, sync::atomic::AtomicU8};
+    use std::{net::IpAddr, str::FromStr};
 
     use test_support::subscribe;
     use tokio::runtime::Runtime;
@@ -640,7 +648,6 @@ mod tests {
                 ResolverOpts::default(),
                 TlsConfig::new().unwrap(),
             )),
-            Arc::new(AtomicU8::default()),
             TokioRuntimeProvider::new(),
         );
 
@@ -691,13 +698,7 @@ mod tests {
         };
 
         let tcp = NameServerConfig::tcp(IpAddr::from([8, 8, 8, 8]));
-        let name_server = Arc::new(NameServer::new(
-            [],
-            tcp,
-            &opts,
-            Arc::new(AtomicU8::default()),
-            conn_provider,
-        ));
+        let name_server = Arc::new(NameServer::new([], tcp, &opts, conn_provider));
         let name_servers = vec![name_server];
         let pool = NameServerPool::from_nameservers(
             name_servers.clone(),

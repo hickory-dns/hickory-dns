@@ -52,7 +52,6 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     ns_recursion_limit: Option<u8>,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
-    opportunistic_probe_budget: Arc<AtomicU8>,
     conn_provider: P,
     connection_cache: Arc<Mutex<LruCache<IpAddr, Arc<NameServer<P>>>>>,
     request_options: DnsRequestOptions,
@@ -94,27 +93,22 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ns_cache_size, response_cache_size
         );
 
-        let opportunistic_probe_budget = Arc::new(AtomicU8::new(
-            opportunistic_encryption
-                .max_concurrent_probes()
-                .unwrap_or_default(),
-        ));
-
         let mut pool_context = PoolContext::new(
             recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
             tls,
+        )
+        .with_probe_budget(
+            opportunistic_encryption
+                .max_concurrent_probes()
+                .unwrap_or_default(),
         )
         .with_transport_state(encrypted_transport_state)
         .with_answer_filter(answer_address_filter);
         pool_context.opportunistic_encryption = opportunistic_encryption;
         let pool_context = Arc::new(pool_context);
 
-        let roots = NameServerPool::from_config(
-            servers,
-            pool_context.clone(),
-            opportunistic_probe_budget.clone(),
-            conn_provider.clone(),
-        );
+        let roots =
+            NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());
 
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
@@ -138,7 +132,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             ns_recursion_limit,
             name_server_filter,
             pool_context,
-            opportunistic_probe_budget,
             conn_provider,
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
@@ -609,7 +602,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         [],
                         server.clone(),
                         &self.pool_context.clone().options,
-                        self.opportunistic_probe_budget.clone(),
                         self.conn_provider.clone(),
                     ));
                     cache.insert(server.ip, ns.clone());
