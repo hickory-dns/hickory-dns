@@ -15,7 +15,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime};
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
@@ -506,7 +506,7 @@ impl NameServerTransportState {
         else {
             return;
         };
-        *last_response = Some(Instant::now());
+        *last_response = Some(SystemTime::now());
     }
 
     /// Update the transport state for the given IP and protocol to record a received error.
@@ -516,11 +516,11 @@ impl NameServerTransportState {
             match error.kind() {
                 ProtoErrorKind::Timeout => TransportState::TimedOut {
                     #[cfg(any(feature = "__tls", feature = "__quic"))]
-                    completed_at: Instant::now(),
+                    completed_at: SystemTime::now(),
                 },
                 _ => TransportState::Failed {
                     #[cfg(any(feature = "__tls", feature = "__quic"))]
-                    completed_at: Instant::now(),
+                    completed_at: SystemTime::now(),
                 },
             },
         );
@@ -583,7 +583,7 @@ impl NameServerTransportState {
             return false;
         };
 
-        Instant::now().duration_since(*last_response) <= config.persistence_period
+        last_response.elapsed().unwrap_or(Duration::MAX) <= config.persistence_period
     }
 
     /// Returns true if there has been a successful response within the persistence period.
@@ -622,7 +622,7 @@ impl NameServerTransportState {
             TransportState::Initiated => false,
             TransportState::Success { .. } => true,
             TransportState::Failed { completed_at } | TransportState::TimedOut { completed_at } => {
-                completed_at.elapsed() > config.damping_period
+                completed_at.elapsed().unwrap_or(Duration::MAX) > config.damping_period
             }
         }
     }
@@ -640,7 +640,7 @@ impl NameServerTransportState {
 
     /// For testing, set the last response time for successful connections to the ip/protocol.
     #[cfg(all(test, feature = "__tls"))]
-    pub(crate) fn set_last_response(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
+    pub(crate) fn set_last_response(&mut self, ip: IpAddr, protocol: Protocol, when: SystemTime) {
         let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
         else {
             return;
@@ -651,7 +651,7 @@ impl NameServerTransportState {
 
     /// For testing, set the completion time for failed connections to the ip/protocol.
     #[cfg(all(test, feature = "__tls"))]
-    pub(crate) fn set_failure_time(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
+    pub(crate) fn set_failure_time(&mut self, ip: IpAddr, protocol: Protocol, when: SystemTime) {
         self.0.insert(
             (ip, protocol),
             TransportState::Failed { completed_at: when },
@@ -668,19 +668,19 @@ enum TransportState {
     /// Connection completed successfully.
     Success {
         /// The last instant at which a response was read on the connection (if any).
-        last_response: Option<Instant>,
+        last_response: Option<SystemTime>,
     },
     /// Connection failed with an error.
     Failed {
         /// The instant the connection attempt was completed at.
         #[cfg(any(feature = "__tls", feature = "__quic"))]
-        completed_at: Instant,
+        completed_at: SystemTime,
     },
     /// Connection timed out.
     TimedOut {
         /// The instant the connection attempt was completed at.
         #[cfg(any(feature = "__tls", feature = "__quic"))]
-        completed_at: Instant,
+        completed_at: SystemTime,
     },
 }
 
