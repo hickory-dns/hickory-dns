@@ -493,20 +493,16 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
                 Some(config) => config,
                 None => TlsConfig::new()?,
             },
+            opportunistic_probe_budget: AtomicU8::new(
+                opportunistic_encryption
+                    .max_concurrent_probes()
+                    .unwrap_or_default(),
+            ),
             opportunistic_encryption,
             transport_state: AsyncMutex::new(encrypted_transport_state),
         });
 
-        let pool = NameServerPool::from_config(
-            name_servers,
-            context.clone(),
-            Arc::new(AtomicU8::new(
-                opportunistic_encryption
-                    .max_concurrent_probes()
-                    .unwrap_or_default(),
-            )),
-            provider,
-        );
+        let pool = NameServerPool::from_config(name_servers, context.clone(), provider);
 
         let client = RetryDnsHandle::new(pool, context.options.attempts);
 

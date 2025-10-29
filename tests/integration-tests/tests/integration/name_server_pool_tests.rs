@@ -5,7 +5,7 @@ use std::slice;
 use std::str::FromStr;
 use std::sync::{
     Arc,
-    atomic::{AtomicIsize, AtomicU8, Ordering},
+    atomic::{AtomicIsize, Ordering},
 };
 use std::task::Poll;
 
@@ -110,13 +110,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     }
 
     let config = NameServerConfig::new(ip, trust_negative_responses, configs);
-    Arc::new(NameServer::new(
-        conns,
-        config,
-        &options,
-        Arc::new(AtomicU8::default()),
-        conn_provider,
-    ))
+    Arc::new(NameServer::new(conns, config, &options, conn_provider))
 }
 
 #[cfg(test)]
