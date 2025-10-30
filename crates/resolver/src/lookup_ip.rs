@@ -28,7 +28,7 @@ use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
 use crate::lookup::Lookup;
 use crate::proto::ProtoError;
-use crate::proto::op::{DnsRequestOptions, Query};
+use crate::proto::op::{DnsRequestOptions, Message, Query};
 use crate::proto::rr::{Name, RData, Record, RecordType};
 use crate::proto::xfer::DnsHandle;
 
@@ -57,7 +57,7 @@ impl LookupIp {
     }
 
     /// Returns a reference to the underlying DNS Message
-    pub fn as_message(&self) -> &crate::proto::op::Message {
+    pub fn as_message(&self) -> &Message {
         self.0.message()
     }
 
