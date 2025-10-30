@@ -307,17 +307,18 @@ where
 
                 // TODO: disable name validation with ResolverOpts? glibc feature...
                 // restrict to the RData type requested
-                if query.query_class() == r.dns_class() {
-                    // standard evaluation, it's an any type or it's the requested type and the search_name matches
-                    #[allow(clippy::suspicious_operation_groupings)]
-                    if (query.query_type().is_any() || query.query_type() == r.record_type())
-                        && (search_name.as_ref() == r.name() || query.name() == r.name())
-                    {
-                        found_name = true;
-                        // Track if we found the CNAME target (not just the original name)
-                        if was_cname && search_name.as_ref() == r.name() {
-                            found_cname_target = true;
-                        }
+                if query.query_class() != r.dns_class() {
+                    continue;
+                }
+                // standard evaluation, it's an any type or it's the requested type and the search_name matches
+                let type_matches =
+                    query.query_type().is_any() || query.query_type() == r.record_type();
+                let name_matches = search_name.as_ref() == r.name() || query.name() == r.name();
+                if type_matches && name_matches {
+                    found_name = true;
+                    // Track if we found the CNAME target (not just the original name)
+                    if was_cname && search_name.as_ref() == r.name() {
+                        found_cname_target = true;
                     }
                 }
             }
@@ -331,7 +332,13 @@ where
 
             // After following all the CNAMES to the last one, try and lookup the final name
             if found_name && (!was_cname || preserved_records.is_empty()) {
-                if needs_filtering {
+                if !needs_filtering {
+                    // No filtering needed - return complete message as-is
+                    // Strip DNSSEC records if DO bit not set
+                    let message =
+                        maybe_strip_dnssec_records(options.edns_set_dnssec_ok, message, query);
+                    return Ok(Records::Exists(message, min_ttl));
+                } else {
                     // Filter records that belong in ANSWER section only
                     // Don't include records from ADDITIONAL/AUTHORITY here - they're preserved as-is below
                     let records = message
@@ -346,12 +353,11 @@ where
                             // restrict to the RData type requested
                             if query.query_class() == r.dns_class() {
                                 // standard evaluation, it's an any type or it's the requested type and the search_name matches
-                                #[allow(clippy::suspicious_operation_groupings)]
-                                if (query.query_type().is_any()
-                                    || query.query_type() == r.record_type())
-                                    && (search_name.as_ref() == r.name()
-                                        || query.name() == r.name())
-                                {
+                                let type_matches = query.query_type().is_any()
+                                    || query.query_type() == r.record_type();
+                                let name_matches =
+                                    search_name.as_ref() == r.name() || query.name() == r.name();
+                                if type_matches && name_matches {
                                     return Some(r);
                                 }
                                 // CNAME evaluation, the record is from the CNAME lookup chain.
@@ -375,12 +381,6 @@ where
                     // Replace ANSWER section with filtered records, preserve AUTHORITY and ADDITIONAL sections
                     *message.answers_mut() = preserved_records;
 
-                    // Strip DNSSEC records if DO bit not set
-                    let message =
-                        maybe_strip_dnssec_records(options.edns_set_dnssec_ok, message, query);
-                    return Ok(Records::Exists(message, min_ttl));
-                } else {
-                    // No filtering needed - return complete message as-is
                     // Strip DNSSEC records if DO bit not set
                     let message =
                         maybe_strip_dnssec_records(options.edns_set_dnssec_ok, message, query);
@@ -837,7 +837,6 @@ mod tests {
         ))
         .expect("lookup failed");
 
-        // With the new implementation, sections are preserved
         // Answers section should have SRV + CNAME
         assert_eq!(
             ips.message().answers(),
