@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{sync::Arc, vec::Vec};
 use core::fmt::{self, Display};
 use core::net::SocketAddr;
 use core::pin::Pin;
@@ -166,7 +166,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         }
 
         let retry_interval_time = request.options().retry_interval;
-        let request = Arc::new(UdpRequest::new(request, self));
+        let request = UdpRequest::new(request, self);
 
         let max_retries = self.max_retries;
         let retry_interval = if retry_interval_time < self.retry_interval_floor {
@@ -177,14 +177,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
         P::Timer::timeout(
             self.timeout,
-            Box::pin(retry::<P, _>(
-                move || {
-                    let request = request.clone();
-                    Box::pin(async move { request.send().await })
-                },
-                retry_interval,
-                max_retries.into(),
-            )),
+            retry::<P>(request, retry_interval, max_retries.into()),
         )
         .into()
     }
@@ -245,7 +238,9 @@ impl<P: RuntimeProvider> UdpRequest<P> {
             os_port_selection: stream.os_port_selection,
         }
     }
+}
 
+impl<P: RuntimeProvider> Request for UdpRequest<P> {
     async fn send(&self) -> Result<DnsResponse, ProtoError> {
         let Self {
             avoid_local_ports,
@@ -473,21 +468,17 @@ impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
 /// retry_interval_time period up to a maximum of max_tasks. It will immediately return
 /// the first task that completes successfully, or an error if no tasks succeed.
 /// It does not implement an overall timeout to bound the work.
-async fn retry<Provider, Fut>(
-    task: impl Fn() -> Fut + Send,
+async fn retry<Provider: RuntimeProvider>(
+    request: impl Request,
     retry_interval_time: Duration,
     max_tasks: usize,
-) -> Result<DnsResponse, ProtoError>
-where
-    Provider: RuntimeProvider,
-    Fut: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
+) -> Result<DnsResponse, ProtoError> {
     let mut futures = FuturesUnordered::new();
 
     let retry_timer = Provider::Timer::delay_for(retry_interval_time).fuse();
     pin_mut!(retry_timer);
 
-    futures.push(task());
+    futures.push(request.send());
     let mut tasks = 1;
 
     loop {
@@ -501,12 +492,16 @@ where
             _ = &mut retry_timer => {
                 if tasks < max_tasks {
                     tasks += 1;
-                    futures.push(task());
+                    futures.push(request.send());
                     retry_timer.set(Provider::Timer::delay_for(retry_interval_time).fuse());
                 }
             }
         }
     }
+}
+
+trait Request {
+    async fn send(&self) -> Result<DnsResponse, ProtoError>;
 }
 
 #[cfg(all(test, feature = "tokio"))]
@@ -588,49 +583,44 @@ mod tests {
     async fn retry_handler_test() -> Result<(), std::io::Error> {
         let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
-        let response = DnsResponse::from_message(message.clone())?;
 
-        // test: retry timer runs a task successfully
-        let task = move || {
-            let response = response.clone();
-            async move { Ok::<_, ProtoError>(response) }
-        };
-
-        let ret = retry::<TokioRuntimeProvider, _>(task, Duration::from_millis(200), 5).await?;
+        let ret = retry::<TokioRuntimeProvider>(
+            FixedResponse {
+                response: DnsResponse::from_message(message.clone())?,
+            },
+            Duration::from_millis(200),
+            5,
+        )
+        .await?;
         assert_eq!(ret.response_code(), ResponseCode::NoError);
 
-        // This is used in all of the tests below with a per-test counter and timeout value
-        let task = |timeout: u64, counter: Arc<AtomicU8>| {
-            let response = DnsResponse::from_message(message.clone()).unwrap();
-            move || {
-                let counter = counter.clone();
-                let response = response.clone();
-                async move {
-                    let _ = counter.fetch_add(1, Ordering::Relaxed);
-                    sleep(Duration::from_millis(timeout)).await;
-                    Ok::<_, ProtoError>(response)
-                }
-            }
-        };
-
         // test: retry timer doesn't fire extra tasks before the retry interval
-        let x = Arc::new(AtomicU8::new(0));
-        let ret = x.clone();
-        retry::<TokioRuntimeProvider, _>(task(100, x), Duration::from_millis(200), 5).await?;
-        assert_eq!(ret.load(Ordering::Relaxed), 1);
+        let (req, tries) = DelayedResponse::new(
+            DnsResponse::from_message(message.clone()).unwrap(),
+            Duration::from_millis(100),
+            Arc::new(AtomicU8::new(0)),
+        );
+        retry::<TokioRuntimeProvider>(req, Duration::from_millis(200), 5).await?;
+        assert_eq!(tries.load(Ordering::Relaxed), 1);
 
         // test: retry timer does fire extra tasks after the retry interval
-        let x = Arc::new(AtomicU8::new(0));
-        let ret = x.clone();
-        retry::<TokioRuntimeProvider, _>(task(1500, x), Duration::from_millis(200), 5).await?;
-        assert_eq!(ret.load(Ordering::Relaxed), 5);
+        let (req, tries) = DelayedResponse::new(
+            DnsResponse::from_message(message.clone()).unwrap(),
+            Duration::from_millis(1500),
+            Arc::new(AtomicU8::new(0)),
+        );
+        retry::<TokioRuntimeProvider>(req, Duration::from_millis(200), 5).await?;
+        assert_eq!(tries.load(Ordering::Relaxed), 5);
 
         // test: retry timer tasks when nested under a Time::timer
-        let x = Arc::new(AtomicU8::new(0));
-        let ret = x.clone();
+        let (req, tries) = DelayedResponse::new(
+            DnsResponse::from_message(message.clone()).unwrap(),
+            Duration::from_millis(1000),
+            Arc::new(AtomicU8::new(0)),
+        );
         let timer_ret = TokioTime::timeout(
             Duration::from_millis(500),
-            retry::<TokioRuntimeProvider, _>(task(1000, x), Duration::from_millis(200), 5),
+            retry::<TokioRuntimeProvider>(req, Duration::from_millis(200), 5),
         )
         .await;
 
@@ -640,8 +630,49 @@ mod tests {
             panic!("timer did not timeout");
         }
 
-        assert_eq!(ret.load(Ordering::Relaxed), 3);
+        assert_eq!(tries.load(Ordering::Relaxed), 3);
 
         Ok(())
+    }
+
+    struct FixedResponse {
+        response: DnsResponse,
+    }
+
+    impl Request for FixedResponse {
+        async fn send(&self) -> Result<DnsResponse, ProtoError> {
+            Ok(self.response.clone())
+        }
+    }
+
+    struct DelayedResponse {
+        response: DnsResponse,
+        delay: Duration,
+        counter: Arc<AtomicU8>,
+    }
+
+    impl DelayedResponse {
+        fn new(
+            response: DnsResponse,
+            delay: Duration,
+            counter: Arc<AtomicU8>,
+        ) -> (Self, Arc<AtomicU8>) {
+            (
+                Self {
+                    response,
+                    delay,
+                    counter: counter.clone(),
+                },
+                counter,
+            )
+        }
+    }
+
+    impl Request for DelayedResponse {
+        async fn send(&self) -> Result<DnsResponse, ProtoError> {
+            let _ = self.counter.fetch_add(1, Ordering::Relaxed);
+            sleep(self.delay).await;
+            Ok(self.response.clone())
+        }
     }
 }
