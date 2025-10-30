@@ -203,8 +203,8 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
 
         // Create the receive buffer.
         trace!(
-            "creating UDP receive buffer with size {}",
-            self.recv_buf_size
+            recv_buf_size = self.recv_buf_size,
+            "creating UDP receive buffer"
         );
         let mut recv_buf = vec![0; self.recv_buf_size];
 
