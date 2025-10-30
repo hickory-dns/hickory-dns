@@ -153,25 +153,12 @@ impl<P: RuntimeProvider> UdpRequest<P> {
 
 impl<P: RuntimeProvider> Request for UdpRequest<P> {
     async fn send(&self) -> Result<DnsResponse, ProtoError> {
-        let Self {
-            avoid_local_ports,
-            name_server,
-            request,
-            provider,
-            signer,
-            now,
-            bind_addr,
-            os_port_selection,
-            case_randomization,
-            recv_buf_size,
-        } = self;
-
-        let original_query = request.original_query();
-        let mut request = request.clone();
+        let original_query = self.request.original_query();
+        let mut request = self.request.clone();
 
         let mut verifier = None;
-        if let Some(signer) = &signer {
-            match request.finalize(&**signer, *now) {
+        if let Some(signer) = &self.signer {
+            match request.finalize(&**signer, self.now) {
                 Ok(answer_verifier) => verifier = answer_verifier,
                 Err(e) => {
                     debug!("could not sign message: {}", e);
@@ -186,7 +173,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         };
 
         let msg_id = request.id();
-        let msg = SerialMessage::new(request_bytes, *name_server);
+        let msg = SerialMessage::new(request_bytes, self.name_server);
         let addr = msg.addr();
         let final_message = match msg.to_message() {
             Ok(m) => m,
@@ -196,10 +183,10 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
 
         let socket = NextRandomUdpSocket::new(
             addr,
-            *bind_addr,
-            avoid_local_ports.clone(),
-            *os_port_selection,
-            provider.clone(),
+            self.bind_addr,
+            self.avoid_local_ports.clone(),
+            self.os_port_selection,
+            self.provider.clone(),
         )
         .await?;
 
@@ -215,8 +202,11 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         }
 
         // Create the receive buffer.
-        trace!("creating UDP receive buffer with size {recv_buf_size}");
-        let mut recv_buf = vec![0; *recv_buf_size];
+        trace!(
+            "creating UDP receive buffer with size {}",
+            self.recv_buf_size
+        );
+        let mut recv_buf = vec![0; self.recv_buf_size];
 
         // Try to process up to 3 responses
         for _ in 0..3 {
@@ -298,7 +288,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             let question_matches = response_queries
                 .iter()
                 .all(|elem| request_queries.contains(elem));
-            if *case_randomization
+            if self.case_randomization
                 && question_matches
                 && !response_queries.iter().all(|elem| {
                     request_queries
@@ -319,7 +309,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             }
 
             // overwrite the query with the original query if case randomization may have been used
-            if *case_randomization {
+            if self.case_randomization {
                 if let Some(original_query) = original_query {
                     for response_query in response_queries.iter_mut() {
                         if response_query == original_query {
