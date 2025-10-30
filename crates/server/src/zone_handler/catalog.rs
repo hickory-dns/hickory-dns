@@ -1214,17 +1214,11 @@ fn maybe_strip_dnssec_records(
         return lookup;
     }
 
-    let filtered: Vec<_> = lookup
+    let filtered = lookup
         .into_iter()
-        .filter_map(|record| {
-            let record_type = record.record_type();
-            if record_type == query_type || !record_type.is_dnssec() {
-                Some(record.clone())
-            } else {
-                None
-            }
-        })
-        .collect();
+        .filter(|record| record.record_type() == query_type || !record.record_type().is_dnssec())
+        .cloned()
+        .collect::<Vec<_>>();
 
     AuthLookup::answers(LookupRecords::Section(filtered), None)
 }
