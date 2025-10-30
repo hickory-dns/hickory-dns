@@ -255,7 +255,192 @@ struct RequestContext<P> {
 
 impl<P: RuntimeProvider> RequestContext<P> {
     async fn send(self: Arc<Self>) -> Result<DnsResponse, ProtoError> {
-        send_udp_message(self).await
+        let Self {
+            avoid_local_ports,
+            name_server,
+            request,
+            provider,
+            signer,
+            now,
+            bind_addr,
+            os_port_selection,
+            case_randomization,
+            recv_buf_size,
+        } = &*self;
+
+        let original_query = request.original_query();
+        let mut request = Arc::clone(request);
+        let request = Arc::make_mut(&mut request);
+
+        let mut verifier = None;
+        if let Some(signer) = &signer {
+            match request.finalize(&**signer, *now) {
+                Ok(answer_verifier) => verifier = answer_verifier,
+                Err(e) => {
+                    debug!("could not sign message: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+
+        let request_bytes = match request.to_vec() {
+            Ok(bytes) => bytes,
+            Err(err) => return Err(err),
+        };
+
+        let msg_id = request.id();
+        let msg = SerialMessage::new(request_bytes, *name_server);
+        let addr = msg.addr();
+        let final_message = match msg.to_message() {
+            Ok(m) => m,
+            Err(e) => return Err(e),
+        };
+        debug!(%final_message, "final message");
+
+        let socket = NextRandomUdpSocket::new(
+            addr,
+            *bind_addr,
+            avoid_local_ports.clone(),
+            *os_port_selection,
+            provider.clone(),
+        )
+        .await?;
+
+        let bytes = msg.bytes();
+        let len_sent: usize = socket.send_to(bytes, addr).await?;
+
+        if bytes.len() != len_sent {
+            return Err(ProtoError::from(format!(
+                "Not all bytes of message sent, {} of {}",
+                len_sent,
+                bytes.len()
+            )));
+        }
+
+        // Create the receive buffer.
+        trace!("creating UDP receive buffer with size {recv_buf_size}");
+        let mut recv_buf = vec![0; *recv_buf_size];
+
+        // Try to process up to 3 responses
+        for _ in 0..3 {
+            let (len, src) = socket.recv_from(&mut recv_buf).await?;
+
+            // Copy the slice of read bytes.
+            let response_bytes = &recv_buf[0..len];
+            let response_buffer = Vec::from(response_bytes);
+
+            // compare expected src to received packet
+            let request_target = msg.addr();
+
+            // Comparing the IP and Port directly as internal information about the link is stored with the IpAddr, see https://github.com/hickory-dns/hickory-dns/issues/2081
+            if src.ip().to_canonical() != request_target.ip().to_canonical()
+                || src.port() != request_target.port()
+            {
+                warn!(
+                    "ignoring response from {}:{} because it does not match name_server: {}:{}.",
+                    src.ip().to_canonical(),
+                    src.port(),
+                    request_target.ip().to_canonical(),
+                    request_target.port(),
+                );
+
+                // await an answer from the correct NameServer
+                continue;
+            }
+
+            let mut response = match DnsResponse::from_buffer(response_buffer) {
+                Ok(response) => response,
+                Err(e) => {
+                    // on errors deserializing, continue
+                    warn!("dropped malformed message waiting for id: {msg_id} err: {e}");
+                    continue;
+                }
+            };
+
+            // Validate the message id in the response matches the value chosen for the query.
+            if msg_id != response.id() {
+                // on wrong id, attempted poison?
+                warn!(
+                    "expected message id: {} got: {}, dropped",
+                    msg_id,
+                    response.id()
+                );
+
+                return Err(ProtoErrorKind::BadTransactionId.into());
+            }
+
+            // Validate the returned query name.
+            //
+            // This currently checks that each response query name was present in the original query, but not that
+            // every original question is present.
+            //
+            // References:
+            //
+            // RFC 1035 7.3:
+            //
+            // The next step is to match the response to a current resolver request.
+            // The recommended strategy is to do a preliminary matching using the ID
+            // field in the domain header, and then to verify that the question section
+            // corresponds to the information currently desired.
+            //
+            // RFC 1035 7.4:
+            //
+            // In general, we expect a resolver to cache all data which it receives in
+            // responses since it may be useful in answering future client requests.
+            // However, there are several types of data which should not be cached:
+            //
+            // ...
+            //
+            //  - RR data in responses of dubious reliability.  When a resolver
+            // receives unsolicited responses or RR data other than that
+            // requested, it should discard it without caching it.
+            let request_message = Message::from_vec(msg.bytes())?;
+            let request_queries = request_message.queries();
+            let response_queries = response.queries_mut();
+
+            let question_matches = response_queries
+                .iter()
+                .all(|elem| request_queries.contains(elem));
+            if *case_randomization
+                && question_matches
+                && !response_queries.iter().all(|elem| {
+                    request_queries
+                        .iter()
+                        .any(|req_q| req_q == elem && req_q.name().eq_case(elem.name()))
+                })
+            {
+                warn!(
+                    "case of question section did not match: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}"
+                );
+                return Err(ProtoErrorKind::QueryCaseMismatch.into());
+            }
+            if !question_matches {
+                warn!(
+                    "detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}"
+                );
+                continue;
+            }
+
+            // overwrite the query with the original query if case randomization may have been used
+            if *case_randomization {
+                if let Some(original_query) = original_query {
+                    for response_query in response_queries.iter_mut() {
+                        if response_query == original_query {
+                            *response_query = original_query.clone();
+                        }
+                    }
+                }
+            }
+
+            debug!("received message id: {}", response.id());
+            if let Some(mut verifier) = verifier {
+                return verifier(response_bytes);
+            } else {
+                return Ok(response);
+            }
+        }
+
+        Err("udp receive attempts exceeded".into())
     }
 }
 
@@ -290,197 +475,6 @@ impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
             retry_interval_floor: self.retry_interval_floor,
         }))
     }
-}
-
-async fn send_udp_message<P: RuntimeProvider>(
-    context: Arc<RequestContext<P>>,
-) -> Result<DnsResponse, ProtoError> {
-    let RequestContext {
-        avoid_local_ports,
-        name_server,
-        request,
-        provider,
-        signer,
-        now,
-        bind_addr,
-        os_port_selection,
-        case_randomization,
-        recv_buf_size,
-    } = &*context;
-
-    let original_query = request.original_query();
-    let mut request = Arc::clone(request);
-    let request = Arc::make_mut(&mut request);
-
-    let mut verifier = None;
-    if let Some(signer) = &signer {
-        match request.finalize(&**signer, *now) {
-            Ok(answer_verifier) => verifier = answer_verifier,
-            Err(e) => {
-                debug!("could not sign message: {}", e);
-                return Err(e);
-            }
-        }
-    }
-
-    let request_bytes = match request.to_vec() {
-        Ok(bytes) => bytes,
-        Err(err) => return Err(err),
-    };
-
-    let msg_id = request.id();
-    let msg = SerialMessage::new(request_bytes, *name_server);
-    let addr = msg.addr();
-    let final_message = match msg.to_message() {
-        Ok(m) => m,
-        Err(e) => return Err(e),
-    };
-    debug!(%final_message, "final message");
-
-    let socket = NextRandomUdpSocket::new(
-        addr,
-        *bind_addr,
-        avoid_local_ports.clone(),
-        *os_port_selection,
-        provider.clone(),
-    )
-    .await?;
-
-    let bytes = msg.bytes();
-    let len_sent: usize = socket.send_to(bytes, addr).await?;
-
-    if bytes.len() != len_sent {
-        return Err(ProtoError::from(format!(
-            "Not all bytes of message sent, {} of {}",
-            len_sent,
-            bytes.len()
-        )));
-    }
-
-    // Create the receive buffer.
-    trace!("creating UDP receive buffer with size {recv_buf_size}");
-    let mut recv_buf = vec![0; *recv_buf_size];
-
-    // Try to process up to 3 responses
-    for _ in 0..3 {
-        let (len, src) = socket.recv_from(&mut recv_buf).await?;
-
-        // Copy the slice of read bytes.
-        let response_bytes = &recv_buf[0..len];
-        let response_buffer = Vec::from(response_bytes);
-
-        // compare expected src to received packet
-        let request_target = msg.addr();
-
-        // Comparing the IP and Port directly as internal information about the link is stored with the IpAddr, see https://github.com/hickory-dns/hickory-dns/issues/2081
-        if src.ip().to_canonical() != request_target.ip().to_canonical()
-            || src.port() != request_target.port()
-        {
-            warn!(
-                "ignoring response from {}:{} because it does not match name_server: {}:{}.",
-                src.ip().to_canonical(),
-                src.port(),
-                request_target.ip().to_canonical(),
-                request_target.port(),
-            );
-
-            // await an answer from the correct NameServer
-            continue;
-        }
-
-        let mut response = match DnsResponse::from_buffer(response_buffer) {
-            Ok(response) => response,
-            Err(e) => {
-                // on errors deserializing, continue
-                warn!("dropped malformed message waiting for id: {msg_id} err: {e}");
-                continue;
-            }
-        };
-
-        // Validate the message id in the response matches the value chosen for the query.
-        if msg_id != response.id() {
-            // on wrong id, attempted poison?
-            warn!(
-                "expected message id: {} got: {}, dropped",
-                msg_id,
-                response.id()
-            );
-
-            return Err(ProtoErrorKind::BadTransactionId.into());
-        }
-
-        // Validate the returned query name.
-        //
-        // This currently checks that each response query name was present in the original query, but not that
-        // every original question is present.
-        //
-        // References:
-        //
-        // RFC 1035 7.3:
-        //
-        // The next step is to match the response to a current resolver request.
-        // The recommended strategy is to do a preliminary matching using the ID
-        // field in the domain header, and then to verify that the question section
-        // corresponds to the information currently desired.
-        //
-        // RFC 1035 7.4:
-        //
-        // In general, we expect a resolver to cache all data which it receives in
-        // responses since it may be useful in answering future client requests.
-        // However, there are several types of data which should not be cached:
-        //
-        // ...
-        //
-        //  - RR data in responses of dubious reliability.  When a resolver
-        // receives unsolicited responses or RR data other than that
-        // requested, it should discard it without caching it.
-        let request_message = Message::from_vec(msg.bytes())?;
-        let request_queries = request_message.queries();
-        let response_queries = response.queries_mut();
-
-        let question_matches = response_queries
-            .iter()
-            .all(|elem| request_queries.contains(elem));
-        if *case_randomization
-            && question_matches
-            && !response_queries.iter().all(|elem| {
-                request_queries
-                    .iter()
-                    .any(|req_q| req_q == elem && req_q.name().eq_case(elem.name()))
-            })
-        {
-            warn!(
-                "case of question section did not match: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}"
-            );
-            return Err(ProtoErrorKind::QueryCaseMismatch.into());
-        }
-        if !question_matches {
-            warn!(
-                "detected forged question section: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}"
-            );
-            continue;
-        }
-
-        // overwrite the query with the original query if case randomization may have been used
-        if *case_randomization {
-            if let Some(original_query) = original_query {
-                for response_query in response_queries.iter_mut() {
-                    if response_query == original_query {
-                        *response_query = original_query.clone();
-                    }
-                }
-            }
-        }
-
-        debug!("received message id: {}", response.id());
-        if let Some(mut verifier) = verifier {
-            return verifier(response_bytes);
-        } else {
-            return Ok(response);
-        }
-    }
-
-    Err("udp receive attempts exceeded".into())
 }
 
 /// This implements a retry handler for tasks that might not complete successfully (e.g.,
