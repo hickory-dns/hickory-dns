@@ -182,7 +182,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             _ => None,
         };
 
-        let closure_data = Arc::new(RequestContext {
+        let cx = Arc::new(RequestContext {
             avoid_local_ports: self.avoid_local_ports.clone(),
             name_server: self.name_server,
             request: Arc::new(request),
@@ -206,7 +206,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             self.timeout,
             Box::pin(retry::<P, _>(
                 move || {
-                    let context = closure_data.clone();
+                    let context = cx.clone();
                     Box::pin(async move { context.send().await })
                 },
                 retry_interval,
