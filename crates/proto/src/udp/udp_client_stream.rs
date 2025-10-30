@@ -26,95 +26,6 @@ use crate::udp::udp_stream::NextRandomUdpSocket;
 use crate::udp::{DEFAULT_RETRY_FLOOR, DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
 use crate::xfer::{DnsRequestSender, DnsResponseStream};
 
-/// A builder to create a UDP client stream.
-///
-/// This is created by [`UdpClientStream::builder`].
-pub struct UdpClientStreamBuilder<P> {
-    name_server: SocketAddr,
-    timeout: Option<Duration>,
-    signer: Option<Arc<dyn MessageSigner>>,
-    bind_addr: Option<SocketAddr>,
-    avoid_local_ports: Arc<HashSet<u16>>,
-    os_port_selection: bool,
-    provider: P,
-    max_retries: u8,
-    retry_interval_floor: Duration,
-}
-
-impl<P> UdpClientStreamBuilder<P> {
-    /// Sets the connection timeout.
-    pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
-    /// Sets the message finalizer to be applied to queries.
-    pub fn with_signer(self, signer: Option<Arc<dyn MessageSigner>>) -> Self {
-        Self {
-            name_server: self.name_server,
-            timeout: self.timeout,
-            signer,
-            bind_addr: self.bind_addr,
-            avoid_local_ports: self.avoid_local_ports,
-            os_port_selection: self.os_port_selection,
-            provider: self.provider,
-            max_retries: self.max_retries,
-            retry_interval_floor: self.retry_interval_floor,
-        }
-    }
-
-    /// Sets the local socket address to connect from.
-    ///
-    /// If the port number is 0, a random port number will be chosen to defend against spoofing
-    /// attacks. If the port number is nonzero, it will be used instead.
-    pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
-        self.bind_addr = bind_addr;
-        self
-    }
-
-    /// Configures a list of local UDP ports that should not be used when making outgoing
-    /// connections.
-    pub fn avoid_local_ports(mut self, avoid_local_ports: Arc<HashSet<u16>>) -> Self {
-        self.avoid_local_ports = avoid_local_ports;
-        self
-    }
-
-    /// Configures that OS should provide the ephemeral port, not the Hickory DNS
-    pub fn with_os_port_selection(mut self, os_port_selection: bool) -> Self {
-        self.os_port_selection = os_port_selection;
-        self
-    }
-
-    /// Sets the maximum number of retries for a single request
-    pub fn with_max_retries(mut self, max_retries: u8) -> Self {
-        self.max_retries = max_retries;
-        self
-    }
-
-    /// Sets the retry interval floor
-    pub fn with_retry_interval_floor(mut self, floor: u64) -> Self {
-        self.retry_interval_floor = Duration::from_millis(floor);
-        self
-    }
-
-    /// Construct a new UDP client stream.
-    ///
-    /// Returns a future that outputs the client stream.
-    pub fn build(self) -> UdpClientConnect<P> {
-        UdpClientConnect {
-            name_server: self.name_server,
-            timeout: self.timeout.unwrap_or(Duration::from_secs(5)),
-            signer: self.signer,
-            bind_addr: self.bind_addr,
-            avoid_local_ports: self.avoid_local_ports.clone(),
-            os_port_selection: self.os_port_selection,
-            provider: self.provider,
-            max_retries: self.max_retries,
-            retry_interval_floor: self.retry_interval_floor,
-        }
-    }
-}
-
 /// A UDP client stream of DNS binary packets.
 ///
 /// It is expected that the resolver wrapper will be responsible for creating and managing a new UDP
@@ -427,6 +338,95 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         }
 
         Err("udp receive attempts exceeded".into())
+    }
+}
+
+/// A builder to create a UDP client stream.
+///
+/// This is created by [`UdpClientStream::builder`].
+pub struct UdpClientStreamBuilder<P> {
+    name_server: SocketAddr,
+    timeout: Option<Duration>,
+    signer: Option<Arc<dyn MessageSigner>>,
+    bind_addr: Option<SocketAddr>,
+    avoid_local_ports: Arc<HashSet<u16>>,
+    os_port_selection: bool,
+    provider: P,
+    max_retries: u8,
+    retry_interval_floor: Duration,
+}
+
+impl<P> UdpClientStreamBuilder<P> {
+    /// Sets the connection timeout.
+    pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Sets the message finalizer to be applied to queries.
+    pub fn with_signer(self, signer: Option<Arc<dyn MessageSigner>>) -> Self {
+        Self {
+            name_server: self.name_server,
+            timeout: self.timeout,
+            signer,
+            bind_addr: self.bind_addr,
+            avoid_local_ports: self.avoid_local_ports,
+            os_port_selection: self.os_port_selection,
+            provider: self.provider,
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
+        }
+    }
+
+    /// Sets the local socket address to connect from.
+    ///
+    /// If the port number is 0, a random port number will be chosen to defend against spoofing
+    /// attacks. If the port number is nonzero, it will be used instead.
+    pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
+        self.bind_addr = bind_addr;
+        self
+    }
+
+    /// Configures a list of local UDP ports that should not be used when making outgoing
+    /// connections.
+    pub fn avoid_local_ports(mut self, avoid_local_ports: Arc<HashSet<u16>>) -> Self {
+        self.avoid_local_ports = avoid_local_ports;
+        self
+    }
+
+    /// Configures that OS should provide the ephemeral port, not the Hickory DNS
+    pub fn with_os_port_selection(mut self, os_port_selection: bool) -> Self {
+        self.os_port_selection = os_port_selection;
+        self
+    }
+
+    /// Sets the maximum number of retries for a single request
+    pub fn with_max_retries(mut self, max_retries: u8) -> Self {
+        self.max_retries = max_retries;
+        self
+    }
+
+    /// Sets the retry interval floor
+    pub fn with_retry_interval_floor(mut self, floor: u64) -> Self {
+        self.retry_interval_floor = Duration::from_millis(floor);
+        self
+    }
+
+    /// Construct a new UDP client stream.
+    ///
+    /// Returns a future that outputs the client stream.
+    pub fn build(self) -> UdpClientConnect<P> {
+        UdpClientConnect {
+            name_server: self.name_server,
+            timeout: self.timeout.unwrap_or(Duration::from_secs(5)),
+            signer: self.signer,
+            bind_addr: self.bind_addr,
+            avoid_local_ports: self.avoid_local_ports.clone(),
+            os_port_selection: self.os_port_selection,
+            provider: self.provider,
+            max_retries: self.max_retries,
+            retry_interval_floor: self.retry_interval_floor,
+        }
     }
 }
 
