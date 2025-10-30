@@ -238,6 +238,10 @@ where
         mut preserved_records: Vec<Record>,
         depth: DepthTracker,
     ) -> Result<Records, ProtoError> {
+        // TODO: there should be a ResolverOpts config to disable the
+        // name validation in this function to more closely match the
+        // behaviour of glibc if that's what the user expects.
+
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = MAX_TTL;
 
@@ -305,7 +309,6 @@ where
                 // because this resolved potentially recursively, we want the min TTL from the chain
                 min_ttl = min_ttl.min(r.ttl());
 
-                // TODO: disable name validation with ResolverOpts? glibc feature...
                 // restrict to the RData type requested
                 if query.query_class() != r.dns_class() {
                     continue;
@@ -349,7 +352,6 @@ where
                             let mut r = r.clone();
                             r.set_ttl(ttl);
 
-                            // TODO: disable name validation with ResolverOpts? glibc feature...
                             // restrict to the RData type requested
                             if query.query_class() == r.dns_class() {
                                 // standard evaluation, it's an any type or it's the requested type and the search_name matches
@@ -399,7 +401,6 @@ where
                     let mut r = r.clone();
                     r.set_ttl(ttl);
 
-                    // TODO: disable name validation with ResolverOpts? glibc feature...
                     // restrict to the RData type requested
                     if query.query_class() == r.dns_class() {
                         // CNAME evaluation, the record is from the CNAME lookup chain.
