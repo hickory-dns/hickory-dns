@@ -228,33 +228,21 @@ struct RequestContext<P> {
 
 impl<P: RuntimeProvider> RequestContext<P> {
     fn new(request: DnsRequest, stream: &UdpClientStream<P>) -> Self {
-        let case_randomization = request.options().case_randomization;
-
-        let now = P::Timer::current_time();
-
-        // Get an appropriate read buffer size.
-        let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize);
-
-        let bind_addr = stream.bind_addr;
-        let os_port_selection = stream.os_port_selection;
-
-        // Only smuggle in the signer if we are going to use it.
-        let signer = match &stream.signer {
-            Some(signer) if signer.should_sign_message(&request) => stream.signer.clone(),
-            _ => None,
-        };
-
         Self {
             avoid_local_ports: stream.avoid_local_ports.clone(),
+            recv_buf_size: MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize),
+            case_randomization: request.options().case_randomization,
             name_server: stream.name_server,
+            // Only smuggle in the signer if we are going to use it.
+            signer: match &stream.signer {
+                Some(signer) if signer.should_sign_message(&request) => stream.signer.clone(),
+                _ => None,
+            },
             request: Arc::new(request),
             provider: stream.provider.clone(),
-            signer,
-            now,
-            bind_addr,
-            os_port_selection,
-            case_randomization,
-            recv_buf_size,
+            now: P::Timer::current_time(),
+            bind_addr: stream.bind_addr,
+            os_port_selection: stream.os_port_selection,
         }
     }
 
