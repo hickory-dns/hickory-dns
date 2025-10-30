@@ -246,7 +246,7 @@ impl<P: RuntimeProvider> UdpRequest<P> {
         }
     }
 
-    async fn send(self: Arc<Self>) -> Result<DnsResponse, ProtoError> {
+    async fn send(&self) -> Result<DnsResponse, ProtoError> {
         let Self {
             avoid_local_ports,
             name_server,
@@ -258,7 +258,7 @@ impl<P: RuntimeProvider> UdpRequest<P> {
             os_port_selection,
             case_randomization,
             recv_buf_size,
-        } = &*self;
+        } = self;
 
         let original_query = request.original_query();
         let mut request = request.clone();
