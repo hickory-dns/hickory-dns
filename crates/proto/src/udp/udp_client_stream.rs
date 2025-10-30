@@ -166,7 +166,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
         }
 
         let retry_interval_time = request.options().retry_interval;
-        let cx = Arc::new(RequestContext::new(request, self));
+        let request = Arc::new(UdpRequest::new(request, self));
 
         let max_retries = self.max_retries;
         let retry_interval = if retry_interval_time < self.retry_interval_floor {
@@ -179,8 +179,8 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             self.timeout,
             Box::pin(retry::<P, _>(
                 move || {
-                    let context = cx.clone();
-                    Box::pin(async move { context.send().await })
+                    let request = request.clone();
+                    Box::pin(async move { request.send().await })
                 },
                 retry_interval,
                 max_retries.into(),
@@ -213,7 +213,7 @@ impl<P> Stream for UdpClientStream<P> {
 }
 
 /// Request context for data send_udp_message needs via the retry handler closure
-struct RequestContext<P> {
+struct UdpRequest<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     name_server: SocketAddr,
     request: Arc<DnsRequest>,
@@ -226,7 +226,7 @@ struct RequestContext<P> {
     recv_buf_size: usize,
 }
 
-impl<P: RuntimeProvider> RequestContext<P> {
+impl<P: RuntimeProvider> UdpRequest<P> {
     fn new(request: DnsRequest, stream: &UdpClientStream<P>) -> Self {
         Self {
             avoid_local_ports: stream.avoid_local_ports.clone(),
