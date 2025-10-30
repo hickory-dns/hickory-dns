@@ -7,6 +7,7 @@
 
 //! dns security extension related modules
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
@@ -61,7 +62,7 @@ impl<'a> Iterator for DnssecIter<'a> {
 }
 
 /// An iterator over records with all records wrapped in a Proven type for dnssec validation
-pub struct DnssecRecordIter<'a>(alloc::boxed::Box<dyn Iterator<Item = &'a Record> + 'a>);
+pub struct DnssecRecordIter<'a>(Box<dyn Iterator<Item = &'a Record> + 'a>);
 
 impl<'a> DnssecRecordIter<'a> {
     /// Create a new DnssecRecordIter from any iterator of Record references
