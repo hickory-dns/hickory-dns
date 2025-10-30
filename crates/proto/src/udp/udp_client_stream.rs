@@ -216,7 +216,7 @@ impl<P> Stream for UdpClientStream<P> {
 struct UdpRequest<P> {
     avoid_local_ports: Arc<HashSet<u16>>,
     name_server: SocketAddr,
-    request: Arc<DnsRequest>,
+    request: DnsRequest,
     provider: P,
     signer: Option<Arc<dyn MessageSigner>>,
     now: u64,
@@ -238,7 +238,7 @@ impl<P: RuntimeProvider> UdpRequest<P> {
                 Some(signer) if signer.should_sign_message(&request) => stream.signer.clone(),
                 _ => None,
             },
-            request: Arc::new(request),
+            request,
             provider: stream.provider.clone(),
             now: P::Timer::current_time(),
             bind_addr: stream.bind_addr,
@@ -261,8 +261,7 @@ impl<P: RuntimeProvider> UdpRequest<P> {
         } = &*self;
 
         let original_query = request.original_query();
-        let mut request = Arc::clone(request);
-        let request = Arc::make_mut(&mut request);
+        let mut request = request.clone();
 
         let mut verifier = None;
         if let Some(signer) = &signer {
