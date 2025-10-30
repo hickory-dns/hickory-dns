@@ -165,35 +165,8 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             panic!("can not send messages after stream is shutdown")
         }
 
-        let case_randomization = request.options().case_randomization;
         let retry_interval_time = request.options().retry_interval;
-
-        let now = P::Timer::current_time();
-
-        // Get an appropriate read buffer size.
-        let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize);
-
-        let bind_addr = self.bind_addr;
-        let os_port_selection = self.os_port_selection;
-
-        // Only smuggle in the signer if we are going to use it.
-        let signer = match &self.signer {
-            Some(signer) if signer.should_sign_message(&request) => self.signer.clone(),
-            _ => None,
-        };
-
-        let cx = Arc::new(RequestContext {
-            avoid_local_ports: self.avoid_local_ports.clone(),
-            name_server: self.name_server,
-            request: Arc::new(request),
-            provider: self.provider.clone(),
-            signer,
-            now,
-            bind_addr,
-            os_port_selection,
-            case_randomization,
-            recv_buf_size,
-        });
+        let cx = Arc::new(RequestContext::new(request, self));
 
         let max_retries = self.max_retries;
         let retry_interval = if retry_interval_time < self.retry_interval_floor {
@@ -254,6 +227,37 @@ struct RequestContext<P> {
 }
 
 impl<P: RuntimeProvider> RequestContext<P> {
+    fn new(request: DnsRequest, stream: &UdpClientStream<P>) -> Self {
+        let case_randomization = request.options().case_randomization;
+
+        let now = P::Timer::current_time();
+
+        // Get an appropriate read buffer size.
+        let recv_buf_size = MAX_RECEIVE_BUFFER_SIZE.min(request.max_payload() as usize);
+
+        let bind_addr = stream.bind_addr;
+        let os_port_selection = stream.os_port_selection;
+
+        // Only smuggle in the signer if we are going to use it.
+        let signer = match &stream.signer {
+            Some(signer) if signer.should_sign_message(&request) => stream.signer.clone(),
+            _ => None,
+        };
+
+        Self {
+            avoid_local_ports: stream.avoid_local_ports.clone(),
+            name_server: stream.name_server,
+            request: Arc::new(request),
+            provider: stream.provider.clone(),
+            signer,
+            now,
+            bind_addr,
+            os_port_selection,
+            case_randomization,
+            recv_buf_size,
+        }
+    }
+
     async fn send(self: Arc<Self>) -> Result<DnsResponse, ProtoError> {
         let Self {
             avoid_local_ports,
