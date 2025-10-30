@@ -509,19 +509,27 @@ where
     }
 }
 
-#[cfg(test)]
-#[cfg(feature = "tokio")]
+#[cfg(all(test, feature = "tokio"))]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use core::{
+        net::{IpAddr, Ipv4Addr, Ipv6Addr},
+        sync::atomic::{AtomicU8, Ordering},
+    };
+
+    use test_support::subscribe;
+    use tokio::time::sleep;
+
+    use super::*;
     use crate::{
-        runtime::TokioRuntimeProvider,
+        op::ResponseCode,
+        runtime::{TokioRuntimeProvider, TokioTime},
         udp::tests::{
             udp_client_stream_bad_id_test, udp_client_stream_response_limit_test,
             udp_client_stream_test,
         },
     };
-    use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use test_support::subscribe;
 
     #[tokio::test]
     async fn test_udp_client_stream_ipv4() {
@@ -575,79 +583,65 @@ mod tests {
         )
         .await;
     }
-}
 
-#[cfg(all(test, feature = "tokio"))]
-#[tokio::test(start_paused = true)]
-async fn retry_handler_test() -> Result<(), std::io::Error> {
-    use alloc::sync::Arc;
-    use core::sync::atomic::{AtomicU8, Ordering};
-    use std::io::ErrorKind;
+    #[tokio::test(start_paused = true)]
+    async fn retry_handler_test() -> Result<(), std::io::Error> {
+        let mut message = Message::query();
+        message.set_response_code(ResponseCode::NoError);
+        let response = DnsResponse::from_message(message.clone())?;
 
-    use tokio::time::{Duration, sleep};
-
-    use crate::{
-        error::ProtoError,
-        op::ResponseCode,
-        runtime,
-        runtime::{Time, TokioRuntimeProvider},
-    };
-
-    let mut message = Message::query();
-    message.set_response_code(ResponseCode::NoError);
-    let response = DnsResponse::from_message(message.clone())?;
-
-    // test: retry timer runs a task successfully
-    let task = move || {
-        let response = response.clone();
-        async move { Ok::<DnsResponse, ProtoError>(response) }
-    };
-
-    let ret = retry::<TokioRuntimeProvider, _>(task, Duration::from_millis(200), 5).await?;
-    assert_eq!(ret.response_code(), ResponseCode::NoError);
-
-    // This is used in all of the tests below with a per-test counter and timeout value
-    let task = |timeout: u64, counter: Arc<AtomicU8>| {
-        let response = DnsResponse::from_message(message.clone()).unwrap();
-        move || {
-            let counter = counter.clone();
+        // test: retry timer runs a task successfully
+        let task = move || {
             let response = response.clone();
-            async move {
-                let _ = counter.fetch_add(1, Ordering::Relaxed);
-                sleep(Duration::from_millis(timeout)).await;
-                Ok::<DnsResponse, ProtoError>(response)
+            async move { Ok::<_, ProtoError>(response) }
+        };
+
+        let ret = retry::<TokioRuntimeProvider, _>(task, Duration::from_millis(200), 5).await?;
+        assert_eq!(ret.response_code(), ResponseCode::NoError);
+
+        // This is used in all of the tests below with a per-test counter and timeout value
+        let task = |timeout: u64, counter: Arc<AtomicU8>| {
+            let response = DnsResponse::from_message(message.clone()).unwrap();
+            move || {
+                let counter = counter.clone();
+                let response = response.clone();
+                async move {
+                    let _ = counter.fetch_add(1, Ordering::Relaxed);
+                    sleep(Duration::from_millis(timeout)).await;
+                    Ok::<_, ProtoError>(response)
+                }
             }
+        };
+
+        // test: retry timer doesn't fire extra tasks before the retry interval
+        let x = Arc::new(AtomicU8::new(0));
+        let ret = x.clone();
+        retry::<TokioRuntimeProvider, _>(task(100, x), Duration::from_millis(200), 5).await?;
+        assert_eq!(ret.load(Ordering::Relaxed), 1);
+
+        // test: retry timer does fire extra tasks after the retry interval
+        let x = Arc::new(AtomicU8::new(0));
+        let ret = x.clone();
+        retry::<TokioRuntimeProvider, _>(task(1500, x), Duration::from_millis(200), 5).await?;
+        assert_eq!(ret.load(Ordering::Relaxed), 5);
+
+        // test: retry timer tasks when nested under a Time::timer
+        let x = Arc::new(AtomicU8::new(0));
+        let ret = x.clone();
+        let timer_ret = TokioTime::timeout(
+            Duration::from_millis(500),
+            retry::<TokioRuntimeProvider, _>(task(1000, x), Duration::from_millis(200), 5),
+        )
+        .await;
+
+        if let Err(e) = timer_ret {
+            assert_eq!(e.kind(), io::ErrorKind::TimedOut);
+        } else {
+            panic!("timer did not timeout");
         }
-    };
 
-    // test: retry timer doesn't fire extra tasks before the retry interval
-    let x = Arc::new(AtomicU8::new(0));
-    let ret = x.clone();
-    retry::<TokioRuntimeProvider, _>(task(100, x), Duration::from_millis(200), 5).await?;
-    assert_eq!(ret.load(Ordering::Relaxed), 1);
+        assert_eq!(ret.load(Ordering::Relaxed), 3);
 
-    // test: retry timer does fire extra tasks after the retry interval
-    let x = Arc::new(AtomicU8::new(0));
-    let ret = x.clone();
-    retry::<TokioRuntimeProvider, _>(task(1500, x), Duration::from_millis(200), 5).await?;
-    assert_eq!(ret.load(Ordering::Relaxed), 5);
-
-    // test: retry timer tasks when nested under a Time::timer
-    let x = Arc::new(AtomicU8::new(0));
-    let ret = x.clone();
-    let timer_ret = <runtime::TokioTime as Time>::timeout(
-        Duration::from_millis(500),
-        retry::<TokioRuntimeProvider, _>(task(1000, x), Duration::from_millis(200), 5),
-    )
-    .await;
-
-    if let Err(e) = timer_ret {
-        assert_eq!(e.kind(), ErrorKind::TimedOut);
-    } else {
-        panic!("timer did not timeout");
+        Ok(())
     }
-
-    assert_eq!(ret.load(Ordering::Relaxed), 3);
-
-    Ok(())
 }
