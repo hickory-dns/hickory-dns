@@ -16,7 +16,7 @@ use std::{
 use crate::{
     cache::MAX_TTL,
     proto::{
-        op::{Message, Query},
+        op::{Message, OpCode, Query},
         rr::{RData, Record},
     },
 };
@@ -56,7 +56,7 @@ impl Lookup {
     /// Return a new instance with the given records and deadline.
     pub fn new_with_deadline(query: Query, records: Arc<[Record]>, valid_until: Instant) -> Self {
         // Build a response Message with the records in the answers section
-        let mut message = Message::response(0, crate::proto::op::OpCode::Query);
+        let mut message = Message::response(0, OpCode::Query);
         message.add_query(query.clone());
         message.add_answers(records.iter().cloned());
 
@@ -145,7 +145,7 @@ mod tests {
         a2.set_proof(Proof::Insecure);
 
         // Build a response Message with the records
-        let mut message = Message::response(0, crate::proto::op::OpCode::Query);
+        let mut message = Message::response(0, OpCode::Query);
         message.add_query(Query::default());
         message.add_answers([a1.clone(), a2.clone()]);
 
@@ -170,7 +170,6 @@ mod tests {
 
     #[test]
     fn test_extend_records_preserves_sections() {
-        use crate::proto::op::OpCode;
         use crate::proto::rr::rdata::NS;
 
         // Create a message with records in different sections
@@ -240,7 +239,6 @@ mod tests {
 
     #[test]
     fn test_append_preserves_sections() {
-        use crate::proto::op::OpCode;
         use crate::proto::rr::rdata::NS;
 
         // Create first lookup with records in all sections
