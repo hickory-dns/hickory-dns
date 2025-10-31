@@ -43,7 +43,7 @@ impl LookupIp {
     ///
     /// Only IP records will be returned, either A or AAAA record types.
     pub fn iter(&self) -> LookupIpIter<std::slice::Iter<'_, Record>> {
-        LookupIpIter(self.0.message().answers().iter())
+        LookupIpIter(self.0.answers().iter())
     }
 
     /// Returns a reference to the `Query` that was used to produce this result.
@@ -157,7 +157,7 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(lookup)) => lookup.message().answers().is_empty(),
+                Poll::Ready(Ok(lookup)) => lookup.answers().is_empty(),
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };
@@ -299,7 +299,7 @@ impl<C: DnsHandle> LookupContext<C> {
 
         match res {
             Ok(ips) => {
-                if ips.message().answers().is_empty() {
+                if ips.answers().is_empty() {
                     // no ips returns, NXDomain or Otherwise, doesn't matter
                     self.hosts_lookup(Query::query(name.clone(), second_type))
                         .await
@@ -411,7 +411,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_only(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -433,7 +432,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_only(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -457,7 +455,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -473,7 +470,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -486,7 +482,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -499,7 +494,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -512,7 +506,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -535,7 +528,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_then_ipv4(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -548,7 +540,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_then_ipv4(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -561,7 +552,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_then_ipv4(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -584,7 +574,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_then_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -597,7 +586,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_then_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())
@@ -610,7 +598,6 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_then_ipv6(Name::root()))
                 .unwrap()
-                .message()
                 .answers()
                 .iter()
                 .map(|r| r.data().ip_addr().unwrap())

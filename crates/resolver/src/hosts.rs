@@ -83,13 +83,13 @@ impl Hosts {
                         .iter()
                         .filter(|(_, v)| match ip_addr {
                             IpAddr::V4(ip) => match v.a.as_ref() {
-                                Some(lookup) => lookup.message().answers().iter().any(|r| {
+                                Some(lookup) => lookup.answers().iter().any(|r| {
                                     r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
                                 }),
                                 None => false,
                             },
                             IpAddr::V6(ip) => match v.aaaa.as_ref() {
-                                Some(lookup) => lookup.message().answers().iter().any(|r| {
+                                Some(lookup) => lookup.answers().iter().any(|r| {
                                     r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
                                 }),
                                 None => false,
@@ -256,7 +256,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::A))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name.clone(),
@@ -269,7 +268,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::AAAA))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name,
@@ -284,7 +282,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::A))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name,
@@ -299,7 +296,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::A))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name,
@@ -314,7 +310,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::A))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name,
@@ -329,7 +324,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::A))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name,
@@ -342,7 +336,6 @@ mod tests {
         let mut answers = hosts
             .lookup_static_host(&Query::query(name.clone(), RecordType::PTR))
             .unwrap()
-            .message()
             .answers()
             .to_vec();
         answers.sort_by_key(|r| r.data().as_ptr().as_ref().map(|p| p.0.clone()));
@@ -370,7 +363,6 @@ mod tests {
             hosts
                 .lookup_static_host(&Query::query(name.clone(), RecordType::PTR))
                 .unwrap()
-                .message()
                 .answers(),
             &[Record::from_rdata(
                 name,

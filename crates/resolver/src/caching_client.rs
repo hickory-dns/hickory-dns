@@ -455,7 +455,7 @@ where
     #[allow(clippy::unnecessary_wraps)]
     fn cname(&self, lookup: Lookup, query: Query) -> Result<Lookup, ProtoError> {
         let mut message = Message::response(0, OpCode::Query);
-        message.add_answers(lookup.message().answers().iter().cloned());
+        message.add_answers(lookup.answers().iter().cloned());
         message.add_authorities(lookup.message().authorities().iter().cloned());
         message.add_additionals(lookup.message().additionals().iter().cloned());
         self.cache.insert(query, Ok(message), Instant::now());
@@ -612,7 +612,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[Record::from_rdata(
                 query.name().clone(),
                 u32::MAX,
@@ -639,7 +639,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[Record::from_rdata(
                 Name::root(),
                 86400,
@@ -661,7 +661,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[Record::from_rdata(
                 Name::root(),
                 86400,
@@ -737,7 +737,7 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[Record::from_rdata(
                 Name::from_str("www.example.com.").unwrap(),
                 86400,
@@ -781,7 +781,7 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[Record::from_rdata(
                 Name::from_str("_443._tcp.www.example.com.").unwrap(),
                 86400,
@@ -840,7 +840,7 @@ mod tests {
 
         // Answers section should have SRV + CNAME
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[
                 Record::from_rdata(
                     Name::from_str("_443._tcp.www.example.com.").unwrap(),
@@ -970,7 +970,7 @@ mod tests {
         // With the new implementation, sections are preserved
         // Answers section should have NS + CNAME
         assert_eq!(
-            ips.message().answers(),
+            ips.answers(),
             &[
                 Record::from_rdata(
                     Name::from_str("www.example.com.").unwrap(),
@@ -1068,15 +1068,14 @@ mod tests {
         .expect("lookup failed");
 
         // Verify: NS records in ANSWER section only
-        let answers: Vec<_> = lookup.message().answers().iter().collect();
         assert_eq!(
-            answers.len(),
+            lookup.answers().len(),
             2,
             "Should have exactly 2 NS records in ANSWER"
         );
 
         // Verify all answer records are NS type
-        for answer in &answers {
+        for answer in lookup.answers() {
             assert_eq!(
                 answer.record_type(),
                 RecordType::NS,
@@ -1102,7 +1101,7 @@ mod tests {
         }
 
         // Verify glue records do NOT appear in ANSWER section
-        for answer in &answers {
+        for answer in lookup.answers() {
             assert_ne!(
                 answer.record_type(),
                 RecordType::A,
@@ -1184,19 +1183,18 @@ mod tests {
         .expect("lookup failed");
 
         // Verify ANSWER: Only A record (CNAME filtered out because target was found)
-        let answers: Vec<_> = lookup.message().answers().iter().collect();
         assert_eq!(
-            answers.len(),
+            lookup.answers().len(),
             1,
             "ANSWER should have 1 record (CNAME filtered)"
         );
         assert_eq!(
-            answers[0].record_type(),
+            lookup.answers()[0].record_type(),
             RecordType::A,
             "ANSWER should contain only the A record"
         );
         assert_eq!(
-            answers[0].data().as_a().unwrap(),
+            lookup.answers()[0].data().as_a().unwrap(),
             &A::new(192, 0, 2, 1),
             "A record should have correct IP"
         );
@@ -1297,18 +1295,23 @@ mod tests {
         .expect("lookup failed");
 
         // Verify ANSWER: Both CNAME and A record
-        let answers: Vec<_> = lookup.message().answers().iter().collect();
-        assert_eq!(answers.len(), 2, "ANSWER should have 2 records (CNAME + A)");
+        assert_eq!(
+            lookup.answers().len(),
+            2,
+            "ANSWER should have 2 records (CNAME + A)"
+        );
 
         // Check for CNAME record
-        let cname_records: Vec<_> = answers
+        let cname_records: Vec<_> = lookup
+            .answers()
             .iter()
             .filter(|r| r.record_type() == RecordType::CNAME)
             .collect();
         assert_eq!(cname_records.len(), 1, "Should have 1 CNAME record");
 
         // Check for A record
-        let a_records: Vec<_> = answers
+        let a_records: Vec<_> = lookup
+            .answers()
             .iter()
             .filter(|r| r.record_type() == RecordType::A)
             .collect();
@@ -1460,15 +1463,14 @@ mod tests {
         );
 
         // Verify ANSWER: Only final A record (CNAME from Response 1 filtered)
-        let answers: Vec<_> = lookup.message().answers().iter().collect();
         assert_eq!(
-            answers.len(),
+            lookup.answers().len(),
             1,
             "ANSWER should have only the final A record"
         );
-        assert_eq!(answers[0].record_type(), RecordType::A);
+        assert_eq!(lookup.answers()[0].record_type(), RecordType::A);
         assert_eq!(
-            answers[0].data().as_a().unwrap(),
+            lookup.answers()[0].data().as_a().unwrap(),
             &A::new(192, 0, 2, 1),
             "Should have IP from Response 2"
         );
@@ -1638,15 +1640,15 @@ mod tests {
         );
 
         // Verify ANSWER: CNAME from Response 1 + A from Response 2
-        let answers: Vec<_> = lookup.message().answers().iter().collect();
         assert_eq!(
-            answers.len(),
+            lookup.answers().len(),
             2,
             "ANSWER should have CNAME + A (both preserved)"
         );
 
         // Check for CNAME record (from Response 1)
-        let cname_records: Vec<_> = answers
+        let cname_records: Vec<_> = lookup
+            .answers()
             .iter()
             .filter(|r| r.record_type() == RecordType::CNAME)
             .collect();
@@ -1664,7 +1666,8 @@ mod tests {
         );
 
         // Check for A record (from Response 2)
-        let a_records: Vec<_> = answers
+        let a_records: Vec<_> = lookup
+            .answers()
             .iter()
             .filter(|r| r.record_type() == RecordType::A)
             .collect();
@@ -1748,7 +1751,7 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.message().answers(),
+                lookup.answers(),
                 &[Record::from_rdata(
                     query.name().clone(),
                     MAX_TTL,
@@ -1763,7 +1766,7 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.message().answers(),
+                lookup.answers(),
                 &[Record::from_rdata(
                     query.name().clone(),
                     MAX_TTL,
@@ -1778,7 +1781,7 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.message().answers(),
+                lookup.answers(),
                 &[Record::from_rdata(
                     query.name().clone(),
                     MAX_TTL,
@@ -1796,7 +1799,7 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.message().answers(),
+                lookup.answers(),
                 &[Record::from_rdata(
                     query.name().clone(),
                     MAX_TTL,
