@@ -98,9 +98,9 @@ impl Lookup {
         result
             .message
             .add_answers(other.message.answers().iter().cloned());
-        for authority in other.message.authorities() {
-            result.message.add_authority(authority.clone());
-        }
+        result
+            .message
+            .add_authorities(other.message.authorities().iter().cloned());
         result
             .message
             .add_additionals(other.message.additionals().iter().cloned());
