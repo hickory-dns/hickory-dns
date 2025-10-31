@@ -239,6 +239,8 @@ impl MockHandler for MockNetworkHandler {
         };
         let mut response = response.clone();
         response.set_id(request.id());
+        response.take_queries();
+        response.add_query(query.clone());
 
         (self.mutate)(destination, protocol, &mut response);
         response
