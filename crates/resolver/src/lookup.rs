@@ -82,6 +82,16 @@ impl Lookup {
         self.message.answers()
     }
 
+    /// Returns a reference to the authority records from the message.
+    pub fn authorities(&self) -> &[Record] {
+        self.message.authorities()
+    }
+
+    /// Returns a reference to the additional records from the message.
+    pub fn additionals(&self) -> &[Record] {
+        self.message.additionals()
+    }
+
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
     pub fn valid_until(&self) -> Instant {
         self.valid_until
@@ -221,17 +231,17 @@ mod tests {
         assert_eq!(lookup.answers()[1], new_record);
 
         // Verify sections were preserved
-        assert_eq!(lookup.message.authorities().len(), 1);
-        assert_eq!(lookup.message.additionals().len(), 1);
+        assert_eq!(lookup.authorities().len(), 1);
+        assert_eq!(lookup.additionals().len(), 1);
 
         // Verify the authority and additional records are intact
-        if let RData::NS(ns) = lookup.message.authorities()[0].data() {
+        if let RData::NS(ns) = lookup.authorities()[0].data() {
             assert_eq!(ns.0, Name::from_str("ns1.example.com.").unwrap());
         } else {
             panic!("Authority record should be NS");
         }
 
-        if let RData::A(a) = lookup.message.additionals()[0].data() {
+        if let RData::A(a) = lookup.additionals()[0].data() {
             assert_eq!(*a, A::new(192, 0, 2, 1));
         } else {
             panic!("Additional record should be A");
@@ -296,8 +306,8 @@ mod tests {
 
         // Verify that sections were preserved and combined
         assert_eq!(combined.answers().len(), 2);
-        assert_eq!(combined.message.authorities().len(), 2);
-        assert_eq!(combined.message.additionals().len(), 2);
+        assert_eq!(combined.authorities().len(), 2);
+        assert_eq!(combined.additionals().len(), 2);
 
         // Verify answer records
         if let RData::A(a) = combined.answers()[0].data() {
@@ -312,24 +322,24 @@ mod tests {
         }
 
         // Verify authority records
-        if let RData::NS(ns) = combined.message.authorities()[0].data() {
+        if let RData::NS(ns) = combined.authorities()[0].data() {
             assert_eq!(ns.0, Name::from_str("ns1.example.com.").unwrap());
         } else {
             panic!("First authority should be NS");
         }
-        if let RData::NS(ns) = combined.message.authorities()[1].data() {
+        if let RData::NS(ns) = combined.authorities()[1].data() {
             assert_eq!(ns.0, Name::from_str("ns2.example.com.").unwrap());
         } else {
             panic!("Second authority should be NS");
         }
 
         // Verify additional records
-        if let RData::A(a) = combined.message.additionals()[0].data() {
+        if let RData::A(a) = combined.additionals()[0].data() {
             assert_eq!(*a, A::new(192, 0, 2, 1));
         } else {
             panic!("First additional should be A");
         }
-        if let RData::A(a) = combined.message.additionals()[1].data() {
+        if let RData::A(a) = combined.additionals()[1].data() {
             assert_eq!(*a, A::new(192, 0, 2, 2));
         } else {
             panic!("Second additional should be A");

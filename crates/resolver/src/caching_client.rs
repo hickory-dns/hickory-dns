@@ -457,8 +457,8 @@ where
         let mut message = Message::response(0, OpCode::Query);
         message.add_query(query.clone());
         message.add_answers(lookup.answers().iter().cloned());
-        message.add_authorities(lookup.message().authorities().iter().cloned());
-        message.add_additionals(lookup.message().additionals().iter().cloned());
+        message.add_authorities(lookup.authorities().iter().cloned());
+        message.add_additionals(lookup.additionals().iter().cloned());
         self.cache.insert(query, Ok(message), Instant::now());
         Ok(lookup)
     }
@@ -863,7 +863,7 @@ mod tests {
 
         // Additionals section should have A + AAAA records
         assert_eq!(
-            ips.message().additionals(),
+            ips.additionals(),
             &[
                 Record::from_rdata(
                     Name::from_str("actual.example.com.").unwrap(),
@@ -988,7 +988,7 @@ mod tests {
 
         // Additionals section should have A + AAAA records
         assert_eq!(
-            ips.message().additionals(),
+            ips.additionals(),
             &[
                 Record::from_rdata(
                     Name::from_str("actual.example.com.").unwrap(),
@@ -1081,15 +1081,14 @@ mod tests {
         }
 
         // Verify: Glue A records in ADDITIONAL section only
-        let additionals: Vec<_> = lookup.message().additionals().iter().collect();
         assert_eq!(
-            additionals.len(),
+            lookup.additionals().len(),
             2,
             "Should have exactly 2 glue A records in ADDITIONAL"
         );
 
         // Verify all additional records are A type
-        for additional in &additionals {
+        for additional in lookup.additionals() {
             assert_eq!(
                 additional.record_type(),
                 RecordType::A,
@@ -1108,7 +1107,7 @@ mod tests {
 
         // Verify AUTHORITY section is empty
         assert_eq!(
-            lookup.message().authorities().len(),
+            lookup.authorities().len(),
             0,
             "AUTHORITY section should be empty"
         );
@@ -1193,32 +1192,30 @@ mod tests {
         );
 
         // Verify AUTHORITY: NS record preserved
-        let authorities: Vec<_> = lookup.message().authorities().iter().collect();
         assert_eq!(
-            authorities.len(),
+            lookup.authorities().len(),
             1,
             "AUTHORITY section should be preserved"
         );
         assert_eq!(
-            authorities[0].record_type(),
+            lookup.authorities()[0].record_type(),
             RecordType::NS,
             "AUTHORITY should contain NS record"
         );
 
         // Verify ADDITIONAL: Glue preserved
-        let additionals: Vec<_> = lookup.message().additionals().iter().collect();
         assert_eq!(
-            additionals.len(),
+            lookup.additionals().len(),
             1,
             "ADDITIONAL section should be preserved"
         );
         assert_eq!(
-            additionals[0].record_type(),
+            lookup.additionals()[0].record_type(),
             RecordType::A,
             "ADDITIONAL should contain glue A record"
         );
         assert_eq!(
-            additionals[0].data().as_a().unwrap(),
+            lookup.additionals()[0].data().as_a().unwrap(),
             &A::new(192, 0, 2, 10),
             "Glue record should have correct IP"
         );
@@ -1308,14 +1305,14 @@ mod tests {
 
         // Verify AUTHORITY: NS records preserved (1 record)
         assert_eq!(
-            lookup.message().authorities().len(),
+            lookup.authorities().len(),
             1,
             "AUTHORITY section should be preserved"
         );
 
         // Verify ADDITIONAL: Glue preserved (1 record)
         assert_eq!(
-            lookup.message().additionals().len(),
+            lookup.additionals().len(),
             1,
             "ADDITIONAL section should be preserved"
         );
@@ -1459,15 +1456,14 @@ mod tests {
         );
 
         // Verify AUTHORITY: From Response 2 only (not merged with Response 1)
-        let authorities: Vec<_> = lookup.message().authorities().iter().collect();
         assert_eq!(
-            authorities.len(),
+            lookup.authorities().len(),
             1,
             "AUTHORITY should have 1 record from final response only"
         );
 
         // Check it's the NS from Response 2, not Response 1
-        let ns_name = authorities[0].data().as_ns().unwrap();
+        let ns_name = lookup.authorities()[0].data().as_ns().unwrap();
         assert_eq!(
             ns_name.0,
             Name::from_str("ns-v4.example.com.").unwrap(),
@@ -1475,16 +1471,15 @@ mod tests {
         );
 
         // Verify ADDITIONAL: From Response 2 only
-        let additionals: Vec<_> = lookup.message().additionals().iter().collect();
         assert_eq!(
-            additionals.len(),
+            lookup.additionals().len(),
             1,
             "ADDITIONAL should have 1 record from final response only"
         );
 
         // Check it's the IP from Response 2, not Response 1
         assert_eq!(
-            additionals[0].data().as_a().unwrap(),
+            lookup.additionals()[0].data().as_a().unwrap(),
             &A::new(192, 0, 2, 30),
             "ADDITIONAL should have IP 192.0.2.30 from Response 2, NOT 192.0.2.20 from Response 1"
         );
@@ -1657,14 +1652,14 @@ mod tests {
 
         // Verify AUTHORITY: From Response 2 only (1 record)
         assert_eq!(
-            lookup.message().authorities().len(),
+            lookup.authorities().len(),
             1,
             "AUTHORITY should be from final response only"
         );
 
         // Verify ADDITIONAL: From Response 2 only (1 record)
         assert_eq!(
-            lookup.message().additionals().len(),
+            lookup.additionals().len(),
             1,
             "ADDITIONAL should be from final response only"
         );
