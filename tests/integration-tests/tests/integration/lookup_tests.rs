@@ -46,7 +46,7 @@ async fn test_lookup() {
     let lookup = lookup.await.unwrap();
 
     assert_eq!(
-        lookup.message().answers()[0].data(),
+        lookup.answers()[0].data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
 }
@@ -191,7 +191,7 @@ async fn test_mock_lookup() {
     let lookup = lookup.await.unwrap();
 
     assert_eq!(
-        lookup.message().answers()[0].data(),
+        lookup.answers()[0].data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
 }
@@ -222,7 +222,7 @@ async fn test_cname_lookup() {
     let lookup = lookup.await.unwrap();
 
     assert_eq!(
-        lookup.message().answers()[0].data(),
+        lookup.answers()[0].data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
 }
@@ -257,7 +257,7 @@ async fn test_cname_lookup_preserve() {
 
     let lookup = lookup.await.unwrap();
 
-    let mut iter = lookup.message().answers().iter().map(|r| r.data());
+    let mut iter = lookup.answers().iter().map(|r| r.data());
     assert_eq!(iter.next().unwrap(), cname_record.data());
     assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
@@ -295,7 +295,7 @@ async fn test_chained_cname_lookup() {
     let lookup = lookup.await.unwrap();
 
     assert_eq!(
-        lookup.message().answers()[0].data(),
+        lookup.answers()[0].data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
 }
@@ -337,7 +337,7 @@ async fn test_chained_cname_lookup_preserve() {
 
     let lookup = lookup.await.unwrap();
 
-    let mut iter = lookup.message().answers().iter().map(|r| r.data());
+    let mut iter = lookup.answers().iter().map(|r| r.data());
     assert_eq!(iter.next().unwrap(), cname_record.data());
     assert_eq!(*iter.next().unwrap(), RData::A(A::new(93, 184, 215, 14)));
 }
@@ -436,7 +436,7 @@ async fn test_max_chained_lookup_depth() {
     let lookup = lookup.await.unwrap();
 
     assert_eq!(
-        lookup.message().answers()[0].data(),
+        lookup.answers()[0].data(),
         &RData::A(A::new(93, 184, 215, 14))
     );
 }

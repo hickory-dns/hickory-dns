@@ -86,7 +86,6 @@ async fn resolve_list<P: hickory_resolver::ConnectionProvider>(
             .expect("unable to spawn resolver")
             .map(|lookup| {
                 lookup
-                    .message()
                     .answers()
                     .iter()
                     .filter_map(|record| {

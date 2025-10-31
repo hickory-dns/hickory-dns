@@ -77,6 +77,11 @@ impl Lookup {
         &self.message
     }
 
+    /// Returns a reference to the answer records from the message.
+    pub fn answers(&self) -> &[Record] {
+        self.message.answers()
+    }
+
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
     pub fn valid_until(&self) -> Instant {
         self.valid_until
@@ -212,8 +217,8 @@ mod tests {
         lookup.extend_answers(vec![new_record.clone()]);
 
         // Verify that lookup.message was updated (not just a temporary reference)
-        assert_eq!(lookup.message.answers().len(), 2);
-        assert_eq!(lookup.message.answers()[1], new_record);
+        assert_eq!(lookup.answers().len(), 2);
+        assert_eq!(lookup.answers()[1], new_record);
 
         // Verify sections were preserved
         assert_eq!(lookup.message.authorities().len(), 1);
@@ -290,17 +295,17 @@ mod tests {
         let combined = lookup1.append(lookup2);
 
         // Verify that sections were preserved and combined
-        assert_eq!(combined.message.answers().len(), 2);
+        assert_eq!(combined.answers().len(), 2);
         assert_eq!(combined.message.authorities().len(), 2);
         assert_eq!(combined.message.additionals().len(), 2);
 
         // Verify answer records
-        if let RData::A(a) = combined.message.answers()[0].data() {
+        if let RData::A(a) = combined.answers()[0].data() {
             assert_eq!(*a, A::new(127, 0, 0, 1));
         } else {
             panic!("First answer should be A");
         }
-        if let RData::A(a) = combined.message.answers()[1].data() {
+        if let RData::A(a) = combined.answers()[1].data() {
             assert_eq!(*a, A::new(127, 0, 0, 2));
         } else {
             panic!("Second answer should be A");
