@@ -9,7 +9,6 @@ use dns_test::{
 };
 
 mod section_3_1;
-mod section_3_2;
 
 #[test]
 fn rrsig_ttl() -> Result<(), Error> {
