@@ -109,7 +109,7 @@ impl Lookup {
     /// Add new records to this lookup, without creating a new Lookup
     ///
     /// Records are added to the ANSWERS section while preserving existing section structure
-    pub fn extend_records(&mut self, other: Vec<Record>) {
+    pub fn extend_answers(&mut self, other: Vec<Record>) {
         // Add new records to the answers section, preserving existing sections
         self.message.add_answers(other);
     }
@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend_records_preserves_sections() {
+    fn test_extend_answers_preserves_sections() {
         use crate::proto::rr::rdata::NS;
 
         // Create a message with records in different sections
@@ -213,7 +213,7 @@ mod tests {
             80,
             RData::A(A::new(127, 0, 0, 2)),
         );
-        lookup.extend_records(vec![new_record.clone()]);
+        lookup.extend_answers(vec![new_record.clone()]);
 
         // Verify that lookup.message was updated (not just a temporary reference)
         assert_eq!(lookup.message.answers().len(), 2);
