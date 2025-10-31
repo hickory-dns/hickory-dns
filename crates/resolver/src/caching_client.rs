@@ -339,7 +339,7 @@ where
                     // No filtering needed - return complete message as-is
                     // except strip DNSSEC records if DO bit not set
                     let message =
-                        maybe_strip_dnssec_records(options.edns_set_dnssec_ok, message, query);
+                        message.strip_dnssec_records_if_needed(options.edns_set_dnssec_ok);
                     return Ok(Records::Exists(message, min_ttl));
                 } else {
                     // Filter records that belong in ANSWER section only
@@ -385,7 +385,7 @@ where
 
                     // Strip DNSSEC records if DO bit not set
                     let message =
-                        maybe_strip_dnssec_records(options.edns_set_dnssec_ok, message, query);
+                        message.strip_dnssec_records_if_needed(options.edns_set_dnssec_ok);
                     return Ok(Records::Exists(message, min_ttl));
                 }
             }
@@ -490,32 +490,6 @@ where
     pub fn clear_cache(&self) {
         self.cache.clear();
     }
-}
-
-/// Strip DNSSEC records from response if DO bit not set
-///
-/// As per RFC 4035 section 3.2.1, if the DNSSEC OK (DO) bit is not set in the query,
-/// DNSSEC-related records should be stripped from the response unless explicitly requested
-/// by the query type.
-fn maybe_strip_dnssec_records(
-    query_has_dnssec_ok: bool,
-    mut message: Message,
-    query: &Query,
-) -> Message {
-    if query_has_dnssec_ok {
-        return message;
-    }
-
-    let predicate = |record: &Record| {
-        let record_type = record.record_type();
-        record_type == query.query_type() || !record_type.is_dnssec()
-    };
-
-    message.answers_mut().retain(predicate);
-    message.authorities_mut().retain(predicate);
-    message.additionals_mut().retain(predicate);
-
-    message
 }
 
 #[allow(clippy::large_enum_variant)]
