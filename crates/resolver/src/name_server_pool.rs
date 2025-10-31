@@ -141,7 +141,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
         self.send(DnsRequest::from_query(query, options))
     }
 
-    fn send(&self, mut request: DnsRequest) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         let state = self.state.clone();
         let acs = self.state.cx.answer_address_filter.clone();
         let active_requests = self.active_requests.clone();
@@ -153,10 +153,18 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                 None => return Err("no query in request".into()),
             };
 
-            // Save and zero the transaction id so otherwise identical requests will hash identically
-            let tx_id = request.id();
-            request.set_id(0);
-            let key = Arc::new(request.to_bytes()?);
+            // Zero the transaction id and undo query case randomization so that otherwise identical
+            // requests will hash identically.
+            let mut key_request = request.clone();
+            key_request.set_id(0);
+            if let Some(original_query) = request.original_query() {
+                for query in key_request.queries_mut() {
+                    if query == original_query {
+                        query.set_name(original_query.name().clone());
+                    }
+                }
+            }
+            let key = Arc::new(key_request.to_bytes()?);
 
             let lookup = {
                 let mut active = active_requests.lock();
@@ -167,7 +175,6 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                     info!(%query, "creating new shared lookup");
 
                     let lookup = async move {
-                        request.set_id(tx_id);
                         match state.try_send(request).await {
                             Ok(response) => Some(Ok(response)),
                             Err(e) => Some(Err(e)),
