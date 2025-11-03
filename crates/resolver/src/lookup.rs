@@ -25,9 +25,6 @@ use crate::{
     },
 };
 
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::Proven;
-
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
@@ -84,12 +81,6 @@ impl Lookup {
         &self.message
     }
 
-    /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
-    #[cfg(feature = "__dnssec")]
-    pub fn dnssec_answers(&self) -> DnssecIter<'_> {
-        DnssecIter(DnssecLookupRecordIter::new(self.message.answers().iter()))
-    }
-
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
     pub fn valid_until(&self) -> Instant {
         self.valid_until
@@ -143,39 +134,6 @@ impl<'a> Iterator for LookupIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(Record::data)
-    }
-}
-
-/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
-#[cfg(feature = "__dnssec")]
-pub struct DnssecIter<'a>(DnssecLookupRecordIter<'a>);
-
-#[cfg(feature = "__dnssec")]
-impl<'a> Iterator for DnssecIter<'a> {
-    type Item = Proven<&'a RData>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|r| r.map(Record::data))
-    }
-}
-
-/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
-#[cfg(feature = "__dnssec")]
-pub struct DnssecLookupRecordIter<'a>(Box<dyn Iterator<Item = &'a Record> + 'a>);
-
-#[cfg(feature = "__dnssec")]
-impl<'a> DnssecLookupRecordIter<'a> {
-    fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
-        Self(Box::new(iter))
-    }
-}
-
-#[cfg(feature = "__dnssec")]
-impl<'a> Iterator for DnssecLookupRecordIter<'a> {
-    type Item = Proven<&'a Record>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Proven::from)
     }
 }
 
@@ -405,17 +363,17 @@ mod tests {
             valid_until: Instant::now(),
         };
 
-        let mut lookup = lookup.dnssec_answers();
+        let mut iter = lookup.message().dnssec_answers();
 
         assert_eq!(
-            *lookup.next().unwrap().require(Proof::Secure).unwrap(),
+            *iter.next().unwrap().require(Proof::Secure).unwrap(),
             *a1.data()
         );
         assert_eq!(
-            *lookup.next().unwrap().require(Proof::Insecure).unwrap(),
+            *iter.next().unwrap().require(Proof::Insecure).unwrap(),
             *a2.data()
         );
-        assert_eq!(lookup.next(), None);
+        assert_eq!(iter.next(), None);
     }
 
     #[test]

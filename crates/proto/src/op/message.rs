@@ -23,6 +23,9 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
 };
 
+#[cfg(feature = "__dnssec")]
+use crate::dnssec::DnssecIter;
+
 /// The basic request and response data structure, used for all DNS protocols.
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -473,6 +476,12 @@ impl Message {
     /// Removes the Answer section records from the message
     pub fn take_answers(&mut self) -> Vec<Record> {
         mem::take(&mut self.answers)
+    }
+
+    /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
+    #[cfg(feature = "__dnssec")]
+    pub fn dnssec_answers(&self) -> DnssecIter<'_> {
+        DnssecIter::new(self.answers.iter())
     }
 
     /// ```text
