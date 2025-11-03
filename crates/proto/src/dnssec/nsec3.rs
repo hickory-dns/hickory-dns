@@ -109,7 +109,7 @@ use crate::{
 
 pub(super) fn verify_nsec3(
     query: &Query,
-    soa: &Name,
+    soa: Option<&Name>,
     response_code: ResponseCode,
     answers: &[Record],
     nsec3s: &[(&Name, &NSEC3)],
@@ -117,6 +117,10 @@ pub(super) fn verify_nsec3(
     nsec3_hard_iteration_limit: u16,
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty()); // checked in the caller
+
+    let Some(soa) = soa else {
+        return nsec3_yield(Proof::Bogus, query, "SOA name not present");
+    };
 
     // For every NSEC3 record that in text form looks like:
     // <base32-hash>.soa.name NSEC3 <data>
