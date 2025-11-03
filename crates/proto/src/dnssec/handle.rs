@@ -284,7 +284,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
             (true, false) => verify_nsec3(
                 &query,
-                find_soa_name(&message)?,
+                find_soa_name(&message),
                 message.response_code(),
                 message.answers(),
                 &nsec3s,
@@ -293,7 +293,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             ),
             (false, true) => verify_nsec(
                 &query,
-                find_soa_name(&message)?,
+                find_soa_name(&message),
                 message.response_code(),
                 nsecs.as_slice(),
             ),
@@ -1166,17 +1166,19 @@ fn verify_rrsig_with_keys(
     }
 }
 
-/// Find the SOA record in the response and return its name.
-fn find_soa_name(verified_message: &DnsResponse) -> Result<&Name, ProtoError> {
+/// Find the SOA record, if present, in the response and return its name.
+///
+/// Note that a SOA record may not be present in all responses that must be NSEC/NSEC3 validated.
+/// See RFC 4035 B.4 - Referral to Signed Zone, B.5 Referral to Unsigned Zone, B.6 - Wildcard
+/// Expansion, RFC 5155 B.3 - Referral to an Opt-Out Unsigned Zone, and B.4 - Wildcard Expansion.
+fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
     for record in verified_message.authorities() {
         if record.record_type() == RecordType::SOA {
-            return Ok(record.name());
+            return Some(record.name());
         }
     }
 
-    Err(ProtoError::from(
-        "could not validate negative response missing SOA",
-    ))
+    None
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
@@ -1580,7 +1582,7 @@ struct ValidationCacheKey(u64);
 /// ```
 fn verify_nsec(
     query: &Query,
-    soa_name: &Name,
+    soa_name: Option<&Name>,
     response_code: ResponseCode,
     nsecs: &[(&Name, &NSEC)],
 ) -> Proof {
@@ -1588,6 +1590,14 @@ fn verify_nsec(
 
     if response_code != ResponseCode::NXDomain && response_code != ResponseCode::NoError {
         return nsec1_yield(Proof::Bogus, query, "unsupported response code");
+    }
+
+    let Some(soa_name) = soa_name else {
+        return nsec1_yield(Proof::Bogus, query, "missing SOA record");
+    };
+
+    if !soa_name.zone_of(query.name()) {
+        return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
     }
 
     let handle_matching_nsec = |type_set: &RecordTypeSet,
@@ -1612,10 +1622,6 @@ fn verify_nsec(
             "direct match, record should be present",
             "nxdomain when direct match exists",
         );
-    }
-
-    if !soa_name.zone_of(query.name()) {
-        return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
     }
 
     let Some((covering_nsec_name, covering_nsec_data)) =
