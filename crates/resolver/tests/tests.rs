@@ -24,7 +24,6 @@ use hickory_proto::{
 };
 
 #[tokio::test]
-#[ignore = "temporarily ignored"]
 async fn test_shared_lookup() -> Result<(), ProtoError> {
     subscribe();
 

@@ -23,7 +23,6 @@ use futures_util::{
     Future, FutureExt,
     future::{BoxFuture, Shared},
 };
-use hickory_proto::{serialize::binary::BinEncodable, xfer::Protocol};
 use parking_lot::Mutex;
 use smallvec::SmallVec;
 use tracing::{debug, error, info};
@@ -38,20 +37,23 @@ use crate::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::{
     DnsError, NoRecords, ProtoError, ProtoErrorKind,
     access_control::AccessControlSet,
-    op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, DnsResponse, OpCode, Query, ResponseCode},
     rr::{
         RData, Record,
-        rdata::{A, AAAA},
+        rdata::{
+            A, AAAA,
+            opt::{ClientSubnet, EdnsCode, EdnsOption},
+        },
     },
     runtime::{RuntimeProvider, Time},
-    xfer::DnsHandle,
+    xfer::{DnsHandle, Protocol},
 };
 
 /// Abstract interface for mocking purpose
 #[derive(Clone)]
 pub struct NameServerPool<P: ConnectionProvider> {
     state: Arc<PoolState<P>>,
-    active_requests: Arc<Mutex<HashMap<Arc<Vec<u8>>, SharedLookup>>>,
+    active_requests: Arc<Mutex<HashMap<Arc<CacheKey>, SharedLookup>>>,
     ttl: Option<TtlInstant>,
 }
 
@@ -66,6 +68,43 @@ impl Future for SharedLookup {
             Some(r) => r,
             None => Err("no response from nameserver".into()),
         })
+    }
+}
+
+/// Fields of a [`DnsRequest`] that are used as a key when memoizing queries.
+#[derive(PartialEq, Eq, Hash)]
+struct CacheKey {
+    op_code: OpCode,
+    recursion_desired: bool,
+    checking_disabled: bool,
+    queries: Vec<Query>,
+    dnssec_ok: bool,
+    client_subnet: Option<ClientSubnet>,
+}
+
+impl CacheKey {
+    fn from_request(request: &DnsRequest) -> Self {
+        let dnssec_ok;
+        let client_subnet;
+        if let Some(edns) = request.extensions() {
+            dnssec_ok = edns.flags().dnssec_ok;
+            if let Some(EdnsOption::Subnet(subnet)) = edns.option(EdnsCode::Subnet) {
+                client_subnet = Some(*subnet);
+            } else {
+                client_subnet = None;
+            }
+        } else {
+            dnssec_ok = false;
+            client_subnet = None;
+        }
+        Self {
+            op_code: request.op_code(),
+            recursion_desired: request.recursion_desired(),
+            checking_disabled: request.checking_disabled(),
+            queries: request.queries().to_vec(),
+            dnssec_ok,
+            client_subnet,
+        }
     }
 }
 
@@ -141,7 +180,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
         self.send(DnsRequest::from_query(query, options))
     }
 
-    fn send(&self, mut request: DnsRequest) -> Self::Response {
+    fn send(&self, request: DnsRequest) -> Self::Response {
         let state = self.state.clone();
         let acs = self.state.cx.answer_address_filter.clone();
         let active_requests = self.active_requests.clone();
@@ -153,10 +192,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                 None => return Err("no query in request".into()),
             };
 
-            // Save and zero the transaction id so otherwise identical requests will hash identically
-            let tx_id = request.id();
-            request.set_id(0);
-            let key = Arc::new(request.to_bytes()?);
+            let key = Arc::new(CacheKey::from_request(&request));
 
             let lookup = {
                 let mut active = active_requests.lock();
@@ -167,7 +203,6 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                     info!(%query, "creating new shared lookup");
 
                     let lookup = async move {
-                        request.set_id(tx_id);
                         match state.try_send(request).await {
                             Ok(response) => Some(Ok(response)),
                             Err(e) => Some(Err(e)),
