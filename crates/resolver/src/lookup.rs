@@ -26,6 +26,11 @@ use crate::{
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
+    // TODO: the query field here is redundant and should be removed.
+    // All messages should have at least one query in them, and the
+    // query is also the key in the ResponseCache where Lookup is
+    // typically used. Removing this field will force users to deal
+    // with non-compliant messages that don't contain a query.
     query: Query,
     message: Message,
     valid_until: Instant,
