@@ -1592,12 +1592,11 @@ fn verify_nsec(
         return nsec1_yield(Proof::Bogus, query, "unsupported response code");
     }
 
-    let Some(soa_name) = soa_name else {
-        return nsec1_yield(Proof::Bogus, query, "missing SOA record");
-    };
-
-    if !soa_name.zone_of(query.name()) {
-        return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
+    // The SOA name, if present, must be an ancestor of the query name.
+    if let Some(soa_name) = soa_name {
+        if !soa_name.zone_of(query.name()) {
+            return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
+        }
     }
 
     let handle_matching_nsec = |type_set: &RecordTypeSet,
@@ -1637,12 +1636,8 @@ fn verify_nsec(
     // Identify the names that exist (including names of empty non terminals) that are parents of
     // the query name. Pick the longest such name, because wildcard synthesis would start looking
     // for a wildcard record there.
-    let mut next_closest_encloser = soa_name.clone();
+    let mut next_closest_encloser = query.name().base_name();
     for seed_name in [covering_nsec_name, covering_nsec_data.next_domain_name()] {
-        if !soa_name.zone_of(seed_name) {
-            // This is a sanity check, in case the next domain name is out-of-bailiwick.
-            continue;
-        }
         let mut candidate_name = seed_name.clone();
         while candidate_name.num_labels() > next_closest_encloser.num_labels() {
             if candidate_name.zone_of(query.name()) {
@@ -1696,15 +1691,15 @@ fn verify_nsec(
 
 /// Find the NSEC record covering `test_name`, if any.
 fn find_nsec_covering_record<'a>(
-    soa_name: &Name,
+    soa_name: Option<&Name>,
     test_name: &Name,
     nsecs: &[(&'a Name, &'a NSEC)],
 ) -> Option<(&'a Name, &'a NSEC)> {
     nsecs.iter().copied().find(|(nsec_name, nsec_data)| {
         let next_domain_name = nsec_data.next_domain_name();
-        soa_name.zone_of(nsec_name)
-            && test_name > nsec_name
-            && (test_name < next_domain_name || next_domain_name == soa_name)
+
+        test_name > nsec_name
+            && (test_name < next_domain_name || Some(next_domain_name) == soa_name)
     })
 }
 
