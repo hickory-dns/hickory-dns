@@ -306,17 +306,23 @@ impl<P: ConnectionProvider> NameServer<P> {
         cx: &Arc<PoolContext>,
         probe_config: &ConnectionConfig,
     ) -> Result<(), ProtoError> {
-        let budget = cx.opportunistic_probe_budget.load(Ordering::Relaxed);
+        let mut budget = cx.opportunistic_probe_budget.load(Ordering::Relaxed);
         #[cfg(feature = "metrics")]
         self.opportunistic_probe_metrics.probe_budget.set(budget);
-        if budget == 0
-            || cx
-                .opportunistic_probe_budget
-                .compare_exchange_weak(budget, budget - 1, Ordering::AcqRel, Ordering::Relaxed)
-                .is_err()
-        {
-            debug!("no remaining budget for opportunistic probing");
-            return Ok(());
+        loop {
+            if budget == 0 {
+                debug!("no remaining budget for opportunistic probing");
+                return Ok(());
+            }
+            match cx.opportunistic_probe_budget.compare_exchange_weak(
+                budget,
+                budget - 1,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(current) => budget = current,
+            }
         }
 
         let connect = ProbeRequest::new(
