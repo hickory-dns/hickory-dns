@@ -510,7 +510,7 @@ pub enum BlocklistConsultAction {
     Log,
 }
 
-/// Configuration for file based zones
+/// Configuration for blocklist zones
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct BlocklistConfig {

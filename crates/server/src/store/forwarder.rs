@@ -315,7 +315,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
     }
 }
 
-/// Configuration for file based zones
+/// Configuration for forwarder zones
 #[derive(Clone, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardConfig {
