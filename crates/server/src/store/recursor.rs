@@ -216,7 +216,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     }
 }
 
-/// Configuration for file based zones
+/// Configuration for recursive resolver zones
 #[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RecursiveConfig {
