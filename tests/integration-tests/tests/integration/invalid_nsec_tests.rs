@@ -136,7 +136,8 @@ async fn wildcard_expansion() {
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
     let nsec_count = response
-        .all_sections()
+        .authorities()
+        .iter()
         .filter(|record| record.record_type() == RecordType::NSEC)
         .count();
     assert_eq!(nsec_count, 1);
