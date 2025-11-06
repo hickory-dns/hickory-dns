@@ -117,7 +117,6 @@ async fn no_data_error() {
 }
 
 /// Based on RFC 4035 section B.6.
-#[ignore = "Authoritative response is missing the NSEC record"]
 #[tokio::test]
 async fn wildcard_expansion() {
     subscribe();
