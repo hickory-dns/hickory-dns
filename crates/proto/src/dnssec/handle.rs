@@ -166,14 +166,25 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .verify_rrsets(&query, additionals, options, current_time)
             .await;
 
+        // If we have any wildcard records, they must be validated with covering
+        // NSEC/NSEC3 records.
+        let must_validate_nsec = answers.iter().any(|rr| {
+            if let Some(dnssec) = rr.data().as_dnssec() {
+                if let Some(rrsig_labels) = dnssec.as_rrsig().map(|data| data.input().num_labels) {
+                    if rrsig_labels < rr.name().num_labels() {
+                        return true;
+                    }
+                }
+            }
+
+            false
+        });
+
+        let have_answer = !answers.is_empty();
+
         message.insert_answers(answers);
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
-
-        // NSEC and NSEC3 validation:
-        if !message.answers().is_empty() {
-            return Ok(message);
-        }
 
         if !message.authorities().is_empty()
             && message
@@ -225,8 +236,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         // Both NSEC and NSEC3 records cannot coexist during
         // transition periods, as per RFC 5515 10.4.3 and
         // 10.5.2
-        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
-            (true, false) => verify_nsec3(
+        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty(), must_validate_nsec) {
+            (true, false, _) => verify_nsec3(
                 &query,
                 find_soa_name(&message),
                 message.response_code(),
@@ -235,26 +246,39 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
             ),
-            (false, true) => verify_nsec(
+            (false, true, _) => verify_nsec(
                 &query,
                 find_soa_name(&message),
                 message.response_code(),
+                have_answer,
+                must_validate_nsec,
                 nsecs.as_slice(),
             ),
-            (true, true) => {
+            (true, true, _) => {
                 warn!(
                     "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{message:?}"
                 );
                 Proof::Bogus
             }
-            (false, false) => {
-                // Check if the zone is insecure first.
+            (false, false, true) => {
+                warn!("response contains wildcard RRSIGs, but no NSEC/NSEC3s are present.");
+                Proof::Bogus
+            }
+            (false, false, false) => {
+                // Return Ok if there were no NSEC/NSEC3 records and no wildcard RRSIGs.
+                if !message.answers().is_empty() {
+                    return Ok(message);
+                }
+
+                // Return Ok if the zone is insecure
                 if let Err(err) = self.find_ds_records(query.name().clone(), options).await {
                     if err.proof == Proof::Insecure {
                         return Ok(message);
                     }
                 }
 
+                // If neither of the two conditions above are true, the response is Bogus - we should
+                // have a covering NSEC/NSEC3 record for this scenario.
                 warn!(
                     "response does not contain NSEC or NSEC3 records. Query: {query:?} response: {message:?}"
                 );
@@ -1370,6 +1394,8 @@ fn verify_nsec(
     query: &Query,
     soa_name: Option<&Name>,
     response_code: ResponseCode,
+    have_answer: bool,
+    wildcard: bool,
     nsecs: &[(&Name, &NSEC)],
 ) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
@@ -1402,12 +1428,17 @@ fn verify_nsec(
         );
     }
 
-    // The SOA name, if present, must be an ancestor of the query name.
-    if let Some(soa_name) = soa_name {
+    // The SOA name, if present, must be an ancestor of the query name.  If a SOA is present,
+    // we'll use that as the starting value for next_closest_encloser, otherwise, fall back to
+    // the parent of the query name.
+    let mut next_closest_encloser = if let Some(soa_name) = soa_name {
         if !soa_name.zone_of(query.name()) {
             return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
         }
-    }
+        soa_name.clone()
+    } else {
+        query.name().base_name()
+    };
 
     let Some((covering_nsec_name, covering_nsec_data)) =
         find_nsec_covering_record(soa_name, query.name(), nsecs)
@@ -1422,7 +1453,6 @@ fn verify_nsec(
     // Identify the names that exist (including names of empty non terminals) that are parents of
     // the query name. Pick the longest such name, because wildcard synthesis would start looking
     // for a wildcard record there.
-    let mut next_closest_encloser = query.name().base_name();
     for seed_name in [covering_nsec_name, covering_nsec_data.next_domain_name()] {
         let mut candidate_name = seed_name.clone();
         while candidate_name.num_labels() > next_closest_encloser.num_labels() {
@@ -1449,30 +1479,55 @@ fn verify_nsec(
     };
     debug!(%wildcard_name, "looking for NSEC for wildcard");
 
-    if let Some((_, wildcard_nsec_data)) = nsecs.iter().find(|(name, _)| &wildcard_name == *name) {
-        // Wildcard NSEC exists.
-        return handle_matching_nsec(
-            wildcard_nsec_data.type_set(),
-            "wildcard match",
-            "wildcard match, record should be present",
-            "nxdomain when wildcard match exists",
-        );
-    }
+    match find_nsec_covering_record(soa_name, &wildcard_name, nsecs) {
+        Some((_, _)) if response_code == ResponseCode::NXDomain => {
+            nsec1_yield(Proof::Secure, query, "no direct match, no wildcard")
+        }
+        Some((_, nsec_data)) if response_code == ResponseCode::NoError => {
+            if (nsec_data.type_set().contains(query.query_type())
+                || nsec_data.type_set().contains(RecordType::CNAME))
+                && wildcard
+            {
+                nsec1_yield(
+                    Proof::Secure,
+                    query,
+                    "no direct match, covering wildcard present",
+                )
+            } else {
+                nsec1_yield(
+                    Proof::Bogus,
+                    query,
+                    "no direct match, covering wildcard not present",
+                )
+            }
+        }
+        Some((_, _)) => nsec1_yield(
+            Proof::Bogus,
+            query,
+            format!("unsupported response code {response_code}"),
+        ),
+        None => {
+            if !have_answer
+                && nsecs.iter().any(|(name, nsec_data)| {
+                    name == &&wildcard_name
+                        && !nsec_data.type_set().contains(query.query_type())
+                        && !nsec_data.type_set().contains(RecordType::CNAME)
+                })
+            {
+                return nsec1_yield(
+                    Proof::Secure,
+                    query,
+                    "no direct match, covering wildcard present",
+                );
+            }
 
-    if find_nsec_covering_record(soa_name, &wildcard_name, nsecs).is_some() {
-        // Covering NSEC records exist for both the query name and the wildcard name.
-        if response_code == ResponseCode::NXDomain {
-            return nsec1_yield(Proof::Secure, query, "no direct match, no wildcard");
-        } else {
-            return nsec1_yield(Proof::Bogus, query, "expected NXDOMAIN");
+            nsec1_yield(
+                Proof::Bogus,
+                query,
+                "no NSEC record matches or covers the wildcard name",
+            )
         }
     }
-
-    nsec1_yield(
-        Proof::Bogus,
-        query,
-        "no NSEC record matches or covers the wildcard name",
-    )
 }
 
 /// Find the NSEC record covering `test_name`, if any.
