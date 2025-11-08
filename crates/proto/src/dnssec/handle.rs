@@ -37,7 +37,7 @@ use crate::{
     },
     error::{DnsError, NoRecords, ProtoError, ProtoErrorKind},
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode},
-    rr::{Name, RData, Record, RecordType, RecordTypeSet, SerialNumber, resource::RecordRef},
+    rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
     runtime::{RuntimeProvider, Time},
     xfer::{FirstAnswer, dns_handle::DnsHandle},
 };
@@ -235,8 +235,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             rrsig.input().num_labels < rr.name().num_labels()
         });
 
-        let have_answer = !answers.is_empty();
-
         message.insert_answers(answers);
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
@@ -305,8 +303,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 &query,
                 find_soa_name(&message),
                 message.response_code(),
-                have_answer,
-                must_validate_nsec,
+                message.answers(),
                 nsecs.as_slice(),
             ),
             (true, true, _) => {
@@ -1607,8 +1604,7 @@ fn verify_nsec(
     query: &Query,
     soa_name: Option<&Name>,
     response_code: ResponseCode,
-    have_answer: bool,
-    wildcard: bool,
+    answers: &[Record],
     nsecs: &[(&Name, &NSEC)],
 ) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
@@ -1629,28 +1625,28 @@ fn verify_nsec(
         query.name().base_name()
     };
 
-    let handle_matching_nsec = |type_set: &RecordTypeSet,
-                                message_secure: &str,
-                                message_record_exists: &str,
-                                message_name_exists| {
-        if type_set.contains(query.query_type()) || type_set.contains(RecordType::CNAME) {
-            nsec1_yield(Proof::Bogus, query, message_record_exists)
-        } else if response_code == ResponseCode::NoError {
-            nsec1_yield(Proof::Secure, query, message_secure)
-        } else {
-            nsec1_yield(Proof::Bogus, query, message_name_exists)
-        }
-    };
+    let have_answer = !answers.is_empty();
 
-    // Look for an NSEC record that matches the query name first. If such a record exists, then the
-    // query type and CNAME must mot be present at this name.
+    // For a no data response with a directly matching NSEC record, we just need to verify the NSEC
+    // type set does not contain the query type or CNAME.
     if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
-        return handle_matching_nsec(
-            nsec_data.type_set(),
-            "direct match",
-            "direct match, record should be present",
-            "nxdomain when direct match exists",
-        );
+        return if nsec_data.type_set().contains(query.query_type())
+            || nsec_data.type_set().contains(RecordType::CNAME)
+        {
+            nsec1_yield(
+                Proof::Bogus,
+                query,
+                "direct match, record type should be present",
+            )
+        } else if response_code == ResponseCode::NoError && !have_answer {
+            nsec1_yield(Proof::Secure, query, "direct match")
+        } else {
+            nsec1_yield(
+                Proof::Bogus,
+                query,
+                "nxdomain response or answers present when direct match exists",
+            )
+        };
     }
 
     let Some((covering_nsec_name, covering_nsec_data)) =
@@ -1676,6 +1672,7 @@ fn verify_nsec(
             candidate_name = candidate_name.base_name();
         }
     }
+
     let Ok(wildcard_name) = next_closest_encloser.prepend_label("*") else {
         // This fails if the prepended label is invalid or if the wildcard name would be too long.
         // However, we already know that the query name is not too long. The next closest enclosing
@@ -1690,57 +1687,157 @@ fn verify_nsec(
             "unreachable error constructing wildcard name",
         );
     };
+
     debug!(%wildcard_name, "looking for NSEC for wildcard");
 
+    // Identify the name of wildcard used to generate the response.  This will be used to prove that no closer matches
+    // exist between the query name and the wildcard.
+    let wildcard_base_name = if have_answer {
+        // For wildcard expansion responses, identify an RRSIG that:
+        // 1) Is a wildcard RRSIG (fewer rrsig labels than owner name labels) and is not longer than the query name.
+        // 2) Is a parent of the query name
+        //
+        // There should be only one of these, but if there are multiple, we'll pick the one with the fewest labels (the harder of the
+        // provided RRSIGs to validate, since more names have to be covered as a result.)
+        answers
+            .iter()
+            .filter_map(|r| {
+                let rrsig_labels = r.data().as_dnssec()?.as_rrsig()?.input.num_labels;
+
+                if r.proof() != Proof::Secure {
+                    debug!(name = ?r.name(), "ignoring RRSIG with insecure proof for wildcard_base_name");
+                    return None;
+                }
+
+                if rrsig_labels >= r.name().num_labels() || rrsig_labels >= query.name().num_labels() {
+                    debug!(name = ?r.name(), labels = ?r.name().num_labels(), rrsig_labels, "ignoring RRSIG for wildcard base name rrsig_labels >= labels");
+                    return None;
+                }
+
+                let trimmed_name = r.name().trim_to(rrsig_labels as usize);
+                if !trimmed_name.zone_of(query.name()) {
+                    debug!(name = ?r.name(), query_name = ?query.name(), "ignoring RRSIG for wildcard base name: RRSIG wildcard labels not a parent of query name");
+                    return None;
+                }
+
+                Some((rrsig_labels, trimmed_name.prepend_label("*").ok()?))
+            }).min_by_key(|(labels, _)| *labels)
+            .map(|(_, name)| name)
+    } else {
+        // For no data responses, we have to recover the base name from a wildcard NSEC record as there are no answer RRSIGs present.
+        nsecs
+            .iter()
+            .filter(|(name, _)| name.is_wildcard() && name.base_name().zone_of(query.name()))
+            .min_by_key(|(name, _)| name.num_labels())
+            .map(|(name, _)| (*name).clone())
+    };
+
     match find_nsec_covering_record(soa_name, &wildcard_name, nsecs) {
-        Some((_, _)) if response_code == ResponseCode::NXDomain => {
+        // For NXDomain responses, we've already proved the record does not exist. Now we just need to prove
+        // the wildcard name is covered.
+        Some((_, _)) if response_code == ResponseCode::NXDomain && !have_answer => {
             nsec1_yield(Proof::Secure, query, "no direct match, no wildcard")
         }
-        Some((_, nsec_data)) if response_code == ResponseCode::NoError => {
-            if (nsec_data.type_set().contains(query.query_type())
-                || nsec_data.type_set().contains(RecordType::CNAME))
-                && wildcard
-            {
-                nsec1_yield(
-                    Proof::Secure,
-                    query,
-                    "no direct match, covering wildcard present",
+        // For wildcard expansion responses, we need to prove there are no closer matches and no exact match.
+        // (RFC 4035 5.3.4 and B.6/C.6)
+        Some((_, _))
+            if response_code == ResponseCode::NoError
+                && have_answer
+                && no_closer_matches(
+                    query.name(),
+                    soa_name,
+                    nsecs,
+                    wildcard_base_name.as_ref(),
                 )
-            } else {
-                nsec1_yield(
-                    Proof::Bogus,
-                    query,
-                    "no direct match, covering wildcard not present",
-                )
-            }
-        }
-        Some((_, _)) => nsec1_yield(
-            Proof::Bogus,
-            query,
-            format!("unsupported response code {response_code}"),
-        ),
-        None => {
-            if !have_answer
-                && nsecs.iter().any(|(name, nsec_data)| {
-                    name == &&wildcard_name
-                        && !nsec_data.type_set().contains(query.query_type())
-                        && !nsec_data.type_set().contains(RecordType::CNAME)
-                })
-            {
-                return nsec1_yield(
-                    Proof::Secure,
-                    query,
-                    "no direct match, covering wildcard present",
-                );
-            }
-
+                && find_nsec_covering_record(soa_name, query.name(), nsecs).is_some() =>
+        {
             nsec1_yield(
-                Proof::Bogus,
+                Proof::Secure,
                 query,
-                "no NSEC record matches or covers the wildcard name",
+                "no direct match, covering wildcard present for wildcard expansion response",
             )
         }
+        // For wildcard no data responses, we need to prove a wildcard matching wildcard_name does not contain
+        // the requested record type and that no closer match exists. (RFC 4035 3.1.3.4 and B.7/C.7)
+        None if !have_answer
+            && response_code == ResponseCode::NoError
+            && nsecs.iter().any(|(name, nsec_data)| {
+                name == &&wildcard_name
+                    && !nsec_data.type_set().contains(query.query_type())
+                    && !nsec_data.type_set().contains(RecordType::CNAME)
+                    && no_closer_matches(query.name(), soa_name, nsecs, wildcard_base_name.as_ref())
+            }) =>
+        {
+            nsec1_yield(
+                Proof::Secure,
+                query,
+                "no direct match, covering wildcard present",
+            )
+        }
+        _ => nsec1_yield(
+            Proof::Bogus,
+            query,
+            "no NSEC record matches or covers the wildcard name",
+        ),
     }
+}
+
+/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
+fn nsec1_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
+    proof_log_yield(proof, query, "nsec1", msg)
+}
+
+// Prove that no closer name exists between the query name and wildcard_base_name
+fn no_closer_matches(
+    query_name: &Name,
+    soa: Option<&Name>,
+    nsecs: &[(&'_ Name, &'_ NSEC)],
+    wildcard_base_name: Option<&Name>,
+) -> bool {
+    let Some(wildcard_base_name) = wildcard_base_name else {
+        return false;
+    };
+
+    // If the SOA name is present, the query name and wildcard base name must be children of it.
+    if let Some(soa) = soa {
+        if !soa.zone_of(wildcard_base_name) {
+            debug!(%wildcard_base_name, %soa, "wildcard_base_name is not a child of SOA");
+            return false;
+        }
+
+        if !soa.zone_of(query_name) {
+            debug!(%query_name, %soa, "query_name is not a child of SOA");
+            return false;
+        }
+    }
+
+    if wildcard_base_name.num_labels() > query_name.num_labels() {
+        debug!(%wildcard_base_name, %query_name, "wildcard_base_name cannot have more labels than query_name");
+        return false;
+    }
+
+    // The query name must be a child of the wildcard (minus the *)
+    if !wildcard_base_name.base_name().zone_of(query_name) {
+        debug!(%wildcard_base_name, %query_name, "query_name is not a child of wildcard_name");
+        return false;
+    }
+
+    // Verify that an appropriate proof exists for each wildcard between query.name() and wildcard_base_name.
+    let mut name = query_name.base_name();
+    while name.num_labels() > wildcard_base_name.num_labels() {
+        let Ok(wildcard) = name.prepend_label("*") else {
+            return false;
+        };
+
+        if find_nsec_covering_record(soa, &wildcard, nsecs).is_none() {
+            debug!(%wildcard, %name, ?nsecs, "covering record does not exist for name");
+            return false;
+        }
+
+        name = name.base_name();
+    }
+
+    true
 }
 
 /// Find the NSEC record covering `test_name`, if any.
@@ -1755,11 +1852,6 @@ fn find_nsec_covering_record<'a>(
         test_name > nsec_name
             && (test_name < next_domain_name || Some(next_domain_name) == soa_name)
     })
-}
-
-/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
-fn nsec1_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
-    proof_log_yield(proof, query, "nsec1", msg)
 }
 
 /// Logs a debug message and yields a Proof type for return
@@ -1836,16 +1928,105 @@ const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
 mod test {
     use std::io::Error;
 
-    use super::verify_nsec;
+    use super::{no_closer_matches, verify_nsec};
     use crate::{
-        dnssec::{Proof, rdata::NSEC},
+        dnssec::{
+            Algorithm, Proof,
+            rdata::{DNSSECRData, NSEC as rdataNSEC, RRSIG as rdataRRSIG, SigInput},
+        },
         op::{Query, ResponseCode},
         rr::{
-            Name,
-            RecordType::{A, AAAA, DNSKEY, MX, NS, NSEC as rrNSEC, RRSIG, SOA, TXT},
+            Name, RData, Record,
+            RecordType::{A, AAAA, DNSKEY, MX, NS, NSEC, RRSIG, SOA, TXT},
+            SerialNumber, rdata,
         },
     };
     use test_support::subscribe;
+
+    #[test]
+    fn test_no_closer_matches() -> Result<(), Error> {
+        subscribe();
+
+        assert!(no_closer_matches(
+            &Name::from_ascii("a.a.a.z.w.example")?,
+            Some(&Name::from_ascii("example.")?),
+            &[
+                // This NSEC encloses the query name and proves that no closer wildcard match
+                // exists in the zone.
+                (
+                    &Name::from_ascii("x.y.w.example.")?,
+                    &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
+                ),
+            ],
+            Some(&Name::from_ascii("*.w.example.")?),
+        ),);
+
+        assert!(!no_closer_matches(
+            &Name::from_ascii("a.a.a.z.w.example")?,
+            Some(&Name::from_ascii("example.")?),
+            &[
+                // This doesn't prove the non-existence of the closer wildcard
+                (
+                    &Name::from_ascii("*.w.example.")?,
+                    &rdataNSEC::new(Name::from_ascii("z.w.example.")?, [MX, NSEC, RRSIG],),
+                ),
+            ],
+            Some(&Name::from_ascii("*.w.example.")?),
+        ),);
+
+        assert!(!no_closer_matches(
+            &Name::from_ascii("a.a.a.z.w.example")?,
+            Some(&Name::from_ascii("example.")?),
+            &[(
+                &Name::from_ascii("x.y.w.example.")?,
+                &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
+            ),],
+            // no_closer_matches requires a wildcard base name be present
+            None,
+        ),);
+
+        // SOA mismatch
+        assert!(!no_closer_matches(
+            &Name::from_ascii("a.a.a.z.w.example")?,
+            Some(&Name::from_ascii("z.example.")?),
+            &[
+                // This NSEC encloses the query name and proves that no closer wildcard match
+                // exists in the zone.
+                (
+                    &Name::from_ascii("x.y.w.example.")?,
+                    &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
+                ),
+                // This NSEC proves the requested record type does not exist at the wildcard
+                (
+                    &Name::from_ascii("*.w.example.")?,
+                    &rdataNSEC::new(Name::from_ascii("xw.example.")?, [MX, NSEC, RRSIG],),
+                ),
+            ],
+            Some(&Name::from_ascii("*.w.example.")?),
+        ),);
+
+        // Irrelevant wildcard.
+        assert!(!no_closer_matches(
+            &Name::from_ascii("a.a.a.z.w.example")?,
+            Some(&Name::from_ascii("example.")?),
+            &[
+                // This NSEC encloses the query name and proves that no closer wildcard match
+                // exists in the zone.
+                (
+                    &Name::from_ascii("x.y.w.example.")?,
+                    &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
+                ),
+                // This NSEC proves the requested record type does not exist at the wildcard
+                (
+                    &Name::from_ascii("*.x.example.")?,
+                    &rdataNSEC::new(Name::from_ascii("xw.example.")?, [MX, NSEC, RRSIG],),
+                ),
+            ],
+            Some(&Name::from_ascii("*.x.example.")?),
+        ),);
+
+        Ok(())
+    }
 
     // These test cases prove a name does not exist
     #[test]
@@ -1858,21 +2039,20 @@ mod test {
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC encloses the query name and proves the record does not exist.
                     (
                         &Name::from_ascii("b.example.")?,
-                        &NSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, rrNSEC],),
+                        &rdataNSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, NSEC],),
                     ),
                     // This NSEC proves no covering wildcard record exists (i.e., it encloses
                     // *.example. and thus proves that record does not exist.)
                     (
                         &Name::from_ascii("example.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("a.example.")?,
-                            [DNSKEY, MX, NS, rrNSEC, RRSIG, SOA],
+                            [DNSKEY, MX, NS, NSEC, RRSIG, SOA],
                         ),
                     )
                 ],
@@ -1886,11 +2066,10 @@ mod test {
                 &Query::query(Name::from_ascii("a.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                false,
-                false,
+                &[],
                 &[(
                     &Name::from_ascii("example.")?,
-                    &NSEC::new(Name::from_ascii("c.example.")?, [SOA, NS, RRSIG, rrNSEC],),
+                    &rdataNSEC::new(Name::from_ascii("c.example.")?, [SOA, NS, RRSIG, NSEC],),
                 ),],
             ),
             Proof::Secure
@@ -1908,22 +2087,21 @@ mod test {
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC does not enclose the query name and so should cause this
                     // verification to fail
                     (
                         &Name::from_ascii("ml.example.")?,
-                        &NSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, rrNSEC],),
+                        &rdataNSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, NSEC],),
                     ),
                     // This NSEC proves no covering wildcard record exists (i.e., it encloses
                     // *.example. and thus proves that record does not exist.)
                     (
                         &Name::from_ascii("example.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("a.example.")?,
-                            [DNSKEY, MX, NS, rrNSEC, RRSIG, SOA],
+                            [DNSKEY, MX, NS, NSEC, RRSIG, SOA],
                         ),
                     )
                 ],
@@ -1937,13 +2115,12 @@ mod test {
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC encloses the query name and proves the record does not exist.
                     (
                         &Name::from_ascii("ml.example.")?,
-                        &NSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, rrNSEC],),
+                        &rdataNSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, NSEC],),
                     ),
                 ],
             ),
@@ -1956,21 +2133,20 @@ mod test {
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example2.")?),
                 ResponseCode::NXDomain,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC encloses the query name and proves the record does not exist.
                     (
                         &Name::from_ascii("b.example.")?,
-                        &NSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, rrNSEC],),
+                        &rdataNSEC::new(Name::from_ascii("ns1.example.")?, [NS, RRSIG, NSEC],),
                     ),
                     // This NSEC proves no covering wildcard record exists (i.e., it encloses
                     // *.example. and thus proves that record does not exist.)
                     (
                         &Name::from_ascii("example.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("a.example.")?,
-                            [DNSKEY, MX, NS, rrNSEC, RRSIG, SOA],
+                            [DNSKEY, MX, NS, NSEC, RRSIG, SOA],
                         ),
                     )
                 ],
@@ -1992,14 +2168,13 @@ mod test {
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC encloses the query name and proves the record does exist, but
                     // the requested record type does not.
                     (
                         &Name::from_ascii("ns1.example.")?,
-                        &NSEC::new(Name::from_ascii("ns2.example.")?, [A, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("ns2.example.")?, [A, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2012,14 +2187,13 @@ mod test {
                 &Query::query(Name::from_ascii("example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC encloses the query name and proves the record does exist, but
                     // the requested record type does not.
                     (
                         &Name::from_ascii("example.")?,
-                        &NSEC::new(Name::from_ascii("a.example.")?, [A, rrNSEC, RRSIG, SOA],),
+                        &rdataNSEC::new(Name::from_ascii("a.example.")?, [A, NSEC, RRSIG, SOA],),
                     ),
                 ],
             ),
@@ -2039,13 +2213,12 @@ mod test {
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC claims the requested record type DOES exist at ns1.example.
                     (
                         &Name::from_ascii("ns1.example.")?,
-                        &NSEC::new(Name::from_ascii("ns2.example.")?, [A, rrNSEC, RRSIG, MX],),
+                        &rdataNSEC::new(Name::from_ascii("ns2.example.")?, [A, NSEC, RRSIG, MX],),
                     ),
                 ],
             ),
@@ -2057,14 +2230,13 @@ mod test {
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // In this case, the response indicates *some* record exists at ns1.example., just not an
                     // MX record. This NSEC claims ns1.example. does not exist at all.
                     (
                         &Name::from_ascii("ml.example.")?,
-                        &NSEC::new(Name::from_ascii("ns2.example.")?, [A, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("ns2.example.")?, [A, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2076,13 +2248,12 @@ mod test {
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC claims nothing exists from the SOA to ns2.example.
                     (
                         &Name::from_ascii("example.")?,
-                        &NSEC::new(Name::from_ascii("ns2.example.")?, [A, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("ns2.example.")?, [A, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2097,50 +2268,77 @@ mod test {
     fn nsec_wildcard_expansion() -> Result<(), Error> {
         subscribe();
 
+        let input = SigInput {
+            type_covered: MX,
+            algorithm: Algorithm::ED25519,
+            num_labels: 2,
+            original_ttl: 3600,
+            sig_expiration: SerialNumber(0),
+            sig_inception: SerialNumber(0),
+            key_tag: 0,
+            signer_name: Name::root(),
+        };
+
+        let rrsig = rdataRRSIG::from_sig(input, vec![]);
+        let mut rrsig_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+        );
+        rrsig_record.set_proof(Proof::Secure);
+
+        let answers = [
+            Record::from_rdata(
+                Name::from_ascii("a.z.w.example.")?,
+                3600,
+                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+            ),
+            rrsig_record,
+        ];
+
         // Based on RFC 4035 B.6 - Wildcard Expansion
         assert_eq!(
             verify_nsec(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                true,
-                true,
+                &answers,
                 &[
                     // This NSEC encloses the query name and proves that no closer wildcard match
                     // exists in the zone.
                     (
                         &Name::from_ascii("x.y.w.example.")?,
-                        &NSEC::new(Name::from_ascii("xx.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
                     ),
                 ],
             ),
             Proof::Secure
         );
 
+        // This response could not have been synthesized from the query name (z.example can't be expanded from *.w.example
         assert_eq!(
             verify_nsec(
                 &Query::query(Name::from_ascii("z.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                true,
-                true,
+                &answers,
                 &[
                     // This NSEC encloses the query name and proves that z.example. does not exist.
                     (
                         &Name::from_ascii("y.example.")?,
-                        &NSEC::new(Name::from_ascii("example.")?, [A, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("example.")?, [A, NSEC, RRSIG],),
                     ),
                     // This NSEC proves *.example. exists and contains an MX record.
                     (
                         &Name::from_ascii("example.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("a.example.")?,
-                            [MX, NS, rrNSEC, RRSIG, SOA],
+                            [MX, NS, NSEC, RRSIG, SOA],
                         ),
                     ),
                 ],
             ),
-            Proof::Secure
+            Proof::Bogus
         );
 
         Ok(())
@@ -2151,18 +2349,45 @@ mod test {
     fn nsec_invalid_wildcard_expansion() -> Result<(), Error> {
         subscribe();
 
+        let input = SigInput {
+            type_covered: MX,
+            algorithm: Algorithm::ED25519,
+            num_labels: 2,
+            original_ttl: 0,
+            sig_expiration: SerialNumber(0),
+            sig_inception: SerialNumber(0),
+            key_tag: 0,
+            signer_name: Name::root(),
+        };
+
+        let rrsig = rdataRRSIG::from_sig(input, vec![]);
+        let mut rrsig_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+        );
+        rrsig_record.set_proof(Proof::Secure);
+
+        let answers = [
+            Record::from_rdata(
+                Name::from_ascii("a.z.w.example.")?,
+                3600,
+                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+            ),
+            rrsig_record,
+        ];
+
         assert_eq!(
             verify_nsec(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                true,
-                true,
+                &answers,
                 &[
                     // This NSEC does not prove the non-existence of *.z.w.example.
                     (
                         &Name::from_ascii("x.y.w.example.")?,
-                        &NSEC::new(Name::from_ascii("z.w.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("z.w.example.")?, [MX, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2193,19 +2418,18 @@ mod test {
                 &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                true,
+                &[],
                 &[
                     // This NSEC encloses the query name and proves that no closer wildcard match
                     // exists in the zone.
                     (
                         &Name::from_ascii("x.y.w.example.")?,
-                        &NSEC::new(Name::from_ascii("xx.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
                     ),
                     // This NSEC proves the requested record type does not exist at the wildcard
                     (
                         &Name::from_ascii("*.w.example.")?,
-                        &NSEC::new(Name::from_ascii("xw.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("xw.example.")?, [MX, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2217,24 +2441,23 @@ mod test {
                 &Query::query(Name::from_ascii("zzzzzz.hickory-dns.testing.")?, TXT),
                 Some(&Name::from_ascii("hickory-dns.testing.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // This NSEC proves zzzzzz.hickory-dns.testing. does not exist.
                     (
                         &Name::from_ascii("record.hickory-dns.testing.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("hickory-dns.testing.")?,
-                            [A, rrNSEC, RRSIG],
+                            [A, NSEC, RRSIG],
                         ),
                     ),
                     // This NSEC proves a wildcard does exist at *.hickory-dns.testing. but does not contain the
                     // requested record type.
                     (
                         &Name::from_ascii("*.hickory-dns.testing.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("primary0.hickory-dns.testing.")?,
-                            [A, rrNSEC, RRSIG],
+                            [A, NSEC, RRSIG],
                         ),
                     ),
                 ],
@@ -2254,18 +2477,17 @@ mod test {
                 &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                true,
+                &[],
                 &[
                     // This NSEC doesn't prove the non-existence of the query name
                     (
                         &Name::from_ascii("x.y.w.example.")?,
-                        &NSEC::new(Name::from_ascii("z.w.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("z.w.example.")?, [MX, NSEC, RRSIG],),
                     ),
                     // This NSEC proves the wildcard does not contain the requested record type
                     (
                         &Name::from_ascii("*.w.example.")?,
-                        &NSEC::new(Name::from_ascii("x.y.w.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("x.y.w.example.")?, [MX, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2277,18 +2499,17 @@ mod test {
                 &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                false,
-                true,
+                &[],
                 &[
                     // This NSEC proves the query name does not exist
                     (
                         &Name::from_ascii("x.y.w.example.")?,
-                        &NSEC::new(Name::from_ascii("xx.example.")?, [MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
                     ),
                     // This NSEC proves the requested record type exists at the wildcard
                     (
                         &Name::from_ascii("*.w.example.")?,
-                        &NSEC::new(Name::from_ascii("xw.example.")?, [AAAA, MX, rrNSEC, RRSIG],),
+                        &rdataNSEC::new(Name::from_ascii("xw.example.")?, [AAAA, MX, NSEC, RRSIG],),
                     ),
                 ],
             ),
@@ -2300,8 +2521,7 @@ mod test {
                 &Query::query(Name::from_ascii("r.hickory-dns.testing.")?, TXT),
                 Some(&Name::from_ascii("hickory-dns.testing.")?),
                 ResponseCode::NoError,
-                false,
-                false,
+                &[],
                 &[
                     // There is no NSEC proving the non-existence of r.hickory-dns.testing.
 
@@ -2309,9 +2529,9 @@ mod test {
                     // requested record type.
                     (
                         &Name::from_ascii("*.hickory-dns.testing.")?,
-                        &NSEC::new(
+                        &rdataNSEC::new(
                             Name::from_ascii("primary0.hickory-dns.testing.")?,
-                            [A, rrNSEC, RRSIG],
+                            [A, NSEC, RRSIG],
                         ),
                     ),
                 ],
