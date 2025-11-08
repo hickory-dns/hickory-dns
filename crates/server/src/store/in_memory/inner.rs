@@ -277,7 +277,11 @@ impl InnerInMemory {
 
             #[cfg(feature = "__dnssec")]
             for rrsig in _rrsigs {
-                new_answer.insert_rrsig(rrsig.clone())
+                let mut rrsig = rrsig.clone();
+                if *rrsig.name() == *wildcard {
+                    rrsig.set_name(Name::from(name));
+                }
+                new_answer.insert_rrsig(rrsig)
             }
 
             return Some(Arc::new(new_answer));
