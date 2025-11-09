@@ -39,7 +39,7 @@ use crate::proto::{
     access_control::AccessControlSet,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, OpCode, Query, ResponseCode},
     rr::{
-        RData, Record,
+        Name, RData, Record,
         rdata::{
             A, AAAA,
             opt::{ClientSubnet, EdnsCode, EdnsOption},
@@ -55,6 +55,7 @@ pub struct NameServerPool<P: ConnectionProvider> {
     state: Arc<PoolState<P>>,
     active_requests: Arc<Mutex<HashMap<Arc<CacheKey>, SharedLookup>>>,
     ttl: Option<TtlInstant>,
+    zone: Option<Name>,
 }
 
 #[derive(Clone)]
@@ -141,12 +142,19 @@ impl<P: ConnectionProvider> NameServerPool<P> {
             }),
             active_requests: Arc::new(Mutex::new(HashMap::new())),
             ttl: None,
+            zone: None,
         }
     }
 
     /// Set a TTL on the NameServerPool
     pub fn with_ttl(mut self, ttl: Duration) -> Self {
         self.ttl = Some(TtlInstant::now() + ttl);
+        self
+    }
+
+    /// Set the zone on the NameServerPool
+    pub fn with_zone(mut self, zone: Name) -> Self {
+        self.zone = Some(zone);
         self
     }
 
@@ -161,6 +169,11 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     /// Returns the pool's options.
     pub fn context(&self) -> &Arc<PoolContext> {
         &self.state.cx
+    }
+
+    /// Return the zone associated with the pool
+    pub fn zone(&self) -> Option<&Name> {
+        self.zone.as_ref()
     }
 }
 
