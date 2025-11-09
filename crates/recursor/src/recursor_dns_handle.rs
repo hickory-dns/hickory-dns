@@ -253,12 +253,21 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             Err(e) => return Err(Error::from(format!("no nameserver found for {zone}: {e}"))),
         };
 
+        // Set the zone based on the longest delegation found by ns_pool_for_name.  This will
+        // affect bailiwick filtering.
+        let Some(zone) = ns.zone() else {
+            return Err("no zone information in name server pool".into());
+        };
+
         debug!(%zone, %query, "found zone for query");
 
         let cached_response = self.filtered_cache_lookup(&query, request_time);
         let response = match cached_response {
             Some(result) => result?,
-            None => self.lookup(query.clone(), zone, ns, request_time).await?,
+            None => {
+                self.lookup(query.clone(), zone.clone(), ns, request_time)
+                    .await?
+            }
         };
 
         let response = self
@@ -492,6 +501,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             self.ns_pool_for_zone(parent_zone.clone(), request_time, depth)
                 .await?
                 .1
+                .with_zone(parent_zone.clone())
         };
 
         let query = Query::query(zone.clone(), RecordType::NS);
@@ -640,7 +650,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             Duration::from_secs(ns_pool_ttl as u64).clamp(positive_min_ttl, positive_max_ttl);
 
         let ns = NameServerPool::from_nameservers(servers, self.pool_context.clone())
-            .with_ttl(ns_pool_ttl);
+            .with_ttl(ns_pool_ttl)
+            .with_zone(zone.clone());
 
         // store in cache for future usage
         debug!("found nameservers for {zone}");
@@ -706,6 +717,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 self.ns_pool_for_zone(record_name.clone(), request_time, depth)
                     .await?
                     .1 // discard the depth part of the tuple
+                    .with_zone(zone.clone())
             } else {
                 nameserver_pool.clone()
             };
