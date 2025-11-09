@@ -218,7 +218,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // query NS com. for example.com. -> NS list + glue for example.com.
         // query NS example.com. for www.example.com. -> no data.
         //
-        // ns_pool_for_zone would then return an NS pool based the results of the last NS RRset,
+        // ns_pool_for_name would then return an NS pool based the results of the last NS RRset,
         // plus any additional glue records that needed to be resolved, and the authoritative name
         // servers for example.com can be queried directly for 'www.example.com'.
         //
@@ -233,7 +233,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // query NS . for com. -> NS list + glue for com.
         // query NS com. for example.com. -> NS list + glue for example.com.
         //
-        // ns_pool_for_zone would return that as the NS pool to use for the query 'example.com'.
+        // ns_pool_for_name would return that as the NS pool to use for the query 'example.com'.
         // The subsequent lookup request for then ask the example.com. servers to resolve
         // A example.com.
 
@@ -243,7 +243,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         let (depth, ns) = match self
-            .ns_pool_for_zone(zone.clone(), request_time, depth)
+            .ns_pool_for_name(zone.clone(), request_time, depth)
             .await
         {
             Ok((depth, ns)) => (depth, ns),
@@ -469,194 +469,203 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Ok(message)
     }
 
+    // Identify the correct NameServerPool to use to answer queries for a given name.
     #[async_recursion]
-    async fn ns_pool_for_zone(
+    async fn ns_pool_for_name(
         &self,
-        zone: Name,
+        query_name: Name,
         request_time: Instant,
         mut depth: u8,
     ) -> Result<(u8, NameServerPool<P>), Error> {
-        if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
-            match ns.ttl_expired() {
-                true => debug!(?zone, "cached name server pool expired"),
-                false => {
-                    debug!(?zone, "returning cached name server pool");
-                    return Ok((depth, ns.clone()));
-                }
-            }
-        };
-
-        trace!("ns_pool_for_zone: depth {depth} for {zone}");
-
-        depth += 1;
-        Error::recursion_exceeded(self.ns_recursion_limit, depth, &zone)?;
-
-        let parent_zone = zone.base_name();
-
-        let nameserver_pool = if parent_zone.is_root() {
-            debug!("using roots for {zone} nameservers");
-            self.roots.clone()
-        } else {
-            // Discard depth returned from recursive call.
-            self.ns_pool_for_zone(parent_zone.clone(), request_time, depth)
-                .await?
-                .1
-                .with_zone(parent_zone.clone())
-        };
-
-        let query = Query::query(zone.clone(), RecordType::NS);
-
-        // Query for nameserver records via the pool for the parent zone.
-        let lookup_res = match self.response_cache.get(&query, request_time) {
-            Some(Ok(response)) => {
-                debug!(?response, "cached data");
-                Ok(response)
-            }
-            Some(Err(e)) => Err(e.into()),
-            None => {
-                self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
-                    .await
-            }
-        };
-        let response = match lookup_res {
-            Ok(response) => response,
-            // Short-circuit on NXDOMAIN, per RFC 8020.
-            Err(e) if e.is_nx_domain() => return Err(e),
-            // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
-            // encounter them again.
-            Err(e) if e.is_timeout() => return Err(e),
-            // The name `zone` is not a zone cut. Return the same pool of name servers again, but do
-            // not cache it. If this was recursively called by `ns_pool_for_zone()`, the outer call
-            // will try again with one more label added to the iterative query name.
-            Err(_) => return Ok((depth, nameserver_pool)),
-        };
-
-        let any_ns = response
-            .all_sections()
-            .any(|record| record.record_type() == RecordType::NS);
-        if !any_ns {
-            // Not a zone cut, but there is a CNAME or other record at this name. Return the
-            // same pool of name servers as above in the error case, to try again with a
-            // longer name.
-            return Ok((depth, nameserver_pool));
+        // Build a list of every zone between the root and the query name (but not including the root.)
+        let mut zones = vec![];
+        for i in 1..=query_name.num_labels() {
+            zones.push(query_name.trim_to(i as usize));
         }
+        trace!(?zones, "looking for zones");
 
-        // get all the NS records and glue
-        let mut config_group = Vec::new();
-        let mut need_ips_for_names = Vec::new();
-        let mut glue_ips = HashMap::new();
-        let (positive_min_ttl, positive_max_ttl) = self
-            .ttl_config
-            .positive_response_ttl_bounds(RecordType::NS)
-            .into_inner();
-        let mut ns_pool_ttl = u32::MAX;
+        let mut nameserver_pool = self.roots.clone().with_zone(Name::root());
 
-        let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
-
-        if ttl < ns_pool_ttl {
-            ns_pool_ttl = ttl;
-        }
-
-        for zns in response.all_sections() {
-            let Some(ns_data) = zns.data().as_ns() else {
-                continue;
-            };
-
-            if !super::is_subzone(&zone.base_name(), zns.name()) {
-                warn!(
-                    "dropping out of bailiwick record for {:?} with parent {:?}",
-                    zns.name(),
-                    zone.base_name(),
-                );
-                continue;
-            }
-
-            if zns.ttl() < ns_pool_ttl {
-                ns_pool_ttl = zns.ttl();
-            }
-
-            for record_type in [RecordType::A, RecordType::AAAA] {
-                if let Some(Ok(response)) = self
-                    .response_cache
-                    .get(&Query::query(ns_data.0.clone(), record_type), request_time)
-                {
-                    let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
-                    if ttl < ns_pool_ttl {
-                        ns_pool_ttl = ttl;
+        for zone in zones {
+            if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
+                match ns.ttl_expired() {
+                    true => debug!(?zone, "cached name server pool expired"),
+                    false => {
+                        debug!(?zone, "already have cached name server pool for zone");
+                        nameserver_pool = ns.clone();
+                        continue;
                     }
                 }
+            };
+
+            trace!(depth, ?zone, "ns_pool_for_name: depth {depth} for {zone}");
+            depth += 1;
+            Error::recursion_exceeded(self.ns_recursion_limit, depth, &zone)?;
+
+            let parent_zone = zone.base_name();
+
+            let query = Query::query(zone.clone(), RecordType::NS);
+
+            // Query for nameserver records via the pool for the parent zone.
+            let lookup_res = match self.response_cache.get(&query, request_time) {
+                Some(Ok(response)) => {
+                    debug!(?response, "cached data");
+                    Ok(response)
+                }
+                Some(Err(e)) => Err(e.into()),
+                None => {
+                    self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
+                        .await
+                }
+            };
+
+            let response = match lookup_res {
+                Ok(response) => response,
+                // Short-circuit on NXDOMAIN, per RFC 8020.
+                Err(e) if e.is_nx_domain() => return Err(e),
+                // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
+                // encounter them again.
+                Err(e) if e.is_timeout() => return Err(e),
+                // The name `zone` is not a zone cut. Return the same pool of name servers again, but do
+                // not cache it. If this was recursively called by `ns_pool_for_name()`, the outer call
+                // will try again with one more label added to the iterative query name.
+                Err(_) => {
+                    trace!(?zone, "no zone cut at zone");
+                    continue;
+                }
+            };
+
+            let any_ns = response
+                .all_sections()
+                .any(|record| record.record_type() == RecordType::NS);
+            if !any_ns {
+                // Not a zone cut, but there is a CNAME or other record at this name. Return the
+                // same pool of name servers as above in the error case, to try again with a
+                // longer name.
+                trace!(?zone, "no zone cut at zone");
+                continue;
             }
 
-            match glue_ips.get(&ns_data.0) {
-                Some(glue) if !glue.is_empty() => {
-                    config_group.extend(glue.iter().copied().map(|ip| {
-                        name_server_config(ip, &self.pool_context.opportunistic_encryption)
-                    }));
-                }
-                _ => {
-                    debug!("glue not found for {ns_data}");
-                    need_ips_for_names.push(ns_data.to_owned());
-                }
-            }
-        }
+            // get all the NS records and glue
+            let mut config_group = Vec::new();
+            let mut need_ips_for_names = Vec::new();
+            let mut glue_ips = HashMap::new();
+            let (positive_min_ttl, positive_max_ttl) = self
+                .ttl_config
+                .positive_response_ttl_bounds(RecordType::NS)
+                .into_inner();
+            let mut ns_pool_ttl = u32::MAX;
 
-        // If we have no glue, collect missing nameserver IP addresses.
-        // For non-child name servers, get a new pool by calling ns_pool_for_zone recursively.
-        // For child child name servers, we can use the existing pool, but we *must* use lookup
-        // to avoid infinite recursion.
-        if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("need glue for {zone}");
-
-            let ttl;
-            (ttl, depth) = self
-                .append_ips_from_lookup(
-                    &zone,
-                    depth,
-                    request_time,
-                    nameserver_pool,
-                    need_ips_for_names.iter(),
-                    &mut config_group,
-                )
-                .await?;
+            let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
 
             if ttl < ns_pool_ttl {
                 ns_pool_ttl = ttl;
             }
+
+            for zns in response.all_sections() {
+                let Some(ns_data) = zns.data().as_ns() else {
+                    continue;
+                };
+
+                if !super::is_subzone(&zone.base_name(), zns.name()) {
+                    warn!(
+                        name = ?zns.name(),
+                        parent = ?zone.base_name(),
+                        "dropping out of bailiwick record",
+                    );
+                    continue;
+                }
+
+                if zns.ttl() < ns_pool_ttl {
+                    ns_pool_ttl = zns.ttl();
+                }
+
+                for record_type in [RecordType::A, RecordType::AAAA] {
+                    if let Some(Ok(response)) = self
+                        .response_cache
+                        .get(&Query::query(ns_data.0.clone(), record_type), request_time)
+                    {
+                        let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
+                        if ttl < ns_pool_ttl {
+                            ns_pool_ttl = ttl;
+                        }
+                    }
+                }
+
+                match glue_ips.get(&ns_data.0) {
+                    Some(glue) if !glue.is_empty() => {
+                        config_group.extend(glue.iter().copied().map(|ip| {
+                            name_server_config(ip, &self.pool_context.opportunistic_encryption)
+                        }));
+                    }
+                    _ => {
+                        debug!(name_server = ?ns_data, "glue not found for name server");
+                        need_ips_for_names.push(ns_data.to_owned());
+                    }
+                }
+            }
+
+            // If we have no glue, collect missing nameserver IP addresses.
+            // For non-child name servers, get a new pool by calling ns_pool_for_name recursively.
+            // For child child name servers, we can use the existing pool, but we *must* use lookup
+            // to avoid infinite recursion.
+            if config_group.is_empty() && !need_ips_for_names.is_empty() {
+                debug!(?zone, "need glue for zone");
+
+                let ttl;
+                (ttl, depth) = self
+                    .append_ips_from_lookup(
+                        &zone,
+                        depth,
+                        request_time,
+                        nameserver_pool.clone(),
+                        need_ips_for_names.iter(),
+                        &mut config_group,
+                    )
+                    .await?;
+
+                if ttl < ns_pool_ttl {
+                    ns_pool_ttl = ttl;
+                }
+            }
+
+            let servers = {
+                let mut cache = self.connection_cache.lock();
+                config_group
+                    .iter()
+                    .map(|server| {
+                        if let Some(ns) = cache.get_mut(&server.ip) {
+                            return ns.clone();
+                        }
+
+                        debug!(?server, "adding new name server to cache");
+                        let ns = Arc::new(NameServer::new(
+                            [],
+                            server.clone(),
+                            &self.pool_context.clone().options,
+                            self.conn_provider.clone(),
+                        ));
+                        cache.insert(server.ip, ns.clone());
+                        ns
+                    })
+                    .collect()
+            };
+
+            let ns_pool_ttl =
+                Duration::from_secs(ns_pool_ttl as u64).clamp(positive_min_ttl, positive_max_ttl);
+
+            nameserver_pool = NameServerPool::from_nameservers(servers, self.pool_context.clone())
+                .with_ttl(ns_pool_ttl)
+                .with_zone(zone.clone());
+
+            // store in cache for future usage
+            debug!(?zone, "found nameservers for {zone}");
+            self.name_server_cache
+                .lock()
+                .insert(zone.clone(), nameserver_pool.clone());
         }
 
-        let servers = {
-            let mut cache = self.connection_cache.lock();
-            config_group
-                .iter()
-                .map(|server| {
-                    if let Some(ns) = cache.get_mut(&server.ip) {
-                        return ns.clone();
-                    }
-
-                    debug!(?server, "adding new name server to cache");
-                    let ns = Arc::new(NameServer::new(
-                        [],
-                        server.clone(),
-                        &self.pool_context.clone().options,
-                        self.conn_provider.clone(),
-                    ));
-                    cache.insert(server.ip, ns.clone());
-                    ns
-                })
-                .collect()
-        };
-
-        let ns_pool_ttl =
-            Duration::from_secs(ns_pool_ttl as u64).clamp(positive_min_ttl, positive_max_ttl);
-
-        let ns = NameServerPool::from_nameservers(servers, self.pool_context.clone())
-            .with_ttl(ns_pool_ttl)
-            .with_zone(zone.clone());
-
-        // store in cache for future usage
-        debug!("found nameservers for {zone}");
-        self.name_server_cache.lock().insert(zone, ns.clone());
-        Ok((depth, ns))
+        Ok((depth, nameserver_pool))
     }
 
     /// Helper function to add IP addresses from any A or AAAA records to a map indexed by record
@@ -714,7 +723,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // To avoid incrementing the depth counter for each nameserver, we'll use the passed in
             // depth as a fixed base for the nameserver lookups
             let nameserver_pool = if !crate::is_subzone(zone, &record_name) {
-                self.ns_pool_for_zone(record_name.clone(), request_time, depth)
+                self.ns_pool_for_name(record_name.clone(), request_time, depth)
                     .await?
                     .1 // discard the depth part of the tuple
                     .with_zone(zone.clone())
