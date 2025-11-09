@@ -90,15 +90,10 @@ fn hickory_opportunistic_probe_success() -> Result<(), Error> {
         .partition::<Vec<_>, _>(|m| m.dst_port == DOT_PORT);
 
     // We should have received 2 UDP queries from the recursive resolution:
-    //  * First: NS query for root (internal to find nameservers)
-    //  * Second: A query for root (the actual requested record)
-    assert_eq!(udp_queries.len(), 2);
+    //  * First: A query for root (the actual requested record)
+    assert_eq!(udp_queries.len(), 1);
     assert_eq!(
         query_name_and_type(&udp_queries[0]).unwrap(),
-        ("<Root>", record_types::NS)
-    );
-    assert_eq!(
-        query_name_and_type(&udp_queries[1]).unwrap(),
         ("<Root>", record_types::A)
     );
 
@@ -198,20 +193,15 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
         .partition::<Vec<_>, _>(|m| m.dst_port == DOT_PORT);
 
     // We should have received 3 UDP queries from the recursive resolution:
-    //  * First: NS query for root (internal to find nameservers)
-    //  * Second: A query for root (the first requested record)
-    //  * Third: MX query for root (the second requested record)
-    assert_eq!(udp_queries.len(), 3);
+    //  * First: A query for root (the first requested record)
+    //  * Second: MX query for root (the second requested record)
+    assert_eq!(udp_queries.len(), 2);
     assert_eq!(
         query_name_and_type(&udp_queries[0]).unwrap(),
-        ("<Root>", record_types::NS)
-    );
-    assert_eq!(
-        query_name_and_type(&udp_queries[1]).unwrap(),
         ("<Root>", record_types::A)
     );
     assert_eq!(
-        query_name_and_type(&udp_queries[2]).unwrap(),
+        query_name_and_type(&udp_queries[1]).unwrap(),
         ("<Root>", record_types::MX)
     );
 
@@ -262,6 +252,5 @@ const DOT_PORT: u16 = 853;
 /// on hickory-proto just for matching to expected.
 mod record_types {
     pub(super) const A: u16 = 1;
-    pub(super) const NS: u16 = 2;
     pub(super) const MX: u16 = 15;
 }

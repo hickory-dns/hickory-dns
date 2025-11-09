@@ -154,11 +154,11 @@ fn multi_domain_delegation() -> Result<(), Error> {
         FQDN("ns.example2.testing.")?,
     ));
 
-    for i in 1..=23 {
-        if i == 23 {
+    for i in 1..=24 {
+        if i == 24 {
             tld_ns.referral(
-                FQDN("example23.testing.")?,
-                FQDN("ns.example23.testing.")?,
+                FQDN("example24.testing.")?,
+                FQDN("ns.example24.testing.")?,
                 example_ns.ipv4_addr(),
             );
         } else {
