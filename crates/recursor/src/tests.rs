@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Error, Recursor, RecursorBuilder};
+use crate::{Error, Recursor, RecursorBuilder, recursor::RecursorMode};
 use hickory_proto::{
     ProtoError,
     op::{Message, Query, ResponseCode},
@@ -318,6 +318,133 @@ async fn name_server_cache_ttl_glue_off_domain() -> Result<(), ProtoError> {
     Ok(())
 }
 
+#[tokio::test]
+async fn ns_pool_zone_name_test() -> Result<(), ProtoError> {
+    subscribe();
+
+    let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
+    let nx_query_name = Name::from_ascii("invalid.hickory-dns.testing.")?;
+    let delegated_query_name = Name::from_ascii("host.delegated.hickory-dns.testing.")?;
+    let ent_query_name = Name::from_ascii("ent.hickory-dns.testing.")?;
+    let ent_delegated_query_name = Name::from_ascii("host.delegated.ent.hickory-dns.testing.")?;
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
+    let delegated_leaf_zone = Name::from_ascii("delegated.hickory-dns.testing.")?;
+    let delegated_leaf_ns = Name::from_ascii("ns.delegated.hickory-dns.testing.")?;
+    let ent_delegated_leaf_zone = Name::from_ascii("delegated.ent.hickory-dns.testing.")?;
+    let ent_delegated_leaf_ns = Name::from_ascii("ns.delegated.ent.hickory-dns.testing.")?;
+
+    let responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
+        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
+            .with_query_name(&leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(LEAF_IP, &delegated_leaf_zone, &delegated_leaf_ns),
+        MockRecord::a(LEAF_IP, &delegated_leaf_ns, DELEGATED_LEAF_IP)
+            .with_query_name(&delegated_leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(LEAF_IP, &ent_delegated_leaf_zone, &ent_delegated_leaf_ns),
+        MockRecord::a(LEAF_IP, &ent_delegated_leaf_ns, ENT_DELEGATED_LEAF_IP)
+            .with_query_name(&ent_delegated_leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
+        MockRecord::a(LEAF_IP, &ent_query_name, LEAF_IP),
+        MockRecord::a(DELEGATED_LEAF_IP, &delegated_query_name, DELEGATED_LEAF_IP),
+        MockRecord::a(
+            ENT_DELEGATED_LEAF_IP,
+            &ent_delegated_query_name,
+            ENT_DELEGATED_LEAF_IP,
+        ),
+    ];
+
+    let recursor_no_cache = Recursor::builder_with_provider(MockProvider::new(
+        MockNetworkHandler::new(responses.clone()),
+    ))
+    .clear_deny_servers()
+    .ns_cache_size(1)
+    .build(&[ROOT_IP])?;
+
+    let recursor_cache =
+        Recursor::builder_with_provider(MockProvider::new(MockNetworkHandler::new(responses)))
+            .clear_deny_servers()
+            .ns_cache_size(1024)
+            .build(&[ROOT_IP])?;
+
+    for recursor in [recursor_no_cache, recursor_cache] {
+        assert_eq!(
+            get_zone_name(&recursor, &query_name).await?,
+            Some(leaf_zone.clone())
+        );
+        assert_eq!(
+            get_zone_name(&recursor, &leaf_zone).await?,
+            Some(leaf_zone.clone())
+        );
+        assert_eq!(
+            get_zone_name(&recursor, &nx_query_name).await?,
+            Some(leaf_zone.clone())
+        );
+        assert_eq!(
+            get_zone_name(&recursor, &delegated_query_name).await?,
+            Some(delegated_leaf_zone.clone())
+        );
+        assert_eq!(
+            get_zone_name(&recursor, &ent_query_name).await?,
+            Some(leaf_zone.clone())
+        );
+        assert_eq!(
+            get_zone_name(&recursor, &ent_delegated_query_name).await?,
+            Some(ent_delegated_leaf_zone.clone())
+        );
+
+        // Sanity check - IPs are correct
+        assert!(validate_response(
+            ttl_lookup(&recursor, &query_name).await?,
+            &query_name,
+            LEAF_IP
+        ));
+        assert!(validate_response(
+            ttl_lookup(&recursor, &delegated_query_name).await?,
+            &delegated_query_name,
+            DELEGATED_LEAF_IP
+        ));
+        assert!(validate_response(
+            ttl_lookup(&recursor, &ent_delegated_query_name).await?,
+            &ent_delegated_query_name,
+            ENT_DELEGATED_LEAF_IP
+        ));
+    }
+
+    Ok(())
+}
+
+async fn get_zone_name(
+    recursor: &Recursor<MockProvider>,
+    query: &Name,
+) -> Result<Option<Name>, ProtoError> {
+    match recursor.mode {
+        RecursorMode::NonValidating { ref handle } => {
+            let ns_pool = handle
+                .ns_pool_for_name(query.clone(), Instant::now(), 0)
+                .await?
+                .1;
+            Ok(ns_pool.zone().cloned())
+        }
+        #[cfg(feature = "__dnssec")]
+        _ => panic!("test doesn't support validating mode"),
+    }
+}
+
 fn ns_cache_test_fixture(
     zone_ttl: u32,
     ns_ttl: u32,
@@ -495,3 +622,5 @@ fn test_fixture() -> Result<(MockProvider, RecursorBuilder<MockProvider>), Proto
 const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
 const TLD_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 2, 1));
 const LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 3, 1));
+const DELEGATED_LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 4, 1));
+const ENT_DELEGATED_LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 5, 1));

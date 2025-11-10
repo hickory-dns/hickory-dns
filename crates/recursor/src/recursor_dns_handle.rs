@@ -469,9 +469,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Ok(message)
     }
 
-    // Identify the correct NameServerPool to use to answer queries for a given name.
+    /// Identify the correct NameServerPool to use to answer queries for a given name.
     #[async_recursion]
-    async fn ns_pool_for_name(
+    pub(crate) async fn ns_pool_for_name(
         &self,
         query_name: Name,
         request_time: Instant,

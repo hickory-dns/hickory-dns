@@ -67,6 +67,7 @@ impl Write for LogWriter {
 }
 
 /// A mock response to be returned by the [`MockHandler`].
+#[derive(Clone)]
 pub struct MockRecord {
     /// The name server IP.  This is matched by the [`MockHandler`] against the destination address
     /// when deciding which response to return to the client.
@@ -86,6 +87,7 @@ pub struct MockRecord {
 }
 
 /// The section to place the record
+#[derive(Clone)]
 pub enum MockResponseSection {
     Answer,
     Additional,
