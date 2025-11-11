@@ -10,7 +10,7 @@
 use core::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{Request, Uri, header, uri};
+use http::{HeaderName, HeaderValue, Request, Uri, header, uri};
 use tracing::debug;
 
 use crate::error::ProtoError;
@@ -33,6 +33,27 @@ pub fn new(
     name_server_name: &str,
     query_path: &str,
     message_len: usize,
+) -> Result<Request<()>> {
+    new_with_headers(version, name_server_name, query_path, message_len, &[])
+}
+
+/// Create a new Request for an http dns-message request with a specified set of extra headers
+///
+/// ```text
+/// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
+///
+/// The URI Template defined in this document is processed without any
+/// variables when the HTTP method is POST.  When the HTTP method is GET,
+/// the single variable "dns" is defined as the content of the DNS
+/// request (as described in Section 6), encoded with base64url
+/// [RFC4648].
+/// ```
+pub fn new_with_headers(
+    version: Version,
+    name_server_name: &str,
+    query_path: &str,
+    message_len: usize,
+    headers: &[(HeaderName, HeaderValue)],
 ) -> Result<Request<()>> {
     // TODO: this is basically the GET version, but it is more expensive than POST
     //   perhaps add an option if people want better HTTP caching options.
@@ -61,17 +82,21 @@ pub fn new(
         Uri::from_parts(parts).map_err(|e| ProtoError::from(format!("uri parse error: {e}")))?;
 
     // TODO: add user agent to TypedHeaders
-    let request = Request::builder()
+    let mut request = Request::builder()
         .method("POST")
         .uri(url)
         .version(version.to_http())
         .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
         .header(ACCEPT, crate::http::MIME_APPLICATION_DNS)
-        .header(CONTENT_LENGTH, message_len)
-        .body(())
-        .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?;
+        .header(CONTENT_LENGTH, message_len);
 
-    Ok(request)
+    for (name, value) in headers {
+        request = request.header(name, value);
+    }
+
+    Ok(request
+        .body(())
+        .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?)
 }
 
 /// Verifies the request is something we know what to deal with
@@ -178,6 +203,39 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_additional_headers() {
+        let request = new_with_headers(
+            Version::Http2,
+            "ns.example.com",
+            "/dns-query",
+            512,
+            &[(
+                HeaderName::from_static("test-header"),
+                HeaderValue::from_static("test-header-value"),
+            )],
+        )
+        .expect("error converting to http");
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_ok()
+        );
+
+        assert_eq!(
+            request
+                .headers()
+                .get(HeaderName::from_static("test-header"))
+                .expect("header to be set"),
+            HeaderValue::from_static("test-header-value")
+        )
     }
 
     #[test]
