@@ -272,7 +272,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 pub struct TlsConfig {
     /// The TLS configuration to use for secure connections.
     #[cfg(feature = "__tls")]
-    pub(crate) config: rustls::ClientConfig,
+    pub config: rustls::ClientConfig,
 }
 
 impl TlsConfig {

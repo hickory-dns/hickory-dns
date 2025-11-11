@@ -8,6 +8,7 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::future::Future;
 use core::net::SocketAddr;
@@ -24,7 +25,10 @@ use futures_util::{
     stream::Stream,
 };
 use h2::client::{Connection, SendRequest};
-use http::header::{self, CONTENT_LENGTH};
+use http::{
+    HeaderName, HeaderValue,
+    header::{self, CONTENT_LENGTH},
+};
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 use tokio::time::{error, timeout};
@@ -51,6 +55,7 @@ pub struct HttpsClientStream {
     name_server: SocketAddr,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
+    add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
 impl Display for HttpsClientStream {
@@ -69,6 +74,7 @@ impl HttpsClientStream {
         message: Bytes,
         name_server_name: Arc<str>,
         query_path: Arc<str>,
+        additional_headers: Option<Arc<dyn AddHeaders>>,
     ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
@@ -79,12 +85,21 @@ impl HttpsClientStream {
         };
 
         // build up the http request
-        let request = crate::http::request::new(
-            Version::Http2,
-            &name_server_name,
-            &query_path,
-            message.remaining(),
-        );
+        let request = match &additional_headers {
+            Some(headers) => crate::http::request::new_with_headers(
+                Version::Http2,
+                &name_server_name,
+                &query_path,
+                message.remaining(),
+                &headers.headers(),
+            ),
+            None => crate::http::request::new(
+                Version::Http2,
+                &name_server_name,
+                &query_path,
+                message.remaining(),
+            ),
+        };
 
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
@@ -260,6 +275,7 @@ impl DnsRequestSender for HttpsClientStream {
             Bytes::from(bytes),
             Arc::clone(&self.name_server_name),
             Arc::clone(&self.query_path),
+            self.add_headers.clone(),
         ))
         .into()
     }
@@ -298,6 +314,7 @@ pub struct HttpsClientStreamBuilder<P> {
     provider: P,
     client_config: Arc<ClientConfig>,
     bind_addr: Option<SocketAddr>,
+    add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
 impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
@@ -307,12 +324,18 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
             provider,
             client_config,
             bind_addr: None,
+            add_headers: None,
         }
     }
 
     /// Sets the address to connect from.
     pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
         self.bind_addr = Some(bind_addr);
+    }
+
+    /// Set the [`AddHeaders`] trait object used to inject dynamic headers into the DoH request
+    pub fn add_headers(&mut self, headers: Arc<dyn AddHeaders>) {
+        self.add_headers.replace(headers);
     }
 
     /// Creates a new HttpsStream to the specified name_server
@@ -340,6 +363,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
             client_config: self.client_config,
             server_name,
             path,
+            add_headers: self.add_headers,
         };
 
         let connect = self.provider.connect_tcp(name_server, self.bind_addr, None);
@@ -381,6 +405,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
             client_config,
             server_name,
             path,
+            add_headers: None,
         };
 
         Self(HttpsClientConnectState::TcpConnecting {
@@ -409,6 +434,8 @@ struct HttpsClientConfig {
     server_name: Arc<str>,
     /// Which path to send the DNS query on
     path: Arc<str>,
+    /// Optional trait object used to add headers to a DoH query
+    add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -430,6 +457,7 @@ where
         name_server_name: Arc<str>,
         name_server: SocketAddr,
         query_path: Arc<str>,
+        add_headers: Option<Arc<dyn AddHeaders>>,
     },
     H2Handshake {
         handshake: BoxFuture<
@@ -445,6 +473,7 @@ where
         name_server_name: Arc<str>,
         name_server: SocketAddr,
         query_path: Arc<str>,
+        add_headers: Option<Arc<dyn AddHeaders>>,
     },
     Connected(Option<HttpsClientStream>),
     Errored(Option<io::Error>),
@@ -472,6 +501,7 @@ where
                         .expect("programming error, tls should not be None here");
                     let name_server_name = Arc::clone(&tls.server_name);
                     let query_path = tls.path.clone();
+                    let add_headers = tls.add_headers.clone();
 
                     match ServerName::try_from(&*tls.server_name) {
                         Ok(dns_name) => Self::TlsConnecting {
@@ -483,6 +513,7 @@ where
                                     .connect(dns_name.to_owned(), AsyncIoStdAsTokio(tcp)),
                             )),
                             query_path,
+                            add_headers,
                         },
                         Err(err) => Self::Errored(Some(io::Error::new(
                             io::ErrorKind::InvalidData,
@@ -495,6 +526,7 @@ where
                     name_server,
                     query_path,
                     tls,
+                    add_headers,
                 } => {
                     let res = match ready!(tls.poll_unpin(cx)) {
                         Ok(res) => res,
@@ -517,6 +549,7 @@ where
                         name_server: *name_server,
                         query_path: Arc::clone(query_path),
                         handshake: Box::pin(handshake),
+                        add_headers: add_headers.clone(),
                     }
                 }
                 Self::H2Handshake {
@@ -524,6 +557,7 @@ where
                     name_server,
                     query_path,
                     handshake,
+                    add_headers,
                 } => {
                     let (send_request, connection) = ready!(
                         handshake
@@ -545,6 +579,7 @@ where
                         query_path: Arc::clone(query_path),
                         h2: send_request,
                         is_shutdown: false,
+                        add_headers: add_headers.clone(),
                     }))
                 }
                 Self::Connected(conn) => {
@@ -569,6 +604,15 @@ impl Future for HttpsClientResponse {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
+}
+
+/// Trait to return dynamic headers to add to a DoH request
+///
+/// For instance a DoH server may require authentication based
+/// on per-request HTTP headers and this trait allows their addition.
+pub trait AddHeaders: Send + Sync + 'static {
+    /// Get a set of headers to add to the query
+    fn headers(&self) -> Vec<(HeaderName, HeaderValue)>;
 }
 
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]

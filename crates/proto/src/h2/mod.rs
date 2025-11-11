@@ -13,5 +13,6 @@ pub mod h2_server;
 pub use crate::http::error::{Error as HttpsError, Result as HttpsResult};
 
 pub use self::h2_client_stream::{
-    HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
+    AddHeaders, HttpsClientConnect, HttpsClientResponse, HttpsClientStream,
+    HttpsClientStreamBuilder,
 };
