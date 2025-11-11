@@ -336,7 +336,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
             self.client_config = Arc::new(client_config);
         }
 
-        let tls = TlsConfig {
+        let tls = HttpsClientConfig {
             client_config: self.client_config,
             server_name,
             path,
@@ -377,7 +377,7 @@ impl<S: DnsTcpStream> HttpsClientConnect<S> {
             client_config = Arc::new(client_cfg);
         }
 
-        let tls = TlsConfig {
+        let tls = HttpsClientConfig {
             client_config,
             server_name,
             path,
@@ -402,9 +402,12 @@ where
     }
 }
 
-struct TlsConfig {
+struct HttpsClientConfig {
+    /// TLS Configuration
     client_config: Arc<ClientConfig>,
+    /// The SNI to use for the DoH server
     server_name: Arc<str>,
+    /// Which path to send the DNS query on
     path: Arc<str>,
 }
 
@@ -416,7 +419,7 @@ where
     TcpConnecting {
         connect: BoxFuture<'static, io::Result<S>>,
         name_server: SocketAddr,
-        tls: Option<TlsConfig>,
+        tls: Option<HttpsClientConfig>,
     },
     TlsConnecting {
         // TODO: also abstract away Tokio TLS in RuntimeProvider.
