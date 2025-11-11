@@ -118,10 +118,6 @@ pub(super) fn verify_nsec3(
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty()); // checked in the caller
 
-    let Some(soa) = soa else {
-        return nsec3_yield(Proof::Bogus, query, "SOA name not present");
-    };
-
     // For every NSEC3 record that in text form looks like:
     // <base32-hash>.soa.name NSEC3 <data>
     // we extract (<base32-hash>, <data>) pair from deeply nested structures
@@ -131,7 +127,8 @@ pub(super) fn verify_nsec3(
             return nsec3_yield(Proof::Bogus, query, "record name format is invalid");
         };
 
-        if &base != soa {
+        // If the SOA record is present, the base name of any NSEC3 records must match it.
+        if soa.is_some_and(|soa| &base != soa) {
             return nsec3_yield(Proof::Bogus, query, "record name is not in the zone");
         }
 
@@ -263,7 +260,7 @@ fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
         // `query_name`'s parent is the `soa_name` itself, so there's no need
         // to send `soa_name`'s NSEC3 record. Still we have to show that
         // both `query_name` doesn't exist and there's no wildcard to service it
-        (None, Some(_), Some(_)) if &cx.query.name().base_name() == cx.soa => cx.proof(
+        (None, Some(_), Some(_)) if Some(&cx.query.name().base_name()) == cx.soa => cx.proof(
             Proof::Secure,
             "no direct or wildcard proof, but parent name of query is SOA",
         ),
@@ -436,11 +433,11 @@ fn validate_nodata_response(
                     Proof::Secure,
                     "servicing wildcard with closest encloser proof",
                 ),
-                (None, Some(_), Some(_)) if &cx.query.name().base_name() == cx.soa => (
+                (None, Some(_), Some(_)) if Some(&cx.query.name().base_name()) == cx.soa => (
                     Proof::Secure,
                     "servicing wildcard without closest encloser proof, but query parent name == SOA",
                 ),
-                (None, None, None) if cx.query.name() == cx.soa => (
+                (None, None, None) if Some(cx.query.name()) == cx.soa => (
                     Proof::Secure,
                     "no servicing wildcard, but query name == SOA",
                 ),
@@ -530,7 +527,7 @@ fn closest_encloser_proof<'a>(cx: &Context<'a>) -> (ClosestEncloserProofInfo<'a>
                 Some(Proof::Bogus),
             )
         }
-        None if &cx.query.name().base_name() == cx.soa => {
+        None if Some(&cx.query.name().base_name()) == cx.soa => {
             // There's no record for closest encloser.
             // It may not be present since the encloser is `soa_name` which
             // is *known to exist*.
@@ -544,11 +541,22 @@ fn closest_encloser_proof<'a>(cx: &Context<'a>) -> (ClosestEncloserProofInfo<'a>
             )
             .map(|record| (next_encloser_hash_info, record));
 
+            let Some(soa) = cx.soa else {
+                return (
+                    ClosestEncloserProofInfo {
+                        closest_encloser: None,
+                        next_closer: None,
+                        closest_encloser_wildcard: None,
+                    },
+                    Some(Proof::Bogus),
+                );
+            };
+
             // Additionally there should be an NSEC3 record *covering*
             // `*.soa_name` wildcard.
             // If the wildcard existed then the response code would be NoError
             // but we received `NXDomain`
-            let closest_encloser_wildcard_name = cx.soa.prepend_label("*").unwrap();
+            let closest_encloser_wildcard_name = soa.prepend_label("*").unwrap();
             let wildcard_name_info = HashedNameInfo::new(closest_encloser_wildcard_name, cx);
             let wildcard = find_covering_record(
                 cx.nsec3s,
@@ -625,7 +633,7 @@ impl<'a> ClosestEncloserProofInfo<'a> {
         //
         let mut wildcard_encloser_candidates = closest_encloser_candidates
             .iter()
-            .filter(|HashedNameInfo { name, .. }| name != cx.soa)
+            .filter(|HashedNameInfo { name, .. }| Some(name) != cx.soa)
             .map(|info| {
                 let wildcard = info.name.clone().into_wildcard();
                 HashedNameInfo::new(wildcard, cx)
@@ -750,7 +758,7 @@ impl HashedNameInfo {
 
 struct Context<'a> {
     query: &'a Query,
-    soa: &'a Name,
+    soa: Option<&'a Name>,
     nsec3s: &'a [Nsec3RecordPair<'a>],
     hash_algorithm: Nsec3HashAlgorithm,
     salt: &'a [u8],
@@ -791,7 +799,7 @@ impl<'a> Context<'a> {
 
 struct EncloserCandidates<'a> {
     cur: Option<Name>,
-    soa: &'a Name,
+    soa: Option<&'a Name>,
 }
 
 impl Iterator for EncloserCandidates<'_> {
@@ -799,7 +807,9 @@ impl Iterator for EncloserCandidates<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let cur = self.cur.take()?;
-        if &cur != self.soa {
+        let soa = self.soa?;
+
+        if &cur != soa {
             let next = cur.base_name();
             // TODO: can `query_name` *not* be a sub-name of `soa_name`?
             debug_assert_ne!(next, Name::root());
