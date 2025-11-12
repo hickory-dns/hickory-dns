@@ -864,6 +864,19 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
+    use crate::{
+        ProtoError,
+        dnssec::{
+            Algorithm,
+            rdata::{DNSSECRData, RRSIG as rdataRRSIG, SigInput},
+        },
+        rr::{
+            RData, SerialNumber, rdata,
+            record_type::RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
+        },
+    };
+
+    use test_support::subscribe;
 
     #[test]
     fn test_hash() {
@@ -969,16 +982,578 @@ mod tests {
         );
     }
 
+    #[test]
+    fn nsec3_name_error_tests() -> Result<(), ProtoError> {
+        subscribe();
+
+        // Based on RFC 5155 B.1 - Name Error
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    // Covers the next closer name (c.x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
+                        hash("ns1.example."),
+                        [MX, DNSKEY, NS, SOA, NSEC3PARAM, RRSIG],
+                    )
+                    .as_ref(),
+                    // Matches the closest encloser (x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        hash("ai.example."),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                    // Covers the wildcard at the closest encloser (*.x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("a"))?,
+                        hash("x.w.example."),
+                        [DS, NS, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Secure,
+        );
+
+        // Missing wildcard at the closest encloser
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    // Covers the next closer name (c.x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
+                        hash("ns1.example."),
+                        [MX, DNSKEY, NS, SOA, NSEC3PARAM, RRSIG],
+                    )
+                    .as_ref(),
+                    // Matches the closest encloser (x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        hash("ai.example."),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // No record matching the next closer name
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    // Matches the closest encloser (x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        hash("ai.example."),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                    // Covers the wildcard at the closest encloser (*.x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("a"))?,
+                        hash("x.w.example."),
+                        [DS, NS, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // Invalid SOA
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                Some(&Name::from_ascii("x.w.example.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    // Covers the next closer name (c.x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
+                        hash("ns1.example."),
+                        [MX, DNSKEY, NS, SOA, NSEC3PARAM, RRSIG],
+                    )
+                    .as_ref(),
+                    // Matches the closest encloser (x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        hash("ai.example."),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                    // Covers the wildcard at the closest encloser (*.x.w.example.)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("a"))?,
+                        hash("x.w.example."),
+                        [DS, NS, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn nsec3_no_data_error_tests() -> Result<(), ProtoError> {
+        subscribe();
+
+        // Based on RFC 5155 B.2 - No Data Error
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the query name and proves the record type does not exist.
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns1.example"))?,
+                        hash("x.y.w.example."),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Secure,
+        );
+
+        // Based on RFC 5155 B.2.1 - No Data Error, Empty Non-Terminal
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("y.w.example.")?, A),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the query name and proves the record type does not exist.
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("y.w.example"))?,
+                        hash("w.example."),
+                        [],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Secure,
+        );
+
+        // NSEC Type map doesn't disprove the queried record type
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the query name and proves the record type does not exist.
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns1.example"))?,
+                        hash("x.y.w.example."),
+                        [A, RRSIG, MX],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // NSEC3 doesn't match the query name.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[Nsec3Pair::new(
+                    Name::from_ascii("example.")?.prepend_label(hash_with_base32("ns2.example"))?,
+                    hash("x.y.w.example."),
+                    [A, RRSIG],
+                )
+                .as_ref(),],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // NSEC3 covers the query name.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[Nsec3Pair::new(
+                    Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
+                    hash("a.example."),
+                    [A, SOA, DNSKEY, RRSIG],
+                )
+                .as_ref(),],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn nsec3_wildcard_expansion_tests() -> Result<(), ProtoError> {
+        subscribe();
+
+        let input = SigInput {
+            type_covered: MX,
+            algorithm: Algorithm::ED25519,
+            num_labels: 2,
+            original_ttl: 0,
+            sig_expiration: SerialNumber(0),
+            sig_inception: SerialNumber(0),
+            key_tag: 0,
+            signer_name: Name::root(),
+        };
+
+        let rrsig = rdataRRSIG::from_sig(input, vec![]);
+        let rrsig_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+        );
+
+        let answers = [
+            Record::from_rdata(
+                Name::from_ascii("a.z.w.example.")?,
+                3600,
+                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+            ),
+            rrsig_record,
+        ];
+
+        // Based on RFC 5155 B.4 - Wildcard Expansion
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                None,
+                ResponseCode::NoError,
+                &answers,
+                &[
+                    // Covers the next-closer name
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns2.example"))?,
+                        hash("*.w.example."),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Secure,
+        );
+
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                None,
+                ResponseCode::NoError,
+                &answers,
+                &[
+                    // Fails to cover the next-closer name
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
+                        hash("a.example."),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                None,
+                ResponseCode::NoError,
+                &answers,
+                &[
+                    // Matches the next-closer name.
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("z.w.example"))?,
+                        hash("a.example."),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn nsec3_wildcard_no_data_error_tests() -> Result<(), ProtoError> {
+        subscribe();
+
+        // Based on RFC 5155 B.5 - Wildcard No Data Error
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the closest encloser
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("w.example"))?,
+                        hash("2t7b4g4vsa5smi47k61mv5bv1a22bojr.example"),
+                        [],
+                    )
+                    .as_ref(),
+                    // Covers the next-closer name (z.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns2.example"))?,
+                        hash("*.w.example"),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                    // Matches the wildcard at the closest encloser (*.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("*.w.example"))?,
+                        hash("xx.example"),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Secure,
+        );
+
+        // Missing an NSEC matching the closest encloser.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Covers the next-closer name (z.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns2.example"))?,
+                        hash("*.w.example"),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                    // Matches the wildcard at the closest encloser (*.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("*.w.example"))?,
+                        hash("xx.example"),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // No record covering the next-closer
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the closest encloser
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("w.example"))?,
+                        hash("2t7b4g4vsa5smi47k61mv5bv1a22bojr.example"),
+                        [],
+                    )
+                    .as_ref(),
+                    // Matches the wildcard at the closest encloser (*.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("*.w.example"))?,
+                        hash("xx.example"),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // No record matching the wildcard at the closest encloser.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the closest encloser
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("w.example"))?,
+                        hash("2t7b4g4vsa5smi47k61mv5bv1a22bojr.example"),
+                        [],
+                    )
+                    .as_ref(),
+                    // Covers the next-closer name (z.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns2.example"))?,
+                        hash("*.w.example"),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // No SOA record
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                None,
+                ResponseCode::NoError,
+                &[],
+                &[
+                    // Matches the closest encloser
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("w.example"))?,
+                        hash("2t7b4g4vsa5smi47k61mv5bv1a22bojr.example"),
+                        [],
+                    )
+                    .as_ref(),
+                    // Covers the next-closer name (z.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("ns2.example"))?,
+                        hash("*.w.example"),
+                        [A, RRSIG],
+                    )
+                    .as_ref(),
+                    // Matches the wildcard at the closest encloser (*.w.example)
+                    Nsec3Pair::new(
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("*.w.example"))?,
+                        hash("xx.example"),
+                        [MX, RRSIG],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus
+        );
+
+        Ok(())
+    }
+
+    #[derive(Debug)]
+    struct Nsec3Pair(Name, NSEC3);
+
+    impl Nsec3Pair {
+        fn new(
+            rr_name: Name,
+            next_name: Vec<u8>,
+            rrset: impl IntoIterator<Item = RecordType>,
+        ) -> Self {
+            Self(
+                rr_name,
+                NSEC3::new(
+                    Nsec3HashAlgorithm::SHA1,
+                    false,
+                    12,
+                    KNOWN_SALT.to_vec(),
+                    next_name,
+                    rrset,
+                ),
+            )
+        }
+
+        fn as_ref(&self) -> (&Name, &NSEC3) {
+            (&self.0, &self.1)
+        }
+    }
+
+    fn hash(name: &str) -> Vec<u8> {
+        // NSEC3PARAM 1 0 12 aabbccdd
+        let known_name = Name::from_ascii(name).unwrap();
+        Nsec3HashAlgorithm::SHA1
+            .hash(KNOWN_SALT, &known_name, 12)
+            .unwrap()
+            .as_ref()
+            .to_vec()
+    }
+
     #[cfg(test)]
     fn hash_with_base32(name: &str) -> String {
         use data_encoding::BASE32_DNSSEC;
 
-        // NSEC3PARAM 1 0 12 aabbccdd
-        let known_name = Name::from_ascii(name).unwrap();
-        let known_salt = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
-        let hash = Nsec3HashAlgorithm::SHA1
-            .hash(&known_salt, &known_name, 12)
-            .unwrap();
-        BASE32_DNSSEC.encode(hash.as_ref())
+        BASE32_DNSSEC.encode(&hash(name))
     }
+
+    const KNOWN_SALT: &[u8] = &[0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
 }
