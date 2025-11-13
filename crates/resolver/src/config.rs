@@ -708,7 +708,7 @@ pub enum ResolveHosts {
 ///
 /// Controls how a recursive resolver probes name servers to discover if they support
 /// encrypted transports.
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
@@ -749,21 +749,30 @@ impl OpportunisticEncryption {
 }
 
 /// Configuration parameters for opportunistic encryption.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
 pub struct OpportunisticEncryptionConfig {
     /// How long the recursive resolver remembers a successful encrypted transport connection.
-    #[cfg_attr(feature = "serde", serde(default = "default_persistence_period"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_persistence_period", with = "duration")
+    )]
     pub persistence_period: Duration,
 
     /// How long the recursive resolver remembers a failed encrypted transport connection.
-    #[cfg_attr(feature = "serde", serde(default = "default_damping_period"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_damping_period", with = "duration")
+    )]
     pub damping_period: Duration,
 
     /// Maximum number of concurrent opportunistic encryption probes.
     #[cfg_attr(feature = "serde", serde(default = "default_max_concurrent_probes"))]
     pub max_concurrent_probes: u8,
+
+    /// Optional configuration for persistence of opportunistic encryption probe state.
+    pub persistence: Option<OpportunisticEncryptionPersistence>,
 }
 
 impl Default for OpportunisticEncryptionConfig {
@@ -772,6 +781,7 @@ impl Default for OpportunisticEncryptionConfig {
             persistence_period: default_persistence_period(),
             damping_period: default_damping_period(),
             max_concurrent_probes: default_max_concurrent_probes(),
+            persistence: None,
         }
     }
 }
@@ -789,6 +799,43 @@ fn default_damping_period() -> Duration {
 /// A conservative default for the maximum number of in-flight opportunistic probe requests.
 fn default_max_concurrent_probes() -> u8 {
     10
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
+/// Configuration for persistence of opportunistic encryption probe state.
+pub struct OpportunisticEncryptionPersistence {
+    /// Path to a TOML state file that may be used for saving/loading opportunistic encryption state.
+    ///
+    /// Note that performing loading and periodic serialization to this path isn't handled by the
+    /// hickory-recursor or hickory-resolver crates. See the hickory-server crate for an example
+    /// implementation.
+    pub path: PathBuf,
+
+    /// Interval after which opportunistic encryption state is periodically saved to `path`.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_save_interval", with = "duration")
+    )]
+    pub save_interval: Duration,
+}
+
+impl Default for OpportunisticEncryptionPersistence {
+    fn default() -> Self {
+        Self {
+            path: default_save_path(),
+            save_interval: default_save_interval(),
+        }
+    }
+}
+
+fn default_save_path() -> PathBuf {
+    PathBuf::from("/var/lib/hickory-dns/opp_enc_state.toml")
+}
+
+fn default_save_interval() -> Duration {
+    Duration::from_secs(60 * 10) // 10 minutes
 }
 
 /// Google Public DNS configuration.

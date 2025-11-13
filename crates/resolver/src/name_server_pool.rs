@@ -427,7 +427,8 @@ pub struct PoolContext {
     pub opportunistic_probe_budget: AtomicU8,
     /// Opportunistic encryption configuration
     pub opportunistic_encryption: OpportunisticEncryption,
-    pub(crate) transport_state: AsyncMutex<NameServerTransportState>,
+    /// Opportunistic encryption name server transport state.
+    pub transport_state: AsyncMutex<NameServerTransportState>,
     /// Answer address filter
     pub answer_address_filter: Option<AccessControlSet>,
 }
@@ -485,6 +486,11 @@ impl PoolContext {
 pub struct NameServerTransportState(HashMap<IpAddr, ProtocolTransportState>);
 
 impl NameServerTransportState {
+    /// Return the count of nameservers with protocol transport state.
+    pub fn nameserver_count(&self) -> usize {
+        self.0.len()
+    }
+
     /// Update the transport state for the given IP and protocol to record a connection initiation.
     pub(crate) fn initiate_connection(&mut self, ip: IpAddr, protocol: Protocol) {
         let protocol_state = self.0.entry(ip).or_default();
