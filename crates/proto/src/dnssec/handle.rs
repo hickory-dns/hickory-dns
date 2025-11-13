@@ -100,6 +100,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         self
     }
 
+    /// Get a reference to the underlying handle.
+    pub fn inner(&self) -> &H {
+        &self.handle
+    }
+
     async fn verify_response(
         self,
         result: Result<DnsResponse, ProtoError>,

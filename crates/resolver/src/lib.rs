@@ -206,6 +206,8 @@ pub mod lookup_ip;
 mod name_server;
 pub use name_server::NameServer;
 mod name_server_pool;
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+pub use name_server_pool::OpportunisticEncryptionStatePersistTask;
 pub use name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
 mod resolver;
 pub use resolver::LookupFuture;

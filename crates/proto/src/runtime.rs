@@ -332,7 +332,7 @@ impl Executor for Runtime {
 /// Generic Time for Delay and Timeout.
 // This trait is created to allow to use different types of time systems. It's used in Fuchsia OS, please be mindful when update it.
 #[async_trait]
-pub trait Time: Send + Unpin {
+pub trait Time: Send + Sync + Unpin {
     /// Return a type that implements `Future` that will wait until the specified duration has
     /// elapsed.
     async fn delay_for(duration: Duration);

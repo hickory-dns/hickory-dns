@@ -708,7 +708,7 @@ pub enum ResolveHosts {
 ///
 /// Controls how a recursive resolver probes name servers to discover if they support
 /// encrypted transports.
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
@@ -749,7 +749,7 @@ impl OpportunisticEncryption {
 }
 
 /// Configuration parameters for opportunistic encryption.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
 pub struct OpportunisticEncryptionConfig {
@@ -770,6 +770,9 @@ pub struct OpportunisticEncryptionConfig {
     /// Maximum number of concurrent opportunistic encryption probes.
     #[cfg_attr(feature = "serde", serde(default = "default_max_concurrent_probes"))]
     pub max_concurrent_probes: u8,
+
+    /// Optional configuration for persistence of opportunistic encryption probe state.
+    pub persistence: Option<OpportunisticEncryptionPersistence>,
 }
 
 impl Default for OpportunisticEncryptionConfig {
@@ -778,6 +781,7 @@ impl Default for OpportunisticEncryptionConfig {
             persistence_period: default_persistence_period(),
             damping_period: default_damping_period(),
             max_concurrent_probes: default_max_concurrent_probes(),
+            persistence: None,
         }
     }
 }
@@ -795,6 +799,27 @@ fn default_damping_period() -> Duration {
 /// A conservative default for the maximum number of in-flight opportunistic probe requests.
 fn default_max_concurrent_probes() -> u8 {
     10
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+/// Configuration for persistence of opportunistic encryption probe state.
+pub struct OpportunisticEncryptionPersistence {
+    /// Path to a TOML state file that may be used for saving/loading opportunistic encryption state.
+    pub path: PathBuf,
+
+    /// Interval after which opportunistic encryption state is periodically saved to `path`.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_save_interval", with = "duration")
+    )]
+    pub save_interval: Duration,
+}
+
+#[cfg(feature = "serde")]
+fn default_save_interval() -> Duration {
+    Duration::from_secs(60 * 10) // 10 minutes
 }
 
 /// Google Public DNS configuration.
