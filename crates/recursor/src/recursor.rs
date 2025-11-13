@@ -12,7 +12,7 @@ use std::{
     time::Instant,
 };
 
-use hickory_resolver::NameServerTransportState;
+use hickory_resolver::{NameServerTransportState, PoolContext};
 use ipnet::IpNet;
 use tracing::warn;
 
@@ -276,6 +276,15 @@ impl<P: ConnectionProvider> Recursor<P> {
         Ok(Self {
             mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, builder)?,
         })
+    }
+
+    /// Get the recursor's [`PoolContext`].
+    pub fn pool_context(&self) -> &Arc<PoolContext> {
+        match &self.mode {
+            RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
+            #[cfg(feature = "__dnssec")]
+            RecursorMode::Validating { handle, .. } => handle.inner().pool_context(),
+        }
     }
 
     /// Perform a recursive resolution

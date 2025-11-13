@@ -1437,7 +1437,7 @@ mod opportunistic_enc_tests {
             ..OpportunisticEncryptionConfig::default()
         };
         let opp_enc = &OpportunisticEncryption::Enabled {
-            config: opp_enc_config,
+            config: opp_enc_config.clone(),
         };
 
         // Update the state to reflect that we have successfully probed this NS.
@@ -1572,7 +1572,7 @@ mod opportunistic_enc_tests {
             ..OpportunisticEncryptionConfig::default()
         };
         let opp_enc = &OpportunisticEncryption::Enabled {
-            config: opp_enc_config,
+            config: opp_enc_config.clone(),
         };
 
         // Update the state to reflect that we have successfully probed this NS.
@@ -1724,7 +1724,7 @@ mod opportunistic_enc_tests {
             ..OpportunisticEncryptionConfig::default()
         };
         cx.opportunistic_encryption = OpportunisticEncryption::Enabled {
-            config: opp_enc_config,
+            config: opp_enc_config.clone(),
         };
 
         // Set up state to show an old failure outside the damping period.

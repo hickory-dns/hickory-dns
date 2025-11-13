@@ -9,14 +9,13 @@
 
 //! Recursive resolver related types
 
-#[cfg(feature = "__dnssec")]
-use std::sync::Arc;
 use std::{
     borrow::Cow,
     collections::HashSet,
     fs, io,
     net::IpAddr,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Instant,
 };
 
@@ -24,6 +23,11 @@ use ipnet::IpNet;
 use serde::Deserialize;
 use tracing::{debug, info};
 
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+use crate::resolver::{
+    NameServerTransportState, OpportunisticEncryptionStatePersistTask,
+    config::OpportunisticEncryptionConfig,
+};
 #[cfg(feature = "__dnssec")]
 use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
@@ -35,7 +39,7 @@ use crate::{
         runtime::RuntimeProvider,
         serialize::txt::{ParseError, Parser},
     },
-    recursor::{DnssecPolicy, Recursor},
+    recursor::{DnssecPolicy, Recursor, RecursorBuilder},
     resolver::{TtlConfig, config::OpportunisticEncryption},
     server::{Request, RequestInfo},
     zone_handler::{
@@ -50,6 +54,8 @@ use crate::{
 pub struct RecursiveZoneHandler<P: RuntimeProvider> {
     origin: LowerName,
     recursor: Recursor<P>,
+    #[allow(dead_code)] // Handle is retained to Drop along with RecursiveZoneHandler.
+    opportunistic_encryption_persistence_task: Option<P::Handle>,
 }
 
 impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
@@ -68,7 +74,7 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             .read_roots(root_dir)
             .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
 
-        let mut builder = Recursor::builder_with_provider(conn_provider);
+        let mut builder = Recursor::builder_with_provider(conn_provider.clone());
         if let Some(ns_cache_size) = config.ns_cache_size {
             builder = builder.ns_cache_size(ns_cache_size);
         }
@@ -84,7 +90,7 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             builder = builder.answer_address_filter_deny(config.deny_answers.iter());
         }
 
-        let recursor = builder
+        let mut builder = builder
             .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
             .deny_servers(config.deny_server.iter())
             .allow_servers(config.allow_server.iter())
@@ -99,12 +105,38 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
             .case_randomization(config.case_randomization)
-            .opportunistic_encryption(config.opportunistic_encryption)
+            .opportunistic_encryption(config.opportunistic_encryption.clone());
+
+        #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+        {
+            // Before building the recursor, potentially load some pre-existing opportunistic encrypted
+            // nameserver state to configure on the builder.
+            builder =
+                opportunistic_encryption_persistence::configure_opp_enc_state(config, builder)?;
+        }
+
+        let recursor = builder
             .build(&root_addrs)
             .map_err(|e| format!("failed to initialize recursor: {e}"))?;
 
         Ok(Self {
             origin: origin.into(),
+            // Once the recursor is built, potentially use the recursor's pool context to spawn a
+            // background save task, holding the task handle (if created) so it drops with the zone handler.
+            #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+            opportunistic_encryption_persistence_task: match &config.opportunistic_encryption {
+                OpportunisticEncryption::Enabled { config } => {
+                    OpportunisticEncryptionStatePersistTask::<P::Timer>::start(
+                        config,
+                        recursor.pool_context(),
+                        conn_provider.clone(),
+                    )
+                    .await?
+                }
+                _ => None,
+            },
+            #[cfg(not(all(feature = "toml", any(feature = "__tls", feature = "__quic"))))]
+            opportunistic_encryption_persistence_task: None,
             recursor,
         })
     }
@@ -363,6 +395,59 @@ impl DnssecPolicyConfig {
                 nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
             },
         })
+    }
+}
+
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+mod opportunistic_encryption_persistence {
+    use crate::resolver::config::OpportunisticEncryptionPersistence;
+
+    use super::*;
+
+    pub(super) fn configure_opp_enc_state<P: RuntimeProvider>(
+        config: &RecursiveConfig,
+        builder: RecursorBuilder<P>,
+    ) -> Result<RecursorBuilder<P>, String> {
+        let OpportunisticEncryption::Enabled {
+            config:
+                OpportunisticEncryptionConfig {
+                    persistence: Some(OpportunisticEncryptionPersistence { path, .. }),
+                    ..
+                },
+        } = &config.opportunistic_encryption
+        else {
+            return Ok(builder);
+        };
+
+        let state = match fs::read_to_string(path) {
+            Ok(toml_content) => toml::from_str(&toml_content).map_err(|e| {
+                format!(
+                    "failed to parse opportunistic encryption state TOML file: {file_path}: {e}",
+                    file_path = path.display()
+                )
+            })?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                info!(
+                    state_file = %path.display(),
+                    "no pre-existing opportunistic encryption state TOML file, starting with default state",
+                );
+                NameServerTransportState::default()
+            }
+            Err(e) => {
+                return Err(format!(
+                    "failed to read opportunistic encryption state TOML file: {file_path}: {e}",
+                    file_path = path.display()
+                ));
+            }
+        };
+
+        debug!(
+            path = %path.display(),
+            nameserver_count = state.nameserver_count(),
+            "loaded opportunistic encryption state"
+        );
+
+        Ok(builder.encrypted_transport_state(state))
     }
 }
 

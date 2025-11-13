@@ -82,8 +82,23 @@ deny_server = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]
 ## it will avoid plaintext queries to that server in the future.
 ##
 ## See RFC 9539 for more information.
-[zones.stores.opportunistic_encryption]
-enabled = {}
+
+## Simple default config:
+# [zones.stores.opportunistic_encryption]
+# enabled = {}
+
+## Customized config:
+[zones.stores.opportunistic_encryption.enabled]
+# How long the recursive resolver remembers a successful encrypted transport connection (seconds)
+persistence_period = 259200
+# How long the recursive resolver remembers a failed encrypted transport connection (seconds).
+damping_period = 86400
+# Maximum number of concurrent opportunistic encryption probes.
+max_concurrent_probes = 10
+# Persistence config:
+#   Path to a TOML state file used for saving/loading opportunistic encryption state.
+#   Interval after which opportunistic encryption state is periodically saved to `path` (seconds).
+persistence = { path = "/var/lib/hickory-dns/opp_enc_state.toml", save_interval = 600 }
 
 ## cache_policy: set the minimum/maximum TTL for positive/negative responses.
 ## This can be set for all queries and for specific query types.
