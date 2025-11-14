@@ -246,10 +246,10 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     type Handle: Clone + Send + Spawn + Sync + Unpin;
 
     /// Timer
-    type Timer: Time + Send + Unpin;
+    type Timer: Time;
 
     /// UdpSocket
-    type Udp: DnsUdpSocket + Send;
+    type Udp: DnsUdpSocket;
 
     /// TcpStream
     type Tcp: DnsTcpStream;
@@ -332,7 +332,7 @@ impl Executor for Runtime {
 /// Generic Time for Delay and Timeout.
 // This trait is created to allow to use different types of time systems. It's used in Fuchsia OS, please be mindful when update it.
 #[async_trait]
-pub trait Time {
+pub trait Time: Send + Unpin {
     /// Return a type that implements `Future` that will wait until the specified duration has
     /// elapsed.
     async fn delay_for(duration: Duration);
