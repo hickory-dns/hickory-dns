@@ -427,7 +427,7 @@ fn validate_nodata_response(
                 closest_encloser,
                 next_closer,
                 closest_encloser_wildcard,
-            } = ClosestEncloserProofInfo::from_wildcard(cx);
+            } = cx.closest_encloser_proof();
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
                 (Some(_), Some(_), Some(_)) => (
                     Proof::Secure,
@@ -602,7 +602,16 @@ struct ClosestEncloserProofInfo<'a> {
     closest_encloser_wildcard: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
 }
 
-impl<'a> ClosestEncloserProofInfo<'a> {
+struct Context<'a> {
+    query: &'a Query,
+    soa: Option<&'a Name>,
+    nsec3s: &'a [Nsec3RecordPair<'a>],
+    hash_algorithm: Nsec3HashAlgorithm,
+    salt: &'a [u8],
+    iterations: u16,
+}
+
+impl<'a> Context<'a> {
     /// Expecting the following records:
     /// * closest encloser - *matching* NSEC3 record
     /// * next closer - *covering* NSEC3 record
@@ -610,10 +619,10 @@ impl<'a> ClosestEncloserProofInfo<'a> {
     ///   NOTE: this is the difference between this and NXDomain case
     ///
     /// Unlike non-wildcard version this cannot produce the early `Proof`
-    fn from_wildcard(cx: &'a Context<'a>) -> Self {
-        let mut closest_encloser_candidates = cx
+    fn closest_encloser_proof(&'a self) -> ClosestEncloserProofInfo<'a> {
+        let mut closest_encloser_candidates = self
             .encloser_candidates()
-            .map(|name| HashedNameInfo::new(name, cx))
+            .map(|name| HashedNameInfo::new(name, self))
             .collect::<Vec<_>>();
 
         // For `a.b.c.soa.name` the `closest_encloser_candidates` will have:
@@ -633,10 +642,10 @@ impl<'a> ClosestEncloserProofInfo<'a> {
         //
         let mut wildcard_encloser_candidates = closest_encloser_candidates
             .iter()
-            .filter(|HashedNameInfo { name, .. }| Some(name) != cx.soa)
+            .filter(|HashedNameInfo { name, .. }| Some(name) != self.soa)
             .map(|info| {
                 let wildcard = info.name.clone().into_wildcard();
-                HashedNameInfo::new(wildcard, cx)
+                HashedNameInfo::new(wildcard, self)
             })
             .collect::<Vec<_>>();
 
@@ -644,7 +653,7 @@ impl<'a> ClosestEncloserProofInfo<'a> {
             .iter()
             .enumerate()
             .find_map(|(index, wildcard)| {
-                let wildcard_nsec3 = cx
+                let wildcard_nsec3 = self
                     .nsec3s
                     .iter()
                     .find(|record| record.base32_hashed_name == wildcard.base32_hashed_name);
@@ -656,7 +665,7 @@ impl<'a> ClosestEncloserProofInfo<'a> {
             });
 
         let Some((wildcard_encloser_name_info, _)) = &wildcard_encloser else {
-            return Self::default();
+            return ClosestEncloserProofInfo::default();
         };
 
         // Wildcard record exists. Within the wildcard there should be
@@ -683,7 +692,7 @@ impl<'a> ClosestEncloserProofInfo<'a> {
         let closest_encloser_name_info =
             closest_encloser_candidates.swap_remove(closest_encloser_index);
         let closest_encloser_covering_record = find_covering_record(
-            cx.nsec3s,
+            self.nsec3s,
             &closest_encloser_name_info.hashed_name,
             &closest_encloser_name_info.base32_hashed_name,
         );
@@ -692,80 +701,19 @@ impl<'a> ClosestEncloserProofInfo<'a> {
         let next_closer_index = closest_encloser_index - 1;
         let next_closer_name_info = closest_encloser_candidates.swap_remove(next_closer_index);
         let next_closer_covering_record = find_covering_record(
-            cx.nsec3s,
+            self.nsec3s,
             &next_closer_name_info.hashed_name,
             &next_closer_name_info.base32_hashed_name,
         );
 
-        Self {
+        ClosestEncloserProofInfo {
             closest_encloser: closest_encloser_covering_record
                 .map(|record| (closest_encloser_name_info, record)),
             next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
             closest_encloser_wildcard: wildcard_encloser,
         }
     }
-}
 
-fn find_covering_record<'a>(
-    nsec3s: &'a [Nsec3RecordPair<'a>],
-    target_hashed_name: &[u8],
-    // Strictly speaking we don't need this parameter, we can calculate
-    // base32(target_hashed_name) inside the function.
-    // However, we already have it available at call sites, may as well use
-    // it and save on repeated base32 encodings.
-    target_base32_hashed_name: &Label,
-) -> Option<&'a Nsec3RecordPair<'a>> {
-    nsec3s.iter().find(|record| {
-        let Some(record_next_hashed_owner_name_base32) =
-            record.nsec3_data.next_hashed_owner_name_base32()
-        else {
-            return false;
-        };
-        if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
-            // Normal case: target must be between the hashed owner name and the next hashed owner
-            // name.
-            record.base32_hashed_name < *target_base32_hashed_name
-                && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
-        } else {
-            // Wraparound case: target must be less than the hashed owner name or greater than the
-            // next hashed owner name.
-            record.base32_hashed_name > *target_base32_hashed_name
-                || target_hashed_name > record.nsec3_data.next_hashed_owner_name()
-        }
-    })
-}
-
-// NSEC3 records use a base32 hashed name as a record name component.
-// But within the record body the hash is stored as a binary blob.
-// Thus we need both for comparisons.
-struct HashedNameInfo {
-    name: Name,
-    hashed_name: Vec<u8>,
-    base32_hashed_name: Label,
-}
-
-impl HashedNameInfo {
-    /// Hash a query name and store all representations of it.
-    fn new(name: Name, cx: &Context<'_>) -> Self {
-        let (hashed_name, base32_hashed_name) = cx.hash_and_label(&name);
-        Self {
-            name,
-            hashed_name,
-            base32_hashed_name,
-        }
-    }
-}
-
-struct Context<'a> {
-    query: &'a Query,
-    soa: Option<&'a Name>,
-    nsec3s: &'a [Nsec3RecordPair<'a>],
-    hash_algorithm: Nsec3HashAlgorithm,
-    salt: &'a [u8],
-    iterations: u16,
-}
-
-impl<'a> Context<'a> {
     /// Hashes a name and returns both both the hash digest and the base32-encoded form.
     fn hash_and_label(&self, name: &Name) -> (Vec<u8>, Label) {
         let hash = self
@@ -794,6 +742,58 @@ impl<'a> Context<'a> {
 
     fn proof(&self, proof: Proof, msg: impl Display) -> Proof {
         nsec3_yield(proof, self.query, msg)
+    }
+}
+
+fn find_covering_record<'a>(
+    nsec3s: &'a [Nsec3RecordPair<'a>],
+    target_hashed_name: &[u8],
+    // Strictly speaking we don't need this parameter, we can calculate
+    // base32(target_hashed_name) inside the function.
+    // However, we already have it available at call sites, may as well use
+    // it and save on repeated base32 encodings.
+    target_base32_hashed_name: &Label,
+) -> Option<&'a Nsec3RecordPair<'a>> {
+    nsec3s.iter().find(|record| {
+        let Some(record_next_hashed_owner_name_base32) =
+            record.nsec3_data.next_hashed_owner_name_base32()
+        else {
+            return false;
+        };
+
+        if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
+            // Normal case: target must be between the hashed owner name and the next hashed owner
+            // name.
+            record.base32_hashed_name < *target_base32_hashed_name
+                && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
+        } else {
+            // Wraparound case: target must be less than the hashed owner name or greater than the
+            // next hashed owner name.
+            record.base32_hashed_name > *target_base32_hashed_name
+                || target_hashed_name > record.nsec3_data.next_hashed_owner_name()
+        }
+    })
+}
+
+// NSEC3 records use a base32 hashed name as a record name component.
+// But within the record body the hash is stored as a binary blob.
+// Thus we need both for comparisons.
+#[derive(Debug)]
+struct HashedNameInfo {
+    name: Name,
+    hashed_name: Vec<u8>,
+    base32_hashed_name: Label,
+}
+
+impl HashedNameInfo {
+    /// Hash a query name and store all representations of it.
+    fn new(name: Name, cx: &Context<'_>) -> Self {
+        let (hashed_name, base32_hashed_name) = cx.hash_and_label(&name);
+        Self {
+            name,
+            hashed_name,
+            base32_hashed_name,
+        }
     }
 }
 
