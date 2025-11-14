@@ -691,10 +691,10 @@ impl<'a> Context<'a> {
         debug_assert!(closest_encloser_index >= 1);
         let closest_encloser_name_info =
             closest_encloser_candidates.swap_remove(closest_encloser_index);
-        let closest_encloser_covering_record = find_covering_record(
-            self.nsec3s,
-            &closest_encloser_name_info.hashed_name,
-            &closest_encloser_name_info.base32_hashed_name,
+        let closest_encloser_matching_record = self
+            .nsec3s
+            .iter()
+            .find(|nsec| nsec.base32_hashed_name == closest_encloser_name_info.base32_hashed_name);
         );
 
         // Since `closest_encloser_index` is >= 1, this is always valid.
@@ -707,7 +707,7 @@ impl<'a> Context<'a> {
         );
 
         ClosestEncloserProofInfo {
-            closest_encloser: closest_encloser_covering_record
+            closest_encloser: closest_encloser_matching_record
                 .map(|record| (closest_encloser_name_info, record)),
             next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
             closest_encloser_wildcard: wildcard_encloser,
