@@ -100,11 +100,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         self
     }
 
-    /// Get a reference to the underlying handle.
-    pub fn handle(&self) -> &H {
-        &self.handle
-    }
-
     async fn verify_response(
         self,
         result: Result<DnsResponse, ProtoError>,
@@ -922,6 +917,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
         }
+    }
+
+    /// Get a reference to the underlying handle.
+    pub fn inner(&self) -> &H {
+        &self.handle
     }
 }
 

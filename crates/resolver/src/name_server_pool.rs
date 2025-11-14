@@ -416,6 +416,113 @@ impl<P: ConnectionProvider> PoolState<P> {
     }
 }
 
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+mod opportunistic_encryption_persistence {
+    use std::{fs, io, marker::PhantomData, path::PathBuf};
+
+    use hickory_proto::runtime::Spawn;
+    use tracing::trace;
+
+    use crate::config::OpportunisticEncryptionPersistence;
+
+    use super::*;
+
+    /// A background task for periodically saving opportunistic encryption state.
+    pub struct OpportunisticEncryptionStatePersistTask<T> {
+        cx: Arc<PoolContext>,
+        path: PathBuf,
+        save_interval: Duration,
+        _time: PhantomData<T>,
+    }
+
+    impl<T: Time> OpportunisticEncryptionStatePersistTask<T> {
+        /// Starts the persistence task based on the given configuration.
+        pub async fn start<P: RuntimeProvider>(
+            config: &OpportunisticEncryptionConfig,
+            pool_context: &Arc<PoolContext>,
+            conn_provider: P,
+        ) -> Result<Option<P::Handle>, String> {
+            let Some(persistence) = &config.persistence else {
+                return Ok(None);
+            };
+
+            info!(
+                path = %persistence.path.display(),
+                save_interval = ?persistence.save_interval,
+                "spawning encrypted transport state persistence task"
+            );
+
+            let new =
+                OpportunisticEncryptionStatePersistTask::<P::Timer>::new(persistence, pool_context);
+
+            // Try to save the state back immediately so we can surface write errors early
+            // instead of when the background task runs later on.
+            new.save(&*new.cx.transport_state.lock().await)
+                .map_err(|err| {
+                    format!(
+                        "failed to save opportunistic encryption config: {path}: {err}",
+                        path = new.path.display()
+                    )
+                })?;
+
+            let mut handle = conn_provider.create_handle();
+            handle.spawn_bg(new.run());
+            Ok(Some(handle))
+        }
+
+        fn new(
+            config: &OpportunisticEncryptionPersistence,
+            pool_context: &Arc<PoolContext>,
+        ) -> Self {
+            Self {
+                cx: pool_context.clone(),
+                path: config.path.clone(),
+                save_interval: config.save_interval,
+                _time: PhantomData,
+            }
+        }
+    }
+
+    impl<T: Time> OpportunisticEncryptionStatePersistTask<T> {
+        async fn run(self) -> Result<(), ProtoError> {
+            let Self {
+                save_interval,
+                path,
+                cx,
+                ..
+            } = &self;
+
+            loop {
+                T::delay_for(*save_interval).await;
+                trace!(path = %path.display(), ?save_interval, "persisting opportunistic encryption state");
+                if let Err(e) = self.save(&*cx.transport_state.lock().await) {
+                    error!("failed to save opportunistic encryption state: {e}");
+                }
+            }
+        }
+
+        fn save(&self, state: &NameServerTransportState) -> Result<(), io::Error> {
+            let toml_content = toml::to_string_pretty(state).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("failed to serialize state to TOML: {e}",),
+                )
+            })?;
+
+            if let Some(parent) = self.path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            fs::write(&self.path, toml_content)?;
+            debug!(state_file = %self.path.display(), "saved opportunistic encryption state");
+            Ok(())
+        }
+    }
+}
+
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+pub use opportunistic_encryption_persistence::OpportunisticEncryptionStatePersistTask;
+
 /// Context for a [`NameServerPool`]
 #[non_exhaustive]
 pub struct PoolContext {

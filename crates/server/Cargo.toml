@@ -32,7 +32,7 @@ recursor = ["dep:hickory-recursor", "resolver"]
 resolver = ["dep:hickory-resolver"]
 sqlite = ["rusqlite"]
 blocklist = ["resolver"]
-toml = ["dep:toml"]
+toml = ["dep:toml", "hickory-resolver/toml"]
 metrics = ["hickory-recursor?/metrics", "dep:metrics"]
 
 tls-aws-lc-rs = [

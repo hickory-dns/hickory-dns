@@ -52,6 +52,7 @@ __dnssec = []
 
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
+toml = ["dep:toml"]
 
 tokio = ["dep:tokio", "tokio/rt", "hickory-proto/tokio"]
 
@@ -85,6 +86,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 hickory-proto = { workspace = true, features = ["access-control"] }
 webpki-roots = { workspace = true, optional = true }
 

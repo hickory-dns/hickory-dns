@@ -206,7 +206,9 @@ pub mod lookup_ip;
 mod name_server;
 pub use name_server::NameServer;
 mod name_server_pool;
-pub use name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
+pub use name_server_pool::{
+    NameServerPool, NameServerTransportState, OpportunisticEncryptionStatePersistTask, PoolContext,
+};
 mod resolver;
 pub use resolver::LookupFuture;
 #[cfg(feature = "tokio")]

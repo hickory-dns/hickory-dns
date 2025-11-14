@@ -283,10 +283,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         match &self.mode {
             RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
             #[cfg(feature = "__dnssec")]
-            RecursorMode::Validating { handle, .. } => {
-                use for_dnssec::DnssecPoolContext;
-                handle.pool_context()
-            }
+            RecursorMode::Validating { handle, .. } => handle.inner().pool_context(),
         }
     }
 
@@ -594,12 +591,11 @@ mod for_dnssec {
     use crate::ErrorKind;
     use crate::proto::{
         ProtoError,
-        dnssec::DnssecDnsHandle,
         op::{DnsRequest, DnsResponse, Message, OpCode},
         xfer::DnsHandle,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::resolver::{ConnectionProvider, PoolContext};
+    use crate::resolver::ConnectionProvider;
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
@@ -649,16 +645,6 @@ mod for_dnssec {
                 DnsResponse::from_message(msg)
             })
             .boxed()
-        }
-    }
-
-    pub(super) trait DnssecPoolContext {
-        fn pool_context(&self) -> &Arc<PoolContext>;
-    }
-
-    impl<P: ConnectionProvider> DnssecPoolContext for DnssecDnsHandle<RecursorDnsHandle<P>> {
-        fn pool_context(&self) -> &Arc<PoolContext> {
-            self.handle().pool_context()
         }
     }
 }

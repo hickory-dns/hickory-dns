@@ -95,11 +95,12 @@ persistence_period = 259200
 damping_period = 86400
 # Maximum number of concurrent opportunistic encryption probes.
 max_concurrent_probes = 10
-[zones.stores.opportunistic_encryption.enabled.persistence]
-# Path to a TOML state file used for saving/loading opportunistic encryption state.
-path = "/var/lib/hickory-dns/opp_enc_state.toml"
-# Interval after which opportunistic encryption state is periodically saved to `path` (seconds).
-save_interval = 600
+persistence = {
+    # Path to a TOML state file used for saving/loading opportunistic encryption state.
+    path = "/var/lib/hickory-dns/opp_enc_state.toml",
+    # Interval after which opportunistic encryption state is periodically saved to `path` (seconds).
+    save_interval = 600
+}
 
 ## cache_policy: set the minimum/maximum TTL for positive/negative responses.
 ## This can be set for all queries and for specific query types.
