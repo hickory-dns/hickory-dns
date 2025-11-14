@@ -422,6 +422,7 @@ fn validate_nodata_response(
 
         // Case 5:
         // Name is serviced by wildcard that doesn't have a record of this type
+        // Verify the wildcard type set does not match the query type (or CNAME) - RFC 5155 8.7.
         None => {
             let (
                 ClosestEncloserProofInfo {
@@ -431,10 +432,15 @@ fn validate_nodata_response(
                 closest_encloser_wildcard,
             ) = cx.closest_encloser_proof_with_wildcard(true);
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
-                (Some(_), Some(_), Some(_)) => (
-                    Proof::Secure,
-                    "servicing wildcard with closest encloser proof",
-                ),
+                (Some(_), Some(_), Some((_, wildcard)))
+                    if !wildcard.nsec3_data.type_set().contains(query_type)
+                        && !wildcard.nsec3_data.type_set().contains(RecordType::CNAME) =>
+                {
+                    (
+                        Proof::Secure,
+                        "servicing wildcard with closest encloser proof",
+                    )
+                }
                 (None, Some(_), Some(_)) if Some(&cx.query.name().base_name()) == cx.soa => (
                     Proof::Secure,
                     "servicing wildcard without closest encloser proof, but query parent name == SOA",
