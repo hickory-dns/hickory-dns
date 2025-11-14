@@ -482,11 +482,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                     // if the cached response is a referral, or if any record is indeterminate, fall
                     // through and perform DNSSEC validation
                     if response.authoritative() && none_indeterminate {
-                        return Ok(super::maybe_strip_dnssec_records(
-                            query_has_dnssec_ok,
-                            response,
-                            query,
-                        ));
+                        return Ok(response.strip_dnssec_records_if_needed(query_has_dnssec_ok));
                     }
                 }
 
@@ -541,11 +537,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                         Ok(message.clone()),
                         request_time,
                     );
-                    Ok(super::maybe_strip_dnssec_records(
-                        query_has_dnssec_ok,
-                        message,
-                        query,
-                    ))
+                    Ok(message.strip_dnssec_records_if_needed(query_has_dnssec_ok))
                 }
             }
         }
