@@ -429,7 +429,7 @@ fn validate_nodata_response(
                 closest_encloser,
                 next_closer,
                 closest_encloser_wildcard,
-            } = ClosestEncloserProofInfo::from_wildcard(cx);
+            } = cx.closest_encloser_proof();
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
                 (Some(_), Some(_), Some(_)) => (
                     Proof::Secure,
@@ -604,110 +604,6 @@ struct ClosestEncloserProofInfo<'a> {
     closest_encloser_wildcard: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
 }
 
-impl<'a> ClosestEncloserProofInfo<'a> {
-    /// Expecting the following records:
-    /// * closest encloser - *matching* NSEC3 record
-    /// * next closer - *covering* NSEC3 record
-    /// * wildcard of closest encloser - *matching* NSEC3 record
-    ///   NOTE: this is the difference between this and NXDomain case
-    ///
-    /// Unlike non-wildcard version this cannot produce the early `Proof`
-    fn from_wildcard(cx: &'a Context<'a>) -> Self {
-        let mut closest_encloser_candidates = cx
-            .encloser_candidates()
-            .map(|name| HashedNameInfo::new(name, cx))
-            .collect::<Vec<_>>();
-
-        // For `a.b.c.soa.name` the `closest_encloser_candidates` will have:
-        // [
-        //     (a.b.c.soa.name, h(a.b.c.soa.name), b32h(a.b.c.soa.name)),
-        //     (b.c.soa.name, h(b.c.soa.name), b32h(b.c.soa.name)),
-        //     (c.soa.name, h(c.soa.name), b32h(c.soa.name)),
-        //     (soa.name, h(soa.name), b32h(soa.name)),
-        // ]
-        //
-        // `wildcard_encloser_candidates` will have:
-        // [
-        //     (*.b.c.soa.name, h(*.b.c.soa.name), b32h(*.b.c.soa.name)),
-        //     (*.c.soa.name, h(*.c.soa.name), b32h(*.c.soa.name)),
-        //     (*.soa.name, h(*.soa.name), b32h(*.soa.name)),
-        // ]
-        //
-        let mut wildcard_encloser_candidates = closest_encloser_candidates
-            .iter()
-            .filter(|HashedNameInfo { name, .. }| Some(name) != cx.soa)
-            .map(|info| {
-                let wildcard = info.name.clone().into_wildcard();
-                HashedNameInfo::new(wildcard, cx)
-            })
-            .collect::<Vec<_>>();
-
-        let wildcard_encloser = wildcard_encloser_candidates
-            .iter()
-            .enumerate()
-            .find_map(|(index, wildcard)| {
-                let wildcard_nsec3 = cx
-                    .nsec3s
-                    .iter()
-                    .find(|record| record.base32_hashed_name == wildcard.base32_hashed_name);
-                wildcard_nsec3.map(|record| (index, record))
-            })
-            .map(|(index, record)| {
-                let wildcard_name_info = wildcard_encloser_candidates.swap_remove(index);
-                (wildcard_name_info, record)
-            });
-
-        let Some((wildcard_encloser_name_info, _)) = &wildcard_encloser else {
-            return Self::default();
-        };
-
-        // Wildcard record exists. Within the wildcard there should be
-        // a next_closer with a name <unknown>.<wildcard_base_name>.
-
-        let closest_encloser_name = wildcard_encloser_name_info.name.base_name();
-
-        // the shortest `wildcard_encloser` would be `*.soa.name`,
-        // and its `.base_name()` would be `soa.name` itself, which is
-        // guaranteed to be in the `closest_encloser_candidates`.
-        // all other, longer, wildcards would have their base_names from
-        // `query_name.base_name()` to `soa.name` and thus are guaranteed
-        // to be in the `closest_encloser_candidates`, too.
-        let closest_encloser_index = closest_encloser_candidates
-            .iter()
-            .position(|name_info| name_info.name == closest_encloser_name)
-            .expect("cannot fail, always > 0");
-
-        // `closest_encloser_candidates` starts with query_name itself, index 0.
-        // The *closest* name a `closest_encloser` can be is
-        // `query_name.base_name()`, because it's derived from a wildcard above.
-        // Thus, `closest_encloser` would have an index 1 or bigger
-        debug_assert!(closest_encloser_index >= 1);
-        let closest_encloser_name_info =
-            closest_encloser_candidates.swap_remove(closest_encloser_index);
-        let closest_encloser_covering_record = find_covering_record(
-            cx.nsec3s,
-            &closest_encloser_name_info.hashed_name,
-            &closest_encloser_name_info.base32_hashed_name,
-        );
-
-        // Since `closest_encloser_index` is >= 1, this is always valid.
-        let next_closer_index = closest_encloser_index - 1;
-        let next_closer_name_info = closest_encloser_candidates.swap_remove(next_closer_index);
-        let next_closer_covering_record = find_covering_record(
-            cx.nsec3s,
-            &next_closer_name_info.hashed_name,
-            &next_closer_name_info.base32_hashed_name,
-        );
-
-        Self {
-            closest_encloser: closest_encloser_covering_record
-                .map(|record| (closest_encloser_name_info, record)),
-            next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
-            closest_encloser_wildcard: wildcard_encloser,
-        }
-    }
-}
-
 fn find_covering_record<'a>(
     nsec3s: &'a [Nsec3RecordPair<'a>],
     target_hashed_name: &[u8],
@@ -723,6 +619,7 @@ fn find_covering_record<'a>(
         else {
             return false;
         };
+
         if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
             // Normal case: target must be between the hashed owner name and the next hashed owner
             // name.
@@ -740,6 +637,7 @@ fn find_covering_record<'a>(
 // NSEC3 records use a base32 hashed name as a record name component.
 // But within the record body the hash is stored as a binary blob.
 // Thus we need both for comparisons.
+#[derive(Debug)]
 struct HashedNameInfo {
     name: Name,
     hashed_name: Vec<u8>,
@@ -791,6 +689,108 @@ impl<'a> Context<'a> {
         EncloserCandidates {
             cur: Some(self.query.name().clone()),
             soa: self.soa,
+        }
+    }
+
+    /// Expecting the following records:
+    /// * closest encloser - *matching* NSEC3 record
+    /// * next closer - *covering* NSEC3 record
+    /// * wildcard of closest encloser - *matching* NSEC3 record
+    ///   NOTE: this is the difference between this and NXDomain case
+    ///
+    /// Unlike non-wildcard version this cannot produce the early `Proof`
+    fn closest_encloser_proof(&'a self) -> ClosestEncloserProofInfo<'a> {
+        let mut closest_encloser_candidates = self
+            .encloser_candidates()
+            .map(|name| HashedNameInfo::new(name, self))
+            .collect::<Vec<_>>();
+
+        // For `a.b.c.soa.name` the `closest_encloser_candidates` will have:
+        // [
+        //     (a.b.c.soa.name, h(a.b.c.soa.name), b32h(a.b.c.soa.name)),
+        //     (b.c.soa.name, h(b.c.soa.name), b32h(b.c.soa.name)),
+        //     (c.soa.name, h(c.soa.name), b32h(c.soa.name)),
+        //     (soa.name, h(soa.name), b32h(soa.name)),
+        // ]
+        //
+        // `wildcard_encloser_candidates` will have:
+        // [
+        //     (*.b.c.soa.name, h(*.b.c.soa.name), b32h(*.b.c.soa.name)),
+        //     (*.c.soa.name, h(*.c.soa.name), b32h(*.c.soa.name)),
+        //     (*.soa.name, h(*.soa.name), b32h(*.soa.name)),
+        // ]
+        //
+        let mut wildcard_encloser_candidates = closest_encloser_candidates
+            .iter()
+            .filter(|HashedNameInfo { name, .. }| Some(name) != self.soa)
+            .map(|info| {
+                let wildcard = info.name.clone().into_wildcard();
+                HashedNameInfo::new(wildcard, self)
+            })
+            .collect::<Vec<_>>();
+
+        let wildcard_encloser = wildcard_encloser_candidates
+            .iter()
+            .enumerate()
+            .find_map(|(index, wildcard)| {
+                let wildcard_nsec3 = self
+                    .nsec3s
+                    .iter()
+                    .find(|record| record.base32_hashed_name == wildcard.base32_hashed_name);
+                wildcard_nsec3.map(|record| (index, record))
+            })
+            .map(|(index, record)| {
+                let wildcard_name_info = wildcard_encloser_candidates.swap_remove(index);
+                (wildcard_name_info, record)
+            });
+
+        let Some((wildcard_encloser_name_info, _)) = &wildcard_encloser else {
+            return ClosestEncloserProofInfo::default();
+        };
+
+        // Wildcard record exists. Within the wildcard there should be
+        // a next_closer with a name <unknown>.<wildcard_base_name>.
+
+        let closest_encloser_name = wildcard_encloser_name_info.name.base_name();
+
+        // the shortest `wildcard_encloser` would be `*.soa.name`,
+        // and its `.base_name()` would be `soa.name` itself, which is
+        // guaranteed to be in the `closest_encloser_candidates`.
+        // all other, longer, wildcards would have their base_names from
+        // `query_name.base_name()` to `soa.name` and thus are guaranteed
+        // to be in the `closest_encloser_candidates`, too.
+        let closest_encloser_index = closest_encloser_candidates
+            .iter()
+            .position(|name_info| name_info.name == closest_encloser_name)
+            .expect("cannot fail, always > 0");
+
+        // `closest_encloser_candidates` starts with query_name itself, index 0.
+        // The *closest* name a `closest_encloser` can be is
+        // `query_name.base_name()`, because it's derived from a wildcard above.
+        // Thus, `closest_encloser` would have an index 1 or bigger
+        debug_assert!(closest_encloser_index >= 1);
+        let closest_encloser_name_info =
+            closest_encloser_candidates.swap_remove(closest_encloser_index);
+        let closest_encloser_covering_record = find_covering_record(
+            self.nsec3s,
+            &closest_encloser_name_info.hashed_name,
+            &closest_encloser_name_info.base32_hashed_name,
+        );
+
+        // Since `closest_encloser_index` is >= 1, this is always valid.
+        let next_closer_index = closest_encloser_index - 1;
+        let next_closer_name_info = closest_encloser_candidates.swap_remove(next_closer_index);
+        let next_closer_covering_record = find_covering_record(
+            self.nsec3s,
+            &next_closer_name_info.hashed_name,
+            &next_closer_name_info.base32_hashed_name,
+        );
+
+        ClosestEncloserProofInfo {
+            closest_encloser: closest_encloser_covering_record
+                .map(|record| (closest_encloser_name_info, record)),
+            next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
+            closest_encloser_wildcard: wildcard_encloser,
         }
     }
 
