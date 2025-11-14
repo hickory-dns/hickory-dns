@@ -12,7 +12,7 @@ use std::{
     time::Instant,
 };
 
-use hickory_resolver::NameServerTransportState;
+use hickory_resolver::{NameServerTransportState, PoolContext};
 use ipnet::IpNet;
 use tracing::warn;
 
@@ -276,6 +276,18 @@ impl<P: ConnectionProvider> Recursor<P> {
         Ok(Self {
             mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, builder)?,
         })
+    }
+
+    /// Get the recursor's [`PoolContext`].
+    pub fn pool_context(&self) -> &Arc<PoolContext> {
+        match &self.mode {
+            RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
+            #[cfg(feature = "__dnssec")]
+            RecursorMode::Validating { handle, .. } => {
+                use for_dnssec::DnssecPoolContext;
+                handle.pool_context()
+            }
+        }
     }
 
     /// Perform a recursive resolution
@@ -582,11 +594,12 @@ mod for_dnssec {
     use crate::ErrorKind;
     use crate::proto::{
         ProtoError,
+        dnssec::DnssecDnsHandle,
         op::{DnsRequest, DnsResponse, Message, OpCode},
         xfer::DnsHandle,
     };
     use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::resolver::ConnectionProvider;
+    use crate::resolver::{ConnectionProvider, PoolContext};
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
@@ -636,6 +649,16 @@ mod for_dnssec {
                 DnsResponse::from_message(msg)
             })
             .boxed()
+        }
+    }
+
+    pub(super) trait DnssecPoolContext {
+        fn pool_context(&self) -> &Arc<PoolContext>;
+    }
+
+    impl<P: ConnectionProvider> DnssecPoolContext for DnssecDnsHandle<RecursorDnsHandle<P>> {
+        fn pool_context(&self) -> &Arc<PoolContext> {
+            self.handle().pool_context()
         }
     }
 }

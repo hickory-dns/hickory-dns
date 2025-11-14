@@ -1247,7 +1247,7 @@ mod opportunistic_enc_tests {
     use std::pin::Pin;
     use std::sync::Arc;
     use std::task::{Context, Poll};
-    use std::time::{Duration, Instant};
+    use std::time::{Duration, SystemTime};
 
     use futures_util::stream::once;
     use futures_util::{Stream, future};
@@ -1437,7 +1437,7 @@ mod opportunistic_enc_tests {
             ..OpportunisticEncryptionConfig::default()
         };
         let opp_enc = &OpportunisticEncryption::Enabled {
-            config: opp_enc_config,
+            config: opp_enc_config.clone(),
         };
 
         // Update the state to reflect that we have successfully probed this NS.
@@ -1445,7 +1445,7 @@ mod opportunistic_enc_tests {
         state.response_received(ns_ip, Protocol::Tls);
         // And then update the last response time to be too stale for consideration.
         let stale_time =
-            Instant::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
+            SystemTime::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
         state.set_last_response(ns_ip, Protocol::Tls, stale_time);
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
@@ -1572,7 +1572,7 @@ mod opportunistic_enc_tests {
             ..OpportunisticEncryptionConfig::default()
         };
         let opp_enc = &OpportunisticEncryption::Enabled {
-            config: opp_enc_config,
+            config: opp_enc_config.clone(),
         };
 
         // Update the state to reflect that we have successfully probed this NS.
@@ -1580,7 +1580,7 @@ mod opportunistic_enc_tests {
         state.response_received(ns_ip, Protocol::Tls);
         // And then update the last response time to be too stale for consideration.
         let stale_time =
-            Instant::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
+            SystemTime::now() - opp_enc_config.persistence_period - Duration::from_secs(1);
         state.set_last_response(ns_ip, Protocol::Tls, stale_time);
 
         // When opportunistic encryption is enabled, but our probe state indicates success that is too stale,
@@ -1724,14 +1724,14 @@ mod opportunistic_enc_tests {
             ..OpportunisticEncryptionConfig::default()
         };
         cx.opportunistic_encryption = OpportunisticEncryption::Enabled {
-            config: opp_enc_config,
+            config: opp_enc_config.clone(),
         };
 
         // Set up state to show an old failure outside the damping period.
         {
             let mut state = cx.transport_state().await;
             let old_failure_time =
-                Instant::now() - opp_enc_config.damping_period - Duration::from_secs(1);
+                SystemTime::now() - opp_enc_config.damping_period - Duration::from_secs(1);
             state.set_failure_time(ns_ip, Protocol::Tls, old_failure_time);
         }
 

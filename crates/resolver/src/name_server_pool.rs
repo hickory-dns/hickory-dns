@@ -15,7 +15,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime};
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
@@ -24,6 +24,8 @@ use futures_util::{
     future::{BoxFuture, Shared},
 };
 use parking_lot::Mutex;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use tracing::{debug, error, info};
 
@@ -425,7 +427,8 @@ pub struct PoolContext {
     pub opportunistic_probe_budget: AtomicU8,
     /// Opportunistic encryption configuration
     pub opportunistic_encryption: OpportunisticEncryption,
-    pub(crate) transport_state: AsyncMutex<NameServerTransportState>,
+    /// Opportunistic encryption name server transport state.
+    pub transport_state: AsyncMutex<NameServerTransportState>,
     /// Answer address filter
     pub answer_address_filter: Option<AccessControlSet>,
 }
@@ -477,50 +480,55 @@ impl PoolContext {
 }
 
 /// A mapping from nameserver IP address and protocol to encrypted transport state.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
-pub struct NameServerTransportState(HashMap<(IpAddr, Protocol), TransportState>);
+pub struct NameServerTransportState(HashMap<IpAddr, ProtocolTransportState>);
 
 impl NameServerTransportState {
+    /// Return the count of nameservers with protocol transport state.
+    pub fn nameserver_count(&self) -> usize {
+        self.0.len()
+    }
+
     /// Update the transport state for the given IP and protocol to record a connection initiation.
     pub(crate) fn initiate_connection(&mut self, ip: IpAddr, protocol: Protocol) {
-        self.0.insert((ip, protocol), TransportState::default());
+        let protocol_state = self.0.entry(ip).or_default();
+        *protocol_state.get_mut(protocol) = TransportState::default();
     }
 
     /// Update the transport state for the given IP and protocol to record a connection completion.
     pub(crate) fn complete_connection(&mut self, ip: IpAddr, protocol: Protocol) {
-        self.0.insert(
-            (ip, protocol),
-            TransportState::Success {
-                last_response: None,
-            },
-        );
+        let protocol_state = self.0.entry(ip).or_default();
+        *protocol_state.get_mut(protocol) = TransportState::Success {
+            last_response: None,
+        };
     }
 
     /// Update the successful transport state for the given IP and protocol to record a response received.
     pub(crate) fn response_received(&mut self, ip: IpAddr, protocol: Protocol) {
-        let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
-        else {
+        let Some(protocol_state) = self.0.get_mut(&ip) else {
             return;
         };
-        *last_response = Some(Instant::now());
+        let TransportState::Success { last_response, .. } = protocol_state.get_mut(protocol) else {
+            return;
+        };
+        *last_response = Some(SystemTime::now());
     }
 
     /// Update the transport state for the given IP and protocol to record a received error.
     pub(crate) fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
-        self.0.insert(
-            (ip, protocol),
-            match error.kind() {
-                ProtoErrorKind::Timeout => TransportState::TimedOut {
-                    #[cfg(any(feature = "__tls", feature = "__quic"))]
-                    completed_at: Instant::now(),
-                },
-                _ => TransportState::Failed {
-                    #[cfg(any(feature = "__tls", feature = "__quic"))]
-                    completed_at: Instant::now(),
-                },
+        let protocol_state = self.0.entry(ip).or_default();
+        *protocol_state.get_mut(protocol) = match error.kind() {
+            ProtoErrorKind::Timeout => TransportState::TimedOut {
+                #[cfg(any(feature = "__tls", feature = "__quic"))]
+                completed_at: SystemTime::now(),
             },
-        );
+            _ => TransportState::Failed {
+                #[cfg(any(feature = "__tls", feature = "__quic"))]
+                completed_at: SystemTime::now(),
+            },
+        };
     }
 
     /// Returns true if any supported encrypted protocol had a recent success for the given IP
@@ -571,8 +579,11 @@ impl NameServerTransportState {
             return false;
         };
 
-        let Some(TransportState::Success { last_response, .. }) = self.0.get(&(ip, protocol))
-        else {
+        let Some(protocol_state) = self.0.get(&ip) else {
+            return false;
+        };
+
+        let TransportState::Success { last_response, .. } = protocol_state.get(protocol) else {
             return false;
         };
 
@@ -580,7 +591,7 @@ impl NameServerTransportState {
             return false;
         };
 
-        Instant::now().duration_since(*last_response) <= config.persistence_period
+        last_response.elapsed().unwrap_or(Duration::MAX) <= config.persistence_period
     }
 
     /// Returns true if there has been a successful response within the persistence period.
@@ -611,15 +622,15 @@ impl NameServerTransportState {
             return false;
         };
 
-        let Some(state) = self.0.get(&(ip, protocol)) else {
+        let Some(protocol_state) = self.0.get(&ip) else {
             return true;
         };
 
-        match state {
+        match protocol_state.get(protocol) {
             TransportState::Initiated => false,
             TransportState::Success { .. } => true,
             TransportState::Failed { completed_at } | TransportState::TimedOut { completed_at } => {
-                completed_at.elapsed() > config.damping_period
+                completed_at.elapsed().unwrap_or(Duration::MAX) > config.damping_period
             }
         }
     }
@@ -637,9 +648,12 @@ impl NameServerTransportState {
 
     /// For testing, set the last response time for successful connections to the ip/protocol.
     #[cfg(all(test, feature = "__tls"))]
-    pub(crate) fn set_last_response(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
-        let Some(TransportState::Success { last_response, .. }) = self.0.get_mut(&(ip, protocol))
-        else {
+    pub(crate) fn set_last_response(&mut self, ip: IpAddr, protocol: Protocol, when: SystemTime) {
+        let Some(protocol_state) = self.0.get_mut(&ip) else {
+            return;
+        };
+
+        let TransportState::Success { last_response, .. } = protocol_state.get_mut(protocol) else {
             return;
         };
 
@@ -648,16 +662,48 @@ impl NameServerTransportState {
 
     /// For testing, set the completion time for failed connections to the ip/protocol.
     #[cfg(all(test, feature = "__tls"))]
-    pub(crate) fn set_failure_time(&mut self, ip: IpAddr, protocol: Protocol, when: Instant) {
-        self.0.insert(
-            (ip, protocol),
-            TransportState::Failed { completed_at: when },
-        );
+    pub(crate) fn set_failure_time(&mut self, ip: IpAddr, protocol: Protocol, when: SystemTime) {
+        let protocol_state = self.0.entry(ip).or_default();
+        *protocol_state.get_mut(protocol) = TransportState::Failed { completed_at: when };
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+struct ProtocolTransportState {
+    #[cfg(feature = "__tls")]
+    tls: TransportState,
+    #[cfg(feature = "__quic")]
+    quic: TransportState,
+}
+
+impl ProtocolTransportState {
+    #[cfg_attr(not(any(feature = "__tls", feature = "__quic")), allow(dead_code))]
+    fn get_mut(&mut self, protocol: Protocol) -> &mut TransportState {
+        match protocol {
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => &mut self.tls,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => &mut self.quic,
+            _ => unreachable!("unsupported opportunistic encryption protocol: {protocol:?}"),
+        }
+    }
+
+    #[cfg_attr(not(any(feature = "__tls", feature = "__quic")), allow(dead_code))]
+    fn get(&self, protocol: Protocol) -> &TransportState {
+        match protocol {
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => &self.tls,
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => &self.quic,
+            _ => unreachable!("unsupported opportunistic encryption protocol: {protocol:?}"),
+        }
     }
 }
 
 /// State tracked per nameserver IP/protocol to inform opportunistic encryption.
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 enum TransportState {
     /// Connection attempt has been initiated.
     #[default]
@@ -665,19 +711,19 @@ enum TransportState {
     /// Connection completed successfully.
     Success {
         /// The last instant at which a response was read on the connection (if any).
-        last_response: Option<Instant>,
+        last_response: Option<SystemTime>,
     },
     /// Connection failed with an error.
     Failed {
         /// The instant the connection attempt was completed at.
         #[cfg(any(feature = "__tls", feature = "__quic"))]
-        completed_at: Instant,
+        completed_at: SystemTime,
     },
     /// Connection timed out.
     TimedOut {
         /// The instant the connection attempt was completed at.
         #[cfg(any(feature = "__tls", feature = "__quic"))]
-        completed_at: Instant,
+        completed_at: SystemTime,
     },
 }
 
