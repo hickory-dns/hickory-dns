@@ -237,21 +237,21 @@ fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
         return cx.proof(Proof::Bogus, "NXDomain response with record for query name");
     }
 
-    let (closest_encloser_proof_info, early_proof) = closest_encloser_proof(cx);
-
-    if let Some(proof) = early_proof {
-        return cx.proof(proof, "returning early proof");
-    }
-
     // Note that the three fields may hold references to the same NSEC3
     // record, because the interval of base32_hashed_name
     // and next_hashed_owner_name happen to match / cover all three components
     // of closest encloser proof.
-    let ClosestEncloserProofInfo {
-        closest_encloser,
-        next_closer,
+    let (
+        ClosestEncloserProofInfo {
+            closest_encloser,
+            next_closer,
+        },
         closest_encloser_wildcard,
-    } = closest_encloser_proof_info;
+    ) = cx.closest_encloser_proof_with_wildcard(false);
+
+    if closest_encloser.is_none() && next_closer.is_none() {
+        return cx.proof(Proof::Bogus, "returning early proof");
+    }
 
     match (closest_encloser, next_closer, closest_encloser_wildcard) {
         // Got all three components - we proved that there's no `query_name`
@@ -427,7 +427,6 @@ fn validate_nodata_response(
                 ClosestEncloserProofInfo {
                     closest_encloser,
                     next_closer,
-                    ..
                 },
                 closest_encloser_wildcard,
             ) = cx.closest_encloser_proof_with_wildcard(true);
@@ -458,151 +457,10 @@ fn split_first_label(name: &Name) -> Option<(&[u8], Name)> {
     Some((first_label, base))
 }
 
-/// Expecting the following records:
-/// * closest encloser - *matching* NSEC3 record
-/// * next closer - *covering* NSEC3 record
-/// * wildcard of closest encloser - *covering* NSEC3 record
-fn closest_encloser_proof<'a>(cx: &Context<'a>) -> (ClosestEncloserProofInfo<'a>, Option<Proof>) {
-    let mut closest_encloser_candidates = cx
-        .encloser_candidates()
-        .map(|name| HashedNameInfo::new(name, cx))
-        .collect::<Vec<_>>();
-
-    // Search for *matching* closing encloser record, i.e.
-    // An NSEC3 record those name matches one of the names in
-    // candidate list
-    let closest_encloser_in_candidates = closest_encloser_candidates.iter().enumerate().find_map(
-        |(candidate_index, candidate_name_info)| {
-            let nsec3 = cx
-                .nsec3s
-                .iter()
-                .find(|r| r.base32_hashed_name == candidate_name_info.base32_hashed_name);
-            nsec3.map(|record| (candidate_index, record))
-        },
-    );
-
-    match closest_encloser_in_candidates {
-        // General flow - there's a record for closest encloser
-        Some((closest_encloser_index @ 1.., closest_encloser_record)) => {
-            let closest_encloser_hash_info =
-                closest_encloser_candidates.swap_remove(closest_encloser_index);
-            let closest_encloser_wildcard_name =
-                closest_encloser_hash_info.name.prepend_label("*").unwrap();
-            let closest_encloser = Some((closest_encloser_hash_info, closest_encloser_record));
-
-            let next_closer_hash_info =
-                closest_encloser_candidates.swap_remove(closest_encloser_index - 1);
-            let next_closer = find_covering_record(
-                cx.nsec3s,
-                &next_closer_hash_info.hashed_name,
-                &next_closer_hash_info.base32_hashed_name,
-            )
-            .map(|record| (next_closer_hash_info, record));
-
-            let wildcard_name_info = HashedNameInfo::new(closest_encloser_wildcard_name, cx);
-            let wildcard = find_covering_record(
-                cx.nsec3s,
-                &wildcard_name_info.hashed_name,
-                &wildcard_name_info.base32_hashed_name,
-            )
-            .map(|record| (wildcard_name_info, record));
-
-            (
-                ClosestEncloserProofInfo {
-                    closest_encloser,
-                    next_closer,
-                    closest_encloser_wildcard: wildcard,
-                },
-                None,
-            )
-        }
-        Some((0, _)) => {
-            // Closest encloser at index 0 corresponds to an NSEC3 record
-            // with the key = base32(hash(`query_name`)), which should not be
-            // possible because that would mean `query_name` exists in the zone,
-            // but the response code is NXDomain.
-            (
-                ClosestEncloserProofInfo {
-                    closest_encloser: None,
-                    next_closer: None,
-                    closest_encloser_wildcard: None,
-                },
-                Some(Proof::Bogus),
-            )
-        }
-        None if Some(&cx.query.name().base_name()) == cx.soa => {
-            // There's no record for closest encloser.
-            // It may not be present since the encloser is `soa_name` which
-            // is *known to exist*.
-            //
-            // Next closer *is* `query_name`, hence index 0
-            let next_encloser_hash_info = closest_encloser_candidates.swap_remove(0);
-            let next_closer = find_covering_record(
-                cx.nsec3s,
-                &next_encloser_hash_info.hashed_name,
-                &next_encloser_hash_info.base32_hashed_name,
-            )
-            .map(|record| (next_encloser_hash_info, record));
-
-            let Some(soa) = cx.soa else {
-                return (
-                    ClosestEncloserProofInfo {
-                        closest_encloser: None,
-                        next_closer: None,
-                        closest_encloser_wildcard: None,
-                    },
-                    Some(Proof::Bogus),
-                );
-            };
-
-            // Additionally there should be an NSEC3 record *covering*
-            // `*.soa_name` wildcard.
-            // If the wildcard existed then the response code would be NoError
-            // but we received `NXDomain`
-            let closest_encloser_wildcard_name = soa.prepend_label("*").unwrap();
-            let wildcard_name_info = HashedNameInfo::new(closest_encloser_wildcard_name, cx);
-            let wildcard = find_covering_record(
-                cx.nsec3s,
-                &wildcard_name_info.hashed_name,
-                &wildcard_name_info.base32_hashed_name,
-            )
-            .map(|record| (wildcard_name_info, record));
-
-            (
-                ClosestEncloserProofInfo {
-                    closest_encloser: None,
-                    next_closer,
-                    closest_encloser_wildcard: wildcard,
-                },
-                None,
-            )
-        }
-        None => {
-            // Problematic case: a.b.soa.name doesn't exist
-            // but there's no NSEC3 record for any of the ancestors
-            //
-            // If `b.soa.name` existed we should have its *matching* NSEC3 record
-            // and a record *covering* `a.b.soa.name` in `next_closer`
-            //
-            // If `b.soa.name` didn't exist we would get a record *covering* it
-            // in `next_closer`.
-            (
-                ClosestEncloserProofInfo {
-                    closest_encloser: None,
-                    next_closer: None,
-                    closest_encloser_wildcard: None,
-                },
-                Some(Proof::Bogus),
-            )
-        }
-    }
-}
-
 #[derive(Default)]
 struct ClosestEncloserProofInfo<'a> {
     closest_encloser: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
     next_closer: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
-    closest_encloser_wildcard: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
 }
 
 struct Context<'a> {
@@ -717,7 +575,6 @@ impl<'a> Context<'a> {
         ClosestEncloserProofInfo {
             closest_encloser: Some((closest_encloser_name_info, closest_encloser_matching_record)),
             next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
-            closest_encloser_wildcard: None,
         }
     }
 
