@@ -423,11 +423,14 @@ fn validate_nodata_response(
         // Case 5:
         // Name is serviced by wildcard that doesn't have a record of this type
         None => {
-            let ClosestEncloserProofInfo {
-                closest_encloser,
-                next_closer,
+            let (
+                ClosestEncloserProofInfo {
+                    closest_encloser,
+                    next_closer,
+                    ..
+                },
                 closest_encloser_wildcard,
-            } = cx.closest_encloser_proof();
+            ) = cx.closest_encloser_proof_with_wildcard(true);
             match (closest_encloser, next_closer, closest_encloser_wildcard) {
                 (Some(_), Some(_), Some(_)) => (
                     Proof::Secure,
@@ -612,6 +615,49 @@ struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
+    /// Return a closest encloser proof and a proof of non-existence for the wildcard at the closest encloser.
+    ///
+    /// For example, if the closest encloser is `w.example.`, the wildcard at the closest encloser is `*.w.example`.
+    ///
+    /// If matching is set to true, look for an NSEC3 that matches the wildcard name (used in wildcard no data responses.)
+    /// If matching is set to false, look for an NSEC3 that covers the wildcard name (used in name error responses.)
+    fn closest_encloser_proof_with_wildcard(
+        &'a self,
+        matching: bool,
+    ) -> (
+        ClosestEncloserProofInfo<'a>,
+        Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
+    ) {
+        let closest_encloser_proof = self.closest_encloser_proof();
+
+        let closest_encloser_name = match closest_encloser_proof.closest_encloser.as_ref() {
+            Some((name_info, _)) => name_info.name.clone(),
+            None => return (closest_encloser_proof, None),
+        };
+
+        let Ok(wildcard_encloser_name) = closest_encloser_name.prepend_label("*") else {
+            return (closest_encloser_proof, None);
+        };
+
+        let wildcard_name_info = HashedNameInfo::new(wildcard_encloser_name, self);
+        let wildcard_record = if matching {
+            self.nsec3s
+                .iter()
+                .find(|record| record.base32_hashed_name == wildcard_name_info.base32_hashed_name)
+        } else {
+            find_covering_record(
+                self.nsec3s,
+                &wildcard_name_info.hashed_name,
+                &wildcard_name_info.base32_hashed_name,
+            )
+        };
+
+        (
+            closest_encloser_proof,
+            wildcard_record.map(|record| (wildcard_name_info, record)),
+        )
+    }
+
     /// Find the NSEC3 record(s) constituting the closest encloser proof (RFC 5155 7.2.1) consisting of:
     ///
     /// * closest encloser - *matching* NSEC3 record
@@ -619,8 +665,6 @@ impl<'a> Context<'a> {
     ///
     /// Example: for `a.z.w.example.`, the closest encloser might be `w.example.` in which case the next closer name
     /// would be `z.w.example.`
-    ///
-    /// This function also finds a matching wildcard encloser, which is not part of the closest encloser proof.
     fn closest_encloser_proof(&'a self) -> ClosestEncloserProofInfo<'a> {
         // For `a.b.c.soa.name` the `closest_encloser_candidates` will have:
         // [
@@ -629,7 +673,7 @@ impl<'a> Context<'a> {
         //     (c.soa.name, h(c.soa.name), b32h(c.soa.name)),
         //     (soa.name, h(soa.name), b32h(soa.name)),
         // ]
-        let closest_encloser_candidates = self
+        let mut closest_encloser_candidates = self
             .encloser_candidates()
             .map(|name| HashedNameInfo::new(name, self))
             .collect::<Vec<_>>();
@@ -658,10 +702,10 @@ impl<'a> Context<'a> {
             return ClosestEncloserProofInfo::default();
         };
 
-        // Temporary clones to let the wildcard code continue to work.
         let closest_encloser_name_info =
-            closest_encloser_candidates[closest_encloser_index].clone();
-        let next_closer_name_info = closest_encloser_candidates[closest_encloser_index - 1].clone();
+            closest_encloser_candidates.swap_remove(closest_encloser_index);
+        let next_closer_name_info =
+            closest_encloser_candidates.swap_remove(closest_encloser_index - 1);
 
         // Now find a covering record for the next closer, which is one label longer than the closest encloser
         let next_closer_covering_record = find_covering_record(
@@ -670,34 +714,10 @@ impl<'a> Context<'a> {
             &next_closer_name_info.base32_hashed_name,
         );
 
-        let mut wildcard_encloser_candidates = closest_encloser_candidates
-            .iter()
-            .filter(|HashedNameInfo { name, .. }| Some(name) != self.soa)
-            .map(|info| {
-                let wildcard = info.name.clone().into_wildcard();
-                HashedNameInfo::new(wildcard, self)
-            })
-            .collect::<Vec<_>>();
-
-        let wildcard_encloser = wildcard_encloser_candidates
-            .iter()
-            .enumerate()
-            .find_map(|(index, wildcard)| {
-                let wildcard_nsec3 = self
-                    .nsec3s
-                    .iter()
-                    .find(|record| record.base32_hashed_name == wildcard.base32_hashed_name);
-                wildcard_nsec3.map(|record| (index, record))
-            })
-            .map(|(index, record)| {
-                let wildcard_name_info = wildcard_encloser_candidates.swap_remove(index);
-                (wildcard_name_info, record)
-            });
-
         ClosestEncloserProofInfo {
             closest_encloser: Some((closest_encloser_name_info, closest_encloser_matching_record)),
             next_closer: next_closer_covering_record.map(|record| (next_closer_name_info, record)),
-            closest_encloser_wildcard: wildcard_encloser,
+            closest_encloser_wildcard: None,
         }
     }
 
