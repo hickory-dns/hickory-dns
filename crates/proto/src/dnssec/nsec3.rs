@@ -415,8 +415,8 @@ fn validate_nodata_response(
                 &next_closer_name_info.base32_hashed_name,
             );
             match next_closer_record {
-                Some(_) => (Proof::Secure, "matching next closer record"),
-                None => (Proof::Bogus, "no matching next closer record"),
+                Some(_) => (Proof::Secure, "covering next closer record"),
+                None => (Proof::Bogus, "no covering next closer record"),
             }
         }
 
@@ -624,6 +624,11 @@ fn find_covering_record<'a>(
         else {
             return false;
         };
+
+        // Matching records don't count as covering records
+        if record.base32_hashed_name == *target_base32_hashed_name {
+            return false;
+        }
 
         if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
             // Normal case: target must be between the hashed owner name and the next hashed owner
