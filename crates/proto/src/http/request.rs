@@ -15,14 +15,14 @@ use http::{Request, Uri, header, uri};
 use tracing::debug;
 
 use super::error::Result;
-use super::{AddHeaders, Version};
+use super::{SetHeaders, Version};
 use crate::error::ProtoError;
 
 pub(crate) struct RequestContext {
     pub(crate) version: Version,
     pub(crate) name_server_name: Arc<str>,
     pub(crate) query_path: Arc<str>,
-    pub(crate) add_headers: Option<Arc<dyn AddHeaders>>,
+    pub(crate) set_headers: Option<Arc<dyn SetHeaders>>,
 }
 
 impl RequestContext {
@@ -61,9 +61,9 @@ impl RequestContext {
             .header(ACCEPT, crate::http::MIME_APPLICATION_DNS)
             .header(CONTENT_LENGTH, message_len);
 
-        if let Some(headers) = &self.add_headers {
-            for (name, value) in headers.headers() {
-                request = request.header(name, value);
+        if let Some(headers) = &self.set_headers {
+            if let Some(map) = request.headers_mut() {
+                headers.set_headers(map)?;
             }
         }
 
@@ -162,7 +162,10 @@ pub fn verify<T>(
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use http::header::{HeaderName, HeaderValue};
+    use http::{
+        HeaderMap,
+        header::{HeaderName, HeaderValue},
+    };
 
     use super::*;
 
@@ -173,7 +176,7 @@ mod tests {
             version: Version::Http2,
             name_server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
-            add_headers: None,
+            set_headers: None,
         };
 
         let request = cx.build(512).expect("error converting to http");
@@ -195,10 +198,10 @@ mod tests {
             version: Version::Http2,
             name_server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
-            add_headers: Some(Arc::new(vec![(
+            set_headers: Some(Arc::new(vec![(
                 HeaderName::from_static("test-header"),
                 HeaderValue::from_static("test-header-value"),
-            )]) as Arc<dyn AddHeaders>),
+            )]) as Arc<dyn SetHeaders>),
         };
 
         let request = cx.build(512).expect("error converting to http");
@@ -228,7 +231,7 @@ mod tests {
             version: Version::Http3,
             name_server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
-            add_headers: None,
+            set_headers: None,
         };
 
         let request = cx.build(512).expect("error converting to http");
@@ -243,9 +246,12 @@ mod tests {
         );
     }
 
-    impl AddHeaders for Vec<(HeaderName, HeaderValue)> {
-        fn headers(&self) -> Vec<(HeaderName, HeaderValue)> {
-            self.clone()
+    impl SetHeaders for Vec<(HeaderName, HeaderValue)> {
+        fn set_headers(&self, map: &mut HeaderMap<HeaderValue>) -> Result<()> {
+            for (name, value) in self.iter() {
+                map.insert(name.clone(), value.clone());
+            }
+            Ok(())
         }
     }
 }

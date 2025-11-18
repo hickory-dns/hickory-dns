@@ -143,7 +143,7 @@ mod tests {
             version: Version::Http2,
             name_server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
-            add_headers: None,
+            set_headers: None,
         };
 
         let request = cx.build(len).unwrap();
