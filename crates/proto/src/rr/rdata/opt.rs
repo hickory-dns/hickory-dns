@@ -10,6 +10,7 @@
 
 use alloc::vec::Vec;
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::str::FromStr;
 
@@ -167,7 +168,7 @@ use crate::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Ord, PartialOrd)]
 pub struct OPT {
     options: Vec<(EdnsCode, EdnsOption)>,
 }
@@ -225,6 +226,14 @@ impl PartialEq for OPT {
 }
 
 impl Eq for OPT {}
+
+impl Hash for OPT {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut sorted = self.options.clone();
+        sorted.sort();
+        sorted.hash(state);
+    }
+}
 
 impl AsMut<Vec<(EdnsCode, EdnsOption)>> for OPT {
     fn as_mut(&mut self) -> &mut Vec<(EdnsCode, EdnsOption)> {
@@ -361,7 +370,7 @@ enum OptReadState {
 
 /// The code of the EDNS data option
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum EdnsCode {
     /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
@@ -458,7 +467,7 @@ impl From<EdnsCode> for u16 {
 ///
 /// <https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13>
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash, Ord)]
 #[non_exhaustive]
 pub enum EdnsOption {
     /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
@@ -583,7 +592,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
 ///    their implementation.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, Ord)]
 pub struct ClientSubnet {
     address: IpAddr,
     source_prefix: u8,
@@ -821,8 +830,9 @@ impl AsRef<[u8]> for NSIDPayload {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use core::hash::{Hash, Hasher};
     #[cfg(feature = "std")]
-    use std::println;
+    use std::{hash::DefaultHasher, println};
 
     use super::*;
 
@@ -948,5 +958,78 @@ mod tests {
 
         let payload_out = EdnsOption::try_from((EdnsCode::NSID, buf.as_ref())).unwrap();
         assert_eq!(payload_in, payload_out);
+    }
+
+    #[test]
+    fn test_eq_and_hash() {
+        let options_1 = OPT::new(vec![
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(15u16, vec![0x00, 0x06]),
+            ),
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(
+                    15u16,
+                    vec![
+                        0x00, 0x09, 0x55, 0x6E, 0x6B, 0x6E, 0x6F, 0x77, 0x6E, 0x20, 0x65, 0x72,
+                        0x72, 0x6F, 0x72,
+                    ],
+                ),
+            ),
+        ]);
+
+        let options_2 = OPT::new(vec![
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(
+                    15u16,
+                    vec![
+                        0x00, 0x09, 0x55, 0x6E, 0x6B, 0x6E, 0x6F, 0x77, 0x6E, 0x20, 0x65, 0x72,
+                        0x72, 0x6F, 0x72,
+                    ],
+                ),
+            ),
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(15u16, vec![0x00, 0x06]),
+            ),
+        ]);
+
+        // Leading byte changed in the vec
+        let options_3 = OPT::new(vec![
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(
+                    15u16,
+                    vec![
+                        0xff, 0x09, 0x55, 0x6E, 0x6B, 0x6E, 0x6F, 0x77, 0x6E, 0x20, 0x65, 0x72,
+                        0x72, 0x6F, 0x72,
+                    ],
+                ),
+            ),
+            (
+                EdnsCode::Unknown(15u16),
+                EdnsOption::Unknown(15u16, vec![0x00, 0x06]),
+            ),
+        ]);
+
+        let mut hasher_1 = DefaultHasher::new();
+        options_1.hash(&mut hasher_1);
+        let hash_1 = hasher_1.finish();
+
+        let mut hasher_2 = DefaultHasher::new();
+        options_2.hash(&mut hasher_2);
+        let hash_2 = hasher_2.finish();
+
+        let mut hasher_3 = DefaultHasher::new();
+        options_3.hash(&mut hasher_3);
+        let hash_3 = hasher_3.finish();
+
+        assert_eq!(options_1, options_2);
+        assert_eq!(hash_1, hash_2);
+
+        assert!(options_1 != options_3);
+        assert!(hash_1 != hash_3);
     }
 }
