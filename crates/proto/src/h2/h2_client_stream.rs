@@ -70,7 +70,7 @@ impl HttpsClientStream {
         message: Bytes,
         name_server_name: Arc<str>,
         query_path: Arc<str>,
-        additional_headers: Option<Arc<dyn AddHeaders>>,
+        add_headers: Option<Arc<dyn AddHeaders>>,
     ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
@@ -81,7 +81,7 @@ impl HttpsClientStream {
         };
 
         // build up the http request
-        let request = match &additional_headers {
+        let request = match &add_headers {
             Some(headers) => crate::http::request::new_with_headers(
                 Version::Http2,
                 &name_server_name,
