@@ -754,11 +754,17 @@ impl OpportunisticEncryption {
 #[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
 pub struct OpportunisticEncryptionConfig {
     /// How long the recursive resolver remembers a successful encrypted transport connection.
-    #[cfg_attr(feature = "serde", serde(default = "default_persistence_period"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_persistence_period", with = "duration")
+    )]
     pub persistence_period: Duration,
 
     /// How long the recursive resolver remembers a failed encrypted transport connection.
-    #[cfg_attr(feature = "serde", serde(default = "default_damping_period"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_damping_period", with = "duration")
+    )]
     pub damping_period: Duration,
 
     /// Maximum number of concurrent opportunistic encryption probes.
