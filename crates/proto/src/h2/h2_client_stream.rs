@@ -8,7 +8,6 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
-use alloc::vec::Vec;
 use core::fmt::{self, Display};
 use core::future::Future;
 use core::net::SocketAddr;
@@ -25,10 +24,7 @@ use futures_util::{
     stream::Stream,
 };
 use h2::client::{Connection, SendRequest};
-use http::{
-    HeaderName, HeaderValue,
-    header::{self, CONTENT_LENGTH},
-};
+use http::header::{self, CONTENT_LENGTH};
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 use tokio::time::{error, timeout};
@@ -36,7 +32,7 @@ use tokio_rustls::{TlsConnector, client::TlsStream as TokioTlsClientStream};
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
-use crate::http::Version;
+use crate::http::{AddHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
@@ -604,15 +600,6 @@ impl Future for HttpsClientResponse {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
-}
-
-/// Trait to return dynamic headers to add to a DoH request
-///
-/// For instance a DoH server may require authentication based
-/// on per-request HTTP headers and this trait allows their addition.
-pub trait AddHeaders: Send + Sync + 'static {
-    /// Get a set of headers to add to the query
-    fn headers(&self) -> Vec<(HeaderName, HeaderValue)>;
 }
 
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
