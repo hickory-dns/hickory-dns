@@ -561,6 +561,7 @@ impl<P: ConnectionProvider> Recursor<P> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub(super) enum RecursorMode<P: ConnectionProvider> {
     NonValidating {
         handle: RecursorDnsHandle<P>,

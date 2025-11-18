@@ -371,6 +371,8 @@ pub enum DnssecPolicyConfig {
         /// returned having an iteration count above this limit will be considered Bogus and will
         /// result in a SERVFAIL response being returned to the requester.
         nsec3_hard_iteration_limit: Option<u16>,
+        /// set to control the size of the DNSSEC validation cache.  Set to none to use the default
+        validation_cache_size: Option<usize>,
     },
 }
 
@@ -385,6 +387,7 @@ impl DnssecPolicyConfig {
                 path,
                 nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit,
+                validation_cache_size,
             } => DnssecPolicy::ValidateWithStaticKey {
                 trust_anchor: path
                     .as_ref()
@@ -393,6 +396,7 @@ impl DnssecPolicyConfig {
                     .map(Arc::new),
                 nsec3_soft_iteration_limit: *nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
+                validation_cache_size: *validation_cache_size,
             },
         })
     }

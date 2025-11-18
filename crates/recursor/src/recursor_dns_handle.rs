@@ -150,8 +150,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 trust_anchor,
                 nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit,
+                validation_cache_size,
             } => {
-                let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config);
+                let validated_response_cache =
+                    ResponseCache::new(response_cache_size, ttl_config.clone());
                 let trust_anchor = match trust_anchor {
                     Some(anchor) if anchor.is_empty() => {
                         return Err(Error::from("trust anchor must not be empty"));
@@ -160,15 +162,27 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     None => Arc::new(TrustAnchors::default()),
                 };
 
+                #[cfg(feature = "metrics")]
+                let metrics = handle.metrics().clone();
+
+                let mut dnssec_handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
+                    .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit)
+                    .negative_validation_ttl(
+                        ttl_config.negative_response_ttl_bounds(RecordType::RRSIG),
+                    )
+                    .positive_validation_ttl(
+                        ttl_config.positive_response_ttl_bounds(RecordType::RRSIG),
+                    );
+
+                if let Some(validation_cache_size) = validation_cache_size {
+                    dnssec_handle = dnssec_handle.validation_cache_size(validation_cache_size);
+                }
+
                 RecursorMode::Validating {
                     validated_response_cache,
                     #[cfg(feature = "metrics")]
-                    metrics: handle.metrics().clone(),
-                    handle: DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
-                        .nsec3_iteration_limits(
-                            nsec3_soft_iteration_limit,
-                            nsec3_hard_iteration_limit,
-                        ),
+                    metrics,
+                    handle: dnssec_handle,
                 }
             }
         })

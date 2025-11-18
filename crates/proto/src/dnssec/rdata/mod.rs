@@ -51,7 +51,7 @@ pub use self::tsig::TSIG;
 
 /// Record data enum variants for DNSSEC-specific records.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
+#[derive(Debug, EnumAsInner, PartialEq, Clone, Eq, Hash)]
 #[non_exhaustive]
 pub enum DNSSECRData {
     /// ```text
