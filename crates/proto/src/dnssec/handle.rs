@@ -384,11 +384,19 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                             debug!("failed to verify: {name} record_type: {record_type}: {kind}")
                         }
                     }
-                    (err.proof, None, None)
+                    RrsetProof {
+                        proof: err.proof,
+                        adjusted_ttl: None,
+                        rrsig_index: None,
+                    }
                 }
             };
 
-            let (proof, adjusted_ttl, rrsig_idx) = proof;
+            let RrsetProof {
+                proof,
+                adjusted_ttl,
+                rrsig_index: rrsig_idx,
+            } = proof;
             for mut record in current_rrset {
                 record.set_proof(proof);
                 if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
@@ -435,12 +443,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///
     /// # Returns
     ///
-    /// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
-    ///   the Rrset
+    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and an index of the RRSIG used for
+    /// validation of the rrset.
     async fn verify_rrset(
         &self,
         context: RrsetVerificationContext<'_>,
-    ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+    ) -> Result<RrsetProof, ProofError> {
         // DNSKEYS have different logic for their verification
         match context.rrset.record_type {
             RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
@@ -458,8 +466,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///
     /// # Return
     ///
-    /// If Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
-    ///   the Rrset
+    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and an index of the RRSIG used for
+    /// validation of the rrset.
     ///
     /// # Panics
     ///
@@ -468,7 +476,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_dnskey_rrset(
         &self,
         context: &RrsetVerificationContext<'_>,
-    ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+    ) -> Result<RrsetProof, ProofError> {
         let RrsetVerificationContext {
             rrset,
             rrsigs,
@@ -570,13 +578,22 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 });
 
             if let Some(rrset_proof) = rrset_proof {
-                return Ok((rrset_proof.0, rrset_proof.1, Some(i)));
+                return Ok(RrsetProof {
+                    proof: rrset_proof.0,
+                    adjusted_ttl: rrset_proof.1,
+                    rrsig_index: Some(i),
+                });
             }
         }
 
         // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
         if dnskey_proofs.iter().all(|(proof, ..)| proof.is_secure()) {
-            return Ok(dnskey_proofs.pop().unwrap(/* This can not happen due to above test */));
+            let proof = dnskey_proofs.pop().unwrap(/* This can not happen due to above test */);
+            return Ok(RrsetProof {
+                proof: proof.0,
+                adjusted_ttl: proof.1,
+                rrsig_index: proof.2,
+            });
         }
 
         if !ds_records.is_empty() {
@@ -791,7 +808,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_default_rrset(
         &self,
         context: &RrsetVerificationContext<'_>,
-    ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+    ) -> Result<RrsetProof, ProofError> {
         let RrsetVerificationContext {
             query: original_query,
             rrset,
@@ -878,7 +895,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         .map(move |result| match result {
                             Ok(message) => {
                                 Ok(verify_rrsig_with_keys(message, rrsig, rrset, *current_time)
-                                    .map(|(proof, adjusted_ttl)| (proof, adjusted_ttl, Some(i))))
+                                    .map(|(proof, adjusted_ttl)| RrsetProof {
+                                        proof,
+                                        adjusted_ttl,
+                                        rrsig_index: Some(i),
+                                    }))
                             }
                             Err(proto) => Err(ProofError::new(
                                 Proof::Bogus,
@@ -1332,6 +1353,13 @@ impl RrsigValidity {
 
         Self::ValidRrsig
     }
+}
+
+#[derive(Clone)]
+struct RrsetProof {
+    proof: Proof,
+    adjusted_ttl: Option<u32>,
+    rrsig_index: Option<usize>,
 }
 
 /// Verifies NSEC records
