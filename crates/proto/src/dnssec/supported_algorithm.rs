@@ -30,7 +30,7 @@ use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Used to specify the set of SupportedAlgorithms between a client and server
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SupportedAlgorithms {
     // right now the number of Algorithms supported are fewer than 8.
     bit_map: u8,

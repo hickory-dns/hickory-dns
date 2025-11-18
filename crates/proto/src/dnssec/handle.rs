@@ -8,13 +8,25 @@
 //! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
-use core::{clone::Clone, fmt::Display, pin::Pin};
-use std::collections::{HashMap, HashSet};
+use core::{
+    clone::Clone,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    ops::RangeInclusive,
+    pin::Pin,
+    time::Duration,
+};
+use std::{
+    collections::{HashMap, HashSet, hash_map::DefaultHasher},
+    time::Instant,
+};
 
 use futures_util::{
     future::{self, FutureExt},
     stream::{self, Stream, StreamExt},
 };
+use lru_cache::LruCache;
+use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use crate::{
@@ -45,6 +57,9 @@ pub struct DnssecDnsHandle<H> {
     request_depth: usize,
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
+    validation_cache: ValidationCache,
+    validation_negative_ttl: Option<RangeInclusive<Duration>>,
+    validation_positive_ttl: Option<RangeInclusive<Duration>>,
 }
 
 impl<H: DnsHandle> DnssecDnsHandle<H> {
@@ -74,6 +89,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // [RFC 9276 Appendix A](https://www.rfc-editor.org/rfc/rfc9276.html#appendix-A)
             nsec3_soft_iteration_limit: 100,
             nsec3_hard_iteration_limit: 500,
+            validation_cache: ValidationCache::new(DEFAULT_VALIDATION_CACHE_SIZE),
+            validation_negative_ttl: None,
+            validation_positive_ttl: None,
         }
     }
 
@@ -97,6 +115,39 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             self.nsec3_hard_iteration_limit = hard;
         }
 
+        self
+    }
+
+    /// Set a custom validation cache size
+    ///
+    /// # Arguments
+    /// * `capacity` - the desired capacity of the DNSSEC validation cache.
+    pub fn validation_cache_size(mut self, capacity: usize) -> Self {
+        self.validation_cache = ValidationCache::new(capacity);
+        self
+    }
+
+    /// Set custom negative response validation cache TTL range
+    ///
+    /// # Arguments
+    /// * `ttl` - A range of permissible TTL values for negative responses.
+    ///
+    /// Validation cache TTLs are based on the Rrset TTL value, but will be clamped to
+    /// this value, if specified, for negative responses.
+    pub fn negative_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
+        self.validation_negative_ttl = Some(ttl);
+        self
+    }
+
+    /// Set custom positive response validation cache TTL range
+    ///
+    /// # Arguments
+    /// * `ttl` - A range of permissible TTL values for positive responses.
+    ///
+    /// Validation cache TTLs are based on the Rrset TTL value, but will be clamped to
+    /// this value, if specified, for positive responses.
+    pub fn positive_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
+        self.validation_positive_ttl = Some(ttl);
         self
     }
 
@@ -449,11 +500,49 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         &self,
         context: RrsetVerificationContext<'_>,
     ) -> Result<RrsetProof, ProofError> {
+        let key = context.key();
+
+        if let Some(cached) = self.validation_cache.get(&key, &context) {
+            return cached;
+        }
+
         // DNSKEYS have different logic for their verification
-        match context.rrset.record_type {
+        let proof = match context.rrset.record_type {
             RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
             _ => self.verify_default_rrset(&context).await,
+        };
+
+        match proof {
+            // These could be transient errors that should be retried.
+            Err(ref e) if matches!(e.kind(), ProofErrorKind::Proto { .. }) => {
+                debug!("not caching DNSSEC validation with ProofErrorKind::Proto")
+            }
+            _ => {
+                debug!(
+                    name = ?context.rrset.name,
+                    record_type = ?context.rrset.record_type,
+                    "inserting DNSSEC validation cache entry",
+                );
+
+                let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
+                if proof.is_err() {
+                    if let Some(negative_bounds) = self.validation_negative_ttl.clone() {
+                        (min, max) = negative_bounds.into_inner();
+                    }
+                } else if let Some(positive_bounds) = self.validation_positive_ttl.clone() {
+                    (min, max) = positive_bounds.into_inner();
+                }
+
+                self.validation_cache.insert(
+                    key,
+                    Instant::now()
+                        + Duration::from_secs(context.rrset.record().ttl().into()).clamp(min, max),
+                    proof.clone(),
+                );
+            }
         }
+
+        proof
     }
 
     /// DNSKEY-specific verification
@@ -947,6 +1036,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             request_depth: self.request_depth + 1,
             nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
+            validation_cache: self.validation_cache.clone(),
+            validation_negative_ttl: self.validation_negative_ttl.clone(),
+            validation_positive_ttl: self.validation_positive_ttl.clone(),
         }
     }
 }
@@ -1002,14 +1094,6 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
                 .verify_response(result, query.clone(), options)
         }))
     }
-}
-
-struct RrsetVerificationContext<'a> {
-    query: &'a Query,
-    rrset: &'a Rrset<'a>,
-    rrsigs: Vec<RecordRef<'a, RRSIG>>,
-    options: DnsRequestOptions,
-    current_time: u32,
 }
 
 fn verify_rrsig_with_keys(
@@ -1362,6 +1446,86 @@ struct RrsetProof {
     rrsig_index: Option<usize>,
 }
 
+#[derive(Clone)]
+#[allow(clippy::type_complexity)]
+struct ValidationCache(
+    Arc<Mutex<LruCache<ValidationCacheKey, (Instant, Result<RrsetProof, ProofError>)>>>,
+);
+
+impl ValidationCache {
+    fn new(capacity: usize) -> Self {
+        Self(Arc::new(Mutex::new(LruCache::new(capacity))))
+    }
+
+    fn get(
+        &self,
+        key: &ValidationCacheKey,
+        context: &RrsetVerificationContext<'_>,
+    ) -> Option<Result<RrsetProof, ProofError>> {
+        let (ttl, cached) = self.0.lock().get_mut(key)?.clone();
+
+        if Instant::now() < ttl {
+            debug!(
+                name = ?context.rrset.name,
+                record_type = ?context.rrset.record_type,
+                "returning cached DNSSEC validation",
+            );
+            Some(cached)
+        } else {
+            debug!(
+                name = ?context.rrset.name,
+                record_type = ?context.rrset.record_type,
+                "cached DNSSEC validation expired"
+            );
+            None
+        }
+    }
+
+    fn insert(&self, key: ValidationCacheKey, ttl: Instant, proof: Result<RrsetProof, ProofError>) {
+        self.0.lock().insert(key, (ttl, proof));
+    }
+}
+
+struct RrsetVerificationContext<'a> {
+    query: &'a Query,
+    rrset: &'a Rrset<'a>,
+    rrsigs: Vec<RecordRef<'a, RRSIG>>,
+    options: DnsRequestOptions,
+    current_time: u32,
+}
+
+impl<'a> RrsetVerificationContext<'a> {
+    // Build a cache lookup key based on the query, rrset, and rrsigs contents, minus the TTLs
+    // for each, since the recursor cache will return an adjusted TTL for each request and
+    // cause cache misses.
+    fn key(&self) -> ValidationCacheKey {
+        let mut hasher = DefaultHasher::new();
+        self.query.name().hash(&mut hasher);
+        self.query.query_class().hash(&mut hasher);
+        self.query.query_type().hash(&mut hasher);
+        self.rrset.name.hash(&mut hasher);
+        self.rrset.record_class.hash(&mut hasher);
+        self.rrset.record_type.hash(&mut hasher);
+
+        for rec in &self.rrset.records {
+            rec.name().hash(&mut hasher);
+            rec.dns_class().hash(&mut hasher);
+            rec.data().hash(&mut hasher);
+        }
+
+        for rec in &self.rrsigs {
+            rec.name().hash(&mut hasher);
+            rec.dns_class().hash(&mut hasher);
+            rec.data().hash(&mut hasher);
+        }
+
+        ValidationCacheKey(hasher.finish())
+    }
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct ValidationCacheKey(u64);
+
 /// Verifies NSEC records
 ///
 /// ```text
@@ -1608,3 +1772,7 @@ const MAX_KEY_TAG_COLLISIONS: usize = 2;
 
 /// The maximum number of RRSIGs to attempt to validate for each RRSET.
 const MAX_RRSIGS_PER_RRSET: usize = 8;
+
+/// The default validation cache size.  This is somewhat arbitrary, but set to the same size as the default
+/// recursor response cache
+const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;

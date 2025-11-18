@@ -76,6 +76,9 @@ pub enum DnssecPolicy {
         /// NSEC3 hard iteration limit.  Responses with NSEC3 responses having an iteration count
         /// exceeding this value will return Proof::Bogus
         nsec3_hard_iteration_limit: Option<u16>,
+        /// Validation cache size.  Controls how many DNSSEC validations are cached for future
+        /// use.
+        validation_cache_size: Option<usize>,
     },
     // TODO RFC5011
     // ValidateWithInitialKey { ..  },}
