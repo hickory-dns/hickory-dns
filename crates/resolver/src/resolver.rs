@@ -23,7 +23,9 @@ use tracing::debug;
 use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
 use crate::caching_client::CachingClient;
 use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
-use crate::connection_provider::{ConnectionProvider, TlsConfig};
+use crate::connection_provider::ConnectionProvider;
+#[cfg(feature = "__tls")]
+use crate::connection_provider::TlsConfig;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, TypedLookup};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
@@ -116,6 +118,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             config,
             options: ResolverOpts::default(),
             provider,
+            #[cfg(feature = "__tls")]
             tls: None,
             opportunistic_encryption: OpportunisticEncryption::default(),
             encrypted_transport_state: NameServerTransportState::default(),
@@ -380,7 +383,8 @@ pub struct ResolverBuilder<P> {
     options: ResolverOpts,
     provider: P,
 
-    tls: Option<TlsConfig>,
+    #[cfg(feature = "__tls")]
+    tls: Option<rustls::ClientConfig>,
     opportunistic_encryption: OpportunisticEncryption,
     encrypted_transport_state: NameServerTransportState,
     #[cfg(feature = "__dnssec")]
@@ -420,7 +424,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
     /// Set the TLS configuration to be used by the resolver.
     #[cfg(feature = "__tls")]
     pub fn with_tls_config(mut self, config: rustls::ClientConfig) -> Self {
-        self.tls = Some(TlsConfig { config });
+        self.tls = Some(config);
         self
     }
 
@@ -470,6 +474,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
                 },
             mut options,
             provider,
+            #[cfg(feature = "__tls")]
             tls,
             #[cfg(feature = "__dnssec")]
             trust_anchor,
@@ -489,9 +494,10 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         let context = Arc::new(PoolContext {
             answer_address_filter: options.answer_address_filter(),
             options,
+            #[cfg(feature = "__tls")]
             tls: match tls {
                 Some(config) => config,
-                None => TlsConfig::new()?,
+                None => TlsConfig::new()?.config,
             },
             opportunistic_probe_budget: AtomicU8::new(
                 opportunistic_encryption

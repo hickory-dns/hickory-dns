@@ -420,7 +420,8 @@ pub struct PoolContext {
     /// Resolver options
     pub options: ResolverOpts,
     /// TLS configuration
-    pub tls: TlsConfig,
+    #[cfg(feature = "__tls")]
+    pub tls: rustls::ClientConfig,
     /// Opportunistic probe budget
     pub opportunistic_probe_budget: AtomicU8,
     /// Opportunistic encryption configuration
@@ -432,11 +433,13 @@ pub struct PoolContext {
 
 impl PoolContext {
     /// Creates a new PoolContext
+    #[cfg_attr(not(feature = "__tls"), expect(unused_variables))]
     pub fn new(options: ResolverOpts, tls: TlsConfig) -> Self {
         Self {
             answer_address_filter: options.answer_address_filter(),
             options,
-            tls,
+            #[cfg(feature = "__tls")]
+            tls: tls.config,
             opportunistic_probe_budget: AtomicU8::default(),
             opportunistic_encryption: OpportunisticEncryption::default(),
             transport_state: AsyncMutex::new(NameServerTransportState::default()),
