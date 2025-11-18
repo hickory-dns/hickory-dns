@@ -31,7 +31,7 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::request::RequestContext;
-use crate::http::{AddHeaders, Version};
+use crate::http::{SetHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
@@ -288,7 +288,7 @@ pub struct HttpsClientStreamBuilder<P> {
     provider: P,
     client_config: Arc<ClientConfig>,
     bind_addr: Option<SocketAddr>,
-    add_headers: Option<Arc<dyn AddHeaders>>,
+    set_headers: Option<Arc<dyn SetHeaders>>,
 }
 
 impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
@@ -298,7 +298,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
             provider,
             client_config,
             bind_addr: None,
-            add_headers: None,
+            set_headers: None,
         }
     }
 
@@ -307,9 +307,9 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         self.bind_addr = Some(bind_addr);
     }
 
-    /// Set the [`AddHeaders`] trait object used to inject dynamic headers into the DoH request
-    pub fn add_headers(&mut self, headers: Arc<dyn AddHeaders>) {
-        self.add_headers.replace(headers);
+    /// Set the [`SetHeaders`] trait object used to inject dynamic headers into the DoH request
+    pub fn set_headers(&mut self, headers: Arc<dyn SetHeaders>) {
+        self.set_headers.replace(headers);
     }
 
     /// Creates a new HttpsStream to the specified name_server
@@ -331,7 +331,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
             name_server,
             server_name,
             path,
-            self.add_headers,
+            self.set_headers,
         )
     }
 }
@@ -349,7 +349,7 @@ impl HttpsClientConnect {
         name_server: SocketAddr,
         server_name: Arc<str>,
         query_path: Arc<str>,
-        add_headers: Option<Arc<dyn AddHeaders>>,
+        set_headers: Option<Arc<dyn SetHeaders>>,
     ) -> Self {
         // ensure the ALPN protocol is set correctly
         if client_config.alpn_protocols.is_empty() {
@@ -363,7 +363,7 @@ impl HttpsClientConnect {
             version: Version::Http2,
             name_server_name: server_name,
             query_path,
-            add_headers,
+            set_headers,
         });
 
         Self(Box::pin(async move {

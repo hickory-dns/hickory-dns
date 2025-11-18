@@ -7,9 +7,7 @@
 
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
-use alloc::vec::Vec;
-
-use http::{HeaderName, HeaderValue};
+use http::{HeaderMap, HeaderValue};
 
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 
@@ -42,11 +40,11 @@ impl Version {
     }
 }
 
-/// Trait to return dynamic headers to add to a DoH request
+/// Helper trait to update HTTP headers on requests
 ///
 /// For instance a DoH server may require authentication based
 /// on per-request HTTP headers and this trait allows their addition.
-pub trait AddHeaders: Send + Sync + 'static {
+pub trait SetHeaders: Send + Sync + 'static {
     /// Get a set of headers to add to the query
-    fn headers(&self) -> Vec<(HeaderName, HeaderValue)>;
+    fn set_headers(&self, headers: &mut HeaderMap<HeaderValue>) -> Result<(), error::Error>;
 }

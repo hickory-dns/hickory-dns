@@ -30,7 +30,7 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::http::request::RequestContext;
-use crate::http::{AddHeaders, Version};
+use crate::http::{SetHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
 use crate::rustls::client_config;
@@ -58,7 +58,7 @@ impl H3ClientStream {
             crypto_config: None,
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
-            add_headers: None,
+            set_headers: None,
             disable_grease: false,
         }
     }
@@ -300,7 +300,7 @@ pub struct H3ClientStreamBuilder {
     crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
-    add_headers: Option<Arc<dyn AddHeaders>>,
+    set_headers: Option<Arc<dyn SetHeaders>>,
     disable_grease: bool,
 }
 
@@ -317,9 +317,9 @@ impl H3ClientStreamBuilder {
         self
     }
 
-    /// Set the [`AddHeaders`] trait object used to inject dynamic headers into the DoH request
-    pub fn add_headers(&mut self, headers: Arc<dyn AddHeaders>) {
-        self.add_headers.replace(headers);
+    /// Set the [`SetHeaders`] trait object used to inject dynamic headers into the DoH request
+    pub fn set_headers(&mut self, headers: Arc<dyn SetHeaders>) {
+        self.set_headers.replace(headers);
     }
 
     /// Sets whether to disable GREASE
@@ -454,7 +454,7 @@ impl H3ClientStreamBuilder {
                 version: Version::Http3,
                 name_server_name: server_name,
                 query_path: path,
-                add_headers: self.add_headers,
+                set_headers: self.set_headers,
             }),
             shutdown_tx,
             is_shutdown: false,
