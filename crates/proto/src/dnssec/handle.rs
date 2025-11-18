@@ -361,7 +361,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
             // verify this rrset
             let proof = self
-                .verify_rrset(query, &rrset, rrsigs, options, current_time)
+                .verify_rrset(RrsetVerificationContext {
+                    query,
+                    rrset: &rrset,
+                    rrsigs,
+                    options,
+                    current_time,
+                })
                 .await;
 
             let proof = match proof {
@@ -433,23 +439,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///   the Rrset
     async fn verify_rrset(
         &self,
-        query: &Query,
-        rrset: &Rrset<'_>,
-        rrsigs: Vec<RecordRef<'_, RRSIG>>,
-        options: DnsRequestOptions,
-        current_time: u32,
+        context: RrsetVerificationContext<'_>,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
         // DNSKEYS have different logic for their verification
-        if matches!(rrset.record_type, RecordType::DNSKEY) {
-            let proof = self
-                .verify_dnskey_rrset(rrset, &rrsigs, current_time, options)
-                .await?;
-
-            return Ok(proof);
+        match context.rrset.record_type {
+            RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
+            _ => self.verify_default_rrset(&context).await,
         }
-
-        self.verify_default_rrset(query, rrset, &rrsigs, current_time, options)
-            .await
     }
 
     /// DNSKEY-specific verification
@@ -471,11 +467,16 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///  if a non-DNSKEY RRSET is passed into this method it will always panic.
     async fn verify_dnskey_rrset(
         &self,
-        rrset: &Rrset<'_>,
-        rrsigs: &[RecordRef<'_, RRSIG>],
-        current_time: u32,
-        options: DnsRequestOptions,
+        context: &RrsetVerificationContext<'_>,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+        let RrsetVerificationContext {
+            rrset,
+            rrsigs,
+            current_time,
+            options,
+            ..
+        } = context;
+
         // Ensure that this method is not misused
         if RecordType::DNSKEY != rrset.record_type {
             panic!("All other RRSETs must use verify_default_rrset");
@@ -504,7 +505,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         {
             // Need to get DS records for each DNSKEY.
             // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
-            self.fetch_ds_records(rrset.name.clone(), options).await?
+            self.fetch_ds_records(rrset.name.clone(), *options).await?
         } else {
             debug!("ignoring DS lookup for root zone or registered keys");
             Vec::default()
@@ -565,7 +566,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         .map(|r| (r, proof))
                 })
                 .find_map(|(dnskey, proof)| {
-                    verify_rrset_with_dnskey(dnskey, *proof, rrsig, rrset, current_time).ok()
+                    verify_rrset_with_dnskey(dnskey, *proof, rrsig, rrset, *current_time).ok()
                 });
 
             if let Some(rrset_proof) = rrset_proof {
@@ -789,12 +790,16 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///  if a DNSKEY RRSET is passed into this method it will always panic.
     async fn verify_default_rrset(
         &self,
-        original_query: &Query,
-        rrset: &Rrset<'_>,
-        rrsigs: &[RecordRef<'_, RRSIG>],
-        current_time: u32,
-        options: DnsRequestOptions,
+        context: &RrsetVerificationContext<'_>,
     ) -> Result<(Proof, Option<u32>, Option<usize>), ProofError> {
+        let RrsetVerificationContext {
+            query: original_query,
+            rrset,
+            rrsigs,
+            current_time,
+            options,
+        } = context;
+
         // Ensure that this method is not misused
         if RecordType::DNSKEY == rrset.record_type {
             panic!("DNSKEYs must be validated with verify_dnskey_rrset");
@@ -813,7 +818,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     search_name = search_name.base_name();
                 }
 
-                self.find_ds_records(search_name, options).await?; // insecure will return early here
+                self.find_ds_records(search_name, *options).await?; // insecure will return early here
             }
 
             return Err(ProofError::new(
@@ -868,11 +873,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
 
                 Some(
-                    self.lookup(query.clone(), options)
+                    self.lookup(query.clone(), *options)
                         .first_answer()
                         .map(move |result| match result {
                             Ok(message) => {
-                                Ok(verify_rrsig_with_keys(message, rrsig, rrset, current_time)
+                                Ok(verify_rrsig_with_keys(message, rrsig, rrset, *current_time)
                                     .map(|(proof, adjusted_ttl)| (proof, adjusted_ttl, Some(i))))
                             }
                             Err(proto) => Err(ProofError::new(
@@ -976,6 +981,14 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
                 .verify_response(result, query.clone(), options)
         }))
     }
+}
+
+struct RrsetVerificationContext<'a> {
+    query: &'a Query,
+    rrset: &'a Rrset<'a>,
+    rrsigs: Vec<RecordRef<'a, RRSIG>>,
+    options: DnsRequestOptions,
+    current_time: u32,
 }
 
 fn verify_rrsig_with_keys(
