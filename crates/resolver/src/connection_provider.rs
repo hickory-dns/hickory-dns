@@ -172,7 +172,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     ));
                 };
 
-                let mut tls_config = cx.tls.config.clone();
+                let mut tls_config = cx.tls.clone();
                 // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
                 tls_config.enable_sni = false;
 
@@ -191,7 +191,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             (ProtocolConfig::Https { server_name, path }, _) => {
                 Connecting::Https(DnsExchange::connect(HttpsClientConnect::new(
                     self.connect_tcp(remote_addr, None, None),
-                    Arc::new(cx.tls.config.clone()),
+                    Arc::new(cx.tls.clone()),
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
@@ -206,7 +206,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Connecting::Quic(DnsExchange::connect(
                     QuicClientStream::builder()
-                        .crypto_config(cx.tls.config.clone())
+                        .crypto_config(cx.tls.clone())
                         .build_with_future(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -230,7 +230,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Connecting::H3(DnsExchange::connect(
                     H3ClientStream::builder()
-                        .crypto_config(cx.tls.config.clone())
+                        .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
                         .build_with_future(
                             binder.bind_quic(bind_addr, remote_addr)?,
