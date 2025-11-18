@@ -20,7 +20,7 @@ use crate::error::ProtoError;
 
 pub(crate) struct RequestContext {
     pub(crate) version: Version,
-    pub(crate) name_server_name: Arc<str>,
+    pub(crate) server_name: Arc<str>,
     pub(crate) query_path: Arc<str>,
     pub(crate) set_headers: Option<Arc<dyn SetHeaders>>,
 }
@@ -45,7 +45,7 @@ impl RequestContext {
         );
         parts.scheme = Some(uri::Scheme::HTTPS);
         parts.authority = Some(
-            uri::Authority::from_str(&self.name_server_name)
+            uri::Authority::from_str(&self.server_name)
                 .map_err(|e| ProtoError::from(format!("invalid authority: {e}")))?,
         );
 
@@ -174,7 +174,7 @@ mod tests {
     fn test_new_verify_h2() {
         let cx = RequestContext {
             version: Version::Http2,
-            name_server_name: Arc::from("ns.example.com"),
+            server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };
@@ -196,7 +196,7 @@ mod tests {
     fn test_additional_headers() {
         let cx = RequestContext {
             version: Version::Http2,
-            name_server_name: Arc::from("ns.example.com"),
+            server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
             set_headers: Some(Arc::new(vec![(
                 HeaderName::from_static("test-header"),
@@ -229,7 +229,7 @@ mod tests {
     fn test_new_verify_h3() {
         let cx = RequestContext {
             version: Version::Http3,
-            name_server_name: Arc::from("ns.example.com"),
+            server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };
