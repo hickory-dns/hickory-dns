@@ -29,7 +29,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
-use crate::http::Version;
+use crate::http::{AddHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
 use crate::rustls::client_config;
@@ -49,6 +49,7 @@ pub struct H3ClientStream {
     send_request: SendRequest<OpenStreams, Bytes>,
     shutdown_tx: mpsc::Sender<()>,
     is_shutdown: bool,
+    add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
 impl H3ClientStream {
@@ -58,6 +59,7 @@ impl H3ClientStream {
             crypto_config: None,
             transport_config: Arc::new(super::transport()),
             bind_addr: None,
+            add_headers: None,
             disable_grease: false,
         }
     }
@@ -67,14 +69,24 @@ impl H3ClientStream {
         message: Bytes,
         name_server_name: Arc<str>,
         query_path: Arc<str>,
+        add_headers: Option<Arc<dyn AddHeaders>>,
     ) -> Result<DnsResponse, ProtoError> {
         // build up the http request
-        let request = crate::http::request::new(
-            Version::Http3,
-            &name_server_name,
-            &query_path,
-            message.remaining(),
-        );
+        let request = match &add_headers {
+            Some(headers) => crate::http::request::new_with_headers(
+                Version::Http3,
+                &name_server_name,
+                &query_path,
+                message.remaining(),
+                &headers.headers(),
+            ),
+            None => crate::http::request::new(
+                Version::Http3,
+                &name_server_name,
+                &query_path,
+                message.remaining(),
+            ),
+        };
 
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
@@ -259,6 +271,7 @@ impl DnsRequestSender for H3ClientStream {
             Bytes::from(bytes),
             self.server_name.clone(),
             self.path.clone(),
+            self.add_headers.clone(),
         ))
         .into()
     }
@@ -303,6 +316,7 @@ pub struct H3ClientStreamBuilder {
     crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
+    add_headers: Option<Arc<dyn AddHeaders>>,
     disable_grease: bool,
 }
 
@@ -317,6 +331,11 @@ impl H3ClientStreamBuilder {
     pub fn bind_addr(mut self, bind_addr: SocketAddr) -> Self {
         self.bind_addr = Some(bind_addr);
         self
+    }
+
+    /// Set the [`AddHeaders`] trait object used to inject dynamic headers into the DoH request
+    pub fn add_headers(&mut self, headers: Arc<dyn AddHeaders>) {
+        self.add_headers.replace(headers);
     }
 
     /// Sets whether to disable GREASE
@@ -451,6 +470,7 @@ impl H3ClientStreamBuilder {
             send_request,
             shutdown_tx,
             is_shutdown: false,
+            add_headers: self.add_headers,
         })
     }
 }
