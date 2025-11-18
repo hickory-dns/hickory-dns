@@ -112,7 +112,7 @@ mod tests {
 
     use test_support::subscribe;
 
-    use crate::http::request;
+    use crate::http::request::RequestContext;
     use crate::op::Message;
 
     use super::*;
@@ -139,7 +139,14 @@ mod tests {
         let msg_bytes = message.to_vec().unwrap();
         let len = msg_bytes.len();
         let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
-        let request = request::new(Version::Http2, "ns.example.com", "/dns-query", len).unwrap();
+        let cx = RequestContext {
+            version: Version::Http2,
+            name_server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            add_headers: None,
+        };
+
+        let request = cx.build(len).unwrap();
         let request = request.map(|()| stream);
 
         let from_post = message_from(

@@ -30,6 +30,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
+use crate::http::request::RequestContext;
 use crate::http::{AddHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::runtime::RuntimeProvider;
@@ -44,12 +45,10 @@ const ALPN_H2: &[u8] = b"h2";
 #[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
     // Corresponds to the dns-name of the HTTPS server
-    name_server_name: Arc<str>,
-    query_path: Arc<str>,
     name_server: SocketAddr,
+    context: Arc<RequestContext>,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
-    add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
 impl Display for HttpsClientStream {
@@ -57,7 +56,7 @@ impl Display for HttpsClientStream {
         write!(
             formatter,
             "HTTPS({},{})",
-            self.name_server, self.name_server_name
+            self.name_server, self.context.name_server_name
         )
     }
 }
@@ -66,9 +65,7 @@ impl HttpsClientStream {
     async fn inner_send(
         h2: SendRequest<Bytes>,
         message: Bytes,
-        name_server_name: Arc<str>,
-        query_path: Arc<str>,
-        add_headers: Option<Arc<dyn AddHeaders>>,
+        cx: Arc<RequestContext>,
     ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
@@ -79,24 +76,9 @@ impl HttpsClientStream {
         };
 
         // build up the http request
-        let request = match &add_headers {
-            Some(headers) => crate::http::request::new_with_headers(
-                Version::Http2,
-                &name_server_name,
-                &query_path,
-                message.remaining(),
-                &headers.headers(),
-            ),
-            None => crate::http::request::new(
-                Version::Http2,
-                &name_server_name,
-                &query_path,
-                message.remaining(),
-            ),
-        };
-
-        let request =
-            request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
+        let request = cx
+            .build(message.remaining())
+            .map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
 
         debug!("request: {:#?}", request);
 
@@ -267,9 +249,7 @@ impl DnsRequestSender for HttpsClientStream {
         Box::pin(Self::inner_send(
             self.h2.clone(),
             Bytes::from(bytes),
-            Arc::clone(&self.name_server_name),
-            Arc::clone(&self.query_path),
-            self.add_headers.clone(),
+            self.context.clone(),
         ))
         .into()
     }
@@ -368,7 +348,7 @@ impl HttpsClientConnect {
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         server_name: Arc<str>,
-        path: Arc<str>,
+        query_path: Arc<str>,
         add_headers: Option<Arc<dyn AddHeaders>>,
     ) -> Self {
         // ensure the ALPN protocol is set correctly
@@ -379,13 +359,20 @@ impl HttpsClientConnect {
             client_config = Arc::new(client_cfg);
         }
 
+        let context = Arc::new(RequestContext {
+            version: Version::Http2,
+            name_server_name: server_name,
+            query_path,
+            add_headers,
+        });
+
         Self(Box::pin(async move {
-            let tls_server_name = match ServerName::try_from(&*server_name) {
+            let tls_server_name = match ServerName::try_from(&*context.name_server_name) {
                 Ok(dns_name) => dns_name.to_owned(),
                 Err(err) => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
-                        format!("bad server name {server_name:?}: {err}"),
+                        format!("bad server name {:?}: {err}", context.name_server_name),
                     ));
                 }
             };
@@ -422,12 +409,10 @@ impl HttpsClientConnect {
             });
 
             Ok(HttpsClientStream {
-                name_server_name: server_name.clone(),
                 name_server,
-                query_path: path.clone(),
                 h2,
+                context,
                 is_shutdown: false,
-                add_headers,
             })
         }))
     }

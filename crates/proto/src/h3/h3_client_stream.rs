@@ -29,6 +29,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::error::ProtoError;
+use crate::http::request::RequestContext;
 use crate::http::{AddHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
@@ -43,13 +44,11 @@ use super::ALPN_H3;
 #[must_use = "futures do nothing unless polled"]
 pub struct H3ClientStream {
     // Corresponds to the dns-name of the HTTP/3 server
-    server_name: Arc<str>,
     name_server: SocketAddr,
-    path: Arc<str>,
     send_request: SendRequest<OpenStreams, Bytes>,
+    context: Arc<RequestContext>,
     shutdown_tx: mpsc::Sender<()>,
     is_shutdown: bool,
-    add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
 impl H3ClientStream {
@@ -67,29 +66,12 @@ impl H3ClientStream {
     async fn inner_send(
         mut h3: SendRequest<OpenStreams, Bytes>,
         message: Bytes,
-        name_server_name: Arc<str>,
-        query_path: Arc<str>,
-        add_headers: Option<Arc<dyn AddHeaders>>,
+        cx: Arc<RequestContext>,
     ) -> Result<DnsResponse, ProtoError> {
         // build up the http request
-        let request = match &add_headers {
-            Some(headers) => crate::http::request::new_with_headers(
-                Version::Http3,
-                &name_server_name,
-                &query_path,
-                message.remaining(),
-                &headers.headers(),
-            ),
-            None => crate::http::request::new(
-                Version::Http3,
-                &name_server_name,
-                &query_path,
-                message.remaining(),
-            ),
-        };
-
-        let request =
-            request.map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
+        let request = cx
+            .build(message.remaining())
+            .map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
 
         debug!("request: {:#?}", request);
 
@@ -269,9 +251,7 @@ impl DnsRequestSender for H3ClientStream {
         Box::pin(Self::inner_send(
             self.send_request.clone(),
             Bytes::from(bytes),
-            self.server_name.clone(),
-            self.path.clone(),
-            self.add_headers.clone(),
+            self.context.clone(),
         ))
         .into()
     }
@@ -306,7 +286,11 @@ impl Stream for H3ClientStream {
 
 impl Display for H3ClientStream {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "H3({},{})", self.name_server, self.server_name)
+        write!(
+            formatter,
+            "H3({},{})",
+            self.name_server, self.context.name_server_name
+        )
     }
 }
 
@@ -464,13 +448,16 @@ impl H3ClientStreamBuilder {
         });
 
         Ok(H3ClientStream {
-            server_name,
             name_server,
-            path,
             send_request,
+            context: Arc::new(RequestContext {
+                version: Version::Http3,
+                name_server_name: server_name,
+                query_path: path,
+                add_headers: self.add_headers,
+            }),
             shutdown_tx,
             is_shutdown: false,
-            add_headers: self.add_headers,
         })
     }
 }
