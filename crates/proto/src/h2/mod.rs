@@ -141,7 +141,7 @@ mod tests {
         let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
         let cx = RequestContext {
             version: Version::Http2,
-            name_server_name: Arc::from("ns.example.com"),
+            server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };

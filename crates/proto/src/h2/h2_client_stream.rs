@@ -56,7 +56,7 @@ impl Display for HttpsClientStream {
         write!(
             formatter,
             "HTTPS({},{})",
-            self.name_server, self.context.name_server_name
+            self.name_server, self.context.server_name
         )
     }
 }
@@ -361,18 +361,18 @@ impl HttpsClientConnect {
 
         let context = Arc::new(RequestContext {
             version: Version::Http2,
-            name_server_name: server_name,
+            server_name,
             query_path,
             set_headers,
         });
 
         Self(Box::pin(async move {
-            let tls_server_name = match ServerName::try_from(&*context.name_server_name) {
+            let tls_server_name = match ServerName::try_from(&*context.server_name) {
                 Ok(dns_name) => dns_name.to_owned(),
                 Err(err) => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
-                        format!("bad server name {:?}: {err}", context.name_server_name),
+                        format!("bad server name {:?}: {err}", context.server_name),
                     ));
                 }
             };

@@ -289,7 +289,7 @@ impl Display for H3ClientStream {
         write!(
             formatter,
             "H3({},{})",
-            self.name_server, self.context.name_server_name
+            self.name_server, self.context.server_name
         )
     }
 }
@@ -452,7 +452,7 @@ impl H3ClientStreamBuilder {
             send_request,
             context: Arc::new(RequestContext {
                 version: Version::Http3,
-                name_server_name: server_name,
+                server_name,
                 query_path: path,
                 set_headers: self.set_headers,
             }),
