@@ -7,9 +7,9 @@
 
 use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 
+use ::h2::server;
 use bytes::Bytes;
 use futures_util::lock::Mutex;
-use h2::server;
 use rustls::server::ResolvesServerCert;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -28,7 +28,7 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    proto::{ProtoError, h2::h2_server, http::Version, rr::Record, xfer::Protocol},
+    proto::{ProtoError, h2, http::Version, rr::Record, xfer::Protocol},
     zone_handler::MessageResponse,
 };
 
@@ -178,7 +178,7 @@ pub(crate) async fn h2_handler(
         let http_endpoint = http_endpoint.clone();
         let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
         tokio::spawn(async move {
-            let body = match h2_server::message_from(dns_hostname, http_endpoint, request).await {
+            let body = match h2::message_from(dns_hostname, http_endpoint, request).await {
                 Ok(bytes) => bytes,
                 Err(err) => {
                     warn!("error while handling request from {}: {}", src_addr, err);
