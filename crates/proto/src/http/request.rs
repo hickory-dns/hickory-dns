@@ -7,96 +7,70 @@
 
 //! HTTP request creation and validation
 
+use alloc::sync::Arc;
 use core::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{HeaderName, HeaderValue, Request, Uri, header, uri};
+use http::{Request, Uri, header, uri};
 use tracing::debug;
 
+use super::error::Result;
+use super::{AddHeaders, Version};
 use crate::error::ProtoError;
-use crate::http::Version;
-use crate::http::error::Result;
 
-/// Create a new Request for an http dns-message request
-///
-/// ```text
-/// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
-///
-/// The URI Template defined in this document is processed without any
-/// variables when the HTTP method is POST.  When the HTTP method is GET,
-/// the single variable "dns" is defined as the content of the DNS
-/// request (as described in Section 6), encoded with base64url
-/// [RFC4648].
-/// ```
-pub fn new(
-    version: Version,
-    name_server_name: &str,
-    query_path: &str,
-    message_len: usize,
-) -> Result<Request<()>> {
-    new_with_headers(version, name_server_name, query_path, message_len, &[])
+pub(crate) struct RequestContext {
+    pub(crate) version: Version,
+    pub(crate) name_server_name: Arc<str>,
+    pub(crate) query_path: Arc<str>,
+    pub(crate) add_headers: Option<Arc<dyn AddHeaders>>,
 }
 
-/// Create a new Request for an http dns-message request with a specified set of extra headers
-///
-/// ```text
-/// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
-///
-/// The URI Template defined in this document is processed without any
-/// variables when the HTTP method is POST.  When the HTTP method is GET,
-/// the single variable "dns" is defined as the content of the DNS
-/// request (as described in Section 6), encoded with base64url
-/// [RFC4648].
-/// ```
-pub fn new_with_headers(
-    version: Version,
-    name_server_name: &str,
-    query_path: &str,
-    message_len: usize,
-    headers: &[(HeaderName, HeaderValue)],
-) -> Result<Request<()>> {
-    // TODO: this is basically the GET version, but it is more expensive than POST
-    //   perhaps add an option if people want better HTTP caching options.
+impl RequestContext {
+    /// Create a new Request for an http dns-message request
+    ///
+    /// ```text
+    /// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
+    ///
+    /// The URI Template defined in this document is processed without any
+    /// variables when the HTTP method is POST.  When the HTTP method is GET,
+    /// the single variable "dns" is defined as the content of the DNS
+    /// request (as described in Section 6), encoded with base64url
+    /// [RFC4648].
+    /// ```
+    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>> {
+        let mut parts = uri::Parts::default();
+        parts.path_and_query = Some(
+            uri::PathAndQuery::try_from(&*self.query_path)
+                .map_err(|e| ProtoError::from(format!("invalid DoH path: {e}")))?,
+        );
+        parts.scheme = Some(uri::Scheme::HTTPS);
+        parts.authority = Some(
+            uri::Authority::from_str(&self.name_server_name)
+                .map_err(|e| ProtoError::from(format!("invalid authority: {e}")))?,
+        );
 
-    // let query = BASE64URL_NOPAD.encode(&message);
-    // let url = format!("/dns-query?dns={}", query);
-    // let request = Request::get(&url)
-    //     .header(header::CONTENT_TYPE, ::MIME_DNS_BINARY)
-    //     .header(header::HOST, &self.name_server_name as &str)
-    //     .header("authority", &self.name_server_name as &str)
-    //     .header(header::USER_AGENT, USER_AGENT)
-    //     .body(());
+        let url = Uri::from_parts(parts)
+            .map_err(|e| ProtoError::from(format!("uri parse error: {e}")))?;
 
-    let mut parts = uri::Parts::default();
-    parts.path_and_query = Some(
-        uri::PathAndQuery::try_from(query_path)
-            .map_err(|e| ProtoError::from(format!("invalid DoH path: {e}")))?,
-    );
-    parts.scheme = Some(uri::Scheme::HTTPS);
-    parts.authority = Some(
-        uri::Authority::from_str(name_server_name)
-            .map_err(|e| ProtoError::from(format!("invalid authority: {e}")))?,
-    );
+        // TODO: add user agent to TypedHeaders
+        let mut request = Request::builder()
+            .method("POST")
+            .uri(url)
+            .version(self.version.to_http())
+            .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
+            .header(ACCEPT, crate::http::MIME_APPLICATION_DNS)
+            .header(CONTENT_LENGTH, message_len);
 
-    let url =
-        Uri::from_parts(parts).map_err(|e| ProtoError::from(format!("uri parse error: {e}")))?;
+        if let Some(headers) = &self.add_headers {
+            for (name, value) in headers.headers() {
+                request = request.header(name, value);
+            }
+        }
 
-    // TODO: add user agent to TypedHeaders
-    let mut request = Request::builder()
-        .method("POST")
-        .uri(url)
-        .version(version.to_http())
-        .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
-        .header(ACCEPT, crate::http::MIME_APPLICATION_DNS)
-        .header(CONTENT_LENGTH, message_len);
-
-    for (name, value) in headers {
-        request = request.header(name, value);
+        Ok(request
+            .body(())
+            .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?)
     }
-
-    Ok(request
-        .body(())
-        .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?)
 }
 
 /// Verifies the request is something we know what to deal with
@@ -187,13 +161,22 @@ pub fn verify<T>(
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+    use http::header::{HeaderName, HeaderValue};
+
     use super::*;
 
     #[test]
     #[cfg(feature = "__https")]
     fn test_new_verify_h2() {
-        let request = new(Version::Http2, "ns.example.com", "/dns-query", 512)
-            .expect("error converting to http");
+        let cx = RequestContext {
+            version: Version::Http2,
+            name_server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            add_headers: None,
+        };
+
+        let request = cx.build(512).expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -208,17 +191,17 @@ mod tests {
     #[test]
     #[cfg(feature = "__https")]
     fn test_additional_headers() {
-        let request = new_with_headers(
-            Version::Http2,
-            "ns.example.com",
-            "/dns-query",
-            512,
-            &[(
+        let cx = RequestContext {
+            version: Version::Http2,
+            name_server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            add_headers: Some(Arc::new(vec![(
                 HeaderName::from_static("test-header"),
                 HeaderValue::from_static("test-header-value"),
-            )],
-        )
-        .expect("error converting to http");
+            )]) as Arc<dyn AddHeaders>),
+        };
+
+        let request = cx.build(512).expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -241,8 +224,14 @@ mod tests {
     #[test]
     #[cfg(feature = "__h3")]
     fn test_new_verify_h3() {
-        let request = new(Version::Http3, "ns.example.com", "/dns-query", 512)
-            .expect("error converting to http");
+        let cx = RequestContext {
+            version: Version::Http3,
+            name_server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            add_headers: None,
+        };
+
+        let request = cx.build(512).expect("error converting to http");
         assert!(
             verify(
                 Version::Http3,
@@ -252,5 +241,11 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    impl AddHeaders for Vec<(HeaderName, HeaderValue)> {
+        fn headers(&self) -> Vec<(HeaderName, HeaderValue)> {
+            self.clone()
+        }
     }
 }
