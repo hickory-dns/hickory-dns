@@ -7,6 +7,8 @@ mod named_https_tests;
 #[cfg(feature = "prometheus-metrics")]
 mod named_metrics_tests;
 mod named_quic_tests;
+#[cfg(feature = "recursor")]
+mod named_rfc_9539_tests;
 mod named_rustls_tests;
 mod named_test_rsa_dnssec;
 mod named_tests;

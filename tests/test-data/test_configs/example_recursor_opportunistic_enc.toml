@@ -98,7 +98,7 @@ max_concurrent_probes = 10
 # Persistence config:
 #   Path to a TOML state file used for saving/loading opportunistic encryption state.
 #   Interval after which opportunistic encryption state is periodically saved to `path` (seconds).
-persistence = { path = "/var/lib/hickory-dns/opp_enc_state.toml", save_interval = 600 }
+persistence = { path = "opp_enc_state.toml", save_interval = 600 }
 
 ## cache_policy: set the minimum/maximum TTL for positive/negative responses.
 ## This can be set for all queries and for specific query types.
