@@ -739,7 +739,7 @@ mod opportunistic_encryption_persistence {
         fs::{self, File, OpenOptions},
         io::{self, Write},
         marker::PhantomData,
-        path::PathBuf,
+        path::{Path, PathBuf},
     };
 
     use tracing::trace;
@@ -828,7 +828,7 @@ mod opportunistic_encryption_persistence {
                 )
             })?;
 
-            if let Some(parent) = self.path.parent() {
+            if let Some(parent) = parent_directory(&self.path) {
                 fs::create_dir_all(parent)?;
             }
 
@@ -849,7 +849,7 @@ mod opportunistic_encryption_persistence {
                 temp_file.sync_all()?;
             }
 
-            if let Some(parent) = self.path.parent() {
+            if let Some(parent) = parent_directory(&self.path) {
                 File::open(parent)?.sync_all()?;
             }
 
@@ -857,6 +857,17 @@ mod opportunistic_encryption_persistence {
             debug!(state_file = %self.path.display(), "saved opportunistic encryption state");
             Ok(())
         }
+    }
+
+    /// Gets the parent directory of an absolute or relative path.
+    fn parent_directory(path: &Path) -> Option<&Path> {
+        let parent = path.parent()?;
+        // Special case: if the path has only one component, `parent()` will return an empty string. We
+        // should return "." instead, a relative path pointing at the current directory.
+        Some(match parent == Path::new("") {
+            true => Path::new("."),
+            false => parent,
+        })
     }
 }
 
