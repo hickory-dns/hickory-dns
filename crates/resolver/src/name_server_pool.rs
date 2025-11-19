@@ -735,8 +735,10 @@ pub use opportunistic_encryption_persistence::OpportunisticEncryptionStatePersis
 
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
 mod opportunistic_encryption_persistence {
+    #[cfg(unix)]
+    use std::fs::File;
     use std::{
-        fs::{self, File, OpenOptions},
+        fs::{self, OpenOptions},
         io::{self, Write},
         marker::PhantomData,
         path::{Path, PathBuf},
@@ -849,6 +851,7 @@ mod opportunistic_encryption_persistence {
                 temp_file.sync_all()?;
             }
 
+            #[cfg(unix)]
             if let Some(parent) = parent_directory(&self.path) {
                 File::open(parent)?.sync_all()?;
             }
