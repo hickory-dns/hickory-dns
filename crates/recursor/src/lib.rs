@@ -43,10 +43,6 @@ pub use hickory_resolver as resolver;
 pub use hickory_resolver::config::NameServerConfig;
 #[cfg(feature = "__dnssec")]
 use proto::dnssec::TrustAnchors;
-use proto::{
-    op::{Message, Query},
-    rr::Record,
-};
 pub use recursor::{Recursor, RecursorBuilder};
 
 use resolver::Name;
@@ -88,28 +84,6 @@ impl DnssecPolicy {
     pub(crate) fn is_security_aware(&self) -> bool {
         !matches!(self, Self::SecurityUnaware)
     }
-}
-
-// as per section 3.2.1 of RFC4035
-fn maybe_strip_dnssec_records(
-    query_has_dnssec_ok: bool,
-    mut response: Message,
-    query: Query,
-) -> Message {
-    if query_has_dnssec_ok {
-        return response;
-    }
-
-    let predicate = |record: &Record| {
-        let record_type = record.record_type();
-        record_type == query.query_type() || !record_type.is_dnssec()
-    };
-
-    response.answers_mut().retain(predicate);
-    response.authorities_mut().retain(predicate);
-    response.additionals_mut().retain(predicate);
-
-    response
 }
 
 /// Bailiwick/sub zone checking.

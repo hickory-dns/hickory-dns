@@ -155,8 +155,33 @@ fn print_ok(lookup: Lookup) {
         style(lookup.query()).blue()
     );
 
-    for r in lookup.record_iter() {
-        print_record(&r);
+    let message = lookup.message();
+
+    // Print ANSWER section
+    let answers = message.answers();
+    if !answers.is_empty() {
+        println!("\n;; {} SECTION:", style("ANSWER").yellow());
+        for r in answers {
+            print_record(&r);
+        }
+    }
+
+    // Print AUTHORITY section
+    let authority = message.authorities();
+    if !authority.is_empty() {
+        println!("\n;; {} SECTION:", style("AUTHORITY").yellow());
+        for r in authority {
+            print_record(&r);
+        }
+    }
+
+    // Print ADDITIONAL section
+    let additional = message.additionals();
+    if !additional.is_empty() {
+        println!("\n;; {} SECTION:", style("ADDITIONAL").yellow());
+        for r in additional {
+            print_record(&r);
+        }
     }
 }
 
@@ -225,7 +250,7 @@ async fn execute_query(
         let v4addr = name
             .parse::<IpAddr>()
             .unwrap_or_else(|_| panic!("Could not parse {name} into an IP address"));
-        Ok(resolver.reverse_lookup(v4addr).await?.into())
+        Ok(resolver.reverse_lookup(v4addr).await?)
     } else {
         Ok(resolver.lookup(name.to_string(), ty).await?)
     }
