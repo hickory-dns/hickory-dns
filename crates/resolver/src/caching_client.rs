@@ -413,6 +413,11 @@ where
     pub fn clear_cache(&self) {
         self.cache.clear();
     }
+
+    /// Flushes/Removes the entry from the cache that is associated with this query
+    pub fn clear_cache_query(&self, query: &Query) {
+        self.cache.clear_query(query);
+    }
 }
 
 enum Records {
