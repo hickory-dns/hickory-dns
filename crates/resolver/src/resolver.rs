@@ -232,6 +232,24 @@ impl<R: ConnectionProvider> Resolver<R> {
         .await
     }
 
+    /// Clear the cache for a specific lookup
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - name of the record to clear
+    /// * `record_type` - type of record to clear
+    ///
+    pub fn clear_lookup_cache(&self, name: impl IntoName, record_type: RecordType) {
+        let Ok(name) = name.into_name() else {
+            return;
+        };
+
+        for name in self.build_names(name) {
+            let query = Query::query(name, record_type);
+            self.client_cache.clear_cache_query(&query);
+        }
+    }
+
     fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
         if name.is_fqdn()
