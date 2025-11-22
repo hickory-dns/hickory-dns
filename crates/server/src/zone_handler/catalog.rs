@@ -861,18 +861,27 @@ async fn build_authoritative_response(
         } else {
             #[cfg(feature = "__dnssec")]
             {
-                if let Some(NxProofKind::Nsec3 {
-                    algorithm,
-                    salt,
-                    iterations,
-                    opt_out: _,
-                }) = handler.nx_proof_kind()
-                {
-                    let has_wildcard_match = answers
-                        .iter()
-                        .any(|rr| rr.record_type() == RecordType::RRSIG && rr.name().is_wildcard());
+                let has_wildcard_match = answers.iter().any(|rr| {
+                    if let Some(dnssec) = rr.data().as_dnssec() {
+                        if let Some(rrsig_labels) =
+                            dnssec.as_rrsig().map(|data| data.input().num_labels)
+                        {
+                            if rrsig_labels < rr.name().num_labels() {
+                                return true;
+                            }
+                        }
+                    }
 
-                    match handler
+                    false
+                });
+
+                let res = match handler.nx_proof_kind() {
+                    Some(NxProofKind::Nsec3 {
+                        algorithm,
+                        salt,
+                        iterations,
+                        opt_out: _,
+                    }) => handler
                         .nsec3_records(
                             Nsec3QueryInfo {
                                 qname: query.name(),
@@ -885,24 +894,28 @@ async fn build_authoritative_response(
                             lookup_options,
                         )
                         .await
-                        .map_result()
-                    {
-                        // run the soa lookup
-                        Some(Ok(nsecs)) => (Some(nsecs), None),
-                        Some(Err(error)) => {
-                            warn!(%error, request_id = _request_id, "failed to lookup nsecs for request");
-                            (None, None)
-                        }
-                        None => {
-                            warn!(
-                                request_id = _request_id,
-                                "unexpected lookup skip for request"
-                            );
-                            (None, None)
-                        }
+                        .map_result(),
+                    Some(NxProofKind::Nsec) if has_wildcard_match => handler
+                        .nsec_records(query.name(), lookup_options)
+                        .await
+                        .map_result(),
+                    _ => None,
+                };
+
+                match res {
+                    // run the soa lookup
+                    Some(Ok(nsecs)) => (Some(nsecs), None),
+                    Some(Err(error)) => {
+                        warn!(%error, request_id = _request_id, "failed to lookup nsecs for request");
+                        (None, None)
                     }
-                } else {
-                    (None, None)
+                    None => {
+                        warn!(
+                            request_id = _request_id,
+                            "unexpected lookup skip for request"
+                        );
+                        (None, None)
+                    }
                 }
             }
             #[cfg(not(feature = "__dnssec"))]

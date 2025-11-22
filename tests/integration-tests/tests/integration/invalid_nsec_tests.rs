@@ -117,7 +117,6 @@ async fn no_data_error() {
 }
 
 /// Based on RFC 4035 section B.6.
-#[ignore = "Authoritative response is missing the NSEC record"]
 #[tokio::test]
 async fn wildcard_expansion() {
     subscribe();
@@ -136,7 +135,8 @@ async fn wildcard_expansion() {
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
     let nsec_count = response
-        .all_sections()
+        .authorities()
+        .iter()
         .filter(|record| record.record_type() == RecordType::NSEC)
         .count();
     assert_eq!(nsec_count, 1);
