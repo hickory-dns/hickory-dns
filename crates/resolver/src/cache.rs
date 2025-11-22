@@ -95,6 +95,10 @@ impl ResponseCache {
     pub(crate) fn clear(&self) {
         self.cache.invalidate_all();
     }
+
+    pub(crate) fn clear_query(&self, query: &Query) {
+        self.cache.invalidate(query);
+    }
 }
 
 /// An entry in the response cache.
