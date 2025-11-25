@@ -1609,8 +1609,11 @@ fn verify_nsec(
 ) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
 
+    let nsec1_yield =
+        |proof: Proof, msg: &str| -> Proof { proof_log_yield(proof, query, "nsec1", msg) };
+
     if response_code != ResponseCode::NXDomain && response_code != ResponseCode::NoError {
-        return nsec1_yield(Proof::Bogus, query, "unsupported response code");
+        return nsec1_yield(Proof::Bogus, "unsupported response code");
     }
 
     // The SOA name, if present, must be an ancestor of the query name.  If a SOA is present,
@@ -1618,7 +1621,7 @@ fn verify_nsec(
     // the parent of the query name.
     let mut next_closest_encloser = if let Some(soa_name) = soa_name {
         if !soa_name.zone_of(query.name()) {
-            return nsec1_yield(Proof::Bogus, query, "SOA record is for the wrong zone");
+            return nsec1_yield(Proof::Bogus, "SOA record is for the wrong zone");
         }
         soa_name.clone()
     } else {
@@ -1633,17 +1636,12 @@ fn verify_nsec(
         return if nsec_data.type_set().contains(query.query_type())
             || nsec_data.type_set().contains(RecordType::CNAME)
         {
-            nsec1_yield(
-                Proof::Bogus,
-                query,
-                "direct match, record type should be present",
-            )
+            nsec1_yield(Proof::Bogus, "direct match, record type should be present")
         } else if response_code == ResponseCode::NoError && !have_answer {
-            nsec1_yield(Proof::Secure, query, "direct match")
+            nsec1_yield(Proof::Secure, "direct match")
         } else {
             nsec1_yield(
                 Proof::Bogus,
-                query,
                 "nxdomain response or answers present when direct match exists",
             )
         };
@@ -1654,7 +1652,6 @@ fn verify_nsec(
     else {
         return nsec1_yield(
             Proof::Bogus,
-            query,
             "no NSEC record matches or covers the query name",
         );
     };
@@ -1681,11 +1678,7 @@ fn verify_nsec(
         // wildcard name we are trying to construct, because we removed at least one label from the
         // query name, and tried to add a single-byte label. This error condition should thus be
         // unreachable.
-        return nsec1_yield(
-            Proof::Bogus,
-            query,
-            "unreachable error constructing wildcard name",
-        );
+        return nsec1_yield(Proof::Bogus, "unreachable error constructing wildcard name");
     };
 
     debug!(%wildcard_name, "looking for NSEC for wildcard");
@@ -1736,7 +1729,7 @@ fn verify_nsec(
         // For NXDomain responses, we've already proved the record does not exist. Now we just need to prove
         // the wildcard name is covered.
         Some((_, _)) if response_code == ResponseCode::NXDomain && !have_answer => {
-            nsec1_yield(Proof::Secure, query, "no direct match, no wildcard")
+            nsec1_yield(Proof::Secure, "no direct match, no wildcard")
         }
         // For wildcard expansion responses, we need to prove there are no closer matches and no exact match.
         // (RFC 4035 5.3.4 and B.6/C.6)
@@ -1753,7 +1746,6 @@ fn verify_nsec(
         {
             nsec1_yield(
                 Proof::Secure,
-                query,
                 "no direct match, covering wildcard present for wildcard expansion response",
             )
         }
@@ -1768,23 +1760,13 @@ fn verify_nsec(
                     && no_closer_matches(query.name(), soa_name, nsecs, wildcard_base_name.as_ref())
             }) =>
         {
-            nsec1_yield(
-                Proof::Secure,
-                query,
-                "no direct match, covering wildcard present",
-            )
+            nsec1_yield(Proof::Secure, "no direct match, covering wildcard present")
         }
         _ => nsec1_yield(
             Proof::Bogus,
-            query,
             "no NSEC record matches or covers the wildcard name",
         ),
     }
-}
-
-/// Logs a debug message and returns a [`Proof`]. This is specific to NSEC validation.
-fn nsec1_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
-    proof_log_yield(proof, query, "nsec1", msg)
 }
 
 // Prove that no closer name exists between the query name and wildcard_base_name
