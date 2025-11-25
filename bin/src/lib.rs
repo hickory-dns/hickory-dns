@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Configuration module for the server binary, `named`.
+//! Configuration module for the server binary, `hickory-dns`.
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
