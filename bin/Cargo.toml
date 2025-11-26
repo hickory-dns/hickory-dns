@@ -1,8 +1,6 @@
 [package]
 name = "hickory-dns"
 
-# A short blurb about the package. This is not rendered in any format when
-# uploaded to crates.io (aka this is not markdown)
 description = """
 Hickory DNS is a safe and secure DNS server with DNSSEC support. The DNSSEC
 support allows for live signing of all records, but it does not currently
