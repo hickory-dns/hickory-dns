@@ -1,33 +1,15 @@
 # Overview
 
-Hickory DNS Server is a library which implements the zone authoritory functionality.
+`hickory-server` is a library for integrating safe and secure DNS servers into
+an async Tokio application. It supports a variety of protocol features
+(DNSSEC, TSIG, SIG(0), DoT, DoQ, DoH). Servers can be operated in an authoritative
+role, or as a forwarding resolver, stub resolver, or a recursive resolver
+(experimental).
 
-This library contains basic implementations for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSEC RRSIG records associated with all records in a zone. There is also a `hickory-dns` binary that can be generated from the library with `cargo install hickory-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
+See the [`hickory-dns`] binary crate for a complete application built using
+`hickory-server`.
 
-## Status
-
-The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
-There currently is no way to limit TCP and AXFR operations, so it is still not
-recommended to put into production as TCP can be used to DOS the service.
-Zone file parsing is complete and supported. There is currently no forking
-option, and the server is not yet threaded (although it is implemented with
-async IO, so threading may not be a huge benefit). There is still a lot of work
-to do before a server can be trusted with this externally. Running it behind a
-firewall on a private network would be safe.
-
-Zone signing support is complete, to insert a key store a pem encoded rsa file
-in the same directory as the initial zone file with the `.key` suffix. _Note_:
-this must be only readable by the current user. If one is not present one will
-be created and written to the correct location. This also acts as the initial
-key for dynamic update SIG(0) validation. To get the public key, the `DNSKEY`
-record for the zone can be queried. This is needed to provide to other
-upstream servers to create the `DS` key. Dynamic DNS is also complete,
-if enabled, a journal file will be stored next to the zone file with the
-`jrnl` suffix. _Note_: if the key is changed or updated, it is currently the
-operators responsibility to remove the only public key from the zone, this
-allows for the `DNSKEY` to exist for some unspecified period of time during
-key rotation. Rotating the key while online is not currently supported, so
-a restart of the server process is required.
+[`hickory-dns`]: ../../bin/
 
 ## Features
 
