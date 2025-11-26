@@ -2,7 +2,8 @@
 name = "hickory-proto"
 
 description = """
-Hickory DNS is a safe and secure DNS library. This is the foundational DNS protocol library for all Hickory DNS projects.
+hickory-proto is a safe and secure low-level DNS library. This is the foundational DNS protocol
+library used by the other higher-level Hickory DNS crates.
 """
 
 documentation = "https://docs.rs/hickory-proto"

@@ -1,6 +1,16 @@
 # Overview
 
-Hickory DNS Proto is the foundational DNS protocol library and implementation for Hickory DNS. Unless you want to manipulate the DNS packets directly, it is likely not the library you want. Please see Hickory DNS [Resolver](https://crates.io/crates/hickory-resolver), [Client](https://crates.io/crates/hickory-client), or [Server](https://crates.io/crates/hickory-server) for higher level interfaces.
+`hickory-proto` is a safe and secure low-level DNS library. 
+This is the foundational DNS protocol library used by the other higher-level Hickory DNS crates.
+
+Unless you want to manipulate the DNS packets directly, it is likely not the library you want.
+For higher-level interfaces, refer to the [`hickory-server`], [`hickory-client`],
+[`hickory-resolver`] and [`hickory-recursor`] library crates instead.
+
+[`hickory-server`]: ../server
+[`hickory-client`]: ../client
+[`hickory-resolver`]: ../resolver
+[`hickory-recursor`]: ../recursor
 
 ## Versioning
 
