@@ -175,16 +175,16 @@ Success for query name: www.example.com. type: A class: IN
 
 ## FAQ
 
-- Why are you building another DNS server?
+- **Why are you building another DNS server?**
 
-      To offer a DNS server written in a memory-safe language.
+  To offer a DNS server written in a memory-safe language.
 
   Using Rust semantics it should be possible to develop a high performance and
   safe DNS Server that is more resilient to attacks.
 
-- What is the MSRV (minimum stable Rust version) policy?
+- **What is the MSRV (minimum stable Rust version) policy?**
 
-      Hickory DNS will work to support backward compatibility with three Rust versions.
+  Hickory DNS will work to support backward compatibility with three Rust versions.
 
   For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
   version is only increased as necessary, so it's possible that the MSRV is older
