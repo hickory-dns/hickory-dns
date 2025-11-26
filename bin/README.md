@@ -68,13 +68,6 @@ When using dynamic DNS, zones will be automatically resigned on any record updat
 [webpki-roots]: https://crates.io/crates/webpki-roots
 [Prometheus]: https://prometheus.io/
 
-## Future goals
-
-- Distributed dynamic DNS updates, with consensus
-- mTLS based authorization for Dynamic Updates
-- Online NSEC creation for queries
-- Maybe NSEC5 support
-
 ## Running
 
 Warning: Hickory DNS is still under development, running in production is not
