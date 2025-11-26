@@ -13,14 +13,54 @@ Zone data can be managed in-memory, with flat files, or with an SQLite database.
 - ANAME resolution, for zone mapping aliases to A and AAAA records
 - Additionals section generation for aliasing record types
 
-## Optional protocol support
+## Cryptography provider
+
+Features requiring cryptography require selecting a specific cryptography 
+provider. See the [project README] for more information.
+
+[project README]: ../README.md#Cryptography-provider
+
+## Protocol support
 
 The following DNS protocols are optionally supported:
 
-- Enable `dns-over-rustls` for DNS over TLS (DoT)
-- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
-- Enable `dns-over-quic` for DNS over QUIC (DoQ)
-- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
+* DNS over TLS (DoT)
+* DNS over HTTP/2 (DoH)
+* DNS over QUIC (DoQ)
+* DNS over HTTP/3 (DoH3)
+
+In order to use these optional protocols you must enable a cargo feature
+corresponding to your desired cryptography provider:
+
+* DoT: `tls-aws-lc-rs` or `tls-ring`
+* DoH: `https-aws-lc-rs` or `https-ring`
+* DoQ: `quic-aws-lc-rs` or `quic-ring`
+* DoH3: `h3-aws-lc-rs` or `h3-ring`
+
+## DNSSEC
+
+In order to use DNSSEC you must enable a cargo feature corresponding to your 
+desired cryptography provider:
+
+* `dnssec-aws-lc-rs`
+* `dnssec-ring`
+
+## Other crate features
+
+* `sqlite` (enabled by default) - support maintaining zone data in a SQLite database.
+  Required for dynamic DNS support.
+* `blocklist` - support configuring allow/deny blocklists.
+* `recursor` - enable experimental support for recursive resolution.
+* `resolver` (enabled by default) - enable forwarding zones to another resolver.
+* `rustls-platform-verifier` (enabled by default) - use the system verifier for TLS with
+   [rustls-platform-verifier].
+* `webpki-roots` - use the [webpki-roots] crate for TLS certificate verification.
+* `prometheus-metrics` - enable exposing [Prometheus] metrics for scraping.
+* `ascii-art` (enabled by default) - print project logo at start.
+
+[rustls-platform-verifier]: https://crates.io/crates/rustls-platform-verifier
+[webpki-roots]: https://crates.io/crates/webpki-roots
+[Prometheus]: https://prometheus.io/
 
 ## DNSSEC status
 
