@@ -17,14 +17,53 @@ as well as SRV record lookups.
 - Generic Record Type Lookup
 - CNAME chain resolution
 
-## Optional protocol support
+## Cryptography provider
+
+Features requiring cryptography require selecting a specific cryptography
+provider. See the [project README] for more information.
+
+[project README]: ../../README.md#Cryptography-provider
+
+## Protocol support
 
 The following DNS protocols are optionally supported:
 
-- Enable `dns-over-rustls` for DNS over TLS (DoT)
-- Enable `dns-over-https-rustls` for DNS over HTTP/2 (DoH)
-- Enable `dns-over-quic` for DNS over QUIC (DoQ)
-- Enable `dns-over-h3` for DNS over HTTP/3 (DoH3)
+* DNS over TLS (DoT)
+* DNS over HTTP/2 (DoH)
+* DNS over QUIC (DoQ)
+* DNS over HTTP/3 (DoH3)
+
+In order to use these optional protocols you must enable a cargo feature
+corresponding to your desired cryptography provider:
+
+* DoT: `tls-aws-lc-rs` or `tls-ring`.
+* DoH: `https-aws-lc-rs` or `https-ring`
+* DoQ: `quic-aws-lc-rs` or `quic-ring`
+* DoH3: `h3-aws-lc-rs` or `h3-ring`
+
+## DNSSEC
+
+In order to use DNSSEC you must enable a cargo feature corresponding to your
+desired cryptography provider:
+
+* `dnssec-aws-lc-rs`
+* `dnssec-ring`
+
+## Other crate features
+
+* `system-config` (enabled by default) - support using the system recursive resolver configuration.
+* `tokio` (enabled by default) - support for the Tokio async runtime.
+* `serde` - enable serde serialization support.
+* `toml` - enable support for TOML serialization.
+* `rustls-platform-verifier` (enabled by default) - use the system verifier for TLS with
+  [rustls-platform-verifier].
+* `webpki-roots` - use the [webpki-roots] crate for TLS certificate verification.
+* `metrics` - support exposing metrics using the [`metrics`] crate.
+* `backtrace` - enable error backtrace collection.
+
+[rustls-platform-verifier]: https://crates.io/crates/rustls-platform-verifier
+[webpki-roots]: https://crates.io/crates/webpki-roots
+[`metrics`]: https://crates.io/crates/metrics
 
 ## Example
 
