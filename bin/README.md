@@ -5,6 +5,14 @@ protocol features (DNSSEC, TSIG, SIG(0), DoT, DoQ, DoH). It can be operated as a
 DNS server, forwarding resolver, stub resolver, or a recursive resolver (experimental).
 Zone data can be managed in-memory, with flat files, or with an SQLite database.
 
+If you are writing your own Rust application, refer to the [`hickory-server`], [`hickory-client`], 
+[`hickory-resolver`] and [`hickory-recursor`] library crates instead.
+
+[`hickory-server`]: ../crates/server
+[`hickory-client`]: ../crates/client
+[`hickory-resolver`]: ../crates/resolver
+[`hickory-recursor`]: ../crates/recursor
+
 ## Features
 
 - Dynamic Update with sqlite journaling backend (SIG0)
