@@ -13,11 +13,14 @@ See the [`hickory-dns`] binary crate for a complete application built using
 
 ## Features
 
-- Dynamic Update with sqlite journaling backend (SIG0)
+- Dynamic Update with sqlite journaling backend (SIG0, TSIG)
 - DNSSEC online signing (NSEC and NSEC3)
 - DNS over TLS (DoT)
+- DNS over QUIC (DoQ)
 - DNS over HTTPS (DoH)
+- DNS over HTTP/3 (DoH3)
 - Forwarding stub resolver
+- Recursive resolver (experimental)
 - ANAME resolution, for zone mapping aliass to A and AAAA records
 - Additionals section generation for aliasing record types
 
