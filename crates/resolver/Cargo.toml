@@ -2,10 +2,8 @@
 name = "hickory-resolver"
 
 description = """
-Hickory DNS is a safe and secure DNS library. This Resolver library uses the Client
- library to perform all DNS queries. The Resolver is intended to be a high-level library
- for any DNS record resolution. See Resolver for supported resolution types.
- The Client can be used for other queries.
+hickory-resolver is a safe and secure DNS stub resolver library intended to be a high-level library
+for DNS record resolution.
 """
 
 documentation = "https://docs.rs/hickory-resolver"
