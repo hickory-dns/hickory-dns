@@ -45,6 +45,12 @@ desired cryptography provider:
 * `dnssec-aws-lc-rs`
 * `dnssec-ring`
 
+The current root key is bundled into the system, and used by default. This gives
+validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
+implemented.
+
+When using dynamic DNS, zones will be automatically resigned on any record updates.
+
 ## Other crate features
 
 * `sqlite` (enabled by default) - support maintaining zone data in a SQLite database.
@@ -61,14 +67,6 @@ desired cryptography provider:
 [rustls-platform-verifier]: https://crates.io/crates/rustls-platform-verifier
 [webpki-roots]: https://crates.io/crates/webpki-roots
 [Prometheus]: https://prometheus.io/
-
-## DNSSEC status
-
-The current root key is bundled into the system, and used by default. This gives
-validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
-implemented.
-
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## Future goals
 
