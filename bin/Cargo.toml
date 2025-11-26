@@ -2,12 +2,10 @@
 name = "hickory-dns"
 
 description = """
-Hickory DNS is a safe and secure DNS server with DNSSEC support. The DNSSEC
-support allows for live signing of all records, but it does not currently
-support records signed offline. The server supports dynamic DNS with SIG(0) or
-TSIG authenticated requests. Hickory DNS is based on the Tokio and Futures
-libraries, which means it should be easy to integrate into other software that
-also uses those libraries.
+Hickory DNS is a safe and secure DNS server with a variety of protocol features
+(DNSSEC, TSIG, SIG(0), DoT, DoQ, DoH). It can be operated as an authoritative
+DNS server, forwarding resolver, stub resolver, or a recursive resolver (experimental).
+Zone data can be managed in-memory, with flat files, or with an SQLite database.
 """
 
 documentation = "https://docs.rs/hickory-dns"
