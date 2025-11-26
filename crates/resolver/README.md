@@ -69,9 +69,10 @@ implemented.
 [webpki-roots]: https://crates.io/crates/webpki-roots
 [`metrics`]: https://crates.io/crates/metrics
 
-## Testing the resolver via CLI with resolve
+## `resolve` command line tool
 
-This independent CLI is useful for testing hickory-resolver and its features.
+A simple `resove` command-line utility that uses `hickory-resolver` can be installed
+to test the crate functionality:
 
 ```shell
 cargo install --bin resolve hickory-util
