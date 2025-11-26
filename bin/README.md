@@ -73,6 +73,12 @@ When using dynamic DNS, zones will be automatically resigned on any record updat
 Warning: Hickory DNS is still under development, running in production is not
 recommended.
 
+- Building
+
+```shell
+cargo build --release --bin hickory-dns
+```
+
 - Verify the version
 
 ```shell
