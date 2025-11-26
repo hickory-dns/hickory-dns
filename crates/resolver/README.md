@@ -69,31 +69,6 @@ implemented.
 [webpki-roots]: https://crates.io/crates/webpki-roots
 [`metrics`]: https://crates.io/crates/metrics
 
-## Example
-
-```rust
-use hickory_resolver::Resolver;
-use hickory_resolver::name_server::TokioRuntimeProvider;
-use hickory_resolver::config::*;
-
-// Construct a new Resolver with default configuration options
-let resolver = Resolver::builder_with_config(
-    ResolverConfig::udp_and_tcp(&GOOGLE),
-    TokioRuntimeProvider::default(),
-)
-.build().unwrap();
-
-// On Unix/Posix systems, this will read the /etc/resolv.conf
-// let resolver = TokioResolver::builder(TokioRuntimeProvider::default()).unwrap().build();
-
-// Lookup the IP addresses associated with a name.
-let response = resolver.lookup_ip("www.example.com.").await.unwrap();
-
-// There can be many addresses associated with the name,
-//  this can return IPv4 and/or IPv6 addresses
-let _address = response.iter().next().expect("no addresses returned!");
-```
-
 ## Testing the resolver via CLI with resolve
 
 This independent CLI is useful for testing hickory-resolver and its features.
