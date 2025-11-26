@@ -5,8 +5,6 @@ protocol features (DNSSEC, TSIG, SIG(0), DoT, DoQ, DoH). It can be operated as a
 DNS server, forwarding resolver, stub resolver, or a recursive resolver (experimental).
 Zone data can be managed in-memory, with flat files, or with an SQLite database.
 
-**NOTICE** This project was rebranded from Trust-DNS to Hickory DNS and has been moved to the https://github.com/hickory-dns/hickory-dns organization and repo, this crate/binary has been moved to [hickory-dns](https://crates.io/crates/hickory-dns), from `0.24` and onward, for prior versions see [trust-dns](https://crates.io/crates/trust-dns).
-
 ## Features
 
 - Dynamic Update with sqlite journaling backend (SIG0)
