@@ -19,11 +19,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[badges]
-#github-actions = { repository = "bluejekyll/hickory", branch = "main", workflow = "test" }
-codecov = { repository = "hickory-dns/hickory-dns", branch = "main", service = "github" }
-maintenance = { status = "actively-developed" }
-
 [features]
 default = ["none"]
 none = []
