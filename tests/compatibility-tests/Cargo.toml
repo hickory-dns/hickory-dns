@@ -7,7 +7,6 @@ Hickory DNS compatibility testing library.
 """
 
 documentation = "https://docs.rs/hickory-dns"
-readme = "../README.md"
 
 version.workspace = true
 authors.workspace = true
