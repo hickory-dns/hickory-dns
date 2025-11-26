@@ -15,27 +15,6 @@ See also the [`hickory-resolver`] and [`hickory-recursor`] crates for other clie
 [`hickory-resolver`]: ../resolver
 [`hickory-recursor`]: ../recursor
 
-## Status
-
-The Hickory DNS Client is intended to be used for operating against a DNS server
-directly. It can be used for verifying records or updating records for servers
-that support SIG0 and dynamic update. The Client is also capable of validating
-DNSSEC. NSEC and NSEC3 validation are supported. Today, the Tokio async runtime
-is required.
-
-## Features
-
-The `client` is capable of DNSSEC validation as well as offering higher order functions for performing DNS operations:
-
-- [SyncDnssecClient](https://docs.rs/hickory-client/latest/hickory_client/client/struct.SyncDnssecClient.html) - DNSSEC validation
-- [create](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
-- [append](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.append) - verify existence of a record and append to it
-- [compare_and_swap](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap
-- [delete_by_rdata](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_by_rdata) - delete a specific record
-- [delete_rrset](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_rrset) - delete an entire record set
-- [delete_all](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
-- [notify](https://docs.rs/hickory-client/latest/hickory_client/client/trait.Client.html#method.notify) - notify server that it should reload a zone
-
 ## Optional protocol support
 
 The following DNS protocols are optionally supported:
