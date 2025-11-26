@@ -1,8 +1,19 @@
 # Overview
 
-Hickory DNS is a library which implements the DNS protocol and client side functions.
+This crate provides `hickory-client`, a safe and secure DNS client library with a 
+variety of protocol features (DNSSEC, SIG(0), DoT, DoQ, DoH). It can be used to 
+connect to and query DNS servers asynchronously using the Tokio runtime.
 
-This library contains basic implementations for DNS record serialization, and communication. It is capable of performing `query`, `update`, and `notify` operations. `update` has been proven to be compatible with `BIND9` and `SIG0` signed records for updates. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The Hickory DNS [project](https://github.com/hickory-dns/hickory-dns) contains other libraries for DNS: a [resolver library](https://crates.io/crates/hickory-resolver) for lookups, a [server library](https://crates.io/crates/hickory-dns) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/hickory-dns-rustls).
+This library contains basic implementations for DNS record serialization, and communication. 
+It is capable of performing `query`, `update`, and `notify` operations. 
+`update` has been proven to be compatible with `BIND9` and `SIG0` signed records for updates. 
+It is built on top of the [tokio](https://tokio.rs) runtime and can be integrated into other
+systems using the tokio and futures libraries. 
+
+See also the [`hickory-resolver`] and [`hickory-recursor`] crates for other client roles.
+
+[`hickory-resolver`]: ../resolver
+[`hickory-recursor`]: ../recursor
 
 ## Status
 
