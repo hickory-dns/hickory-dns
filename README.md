@@ -48,6 +48,8 @@ implemented.
 
 Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, enable the `dnssec-ring` feature.
 
+Offline signing of records/zones is not presently supported.
+
 ## RFCs implemented
 
 - [RFC 8499](https://tools.ietf.org/html/rfc8499): No more master/slave, in honor of [Juneteenth](https://en.wikipedia.org/wiki/Juneteenth)
