@@ -49,6 +49,10 @@ desired cryptography provider:
 * `dnssec-aws-lc-rs`
 * `dnssec-ring`
 
+The current root key is bundled into the system, and used by default. This gives
+validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
+implemented.
+
 ## Other crate features
 
 * `system-config` (enabled by default) - support using the system recursive resolver configuration.
@@ -89,14 +93,6 @@ let response = resolver.lookup_ip("www.example.com.").await.unwrap();
 //  this can return IPv4 and/or IPv6 addresses
 let _address = response.iter().next().expect("no addresses returned!");
 ```
-
-## DNSSEC status
-
-The current root key is bundled into the system, and used by default. This gives
-validation of DNSKEY and DS records back to the root. NSEC and NSEC3 are
-implemented.
-
-To enable DNSSEC, enable the `dnssec-ring` feature.
 
 ## Testing the resolver via CLI with resolve
 
