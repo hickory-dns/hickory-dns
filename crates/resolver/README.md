@@ -1,14 +1,10 @@
 # Overview
 
-Hickory DNS Resolver is a library which implements the DNS resolver using the Hickory DNS Proto library.
+`hickory-resolver` is a safe and secure DNS stub resolver library intended to be a high-level library
+for DNS record resolution.
 
-This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, more features are in the works. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The Hickory DNS [project](https://github.com/hickory-dns/hickory-dns) contains other libraries for DNS: a [client library](https://crates.io/crates/hickory-client) for raw protocol usage, a [server library](https://crates.io/crates/hickory-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/hickory-dns-rustls).
-
-## Status
-
-The Hickory DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
-
-The Resolver will properly follow CNAME chains as well as SRV record lookups.
+It can be configured to use the system resolver configuration and will properly follow CNAME chains 
+as well as SRV record lookups.
 
 ## Features
 
