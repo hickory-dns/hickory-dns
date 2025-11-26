@@ -1,8 +1,12 @@
 # Overview
 
-Hickory DNS Recursor is a library which implements recursive resolution for DNS. This is currently experimental, test coverage is low and full scope of tests haven't been determined yet.
+> [!WARNING]
+> This library is experimental
 
-This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. It does not require an upstream recursive resolver to find records in DNS.
+`hickory-recursor` is a safe and secure DNS recursive resolver library with DNSSEC support.
+
+This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. 
+It does not require an upstream recursive resolver to find records in DNS.
 
 ## Versioning
 
