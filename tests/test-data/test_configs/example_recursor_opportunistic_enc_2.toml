@@ -1,0 +1,112 @@
+## Default zones, these should be present on all nameservers, except in rare
+##  configuration cases
+[[zones]]
+zone = "localhost"
+zone_type = "Primary"
+file = "default/localhost.zone"
+
+[[zones]]
+zone = "0.0.127.in-addr.arpa"
+zone_type = "Primary"
+file = "default/127.0.0.1.zone"
+
+[[zones]]
+zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+zone_type = "Primary"
+file = "default/ipv6_1.zone"
+
+[[zones]]
+zone = "255.in-addr.arpa"
+zone_type = "Primary"
+file = "default/255.zone"
+
+[[zones]]
+zone = "0.in-addr.arpa"
+zone_type = "Primary"
+file = "default/0.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+##  specifying something other than '.' here, will restrict this recursor to only queries
+##  where the search name is a subzone of the name, e.g. if zone is "example.com.", then
+##  queries for "www.example.com" or "example.com" would be recursively queried.
+zone = "."
+
+## zone_type: Primary, Secondary, External
+zone_type = "External"
+
+[zones.stores]
+type = "recursor"
+roots = "default/root.zone"
+ns_cache_size = 1024
+response_cache_size = 1048576
+recursion_limit = 24
+ns_recursion_limit = 24
+
+## allow_server: these networks will override entries in deny_server and allow you to make
+## granular exceptions to networks you otherwise want to deny.  This allows queries to be
+## made to the nameserver at 127.0.0.254, even though 127.0.0.0/8 is in the deny_server list.
+allow_server = ["127.0.0.254/32"]
+## deny_server: these networks will not be sent queries during recursive resolution
+## Several networks are added to this list by default:
+##
+##    127.0.0.0/8        Loopback range
+##    0.0.0.0/8          Unspecified range
+##    255.255.255.255/32 Directed Broadcast
+##    10.0.0.0/8         RFC 1918 space
+##    172.16.0.0/12      RFC 1918 space
+##    192.168.0.0/16     RFC 1918 space
+##    100.64.0.0/10      CG NAT
+##    169.254.0.0/16     Link-local space
+##    192.0.0.0/24       IETF Reserved
+##    192.0.2.0/24       TEST-NET-1
+##    198.51.100.0/24    TEST-NET-2
+##    203.0.113.0/24     TEST-NET-3
+##    240.0.0.0/4        Class E Reserved
+##    ::1/128            v6 loopback
+##    ::/128             v6 unspecified
+##    100::/64           v6 discard prefix
+##    2001:db8::/32      v6 documentation prefix
+##    3fff::/20          v6 documentation prefix
+##    5f00::/16          v6 segment routing prefix
+##    fc00::/7           v6 private address,
+##    fe80::/64          v6 link local
+##    ff00::/8           v6 multicast
+##
+## you can override these default entries by adding exceptions to allow_server.
+deny_server = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]
+
+## Enable opportunistic encryption - requires the DoT or DoQ features to be
+## enabled. The recursor will attempt to probe authoritative DNS servers for
+## encrypted protocol support. Once learning a server supports such a protocol
+## it will avoid plaintext queries to that server in the future.
+##
+## See RFC 9539 for more information.
+
+## Simple default config:
+# [zones.stores.opportunistic_encryption]
+# enabled = {}
+
+## Customized config:
+[zones.stores.opportunistic_encryption.enabled]
+# How long the recursive resolver remembers a successful encrypted transport connection (seconds)
+persistence_period = 259200
+# How long the recursive resolver remembers a failed encrypted transport connection (seconds).
+damping_period = 86400
+# Maximum number of concurrent opportunistic encryption probes.
+max_concurrent_probes = 10
+# Persistence config:
+#   Path to a TOML state file used for saving/loading opportunistic encryption state.
+#   Interval after which opportunistic encryption state is periodically saved to `path` (seconds).
+persistence = { path = "metrics_opp_enc_state.toml", save_interval = 600 }
+
+## cache_policy: set the minimum/maximum TTL for positive/negative responses.
+## This can be set for all queries and for specific query types.
+[zones.stores.cache_policy.default]
+positive_max_ttl = 86400
+
+[zones.stores.cache_policy.A]
+positive_max_ttl = 3600
+
+[zones.stores.cache_policy.AAAA]
+positive_max_ttl = 3600

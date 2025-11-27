@@ -608,6 +608,73 @@ fn test_updates() {
     fs::remove_file(&database).expect("failed to cleanup after test");
 }
 
+#[test]
+#[cfg(all(feature = "__tls", feature = "recursor", feature = "metrics"))]
+fn test_opp_enc_metrics() {
+    subscribe();
+
+    // Note: we use 'example_recursor_opportunistic_enc_2' here to have a distinct state file
+    // path to not conflict with the `named_rfc_9539_tests.rs` smoke test.
+    named_test_harness(
+        "example_recursor_opportunistic_enc_2.toml",
+        |socket_ports| {
+            let io_loop = Runtime::new().unwrap();
+            let metrics = &io_loop.block_on(async {
+                let mut client = create_local_client(&socket_ports, None).await;
+                let response = retry_client_lookup(
+                    &mut client,
+                    Name::from_str("example.com.").unwrap(),
+                    DNSClass::IN,
+                    RecordType::A,
+                )
+                .await
+                .unwrap();
+
+                let RData::A(addr) = response.answers()[0].data() else {
+                    panic!("expected A record response");
+                };
+                assert!(*addr != A::new(192, 0, 2, 1));
+
+                fetch_parse_check_metrics(&socket_ports).await
+            });
+
+            let tls_protocol = [("protocol", "tls")];
+            // Note: we use `None` as the expected value for the following metrics because the probes
+            // are attempted as background tasks, and we can't reliably predict their state as an
+            // external observer. We only care that the metrics are present.
+            verify_metric(
+                metrics,
+                "hickory_resolver_probe_attempts_total",
+                &tls_protocol,
+                None,
+            );
+            verify_metric(
+                metrics,
+                "hickory_resolver_probe_errors_total",
+                &tls_protocol,
+                None,
+            );
+            verify_metric(
+                metrics,
+                "hickory_resolver_probe_timeouts_total",
+                &tls_protocol,
+                None,
+            );
+            verify_metric(
+                metrics,
+                "hickory_resolver_probe_successes_total",
+                &tls_protocol,
+                None,
+            );
+            // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
+            verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
+        },
+    );
+
+    // Clean up the opp. enc. state file.
+    fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
+}
+
 async fn create_local_client(
     socket_ports: &SocketPorts,
     signer: Option<Arc<dyn MessageSigner>>,
