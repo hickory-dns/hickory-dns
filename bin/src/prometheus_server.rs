@@ -23,6 +23,11 @@ impl PrometheusServer {
     pub fn new(listener: TcpListener) -> Result<Self, String> {
         // Set up metrics recorder.
         let handle = PrometheusBuilder::new()
+            // We set buckets here so that histogram metrics are treated as "true" Prometheus
+            // histograms instead of summaries. The values used are matched to the Go client
+            // defaults.
+            .set_buckets(&[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0])
+            .unwrap(/* safety: bucket values are static and non-empty */)
             .install_recorder()
             .map_err(|e| format!("failed to install prometheus endpoint {e}"))?;
 
