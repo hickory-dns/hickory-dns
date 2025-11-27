@@ -393,8 +393,14 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             Ok(conn) => conn,
             Err(err) => {
                 debug!(?proto, "probe connection failed");
+                let _prev = context
+                    .opportunistic_probe_budget
+                    .fetch_add(1, Ordering::Relaxed);
                 #[cfg(feature = "metrics")]
-                metrics.increment_errors(proto, &err);
+                {
+                    metrics.increment_errors(proto, &err);
+                    metrics.probe_budget.set(_prev + 1);
+                }
                 context
                     .transport_state()
                     .await
@@ -1786,6 +1792,7 @@ mod opportunistic_enc_tests {
         subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
+        let initial_budget = 10;
 
         with_local_recorder(&recorder, || {
             let runtime = tokio::runtime::Builder::new_current_thread()
@@ -1800,7 +1807,7 @@ mod opportunistic_enc_tests {
                         Arc::new(
                             PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
                                 .with_opportunistic_encryption()
-                                .with_probe_budget(10),
+                                .with_probe_budget(initial_budget),
                         ),
                         &MockProvider::default(),
                     )
@@ -1821,6 +1828,9 @@ mod opportunistic_enc_tests {
 
         // We should have registered 0 TLS protocol probe errors.
         assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 0);
+
+        // The budget should be back to the initial value now that the probe completed.
+        assert_tls_budget_gauge_eq(&map, initial_budget);
     }
 
     #[cfg(feature = "metrics")]
@@ -1856,18 +1866,7 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // The budget metric should confirm that there's no budget.
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Gauge,
-                Key::from_name("hickory_resolver_probe_budget_total"),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        if let DebugValue::Gauge(gauge_val) = value {
-            assert_eq!(gauge_val.into_inner(), 0.0);
-        } else {
-            panic!("expected gauge value, got {:?}", value);
-        }
+        assert_tls_budget_gauge_eq(&map, 0);
 
         // We should not have registered a probe attempt.
         assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 0);
@@ -1879,6 +1878,7 @@ mod opportunistic_enc_tests {
         subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
+        let initial_budget = 10;
 
         with_local_recorder(&recorder, || {
             let runtime = tokio::runtime::Builder::new_current_thread()
@@ -1892,7 +1892,7 @@ mod opportunistic_enc_tests {
                     Arc::new(
                         PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
                             .with_opportunistic_encryption()
-                            .with_probe_budget(10),
+                            .with_probe_budget(initial_budget),
                     ),
                     // Configure a mock provider that always produces an error when new connections are requested.
                     &MockProvider {
@@ -1919,6 +1919,9 @@ mod opportunistic_enc_tests {
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
         assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
+
+        // The budget should be back to the initial value now that the probe completed.
+        assert_tls_budget_gauge_eq(&map, initial_budget);
     }
 
     #[cfg(feature = "metrics")]
@@ -1927,6 +1930,7 @@ mod opportunistic_enc_tests {
         subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
+        let initial_budget = 10;
 
         with_local_recorder(&recorder, || {
             let runtime = tokio::runtime::Builder::new_current_thread()
@@ -1940,7 +1944,7 @@ mod opportunistic_enc_tests {
                     Arc::new(
                         PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
                             .with_opportunistic_encryption()
-                            .with_probe_budget(10),
+                            .with_probe_budget(initial_budget),
                     ),
                     // Configure a mock provider that always produces a Timeout error when new connections are requested.
                     &MockProvider {
@@ -1967,6 +1971,9 @@ mod opportunistic_enc_tests {
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
         assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
+
+        // The budget should be back to the initial value now that the probe completed.
+        assert_tls_budget_gauge_eq(&map, initial_budget);
     }
 
     /// Construct a nameserver appropriate for opportunistic encryption and assert connected_mut_client
@@ -2011,6 +2018,26 @@ mod opportunistic_enc_tests {
             .unwrap();
         assert_eq!(unit_opt, &Some(Unit::Count));
         assert_eq!(value, &DebugValue::Counter(expected));
+    }
+
+    #[cfg(feature = "metrics")]
+    #[allow(clippy::mutable_key_type)]
+    fn assert_tls_budget_gauge_eq(
+        map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
+        expected: u8,
+    ) {
+        let (unit_opt, _, value) = map
+            .get(&CompositeKey::new(
+                MetricKind::Gauge,
+                Key::from("hickory_resolver_probe_budget_total"),
+            ))
+            .unwrap();
+        assert_eq!(unit_opt, &Some(Unit::Count));
+        if let DebugValue::Gauge(gauge_val) = value {
+            assert_eq!(gauge_val.into_inner(), expected as f64);
+        } else {
+            panic!("expected gauge value {expected}, got {value:?}")
+        }
     }
 
     /// `MockProvider` is a `ConnectionProvider` that uses a synchronous runtime provider.
