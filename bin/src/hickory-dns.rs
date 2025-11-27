@@ -234,7 +234,7 @@ fn run() -> Result<(), String> {
         )
         .init();
 
-    info!("Hickory DNS {} starting...", hickory_client::version());
+    info!("Hickory DNS {} starting...", env!("CARGO_PKG_VERSION"));
 
     let mut runtime = runtime::Builder::new_multi_thread();
     runtime.enable_all().thread_name("hickory-server-runtime");
@@ -490,12 +490,12 @@ async fn async_run(args: Cli) -> Result<(), String> {
     match server.block_until_done().await {
         Ok(()) => {
             // we're exiting for some reason...
-            info!("Hickory DNS {} stopping", hickory_client::version());
+            info!("Hickory DNS {} stopping", env!("CARGO_PKG_VERSION"));
         }
         Err(e) => {
             let error_msg = format!(
                 "Hickory DNS {} has encountered an error: {}",
-                hickory_client::version(),
+                env!("CARGO_PKG_VERSION"),
                 e
             );
 
@@ -720,7 +720,7 @@ struct ConfigMetrics {
 impl ConfigMetrics {
     fn new(config: &Config) -> Self {
         let hickory_build_info =
-            gauge!("hickory_build_info", "version" => hickory_client::version());
+            gauge!("hickory_build_info", "version" => env!("CARGO_PKG_VERSION"));
         describe_gauge!(
             "hickory_build_info",
             Unit::Count,

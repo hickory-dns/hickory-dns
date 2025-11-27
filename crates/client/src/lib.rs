@@ -144,8 +144,3 @@ pub mod client;
 mod tests;
 
 pub use hickory_proto as proto;
-
-/// Returns a version as specified in Cargo.toml
-pub fn version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
-}
