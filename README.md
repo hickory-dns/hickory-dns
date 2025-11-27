@@ -38,6 +38,21 @@ This repo consists of multiple crates:
 - Support options for Global Load Balancing functions
 - Make it dead simple to operate
 
+# Cryptography provider
+
+The `hickory-dns` application and lower-level library crates support choosing between two 
+cryptography providers for protocols that require cryptography (DNSSEC, DNS-over-TLS, etc):
+
+1. [aws-lc-rs]
+2. [ring]
+
+Feature flags that require cryptography are suffixed by the choice of provider. For example, 
+for DNS-over-TLS the feature is offered as `tls-aws-lc-rs` or `tls-ring` depending on whether
+you wish to use `aws-lc-rs` or `ring`.
+
+[aws-lc-rs]: https://crates.io/crates/aws-lc-rs
+[ring]: https://crates.io/crates/ring
+
 # Status
 
 ## DNSSEC status
