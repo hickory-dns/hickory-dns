@@ -719,11 +719,22 @@ fn test_metrics_description_present(scrape: Scrape) {
         .samples
         .into_iter()
         .filter_map(|s| {
-            if !scrape.docs.contains_key(&s.metric) {
-                Some(s.metric)
-            } else {
-                None
+            let metric_name = &s.metric;
+
+            // Check if metric has direct documentation, or for histogram sub-metrics,
+            // if the base metric has documentation.
+            if scrape.docs.contains_key(metric_name)
+                || metric_name
+                    .strip_suffix("_sum")
+                    .is_some_and(|base_metric| scrape.docs.contains_key(base_metric))
+                || metric_name
+                    .strip_suffix("_count")
+                    .is_some_and(|base_metric| scrape.docs.contains_key(base_metric))
+            {
+                return None;
             }
+
+            Some(s.metric)
         })
         .collect::<Vec<String>>();
 
