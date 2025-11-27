@@ -776,33 +776,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hickory-client"
-version = "0.26.0-alpha.1"
-dependencies = [
- "cfg-if",
- "data-encoding",
- "futures",
- "futures-channel",
- "futures-util",
- "hickory-proto",
- "once_cell",
- "rand",
- "serde",
- "test-support",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "webpki-roots",
-]
-
-[[package]]
 name = "hickory-compatibility"
 version = "0.26.0-alpha.1"
 dependencies = [
  "data-encoding",
  "futures",
- "hickory-client",
+ "hickory-proto",
  "rand",
  "rustls-pki-types",
  "test-support",
@@ -820,7 +799,6 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "hex",
- "hickory-client",
  "hickory-proto",
  "hickory-resolver",
  "hickory-server",
@@ -858,7 +836,6 @@ dependencies = [
  "async-trait",
  "data-encoding",
  "futures",
- "hickory-client",
  "hickory-proto",
  "hickory-resolver",
  "hickory-server",
@@ -1030,7 +1007,6 @@ dependencies = [
  "clap",
  "console",
  "data-encoding",
- "hickory-client",
  "hickory-proto",
  "hickory-recursor",
  "hickory-resolver",

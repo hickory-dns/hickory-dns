@@ -24,7 +24,7 @@ use tokio::net::UdpSocket;
 use tokio::time::{Duration, Instant, Sleep};
 
 #[cfg(feature = "__dnssec")]
-use hickory_client::client::DnssecClient;
+use hickory_proto::client::DnssecClient;
 use hickory_proto::{
     BufDnsStreamHandle, ProtoError,
     op::{DnsResponse, Message, SerialMessage},

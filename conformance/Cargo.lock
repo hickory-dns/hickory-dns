@@ -563,22 +563,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hickory-client"
-version = "0.26.0-alpha.1"
-dependencies = [
- "cfg-if",
- "data-encoding",
- "futures-channel",
- "futures-util",
- "hickory-proto",
- "once_cell",
- "rand",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "hickory-proto"
 version = "0.26.0-alpha.1"
 dependencies = [
@@ -1338,7 +1322,6 @@ dependencies = [
  "clap",
  "data-encoding",
  "futures",
- "hickory-client",
  "hickory-proto",
  "time",
  "tokio",

@@ -13,8 +13,8 @@ use std::{
     time::Duration,
 };
 
-use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::{
+    client::{Client, ClientHandle},
     dnssec::{
         PublicKeyBuf, SigSigner, SigningKey, TrustAnchors, crypto::Ed25519SigningKey, rdata::DNSKEY,
     },

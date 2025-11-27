@@ -19,7 +19,7 @@ use rustls::{ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_client::client::Client;
+use hickory_proto::client::Client;
 use hickory_proto::h2::HttpsClientStreamBuilder;
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::rustls::default_provider;

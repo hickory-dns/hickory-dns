@@ -192,7 +192,7 @@ mod test {
     };
 
     use anyhow::Result;
-    use hickory_client::client::{Client, ClientHandle};
+    use hickory_proto::client::{Client, ClientHandle};
     use hickory_proto::{
         rr::{DNSClass, RData, RecordType, domain::Name, rdata},
         runtime::TokioRuntimeProvider,

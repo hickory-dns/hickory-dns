@@ -14,7 +14,7 @@ use std::{env, path::Path};
 use test_support::subscribe;
 
 use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
-use hickory_client::client::{Client, ClientHandle};
+use hickory_proto::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::{
     Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,

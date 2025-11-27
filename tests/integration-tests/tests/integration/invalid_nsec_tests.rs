@@ -5,12 +5,12 @@
 
 use std::{sync::Arc, time::Duration};
 
-use hickory_client::client::ClientHandle;
 use hickory_integration::{
     generate_key,
     mock_request_handler::{MockHandler, fetch_dnskey},
     print_response, setup_dnssec_client_server,
 };
+use hickory_proto::client::ClientHandle;
 use hickory_proto::{
     DnsError, ProtoErrorKind,
     dnssec::{

@@ -1,5 +1,5 @@
-use hickory_client::client::Client;
 use hickory_proto::DnsHandle;
+use hickory_proto::client::Client;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};

@@ -5,20 +5,21 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::Future;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::future::Future;
+use core::pin::Pin;
 use std::io;
-use std::pin::Pin;
-use std::sync::Arc;
 
 use futures_util::stream::Stream;
 
-use crate::client::Client;
-use crate::proto::ProtoError;
-use crate::proto::dnssec::DnssecDnsHandle;
-use crate::proto::dnssec::TrustAnchors;
-use crate::proto::op::{DnsRequest, DnsResponse};
-use crate::proto::runtime::{TokioRuntimeProvider, TokioTime};
-use crate::proto::xfer::{DnsExchangeBackground, DnsHandle, DnsRequestSender};
+use super::Client;
+use crate::ProtoError;
+use crate::dnssec::DnssecDnsHandle;
+use crate::dnssec::TrustAnchors;
+use crate::op::{DnsRequest, DnsResponse};
+use crate::runtime::{TokioRuntimeProvider, TokioTime};
+use crate::xfer::{DnsExchangeBackground, DnsHandle, DnsRequestSender};
 
 /// A DNSSEC Client implemented over futures-rs.
 ///

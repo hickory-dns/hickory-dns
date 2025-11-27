@@ -10,9 +10,9 @@ use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a, query_all_dnssec};
 use futures_util::TryStreamExt;
-use hickory_client::client::Client;
 use hickory_dns::dnssec::key_from_file;
 use hickory_proto::DnsHandle;
+use hickory_proto::client::Client;
 use hickory_proto::runtime::{RuntimeProvider, TokioRuntimeProvider};
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
@@ -53,7 +53,7 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
 
 fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
     // TODO: look into the `test-log` crate for enabling logging during tests
-    // use hickory_client::logger;
+    // use hickory_proto::client::logger;
     // use tracing::LogLevel;
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());

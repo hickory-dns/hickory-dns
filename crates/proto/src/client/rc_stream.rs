@@ -5,9 +5,10 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 
 use futures_util::lock::Mutex;
 use futures_util::stream::{Fuse, Stream, StreamExt};
@@ -85,14 +86,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use futures::executor::block_on;
-    use futures::future;
+    use futures_executor::block_on;
+    use futures_util::future;
     use futures_util::stream::once;
 
-    use crate::proto::xfer::FirstAnswer;
-    use crate::proto::{ProtoError, ProtoErrorKind};
-
     use super::*;
+    use crate::xfer::FirstAnswer;
+    use crate::{ProtoError, ProtoErrorKind};
 
     #[test]
     fn test_rc_stream() {

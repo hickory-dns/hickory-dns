@@ -22,8 +22,8 @@ use rustls::{
 use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
-use hickory_client::client::{Client, ClientHandle};
 use hickory_integration::example_zone::create_example;
+use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};

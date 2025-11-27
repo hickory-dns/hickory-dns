@@ -4,21 +4,22 @@
 // https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::pin::Pin;
 use std::collections::HashMap;
-use std::pin::Pin;
-use std::sync::Arc;
 
 use futures_util::future::FutureExt;
 use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
-use hickory_proto::{
+
+use crate::client::ClientHandle;
+use crate::client::rc_stream::{RcStream, rc_stream};
+use crate::{
     ProtoError,
     op::{DnsRequest, DnsResponse, Query},
     xfer::DnsHandle,
 };
-
-use crate::client::ClientHandle;
-use crate::client::rc_stream::{RcStream, rc_stream};
 
 // TODO: move to proto
 /// A ClientHandle for memoized (cached) responses to queries.
@@ -90,14 +91,14 @@ impl<H: ClientHandle> DnsHandle for MemoizeClientHandle<H> {
 mod test {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::pin::Pin;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
+    use core::pin::Pin;
 
-    use futures::lock::Mutex;
-    use futures::stream;
+    use futures_util::lock::Mutex;
+    use futures_util::stream;
 
     use super::*;
-    use hickory_proto::{
+    use crate::{
         ProtoError,
         op::{DnsRequest, DnsResponse, Message, MessageType, OpCode, Query},
         rr::RecordType,
@@ -120,7 +121,7 @@ mod test {
             Box::pin(stream::once(async move {
                 let mut i = i.lock().await;
                 let message = Message::new(*i, MessageType::Query, OpCode::Query);
-                println!(
+                std::println!(
                     "sending {}: {}",
                     *i,
                     request.queries().first().expect("no query!").clone()
@@ -135,7 +136,7 @@ mod test {
 
     #[test]
     fn test_memoized() {
-        use futures::executor::block_on;
+        use futures_executor::block_on;
 
         subscribe();
 

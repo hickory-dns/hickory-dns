@@ -21,13 +21,11 @@ license.workspace = true
 [features]
 tls-aws-lc-rs = [
     "hickory-proto/tls-aws-lc-rs",
-    "hickory-client/tls-aws-lc-rs",
     "hickory-resolver/tls-aws-lc-rs",
     "__tls",
 ]
 https-aws-lc-rs = [
     "hickory-proto/https-aws-lc-rs",
-    "hickory-client/https-aws-lc-rs",
     "hickory-resolver/https-aws-lc-rs",
     "tls-aws-lc-rs",
     "__https",
@@ -45,13 +43,11 @@ h3-aws-lc-rs = [
 
 tls-ring = [
     "hickory-proto/tls-ring",
-    "hickory-client/tls-ring",
     "hickory-resolver/tls-ring",
     "__tls",
 ]
 https-ring = [
     "hickory-proto/https-ring",
-    "hickory-client/https-ring",
     "hickory-resolver/https-ring",
     "tls-ring",
     "__https",
@@ -75,17 +71,15 @@ __h3 = []
 webpki-roots = [
     "dep:webpki-roots",
     "hickory-proto/webpki-roots",
-    "hickory-client/webpki-roots",
     "hickory-resolver/webpki-roots",
 ]
 rustls-platform-verifier = [
     "hickory-proto/rustls-platform-verifier",
-    "hickory-client/rustls-platform-verifier",
     "hickory-resolver/rustls-platform-verifier",
 ]
 
-dnssec-aws-lc-rs = ["hickory-client/dnssec-aws-lc-rs", "hickory-proto/dnssec-aws-lc-rs", "hickory-resolver/dnssec-aws-lc-rs", "__dnssec"]
-dnssec-ring = ["hickory-client/dnssec-ring", "hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring", "__dnssec"]
+dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-resolver/dnssec-aws-lc-rs", "__dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring", "__dnssec"]
 __dnssec = []
 
 [dependencies]
@@ -103,8 +97,7 @@ data-encoding.workspace = true
 rustls = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
-hickory-client.workspace = true
-hickory-proto.workspace = true
+hickory-proto = { workspace = true, features = ["text-parsing", "tokio"] }
 hickory-recursor.workspace = true
 hickory-resolver = { workspace = true, features = ["system-config"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }

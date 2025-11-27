@@ -20,7 +20,7 @@ use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_client::client::Client;
+use hickory_proto::client::Client;
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::rustls::{default_provider, tls_client_connect};
 use hickory_proto::xfer::Protocol;
