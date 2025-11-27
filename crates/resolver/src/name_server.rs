@@ -21,7 +21,10 @@ use std::{
 
 use futures_util::lock::Mutex as AsyncMutex;
 #[cfg(feature = "metrics")]
-use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
+use metrics::{
+    Counter, Gauge, Histogram, Unit, counter, describe_counter, describe_gauge, describe_histogram,
+    gauge, histogram,
+};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
@@ -382,6 +385,9 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             provider: _,
         } = self;
 
+        #[cfg(feature = "metrics")]
+        let start = Instant::now();
+
         context
             .transport_state()
             .await
@@ -400,6 +406,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                 {
                     metrics.increment_errors(proto, &err);
                     metrics.probe_budget.set(_prev + 1);
+                    metrics.record_probe_duration(proto, start.elapsed());
                 }
                 context
                     .transport_state()
@@ -444,7 +451,10 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             .opportunistic_probe_budget
             .fetch_add(1, Ordering::Relaxed);
         #[cfg(feature = "metrics")]
-        metrics.probe_budget.set(_prev + 1);
+        {
+            metrics.probe_budget.set(_prev + 1);
+            metrics.record_probe_duration(proto, start.elapsed());
+        }
         Ok(())
     }
 }
@@ -504,6 +514,18 @@ impl ProbeMetrics {
             }
         }
     }
+
+    fn record_probe_duration(&self, proto: Protocol, duration: Duration) {
+        match proto {
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => self.tls_probe_metrics.probe_duration.record(duration),
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => self.tls_probe_metrics.probe_duration.record(duration),
+            _ => {
+                warn!("probe protocol {proto} not supported for metrics");
+            }
+        }
+    }
 }
 
 #[cfg(feature = "metrics")]
@@ -533,6 +555,7 @@ struct ProbeProtocolMetrics {
     probe_errors: Counter,
     probe_timeouts: Counter,
     probe_successes: Counter,
+    probe_duration: Histogram,
 }
 
 #[cfg(feature = "metrics")]
@@ -570,11 +593,19 @@ impl ProbeProtocolMetrics {
         let probe_successes =
             counter!("hickory_resolver_probe_successes_total", "protocol" => protocol.to_string());
 
+        describe_histogram!(
+            "hickory_resolver_probe_duration_seconds",
+            Unit::Seconds,
+            "Duration of opportunistic encryption probe request"
+        );
+        let probe_duration = histogram!("hickory_resolver_probe_duration_seconds", "protocol" => protocol.to_string());
+
         Self {
             probe_attempts,
             probe_errors,
             probe_timeouts,
             probe_successes,
+            probe_duration,
         }
     }
 }

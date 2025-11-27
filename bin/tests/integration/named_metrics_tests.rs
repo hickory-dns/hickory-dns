@@ -666,12 +666,17 @@ fn test_opp_enc_metrics() {
                 &tls_protocol,
                 None,
             );
+            verify_metric(
+                metrics,
+                "hickory_resolver_probe_duration_seconds",
+                &tls_protocol,
+                None,
+            );
             // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
             verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
         },
     );
 
-    // Clean up the opp. enc. state file.
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
 }
 
