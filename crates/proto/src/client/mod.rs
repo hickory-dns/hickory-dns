@@ -18,16 +18,17 @@
 
 #[allow(clippy::module_inception)]
 pub(crate) mod client;
+pub use client::{Client, ClientHandle, ClientStreamingResponse};
+
 #[cfg(all(feature = "__dnssec", feature = "tokio"))]
 pub(crate) mod dnssec_client;
+#[cfg(all(feature = "__dnssec", feature = "tokio"))]
+pub use dnssec_client::{AsyncSecureClientBuilder, DnssecClient};
 
 mod memoize_client_handle;
+pub use memoize_client_handle::MemoizeClientHandle;
+
 mod rc_stream;
 
 #[cfg(test)]
 mod tests;
-
-pub use self::client::{Client, ClientHandle, ClientStreamingResponse};
-#[cfg(all(feature = "__dnssec", feature = "tokio"))]
-pub use self::dnssec_client::{AsyncSecureClientBuilder, DnssecClient};
-pub use self::memoize_client_handle::MemoizeClientHandle;
