@@ -16,7 +16,7 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use test::Bencher;
 use tokio::runtime::Runtime;
 
-use hickory_client::client::{Client, ClientHandle};
+use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};

@@ -11,15 +11,15 @@ use futures::future::BoxFuture;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
-#[cfg(feature = "__dnssec")]
-use hickory_client::client::DnssecClient;
-use hickory_client::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
 use hickory_proto::ProtoErrorKind;
+#[cfg(feature = "__dnssec")]
+use hickory_proto::client::DnssecClient;
+use hickory_proto::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]

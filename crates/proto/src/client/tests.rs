@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::vec::Vec;
+
 use test_support::subscribe;
 
 // Keep this in sync with the example in the README.
@@ -12,14 +14,14 @@ use test_support::subscribe;
 async fn readme_example() {
     subscribe();
 
-    use std::net::SocketAddr;
-    use std::str::FromStr;
+    use core::net::SocketAddr;
+    use core::str::FromStr;
 
     use crate::client::{Client, ClientHandle};
-    use crate::proto::op::DnsResponse;
-    use crate::proto::rr::{DNSClass, Name, Record, RecordType};
-    use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::udp::UdpClientStream;
+    use crate::op::DnsResponse;
+    use crate::rr::{DNSClass, Name, Record, RecordType};
+    use crate::runtime::TokioRuntimeProvider;
+    use crate::udp::UdpClientStream;
 
     let address = SocketAddr::from(([8, 8, 8, 8], 53));
     let conn = UdpClientStream::builder(address, TokioRuntimeProvider::default()).build();

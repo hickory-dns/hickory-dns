@@ -34,13 +34,13 @@ use rustls::{
     pki_types::{CertificateDer, ServerName, UnixTime},
 };
 
-use hickory_client::client::{Client, ClientHandle};
 #[cfg(any(feature = "__tls", feature = "__https"))]
 use hickory_proto::rustls::client_config;
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
     ProtoError,
+    client::{Client, ClientHandle},
     op::DnsResponse,
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
     runtime::{RuntimeProvider, TokioRuntimeProvider},

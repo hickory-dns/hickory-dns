@@ -87,7 +87,6 @@ tokio = { workspace = true, features = ["time", "rt", "signal"] }
 tokio-util = { workspace = true, optional = true }
 toml.workspace = true
 hex.workspace = true
-hickory-client.workspace = true
 hickory-proto.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
 hostname.workspace = true

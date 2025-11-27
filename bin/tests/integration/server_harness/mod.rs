@@ -18,10 +18,10 @@ use tokio::runtime::Runtime;
 use tracing::{info, warn};
 
 #[cfg(feature = "__dnssec")]
-use hickory_client::client::Client;
-use hickory_client::client::ClientHandle;
+use hickory_proto::client::Client;
 use hickory_proto::{
     ProtoError,
+    client::ClientHandle,
     op::{DnsResponse, ResponseCode},
     rr::{DNSClass, Name, RData, RecordType, rdata::A},
     xfer::Protocol,

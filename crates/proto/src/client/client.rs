@@ -5,14 +5,14 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{
+use alloc::sync::Arc;
+use core::{
     future::Future,
-    io,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
     time::Duration,
 };
+use std::io;
 
 use futures_util::{
     ready,
@@ -20,7 +20,7 @@ use futures_util::{
 };
 use tracing::debug;
 
-use hickory_proto::{
+use crate::{
     ProtoError, ProtoErrorKind,
     op::{
         DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageSigner, OpCode, Query,
@@ -152,8 +152,10 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
-        let mut options = DnsRequestOptions::default();
-        options.use_edns = self.is_using_edns();
+        let options = DnsRequestOptions {
+            use_edns: self.is_using_edns(),
+            ..Default::default()
+        };
         ClientResponse(self.lookup(query, options))
     }
 
@@ -677,7 +679,7 @@ impl<R> ClientStreamXfrState<R> {
         if answers.is_empty() {
             return Ok(());
         }
-        match std::mem::replace(self, Invalid) {
+        match core::mem::replace(self, Invalid) {
             Start { inner, maybe_incr } => {
                 if let Some(expected_serial) = get_serial(&answers[0]) {
                     *self = Second {
@@ -822,19 +824,21 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::net::SocketAddr;
+    use alloc::vec::Vec;
+    use core::net::SocketAddr;
+
+    use futures_util::stream::iter;
 
     use super::*;
-
-    use ClientStreamXfrState::*;
-    use futures_util::stream::iter;
-    use hickory_proto::{
+    use crate::{
         rr::{
             RData,
             rdata::{A, SOA},
         },
         runtime::TokioRuntimeProvider,
     };
+    use ClientStreamXfrState::*;
+
     use test_support::subscribe;
 
     fn soa_record(serial: u32) -> Record {
@@ -1062,11 +1066,11 @@ mod tests {
     async fn async_client() {
         subscribe();
         use crate::client::{Client, ClientHandle};
-        use hickory_proto::{
+        use crate::{
             rr::{DNSClass, Name, RData, RecordType},
             tcp::TcpClientStream,
         };
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
         let addr = SocketAddr::from(([8, 8, 8, 8], 53));

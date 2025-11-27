@@ -5,9 +5,9 @@
 
 use std::{net::Ipv4Addr, sync::Arc};
 
-use hickory_client::client::{Client, ClientHandle};
 use hickory_integration::print_response;
 use hickory_proto::{
+    client::{Client, ClientHandle},
     op::ResponseCode,
     rr::{
         DNSClass, RData, Record, RecordType,

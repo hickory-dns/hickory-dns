@@ -14,17 +14,16 @@ use std::sync::Arc;
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use time::Duration;
 
-use hickory_client::client::Client;
-use hickory_client::client::ClientHandle;
-use hickory_client::proto::dnssec::crypto::RsaSigningKey;
-use hickory_client::proto::dnssec::rdata::key::{KEY, KeyUsage};
-use hickory_client::proto::dnssec::{Algorithm, SigSigner, SigningKey};
-use hickory_client::proto::op::ResponseCode;
-use hickory_client::proto::rr::rdata::A;
-use hickory_client::proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use hickory_client::proto::runtime::TokioRuntimeProvider;
-use hickory_client::proto::udp::UdpClientStream;
 use hickory_compatibility::named_process;
+use hickory_proto::client::{Client, ClientHandle};
+use hickory_proto::dnssec::crypto::RsaSigningKey;
+use hickory_proto::dnssec::rdata::key::{KEY, KeyUsage};
+use hickory_proto::dnssec::{Algorithm, SigSigner, SigningKey};
+use hickory_proto::op::ResponseCode;
+use hickory_proto::rr::rdata::A;
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
+use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::udp::UdpClientStream;
 
 #[tokio::test]
 async fn test_get() {

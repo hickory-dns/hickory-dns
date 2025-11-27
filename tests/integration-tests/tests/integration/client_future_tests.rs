@@ -8,11 +8,11 @@ use test_support::subscribe;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
-use hickory_client::client::{Client, ClientHandle};
 use hickory_integration::{
     GOOGLE_V4, GOOGLE_V6, NeverReturnsClientStream, TEST3_V4, TestClientStream,
     example_zone::create_example,
 };
+use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::{
     DnsHandle, ProtoErrorKind,
     op::{DnsRequest, Edns, Message, Query, ResponseCode},

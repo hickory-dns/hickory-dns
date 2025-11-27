@@ -26,7 +26,6 @@ path = "src/lib.rs"
 dnssec-aws-lc-rs = [
     "hickory-resolver/dnssec-aws-lc-rs",
     "hickory-server/dnssec-aws-lc-rs",
-    "hickory-client/dnssec-aws-lc-rs",
     "hickory-proto/dnssec-aws-lc-rs",
     "dep:rustls-pki-types",
     "__dnssec",
@@ -34,7 +33,6 @@ dnssec-aws-lc-rs = [
 dnssec-ring = [
     "hickory-resolver/dnssec-ring",
     "hickory-server/dnssec-ring",
-    "hickory-client/dnssec-ring",
     "hickory-proto/dnssec-ring",
     "dep:rustls-pki-types",
     "__dnssec",
@@ -48,7 +46,6 @@ tls-aws-lc-rs = [
     "__tls",
 ]
 https-aws-lc-rs = [
-    "hickory-client/https-aws-lc-rs",
     "hickory-resolver/https-aws-lc-rs",
     "tls-aws-lc-rs",
     "__https",
@@ -71,7 +68,6 @@ tls-ring = [
     "__tls",
 ]
 https-ring = [
-    "hickory-client/https-ring",
     "hickory-resolver/https-ring",
     "tls-ring",
     "__https",
@@ -104,7 +100,6 @@ rustls-pki-types = { workspace = true, optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 tracing.workspace = true
-hickory-client.workspace = true
 hickory-proto = { workspace = true, features = ["testing", "std"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }

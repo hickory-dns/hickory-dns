@@ -22,7 +22,6 @@ license.workspace = true
 default = ["none"]
 none = []
 bind = []
-hickory_client = []
 
 [lib]
 name = "hickory_compatibility"
@@ -34,7 +33,7 @@ rand = { workspace = true, features = ["std", "thread_rng"] }
 
 [dev-dependencies]
 futures.workspace = true
-hickory-client = { workspace = true, features = ["dnssec-ring"] }
+hickory-proto = { workspace = true, features = ["dnssec-ring"] }
 rustls-pki-types.workspace = true
 test-support.workspace = true
 time.workspace = true

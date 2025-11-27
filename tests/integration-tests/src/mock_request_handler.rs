@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 #[cfg(feature = "__dnssec")]
-use hickory_client::client::{ClientHandle, DnssecClient};
+use hickory_proto::client::{ClientHandle, DnssecClient};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::DNSClass;
 use hickory_proto::{

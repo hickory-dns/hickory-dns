@@ -1,4 +1,4 @@
-use hickory_client::client::ClientHandle;
+use hickory_proto::client::ClientHandle;
 use hickory_proto::op::DnsRequest;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::Edns;

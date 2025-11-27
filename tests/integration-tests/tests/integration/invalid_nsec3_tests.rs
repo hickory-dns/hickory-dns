@@ -10,7 +10,6 @@ use std::{
     time::Duration,
 };
 
-use hickory_client::client::ClientHandle;
 use hickory_integration::{
     generate_key,
     mock_request_handler::{MockHandler, fetch_dnskey},
@@ -18,6 +17,7 @@ use hickory_integration::{
 };
 use hickory_proto::{
     DnsError, ProtoErrorKind,
+    client::ClientHandle,
     dnssec::{
         Algorithm, DigestType, Nsec3HashAlgorithm, Proof, SigSigner, SigningKey,
         crypto::Ed25519SigningKey,

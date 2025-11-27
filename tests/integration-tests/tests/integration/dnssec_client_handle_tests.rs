@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::executor::block_on;
 
-use hickory_client::client::{Client, ClientHandle, MemoizeClientHandle};
+use hickory_proto::client::{Client, ClientHandle, MemoizeClientHandle};
 use hickory_proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::Name;

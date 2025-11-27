@@ -12,7 +12,7 @@ use std::str::FromStr;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a, query_a_refused};
-use hickory_client::client::{Client, ClientHandle};
+use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::{DNSClass, Name, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
