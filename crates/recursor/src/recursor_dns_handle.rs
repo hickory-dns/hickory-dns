@@ -795,6 +795,79 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 }
 
+#[cfg(feature = "__dnssec")]
+mod for_dnssec {
+    use std::{
+        sync::{Arc, atomic::AtomicU8},
+        time::Instant,
+    };
+
+    use futures_util::{
+        StreamExt as _, future,
+        stream::{self, BoxStream},
+    };
+
+    use crate::ErrorKind;
+    use crate::proto::{
+        ProtoError,
+        op::{DnsRequest, DnsResponse, Message, OpCode},
+        xfer::DnsHandle,
+    };
+    use crate::recursor_dns_handle::RecursorDnsHandle;
+    use crate::resolver::ConnectionProvider;
+
+    impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
+        type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
+        type Runtime = P::RuntimeProvider;
+
+        fn send(&self, request: DnsRequest) -> Self::Response {
+            let query = if let OpCode::Query = request.op_code() {
+                if let Some(query) = request.queries().first().cloned() {
+                    query
+                } else {
+                    return Box::pin(stream::once(future::err(ProtoError::from(
+                        "no query in request",
+                    ))));
+                }
+            } else {
+                return Box::pin(stream::once(future::err(ProtoError::from(
+                    "request is not a query",
+                ))));
+            };
+
+            let this = self.clone();
+            stream::once(async move {
+                // request the DNSSEC records; we'll strip them if not needed on the caller side
+                let do_bit = true;
+
+                let future =
+                    this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
+                let response = match future.await {
+                    Ok(response) => response,
+                    Err(e) => {
+                        return Err(match e.kind() {
+                            // Translate back into a ProtoError::NoRecordsFound
+                            ErrorKind::Negative(_fwd) => e.into(),
+                            _ => ProtoError::from(e.to_string()),
+                        });
+                    }
+                };
+
+                // `DnssecDnsHandle` will only look at the answer section of the message so
+                // we can put "stubs" in the other fields
+                let mut msg = Message::query();
+
+                msg.add_answers(response.answers().iter().cloned());
+                msg.add_authorities(response.authorities().iter().cloned());
+                msg.add_additionals(response.additionals().iter().cloned());
+
+                DnsResponse::from_message(msg)
+            })
+            .boxed()
+        }
+    }
+}
+
 fn recursor_opts(
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
