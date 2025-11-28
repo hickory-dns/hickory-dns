@@ -29,7 +29,10 @@ use crate::resolver::{
     config::OpportunisticEncryptionConfig,
 };
 #[cfg(feature = "__dnssec")]
-use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
+use crate::{
+    dnssec::NxProofKind, proto::dnssec::TrustAnchors, recursor::DnssecConfig,
+    zone_handler::Nsec3QueryInfo,
+};
 use crate::{
     error::ConfigError,
     proto::{
@@ -388,16 +391,18 @@ impl DnssecPolicyConfig {
                 nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit,
                 validation_cache_size,
-            } => DnssecPolicy::ValidateWithStaticKey {
-                trust_anchor: path
+            } => {
+                let mut config = DnssecConfig::default();
+                config.trust_anchor = path
                     .as_ref()
                     .map(|path| TrustAnchors::from_file(path))
                     .transpose()?
-                    .map(Arc::new),
-                nsec3_soft_iteration_limit: *nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
-                validation_cache_size: *validation_cache_size,
-            },
+                    .map(Arc::new);
+                config.nsec3_soft_iteration_limit = *nsec3_soft_iteration_limit;
+                config.nsec3_hard_iteration_limit = *nsec3_hard_iteration_limit;
+                config.validation_cache_size = *validation_cache_size;
+                DnssecPolicy::ValidateWithStaticKey(config)
+            }
         })
     }
 }

@@ -18,6 +18,18 @@ use tracing::warn;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorMetrics;
+#[cfg(feature = "__dnssec")]
+use crate::{
+    DnssecConfig, ErrorKind,
+    proto::{
+        DnsError, NoRecords, ProtoError,
+        dnssec::{DnssecDnsHandle, TrustAnchors},
+        op::{DnsRequestOptions, ResponseCode},
+        rr::RecordType,
+        xfer::{DnsHandle as _, FirstAnswer as _},
+    },
+    resolver::ResponseCache,
+};
 use crate::{
     DnssecPolicy, Error,
     proto::{
@@ -28,195 +40,6 @@ use crate::{
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{ConnectionProvider, TlsConfig, TtlConfig, config::OpportunisticEncryption},
 };
-#[cfg(feature = "__dnssec")]
-use crate::{
-    ErrorKind,
-    proto::{
-        DnsError, NoRecords, ProtoError,
-        dnssec::DnssecDnsHandle,
-        op::{DnsRequestOptions, ResponseCode},
-        rr::RecordType,
-        xfer::{DnsHandle as _, FirstAnswer as _},
-    },
-    resolver::ResponseCache,
-};
-
-/// A `Recursor` builder
-pub struct RecursorBuilder<P: ConnectionProvider> {
-    pub(super) ns_cache_size: usize,
-    pub(super) response_cache_size: u64,
-    /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
-    /// to None will disable the recursion limit check, and is not recommended.
-    pub(super) recursion_limit: Option<u8>,
-    /// This controls how many nested lookups will be attempted when trying to build an NS pool.
-    /// Setting it to None will disable the recursion limit check, and is not recommended.
-    pub(super) ns_recursion_limit: Option<u8>,
-    pub(super) dnssec_policy: DnssecPolicy,
-    pub(super) answer_address_filter: AccessControlSet,
-    pub(super) name_server_filter: AccessControlSet,
-    pub(super) avoid_local_udp_ports: HashSet<u16>,
-    pub(super) ttl_config: TtlConfig,
-    pub(super) case_randomization: bool,
-    pub(super) opportunistic_encryption: OpportunisticEncryption,
-    pub(super) encrypted_transport_state: NameServerTransportState,
-    pub(super) conn_provider: P,
-}
-
-impl<P: ConnectionProvider> RecursorBuilder<P> {
-    /// Sets the size of the list of cached name servers
-    pub fn ns_cache_size(mut self, size: usize) -> Self {
-        self.ns_cache_size = size;
-        self
-    }
-
-    /// Sets the size of the list of cached responses
-    pub fn response_cache_size(mut self, size: u64) -> Self {
-        self.response_cache_size = size;
-        self
-    }
-
-    /// Sets the maximum recursion depth for queries; set to None for unlimited
-    /// recursion.
-    pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
-        self.recursion_limit = limit;
-        self
-    }
-
-    /// Sets the maximum recursion depth for building NS pools; set to None for unlimited
-    /// recursion.
-    pub fn ns_recursion_limit(mut self, limit: Option<u8>) -> Self {
-        self.ns_recursion_limit = limit;
-        self
-    }
-
-    /// Sets the DNSSEC policy
-    pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
-        self.dnssec_policy = dnssec_policy;
-        self
-    }
-
-    /// Allow listed addresses in responses during recursive resolution.
-    ///
-    /// The provided `allow` networks will be added to any existing networks that were added by
-    /// previous calls to [`Self::answer_address_filter_allow`].
-    ///
-    /// Allowed networks take precedence over deny networks added with [`Self::answer_address_filter_deny`].
-    pub fn answer_address_filter_allow<'a>(
-        mut self,
-        allow: impl Iterator<Item = &'a IpNet>,
-    ) -> Self {
-        self.answer_address_filter.allow(allow);
-        self
-    }
-
-    /// Deny listed addresses in responses during recursive resolution.
-    ///
-    /// The provided `deny` networks will be added to any existing networks denied
-    /// by default, or that were added by previous calls to [`Self::answer_address_filter_deny`].
-    pub fn answer_address_filter_deny<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.answer_address_filter.deny(deny);
-        self
-    }
-
-    /// Clear the networks that should be allowed as answers during recursive resolution.
-    ///
-    /// This will remove any allow filter networks previously added by [`Self::answer_address_filter_allow`],
-    pub fn clear_answer_address_filter_allow(mut self) -> Self {
-        self.answer_address_filter.clear_allow();
-        self
-    }
-
-    /// Clear the networks that should not be allowed as answers during recursive resolution.
-    ///
-    /// This will remove any deny filter networks previously added by [`Self::answer_address_filter_deny`].
-    pub fn clear_answer_address_filter_deny(mut self) -> Self {
-        self.answer_address_filter.clear_deny();
-        self
-    }
-
-    /// Skip querying nameservers within the provided networks during recursive resolution.
-    ///
-    /// The provided `deny` networks will be added to any existing networks denied
-    /// by default, or that were added by previous calls to [`Self::deny_servers`].
-    pub fn deny_servers<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.name_server_filter.deny(deny);
-        self
-    }
-
-    /// Allow querying nameservers within the provided networks during recursive resolution.
-    ///
-    /// The provided `allow` networks will be added to any existing networks that were added by
-    /// previous calls to [`Self::allow_servers`].
-    ///
-    /// Allowed networks take precedence over deny networks added with [`Self::deny_servers`].
-    pub fn allow_servers<'a>(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.name_server_filter.allow(allow);
-        self
-    }
-
-    /// Clear the networks that should be allowed to be queried during recursive resolution.
-    ///
-    /// This will remove any allow filter networks previously added by [`Self::allow_servers`],
-    pub fn clear_allow_servers(mut self) -> Self {
-        self.name_server_filter.clear_allow();
-        self
-    }
-
-    /// Clear the networks that should not be queried during recursive resolution.
-    ///
-    /// This will remove any deny filter networks previously added by [`Self::deny_servers`],
-    /// as well as the default recommended server filters (internal networks, broadcast addresses,
-    /// etc.).
-    pub fn clear_deny_servers(mut self) -> Self {
-        self.name_server_filter.clear_deny();
-        self
-    }
-
-    /// Sets local UDP ports that should be avoided when making outgoing queries
-    pub fn avoid_local_udp_ports(mut self, ports: HashSet<u16>) -> Self {
-        self.avoid_local_udp_ports = ports;
-        self
-    }
-
-    /// Sets the minimum and maximum TTL values for cached responses
-    pub fn ttl_config(mut self, ttl_config: TtlConfig) -> Self {
-        self.ttl_config = ttl_config;
-        self
-    }
-
-    /// Enable case randomization.
-    ///
-    /// Sets whether to randomize the case of letters in query names, and require that responses
-    /// preserve the case.
-    pub fn case_randomization(mut self, case_randomization: bool) -> Self {
-        self.case_randomization = case_randomization;
-        self
-    }
-
-    /// Configure RFC9539 opportunistic encryption.
-    pub fn opportunistic_encryption(mut self, config: OpportunisticEncryption) -> Self {
-        self.opportunistic_encryption = config;
-        self
-    }
-
-    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
-    pub fn encrypted_transport_state(
-        mut self,
-        encrypted_transport_state: NameServerTransportState,
-    ) -> Self {
-        self.encrypted_transport_state = encrypted_transport_state;
-        self
-    }
-
-    /// Construct a new recursor using the list of root zone name server addresses
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the roots are empty.
-    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
-        Recursor::build(roots, self)
-    }
-}
 
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
@@ -231,60 +54,14 @@ impl Recursor<TokioRuntimeProvider> {
     /// This uses the Tokio async runtime. To use a different runtime provider, see
     /// [`Recursor::builder_with_provider`].
     pub fn builder() -> RecursorBuilder<TokioRuntimeProvider> {
-        Self::builder_with_provider(TokioRuntimeProvider::default())
+        RecursorBuilder::new(TokioRuntimeProvider::default())
     }
 }
 
 impl<P: ConnectionProvider> Recursor<P> {
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
     pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
-        RecursorBuilder {
-            ns_cache_size: 1_024,
-            response_cache_size: 1_048_576,
-            recursion_limit: Some(24),
-            ns_recursion_limit: Some(24),
-            dnssec_policy: DnssecPolicy::SecurityUnaware,
-            answer_address_filter: AccessControlSetBuilder::new("answers")
-                .allow([].iter() /* no recommended exceptions */)
-                .deny([].iter() /* no recommeneded default filters */)
-                .build(),
-            name_server_filter: AccessControlSetBuilder::new("name_servers")
-                .allow([].iter() /* no recommended exceptions */)
-                .deny(RECOMMENDED_SERVER_FILTERS.iter())
-                .build(),
-            avoid_local_udp_ports: HashSet::new(),
-            ttl_config: TtlConfig::default(),
-            case_randomization: false,
-            opportunistic_encryption: OpportunisticEncryption::default(),
-            encrypted_transport_state: NameServerTransportState::default(),
-            conn_provider,
-        }
-    }
-
-    /// Whether the recursive resolver is a validating resolver
-    pub fn is_validating(&self) -> bool {
-        // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
-        !matches!(self.mode, RecursorMode::NonValidating { .. })
-    }
-
-    fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
-        let mut tls_config = TlsConfig::new()?;
-        if builder.opportunistic_encryption.is_enabled() {
-            warn!("disabling TLS peer verification for opportunistic encryption mode");
-            tls_config.insecure_skip_verify();
-        }
-        Ok(Self {
-            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, builder)?,
-        })
-    }
-
-    /// Get the recursor's [`PoolContext`].
-    pub fn pool_context(&self) -> &Arc<PoolContext> {
-        match &self.mode {
-            RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
-            #[cfg(feature = "__dnssec")]
-            RecursorMode::Validating { handle, .. } => handle.inner().pool_context(),
-        }
+        RecursorBuilder::new(conn_provider)
     }
 
     /// Perform a recursive resolution
@@ -472,92 +249,27 @@ impl<P: ConnectionProvider> Recursor<P> {
             }
 
             #[cfg(feature = "__dnssec")]
-            RecursorMode::Validating {
-                handle,
-                validated_response_cache,
-                #[cfg(feature = "metrics")]
-                metrics,
-            } => {
-                if let Some(Ok(response)) = validated_response_cache.get(&query, request_time) {
-                    // Increment metrics on cache hits only. We will check the cache a second time
-                    // inside resolve(), thus we only track cache misses there.
-                    #[cfg(feature = "metrics")]
-                    metrics.cache_hit_counter.increment(1);
-
-                    let none_indeterminate = response
-                        .all_sections()
-                        .all(|record| !record.proof().is_indeterminate());
-
-                    // if the cached response is a referral, or if any record is indeterminate, fall
-                    // through and perform DNSSEC validation
-                    if response.authoritative() && none_indeterminate {
-                        return Ok(super::maybe_strip_dnssec_records(
-                            query_has_dnssec_ok,
-                            response,
-                            query,
-                        ));
-                    }
-                }
-
-                let mut options = DnsRequestOptions::default();
-                // a validating recursor must be security aware
-                options.use_edns = true;
-                options.edns_set_dnssec_ok = true;
-
-                let response = handle.lookup(query.clone(), options).first_answer().await?;
-
-                // Return NXDomain and NoData responses in error form
-                // These need to bypass the cache lookup (and casting to a Lookup object in general)
-                // to preserve SOA and DNSSEC records, and to keep those records in the authorities
-                // section of the response.
-                if response.response_code() == ResponseCode::NXDomain {
-                    let Err(dns_error) = DnsError::from_response(response) else {
-                        return Err(Error::from(
-                            "unable to build ProtoError from response {response:?}",
-                        ));
-                    };
-
-                    Err(Error {
-                        kind: ErrorKind::Proto(ProtoError::from(dns_error)),
-                        #[cfg(feature = "backtrace")]
-                        backtrack: None,
-                    })
-                } else if response.answers().is_empty()
-                    && !response.authorities().is_empty()
-                    && response.response_code() == ResponseCode::NoError
-                {
-                    let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
-                    no_records.soa = response
-                        .soa()
-                        .as_ref()
-                        .map(|record| Box::new(record.to_owned()));
-                    no_records.authorities = Some(
-                        response
-                            .authorities()
-                            .iter()
-                            .filter_map(|x| match x.record_type() {
-                                RecordType::SOA => None,
-                                _ => Some(x.clone()),
-                            })
-                            .collect(),
-                    );
-
-                    Err(Error::from(ProtoError::from(no_records)))
-                } else {
-                    let message = response.into_message();
-                    validated_response_cache.insert(
-                        query.clone(),
-                        Ok(message.clone()),
-                        request_time,
-                    );
-                    Ok(super::maybe_strip_dnssec_records(
-                        query_has_dnssec_ok,
-                        message,
-                        query,
-                    ))
-                }
+            RecursorMode::Validating(validating) => {
+                validating
+                    .resolve(query, request_time, query_has_dnssec_ok)
+                    .await
             }
         }
+    }
+
+    /// Get the recursor's [`PoolContext`].
+    pub fn pool_context(&self) -> &Arc<PoolContext> {
+        match &self.mode {
+            RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
+            #[cfg(feature = "__dnssec")]
+            RecursorMode::Validating(validating) => validating.handle.inner().pool_context(),
+        }
+    }
+
+    /// Whether the recursive resolver is a validating resolver
+    pub fn is_validating(&self) -> bool {
+        // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
+        !matches!(self.mode, RecursorMode::NonValidating { .. })
     }
 }
 
@@ -568,85 +280,367 @@ pub(super) enum RecursorMode<P: ConnectionProvider> {
     },
 
     #[cfg(feature = "__dnssec")]
-    Validating {
-        handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
-        // This is a separate response cache from that inside `RecursorDnsHandle`.
-        validated_response_cache: ResponseCache,
-        #[cfg(feature = "metrics")]
-        metrics: RecursorMetrics,
-    },
+    Validating(ValidatingRecursor<P>),
 }
 
 #[cfg(feature = "__dnssec")]
-mod for_dnssec {
-    use std::{
-        sync::{Arc, atomic::AtomicU8},
-        time::Instant,
-    };
+pub(crate) struct ValidatingRecursor<P: ConnectionProvider> {
+    pub(crate) handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
+    // This is a separate response cache from that inside `RecursorDnsHandle`.
+    pub(crate) validated_response_cache: ResponseCache,
+    #[cfg(feature = "metrics")]
+    pub(crate) metrics: RecursorMetrics,
+}
 
-    use futures_util::{
-        StreamExt as _, future,
-        stream::{self, BoxStream},
-    };
+#[cfg(feature = "__dnssec")]
+impl<P: ConnectionProvider> ValidatingRecursor<P> {
+    pub(crate) fn new(
+        handle: RecursorDnsHandle<P>,
+        config: DnssecConfig,
+        response_cache_size: u64,
+        ttl_config: TtlConfig,
+    ) -> Result<Self, Error> {
+        let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
+        let trust_anchor = match config.trust_anchor {
+            Some(anchor) if anchor.is_empty() => {
+                return Err(Error::from("trust anchor must not be empty"));
+            }
+            Some(anchor) => anchor,
+            None => Arc::new(TrustAnchors::default()),
+        };
 
-    use crate::ErrorKind;
-    use crate::proto::{
-        ProtoError,
-        op::{DnsRequest, DnsResponse, Message, OpCode},
-        xfer::DnsHandle,
-    };
-    use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::resolver::ConnectionProvider;
+        #[cfg(feature = "metrics")]
+        let metrics = handle.metrics.clone();
 
-    impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
-        type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
-        type Runtime = P::RuntimeProvider;
+        let mut handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
+            .nsec3_iteration_limits(
+                config.nsec3_soft_iteration_limit,
+                config.nsec3_hard_iteration_limit,
+            )
+            .negative_validation_ttl(ttl_config.negative_response_ttl_bounds(RecordType::RRSIG))
+            .positive_validation_ttl(ttl_config.positive_response_ttl_bounds(RecordType::RRSIG));
 
-        fn send(&self, request: DnsRequest) -> Self::Response {
-            let query = if let OpCode::Query = request.op_code() {
-                if let Some(query) = request.queries().first().cloned() {
-                    query
-                } else {
-                    return Box::pin(stream::once(future::err(ProtoError::from(
-                        "no query in request",
-                    ))));
-                }
-            } else {
-                return Box::pin(stream::once(future::err(ProtoError::from(
-                    "request is not a query",
-                ))));
+        if let Some(validation_cache_size) = config.validation_cache_size {
+            handle = handle.validation_cache_size(validation_cache_size);
+        }
+
+        Ok(Self {
+            validated_response_cache,
+            #[cfg(feature = "metrics")]
+            metrics,
+            handle,
+        })
+    }
+
+    async fn resolve(
+        &self,
+        query: Query,
+        request_time: Instant,
+        query_has_dnssec_ok: bool,
+    ) -> Result<Message, Error> {
+        if let Some(Ok(response)) = self.validated_response_cache.get(&query, request_time) {
+            // Increment metrics on cache hits only. We will check the cache a second time
+            // inside resolve(), thus we only track cache misses there.
+            #[cfg(feature = "metrics")]
+            self.metrics.cache_hit_counter.increment(1);
+
+            let none_indeterminate = response
+                .all_sections()
+                .all(|record| !record.proof().is_indeterminate());
+
+            // if the cached response is a referral, or if any record is indeterminate, fall
+            // through and perform DNSSEC validation
+            if response.authoritative() && none_indeterminate {
+                return Ok(super::maybe_strip_dnssec_records(
+                    query_has_dnssec_ok,
+                    response,
+                    query,
+                ));
+            }
+        }
+
+        let mut options = DnsRequestOptions::default();
+        // a validating recursor must be security aware
+        options.use_edns = true;
+        options.edns_set_dnssec_ok = true;
+
+        let response = self
+            .handle
+            .lookup(query.clone(), options)
+            .first_answer()
+            .await?;
+
+        // Return NXDomain and NoData responses in error form
+        // These need to bypass the cache lookup (and casting to a Lookup object in general)
+        // to preserve SOA and DNSSEC records, and to keep those records in the authorities
+        // section of the response.
+        if response.response_code() == ResponseCode::NXDomain {
+            let Err(dns_error) = DnsError::from_response(response) else {
+                return Err(Error::from(
+                    "unable to build ProtoError from response {response:?}",
+                ));
             };
 
-            let this = self.clone();
-            stream::once(async move {
-                // request the DNSSEC records; we'll strip them if not needed on the caller side
-                let do_bit = true;
-
-                let future =
-                    this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
-                let response = match future.await {
-                    Ok(response) => response,
-                    Err(e) => {
-                        return Err(match e.kind() {
-                            // Translate back into a ProtoError::NoRecordsFound
-                            ErrorKind::Negative(_fwd) => e.into(),
-                            _ => ProtoError::from(e.to_string()),
-                        });
-                    }
-                };
-
-                // `DnssecDnsHandle` will only look at the answer section of the message so
-                // we can put "stubs" in the other fields
-                let mut msg = Message::query();
-
-                msg.add_answers(response.answers().iter().cloned());
-                msg.add_authorities(response.authorities().iter().cloned());
-                msg.add_additionals(response.additionals().iter().cloned());
-
-                DnsResponse::from_message(msg)
+            Err(Error {
+                kind: ErrorKind::Proto(ProtoError::from(dns_error)),
+                #[cfg(feature = "backtrace")]
+                backtrack: None,
             })
-            .boxed()
+        } else if response.answers().is_empty()
+            && !response.authorities().is_empty()
+            && response.response_code() == ResponseCode::NoError
+        {
+            let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
+            no_records.soa = response
+                .soa()
+                .as_ref()
+                .map(|record| Box::new(record.to_owned()));
+            no_records.authorities = Some(
+                response
+                    .authorities()
+                    .iter()
+                    .filter_map(|x| match x.record_type() {
+                        RecordType::SOA => None,
+                        _ => Some(x.clone()),
+                    })
+                    .collect(),
+            );
+
+            Err(Error::from(ProtoError::from(no_records)))
+        } else {
+            let message = response.into_message();
+            self.validated_response_cache
+                .insert(query.clone(), Ok(message.clone()), request_time);
+            Ok(super::maybe_strip_dnssec_records(
+                query_has_dnssec_ok,
+                message,
+                query,
+            ))
         }
+    }
+}
+
+/// A `Recursor` builder
+pub struct RecursorBuilder<P: ConnectionProvider> {
+    pub(super) ns_cache_size: usize,
+    pub(super) response_cache_size: u64,
+    /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
+    /// to None will disable the recursion limit check, and is not recommended.
+    pub(super) recursion_limit: Option<u8>,
+    /// This controls how many nested lookups will be attempted when trying to build an NS pool.
+    /// Setting it to None will disable the recursion limit check, and is not recommended.
+    pub(super) ns_recursion_limit: Option<u8>,
+    pub(super) dnssec_policy: DnssecPolicy,
+    pub(super) answer_address_filter: AccessControlSet,
+    pub(super) name_server_filter: AccessControlSet,
+    pub(super) avoid_local_udp_ports: HashSet<u16>,
+    pub(super) ttl_config: TtlConfig,
+    pub(super) case_randomization: bool,
+    pub(super) opportunistic_encryption: OpportunisticEncryption,
+    pub(super) encrypted_transport_state: NameServerTransportState,
+    pub(super) conn_provider: P,
+}
+
+impl<P: ConnectionProvider> RecursorBuilder<P> {
+    fn new(conn_provider: P) -> Self {
+        RecursorBuilder {
+            ns_cache_size: 1_024,
+            response_cache_size: 1_048_576,
+            recursion_limit: Some(24),
+            ns_recursion_limit: Some(24),
+            dnssec_policy: DnssecPolicy::SecurityUnaware,
+            answer_address_filter: AccessControlSetBuilder::new("answers")
+                .allow([].iter() /* no recommended exceptions */)
+                .deny([].iter() /* no recommeneded default filters */)
+                .build(),
+            name_server_filter: AccessControlSetBuilder::new("name_servers")
+                .allow([].iter() /* no recommended exceptions */)
+                .deny(RECOMMENDED_SERVER_FILTERS.iter())
+                .build(),
+            avoid_local_udp_ports: HashSet::new(),
+            ttl_config: TtlConfig::default(),
+            case_randomization: false,
+            opportunistic_encryption: OpportunisticEncryption::default(),
+            encrypted_transport_state: NameServerTransportState::default(),
+            conn_provider,
+        }
+    }
+
+    /// Sets the size of the list of cached name servers
+    pub fn ns_cache_size(mut self, size: usize) -> Self {
+        self.ns_cache_size = size;
+        self
+    }
+
+    /// Sets the size of the list of cached responses
+    pub fn response_cache_size(mut self, size: u64) -> Self {
+        self.response_cache_size = size;
+        self
+    }
+
+    /// Sets the maximum recursion depth for queries; set to None for unlimited
+    /// recursion.
+    pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
+        self.recursion_limit = limit;
+        self
+    }
+
+    /// Sets the maximum recursion depth for building NS pools; set to None for unlimited
+    /// recursion.
+    pub fn ns_recursion_limit(mut self, limit: Option<u8>) -> Self {
+        self.ns_recursion_limit = limit;
+        self
+    }
+
+    /// Sets the DNSSEC policy
+    pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
+        self.dnssec_policy = dnssec_policy;
+        self
+    }
+
+    /// Allow listed addresses in responses during recursive resolution.
+    ///
+    /// The provided `allow` networks will be added to any existing networks that were added by
+    /// previous calls to [`Self::answer_address_filter_allow`].
+    ///
+    /// Allowed networks take precedence over deny networks added with [`Self::answer_address_filter_deny`].
+    pub fn answer_address_filter_allow<'a>(
+        mut self,
+        allow: impl Iterator<Item = &'a IpNet>,
+    ) -> Self {
+        self.answer_address_filter.allow(allow);
+        self
+    }
+
+    /// Deny listed addresses in responses during recursive resolution.
+    ///
+    /// The provided `deny` networks will be added to any existing networks denied
+    /// by default, or that were added by previous calls to [`Self::answer_address_filter_deny`].
+    pub fn answer_address_filter_deny<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.answer_address_filter.deny(deny);
+        self
+    }
+
+    /// Clear the networks that should be allowed as answers during recursive resolution.
+    ///
+    /// This will remove any allow filter networks previously added by [`Self::answer_address_filter_allow`],
+    pub fn clear_answer_address_filter_allow(mut self) -> Self {
+        self.answer_address_filter.clear_allow();
+        self
+    }
+
+    /// Clear the networks that should not be allowed as answers during recursive resolution.
+    ///
+    /// This will remove any deny filter networks previously added by [`Self::answer_address_filter_deny`].
+    pub fn clear_answer_address_filter_deny(mut self) -> Self {
+        self.answer_address_filter.clear_deny();
+        self
+    }
+
+    /// Skip querying nameservers within the provided networks during recursive resolution.
+    ///
+    /// The provided `deny` networks will be added to any existing networks denied
+    /// by default, or that were added by previous calls to [`Self::deny_servers`].
+    pub fn deny_servers<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.name_server_filter.deny(deny);
+        self
+    }
+
+    /// Allow querying nameservers within the provided networks during recursive resolution.
+    ///
+    /// The provided `allow` networks will be added to any existing networks that were added by
+    /// previous calls to [`Self::allow_servers`].
+    ///
+    /// Allowed networks take precedence over deny networks added with [`Self::deny_servers`].
+    pub fn allow_servers<'a>(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.name_server_filter.allow(allow);
+        self
+    }
+
+    /// Clear the networks that should be allowed to be queried during recursive resolution.
+    ///
+    /// This will remove any allow filter networks previously added by [`Self::allow_servers`],
+    pub fn clear_allow_servers(mut self) -> Self {
+        self.name_server_filter.clear_allow();
+        self
+    }
+
+    /// Clear the networks that should not be queried during recursive resolution.
+    ///
+    /// This will remove any deny filter networks previously added by [`Self::deny_servers`],
+    /// as well as the default recommended server filters (internal networks, broadcast addresses,
+    /// etc.).
+    pub fn clear_deny_servers(mut self) -> Self {
+        self.name_server_filter.clear_deny();
+        self
+    }
+
+    /// Sets local UDP ports that should be avoided when making outgoing queries
+    pub fn avoid_local_udp_ports(mut self, ports: HashSet<u16>) -> Self {
+        self.avoid_local_udp_ports = ports;
+        self
+    }
+
+    /// Sets the minimum and maximum TTL values for cached responses
+    pub fn ttl_config(mut self, ttl_config: TtlConfig) -> Self {
+        self.ttl_config = ttl_config;
+        self
+    }
+
+    /// Enable case randomization.
+    ///
+    /// Sets whether to randomize the case of letters in query names, and require that responses
+    /// preserve the case.
+    pub fn case_randomization(mut self, case_randomization: bool) -> Self {
+        self.case_randomization = case_randomization;
+        self
+    }
+
+    /// Configure RFC9539 opportunistic encryption.
+    pub fn opportunistic_encryption(mut self, config: OpportunisticEncryption) -> Self {
+        self.opportunistic_encryption = config;
+        self
+    }
+
+    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
+    pub fn encrypted_transport_state(
+        mut self,
+        encrypted_transport_state: NameServerTransportState,
+    ) -> Self {
+        self.encrypted_transport_state = encrypted_transport_state;
+        self
+    }
+
+    /// Construct a new recursor using the list of root zone name server addresses
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the roots are empty.
+    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
+        let mut tls_config = TlsConfig::new()?;
+        if self.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
+
+        let dnssec_policy = self.dnssec_policy.clone();
+        #[cfg(feature = "__dnssec")]
+        let response_cache_size = self.response_cache_size;
+        #[cfg(feature = "__dnssec")]
+        let ttl_config = self.ttl_config.clone();
+        let handle = RecursorDnsHandle::new(roots, tls_config, self)?;
+
+        Ok(Recursor {
+            mode: match dnssec_policy {
+                DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
+                #[cfg(feature = "__dnssec")]
+                DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
+                #[cfg(feature = "__dnssec")]
+                DnssecPolicy::ValidateWithStaticKey(config) => RecursorMode::Validating(
+                    ValidatingRecursor::new(handle, config, response_cache_size, ttl_config)?,
+                ),
+            },
+        })
     }
 }
 

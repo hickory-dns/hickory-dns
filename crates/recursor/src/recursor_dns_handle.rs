@@ -16,10 +16,8 @@ use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::{
-    DnssecPolicy, Error, ErrorKind, RecursorBuilder,
+    Error, ErrorKind, RecursorBuilder,
     error::AuthorityData,
     is_subzone,
     proto::{
@@ -33,7 +31,6 @@ use crate::{
             rdata::{A, AAAA, NS},
         },
     },
-    recursor::RecursorMode,
     resolver::{
         ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache,
         TlsConfig, TtlConfig,
@@ -47,7 +44,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     name_server_cache: Arc<Mutex<LruCache<Name, NameServerPool<P>>>>,
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
-    metrics: RecursorMetrics,
+    pub(crate) metrics: RecursorMetrics,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     name_server_filter: AccessControlSet,
@@ -59,11 +56,11 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
-    pub(super) fn build_recursor_mode(
+    pub(super) fn new(
         roots: &[IpAddr],
         tls: TlsConfig,
         builder: RecursorBuilder<P>,
-    ) -> Result<RecursorMode<P>, Error> {
+    ) -> Result<Self, Error> {
         assert!(!roots.is_empty(), "roots must not be empty");
         let servers = roots
             .iter()
@@ -123,7 +120,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // between recursive resolvers following referrals to each other.
         request_options.recursion_desired = false;
 
-        let handle = Self {
+        Ok(Self {
             roots,
             name_server_cache,
             response_cache,
@@ -137,54 +134,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
             ttl_config: ttl_config.clone(),
-        };
-
-        Ok(match dnssec_policy {
-            DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
-
-            #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
-
-            #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidateWithStaticKey {
-                trust_anchor,
-                nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit,
-                validation_cache_size,
-            } => {
-                let validated_response_cache =
-                    ResponseCache::new(response_cache_size, ttl_config.clone());
-                let trust_anchor = match trust_anchor {
-                    Some(anchor) if anchor.is_empty() => {
-                        return Err(Error::from("trust anchor must not be empty"));
-                    }
-                    Some(anchor) => anchor,
-                    None => Arc::new(TrustAnchors::default()),
-                };
-
-                #[cfg(feature = "metrics")]
-                let metrics = handle.metrics().clone();
-
-                let mut dnssec_handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
-                    .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit)
-                    .negative_validation_ttl(
-                        ttl_config.negative_response_ttl_bounds(RecordType::RRSIG),
-                    )
-                    .positive_validation_ttl(
-                        ttl_config.positive_response_ttl_bounds(RecordType::RRSIG),
-                    );
-
-                if let Some(validation_cache_size) = validation_cache_size {
-                    dnssec_handle = dnssec_handle.validation_cache_size(validation_cache_size);
-                }
-
-                RecursorMode::Validating {
-                    validated_response_cache,
-                    #[cfg(feature = "metrics")]
-                    metrics,
-                    handle: dnssec_handle,
-                }
-            }
         })
     }
 
@@ -717,11 +666,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         ttl
     }
 
-    #[cfg(all(feature = "__dnssec", feature = "metrics"))]
-    pub(crate) fn metrics(&self) -> &RecursorMetrics {
-        &self.metrics
-    }
-
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
         &self,
         zone: &Name,
@@ -797,6 +741,71 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         Ok((ttl, depth))
+    }
+}
+
+#[cfg(feature = "__dnssec")]
+mod for_dnssec {
+    use futures_util::{
+        future,
+        stream::{self, BoxStream},
+    };
+
+    use super::*;
+    use crate::proto::{
+        ProtoError,
+        op::{DnsRequest, DnsResponse, OpCode},
+    };
+
+    impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
+        type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
+        type Runtime = P::RuntimeProvider;
+
+        fn send(&self, request: DnsRequest) -> Self::Response {
+            let query = if let OpCode::Query = request.op_code() {
+                if let Some(query) = request.queries().first().cloned() {
+                    query
+                } else {
+                    return Box::pin(stream::once(future::err(ProtoError::from(
+                        "no query in request",
+                    ))));
+                }
+            } else {
+                return Box::pin(stream::once(future::err(ProtoError::from(
+                    "request is not a query",
+                ))));
+            };
+
+            let this = self.clone();
+            stream::once(async move {
+                // request the DNSSEC records; we'll strip them if not needed on the caller side
+                let do_bit = true;
+
+                let future =
+                    this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
+                let response = match future.await {
+                    Ok(response) => response,
+                    Err(e) => {
+                        return Err(match e.kind() {
+                            // Translate back into a ProtoError::NoRecordsFound
+                            ErrorKind::Negative(_fwd) => e.into(),
+                            _ => ProtoError::from(e.to_string()),
+                        });
+                    }
+                };
+
+                // `DnssecDnsHandle` will only look at the answer section of the message so
+                // we can put "stubs" in the other fields
+                let mut msg = Message::query();
+
+                msg.add_answers(response.answers().iter().cloned());
+                msg.add_authorities(response.authorities().iter().cloned());
+                msg.add_additionals(response.additionals().iter().cloned());
+
+                DnsResponse::from_message(msg)
+            })
+            .boxed()
+        }
     }
 }
 
