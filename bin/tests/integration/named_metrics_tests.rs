@@ -5,39 +5,43 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::{Ipv4Addr, SocketAddr};
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use std::{env, path::Path};
-use test_support::subscribe;
+use std::{
+    fs,
+    net::{Ipv4Addr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
+
+use prometheus_parse::{Scrape, Value};
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use rustls_pki_types::PrivatePkcs8KeyDer;
+use tokio::{runtime::Runtime, time::sleep};
 
 use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
-use hickory_proto::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::{
     Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,
     rdata::DNSKEY,
 };
-#[cfg(feature = "blocklist")]
-use hickory_proto::op::DnsResponse;
-use hickory_proto::op::MessageSigner;
-use hickory_proto::rr::RData::PTR;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
-use hickory_proto::rr::rdata::A;
-use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::xfer::Protocol;
 #[cfg(feature = "blocklist")]
-use hickory_proto::{ProtoError, ProtoErrorKind};
-use prometheus_parse::{Scrape, Value};
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use rustls_pki_types::PrivatePkcs8KeyDer;
-use tokio::runtime::Runtime;
-use tokio::time::sleep;
+use hickory_proto::{ProtoError, ProtoErrorKind, op::DnsResponse};
+use hickory_proto::{
+    client::{Client, ClientHandle},
+    op::MessageSigner,
+    rr::{
+        DNSClass, Name, RData, RecordType,
+        rdata::{A, name::PTR},
+    },
+    runtime::TokioRuntimeProvider,
+    tcp::TcpClientStream,
+    xfer::Protocol,
+};
+use test_support::subscribe;
 
 #[test]
 fn test_prometheus_endpoint_startup() {
@@ -214,11 +218,8 @@ fn test_request_response() {
                 .await
                 .unwrap();
 
-            if let PTR(ptr) = response.answers()[0].data() {
-                assert_eq!(
-                    *ptr,
-                    hickory_proto::rr::rdata::name::PTR("localhost.".parse().unwrap())
-                );
+            if let RData::PTR(ptr) = response.answers()[0].data() {
+                assert_eq!(*ptr, PTR("localhost.".parse().unwrap()));
             };
 
             fetch_parse_check_metrics(&socket_ports).await
@@ -604,7 +605,75 @@ fn test_updates() {
     let server_path = Path::new(&server_path);
     let database =
         server_path.join("tests/test-data/test_configs/example.com_dnssec_update_2.jrnl");
-    std::fs::remove_file(&database).expect("failed to cleanup after test");
+    fs::remove_file(&database).expect("failed to cleanup after test");
+}
+
+#[test]
+#[cfg(all(feature = "__tls", feature = "recursor", feature = "metrics"))]
+fn test_opp_enc_metrics() {
+    subscribe();
+
+    named_test_harness("example_recursor_opportunistic_enc.toml", |socket_ports| {
+        let io_loop = Runtime::new().unwrap();
+        let metrics = &io_loop.block_on(async {
+            let mut client = create_local_client(&socket_ports, None).await;
+            let response = retry_client_lookup(
+                &mut client,
+                Name::from_str("example.com.").unwrap(),
+                DNSClass::IN,
+                RecordType::A,
+            )
+            .await
+            .unwrap();
+
+            let RData::A(addr) = response.answers()[0].data() else {
+                panic!("expected A record response");
+            };
+            assert!(*addr != A::new(192, 0, 2, 1));
+
+            fetch_parse_check_metrics(&socket_ports).await
+        });
+
+        let tls_protocol = [("protocol", "tls")];
+        // Note: we use `None` as the expected value for the following metrics because the probes
+        // are attempted as background tasks, and we can't reliably predict their state as an
+        // external observer. We only care that the metrics are present.
+        verify_metric(
+            metrics,
+            "hickory_resolver_probe_attempts_total",
+            &tls_protocol,
+            None,
+        );
+        verify_metric(
+            metrics,
+            "hickory_resolver_probe_errors_total",
+            &tls_protocol,
+            None,
+        );
+        verify_metric(
+            metrics,
+            "hickory_resolver_probe_timeouts_total",
+            &tls_protocol,
+            None,
+        );
+        verify_metric(
+            metrics,
+            "hickory_resolver_probe_successes_total",
+            &tls_protocol,
+            None,
+        );
+        verify_metric(
+            metrics,
+            "hickory_resolver_probe_duration_seconds",
+            &tls_protocol,
+            None,
+        );
+        // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
+        verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
+    });
+
+    // Clean up the opp. enc. state file.
+    fs::remove_file("opp_enc_state.toml").expect("failed to cleanup after test");
 }
 
 async fn create_local_client(
@@ -651,11 +720,22 @@ fn test_metrics_description_present(scrape: Scrape) {
         .samples
         .into_iter()
         .filter_map(|s| {
-            if !scrape.docs.contains_key(&s.metric) {
-                Some(s.metric)
-            } else {
-                None
+            let metric_name = &s.metric;
+
+            // Check if metric has direct documentation, or for histogram sub-metrics,
+            // if the base metric has documentation.
+            if scrape.docs.contains_key(metric_name)
+                || metric_name
+                    .strip_suffix("_sum")
+                    .is_some_and(|base_metric| scrape.docs.contains_key(base_metric))
+                || metric_name
+                    .strip_suffix("_count")
+                    .is_some_and(|base_metric| scrape.docs.contains_key(base_metric))
+            {
+                return None;
             }
+
+            Some(s.metric)
         })
         .collect::<Vec<String>>();
 
