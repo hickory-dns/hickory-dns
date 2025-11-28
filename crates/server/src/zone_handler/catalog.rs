@@ -1036,8 +1036,24 @@ async fn build_forwarded_response(
     }
 
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-    let (mut answers, authorities) = match response {
-        Ok(l) => (Answer::Normal(l), AuthLookup::default()),
+    let (mut answers, authorities, additionals) = match response {
+        #[cfg(feature = "resolver")]
+        Ok(AuthLookup::Resolved(lookup)) => {
+            // Extract each section from the Lookup to preserve section structure
+            let answers =
+                AuthLookup::answers(LookupRecords::Section(lookup.answers().to_vec()), None);
+            let authorities =
+                AuthLookup::answers(LookupRecords::Section(lookup.authorities().to_vec()), None);
+            let additionals =
+                AuthLookup::answers(LookupRecords::Section(lookup.additionals().to_vec()), None);
+
+            (Answer::Normal(answers), authorities, additionals)
+        }
+        Ok(l) => (
+            Answer::Normal(l),
+            AuthLookup::default(),
+            AuthLookup::default(),
+        ),
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
             debug!(error = ?e, "error resolving");
 
@@ -1082,9 +1098,14 @@ async fn build_forwarded_response(
                 (
                     Answer::NoRecords(AuthLookup::answers(records, None)),
                     authorities,
+                    AuthLookup::default(),
                 )
             } else {
-                (Answer::Normal(AuthLookup::default()), authorities)
+                (
+                    Answer::Normal(AuthLookup::default()),
+                    authorities,
+                    AuthLookup::default(),
+                )
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
@@ -1109,15 +1130,24 @@ async fn build_forwarded_response(
                 (
                     Answer::NoRecords(AuthLookup::answers(records, None)),
                     AuthLookup::default(),
+                    AuthLookup::default(),
                 )
             } else {
-                (Answer::Normal(AuthLookup::default()), AuthLookup::default())
+                (
+                    Answer::Normal(AuthLookup::default()),
+                    AuthLookup::default(),
+                    AuthLookup::default(),
+                )
             }
         }
         Err(e) => {
             response_header.set_response_code(ResponseCode::ServFail);
             debug!(error = ?e, "error resolving");
-            (Answer::Normal(AuthLookup::default()), AuthLookup::default())
+            (
+                Answer::Normal(AuthLookup::default()),
+                AuthLookup::default(),
+                AuthLookup::default(),
+            )
         }
     };
 
@@ -1182,36 +1212,60 @@ async fn build_forwarded_response(
     }
 
     // Strip out DNSSEC records unless the DO bit is set.
-    let authorities = if !lookup_options.dnssec_ok {
-        let auth = authorities
-            .into_iter()
-            .filter_map(|record| {
-                let record_type = record.record_type();
-                if record_type == query.query_type() || !record_type.is_dnssec() {
-                    Some(record.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
+    let authorities =
+        maybe_strip_dnssec_records(authorities, query.query_type(), lookup_options.dnssec_ok);
 
-        AuthLookup::answers(LookupRecords::Section(auth), None)
-    } else {
-        authorities
+    // Strip DNSSEC records from additionals as well.   Is this necessary?
+    let additionals =
+        maybe_strip_dnssec_records(additionals, query.query_type(), lookup_options.dnssec_ok);
+
+    // Also strip DNSSEC records from answers unless the DO bit is set.
+    let answers = match answers {
+        Answer::Normal(answers) => Answer::Normal(maybe_strip_dnssec_records(
+            answers,
+            query.query_type(),
+            lookup_options.dnssec_ok,
+        )),
+        Answer::NoRecords(soa) => Answer::NoRecords(soa),
     };
 
     match answers {
         Answer::Normal(answers) => LookupSections {
             answers,
             ns: authorities,
+            additionals,
             ..LookupSections::default()
         },
         Answer::NoRecords(soa) => LookupSections {
             ns: authorities,
             soa,
+            additionals,
             ..LookupSections::default()
         },
     }
+}
+
+/// Strip DNSSEC records from an AuthLookup if DO bit is not set
+///
+/// As per RFC 4035 section 3.2.1, DNSSEC records should be stripped unless:
+/// - The DO bit is set, OR
+/// - The record type matches the query type (explicitly requested)
+fn maybe_strip_dnssec_records(
+    lookup: AuthLookup,
+    query_type: RecordType,
+    dnssec_ok: bool,
+) -> AuthLookup {
+    if dnssec_ok {
+        return lookup;
+    }
+
+    let filtered = lookup
+        .into_iter()
+        .filter(|record| record.record_type() == query_type || !record.record_type().is_dnssec())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    AuthLookup::answers(LookupRecords::Section(filtered), None)
 }
 
 #[derive(Default)]
@@ -1220,4 +1274,109 @@ struct LookupSections {
     ns: AuthLookup,
     soa: AuthLookup,
     additionals: AuthLookup,
+}
+
+#[cfg(all(test, feature = "resolver"))]
+mod tests {
+    use super::*;
+    use crate::proto::{
+        op::{Message, MessageType, OpCode, Query},
+        rr::{
+            Name, RData, Record, RecordType,
+            rdata::{A, SOA},
+        },
+    };
+    use crate::resolver::lookup::Lookup;
+    use std::{
+        net::Ipv4Addr,
+        str::FromStr,
+        time::{Duration, Instant},
+    };
+
+    #[tokio::test]
+    async fn test_build_forwarded_response_preserves_sections() {
+        // Create a DNS message with records in all three sections
+        let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
+
+        let mut message = Message::response(1234, OpCode::Query);
+        message.add_query(query.clone());
+
+        // Add answer record
+        message.add_answer(Record::from_rdata(
+            Name::from_str("example.com.").unwrap(),
+            3600,
+            RData::A(A(Ipv4Addr::new(192, 0, 2, 1))),
+        ));
+
+        // Add authority record (SOA)
+        message.add_authority(Record::from_rdata(
+            Name::from_str("example.com.").unwrap(),
+            3600,
+            RData::SOA(SOA::new(
+                Name::from_str("ns.example.com.").unwrap(),
+                Name::from_str("admin.example.com.").unwrap(),
+                1,
+                3600,
+                1800,
+                604800,
+                86400,
+            )),
+        ));
+
+        // Add additional record (glue)
+        message.add_additional(Record::from_rdata(
+            Name::from_str("ns.example.com.").unwrap(),
+            3600,
+            RData::A(A(Ipv4Addr::new(192, 0, 2, 2))),
+        ));
+
+        // Create a Lookup from the message
+        let lookup = Lookup::new(
+            query.clone(),
+            message,
+            Instant::now() + Duration::from_secs(3600),
+        );
+
+        // Wrap it in AuthLookup::Resolved
+        let auth_lookup = AuthLookup::Resolved(lookup);
+
+        // Build the forwarded response
+        let mut request_header = Header::new(1234, MessageType::Query, OpCode::Query);
+        request_header.set_recursion_desired(true);
+        let mut response_header = Header::new(1234, MessageType::Response, OpCode::Query);
+        let query_lower = LowerQuery::query(query);
+
+        let sections = build_forwarded_response(
+            Ok(auth_lookup),
+            &request_header,
+            &mut response_header,
+            #[cfg(feature = "__dnssec")]
+            false,
+            &query_lower,
+            LookupOptions::default(),
+        )
+        .await;
+
+        // Verify that all sections were preserved
+        assert!(
+            !sections.answers.is_empty(),
+            "Answers section should not be empty"
+        );
+
+        // Check that we have authorities
+        let authorities_count = sections.ns.iter().count();
+        assert!(
+            authorities_count > 0,
+            "Authorities section should not be empty, got {} records",
+            authorities_count
+        );
+
+        // Check that we have additionals
+        let additionals_count = sections.additionals.iter().count();
+        assert!(
+            additionals_count > 0,
+            "Additionals section should not be empty, got {} records",
+            additionals_count
+        );
+    }
 }

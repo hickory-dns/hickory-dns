@@ -7,6 +7,7 @@
 
 //! dns security extension related modules
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
@@ -18,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::error::{ProtoError, ProtoErrorKind};
-use crate::rr::Record;
+use crate::rr::{RData, Record};
 #[cfg(feature = "backtrace")]
 use crate::trace;
 
@@ -64,6 +65,42 @@ pub use tsig::{TSigResponseContext, TSigner};
 
 mod verifier;
 pub use verifier::Verifier;
+
+/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
+pub struct DnssecIter<'a>(DnssecRecordIter<'a>);
+
+impl<'a> DnssecIter<'a> {
+    /// Create a new DnssecIter from any iterator of Record references
+    pub fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
+        Self(DnssecRecordIter::new(iter))
+    }
+}
+
+impl<'a> Iterator for DnssecIter<'a> {
+    type Item = Proven<&'a RData>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|r| r.map(Record::data))
+    }
+}
+
+/// An iterator over records with all records wrapped in a Proven type for dnssec validation
+pub struct DnssecRecordIter<'a>(Box<dyn Iterator<Item = &'a Record> + 'a>);
+
+impl<'a> DnssecRecordIter<'a> {
+    /// Create a new DnssecRecordIter from any iterator of Record references
+    pub fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
+        Self(Box::new(iter))
+    }
+}
+
+impl<'a> Iterator for DnssecRecordIter<'a> {
+    type Item = Proven<&'a Record>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(Proven::from)
+    }
+}
 
 /// DNSSEC Delegation Signer (DS) Resource Record (RR) Type Digest Algorithms
 ///

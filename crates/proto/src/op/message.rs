@@ -23,6 +23,9 @@ use crate::{
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
 };
 
+#[cfg(feature = "__dnssec")]
+use crate::dnssec::DnssecIter;
+
 /// The basic request and response data structure, used for all DNS protocols.
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -475,6 +478,12 @@ impl Message {
         mem::take(&mut self.answers)
     }
 
+    /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
+    #[cfg(feature = "__dnssec")]
+    pub fn dnssec_answers(&self) -> DnssecIter<'_> {
+        DnssecIter::new(self.answers.iter())
+    }
+
     /// ```text
     /// Authority       Carries RRs which describe other authoritative servers.
     ///                 May optionally carry the SOA RR for the authoritative
@@ -556,6 +565,40 @@ impl Message {
     /// Returns mutable reference of EDNS OPT pseudo-RR
     pub fn extensions_mut(&mut self) -> &mut Option<Edns> {
         &mut self.edns
+    }
+
+    /// Strip DNSSEC records per RFC 4035 section 3.2.1
+    ///
+    /// Removes DNSSEC records that don't match the query type from all sections
+    /// when the DNSSEC OK bit is not set in the original query.
+    ///
+    /// Uses the first query in the message to determine the query type.
+    /// If there are no queries, returns the message unchanged.
+    ///
+    /// The query_has_dnssec_ok is a required parameter because the
+    /// dnssec_ok bit in the query might be different from the bit
+    /// in the response. See discussion in
+    /// [#3340](https://github.com/hickory-dns/hickory-dns/issues/3340)
+    pub fn strip_dnssec_records_if_needed(mut self, query_has_dnssec_ok: bool) -> Self {
+        if query_has_dnssec_ok {
+            return self;
+        }
+
+        // Get the query type from the first query
+        let Some(query_type) = self.queries().first().map(|q| q.query_type()) else {
+            return self; // No query, return unchanged
+        };
+
+        let predicate = |record: &Record| {
+            let record_type = record.record_type();
+            record_type == query_type || !record_type.is_dnssec()
+        };
+
+        self.answers_mut().retain(predicate);
+        self.authorities_mut().retain(predicate);
+        self.additionals_mut().retain(predicate);
+
+        self
     }
 
     /// # Return value
