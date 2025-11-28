@@ -146,20 +146,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
 
             #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidateWithStaticKey {
-                trust_anchor,
-                nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit,
-                validation_cache_size,
-            } => RecursorMode::Validating(ValidatingRecursor::new(
-                handle,
-                trust_anchor,
-                nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit,
-                validation_cache_size,
-                response_cache_size,
-                ttl_config,
-            )?),
+            DnssecPolicy::ValidateWithStaticKey(config) => RecursorMode::Validating(
+                ValidatingRecursor::new(handle, config, response_cache_size, ttl_config)?,
+            ),
         })
     }
 

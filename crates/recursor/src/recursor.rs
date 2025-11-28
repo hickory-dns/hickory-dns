@@ -18,6 +18,18 @@ use tracing::warn;
 
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
 use crate::recursor_dns_handle::RecursorMetrics;
+#[cfg(feature = "__dnssec")]
+use crate::{
+    DnssecConfig, ErrorKind,
+    proto::{
+        DnsError, NoRecords, ProtoError,
+        dnssec::{DnssecDnsHandle, TrustAnchors},
+        op::{DnsRequestOptions, ResponseCode},
+        rr::RecordType,
+        xfer::{DnsHandle as _, FirstAnswer as _},
+    },
+    resolver::ResponseCache,
+};
 use crate::{
     DnssecPolicy, Error,
     proto::{
@@ -27,18 +39,6 @@ use crate::{
     },
     recursor_dns_handle::RecursorDnsHandle,
     resolver::{ConnectionProvider, TlsConfig, TtlConfig, config::OpportunisticEncryption},
-};
-#[cfg(feature = "__dnssec")]
-use crate::{
-    ErrorKind,
-    proto::{
-        DnsError, NoRecords, ProtoError,
-        dnssec::{DnssecDnsHandle, TrustAnchors},
-        op::{DnsRequestOptions, ResponseCode},
-        rr::RecordType,
-        xfer::{DnsHandle as _, FirstAnswer as _},
-    },
-    resolver::ResponseCache,
 };
 
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
@@ -378,15 +378,12 @@ pub(crate) struct ValidatingRecursor<P: ConnectionProvider> {
 impl<P: ConnectionProvider> ValidatingRecursor<P> {
     pub(crate) fn new(
         handle: RecursorDnsHandle<P>,
-        trust_anchor: Option<Arc<TrustAnchors>>,
-        nsec3_soft_iteration_limit: Option<u16>,
-        nsec3_hard_iteration_limit: Option<u16>,
-        validation_cache_size: Option<usize>,
+        config: DnssecConfig,
         response_cache_size: u64,
         ttl_config: TtlConfig,
     ) -> Result<Self, Error> {
         let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
-        let trust_anchor = match trust_anchor {
+        let trust_anchor = match config.trust_anchor {
             Some(anchor) if anchor.is_empty() => {
                 return Err(Error::from("trust anchor must not be empty"));
             }
@@ -398,11 +395,14 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         let metrics = handle.metrics.clone();
 
         let mut handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
-            .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit)
+            .nsec3_iteration_limits(
+                config.nsec3_soft_iteration_limit,
+                config.nsec3_hard_iteration_limit,
+            )
             .negative_validation_ttl(ttl_config.negative_response_ttl_bounds(RecordType::RRSIG))
             .positive_validation_ttl(ttl_config.positive_response_ttl_bounds(RecordType::RRSIG));
 
-        if let Some(validation_cache_size) = validation_cache_size {
+        if let Some(validation_cache_size) = config.validation_cache_size {
             handle = handle.validation_cache_size(validation_cache_size);
         }
 
