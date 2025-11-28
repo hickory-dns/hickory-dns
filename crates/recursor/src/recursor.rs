@@ -250,91 +250,9 @@ impl<P: ConnectionProvider> Recursor<P> {
 
             #[cfg(feature = "__dnssec")]
             RecursorMode::Validating(validating) => {
-                if let Some(Ok(response)) = validating
-                    .validated_response_cache
-                    .get(&query, request_time)
-                {
-                    // Increment metrics on cache hits only. We will check the cache a second time
-                    // inside resolve(), thus we only track cache misses there.
-                    #[cfg(feature = "metrics")]
-                    validating.metrics.cache_hit_counter.increment(1);
-
-                    let none_indeterminate = response
-                        .all_sections()
-                        .all(|record| !record.proof().is_indeterminate());
-
-                    // if the cached response is a referral, or if any record is indeterminate, fall
-                    // through and perform DNSSEC validation
-                    if response.authoritative() && none_indeterminate {
-                        return Ok(super::maybe_strip_dnssec_records(
-                            query_has_dnssec_ok,
-                            response,
-                            query,
-                        ));
-                    }
-                }
-
-                let mut options = DnsRequestOptions::default();
-                // a validating recursor must be security aware
-                options.use_edns = true;
-                options.edns_set_dnssec_ok = true;
-
-                let response = validating
-                    .handle
-                    .lookup(query.clone(), options)
-                    .first_answer()
-                    .await?;
-
-                // Return NXDomain and NoData responses in error form
-                // These need to bypass the cache lookup (and casting to a Lookup object in general)
-                // to preserve SOA and DNSSEC records, and to keep those records in the authorities
-                // section of the response.
-                if response.response_code() == ResponseCode::NXDomain {
-                    let Err(dns_error) = DnsError::from_response(response) else {
-                        return Err(Error::from(
-                            "unable to build ProtoError from response {response:?}",
-                        ));
-                    };
-
-                    Err(Error {
-                        kind: ErrorKind::Proto(ProtoError::from(dns_error)),
-                        #[cfg(feature = "backtrace")]
-                        backtrack: None,
-                    })
-                } else if response.answers().is_empty()
-                    && !response.authorities().is_empty()
-                    && response.response_code() == ResponseCode::NoError
-                {
-                    let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
-                    no_records.soa = response
-                        .soa()
-                        .as_ref()
-                        .map(|record| Box::new(record.to_owned()));
-                    no_records.authorities = Some(
-                        response
-                            .authorities()
-                            .iter()
-                            .filter_map(|x| match x.record_type() {
-                                RecordType::SOA => None,
-                                _ => Some(x.clone()),
-                            })
-                            .collect(),
-                    );
-
-                    Err(Error::from(ProtoError::from(no_records)))
-                } else {
-                    let message = response.into_message();
-                    validating.validated_response_cache.insert(
-                        query.clone(),
-                        Ok(message.clone()),
-                        request_time,
-                    );
-                    Ok(super::maybe_strip_dnssec_records(
-                        query_has_dnssec_ok,
-                        message,
-                        query,
-                    ))
-                }
+                validating
+                    .resolve(query, request_time, query_has_dnssec_ok)
+                    .await
             }
         }
     }
@@ -412,6 +330,93 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             metrics,
             handle,
         })
+    }
+
+    async fn resolve(
+        &self,
+        query: Query,
+        request_time: Instant,
+        query_has_dnssec_ok: bool,
+    ) -> Result<Message, Error> {
+        if let Some(Ok(response)) = self.validated_response_cache.get(&query, request_time) {
+            // Increment metrics on cache hits only. We will check the cache a second time
+            // inside resolve(), thus we only track cache misses there.
+            #[cfg(feature = "metrics")]
+            self.metrics.cache_hit_counter.increment(1);
+
+            let none_indeterminate = response
+                .all_sections()
+                .all(|record| !record.proof().is_indeterminate());
+
+            // if the cached response is a referral, or if any record is indeterminate, fall
+            // through and perform DNSSEC validation
+            if response.authoritative() && none_indeterminate {
+                return Ok(super::maybe_strip_dnssec_records(
+                    query_has_dnssec_ok,
+                    response,
+                    query,
+                ));
+            }
+        }
+
+        let mut options = DnsRequestOptions::default();
+        // a validating recursor must be security aware
+        options.use_edns = true;
+        options.edns_set_dnssec_ok = true;
+
+        let response = self
+            .handle
+            .lookup(query.clone(), options)
+            .first_answer()
+            .await?;
+
+        // Return NXDomain and NoData responses in error form
+        // These need to bypass the cache lookup (and casting to a Lookup object in general)
+        // to preserve SOA and DNSSEC records, and to keep those records in the authorities
+        // section of the response.
+        if response.response_code() == ResponseCode::NXDomain {
+            let Err(dns_error) = DnsError::from_response(response) else {
+                return Err(Error::from(
+                    "unable to build ProtoError from response {response:?}",
+                ));
+            };
+
+            Err(Error {
+                kind: ErrorKind::Proto(ProtoError::from(dns_error)),
+                #[cfg(feature = "backtrace")]
+                backtrack: None,
+            })
+        } else if response.answers().is_empty()
+            && !response.authorities().is_empty()
+            && response.response_code() == ResponseCode::NoError
+        {
+            let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
+            no_records.soa = response
+                .soa()
+                .as_ref()
+                .map(|record| Box::new(record.to_owned()));
+            no_records.authorities = Some(
+                response
+                    .authorities()
+                    .iter()
+                    .filter_map(|x| match x.record_type() {
+                        RecordType::SOA => None,
+                        _ => Some(x.clone()),
+                    })
+                    .collect(),
+            );
+
+            Err(Error::from(ProtoError::from(no_records)))
+        } else {
+            let message = response.into_message();
+            self.validated_response_cache
+                .insert(query.clone(), Ok(message.clone()), request_time);
+            Ok(super::maybe_strip_dnssec_records(
+                query_has_dnssec_ok,
+                message,
+                query,
+            ))
+        }
     }
 }
 
