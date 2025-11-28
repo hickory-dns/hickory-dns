@@ -16,6 +16,8 @@ use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
+#[cfg(feature = "__dnssec")]
+use crate::recursor::ValidatingRecursor;
 use crate::{
     DnssecPolicy, Error, ErrorKind, RecursorBuilder,
     error::AuthorityData,
@@ -38,11 +40,6 @@ use crate::{
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     },
 };
-#[cfg(feature = "__dnssec")]
-use crate::{
-    proto::dnssec::{DnssecDnsHandle, TrustAnchors},
-    recursor::ValidatingRecursor,
-};
 
 #[derive(Clone)]
 pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
@@ -50,7 +47,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     name_server_cache: Arc<Mutex<LruCache<Name, NameServerPool<P>>>>,
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
-    metrics: RecursorMetrics,
+    pub(crate) metrics: RecursorMetrics,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     name_server_filter: AccessControlSet,
@@ -154,40 +151,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 nsec3_soft_iteration_limit,
                 nsec3_hard_iteration_limit,
                 validation_cache_size,
-            } => {
-                let validated_response_cache =
-                    ResponseCache::new(response_cache_size, ttl_config.clone());
-                let trust_anchor = match trust_anchor {
-                    Some(anchor) if anchor.is_empty() => {
-                        return Err(Error::from("trust anchor must not be empty"));
-                    }
-                    Some(anchor) => anchor,
-                    None => Arc::new(TrustAnchors::default()),
-                };
-
-                #[cfg(feature = "metrics")]
-                let metrics = handle.metrics.clone();
-
-                let mut handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
-                    .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit)
-                    .negative_validation_ttl(
-                        ttl_config.negative_response_ttl_bounds(RecordType::RRSIG),
-                    )
-                    .positive_validation_ttl(
-                        ttl_config.positive_response_ttl_bounds(RecordType::RRSIG),
-                    );
-
-                if let Some(validation_cache_size) = validation_cache_size {
-                    handle = handle.validation_cache_size(validation_cache_size);
-                }
-
-                RecursorMode::Validating(ValidatingRecursor {
-                    validated_response_cache,
-                    #[cfg(feature = "metrics")]
-                    metrics,
-                    handle,
-                })
-            }
+            } => RecursorMode::Validating(ValidatingRecursor::new(
+                handle,
+                trust_anchor,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+                validation_cache_size,
+                response_cache_size,
+                ttl_config,
+            )?),
         })
     }
 
