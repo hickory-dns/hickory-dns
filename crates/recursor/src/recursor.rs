@@ -64,21 +64,6 @@ impl<P: ConnectionProvider> Recursor<P> {
         RecursorBuilder::new(conn_provider)
     }
 
-    /// Whether the recursive resolver is a validating resolver
-    pub fn is_validating(&self) -> bool {
-        // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
-        !matches!(self.mode, RecursorMode::NonValidating { .. })
-    }
-
-    /// Get the recursor's [`PoolContext`].
-    pub fn pool_context(&self) -> &Arc<PoolContext> {
-        match &self.mode {
-            RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
-            #[cfg(feature = "__dnssec")]
-            RecursorMode::Validating { handle, .. } => handle.inner().pool_context(),
-        }
-    }
-
     /// Perform a recursive resolution
     ///
     /// [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034#section-5.3.3), Domain Concepts and Facilities, November 1987
@@ -350,6 +335,21 @@ impl<P: ConnectionProvider> Recursor<P> {
                 }
             }
         }
+    }
+
+    /// Get the recursor's [`PoolContext`].
+    pub fn pool_context(&self) -> &Arc<PoolContext> {
+        match &self.mode {
+            RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
+            #[cfg(feature = "__dnssec")]
+            RecursorMode::Validating { handle, .. } => handle.inner().pool_context(),
+        }
+    }
+
+    /// Whether the recursive resolver is a validating resolver
+    pub fn is_validating(&self) -> bool {
+        // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
+        !matches!(self.mode, RecursorMode::NonValidating { .. })
     }
 }
 
