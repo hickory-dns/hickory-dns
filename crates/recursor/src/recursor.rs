@@ -54,34 +54,14 @@ impl Recursor<TokioRuntimeProvider> {
     /// This uses the Tokio async runtime. To use a different runtime provider, see
     /// [`Recursor::builder_with_provider`].
     pub fn builder() -> RecursorBuilder<TokioRuntimeProvider> {
-        Self::builder_with_provider(TokioRuntimeProvider::default())
+        RecursorBuilder::new(TokioRuntimeProvider::default())
     }
 }
 
 impl<P: ConnectionProvider> Recursor<P> {
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
     pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
-        RecursorBuilder {
-            ns_cache_size: 1_024,
-            response_cache_size: 1_048_576,
-            recursion_limit: Some(24),
-            ns_recursion_limit: Some(24),
-            dnssec_policy: DnssecPolicy::SecurityUnaware,
-            answer_address_filter: AccessControlSetBuilder::new("answers")
-                .allow([].iter() /* no recommended exceptions */)
-                .deny([].iter() /* no recommeneded default filters */)
-                .build(),
-            name_server_filter: AccessControlSetBuilder::new("name_servers")
-                .allow([].iter() /* no recommended exceptions */)
-                .deny(RECOMMENDED_SERVER_FILTERS.iter())
-                .build(),
-            avoid_local_udp_ports: HashSet::new(),
-            ttl_config: TtlConfig::default(),
-            case_randomization: false,
-            opportunistic_encryption: OpportunisticEncryption::default(),
-            encrypted_transport_state: NameServerTransportState::default(),
-            conn_provider,
-        }
+        RecursorBuilder::new(conn_provider)
     }
 
     /// Whether the recursive resolver is a validating resolver
@@ -411,6 +391,30 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> RecursorBuilder<P> {
+    fn new(conn_provider: P) -> Self {
+        RecursorBuilder {
+            ns_cache_size: 1_024,
+            response_cache_size: 1_048_576,
+            recursion_limit: Some(24),
+            ns_recursion_limit: Some(24),
+            dnssec_policy: DnssecPolicy::SecurityUnaware,
+            answer_address_filter: AccessControlSetBuilder::new("answers")
+                .allow([].iter() /* no recommended exceptions */)
+                .deny([].iter() /* no recommeneded default filters */)
+                .build(),
+            name_server_filter: AccessControlSetBuilder::new("name_servers")
+                .allow([].iter() /* no recommended exceptions */)
+                .deny(RECOMMENDED_SERVER_FILTERS.iter())
+                .build(),
+            avoid_local_udp_ports: HashSet::new(),
+            ttl_config: TtlConfig::default(),
+            case_randomization: false,
+            opportunistic_encryption: OpportunisticEncryption::default(),
+            encrypted_transport_state: NameServerTransportState::default(),
+            conn_provider,
+        }
+    }
+
     /// Sets the size of the list of cached name servers
     pub fn ns_cache_size(mut self, size: usize) -> Self {
         self.ns_cache_size = size;
