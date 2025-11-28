@@ -618,8 +618,23 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
             tls_config.insecure_skip_verify();
         }
 
+        let dnssec_policy = self.dnssec_policy.clone();
+        #[cfg(feature = "__dnssec")]
+        let response_cache_size = self.response_cache_size;
+        #[cfg(feature = "__dnssec")]
+        let ttl_config = self.ttl_config.clone();
+        let handle = RecursorDnsHandle::new(roots, tls_config, self)?;
+
         Ok(Recursor {
-            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, self)?,
+            mode: match dnssec_policy {
+                DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
+                #[cfg(feature = "__dnssec")]
+                DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
+                #[cfg(feature = "__dnssec")]
+                DnssecPolicy::ValidateWithStaticKey(config) => RecursorMode::Validating(
+                    ValidatingRecursor::new(handle, config, response_cache_size, ttl_config)?,
+                ),
+            },
         })
     }
 }
