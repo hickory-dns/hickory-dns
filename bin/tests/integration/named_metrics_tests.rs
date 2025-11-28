@@ -8,6 +8,7 @@
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use std::{env, path::Path};
 use std::{
+    fs,
     net::{Ipv4Addr, SocketAddr},
     str::FromStr,
     sync::Arc,
@@ -32,7 +33,10 @@ use hickory_proto::{NetError, NetErrorKind, op::DnsResponse};
 use hickory_proto::{
     client::{Client, ClientHandle},
     op::MessageSigner,
-    rr::{DNSClass, Name, RData, RData::PTR, RecordType, rdata::A},
+    rr::{
+        DNSClass, Name, RData, RecordType,
+        rdata::{A, name::PTR},
+    },
     runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
     xfer::Protocol,
@@ -214,11 +218,8 @@ fn test_request_response() {
                 .await
                 .unwrap();
 
-            if let PTR(ptr) = response.answers()[0].data() {
-                assert_eq!(
-                    *ptr,
-                    hickory_proto::rr::rdata::name::PTR("localhost.".parse().unwrap())
-                );
+            if let RData::PTR(ptr) = response.answers()[0].data() {
+                assert_eq!(*ptr, PTR("localhost.".parse().unwrap()));
             };
 
             fetch_parse_check_metrics(&socket_ports).await
@@ -604,7 +605,7 @@ fn test_updates() {
     let server_path = Path::new(&server_path);
     let database =
         server_path.join("tests/test-data/test_configs/example.com_dnssec_update_2.jrnl");
-    std::fs::remove_file(&database).expect("failed to cleanup after test");
+    fs::remove_file(&database).expect("failed to cleanup after test");
 }
 
 async fn create_local_client(
