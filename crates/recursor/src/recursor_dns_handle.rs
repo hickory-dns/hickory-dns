@@ -163,7 +163,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 };
 
                 #[cfg(feature = "metrics")]
-                let metrics = handle.metrics().clone();
+                let metrics = handle.metrics.clone();
 
                 let mut dnssec_handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                     .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit)
@@ -715,11 +715,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         ttl
-    }
-
-    #[cfg(all(feature = "__dnssec", feature = "metrics"))]
-    pub(crate) fn metrics(&self) -> &RecursorMetrics {
-        &self.metrics
     }
 
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
