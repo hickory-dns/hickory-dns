@@ -249,17 +249,15 @@ impl<P: ConnectionProvider> Recursor<P> {
             }
 
             #[cfg(feature = "__dnssec")]
-            RecursorMode::Validating {
-                handle,
-                validated_response_cache,
-                #[cfg(feature = "metrics")]
-                metrics,
-            } => {
-                if let Some(Ok(response)) = validated_response_cache.get(&query, request_time) {
+            RecursorMode::Validating(validating) => {
+                if let Some(Ok(response)) = validating
+                    .validated_response_cache
+                    .get(&query, request_time)
+                {
                     // Increment metrics on cache hits only. We will check the cache a second time
                     // inside resolve(), thus we only track cache misses there.
                     #[cfg(feature = "metrics")]
-                    metrics.cache_hit_counter.increment(1);
+                    validating.metrics.cache_hit_counter.increment(1);
 
                     let none_indeterminate = response
                         .all_sections()
@@ -281,7 +279,11 @@ impl<P: ConnectionProvider> Recursor<P> {
                 options.use_edns = true;
                 options.edns_set_dnssec_ok = true;
 
-                let response = handle.lookup(query.clone(), options).first_answer().await?;
+                let response = validating
+                    .handle
+                    .lookup(query.clone(), options)
+                    .first_answer()
+                    .await?;
 
                 // Return NXDomain and NoData responses in error form
                 // These need to bypass the cache lookup (and casting to a Lookup object in general)
@@ -322,7 +324,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                     Err(Error::from(ProtoError::from(no_records)))
                 } else {
                     let message = response.into_message();
-                    validated_response_cache.insert(
+                    validating.validated_response_cache.insert(
                         query.clone(),
                         Ok(message.clone()),
                         request_time,
@@ -342,7 +344,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         match &self.mode {
             RecursorMode::NonValidating { handle, .. } => handle.pool_context(),
             #[cfg(feature = "__dnssec")]
-            RecursorMode::Validating { handle, .. } => handle.inner().pool_context(),
+            RecursorMode::Validating(validating) => validating.handle.inner().pool_context(),
         }
     }
 
@@ -360,13 +362,16 @@ pub(super) enum RecursorMode<P: ConnectionProvider> {
     },
 
     #[cfg(feature = "__dnssec")]
-    Validating {
-        handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
-        // This is a separate response cache from that inside `RecursorDnsHandle`.
-        validated_response_cache: ResponseCache,
-        #[cfg(feature = "metrics")]
-        metrics: RecursorMetrics,
-    },
+    Validating(ValidatingRecursor<P>),
+}
+
+#[cfg(feature = "__dnssec")]
+pub(crate) struct ValidatingRecursor<P: ConnectionProvider> {
+    pub(crate) handle: DnssecDnsHandle<RecursorDnsHandle<P>>,
+    // This is a separate response cache from that inside `RecursorDnsHandle`.
+    pub(crate) validated_response_cache: ResponseCache,
+    #[cfg(feature = "metrics")]
+    pub(crate) metrics: RecursorMetrics,
 }
 
 /// A `Recursor` builder

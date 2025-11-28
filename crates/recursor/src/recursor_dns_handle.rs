@@ -16,8 +16,6 @@ use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 use crate::{
     DnssecPolicy, Error, ErrorKind, RecursorBuilder,
     error::AuthorityData,
@@ -39,6 +37,11 @@ use crate::{
         TlsConfig, TtlConfig,
         config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     },
+};
+#[cfg(feature = "__dnssec")]
+use crate::{
+    proto::dnssec::{DnssecDnsHandle, TrustAnchors},
+    recursor::ValidatingRecursor,
 };
 
 #[derive(Clone)]
@@ -165,7 +168,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 #[cfg(feature = "metrics")]
                 let metrics = handle.metrics.clone();
 
-                let mut dnssec_handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
+                let mut handle = DnssecDnsHandle::with_trust_anchor(handle, trust_anchor)
                     .nsec3_iteration_limits(nsec3_soft_iteration_limit, nsec3_hard_iteration_limit)
                     .negative_validation_ttl(
                         ttl_config.negative_response_ttl_bounds(RecordType::RRSIG),
@@ -175,15 +178,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     );
 
                 if let Some(validation_cache_size) = validation_cache_size {
-                    dnssec_handle = dnssec_handle.validation_cache_size(validation_cache_size);
+                    handle = handle.validation_cache_size(validation_cache_size);
                 }
 
-                RecursorMode::Validating {
+                RecursorMode::Validating(ValidatingRecursor {
                     validated_response_cache,
                     #[cfg(feature = "metrics")]
                     metrics,
-                    handle: dnssec_handle,
-                }
+                    handle,
+                })
             }
         })
     }
