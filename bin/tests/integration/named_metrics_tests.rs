@@ -5,39 +5,39 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::{Ipv4Addr, SocketAddr};
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use std::{env, path::Path};
-use test_support::subscribe;
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
+
+use prometheus_parse::{Scrape, Value};
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use rustls_pki_types::PrivatePkcs8KeyDer;
+use tokio::{runtime::Runtime, time::sleep};
 
 use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
-use hickory_proto::client::{Client, ClientHandle};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::{
     Algorithm, DnssecDnsHandle, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey,
     rdata::DNSKEY,
 };
-#[cfg(feature = "blocklist")]
-use hickory_proto::op::DnsResponse;
-use hickory_proto::op::MessageSigner;
-use hickory_proto::rr::RData::PTR;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
-use hickory_proto::rr::rdata::A;
-use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::xfer::Protocol;
 #[cfg(feature = "blocklist")]
-use hickory_proto::{NetError, NetErrorKind};
-use prometheus_parse::{Scrape, Value};
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use rustls_pki_types::PrivatePkcs8KeyDer;
-use tokio::runtime::Runtime;
-use tokio::time::sleep;
+use hickory_proto::{NetError, NetErrorKind, op::DnsResponse};
+use hickory_proto::{
+    client::{Client, ClientHandle},
+    op::MessageSigner,
+    rr::{DNSClass, Name, RData, RData::PTR, RecordType, rdata::A},
+    runtime::TokioRuntimeProvider,
+    tcp::TcpClientStream,
+    xfer::Protocol,
+};
+use test_support::subscribe;
 
 #[test]
 fn test_prometheus_endpoint_startup() {
