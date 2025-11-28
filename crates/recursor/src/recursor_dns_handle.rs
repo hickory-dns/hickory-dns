@@ -797,24 +797,16 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
 #[cfg(feature = "__dnssec")]
 mod for_dnssec {
-    use std::{
-        sync::{Arc, atomic::AtomicU8},
-        time::Instant,
-    };
-
     use futures_util::{
-        StreamExt as _, future,
+        future,
         stream::{self, BoxStream},
     };
 
-    use crate::ErrorKind;
+    use super::*;
     use crate::proto::{
         ProtoError,
-        op::{DnsRequest, DnsResponse, Message, OpCode},
-        xfer::DnsHandle,
+        op::{DnsRequest, DnsResponse, OpCode},
     };
-    use crate::recursor_dns_handle::RecursorDnsHandle;
-    use crate::resolver::ConnectionProvider;
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
         type Response = BoxStream<'static, Result<DnsResponse, ProtoError>>;
