@@ -67,19 +67,7 @@ pub enum DnssecPolicy {
 
     /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
     #[cfg(feature = "__dnssec")]
-    ValidateWithStaticKey {
-        /// set to `None` to use built-in trust anchor
-        trust_anchor: Option<Arc<TrustAnchors>>,
-        /// NSEC3 soft iteration limit.  Responses with NSEC3 records having an iteration count
-        /// exceeding this value, but less than the hard limit, will return Proof::Insecure
-        nsec3_soft_iteration_limit: Option<u16>,
-        /// NSEC3 hard iteration limit.  Responses with NSEC3 responses having an iteration count
-        /// exceeding this value will return Proof::Bogus
-        nsec3_hard_iteration_limit: Option<u16>,
-        /// Validation cache size.  Controls how many DNSSEC validations are cached for future
-        /// use.
-        validation_cache_size: Option<usize>,
-    },
+    ValidateWithStaticKey(DnssecConfig),
     // TODO RFC5011
     // ValidateWithInitialKey { ..  },}
 }
@@ -88,6 +76,24 @@ impl DnssecPolicy {
     pub(crate) fn is_security_aware(&self) -> bool {
         !matches!(self, Self::SecurityUnaware)
     }
+}
+
+/// DNSSEC configuration options for use in [`DnssecPolicy`]
+#[cfg(feature = "__dnssec")]
+#[non_exhaustive]
+#[derive(Clone, Default)]
+pub struct DnssecConfig {
+    /// set to `None` to use built-in trust anchor
+    pub trust_anchor: Option<Arc<TrustAnchors>>,
+    /// NSEC3 soft iteration limit.  Responses with NSEC3 records having an iteration count
+    /// exceeding this value, but less than the hard limit, will return Proof::Insecure
+    pub nsec3_soft_iteration_limit: Option<u16>,
+    /// NSEC3 hard iteration limit.  Responses with NSEC3 responses having an iteration count
+    /// exceeding this value will return Proof::Bogus
+    pub nsec3_hard_iteration_limit: Option<u16>,
+    /// Validation cache size.  Controls how many DNSSEC validations are cached for future
+    /// use.
+    pub validation_cache_size: Option<usize>,
 }
 
 // as per section 3.2.1 of RFC4035
