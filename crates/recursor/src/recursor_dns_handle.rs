@@ -16,10 +16,8 @@ use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
-#[cfg(feature = "__dnssec")]
-use crate::recursor::ValidatingRecursor;
 use crate::{
-    DnssecPolicy, Error, ErrorKind, RecursorBuilder,
+    Error, ErrorKind, RecursorBuilder,
     error::AuthorityData,
     is_subzone,
     proto::{
@@ -33,7 +31,6 @@ use crate::{
             rdata::{A, AAAA, NS},
         },
     },
-    recursor::RecursorMode,
     resolver::{
         ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache,
         TlsConfig, TtlConfig,
@@ -59,11 +56,11 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
-    pub(super) fn build_recursor_mode(
+    pub(super) fn new(
         roots: &[IpAddr],
         tls: TlsConfig,
         builder: RecursorBuilder<P>,
-    ) -> Result<RecursorMode<P>, Error> {
+    ) -> Result<Self, Error> {
         assert!(!roots.is_empty(), "roots must not be empty");
         let servers = roots
             .iter()
@@ -123,7 +120,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // between recursive resolvers following referrals to each other.
         request_options.recursion_desired = false;
 
-        let handle = Self {
+        Ok(Self {
             roots,
             name_server_cache,
             response_cache,
@@ -137,18 +134,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
             ttl_config: ttl_config.clone(),
-        };
-
-        Ok(match dnssec_policy {
-            DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
-
-            #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
-
-            #[cfg(feature = "__dnssec")]
-            DnssecPolicy::ValidateWithStaticKey(config) => RecursorMode::Validating(
-                ValidatingRecursor::new(handle, config, response_cache_size, ttl_config)?,
-            ),
         })
     }
 
