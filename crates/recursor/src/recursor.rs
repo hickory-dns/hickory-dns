@@ -41,191 +41,6 @@ use crate::{
     resolver::ResponseCache,
 };
 
-/// A `Recursor` builder
-pub struct RecursorBuilder<P: ConnectionProvider> {
-    pub(super) ns_cache_size: usize,
-    pub(super) response_cache_size: u64,
-    /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
-    /// to None will disable the recursion limit check, and is not recommended.
-    pub(super) recursion_limit: Option<u8>,
-    /// This controls how many nested lookups will be attempted when trying to build an NS pool.
-    /// Setting it to None will disable the recursion limit check, and is not recommended.
-    pub(super) ns_recursion_limit: Option<u8>,
-    pub(super) dnssec_policy: DnssecPolicy,
-    pub(super) answer_address_filter: AccessControlSet,
-    pub(super) name_server_filter: AccessControlSet,
-    pub(super) avoid_local_udp_ports: HashSet<u16>,
-    pub(super) ttl_config: TtlConfig,
-    pub(super) case_randomization: bool,
-    pub(super) opportunistic_encryption: OpportunisticEncryption,
-    pub(super) encrypted_transport_state: NameServerTransportState,
-    pub(super) conn_provider: P,
-}
-
-impl<P: ConnectionProvider> RecursorBuilder<P> {
-    /// Sets the size of the list of cached name servers
-    pub fn ns_cache_size(mut self, size: usize) -> Self {
-        self.ns_cache_size = size;
-        self
-    }
-
-    /// Sets the size of the list of cached responses
-    pub fn response_cache_size(mut self, size: u64) -> Self {
-        self.response_cache_size = size;
-        self
-    }
-
-    /// Sets the maximum recursion depth for queries; set to None for unlimited
-    /// recursion.
-    pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
-        self.recursion_limit = limit;
-        self
-    }
-
-    /// Sets the maximum recursion depth for building NS pools; set to None for unlimited
-    /// recursion.
-    pub fn ns_recursion_limit(mut self, limit: Option<u8>) -> Self {
-        self.ns_recursion_limit = limit;
-        self
-    }
-
-    /// Sets the DNSSEC policy
-    pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
-        self.dnssec_policy = dnssec_policy;
-        self
-    }
-
-    /// Allow listed addresses in responses during recursive resolution.
-    ///
-    /// The provided `allow` networks will be added to any existing networks that were added by
-    /// previous calls to [`Self::answer_address_filter_allow`].
-    ///
-    /// Allowed networks take precedence over deny networks added with [`Self::answer_address_filter_deny`].
-    pub fn answer_address_filter_allow<'a>(
-        mut self,
-        allow: impl Iterator<Item = &'a IpNet>,
-    ) -> Self {
-        self.answer_address_filter.allow(allow);
-        self
-    }
-
-    /// Deny listed addresses in responses during recursive resolution.
-    ///
-    /// The provided `deny` networks will be added to any existing networks denied
-    /// by default, or that were added by previous calls to [`Self::answer_address_filter_deny`].
-    pub fn answer_address_filter_deny<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.answer_address_filter.deny(deny);
-        self
-    }
-
-    /// Clear the networks that should be allowed as answers during recursive resolution.
-    ///
-    /// This will remove any allow filter networks previously added by [`Self::answer_address_filter_allow`],
-    pub fn clear_answer_address_filter_allow(mut self) -> Self {
-        self.answer_address_filter.clear_allow();
-        self
-    }
-
-    /// Clear the networks that should not be allowed as answers during recursive resolution.
-    ///
-    /// This will remove any deny filter networks previously added by [`Self::answer_address_filter_deny`].
-    pub fn clear_answer_address_filter_deny(mut self) -> Self {
-        self.answer_address_filter.clear_deny();
-        self
-    }
-
-    /// Skip querying nameservers within the provided networks during recursive resolution.
-    ///
-    /// The provided `deny` networks will be added to any existing networks denied
-    /// by default, or that were added by previous calls to [`Self::deny_servers`].
-    pub fn deny_servers<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.name_server_filter.deny(deny);
-        self
-    }
-
-    /// Allow querying nameservers within the provided networks during recursive resolution.
-    ///
-    /// The provided `allow` networks will be added to any existing networks that were added by
-    /// previous calls to [`Self::allow_servers`].
-    ///
-    /// Allowed networks take precedence over deny networks added with [`Self::deny_servers`].
-    pub fn allow_servers<'a>(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.name_server_filter.allow(allow);
-        self
-    }
-
-    /// Clear the networks that should be allowed to be queried during recursive resolution.
-    ///
-    /// This will remove any allow filter networks previously added by [`Self::allow_servers`],
-    pub fn clear_allow_servers(mut self) -> Self {
-        self.name_server_filter.clear_allow();
-        self
-    }
-
-    /// Clear the networks that should not be queried during recursive resolution.
-    ///
-    /// This will remove any deny filter networks previously added by [`Self::deny_servers`],
-    /// as well as the default recommended server filters (internal networks, broadcast addresses,
-    /// etc.).
-    pub fn clear_deny_servers(mut self) -> Self {
-        self.name_server_filter.clear_deny();
-        self
-    }
-
-    /// Sets local UDP ports that should be avoided when making outgoing queries
-    pub fn avoid_local_udp_ports(mut self, ports: HashSet<u16>) -> Self {
-        self.avoid_local_udp_ports = ports;
-        self
-    }
-
-    /// Sets the minimum and maximum TTL values for cached responses
-    pub fn ttl_config(mut self, ttl_config: TtlConfig) -> Self {
-        self.ttl_config = ttl_config;
-        self
-    }
-
-    /// Enable case randomization.
-    ///
-    /// Sets whether to randomize the case of letters in query names, and require that responses
-    /// preserve the case.
-    pub fn case_randomization(mut self, case_randomization: bool) -> Self {
-        self.case_randomization = case_randomization;
-        self
-    }
-
-    /// Configure RFC9539 opportunistic encryption.
-    pub fn opportunistic_encryption(mut self, config: OpportunisticEncryption) -> Self {
-        self.opportunistic_encryption = config;
-        self
-    }
-
-    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
-    pub fn encrypted_transport_state(
-        mut self,
-        encrypted_transport_state: NameServerTransportState,
-    ) -> Self {
-        self.encrypted_transport_state = encrypted_transport_state;
-        self
-    }
-
-    /// Construct a new recursor using the list of root zone name server addresses
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the roots are empty.
-    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
-        let mut tls_config = TlsConfig::new()?;
-        if self.opportunistic_encryption.is_enabled() {
-            warn!("disabling TLS peer verification for opportunistic encryption mode");
-            tls_config.insecure_skip_verify();
-        }
-        
-        Ok(Recursor {
-            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, self)?,
-        })
-    }
-}
-
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
 /// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
@@ -572,6 +387,191 @@ pub(super) enum RecursorMode<P: ConnectionProvider> {
         #[cfg(feature = "metrics")]
         metrics: RecursorMetrics,
     },
+}
+
+/// A `Recursor` builder
+pub struct RecursorBuilder<P: ConnectionProvider> {
+    pub(super) ns_cache_size: usize,
+    pub(super) response_cache_size: u64,
+    /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
+    /// to None will disable the recursion limit check, and is not recommended.
+    pub(super) recursion_limit: Option<u8>,
+    /// This controls how many nested lookups will be attempted when trying to build an NS pool.
+    /// Setting it to None will disable the recursion limit check, and is not recommended.
+    pub(super) ns_recursion_limit: Option<u8>,
+    pub(super) dnssec_policy: DnssecPolicy,
+    pub(super) answer_address_filter: AccessControlSet,
+    pub(super) name_server_filter: AccessControlSet,
+    pub(super) avoid_local_udp_ports: HashSet<u16>,
+    pub(super) ttl_config: TtlConfig,
+    pub(super) case_randomization: bool,
+    pub(super) opportunistic_encryption: OpportunisticEncryption,
+    pub(super) encrypted_transport_state: NameServerTransportState,
+    pub(super) conn_provider: P,
+}
+
+impl<P: ConnectionProvider> RecursorBuilder<P> {
+    /// Sets the size of the list of cached name servers
+    pub fn ns_cache_size(mut self, size: usize) -> Self {
+        self.ns_cache_size = size;
+        self
+    }
+
+    /// Sets the size of the list of cached responses
+    pub fn response_cache_size(mut self, size: u64) -> Self {
+        self.response_cache_size = size;
+        self
+    }
+
+    /// Sets the maximum recursion depth for queries; set to None for unlimited
+    /// recursion.
+    pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
+        self.recursion_limit = limit;
+        self
+    }
+
+    /// Sets the maximum recursion depth for building NS pools; set to None for unlimited
+    /// recursion.
+    pub fn ns_recursion_limit(mut self, limit: Option<u8>) -> Self {
+        self.ns_recursion_limit = limit;
+        self
+    }
+
+    /// Sets the DNSSEC policy
+    pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
+        self.dnssec_policy = dnssec_policy;
+        self
+    }
+
+    /// Allow listed addresses in responses during recursive resolution.
+    ///
+    /// The provided `allow` networks will be added to any existing networks that were added by
+    /// previous calls to [`Self::answer_address_filter_allow`].
+    ///
+    /// Allowed networks take precedence over deny networks added with [`Self::answer_address_filter_deny`].
+    pub fn answer_address_filter_allow<'a>(
+        mut self,
+        allow: impl Iterator<Item = &'a IpNet>,
+    ) -> Self {
+        self.answer_address_filter.allow(allow);
+        self
+    }
+
+    /// Deny listed addresses in responses during recursive resolution.
+    ///
+    /// The provided `deny` networks will be added to any existing networks denied
+    /// by default, or that were added by previous calls to [`Self::answer_address_filter_deny`].
+    pub fn answer_address_filter_deny<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.answer_address_filter.deny(deny);
+        self
+    }
+
+    /// Clear the networks that should be allowed as answers during recursive resolution.
+    ///
+    /// This will remove any allow filter networks previously added by [`Self::answer_address_filter_allow`],
+    pub fn clear_answer_address_filter_allow(mut self) -> Self {
+        self.answer_address_filter.clear_allow();
+        self
+    }
+
+    /// Clear the networks that should not be allowed as answers during recursive resolution.
+    ///
+    /// This will remove any deny filter networks previously added by [`Self::answer_address_filter_deny`].
+    pub fn clear_answer_address_filter_deny(mut self) -> Self {
+        self.answer_address_filter.clear_deny();
+        self
+    }
+
+    /// Skip querying nameservers within the provided networks during recursive resolution.
+    ///
+    /// The provided `deny` networks will be added to any existing networks denied
+    /// by default, or that were added by previous calls to [`Self::deny_servers`].
+    pub fn deny_servers<'a>(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.name_server_filter.deny(deny);
+        self
+    }
+
+    /// Allow querying nameservers within the provided networks during recursive resolution.
+    ///
+    /// The provided `allow` networks will be added to any existing networks that were added by
+    /// previous calls to [`Self::allow_servers`].
+    ///
+    /// Allowed networks take precedence over deny networks added with [`Self::deny_servers`].
+    pub fn allow_servers<'a>(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
+        self.name_server_filter.allow(allow);
+        self
+    }
+
+    /// Clear the networks that should be allowed to be queried during recursive resolution.
+    ///
+    /// This will remove any allow filter networks previously added by [`Self::allow_servers`],
+    pub fn clear_allow_servers(mut self) -> Self {
+        self.name_server_filter.clear_allow();
+        self
+    }
+
+    /// Clear the networks that should not be queried during recursive resolution.
+    ///
+    /// This will remove any deny filter networks previously added by [`Self::deny_servers`],
+    /// as well as the default recommended server filters (internal networks, broadcast addresses,
+    /// etc.).
+    pub fn clear_deny_servers(mut self) -> Self {
+        self.name_server_filter.clear_deny();
+        self
+    }
+
+    /// Sets local UDP ports that should be avoided when making outgoing queries
+    pub fn avoid_local_udp_ports(mut self, ports: HashSet<u16>) -> Self {
+        self.avoid_local_udp_ports = ports;
+        self
+    }
+
+    /// Sets the minimum and maximum TTL values for cached responses
+    pub fn ttl_config(mut self, ttl_config: TtlConfig) -> Self {
+        self.ttl_config = ttl_config;
+        self
+    }
+
+    /// Enable case randomization.
+    ///
+    /// Sets whether to randomize the case of letters in query names, and require that responses
+    /// preserve the case.
+    pub fn case_randomization(mut self, case_randomization: bool) -> Self {
+        self.case_randomization = case_randomization;
+        self
+    }
+
+    /// Configure RFC9539 opportunistic encryption.
+    pub fn opportunistic_encryption(mut self, config: OpportunisticEncryption) -> Self {
+        self.opportunistic_encryption = config;
+        self
+    }
+
+    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
+    pub fn encrypted_transport_state(
+        mut self,
+        encrypted_transport_state: NameServerTransportState,
+    ) -> Self {
+        self.encrypted_transport_state = encrypted_transport_state;
+        self
+    }
+
+    /// Construct a new recursor using the list of root zone name server addresses
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the roots are empty.
+    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
+        let mut tls_config = TlsConfig::new()?;
+        if self.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
+
+        Ok(Recursor {
+            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, self)?,
+        })
+    }
 }
 
 #[cfg(feature = "__dnssec")]
