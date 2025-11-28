@@ -214,7 +214,15 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     ///
     /// This will panic if the roots are empty.
     pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
-        Recursor::build(roots, self)
+        let mut tls_config = TlsConfig::new()?;
+        if self.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
+        
+        Ok(Recursor {
+            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, self)?,
+        })
     }
 }
 
@@ -265,17 +273,6 @@ impl<P: ConnectionProvider> Recursor<P> {
     pub fn is_validating(&self) -> bool {
         // matching on `NonValidating` to avoid conditional compilation (`#[cfg]`)
         !matches!(self.mode, RecursorMode::NonValidating { .. })
-    }
-
-    fn build(roots: &[IpAddr], builder: RecursorBuilder<P>) -> Result<Self, Error> {
-        let mut tls_config = TlsConfig::new()?;
-        if builder.opportunistic_encryption.is_enabled() {
-            warn!("disabling TLS peer verification for opportunistic encryption mode");
-            tls_config.insecure_skip_verify();
-        }
-        Ok(Self {
-            mode: RecursorDnsHandle::build_recursor_mode(roots, tls_config, builder)?,
-        })
     }
 
     /// Get the recursor's [`PoolContext`].
