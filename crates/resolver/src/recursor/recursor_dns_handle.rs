@@ -44,7 +44,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     name_server_cache: Arc<Mutex<LruCache<Name, NameServerPool<P>>>>,
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
-    pub(crate) metrics: RecursorMetrics,
+    pub(super) metrics: RecursorMetrics,
     recursion_limit: Option<u8>,
     ns_recursion_limit: Option<u8>,
     name_server_filter: AccessControlSet,
@@ -890,7 +890,7 @@ mod tests {
 
     use ipnet::IpNet;
 
-    use crate::recursor::{Recursor, recursor::RecursorMode};
+    use crate::recursor::{Recursor, RecursorMode};
 
     #[test]
     fn test_nameserver_filter() {
