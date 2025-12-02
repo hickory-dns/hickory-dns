@@ -386,9 +386,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         let mut response = match response.next().await {
             Some(Ok(r)) => r,
-            Some(Err(e)) => {
-                warn!("lookup error: {e}");
-                return Err(RecursorError::from(e));
+            Some(Err(error)) => {
+                warn!(?query, %error, "lookup error");
+                self.response_cache.insert(query, Err(error.clone()), now);
+                return Err(RecursorError::from(error));
             }
             None => {
                 warn!("no response to lookup for {query}");
