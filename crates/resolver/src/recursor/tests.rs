@@ -10,6 +10,7 @@ use std::{
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
 use tokio::time as TokioTime;
 
+use super::{Error, Recursor, RecursorBuilder, RecursorMode, is_subzone};
 use crate::{
     cache::TtlConfig,
     config::ResolverOpts,
@@ -19,7 +20,6 @@ use crate::{
         rr::{Name, Record, RecordType},
         xfer::Protocol,
     },
-    recursor::{Error, Recursor, RecursorBuilder, RecursorMode},
 };
 
 #[tokio::test]
@@ -432,6 +432,62 @@ async fn ns_pool_zone_name_test() -> Result<(), ProtoError> {
     }
 
     Ok(())
+}
+
+#[tokio::test]
+async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
+    subscribe();
+
+    let j_root_servers_net_ip = IpAddr::from([192, 58, 128, 30]);
+    let recursor = Recursor::builder().build(&[j_root_servers_net_ip])?;
+    let name = Name::from_ascii("example.com")?;
+    assert!(!name.is_fqdn());
+    let query = Query::query(name, RecordType::A);
+    let res = recursor
+        .resolve(query, Instant::now(), false)
+        .await
+        .unwrap_err();
+    assert!(res.to_string().contains("fully qualified"));
+
+    Ok(())
+}
+
+#[test]
+fn is_subzone_test() {
+    use core::str::FromStr;
+
+    assert!(is_subzone(
+        &Name::from_str(".").unwrap(),
+        &Name::from_str("com.").unwrap(),
+    ));
+    assert!(is_subzone(
+        &Name::from_str("com.").unwrap(),
+        &Name::from_str("example.com.").unwrap(),
+    ));
+    assert!(is_subzone(
+        &Name::from_str("example.com.").unwrap(),
+        &Name::from_str("host.example.com.").unwrap(),
+    ));
+    assert!(is_subzone(
+        &Name::from_str("example.com.").unwrap(),
+        &Name::from_str("host.multilevel.example.com.").unwrap(),
+    ));
+    assert!(!is_subzone(
+        &Name::from_str("").unwrap(),
+        &Name::from_str("example.com.").unwrap(),
+    ));
+    assert!(!is_subzone(
+        &Name::from_str("com.").unwrap(),
+        &Name::from_str("example.net.").unwrap(),
+    ));
+    assert!(!is_subzone(
+        &Name::from_str("example.com.").unwrap(),
+        &Name::from_str("otherdomain.com.").unwrap(),
+    ));
+    assert!(!is_subzone(
+        &Name::from_str("com").unwrap(),
+        &Name::from_str("example.com.").unwrap(),
+    ));
 }
 
 async fn get_zone_name(
