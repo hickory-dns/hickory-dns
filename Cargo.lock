@@ -904,43 +904,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "hickory-recursor"
-version = "0.26.0-alpha.1"
-dependencies = [
- "async-recursion",
- "async-trait",
- "backtrace",
- "bytes",
- "cfg-if",
- "enum-as-inner",
- "futures-util",
- "hickory-proto",
- "hickory-resolver",
- "ipnet",
- "lru-cache",
- "metrics",
- "metrics-util",
- "parking_lot",
- "serde",
- "test-support",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "hickory-resolver"
 version = "0.26.0-alpha.1"
 dependencies = [
+ "async-recursion",
  "backtrace",
  "cfg-if",
+ "enum-as-inner",
  "futures-executor",
  "futures-util",
  "hickory-proto",
  "ipconfig",
  "ipnet",
  "jni",
+ "lru-cache",
  "metrics",
  "metrics-util",
  "moka",
@@ -980,7 +957,6 @@ dependencies = [
  "h3",
  "h3-quinn",
  "hickory-proto",
- "hickory-recursor",
  "hickory-resolver",
  "http",
  "ipnet",
@@ -1008,7 +984,6 @@ dependencies = [
  "console",
  "data-encoding",
  "hickory-proto",
- "hickory-recursor",
  "hickory-resolver",
  "rustls",
  "tokio",

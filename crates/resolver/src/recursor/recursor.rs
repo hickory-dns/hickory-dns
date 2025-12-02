@@ -12,15 +12,27 @@ use std::{
     time::Instant,
 };
 
-use hickory_resolver::{NameServerTransportState, PoolContext};
 use ipnet::IpNet;
 use tracing::warn;
 
+#[cfg(feature = "__dnssec")]
+use super::DnssecConfig;
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
-use crate::recursor_dns_handle::RecursorMetrics;
+use super::recursor_dns_handle::RecursorMetrics;
+use super::{DnssecPolicy, Error, recursor_dns_handle::RecursorDnsHandle};
+#[cfg(feature = "tokio")]
+use crate::proto::runtime::TokioRuntimeProvider;
+use crate::{
+    ConnectionProvider, NameServerTransportState, PoolContext, TlsConfig, TtlConfig,
+    config::OpportunisticEncryption,
+    proto::{
+        access_control::{AccessControlSet, AccessControlSetBuilder},
+        op::{Message, Query},
+    },
+};
 #[cfg(feature = "__dnssec")]
 use crate::{
-    DnssecConfig, ErrorKind,
+    ResponseCache,
     proto::{
         DnsError, NoRecords, ProtoError,
         dnssec::{DnssecDnsHandle, TrustAnchors},
@@ -28,17 +40,6 @@ use crate::{
         rr::RecordType,
         xfer::{DnsHandle as _, FirstAnswer as _},
     },
-    resolver::ResponseCache,
-};
-use crate::{
-    DnssecPolicy, Error,
-    proto::{
-        access_control::{AccessControlSet, AccessControlSetBuilder},
-        op::{Message, Query},
-        runtime::TokioRuntimeProvider,
-    },
-    recursor_dns_handle::RecursorDnsHandle,
-    resolver::{ConnectionProvider, TlsConfig, TtlConfig, config::OpportunisticEncryption},
 };
 
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
@@ -48,6 +49,7 @@ pub struct Recursor<P: ConnectionProvider> {
     pub(super) mode: RecursorMode<P>,
 }
 
+#[cfg(feature = "tokio")]
 impl Recursor<TokioRuntimeProvider> {
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
     ///
@@ -375,6 +377,8 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         // to preserve SOA and DNSSEC records, and to keep those records in the authorities
         // section of the response.
         if response.response_code() == ResponseCode::NXDomain {
+            use crate::recursor::ErrorKind;
+
             let Err(dns_error) = DnsError::from_response(response) else {
                 return Err(Error::from(
                     "unable to build ProtoError from response {response:?}",
@@ -443,7 +447,7 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
 
 impl<P: ConnectionProvider> RecursorBuilder<P> {
     fn new(conn_provider: P) -> Self {
-        RecursorBuilder {
+        Self {
             ns_cache_size: 1_024,
             response_cache_size: 1_048_576,
             recursion_limit: Some(24),
@@ -679,9 +683,11 @@ mod tests {
     use test_support::subscribe;
 
     use crate::{
-        Error, Recursor,
-        proto::{op::Query, rr::RecordType},
-        resolver::Name,
+        proto::{
+            op::Query,
+            rr::{Name, RecordType},
+        },
+        recursor::{Error, Recursor},
     };
 
     #[tokio::test]

@@ -30,7 +30,7 @@ use hickory_proto::{
     op::Query,
     rr::{Name, RecordType},
 };
-use hickory_recursor::Recursor;
+use hickory_resolver::recursor::Recursor;
 
 /// A CLI interface for the hickory-dns-recursor.
 ///

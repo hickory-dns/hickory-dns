@@ -30,7 +30,7 @@ use crate::resolver::{
 };
 #[cfg(feature = "__dnssec")]
 use crate::{
-    dnssec::NxProofKind, proto::dnssec::TrustAnchors, recursor::DnssecConfig,
+    dnssec::NxProofKind, proto::dnssec::TrustAnchors, resolver::recursor::DnssecConfig,
     zone_handler::Nsec3QueryInfo,
 };
 use crate::{
@@ -42,8 +42,11 @@ use crate::{
         runtime::RuntimeProvider,
         serialize::txt::{ParseError, Parser},
     },
-    recursor::{DnssecPolicy, Recursor, RecursorBuilder},
-    resolver::{TtlConfig, config::OpportunisticEncryption},
+    resolver::{
+        TtlConfig,
+        config::OpportunisticEncryption,
+        recursor::{DnssecPolicy, Recursor, RecursorBuilder},
+    },
     server::{Request, RequestInfo},
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,

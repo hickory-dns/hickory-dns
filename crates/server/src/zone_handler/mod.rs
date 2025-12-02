@@ -28,7 +28,7 @@ use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
 use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
 #[cfg(feature = "recursor")]
-use crate::recursor::ErrorKind;
+use crate::resolver::recursor::{self, ErrorKind};
 use crate::server::{Request, RequestInfo};
 
 mod auth_lookup;
@@ -393,7 +393,7 @@ pub enum LookupError {
     /// Recursive Resolver Error
     #[cfg(feature = "recursor")]
     #[error("Recursive resolution error: {0}")]
-    RecursiveError(#[from] hickory_recursor::Error),
+    RecursiveError(#[from] recursor::Error),
     /// An underlying IO error occurred
     #[error("io error: {0}")]
     Io(io::Error),

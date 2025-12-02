@@ -38,17 +38,14 @@ use std::sync::Arc;
 
 pub use error::{Error, ErrorKind};
 pub use hickory_proto as proto;
-pub use hickory_resolver as resolver;
-pub use hickory_resolver::config::NameServerConfig;
 #[cfg(feature = "__dnssec")]
 use proto::dnssec::TrustAnchors;
+use proto::rr::Name;
 use proto::{
     op::{Message, Query},
     rr::Record,
 };
 pub use recursor::{Recursor, RecursorBuilder};
-
-use resolver::Name;
 use tracing::warn;
 
 /// `Recursor`'s DNSSEC policy

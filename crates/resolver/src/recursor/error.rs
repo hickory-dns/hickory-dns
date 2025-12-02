@@ -142,7 +142,7 @@ impl Error {
     }
 
     /// Test if the recursion depth has been exceeded, and return an error if it has.
-    pub fn recursion_exceeded(limit: Option<u8>, depth: u8, name: &Name) -> Result<(), Error> {
+    pub fn recursion_exceeded(limit: Option<u8>, depth: u8, name: &Name) -> Result<(), Self> {
         match limit {
             Some(limit) if depth > limit => {}
             _ => return Ok(()),
@@ -259,7 +259,7 @@ impl From<Error> for ProtoError {
     fn from(e: Error) -> Self {
         match e.kind {
             ErrorKind::Negative(fwd) => DnsError::NoRecordsFound(fwd.into()).into(),
-            _ => ProtoError::from(e.to_string()),
+            _ => Self::from(e.to_string()),
         }
     }
 }
@@ -309,13 +309,13 @@ impl AuthorityData {
 }
 
 impl From<AuthorityData> for NoRecords {
-    fn from(data: AuthorityData) -> NoRecords {
+    fn from(data: AuthorityData) -> Self {
         let response_code = match data.is_nx_domain() {
             true => ResponseCode::NXDomain,
             false => ResponseCode::NoError,
         };
 
-        let mut new = NoRecords::new(data.query, response_code);
+        let mut new = Self::new(data.query, response_code);
         new.soa = data.soa;
         new.authorities = data.authorities;
         new

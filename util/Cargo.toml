@@ -98,8 +98,7 @@ rustls = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 hickory-proto = { workspace = true, features = ["text-parsing", "tokio"] }
-hickory-recursor.workspace = true
-hickory-resolver = { workspace = true, features = ["system-config"] }
+hickory-resolver = { workspace = true, features = ["recursor", "system-config", "tokio"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 webpki-roots = { workspace = true, optional = true }
 

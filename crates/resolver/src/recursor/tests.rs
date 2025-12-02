@@ -11,15 +11,15 @@ use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSec
 use tokio::time as TokioTime;
 
 use crate::{
-    Error, Recursor, RecursorBuilder,
+    cache::TtlConfig,
+    config::ResolverOpts,
     proto::{
         ProtoError,
         op::{Message, Query, ResponseCode},
         rr::{Name, Record, RecordType},
         xfer::Protocol,
     },
-    recursor::RecursorMode,
-    resolver::{TtlConfig, config::ResolverOpts},
+    recursor::{Error, Recursor, RecursorBuilder, recursor::RecursorMode},
 };
 
 #[tokio::test]
@@ -170,9 +170,11 @@ async fn name_server_cache_ttl_clamp_min() -> Result<(), ProtoError> {
     let recursor_max_ttl = 86400;
 
     assert!(zone_ttl * 2 < recursor_min_ttl); // test pre-requisite
-    let mut opts = ResolverOpts::default();
-    opts.positive_min_ttl = Some(Duration::from_secs(recursor_min_ttl as u64));
-    opts.positive_max_ttl = Some(Duration::from_secs(recursor_max_ttl));
+    let opts = ResolverOpts {
+        positive_min_ttl: Some(Duration::from_secs(recursor_min_ttl as u64)),
+        positive_max_ttl: Some(Duration::from_secs(recursor_max_ttl)),
+        ..ResolverOpts::default()
+    };
 
     let recursor = ns_cache_test_fixture(zone_ttl, zone_ttl, TtlConfig::from_opts(&opts), false)?;
 
@@ -220,9 +222,11 @@ async fn name_server_cache_ttl_clamp_max() -> Result<(), ProtoError> {
 
     assert!(zone_ttl > recursor_max_ttl * 2); // test pre-requisite
 
-    let mut opts = ResolverOpts::default();
-    opts.positive_min_ttl = Some(Duration::from_secs(recursor_min_ttl));
-    opts.positive_max_ttl = Some(Duration::from_secs(recursor_max_ttl as u64));
+    let opts = ResolverOpts {
+        positive_min_ttl: Some(Duration::from_secs(recursor_min_ttl)),
+        positive_max_ttl: Some(Duration::from_secs(recursor_max_ttl as u64)),
+        ..ResolverOpts::default()
+    };
 
     let recursor = ns_cache_test_fixture(zone_ttl, zone_ttl, TtlConfig::from_opts(&opts), false)?;
 
