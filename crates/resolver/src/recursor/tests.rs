@@ -452,6 +452,68 @@ async fn not_fully_qualified_domain_name_in_query() -> Result<(), NetError> {
     Ok(())
 }
 
+#[tokio::test]
+async fn cache_negative_responses() -> Result<(), NetError> {
+    subscribe();
+
+    let exists_name = Name::from_ascii("exists.hickory-dns.testing.")?;
+    let no_exist_name = Name::from_ascii("doesnotexist.hickory-dns.testing.")?;
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
+
+    let responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
+        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
+            .with_query_name(&leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::a(LEAF_IP, &exists_name, LEAF_IP),
+        MockRecord::soa(LEAF_IP, &leaf_ns, &leaf_zone, &leaf_ns)
+            .with_query_name(&no_exist_name)
+            .with_query_type(RecordType::A)
+            .with_ttl(3600),
+        MockRecord::soa(LEAF_IP, &leaf_ns, &leaf_zone, &leaf_ns)
+            .with_query_name(&no_exist_name)
+            .with_query_type(RecordType::NS)
+            .with_ttl(3600),
+    ];
+
+    let provider = MockProvider::new(MockNetworkHandler::new(responses));
+    let recursor = Recursor::builder_with_provider(provider.clone())
+        .clear_deny_servers() // We use addresses in the default deny filters.
+        .build(&[ROOT_IP])?;
+
+    for _ in 0..2 {
+        let response = recursor
+            .resolve(
+                Query::query(no_exist_name.clone(), RecordType::A),
+                Instant::now(),
+                false,
+            )
+            .await;
+        assert!(response.is_err());
+
+        assert_eq!(
+            provider
+                .queries(&LEAF_IP)
+                .iter()
+                .filter(|x| x.name() == &no_exist_name && x.query_type() == RecordType::A)
+                .count(),
+            1,
+        );
+    }
+
+    Ok(())
+}
+
 #[test]
 fn is_subzone_test() {
     use core::str::FromStr;
