@@ -13,14 +13,14 @@ use test_support::{MockNetworkHandler, MockProvider, MockRecord, subscribe};
 
 use hickory_resolver::{
     NameServer, NameServerPool, PoolContext, TlsConfig,
-    config::{NameServerConfig, ProtocolConfig, ResolverOpts},
+    config::{NameServerConfig, ResolverOpts},
 };
 
 use hickory_proto::{
     ProtoError,
     op::{DnsRequestOptions, Message, Query, ResponseCode},
     rr::{Name, RecordType},
-    xfer::{DnsHandle, FirstAnswer},
+    xfer::{DnsHandle, FirstAnswer, Protocol},
 };
 
 #[tokio::test]
@@ -35,7 +35,7 @@ async fn test_shared_lookup() -> Result<(), ProtoError> {
     let counter = Arc::new(AtomicU8::new(0));
     let counter_copy = counter.clone();
     let mutator = Box::new(
-        move |_destination: IpAddr, _protocol: ProtocolConfig, _msg: &mut Message| {
+        move |_destination: IpAddr, _protocol: Protocol, _msg: &mut Message| {
             counter_copy.fetch_add(1, Ordering::Relaxed);
             // Ensure the first query is still active when the second is polled
             sleep(Duration::from_millis(250));
