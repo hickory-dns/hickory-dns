@@ -23,8 +23,8 @@ use hickory_proto::{
     serialize::binary::BinDecodable,
     tcp::DnsTcpStream,
     udp::DnsUdpSocket,
+    xfer::Protocol,
 };
-use hickory_resolver::config::ProtocolConfig;
 use tracing::{error, info};
 
 /// Registers a global default tracing subscriber when called for the first time. This is intended
@@ -162,11 +162,11 @@ impl MockRecord {
 /// Request handling functionality that can be plugged into [`MockProvider`].
 pub trait MockHandler {
     /// Takes in a request message and produces a response message.
-    fn handle(&self, destination: IpAddr, protocol: ProtocolConfig, request: Message) -> Message;
+    fn handle(&self, destination: IpAddr, protocol: Protocol, request: Message) -> Message;
 }
 
 /// Type alias for a closure that can modify the handler on a per-test basis.
-pub type MockMutator = Box<dyn Fn(IpAddr, ProtocolConfig, &mut Message) + Send + Sync + 'static>;
+pub type MockMutator = Box<dyn Fn(IpAddr, Protocol, &mut Message) + Send + Sync + 'static>;
 
 /// Handler that stands in for multiple authoritative name servers, with specific canned responses.
 pub struct MockNetworkHandler {
@@ -216,7 +216,7 @@ impl MockNetworkHandler {
         Self {
             responses: hashed_responses,
             mutate: Box::new(
-                |_destination: IpAddr, _protocol: ProtocolConfig, _message: &mut Message| {},
+                |_destination: IpAddr, _protocol: Protocol, _message: &mut Message| {},
             ),
         }
     }
@@ -228,7 +228,7 @@ impl MockNetworkHandler {
 }
 
 impl MockHandler for MockNetworkHandler {
-    fn handle(&self, destination: IpAddr, protocol: ProtocolConfig, request: Message) -> Message {
+    fn handle(&self, destination: IpAddr, protocol: Protocol, request: Message) -> Message {
         let Some(server_responses) = self.responses.get(&destination) else {
             error!(%destination, "unexpected destination IP address");
             return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
@@ -252,7 +252,7 @@ impl MockHandler for MockNetworkHandler {
 #[derive(Clone)]
 pub struct MockProvider {
     handler: Arc<dyn MockHandler + Send + Sync>,
-    new_connection_calls: Arc<Mutex<Vec<(IpAddr, ProtocolConfig)>>>,
+    new_connection_calls: Arc<Mutex<Vec<(IpAddr, Protocol)>>>,
     tokio_handle: TokioHandle,
 }
 
@@ -265,11 +265,11 @@ impl MockProvider {
         }
     }
 
-    pub fn new_connection_calls(&self) -> Vec<(IpAddr, ProtocolConfig)> {
+    pub fn new_connection_calls(&self) -> Vec<(IpAddr, Protocol)> {
         self.new_connection_calls.lock().unwrap().clone()
     }
 
-    pub fn count_new_connection_calls(&self, ip: IpAddr, protocol: ProtocolConfig) -> usize {
+    pub fn count_new_connection_calls(&self, ip: IpAddr, protocol: Protocol) -> usize {
         self.new_connection_calls()
             .iter()
             .filter(|(ns_ip, proto)| *ns_ip == ip && *proto == protocol)
@@ -300,7 +300,7 @@ impl RuntimeProvider for MockProvider {
         self.new_connection_calls
             .lock()
             .unwrap()
-            .push((server_addr.ip(), ProtocolConfig::Tcp));
+            .push((server_addr.ip(), Protocol::Tcp));
         Box::pin(ready(Ok(MockTcpStream::new(
             self.handler.clone(),
             server_addr.ip(),
@@ -315,7 +315,7 @@ impl RuntimeProvider for MockProvider {
         self.new_connection_calls
             .lock()
             .unwrap()
-            .push((server_addr.ip(), ProtocolConfig::Udp));
+            .push((server_addr.ip(), Protocol::Udp));
         Box::pin(ready(Ok(MockUdpSocket::new(self.handler.clone()))))
     }
 }
@@ -382,9 +382,7 @@ impl DnsUdpSocket for MockUdpSocket {
                 return Poll::Ready(Err(io::Error::other(error)));
             }
         };
-        let response = self
-            .handler
-            .handle(target.ip(), ProtocolConfig::Udp, request);
+        let response = self.handler.handle(target.ip(), Protocol::Udp, request);
 
         let mut guard = self.inner.lock().unwrap();
         guard.incoming_datagrams.push_back((response, target));
@@ -485,7 +483,7 @@ impl AsyncWrite for MockTcpStream {
             };
             let response = self
                 .handler
-                .handle(self.destination, ProtocolConfig::Tcp, request);
+                .handle(self.destination, Protocol::Tcp, request);
 
             let encoded = match response.to_vec() {
                 Ok(vec) => vec,

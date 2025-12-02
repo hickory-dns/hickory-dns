@@ -7,18 +7,20 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Error, Recursor, RecursorBuilder, recursor::RecursorMode};
-use hickory_proto::{
-    ProtoError,
-    op::{Message, Query, ResponseCode},
-    rr::{Name, Record, RecordType},
-};
-use hickory_resolver::{
-    TtlConfig,
-    config::{ProtocolConfig, ResolverOpts},
-};
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
 use tokio::time as TokioTime;
+
+use crate::{
+    Error, Recursor, RecursorBuilder,
+    proto::{
+        ProtoError,
+        op::{Message, Query, ResponseCode},
+        rr::{Name, Record, RecordType},
+        xfer::Protocol,
+    },
+    recursor::RecursorMode,
+    resolver::{TtlConfig, config::ResolverOpts},
+};
 
 #[tokio::test]
 async fn recursor_connection_deduplication() -> Result<(), ProtoError> {
@@ -42,15 +44,15 @@ async fn recursor_connection_deduplication() -> Result<(), ProtoError> {
         assert_eq!(response.response_code(), ResponseCode::NoError);
 
         assert_eq!(
-            provider.count_new_connection_calls(ROOT_IP, ProtocolConfig::Tcp),
+            provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
             1
         );
         assert_eq!(
-            provider.count_new_connection_calls(TLD_IP, ProtocolConfig::Tcp),
+            provider.count_new_connection_calls(TLD_IP, Protocol::Tcp),
             1
         );
         assert_eq!(
-            provider.count_new_connection_calls(LEAF_IP, ProtocolConfig::Tcp),
+            provider.count_new_connection_calls(LEAF_IP, Protocol::Tcp),
             1
         );
     }
@@ -77,15 +79,15 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), ProtoError
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
     assert_eq!(
-        provider.count_new_connection_calls(ROOT_IP, ProtocolConfig::Tcp),
+        provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
         1
     );
     assert_eq!(
-        provider.count_new_connection_calls(TLD_IP, ProtocolConfig::Tcp),
+        provider.count_new_connection_calls(TLD_IP, Protocol::Tcp),
         1
     );
     assert_eq!(
-        provider.count_new_connection_calls(LEAF_IP, ProtocolConfig::Tcp),
+        provider.count_new_connection_calls(LEAF_IP, Protocol::Tcp),
         1
     );
 
@@ -104,15 +106,15 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), ProtoError
     assert_eq!(response.response_code(), ResponseCode::NoError);
     // Roots aren't subject to cache expiration
     assert_eq!(
-        provider.count_new_connection_calls(ROOT_IP, ProtocolConfig::Tcp),
+        provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
         1
     );
     assert_eq!(
-        provider.count_new_connection_calls(TLD_IP, ProtocolConfig::Tcp),
+        provider.count_new_connection_calls(TLD_IP, Protocol::Tcp),
         2
     );
     assert_eq!(
-        provider.count_new_connection_calls(LEAF_IP, ProtocolConfig::Tcp),
+        provider.count_new_connection_calls(LEAF_IP, Protocol::Tcp),
         2
     );
 
@@ -525,7 +527,7 @@ fn ns_cache_test_fixture(
     let counter = Arc::new(AtomicU8::new(0));
 
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-        move |destination: IpAddr, _protocol: ProtocolConfig, msg: &mut Message| {
+        move |destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
             let leaf_ns = leaf_ns.clone();
             let query_name = msg.queries()[0].name();
             let query_type = msg.queries()[0].query_type();
@@ -606,8 +608,8 @@ fn test_fixture() -> Result<(MockProvider, RecursorBuilder<MockProvider>), Proto
     ];
 
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-        |_destination: IpAddr, protocol: ProtocolConfig, msg: &mut Message| {
-            if protocol == ProtocolConfig::Udp {
+        |_destination: IpAddr, protocol: Protocol, msg: &mut Message| {
+            if protocol == Protocol::Udp {
                 msg.set_truncated(true);
             }
         },
