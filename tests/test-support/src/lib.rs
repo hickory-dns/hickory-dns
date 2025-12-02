@@ -255,6 +255,7 @@ pub struct MockProvider {
     handler: Arc<dyn MockHandler + Send + Sync>,
     new_connection_calls: Arc<Mutex<Vec<(IpAddr, Protocol)>>>,
     tokio_handle: TokioHandle,
+    queries: MockQueryCache,
 }
 
 impl MockProvider {
@@ -263,6 +264,7 @@ impl MockProvider {
             handler: Arc::new(handler),
             new_connection_calls: Arc::new(Mutex::new(vec![])),
             tokio_handle: TokioHandle::default(),
+            queries: MockQueryCache::new(),
         }
     }
 
@@ -276,6 +278,11 @@ impl MockProvider {
             .filter(|(ns_ip, proto)| *ns_ip == ip && *proto == protocol)
             .collect::<Vec<_>>()
             .len()
+    }
+
+    /// This returns all queries sent to a mock nameserver
+    pub fn queries(&self, ip: &IpAddr) -> Vec<Query> {
+        self.queries.get(ip)
     }
 }
 
@@ -305,6 +312,7 @@ impl RuntimeProvider for MockProvider {
         Box::pin(ready(Ok(MockTcpStream::new(
             self.handler.clone(),
             server_addr.ip(),
+            self.queries.clone(),
         ))))
     }
 
@@ -317,13 +325,17 @@ impl RuntimeProvider for MockProvider {
             .lock()
             .unwrap()
             .push((server_addr.ip(), Protocol::Udp));
-        Box::pin(ready(Ok(MockUdpSocket::new(self.handler.clone()))))
+        Box::pin(ready(Ok(MockUdpSocket::new(
+            self.handler.clone(),
+            self.queries.clone(),
+        ))))
     }
 }
 
 pub struct MockUdpSocket {
     inner: Mutex<MockUdpSocketInner>,
     handler: Arc<dyn MockHandler + Send + Sync + 'static>,
+    queries: MockQueryCache,
 }
 
 pub struct MockUdpSocketInner {
@@ -334,13 +346,17 @@ pub struct MockUdpSocketInner {
 }
 
 impl MockUdpSocket {
-    pub fn new(handler: Arc<dyn MockHandler + Send + Sync + 'static>) -> Self {
+    pub fn new(
+        handler: Arc<dyn MockHandler + Send + Sync + 'static>,
+        queries: MockQueryCache,
+    ) -> Self {
         Self {
             inner: Mutex::new(MockUdpSocketInner {
                 incoming_datagrams: VecDeque::new(),
                 waker: None,
             }),
             handler,
+            queries,
         }
     }
 }
@@ -383,6 +399,9 @@ impl DnsUdpSocket for MockUdpSocket {
                 return Poll::Ready(Err(io::Error::other(error)));
             }
         };
+
+        self.queries
+            .insert(target.ip(), request.queries()[0].clone());
         let response = self.handler.handle(target.ip(), Protocol::Udp, request);
 
         let mut guard = self.inner.lock().unwrap();
@@ -400,6 +419,7 @@ pub struct MockTcpStream {
     inner: Mutex<MockTcpStreamInner>,
     destination: IpAddr,
     handler: Arc<dyn MockHandler + Send + Sync + 'static>,
+    queries: MockQueryCache,
 }
 
 struct MockTcpStreamInner {
@@ -417,7 +437,11 @@ struct MockTcpStreamInner {
 }
 
 impl MockTcpStream {
-    fn new(handler: Arc<dyn MockHandler + Send + Sync + 'static>, destination: IpAddr) -> Self {
+    fn new(
+        handler: Arc<dyn MockHandler + Send + Sync + 'static>,
+        destination: IpAddr,
+        queries: MockQueryCache,
+    ) -> Self {
         Self {
             inner: Mutex::new(MockTcpStreamInner {
                 outgoing_buffer: VecDeque::new(),
@@ -426,6 +450,7 @@ impl MockTcpStream {
             }),
             destination,
             handler,
+            queries,
         }
     }
 }
@@ -482,6 +507,9 @@ impl AsyncWrite for MockTcpStream {
                     return Poll::Ready(Err(io::Error::other(error)));
                 }
             };
+
+            self.queries
+                .insert(self.destination, request.queries()[0].clone());
             let response = self
                 .handler
                 .handle(self.destination, Protocol::Tcp, request);
@@ -517,5 +545,22 @@ impl AsyncWrite for MockTcpStream {
 
     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
+    }
+}
+
+#[derive(Clone)]
+pub struct MockQueryCache(Arc<Mutex<HashMap<IpAddr, Vec<Query>>>>);
+
+impl MockQueryCache {
+    fn get(&self, ip: &IpAddr) -> Vec<Query> {
+        self.0.lock().unwrap().get(ip).cloned().unwrap_or_default()
+    }
+
+    fn insert(&self, ip: IpAddr, query: Query) {
+        self.0.lock().unwrap().entry(ip).or_default().push(query);
+    }
+
+    fn new() -> Self {
+        Self(Arc::new(Mutex::new(HashMap::new())))
     }
 }
