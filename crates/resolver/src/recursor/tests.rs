@@ -19,7 +19,7 @@ use crate::{
         rr::{Name, Record, RecordType},
         xfer::Protocol,
     },
-    recursor::{Error, Recursor, RecursorBuilder, recursor::RecursorMode},
+    recursor::{Error, Recursor, RecursorBuilder, RecursorMode},
 };
 
 #[tokio::test]
