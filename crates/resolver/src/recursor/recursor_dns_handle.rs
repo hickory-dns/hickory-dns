@@ -16,7 +16,7 @@ use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
-use crate::{
+use super::{
     Error, ErrorKind, RecursorBuilder,
     error::AuthorityData,
     is_subzone,
@@ -31,11 +31,11 @@ use crate::{
             rdata::{A, AAAA, NS},
         },
     },
-    resolver::{
-        ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache,
-        TlsConfig, TtlConfig,
-        config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
-    },
+};
+use crate::{
+    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+    TtlConfig,
+    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
 };
 
 #[derive(Clone)]
@@ -684,7 +684,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // nameserver_pool, but for a non-child nameservers we need to get an appropriate pool.
             // To avoid incrementing the depth counter for each nameserver, we'll use the passed in
             // depth as a fixed base for the nameserver lookups
-            let nameserver_pool = if !crate::is_subzone(zone, &record_name) {
+            let nameserver_pool = if !super::is_subzone(zone, &record_name) {
                 self.ns_pool_for_name(record_name.clone(), request_time, depth)
                     .await?
                     .1 // discard the depth part of the tuple
@@ -813,20 +813,18 @@ fn recursor_opts(
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
 ) -> ResolverOpts {
-    let mut options = ResolverOpts::default();
-    options.ndots = 0;
-    options.edns0 = true;
-    #[cfg(feature = "__dnssec")]
-    {
-        options.validate = false; // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
+    ResolverOpts {
+        ndots: 0,
+        edns0: true,
+        #[cfg(feature = "__dnssec")]
+        validate: false, // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
+        preserve_intermediates: true,
+        recursion_desired: false,
+        num_concurrent_reqs: 1,
+        avoid_local_udp_ports,
+        case_randomization,
+        ..ResolverOpts::default()
     }
-    options.preserve_intermediates = true;
-    options.recursion_desired = false;
-    options.num_concurrent_reqs = 1;
-    options.avoid_local_udp_ports = avoid_local_udp_ports;
-    options.case_randomization = case_randomization;
-
-    options
 }
 
 fn name_server_config(
@@ -892,8 +890,7 @@ mod tests {
 
     use ipnet::IpNet;
 
-    use crate::Recursor;
-    use crate::recursor::RecursorMode;
+    use crate::recursor::{Recursor, recursor::RecursorMode};
 
     #[test]
     fn test_nameserver_filter() {

@@ -208,6 +208,10 @@ mod name_server_pool;
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
 pub use name_server_pool::OpportunisticEncryptionStatePersistTask;
 pub use name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
+
+#[cfg(feature = "recursor")]
+pub mod recursor;
+
 mod resolver;
 pub use resolver::LookupFuture;
 #[cfg(feature = "tokio")]

@@ -26,36 +26,32 @@ license.workspace = true
 [features]
 backtrace = ["hickory-proto/backtrace"]
 # Recursive Resolution is Experimental!
-recursor = ["dep:hickory-recursor", "resolver"]
+recursor = ["hickory-resolver/recursor"]
 resolver = ["dep:hickory-resolver"]
 sqlite = ["rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml", "hickory-resolver?/toml"]
-metrics = ["hickory-recursor?/metrics", "dep:metrics"]
+metrics = ["hickory-resolver?/metrics", "dep:metrics"]
 
 tls-aws-lc-rs = [
     "hickory-proto/tls-aws-lc-rs",
-    "hickory-recursor?/tls-aws-lc-rs",
     "hickory-resolver?/tls-aws-lc-rs",
     "__tls",
 ]
 https-aws-lc-rs = [
     "hickory-proto/https-aws-lc-rs",
-    "hickory-recursor?/https-aws-lc-rs",
     "hickory-resolver?/https-aws-lc-rs",
     "tls-aws-lc-rs",
     "__https",
 ]
 quic-aws-lc-rs = [
     "hickory-proto/quic-aws-lc-rs",
-    "hickory-recursor?/quic-aws-lc-rs",
     "hickory-resolver?/quic-aws-lc-rs",
     "tls-aws-lc-rs",
     "__quic",
 ]
 h3-aws-lc-rs = [
     "hickory-proto/h3-aws-lc-rs",
-    "hickory-recursor?/h3-aws-lc-rs",
     "hickory-resolver?/h3-aws-lc-rs",
     "quic-aws-lc-rs",
     "__h3",
@@ -63,27 +59,23 @@ h3-aws-lc-rs = [
 
 tls-ring = [
     "hickory-proto/tls-ring",
-    "hickory-recursor?/tls-ring",
     "hickory-resolver?/tls-ring",
     "__tls",
 ]
 https-ring = [
     "hickory-proto/https-ring",
-    "hickory-recursor?/https-ring",
     "hickory-resolver?/https-ring",
     "tls-ring",
     "__https",
 ]
 quic-ring = [
     "hickory-proto/quic-ring",
-    "hickory-recursor?/quic-ring",
     "hickory-resolver?/quic-ring",
     "tls-ring",
     "__quic",
 ]
 h3-ring = [
     "hickory-proto/h3-ring",
-    "hickory-recursor?/h3-ring",
     "hickory-resolver?/h3-ring",
     "quic-ring",
     "__h3",
@@ -94,8 +86,8 @@ __https = ["dep:h2", "dep:http", "__tls"]
 __quic = ["__tls"]
 __h3 = ["dep:h3", "dep:h3-quinn", "__quic"]
 
-dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-recursor?/dnssec-aws-lc-rs", "hickory-resolver?/dnssec-aws-lc-rs", "serde/rc", "__dnssec"]
-dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-recursor?/dnssec-ring", "hickory-resolver?/dnssec-ring", "serde/rc", "__dnssec"]
+dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-resolver?/dnssec-aws-lc-rs", "serde/rc", "__dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-resolver?/dnssec-ring", "serde/rc", "__dnssec"]
 __dnssec = []
 
 webpki-roots = ["hickory-resolver?/webpki-roots"]
@@ -131,7 +123,6 @@ tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
 hickory-proto = { workspace = true, features = ["serde", "text-parsing", "tokio"] }
-hickory-recursor = { workspace = true, features = ["serde"], optional = true }
 hickory-resolver = { workspace = true, features = ["serde", "system-config", "tokio"], optional = true }
 metrics = { workspace = true, optional = true }
 

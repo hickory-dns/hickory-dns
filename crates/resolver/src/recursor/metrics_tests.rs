@@ -1,9 +1,5 @@
 use std::{net::Ipv4Addr, time::Instant};
 
-use hickory_proto::{
-    op::{Query, ResponseCode},
-    rr::{Name, RecordType},
-};
 use metrics::{Key, Unit, with_local_recorder};
 use metrics_util::{
     CompositeKey, MetricKind,
@@ -12,7 +8,11 @@ use metrics_util::{
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
 use tokio::runtime::Builder;
 
-use crate::Recursor;
+use super::Recursor;
+use crate::proto::{
+    op::{Query, ResponseCode},
+    rr::{Name, RecordType},
+};
 
 #[test]
 fn test_recursor_metrics() {
