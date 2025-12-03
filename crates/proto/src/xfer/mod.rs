@@ -282,21 +282,6 @@ pub struct BufDnsRequestStreamHandle<P> {
 }
 
 #[cfg(feature = "std")]
-macro_rules! try_oneshot {
-    ($expr:expr) => {{
-        use core::result::Result;
-
-        match $expr {
-            Result::Ok(val) => val,
-            Result::Err(err) => return DnsResponseReceiver::Err(Some(ProtoError::from(err))),
-        }
-    }};
-    ($expr:expr,) => {
-        $expr?
-    };
-}
-
-#[cfg(feature = "std")]
 impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
     type Response = DnsResponseReceiver;
     type Runtime = P;
@@ -314,7 +299,11 @@ impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
             debug!("unable to enqueue message");
             ProtoError::from(ProtoErrorKind::Busy)
         });
-        try_oneshot!(try_send);
+
+        match try_send {
+            Ok(val) => val,
+            Err(err) => return DnsResponseReceiver::Err(Some(ProtoError::from(err))),
+        }
 
         DnsResponseReceiver::Receiver(oneshot)
     }
