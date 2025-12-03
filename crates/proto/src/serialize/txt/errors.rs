@@ -4,7 +4,7 @@ use std::io;
 #[cfg(feature = "backtrace")]
 use crate::trace;
 use crate::{
-    error::{ProtoError, ProtoErrorKind},
+    error::ProtoError,
     rr::RecordType,
     serialize::{binary::DecodeError, txt::Token},
 };
@@ -77,10 +77,6 @@ pub enum ParseErrorKind {
     /// Unknown RecordType
     #[error("unsupported RecordType: {0}")]
     UnsupportedRecordType(RecordType),
-
-    /// A request timed out
-    #[error("request timed out")]
-    Timeout,
 }
 
 impl Clone for ParseErrorKind {
@@ -103,7 +99,6 @@ impl Clone for ParseErrorKind {
             Proto(e) => Proto(e.clone()),
             UnsupportedRecordType(ty) => UnsupportedRecordType(*ty),
             UnknownRecordType(ty) => UnknownRecordType(*ty),
-            Timeout => Timeout,
         }
     }
 }
@@ -190,10 +185,7 @@ impl From<::data_encoding::DecodeError> for ParseError {
 
 impl From<io::Error> for ParseError {
     fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::TimedOut => ParseErrorKind::Timeout.into(),
-            _ => ParseErrorKind::from(e).into(),
-        }
+        ParseErrorKind::from(e).into()
     }
 }
 
@@ -211,10 +203,7 @@ impl From<core::num::ParseIntError> for ParseError {
 
 impl From<ProtoError> for ParseError {
     fn from(e: ProtoError) -> Self {
-        match e.kind() {
-            ProtoErrorKind::Timeout => ParseErrorKind::Timeout.into(),
-            _ => ParseErrorKind::from(e).into(),
-        }
+        ParseErrorKind::from(e).into()
     }
 }
 
@@ -226,10 +215,7 @@ impl From<core::convert::Infallible> for ParseError {
 
 impl From<ParseError> for io::Error {
     fn from(e: ParseError) -> Self {
-        match e.kind() {
-            ParseErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::other(e),
-        }
+        Self::other(e)
     }
 }
 
