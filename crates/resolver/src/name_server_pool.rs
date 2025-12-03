@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::cmp::Ordering;
 use std::collections::{HashMap, VecDeque};
 use std::net::IpAddr;
 use std::pin::Pin;
@@ -408,46 +407,41 @@ impl<P: ConnectionProvider> PoolState<P> {
                     _ => return Err(e),
                 }
 
-                if cmp_specificity(&err, &e) == Ordering::Less {
-                    err = e;
-                }
+                err = most_specific(err, e);
             }
         }
     }
 }
 
-/// Compare two errors to see if one contains a server response.
-fn cmp_specificity(previous: &ProtoError, current: &ProtoError) -> Ordering {
-    let kind = previous.kind();
-    let current = current.kind();
-
-    match (kind, current) {
+/// Yield the most specific of two errors to return to the caller
+fn most_specific(previous: ProtoError, current: ProtoError) -> ProtoError {
+    match (previous.kind(), current.kind()) {
         (
             ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
             ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
         ) => {
-            return Ordering::Equal;
+            return previous;
         }
-        (ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }), _) => return Ordering::Greater,
-        (_, ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })) => return Ordering::Less,
+        (ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }), _) => return previous,
+        (_, ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })) => return current,
         _ => (),
     }
 
-    match (kind, current) {
-        (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
-        (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
-        (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
+    match (previous.kind(), current.kind()) {
+        (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return previous,
+        (ProtoErrorKind::Io { .. }, _) => return current,
+        (_, ProtoErrorKind::Io { .. }) => return previous,
         _ => (),
     }
 
-    match (kind, current) {
-        (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return Ordering::Equal,
-        (ProtoErrorKind::Timeout, _) => return Ordering::Greater,
-        (_, ProtoErrorKind::Timeout) => return Ordering::Less,
+    match (previous.kind(), current.kind()) {
+        (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return previous,
+        (ProtoErrorKind::Timeout, _) => return previous,
+        (_, ProtoErrorKind::Timeout) => return current,
         _ => (),
     }
 
-    Ordering::Equal
+    previous
 }
 
 /// Context for a [`NameServerPool`]
