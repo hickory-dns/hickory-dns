@@ -63,9 +63,6 @@ pub use hickory_proto as proto;
 mod error;
 pub use error::{Error, ErrorKind};
 
-#[cfg(all(test, feature = "metrics"))]
-mod metrics_tests;
-
 mod handle;
 use handle::RecursorDnsHandle;
 #[cfg(all(feature = "__dnssec", feature = "metrics"))]
