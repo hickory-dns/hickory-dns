@@ -87,7 +87,12 @@ impl<S: DnsTcpStream> Stream for TcpClientStream<S> {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let message = try_ready_stream!(self.tcp_stream.poll_next_unpin(cx));
+        let message = match self.tcp_stream.poll_next_unpin(cx) {
+            Poll::Ready(Some(Ok(t))) => t,
+            Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(From::from(e)))),
+            Poll::Ready(None) => return Poll::Ready(None),
+            Poll::Pending => return Poll::Pending,
+        };
 
         // this is busted if the tcp connection doesn't have a peer
         let peer = self.tcp_stream.peer_addr();
