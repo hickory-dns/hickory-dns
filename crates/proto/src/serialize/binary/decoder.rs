@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use alloc::{borrow::ToOwned, string::String, vec::Vec, boxed::Box};
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 
 use thiserror::Error;
 
