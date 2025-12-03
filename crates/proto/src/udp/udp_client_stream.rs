@@ -19,7 +19,7 @@ use futures_util::{
 };
 use tracing::{debug, trace, warn};
 
-use crate::error::{ProtoError, ProtoErrorKind};
+use crate::error::{NetError, NetErrorKind};
 use crate::op::{DnsRequest, DnsResponse, Message, MessageSigner, SerialMessage};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
@@ -104,7 +104,7 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
 
 // TODO: is this impl necessary? there's nothing being driven here...
 impl<P> Stream for UdpClientStream<P> {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // Technically the Stream doesn't actually do anything.
@@ -152,7 +152,7 @@ impl<P: RuntimeProvider> UdpRequest<P> {
 }
 
 impl<P: RuntimeProvider> Request for UdpRequest<P> {
-    async fn send(&self) -> Result<DnsResponse, ProtoError> {
+    async fn send(&self) -> Result<DnsResponse, NetError> {
         let original_query = self.request.original_query();
         let mut request = self.request.clone();
 
@@ -162,14 +162,14 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                 Ok(answer_verifier) => verifier = answer_verifier,
                 Err(e) => {
                     debug!("could not sign message: {}", e);
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }
 
         let request_bytes = match request.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return Err(err),
+            Err(err) => return Err(err.into()),
         };
 
         let msg_id = request.id();
@@ -177,7 +177,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         let addr = msg.addr();
         let final_message = match msg.to_message() {
             Ok(m) => m,
-            Err(e) => return Err(e),
+            Err(e) => return Err(e.into()),
         };
         debug!(%final_message, "final message");
 
@@ -194,7 +194,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         let len_sent: usize = socket.send_to(bytes, addr).await?;
 
         if bytes.len() != len_sent {
-            return Err(ProtoError::from(format!(
+            return Err(NetError::from(format!(
                 "Not all bytes of message sent, {} of {}",
                 len_sent,
                 bytes.len()
@@ -253,7 +253,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                     response.id()
                 );
 
-                return Err(ProtoErrorKind::BadTransactionId.into());
+                return Err(NetError::from(NetErrorKind::BadTransactionId));
             }
 
             // Validate the returned query name.
@@ -299,7 +299,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                 warn!(
                     "case of question section did not match: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}"
                 );
-                return Err(ProtoErrorKind::QueryCaseMismatch.into());
+                return Err(NetError::from(NetErrorKind::QueryCaseMismatch));
             }
             if !question_matches {
                 warn!(
@@ -321,13 +321,13 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
 
             debug!("received message id: {}", response.id());
             if let Some(mut verifier) = verifier {
-                return verifier(response_bytes);
+                return Ok(verifier(response_bytes)?);
             } else {
                 return Ok(response);
             }
         }
 
-        Err("udp receive attempts exceeded".into())
+        Err(NetError::from("udp receive attempts exceeded"))
     }
 }
 
@@ -462,7 +462,7 @@ async fn retry<Provider: RuntimeProvider>(
     request: impl Request,
     retry_interval_time: Duration,
     max_tasks: usize,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     let mut futures = FuturesUnordered::new();
 
     let retry_timer = Provider::Timer::delay_for(retry_interval_time).fuse();
@@ -476,7 +476,7 @@ async fn retry<Provider: RuntimeProvider>(
             result = futures.next() => {
                 match result {
                     Some(result) => return result,
-                    None => return Err(ProtoError::from("no tasks successful")),
+                    None => return Err(NetError::from("no tasks successful")),
                 }
             }
             _ = &mut retry_timer => {
@@ -491,7 +491,7 @@ async fn retry<Provider: RuntimeProvider>(
 }
 
 trait Request {
-    async fn send(&self) -> Result<DnsResponse, ProtoError>;
+    async fn send(&self) -> Result<DnsResponse, NetError>;
 }
 
 #[cfg(all(test, feature = "tokio"))]
@@ -630,7 +630,7 @@ mod tests {
     }
 
     impl Request for FixedResponse {
-        async fn send(&self) -> Result<DnsResponse, ProtoError> {
+        async fn send(&self) -> Result<DnsResponse, NetError> {
             Ok(self.response.clone())
         }
     }
@@ -659,7 +659,7 @@ mod tests {
     }
 
     impl Request for DelayedResponse {
-        async fn send(&self) -> Result<DnsResponse, ProtoError> {
+        async fn send(&self) -> Result<DnsResponse, NetError> {
             let _ = self.counter.fetch_add(1, Ordering::Relaxed);
             sleep(self.delay).await;
             Ok(self.response.clone())

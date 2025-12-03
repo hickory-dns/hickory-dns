@@ -32,7 +32,7 @@ use futures_util::{
 use tracing::debug;
 
 use crate::{
-    ProtoError, ProtoErrorKind,
+    error::{NetError, NetErrorKind, ProtoError, ProtoErrorKind},
     op::{
         DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageSigner, OpCode, Query,
         update_message,
@@ -616,18 +616,18 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientResponse<R>(pub(crate) R)
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static;
 
 impl<R> Future for ClientResponse<R>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static,
 {
-    type Output = Result<DnsResponse, ProtoError>;
+    type Output = Result<DnsResponse, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(match ready!(self.0.poll_next_unpin(cx)) {
             Some(r) => r,
-            None => Err(ProtoError::from(ProtoErrorKind::Timeout)),
+            None => Err(NetError::from(NetErrorKind::Timeout)),
         })
     }
 }
@@ -638,14 +638,14 @@ where
 #[must_use = "stream do nothing unless polled"]
 pub struct ClientStreamXfr<R>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static,
 {
     state: ClientStreamXfrState<R>,
 }
 
 impl<R> ClientStreamXfr<R>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static,
 {
     fn new(inner: R, maybe_incr: bool) -> Self {
         Self {
@@ -826,9 +826,9 @@ impl<R> ClientStreamXfrState<R> {
 
 impl<R> Stream for ClientStreamXfr<R>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static,
 {
-    type Item = Result<DnsResponse, ProtoError>;
+    type Item = Result<DnsResponse, NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use ClientStreamXfrState::*;

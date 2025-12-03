@@ -13,9 +13,8 @@ use core::task::{Context, Poll};
 
 use futures_util::stream::{Stream, StreamExt};
 
-use crate::error::ProtoError;
 use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
-use crate::{DnsError, ProtoErrorKind};
+use crate::{DnsError, NetError, NetErrorKind};
 
 /// Can be used to reattempt queries if they fail
 ///
@@ -47,7 +46,7 @@ impl<H> RetryDnsHandle<H> {
 }
 
 impl<H: DnsHandle> DnsHandle for RetryDnsHandle<H> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin>>;
     type Runtime = H::Runtime;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
@@ -73,7 +72,7 @@ struct RetrySendStream<H: DnsHandle> {
 }
 
 impl<H: DnsHandle> Stream for RetrySendStream<H> {
-    type Item = Result<DnsResponse, ProtoError>;
+    type Item = Result<DnsResponse, NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // loop over the stream, on errors, spawn a new stream
@@ -84,20 +83,29 @@ impl<H: DnsHandle> Stream for RetrySendStream<H> {
                 poll => return poll,
             };
 
-            use ProtoErrorKind::*;
             match (self.remaining_attempts, err) {
                 // No attempts left, return the error
                 (0, err) => return Poll::Ready(Some(Err(err))),
                 // Don't retry some kinds of errors
                 (
                     _,
-                    err @ ProtoError {
-                        kind: NoConnections | Dns(DnsError::NoRecordsFound { .. }),
+                    err @ NetError {
+                        kind: NetErrorKind::NoConnections,
+                        ..
+                    }
+                    | err @ NetError {
+                        kind: NetErrorKind::Dns(DnsError::NoRecordsFound(_)),
                         ..
                     },
                 ) => return Poll::Ready(Some(Err(err))),
                 // Don't count `Busy` as an attempt
-                (_, ProtoError { kind: Busy, .. }) => {}
+                (
+                    _,
+                    NetError {
+                        kind: NetErrorKind::Busy,
+                        ..
+                    },
+                ) => {}
                 // Try again and count this as one attempt
                 (_, _) => self.remaining_attempts -= 1,
             }
@@ -121,7 +129,6 @@ mod test {
     use futures_util::stream::{Stream, once};
 
     use super::*;
-    use crate::error::ProtoError;
     use crate::op::Message;
     use crate::runtime::TokioRuntimeProvider;
     use crate::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
@@ -135,7 +142,7 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+        type Response = Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin>;
         type Runtime = TokioRuntimeProvider;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
@@ -148,7 +155,7 @@ mod test {
             }
 
             self.attempts.fetch_add(1, Ordering::SeqCst);
-            Box::new(once(err(ProtoError::from("last retry set to fail"))))
+            Box::new(once(err(NetError::from("last retry set to fail"))))
         }
     }
 

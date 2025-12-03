@@ -32,7 +32,7 @@ use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
 use hickory_proto::xfer::Protocol;
 #[cfg(feature = "blocklist")]
-use hickory_proto::{ProtoError, ProtoErrorKind};
+use hickory_proto::{NetError, NetErrorKind};
 use prometheus_parse::{Scrape, Value};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use rustls_pki_types::PrivatePkcs8KeyDer;
@@ -723,13 +723,13 @@ async fn retry_client_lookup(
     name: Name,
     class: DNSClass,
     rtype: RecordType,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     let mut i = 0;
     loop {
         return match client.query(name.clone(), class, rtype).await {
             Ok(res) => Ok(res),
-            Err(ProtoError {
-                kind: ProtoErrorKind::Timeout,
+            Err(NetError {
+                kind: NetErrorKind::Timeout,
                 ..
             }) if i < LOOKUP_RETRIES => {
                 i += 1;

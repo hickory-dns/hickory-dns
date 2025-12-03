@@ -36,7 +36,7 @@ use tokio::task::JoinSet;
 use tokio::time::MissedTickBehavior;
 
 use hickory_proto::{
-    DnsError, ProtoError, ProtoErrorKind,
+    DnsError, NetError, NetErrorKind,
     rr::{Record, RecordData, RecordType},
     runtime::TokioRuntimeProvider,
 };
@@ -160,9 +160,9 @@ fn print_ok(lookup: Lookup) {
     }
 }
 
-fn print_error(error: ProtoError) {
-    let no_records = match &error.kind {
-        ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
+fn print_error(error: NetError) {
+    let no_records = match error.kind {
+        NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
         _ => {
             println!("{error:?}");
             return;
@@ -180,7 +180,7 @@ fn print_error(error: ProtoError) {
     }
 }
 
-fn print_result(result: Result<Lookup, ProtoError>) {
+fn print_result(result: Result<Lookup, NetError>) {
     match result {
         Ok(lookup) => print_ok(lookup),
         Err(re) => print_error(re),
@@ -218,7 +218,7 @@ async fn execute_query(
     happy: bool,
     reverse: bool,
     ty: RecordType,
-) -> Result<Lookup, ProtoError> {
+) -> Result<Lookup, NetError> {
     if happy {
         Ok(resolver.lookup_ip(name.to_string()).await?.into())
     } else if reverse {

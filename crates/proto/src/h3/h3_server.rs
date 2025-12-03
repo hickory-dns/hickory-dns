@@ -21,7 +21,7 @@ use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
 
-use crate::{error::ProtoError, rustls::default_provider, udp::UdpSocket};
+use crate::{error::NetError, rustls::default_provider, udp::UdpSocket};
 
 use super::ALPN_H3;
 
@@ -35,7 +35,7 @@ impl H3Server {
     pub async fn new(
         name_server: SocketAddr,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, NetError> {
         // setup a new socket for the server to use
         let socket = <tokio::net::UdpSocket as UdpSocket>::bind(name_server).await?;
         Self::with_socket(socket, server_cert_resolver)
@@ -45,7 +45,7 @@ impl H3Server {
     pub fn with_socket(
         socket: tokio::net::UdpSocket,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, NetError> {
         let mut config = TlsServerConfig::builder_with_provider(Arc::new(default_provider()))
             .with_protocol_versions(&[&TLS13])
             .expect("TLS1.3 not supported")
@@ -63,7 +63,7 @@ impl H3Server {
     pub fn with_socket_and_tls_config(
         socket: tokio::net::UdpSocket,
         tls_config: Arc<TlsServerConfig>,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, NetError> {
         let mut server_config =
             ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config).unwrap()));
         server_config.transport = Arc::new(super::transport());
@@ -85,7 +85,7 @@ impl H3Server {
     /// # Returns
     ///
     /// A remote connection that could accept many potential requests and the remote socket address
-    pub async fn accept(&mut self) -> Result<Option<(H3Connection, SocketAddr)>, ProtoError> {
+    pub async fn accept(&mut self) -> Result<Option<(H3Connection, SocketAddr)>, NetError> {
         let connecting = match self.endpoint.accept().await {
             Some(conn) => conn,
             None => return Ok(None),
@@ -97,7 +97,7 @@ impl H3Server {
             H3Connection {
                 connection: Connection::new(h3_quinn::Connection::new(connection))
                     .await
-                    .map_err(|e| ProtoError::from(format!("h3 connection failed: {e}")))?,
+                    .map_err(|e| NetError::from(format!("h3 connection failed: {e}")))?,
             },
             remote_addr,
         )))
@@ -121,24 +121,24 @@ impl H3Connection {
     /// Accept the next request from the client
     pub async fn accept(
         &mut self,
-    ) -> Option<Result<(Request<()>, RequestStream<BidiStream<Bytes>, Bytes>), ProtoError>> {
+    ) -> Option<Result<(Request<()>, RequestStream<BidiStream<Bytes>, Bytes>), NetError>> {
         match self.connection.accept().await {
             Ok(Some(resolver)) => match resolver.resolve_request().await {
                 Ok((request, stream)) => Some(Ok((request, stream))),
-                Err(e) => Some(Err(ProtoError::from(format!(
+                Err(e) => Some(Err(NetError::from(format!(
                     "h3 request resolution failed: {e}"
                 )))),
             },
             Ok(None) => None,
-            Err(e) => Some(Err(ProtoError::from(format!("h3 request failed: {e}")))),
+            Err(e) => Some(Err(NetError::from(format!("h3 request failed: {e}")))),
         }
     }
 
     /// Shutdown the connection.
-    pub async fn shutdown(&mut self) -> Result<(), ProtoError> {
+    pub async fn shutdown(&mut self) -> Result<(), NetError> {
         self.connection
             .shutdown(0)
             .await
-            .map_err(|e| ProtoError::from(format!("h3 connection shutdown failed: {e}")))
+            .map_err(|e| NetError::from(format!("h3 connection shutdown failed: {e}")))
     }
 }

@@ -15,7 +15,7 @@ use crate::{
     cache::TtlConfig,
     config::ResolverOpts,
     proto::{
-        ProtoError,
+        NetError,
         op::{Message, Query, ResponseCode},
         rr::{Name, Record, RecordType},
         xfer::Protocol,
@@ -23,7 +23,7 @@ use crate::{
 };
 
 #[tokio::test]
-async fn recursor_connection_deduplication() -> Result<(), ProtoError> {
+async fn recursor_connection_deduplication() -> Result<(), NetError> {
     subscribe();
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -61,7 +61,7 @@ async fn recursor_connection_deduplication() -> Result<(), ProtoError> {
 }
 
 #[tokio::test]
-async fn recursor_connection_deduplication_non_cached() -> Result<(), ProtoError> {
+async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> {
     subscribe();
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -122,7 +122,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), ProtoError
 }
 
 #[tokio::test(start_paused = true)]
-async fn name_server_cache_ttl() -> Result<(), ProtoError> {
+async fn name_server_cache_ttl() -> Result<(), NetError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let query_2_name = Name::from_ascii("host2.hickory-dns.testing.")?;
 
@@ -156,7 +156,7 @@ async fn name_server_cache_ttl() -> Result<(), ProtoError> {
 }
 
 #[tokio::test(start_paused = true)]
-async fn name_server_cache_ttl_clamp_min() -> Result<(), ProtoError> {
+async fn name_server_cache_ttl_clamp_min() -> Result<(), NetError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let query_2_name = Name::from_ascii("host2.hickory-dns.testing.")?;
 
@@ -207,7 +207,7 @@ async fn name_server_cache_ttl_clamp_min() -> Result<(), ProtoError> {
 }
 
 #[tokio::test(start_paused = true)]
-async fn name_server_cache_ttl_clamp_max() -> Result<(), ProtoError> {
+async fn name_server_cache_ttl_clamp_max() -> Result<(), NetError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let query_2_name = Name::from_ascii("host2.hickory-dns.testing.")?;
 
@@ -250,7 +250,7 @@ async fn name_server_cache_ttl_clamp_max() -> Result<(), ProtoError> {
 }
 
 #[tokio::test(start_paused = true)]
-async fn name_server_cache_ttl_glue() -> Result<(), ProtoError> {
+async fn name_server_cache_ttl_glue() -> Result<(), NetError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let query_2_name = Name::from_ascii("host2.hickory-dns.testing.")?;
 
@@ -287,7 +287,7 @@ async fn name_server_cache_ttl_glue() -> Result<(), ProtoError> {
 }
 
 #[tokio::test(start_paused = true)]
-async fn name_server_cache_ttl_glue_off_domain() -> Result<(), ProtoError> {
+async fn name_server_cache_ttl_glue_off_domain() -> Result<(), NetError> {
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let query_2_name = Name::from_ascii("host2.hickory-dns.testing.")?;
 
@@ -325,7 +325,7 @@ async fn name_server_cache_ttl_glue_off_domain() -> Result<(), ProtoError> {
 }
 
 #[tokio::test]
-async fn ns_pool_zone_name_test() -> Result<(), ProtoError> {
+async fn ns_pool_zone_name_test() -> Result<(), NetError> {
     subscribe();
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
@@ -435,7 +435,7 @@ async fn ns_pool_zone_name_test() -> Result<(), ProtoError> {
 }
 
 #[tokio::test]
-async fn not_fully_qualified_domain_name_in_query() -> Result<(), Error> {
+async fn not_fully_qualified_domain_name_in_query() -> Result<(), NetError> {
     subscribe();
 
     let j_root_servers_net_ip = IpAddr::from([192, 58, 128, 30]);
@@ -493,7 +493,7 @@ fn is_subzone_test() {
 async fn get_zone_name(
     recursor: &Recursor<MockProvider>,
     query: &Name,
-) -> Result<Option<Name>, ProtoError> {
+) -> Result<Option<Name>, NetError> {
     match recursor.mode {
         RecursorMode::NonValidating { ref handle } => {
             let ns_pool = handle
@@ -636,7 +636,7 @@ fn validate_response(response: Message, name: &Name, ip: IpAddr) -> bool {
         && response.answers() == [Record::from_rdata(name.clone(), 0, ip.into())]
 }
 
-fn test_fixture() -> Result<(MockProvider, RecursorBuilder<MockProvider>), ProtoError> {
+fn test_fixture() -> Result<(MockProvider, RecursorBuilder<MockProvider>), NetError> {
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
 

@@ -24,7 +24,7 @@ use super::BinEncodable;
 mod private {
     use alloc::vec::Vec;
 
-    use crate::error::{ProtoErrorKind, ProtoResult};
+    use crate::{ProtoErrorKind, error::ProtoResult};
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
     pub(super) struct MaximalBuf<'a> {

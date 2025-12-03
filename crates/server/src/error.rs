@@ -20,10 +20,10 @@ use std::{fmt, io};
 
 use thiserror::Error;
 
+use crate::proto::ProtoError;
 use crate::proto::serialize::txt::ParseError;
 #[cfg(feature = "backtrace")]
 use crate::proto::{ExtBacktrace, trace};
-use crate::proto::{ProtoError, ProtoErrorKind};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
@@ -101,10 +101,7 @@ impl From<PersistenceErrorKind> for PersistenceError {
 
 impl From<ProtoError> for PersistenceError {
     fn from(e: ProtoError) -> Self {
-        match &e.kind {
-            ProtoErrorKind::Timeout => PersistenceErrorKind::Timeout.into(),
-            _ => PersistenceErrorKind::from(e).into(),
-        }
+        PersistenceErrorKind::from(e).into()
     }
 }
 

@@ -442,11 +442,11 @@ async fn test_max_chained_lookup_depth() {
 }
 
 // This test expects a no-answer query which returns a SOA record in the nameservers section to
-// contain a ProtoErrorKind::NoRecordsFound error with a SOA record present (soa.is_some()) and
+// contain a NetErrorKind::NoRecordsFound error with a SOA record present (soa.is_some()) and
 // no NS records present (!ns.is_some())
 #[tokio::test]
 async fn test_forward_soa() {
-    use hickory_proto::ProtoErrorKind;
+    use hickory_proto::NetErrorKind;
 
     subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
@@ -472,7 +472,7 @@ async fn test_forward_soa() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind else {
+    let NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind else {
         panic!("Unexpected kind: {e:?}");
     };
 
@@ -481,11 +481,11 @@ async fn test_forward_soa() {
 }
 
 // This test expects a no-answer query which returns an NS record in the nameservers section to
-// contain a ProtoErrorKind::NoRecordsFound error with an NS record present (ns.is_some()) and
+// contain a NetErrorKind::NoRecordsFound error with an NS record present (ns.is_some()) and
 // no SOA records present (!soa.is_some())
 #[tokio::test]
 async fn test_forward_ns() {
-    use hickory_proto::ProtoErrorKind;
+    use hickory_proto::NetErrorKind;
 
     subscribe();
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
@@ -511,7 +511,7 @@ async fn test_forward_ns() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind else {
+    let NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind else {
         panic!("Unexpected kind: {e:?}");
     };
 

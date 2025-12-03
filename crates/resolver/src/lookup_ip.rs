@@ -27,7 +27,7 @@ use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupIter};
-use crate::proto::ProtoError;
+use crate::proto::NetError;
 use crate::proto::op::{DnsRequestOptions, Query};
 use crate::proto::rr::{Name, RData, Record, RecordType};
 use crate::proto::xfer::DnsHandle;
@@ -100,7 +100,7 @@ pub struct LookupIpFuture<C: DnsHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     options: DnsRequestOptions,
-    query: BoxFuture<'static, Result<Lookup, ProtoError>>,
+    query: BoxFuture<'static, Result<Lookup, NetError>>,
     hosts: Arc<Hosts>,
     finally_ip_addr: Option<RData>,
 }
@@ -136,7 +136,7 @@ impl<C: DnsHandle + 'static> LookupIpFuture<C> {
 }
 
 impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
-    type Output = Result<LookupIp, ProtoError>;
+    type Output = Result<LookupIp, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -205,7 +205,7 @@ impl<C: DnsHandle> LookupContext<C> {
         self,
         name: Name,
         strategy: LookupIpStrategy,
-    ) -> Result<Lookup, ProtoError> {
+    ) -> Result<Lookup, NetError> {
         match strategy {
             LookupIpStrategy::Ipv4Only => self.ipv4_only(name).await,
             LookupIpStrategy::Ipv6Only => self.ipv6_only(name).await,
@@ -216,19 +216,19 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     /// queries only for A records
-    async fn ipv4_only(&self, name: Name) -> Result<Lookup, ProtoError> {
+    async fn ipv4_only(&self, name: Name) -> Result<Lookup, NetError> {
         self.hosts_lookup(Query::query(name, RecordType::A)).await
     }
 
     /// queries only for AAAA records
-    async fn ipv6_only(&self, name: Name) -> Result<Lookup, ProtoError> {
+    async fn ipv6_only(&self, name: Name) -> Result<Lookup, NetError> {
         self.hosts_lookup(Query::query(name, RecordType::AAAA))
             .await
     }
 
     // TODO: this really needs to have a stream interface
     /// queries only for A and AAAA in parallel
-    async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, ProtoError> {
+    async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, NetError> {
         let sel_res = future::select(
             self.hosts_lookup(Query::query(name.clone(), RecordType::A))
                 .boxed(),
@@ -268,13 +268,13 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     /// queries only for AAAA and on no results queries for A
-    async fn ipv6_then_ipv4(&self, name: Name) -> Result<Lookup, ProtoError> {
+    async fn ipv6_then_ipv4(&self, name: Name) -> Result<Lookup, NetError> {
         self.rt_then_swap(name, RecordType::AAAA, RecordType::A)
             .await
     }
 
     /// queries only for A and on no results queries for AAAA
-    async fn ipv4_then_ipv6(&self, name: Name) -> Result<Lookup, ProtoError> {
+    async fn ipv4_then_ipv6(&self, name: Name) -> Result<Lookup, NetError> {
         self.rt_then_swap(name, RecordType::A, RecordType::AAAA)
             .await
     }
@@ -285,7 +285,7 @@ impl<C: DnsHandle> LookupContext<C> {
         name: Name,
         first_type: RecordType,
         second_type: RecordType,
-    ) -> Result<Lookup, ProtoError> {
+    ) -> Result<Lookup, NetError> {
         let res = self
             .hosts_lookup(Query::query(name.clone(), first_type))
             .await;
@@ -308,7 +308,7 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     /// first lookups in hosts, then performs the query
-    async fn hosts_lookup(&self, query: Query) -> Result<Lookup, ProtoError> {
+    async fn hosts_lookup(&self, query: Query) -> Result<Lookup, NetError> {
         match self.hosts.lookup_static_host(&query) {
             Some(lookup) => Ok(lookup),
             None => self.client.lookup(query, self.options).await,
@@ -327,7 +327,6 @@ pub(crate) mod tests {
     use test_support::subscribe;
 
     use super::*;
-    use crate::proto::ProtoError;
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::{Name, RData, Record};
     use crate::proto::runtime::TokioRuntimeProvider;
@@ -335,11 +334,11 @@ pub(crate) mod tests {
 
     #[derive(Clone)]
     pub(crate) struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
+        messages: Arc<Mutex<Vec<Result<DnsResponse, NetError>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin>>;
         type Runtime = TokioRuntimeProvider;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
@@ -349,7 +348,7 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn v4_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn v4_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
@@ -363,7 +362,7 @@ pub(crate) mod tests {
         Ok(resp)
     }
 
-    pub(crate) fn v6_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn v6_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
         message.add_query(Query::query(Name::root(), RecordType::AAAA));
         message.insert_answers(vec![Record::from_rdata(
@@ -377,15 +376,15 @@ pub(crate) mod tests {
         Ok(resp)
     }
 
-    pub(crate) fn empty() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn empty() -> Result<DnsResponse, NetError> {
         Ok(DnsResponse::from_message(Message::query()).unwrap())
     }
 
-    pub(crate) fn error() -> Result<DnsResponse, ProtoError> {
-        Err(ProtoError::from("forced test failure"))
+    pub(crate) fn error() -> Result<DnsResponse, NetError> {
+        Err(NetError::from("forced test failure"))
     }
 
-    pub(crate) fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> MockDnsHandle {
+    pub(crate) fn mock(messages: Vec<Result<DnsResponse, NetError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

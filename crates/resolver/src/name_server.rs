@@ -34,7 +34,7 @@ use crate::config::{
 use crate::connection_provider::ConnectionProvider;
 use crate::name_server_pool::{NameServerTransportState, PoolContext};
 use crate::proto::{
-    DnsError, NoRecords, ProtoError, ProtoErrorKind,
+    DnsError, NetError, NetErrorKind, NoRecords,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
     rr::{Name, RecordType},
     runtime::{RuntimeProvider, Spawn},
@@ -92,7 +92,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         request: DnsRequest,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let (handle, meta, protocol) = self.connected_mut_client(policy, cx).await?;
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
@@ -138,7 +138,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                     None => {}
                 }
 
-                let err = ProtoError::from(error);
+                let err = NetError::from(error);
                 if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
                     cx.transport_state()
                         .await
@@ -154,16 +154,16 @@ impl<P: ConnectionProvider> NameServer<P> {
 
                 // record the failure
                 match &error.kind {
-                    ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
+                    NetErrorKind::Busy | NetErrorKind::Io(_) | NetErrorKind::Timeout => {
                         meta.srtt.record_failure()
                     }
                     #[cfg(feature = "__quic")]
-                    ProtoErrorKind::QuinnConfigError(_)
-                    | ProtoErrorKind::QuinnConnect(_)
-                    | ProtoErrorKind::QuinnConnection(_)
-                    | ProtoErrorKind::QuinnTlsConfigError(_) => meta.srtt.record_failure(),
+                    NetErrorKind::QuinnConfigError(_)
+                    | NetErrorKind::QuinnConnect(_)
+                    | NetErrorKind::QuinnConnection(_)
+                    | NetErrorKind::QuinnTlsConfigError(_) => meta.srtt.record_failure(),
                     #[cfg(feature = "__tls")]
-                    ProtoErrorKind::RustlsError(_) => meta.srtt.record_failure(),
+                    NetErrorKind::RustlsError(_) => meta.srtt.record_failure(),
                     _ => {}
                 }
 
@@ -186,7 +186,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
-    ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), ProtoError> {
+    ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), NetError> {
         let mut connections = self.connections.lock().await;
         connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
         if let Some(conn) = policy.select_connection(
@@ -206,7 +206,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 &cx.opportunistic_encryption,
                 &self.config.connections,
             )
-            .ok_or_else(|| ProtoError::from(ProtoErrorKind::NoConnections))?;
+            .ok_or_else(|| NetError::from(NetErrorKind::NoConnections))?;
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
@@ -305,7 +305,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         cx: &Arc<PoolContext>,
         probe_config: &ConnectionConfig,
-    ) -> Result<(), ProtoError> {
+    ) -> Result<(), NetError> {
         let mut budget = cx.opportunistic_probe_budget.load(Ordering::Relaxed);
         #[cfg(feature = "metrics")]
         self.opportunistic_probe_metrics.probe_budget.set(budget);
@@ -371,7 +371,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         })
     }
 
-    async fn run(self) -> Result<(), ProtoError> {
+    async fn run(self) -> Result<(), NetError> {
         let Self {
             ip,
             proto,
@@ -467,16 +467,16 @@ impl ProbeMetrics {
         }
     }
 
-    fn increment_errors(&self, proto: Protocol, err: &ProtoError) {
+    fn increment_errors(&self, proto: Protocol, err: &NetError) {
         match (&err.kind, proto) {
             #[cfg(feature = "__tls")]
-            (ProtoErrorKind::Timeout, Protocol::Tls) => {
+            (NetErrorKind::Timeout, Protocol::Tls) => {
                 self.tls_probe_metrics.probe_timeouts.increment(1)
             }
             #[cfg(feature = "__tls")]
             (_, Protocol::Tls) => self.tls_probe_metrics.probe_errors.increment(1),
             #[cfg(feature = "__quic")]
-            (ProtoErrorKind::Timeout, Protocol::Quic) => {
+            (NetErrorKind::Timeout, Protocol::Quic) => {
                 self.quic_probe_metrics.probe_timeouts.increment(1)
             }
             #[cfg(feature = "__quic")]
@@ -1261,14 +1261,6 @@ mod opportunistic_enc_tests {
     use test_support::subscribe;
     use tokio::net::UdpSocket;
 
-    #[cfg(feature = "metrics")]
-    use crate::proto::ProtoErrorKind;
-    use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
-    use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
-    use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
-    use crate::proto::xfer::Protocol;
-    use crate::proto::{DnsHandle, ProtoError};
-
     use crate::config::{
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
         ProtocolConfig, ResolverOpts,
@@ -1276,6 +1268,13 @@ mod opportunistic_enc_tests {
     use crate::connection_provider::{ConnectionProvider, TlsConfig};
     use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
+    #[cfg(feature = "metrics")]
+    use crate::proto::NetErrorKind;
+    use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
+    use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
+    use crate::proto::xfer::Protocol;
+    use crate::proto::{DnsHandle, NetError};
 
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {
@@ -1374,7 +1373,7 @@ mod opportunistic_enc_tests {
         state.error_received(
             ns_ip,
             Protocol::Tls,
-            &ProtoError::from(std::io::Error::new(
+            &NetError::from(std::io::Error::new(
                 std::io::ErrorKind::ConnectionRefused,
                 "nameserver refused TLS connection",
             )),
@@ -1547,7 +1546,7 @@ mod opportunistic_enc_tests {
         state.error_received(
             ns_ip,
             Protocol::Tls,
-            &ProtoError::from(std::io::Error::new(
+            &NetError::from(std::io::Error::new(
                 std::io::ErrorKind::ConnectionRefused,
                 "nameserver refused TLS connection",
             )),
@@ -1691,7 +1690,7 @@ mod opportunistic_enc_tests {
         cx.transport_state().await.error_received(
             ns_ip,
             Protocol::Tls,
-            &ProtoError::from(std::io::Error::new(
+            &NetError::from(std::io::Error::new(
                 std::io::ErrorKind::ConnectionRefused,
                 "connection refused",
             )),
@@ -1896,7 +1895,7 @@ mod opportunistic_enc_tests {
                     ),
                     // Configure a mock provider that always produces an error when new connections are requested.
                     &MockProvider {
-                        new_connection_error: Some(ProtoError::from(std::io::Error::new(
+                        new_connection_error: Some(NetError::from(std::io::Error::new(
                             std::io::ErrorKind::ConnectionRefused,
                             "connection refused",
                         ))),
@@ -1944,7 +1943,7 @@ mod opportunistic_enc_tests {
                     ),
                     // Configure a mock provider that always produces a Timeout error when new connections are requested.
                     &MockProvider {
-                        new_connection_error: Some(ProtoError::from(ProtoErrorKind::Timeout)),
+                        new_connection_error: Some(NetError::from(NetErrorKind::Timeout)),
                         ..MockProvider::default()
                     },
                 )
@@ -1978,7 +1977,7 @@ mod opportunistic_enc_tests {
         ns_ip: IpAddr,
         cx: Arc<PoolContext>,
         provider: &MockProvider,
-    ) -> Result<(), ProtoError> {
+    ) -> Result<(), NetError> {
         let name_server = NameServer::new(
             [].into_iter(),
             NameServerConfig::opportunistic_encryption(ns_ip),
@@ -2023,7 +2022,7 @@ mod opportunistic_enc_tests {
     struct MockProvider {
         runtime: MockSyncRuntimeProvider,
         new_connection_calls: Arc<SyncMutex<Vec<(IpAddr, ProtocolConfig)>>>,
-        new_connection_error: Option<ProtoError>,
+        new_connection_error: Option<NetError>,
     }
 
     impl MockProvider {
@@ -2034,7 +2033,7 @@ mod opportunistic_enc_tests {
 
     impl ConnectionProvider for MockProvider {
         type Conn = MockClientHandle;
-        type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, ProtoError>>>>;
+        type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, NetError>>>>;
         type RuntimeProvider = MockSyncRuntimeProvider;
 
         fn new_connection(
@@ -2076,7 +2075,7 @@ mod opportunistic_enc_tests {
     struct MockClientHandle;
 
     impl DnsHandle for MockClientHandle {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
         type Runtime = MockSyncRuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
@@ -2133,10 +2132,10 @@ mod opportunistic_enc_tests {
     struct MockSyncHandle;
 
     impl Spawn for MockSyncHandle {
-        fn spawn_bg<F>(&mut self, future: F)
-        where
-            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
-        {
+        fn spawn_bg(
+            &mut self,
+            future: impl Future<Output = Result<(), NetError>> + Send + 'static,
+        ) {
             // Instead of spawning the future as a background task, poll it synchronously
             // until completion.
             let waker = futures_util::task::noop_waker();

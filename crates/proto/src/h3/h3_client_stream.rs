@@ -28,7 +28,7 @@ use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
-use crate::error::ProtoError;
+use crate::error::{NetError, ProtoError};
 use crate::http::request::RequestContext;
 use crate::http::{SetHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
@@ -67,11 +67,11 @@ impl H3ClientStream {
         mut h3: SendRequest<OpenStreams, Bytes>,
         message: Bytes,
         cx: Arc<RequestContext>,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         // build up the http request
         let request = cx
             .build(message.remaining())
-            .map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
+            .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
 
         debug!("request: {:#?}", request);
 
@@ -79,22 +79,22 @@ impl H3ClientStream {
         let mut stream = h3
             .send_request(request)
             .await
-            .map_err(|err| ProtoError::from(format!("h3 send_request error: {err}")))?;
+            .map_err(|err| NetError::from(format!("h3 send_request error: {err}")))?;
 
         stream
             .send_data(message)
             .await
-            .map_err(|e| ProtoError::from(format!("h3 send_data error: {e}")))?;
+            .map_err(|e| NetError::from(format!("h3 send_data error: {e}")))?;
 
         stream
             .finish()
             .await
-            .map_err(|err| ProtoError::from(format!("received a stream error: {err}")))?;
+            .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
 
         let response = stream
             .recv_response()
             .await
-            .map_err(|err| ProtoError::from(format!("h3 recv_response error: {err}")))?;
+            .map_err(|err| NetError::from(format!("h3 recv_response error: {err}")))?;
 
         debug!("got response: {:#?}", response);
 
@@ -104,10 +104,10 @@ impl H3ClientStream {
             .get(CONTENT_LENGTH)
             .map(|v| v.to_str())
             .transpose()
-            .map_err(|e| ProtoError::from(format!("bad headers received: {e}")))?
+            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
             .map(usize::from_str)
             .transpose()
-            .map_err(|e| ProtoError::from(format!("bad headers received: {e}")))?;
+            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
 
         // TODO: what is a good max here?
         // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
@@ -118,7 +118,7 @@ impl H3ClientStream {
         while let Some(partial_bytes) = stream
             .recv_data()
             .await
-            .map_err(|e| ProtoError::from(format!("h3 recv_data error: {e}")))?
+            .map_err(|e| NetError::from(format!("h3 recv_data error: {e}")))?
         {
             debug!("got bytes: {}", partial_bytes.remaining());
             response_bytes.put(partial_bytes);
@@ -135,7 +135,7 @@ impl H3ClientStream {
         if let Some(content_length) = content_length {
             if response_bytes.len() != content_length {
                 // TODO: make explicit error type
-                return Err(ProtoError::from(format!(
+                return Err(NetError::from(format!(
                     "expected byte length: {}, got: {}",
                     content_length,
                     response_bytes.len()
@@ -148,7 +148,7 @@ impl H3ClientStream {
             let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
             // TODO: make explicit error type
-            return Err(ProtoError::from(format!(
+            return Err(NetError::from(format!(
                 "http unsuccessful code: {}, message: {}",
                 response.status(),
                 error_string
@@ -163,13 +163,13 @@ impl H3ClientStream {
                     .map(|h| {
                         h.to_str().map_err(|err| {
                             // TODO: make explicit error type
-                            ProtoError::from(format!("ContentType header not a string: {err}"))
+                            NetError::from(format!("ContentType header not a string: {err}"))
                         })
                     })
                     .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
 
                 if content_type != crate::http::MIME_APPLICATION_DNS {
-                    return Err(ProtoError::from(format!(
+                    return Err(NetError::from(format!(
                         "ContentType unsupported (must be '{}'): '{}'",
                         crate::http::MIME_APPLICATION_DNS,
                         content_type
@@ -179,7 +179,7 @@ impl H3ClientStream {
         };
 
         // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(response_bytes.to_vec())
+        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
     }
 }
 
@@ -245,7 +245,7 @@ impl DnsRequestSender for H3ClientStream {
 
         let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return err.into(),
+            Err(err) => return NetError::from(err).into(),
         };
 
         Box::pin(Self::inner_send(
@@ -266,7 +266,7 @@ impl DnsRequestSender for H3ClientStream {
 }
 
 impl Stream for H3ClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -275,7 +275,7 @@ impl Stream for H3ClientStream {
 
         // just checking if the connection is ok
         if self.shutdown_tx.is_closed() {
-            return Poll::Ready(Some(Err(ProtoError::from(
+            return Poll::Ready(Some(Err(NetError::from(
                 "h3 connection is already shutdown",
             ))));
         }

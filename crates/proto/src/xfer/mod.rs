@@ -35,9 +35,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use tracing::{debug, warn};
 
-#[cfg(feature = "std")]
-use crate::error::ProtoResult;
-use crate::error::{ProtoError, ProtoErrorKind};
+use crate::error::{NetError, NetErrorKind, ProtoError};
 #[cfg(feature = "std")]
 use crate::op::{DnsRequest, DnsResponse, SerialMessage};
 #[cfg(feature = "std")]
@@ -81,7 +79,7 @@ impl DnsResponseStream {
 
 #[cfg(feature = "std")]
 impl Stream for DnsResponseStream {
-    type Item = Result<DnsResponse, ProtoError>;
+    type Item = Result<DnsResponse, NetError>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use DnsResponseStreamInner::*;
@@ -104,7 +102,8 @@ impl Stream for DnsResponseStream {
                 x
             }
             Receiver(fut) => match ready!(Pin::new(fut).poll_next(cx)) {
-                Some(x) => x,
+                Some(Ok(x)) => Ok(x),
+                Some(Err(e)) => Err(e),
                 None => return Poll::Ready(None),
             },
             Error(err) => {
@@ -119,7 +118,7 @@ impl Stream for DnsResponseStream {
         };
 
         match result {
-            Err(e) if matches!(e.kind, ProtoErrorKind::Timeout) => Poll::Ready(None),
+            Err(e) if matches!(e.kind, NetErrorKind::Timeout) => Poll::Ready(None),
             r => Poll::Ready(Some(r)),
         }
     }
@@ -133,15 +132,15 @@ impl From<TimeoutFuture> for DnsResponseStream {
 }
 
 #[cfg(feature = "std")]
-impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
-    fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
+impl From<mpsc::Receiver<Result<DnsResponse, NetError>>> for DnsResponseStream {
+    fn from(receiver: mpsc::Receiver<Result<DnsResponse, NetError>>) -> Self {
         Self::new(DnsResponseStreamInner::Receiver(receiver))
     }
 }
 
 #[cfg(feature = "std")]
-impl From<ProtoError> for DnsResponseStream {
-    fn from(e: ProtoError) -> Self {
+impl From<NetError> for DnsResponseStream {
+    fn from(e: NetError) -> Self {
         Self::new(DnsResponseStreamInner::Error(Some(e)))
     }
 }
@@ -149,7 +148,7 @@ impl From<ProtoError> for DnsResponseStream {
 #[cfg(feature = "std")]
 impl<F> From<Pin<Box<F>>> for DnsResponseStream
 where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
+    F: Future<Output = Result<DnsResponse, NetError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
         Self::new(DnsResponseStreamInner::Boxed(f))
@@ -159,13 +158,13 @@ where
 #[cfg(feature = "std")]
 enum DnsResponseStreamInner {
     Timeout(TimeoutFuture),
-    Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
-    Error(Option<ProtoError>),
-    Boxed(BoxFuture<'static, Result<DnsResponse, ProtoError>>),
+    Receiver(mpsc::Receiver<Result<DnsResponse, NetError>>),
+    Error(Option<NetError>),
+    Boxed(BoxFuture<'static, Result<DnsResponse, NetError>>),
 }
 
 #[cfg(feature = "std")]
-type TimeoutFuture = BoxFuture<'static, Result<Result<DnsResponse, ProtoError>, io::Error>>;
+type TimeoutFuture = BoxFuture<'static, Result<Result<DnsResponse, NetError>, io::Error>>;
 
 /// Ignores the result of a send operation and logs and ignores errors
 #[cfg(feature = "std")]
@@ -182,9 +181,7 @@ fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
 
 /// A non-multiplexed stream of Serialized DNS messages
 #[cfg(feature = "std")]
-pub trait DnsClientStream:
-    Stream<Item = Result<SerialMessage, ProtoError>> + Display + Send
-{
+pub trait DnsClientStream: Stream<Item = Result<SerialMessage, NetError>> + Display + Send {
     /// Time implementation for this impl
     type Time: Time;
 
@@ -242,11 +239,11 @@ impl BufDnsStreamHandle {
 
 #[cfg(feature = "std")]
 impl DnsStreamHandle for BufDnsStreamHandle {
-    fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), NetError> {
         let sender: &mut _ = &mut self.sender;
         sender
             .try_send(SerialMessage::new(buffer.into_parts().0, self.remote_addr))
-            .map_err(|e| ProtoError::from(format!("mpsc::SendError {e}")))
+            .map_err(|e| NetError::from(format!("mpsc::SendError {e}")))
     }
 }
 
@@ -256,7 +253,7 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
 #[cfg(feature = "std")]
-pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static {
+pub trait DnsRequestSender: Stream<Item = Result<(), NetError>> + Send + Unpin + 'static {
     /// Send a message, and return a stream of response
     ///
     /// # Return
@@ -297,12 +294,12 @@ impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
         let mut sender = self.sender.clone();
         let try_send = sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
-            ProtoError::from(ProtoErrorKind::Busy)
+            NetError::from(NetErrorKind::Busy)
         });
 
         match try_send {
             Ok(val) => val,
-            Err(err) => return DnsResponseReceiver::Err(Some(ProtoError::from(err))),
+            Err(err) => return DnsResponseReceiver::Err(Some(err)),
         }
 
         DnsResponseReceiver::Receiver(oneshot)
@@ -358,12 +355,12 @@ pub enum DnsResponseReceiver {
     /// The stream once received
     Received(DnsResponseStream),
     /// Error during the send operation
-    Err(Option<ProtoError>),
+    Err(Option<NetError>),
 }
 
 #[cfg(feature = "std")]
 impl Stream for DnsResponseReceiver {
-    type Item = Result<DnsResponse, ProtoError>;
+    type Item = Result<DnsResponse, NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
@@ -409,10 +406,9 @@ pub struct FirstAnswerFuture<S> {
     stream: Option<S>,
 }
 
-impl<E, S: Stream<Item = Result<T, E>> + Unpin, T> Future for FirstAnswerFuture<S>
+impl<S: Stream<Item = Result<T, NetError>> + Unpin, T> Future for FirstAnswerFuture<S>
 where
-    S: Stream<Item = Result<T, E>> + Unpin + Sized,
-    E: From<ProtoError>,
+    S: Stream<Item = Result<T, NetError>> + Unpin + Sized,
 {
     type Output = S::Item;
 
@@ -423,7 +419,7 @@ where
             .expect("polling FirstAnswerFuture twice");
         let item = match ready!(s.poll_next_unpin(cx)) {
             Some(r) => r,
-            None => Err(ProtoError::from(ProtoErrorKind::Timeout).into()),
+            None => Err(NetErrorKind::Timeout.into()),
         };
         self.stream.take();
         Poll::Ready(item)

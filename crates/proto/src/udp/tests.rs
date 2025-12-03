@@ -17,7 +17,7 @@ use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{DnsRequestSender, FirstAnswer};
-use crate::{ProtoError, ProtoErrorKind};
+use crate::{NetError, NetErrorKind};
 
 /// Test next random udpsocket.
 pub(super) async fn next_random_socket_test(provider: impl RuntimeProvider) {
@@ -156,8 +156,8 @@ pub(super) async fn udp_client_stream_bad_id_test(
             // The test should pass when we see a bad transaction ID response error.
             matches!(
                 response,
-                Err(ProtoError {
-                    kind: ProtoErrorKind::BadTransactionId,
+                Err(NetError {
+                    kind: NetErrorKind::BadTransactionId,
                     ..
                 })
             )
@@ -194,8 +194,8 @@ pub(super) async fn udp_client_stream_response_limit_test(
             // The test should pass when we get a UDP receive limit exceeded error.
             matches!(
                 response,
-                Err(ProtoError {
-                    kind: ProtoErrorKind::Message("udp receive attempts exceeded"),
+                Err(NetError {
+                    kind: NetErrorKind::Message("udp receive attempts exceeded"),
                     ..
                 })
             )
@@ -211,7 +211,7 @@ async fn udp_client_stream_test_inner(
     request_count: usize,
     response_count: usize,
     response_mutator: impl Fn(usize, &mut Message) + Send + 'static,
-    accept_response: impl Fn(Result<DnsResponse, ProtoError>) -> bool,
+    accept_response: impl Fn(Result<DnsResponse, NetError>) -> bool,
 ) {
     let stop_thread_killer = start_thread_killer();
 

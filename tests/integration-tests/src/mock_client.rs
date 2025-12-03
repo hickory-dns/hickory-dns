@@ -18,7 +18,6 @@ use futures::{
     stream::{Stream, once},
 };
 
-use hickory_proto::ProtoError;
 use hickory_proto::op::{DnsRequest, DnsResponse, Message, Query};
 use hickory_proto::rr::rdata::{CNAME, NS, SOA};
 use hickory_proto::rr::{Name, RData, Record};
@@ -27,6 +26,7 @@ use hickory_proto::runtime::{RuntimeProvider, TokioHandle};
 use hickory_proto::tcp::DnsTcpStream;
 use hickory_proto::udp::DnsUdpSocket;
 use hickory_proto::xfer::DnsHandle;
+use hickory_proto::{NetError, ProtoError};
 use hickory_resolver::config::ConnectionConfig;
 use hickory_resolver::{ConnectionProvider, PoolContext};
 
@@ -128,7 +128,7 @@ pub struct MockConnProvider<O: OnSend + Unpin> {
 
 impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
     type Conn = MockClientHandle<O>;
-    type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, ProtoError>>>>;
+    type FutureConn = Pin<Box<dyn Send + Future<Output = Result<Self::Conn, NetError>>>>;
     type RuntimeProvider = MockRuntimeProvider;
 
     fn new_connection(
@@ -151,14 +151,14 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
 
 #[derive(Clone)]
 pub struct MockClientHandle<O: OnSend> {
-    messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
+    messages: Arc<Mutex<Vec<Result<DnsResponse, NetError>>>>,
     on_send: O,
 }
 
 impl MockClientHandle<DefaultOnSend> {
     /// constructs a new MockClient which returns each Message one after the other (messages are
     /// popped off the back of `messages`, so they are sent in reverse order).
-    pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> Self {
+    pub fn mock(messages: Vec<Result<DnsResponse, NetError>>) -> Self {
         println!("MockClientHandle::mock message count: {}", messages.len());
 
         MockClientHandle {
@@ -171,7 +171,7 @@ impl MockClientHandle<DefaultOnSend> {
 impl<O: OnSend> MockClientHandle<O> {
     /// constructs a new MockClient which returns each Message one after the other (messages are
     /// popped off the back of `messages`, so they are sent in reverse order).
-    pub fn mock_on_send(messages: Vec<Result<DnsResponse, ProtoError>>, on_send: O) -> Self {
+    pub fn mock_on_send(messages: Vec<Result<DnsResponse, NetError>>, on_send: O) -> Self {
         println!(
             "MockClientHandle::mock_on_send message count: {}",
             messages.len()
@@ -185,7 +185,7 @@ impl<O: OnSend> MockClientHandle<O> {
 }
 
 impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = MockRuntimeProvider;
 
     fn send(&self, _: DnsRequest) -> Self::Response {
@@ -193,7 +193,7 @@ impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
         println!("MockClientHandle::send message count: {}", messages.len());
 
         Box::pin(once(self.on_send.on_send(messages.pop().unwrap_or_else(
-            || error(ProtoError::from("Messages exhausted in MockClientHandle")),
+            || Err(NetError::from("Messages exhausted in MockClientHandle")),
         ))))
     }
 }
@@ -239,17 +239,13 @@ pub fn empty() -> Result<DnsResponse, ProtoError> {
     Ok(DnsResponse::from_message(Message::query()).unwrap())
 }
 
-pub fn error<E>(error: E) -> Result<DnsResponse, E> {
-    Err(error)
-}
-
 pub trait OnSend: Clone + Send + Sync + 'static {
     fn on_send<E>(
         &self,
         response: Result<DnsResponse, E>,
     ) -> BoxFuture<'static, Result<DnsResponse, E>>
     where
-        E: From<ProtoError> + Send + 'static,
+        E: From<NetError> + Send + 'static,
     {
         Box::pin(ready(response))
     }

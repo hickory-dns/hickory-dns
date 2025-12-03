@@ -182,7 +182,7 @@ pub struct DnsExchangeSend<P> {
 }
 
 impl<P: Unpin> Stream for DnsExchangeSend<P> {
-    type Item = Result<DnsResponse, ProtoError>;
+    type Item = Result<DnsResponse, NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // as long as there is no result, poll the exchange
@@ -217,7 +217,7 @@ where
     S: DnsRequestSender + 'static + Send + Unpin,
     TE: Time + Unpin,
 {
-    type Output = Result<(), ProtoError>;
+    type Output = Result<(), NetError>;
 
     #[allow(clippy::unused_unit)]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -424,8 +424,7 @@ where
                         Poll::Pending => return Poll::Pending,
                     } {
                         // ignoring errors... best effort send...
-                        let error =
-                            ProtoError::from(io::Error::new(error.kind(), error.to_string()));
+                        let error = NetError::from(io::Error::new(error.kind(), error.to_string()));
                         let _ = outbound_message
                             .into_parts()
                             .1

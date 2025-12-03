@@ -92,11 +92,11 @@ mod tests {
 
     use super::*;
     use crate::xfer::FirstAnswer;
-    use crate::{ProtoError, ProtoErrorKind};
+    use crate::{NetError, NetErrorKind};
 
     #[test]
     fn test_rc_stream() {
-        let future = future::ok::<usize, ProtoError>(1_usize);
+        let future = future::ok::<usize, NetError>(1_usize);
 
         let rc = rc_stream(once(future));
 
@@ -109,14 +109,14 @@ mod tests {
 
     #[test]
     fn test_rc_stream_failed() {
-        let future = future::err::<usize, ProtoError>(ProtoError::from(ProtoErrorKind::Busy));
+        let future = future::err::<usize, NetError>(NetError::from(NetErrorKind::Busy));
 
         let rc = rc_stream(once(future));
 
         let i = block_on(rc.clone().first_answer()).unwrap_err();
-        assert!(matches!(i.kind, ProtoErrorKind::Busy));
+        assert!(matches!(i.kind, NetErrorKind::Busy));
 
         let i = block_on(rc.first_answer()).unwrap_err();
-        assert!(matches!(i.kind, ProtoErrorKind::Busy));
+        assert!(matches!(i.kind, NetErrorKind::Busy));
     }
 }

@@ -18,7 +18,7 @@ use thiserror::Error;
 
 use super::Algorithm;
 use crate::{
-    error::ProtoError,
+    error::{NetError, ProtoError},
     op::Query,
     rr::{Name, RecordType},
 };
@@ -254,12 +254,12 @@ pub enum ProofErrorKind {
     },
 
     /// There was a protocol error when looking up DNSSEC records
-    #[error("communication failure for query: {query}: {proto}")]
-    Proto {
+    #[error("communication failure for query: {query}: {net}")]
+    Net {
         /// Query that failed
         query: Query,
         /// Reasons fo the failure
-        proto: ProtoError,
+        net: NetError,
     },
 
     /// The RRSIGs for the rrset are not present.

@@ -50,7 +50,7 @@ use crate::{
 use crate::{
     ResponseCache,
     proto::{
-        DnsError, NoRecords, ProtoError,
+        DnsError, NetError, NoRecords,
         dnssec::{DnssecDnsHandle, TrustAnchors},
         op::{DnsRequestOptions, ResponseCode},
         rr::RecordType,
@@ -415,7 +415,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             };
 
             Err(Error {
-                kind: ErrorKind::Proto(ProtoError::from(dns_error)),
+                kind: ErrorKind::Net(NetError::from(dns_error)),
                 #[cfg(feature = "backtrace")]
                 backtrack: None,
             })
@@ -439,7 +439,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                     .collect(),
             );
 
-            Err(Error::from(ProtoError::from(no_records)))
+            Err(Error::from(NetError::from(no_records)))
         } else {
             let message = response.into_message();
             self.validated_response_cache

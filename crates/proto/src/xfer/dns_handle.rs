@@ -11,7 +11,7 @@ use futures_util::stream::Stream;
 use tracing::debug;
 
 use crate::{
-    error::ProtoError,
+    error::NetError,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, SerialMessage},
     runtime::RuntimeProvider,
 };
@@ -19,13 +19,13 @@ use crate::{
 /// Implementations of Sinks for sending DNS messages
 pub trait DnsStreamHandle: 'static + Send {
     /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError>;
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), NetError>;
 }
 
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// The associated response from the response stream, this should resolve to the Response messages
-    type Response: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    type Response: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static;
 
     /// The asynchronous runtime in use.
     type Runtime: RuntimeProvider;

@@ -25,7 +25,7 @@ use quinn::{
 use tokio::time::timeout;
 
 use crate::{
-    error::ProtoError,
+    error::{NetError, ProtoError},
     op::{DnsRequest, DnsResponse},
     quic::quic_stream::{DoqErrorCode, QuicStream},
     rustls::client_config,
@@ -60,8 +60,8 @@ impl QuicClientStream {
     async fn inner_send(
         connection: Connection,
         message: DnsRequest,
-    ) -> Result<DnsResponse, ProtoError> {
-        let (send_stream, recv_stream) = connection.open_bi().await?;
+    ) -> Result<DnsResponse, NetError> {
+        let (send_stream, recv_stream) = connection.open_bi().await.map_err(NetError::from)?;
 
         // RFC: The mapping specified here requires that the client selects a separate
         //  QUIC stream for each query. The server then uses the same stream to provide all the response messages for that query.
@@ -184,7 +184,7 @@ impl DnsRequestSender for QuicClientStream {
 }
 
 impl Stream for QuicClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -314,7 +314,7 @@ pub(crate) async fn connect_quic(
     mut crypto_config: rustls::ClientConfig,
     transport_config: Arc<TransportConfig>,
     mut endpoint: Endpoint,
-) -> Result<Connection, ProtoError> {
+) -> Result<Connection, NetError> {
     if crypto_config.alpn_protocols.is_empty() {
         crypto_config.alpn_protocols = vec![protocol.to_vec()];
     }

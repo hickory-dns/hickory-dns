@@ -26,7 +26,7 @@ use crate::proto::op::{Edns, ResponseCode, ResponseSigner};
 #[cfg(feature = "__dnssec")]
 use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
-use crate::proto::{DnsError, NoRecords, ProtoError, ProtoErrorKind};
+use crate::proto::{DnsError, NetError, NetErrorKind, NoRecords, ProtoError};
 #[cfg(feature = "recursor")]
 use crate::resolver::recursor::{self, ErrorKind};
 use crate::server::{Request, RequestInfo};
@@ -388,8 +388,8 @@ pub enum LookupError {
     #[error("Error performing lookup: {0}")]
     ResponseCode(ResponseCode),
     /// Proto error
-    #[error("Proto error: {0}")]
-    ProtoError(#[from] ProtoError),
+    #[error("net error: {0}")]
+    NetError(#[from] NetError),
     /// Recursive Resolver Error
     #[cfg(feature = "recursor")]
     #[error("Recursive resolution error: {0}")]
@@ -408,7 +408,7 @@ impl LookupError {
     /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
         match self {
-            Self::ProtoError(e) => e.is_nx_domain(),
+            Self::NetError(e) => e.is_nx_domain(),
             Self::ResponseCode(ResponseCode::NXDomain) => true,
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_nx_domain() => true,
@@ -419,7 +419,7 @@ impl LookupError {
     /// Returns true if no records were returned
     pub fn is_no_records_found(&self) -> bool {
         match self {
-            Self::ProtoError(e) => e.is_no_records_found(),
+            Self::NetError(e) => e.is_no_records_found(),
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_no_records_found() => true,
             _ => false,
@@ -429,7 +429,7 @@ impl LookupError {
     /// Returns the SOA record, if the error contains one
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match self {
-            Self::ProtoError(e) => e.into_soa(),
+            Self::NetError(e) => e.into_soa(),
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => e.into_soa(),
             _ => None,
@@ -439,22 +439,19 @@ impl LookupError {
     /// Return authority records
     pub fn authorities(&self) -> Option<Arc<[Record]>> {
         match self {
-            Self::ProtoError(e) => match &e.kind {
-                ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-                    authorities, ..
-                })) => authorities.clone(),
+            Self::NetError(e) => match &e.kind {
+                NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { authorities, .. })) => {
+                    authorities.clone()
+                }
                 _ => None,
             },
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => match e.kind() {
                 ErrorKind::Negative(fwd) => fwd.authorities.clone(),
-                ErrorKind::Proto(proto) => match &proto.kind {
-                    ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-                        authorities,
-                        ..
-                    })) => authorities.clone(),
-                    _ => None,
-                },
+                ErrorKind::Net(NetError {
+                    kind: NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { authorities, .. })),
+                    ..
+                }) => authorities.clone(),
                 _ => None,
             },
             _ => None,
@@ -479,6 +476,12 @@ impl From<io::Error> for LookupError {
 impl From<LookupError> for io::Error {
     fn from(e: LookupError) -> Self {
         Self::other(Box::new(e))
+    }
+}
+
+impl From<ProtoError> for LookupError {
+    fn from(e: ProtoError) -> Self {
+        NetError::from(e).into()
     }
 }
 

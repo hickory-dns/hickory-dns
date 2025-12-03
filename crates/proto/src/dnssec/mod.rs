@@ -17,7 +17,7 @@ use backtrace::Backtrace;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::error::{ProtoError, ProtoErrorKind};
+use crate::error::ProtoError;
 use crate::rr::Record;
 #[cfg(feature = "backtrace")]
 use crate::trace;
@@ -211,10 +211,7 @@ impl From<String> for DnsSecError {
 
 impl From<ProtoError> for DnsSecError {
     fn from(e: ProtoError) -> Self {
-        match &e.kind {
-            ProtoErrorKind::Timeout => DnsSecErrorKind::Timeout.into(),
-            _ => DnsSecErrorKind::from(e).into(),
-        }
+        DnsSecErrorKind::from(e).into()
     }
 }
 

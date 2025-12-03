@@ -86,7 +86,7 @@ fn a_record(ip: u8) -> Record {
 
 fn get_stream_testcase(
     records: Vec<Vec<Record>>,
-) -> impl Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static {
+) -> impl Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static {
     let stream = records.into_iter().map(|r| {
         Ok({
             let mut m = Message::query();

@@ -13,10 +13,12 @@ use futures_util::future::FutureExt;
 use futures_util::lock::Mutex;
 use futures_util::stream::Stream;
 
-use crate::client::ClientHandle;
-use crate::client::rc_stream::{RcStream, rc_stream};
+use super::{
+    ClientHandle,
+    rc_stream::{RcStream, rc_stream},
+};
 use crate::{
-    ProtoError,
+    NetError,
     op::{DnsRequest, DnsResponse, Query},
     xfer::DnsHandle,
 };
@@ -50,7 +52,7 @@ where
         request: DnsRequest,
         active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
         client: H,
-    ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> {
+    ) -> impl Stream<Item = Result<DnsResponse, NetError>> {
         // TODO: what if we want to support multiple queries (non-standard)?
         let query = request.queries().first().expect("no query!").clone();
 
@@ -72,7 +74,7 @@ where
 }
 
 impl<H: ClientHandle> DnsHandle for MemoizeClientHandle<H> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = H::Runtime;
 
     fn send(&self, request: DnsRequest) -> Self::Response {
@@ -99,7 +101,6 @@ mod test {
 
     use super::*;
     use crate::{
-        ProtoError,
         op::{DnsRequest, DnsResponse, Message, MessageType, OpCode, Query},
         rr::RecordType,
         runtime::TokioRuntimeProvider,
@@ -113,7 +114,7 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
         type Runtime = TokioRuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {

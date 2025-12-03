@@ -18,7 +18,7 @@ use futures_util::{
 };
 
 use crate::BufDnsStreamHandle;
-use crate::error::ProtoError;
+use crate::error::NetError;
 use crate::multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use crate::multicast::{MdnsQueryType, MdnsStream};
 use crate::op::SerialMessage;
@@ -95,11 +95,11 @@ impl DnsClientStream for MdnsClientStream {
 }
 
 impl Stream for MdnsClientStream {
-    type Item = Result<SerialMessage, ProtoError>;
+    type Item = Result<SerialMessage, NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mdns_stream = &mut self.as_mut().mdns_stream;
-        mdns_stream.map_err(ProtoError::from).poll_next_unpin(cx)
+        mdns_stream.map_err(NetError::from).poll_next_unpin(cx)
         // match ready!(self.mdns_stream.poll_next_unpin(cx).map_err(ProtoError::from)) {
         //     Some(serial_message) => {
         //         // TODO: for mDNS queries could come from anywhere. It's not clear that there is anything
@@ -112,10 +112,10 @@ impl Stream for MdnsClientStream {
 }
 
 /// A future that resolves to an MdnsClientStream
-pub struct MdnsClientConnect(BoxFuture<'static, Result<MdnsClientStream, ProtoError>>);
+pub struct MdnsClientConnect(BoxFuture<'static, Result<MdnsClientStream, NetError>>);
 
 impl Future for MdnsClientConnect {
-    type Output = Result<MdnsClientStream, ProtoError>;
+    type Output = Result<MdnsClientStream, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx)
