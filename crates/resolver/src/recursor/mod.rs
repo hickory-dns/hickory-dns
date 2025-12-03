@@ -57,9 +57,6 @@ use crate::{
         xfer::{DnsHandle as _, FirstAnswer as _},
     },
 };
-use recursor_dns_handle::RecursorDnsHandle;
-#[cfg(all(feature = "__dnssec", feature = "metrics"))]
-use recursor_dns_handle::RecursorMetrics;
 
 pub use hickory_proto as proto;
 
@@ -68,7 +65,12 @@ pub use error::{Error, ErrorKind};
 
 #[cfg(all(test, feature = "metrics"))]
 mod metrics_tests;
-mod recursor_dns_handle;
+
+mod handle;
+use handle::RecursorDnsHandle;
+#[cfg(all(feature = "__dnssec", feature = "metrics"))]
+use handle::RecursorMetrics;
+
 #[cfg(test)]
 mod tests;
 
