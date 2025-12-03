@@ -136,11 +136,31 @@ impl Entry {
                 let mut e = e.clone();
                 if let ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                     negative_ttl: Some(ttl),
+                    soa: Some(soa),
+                    authorities,
                     ..
                 })) = &mut e.kind
                 {
                     *ttl = ttl.saturating_sub(elapsed);
+                    soa.set_ttl(soa.ttl().saturating_sub(elapsed));
+
+                    let Some(recs) = authorities else {
+                        return Err(e);
+                    };
+
+                    let updated_auths = recs
+                        .iter()
+                        .map(|rec| {
+                            let mut rec = rec.clone();
+                            rec.set_ttl(rec.ttl().saturating_sub(elapsed));
+                            rec
+                        })
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice();
+
+                    authorities.replace(Arc::from(updated_auths));
                 }
+
                 Err(e)
             }
         }
