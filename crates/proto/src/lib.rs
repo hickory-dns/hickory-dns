@@ -39,18 +39,6 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
-#[cfg(feature = "std")]
-macro_rules! try_ready_stream {
-    ($e:expr) => {{
-        match $e {
-            Poll::Ready(Some(Ok(t))) => t,
-            Poll::Ready(None) => return Poll::Ready(None),
-            Poll::Pending => return Poll::Pending,
-            Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(From::from(e)))),
-        }
-    }};
-}
-
 #[cfg(feature = "access-control")]
 pub mod access_control;
 
