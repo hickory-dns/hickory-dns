@@ -16,7 +16,6 @@ use alloc::string::String;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use core::cmp::Ordering;
 use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
@@ -109,43 +108,6 @@ impl ProtoError {
             ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
             _ => None,
         }
-    }
-
-    /// Compare two errors to see if one contains a server response.
-    pub fn cmp_specificity(&self, other: &Self) -> Ordering {
-        let kind = self.kind();
-        let other = other.kind();
-
-        match (kind, other) {
-            (
-                ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
-                ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
-            ) => {
-                return Ordering::Equal;
-            }
-            (ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }), _) => return Ordering::Greater,
-            (_, ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })) => return Ordering::Less,
-            _ => (),
-        }
-
-        match (kind, other) {
-            #[cfg(feature = "std")]
-            (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
-            #[cfg(feature = "std")]
-            (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
-            #[cfg(feature = "std")]
-            (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
-            _ => (),
-        }
-
-        match (kind, other) {
-            (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return Ordering::Equal,
-            (ProtoErrorKind::Timeout, _) => return Ordering::Greater,
-            (_, ProtoErrorKind::Timeout) => return Ordering::Less,
-            _ => (),
-        }
-
-        Ordering::Equal
     }
 }
 

@@ -408,12 +408,46 @@ impl<P: ConnectionProvider> PoolState<P> {
                     _ => return Err(e),
                 }
 
-                if err.cmp_specificity(&e) == Ordering::Less {
+                if cmp_specificity(&err, &e) == Ordering::Less {
                     err = e;
                 }
             }
         }
     }
+}
+
+/// Compare two errors to see if one contains a server response.
+fn cmp_specificity(previous: &ProtoError, current: &ProtoError) -> Ordering {
+    let kind = previous.kind();
+    let current = current.kind();
+
+    match (kind, current) {
+        (
+            ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
+            ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
+        ) => {
+            return Ordering::Equal;
+        }
+        (ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }), _) => return Ordering::Greater,
+        (_, ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })) => return Ordering::Less,
+        _ => (),
+    }
+
+    match (kind, current) {
+        (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return Ordering::Equal,
+        (ProtoErrorKind::Io { .. }, _) => return Ordering::Greater,
+        (_, ProtoErrorKind::Io { .. }) => return Ordering::Less,
+        _ => (),
+    }
+
+    match (kind, current) {
+        (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return Ordering::Equal,
+        (ProtoErrorKind::Timeout, _) => return Ordering::Greater,
+        (_, ProtoErrorKind::Timeout) => return Ordering::Less,
+        _ => (),
+    }
+
+    Ordering::Equal
 }
 
 /// Context for a [`NameServerPool`]
