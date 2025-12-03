@@ -31,7 +31,7 @@ use tracing::debug;
 
 use crate::{
     DnsStreamHandle,
-    error::{ProtoError, ProtoErrorKind},
+    error::{NetError, NetErrorKind},
     op::{DnsRequest, DnsResponse, MessageSigner, MessageVerifier, SerialMessage},
     runtime::Time,
     xfer::{
@@ -44,7 +44,7 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 struct ActiveRequest {
     // the completion is the channel for a response to the original request
-    completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
+    completion: mpsc::Sender<Result<DnsResponse, NetError>>,
     request_id: u16,
     timeout: BoxFuture<'static, ()>,
     verifier: Option<MessageVerifier>,
@@ -52,7 +52,7 @@ struct ActiveRequest {
 
 impl ActiveRequest {
     fn new(
-        completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
+        completion: mpsc::Sender<Result<DnsResponse, NetError>>,
         request_id: u16,
         timeout: BoxFuture<'static, ()>,
         verifier: Option<MessageVerifier>,
@@ -82,7 +82,7 @@ impl ActiveRequest {
     }
 
     /// Sends an error
-    fn complete_with_error(mut self, error: ProtoError) {
+    fn complete_with_error(mut self, error: NetError) {
         ignore_send(self.completion.try_send(Err(error)));
     }
 }
@@ -159,17 +159,17 @@ where
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
     fn drop_cancelled(&mut self, cx: &mut Context<'_>) {
-        let mut canceled = HashMap::<u16, ProtoError>::new();
+        let mut canceled = HashMap::<u16, NetError>::new();
         for (&id, active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
-                canceled.insert(id, ProtoError::from("requestor canceled"));
+                canceled.insert(id, NetError::from("requestor canceled"));
             }
 
             // check for timeouts...
             match active_req.poll_timeout(cx) {
                 Poll::Ready(()) => {
                     debug!("request timed out: {}", id);
-                    canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
+                    canceled.insert(id, NetError::from(NetErrorKind::Timeout));
                 }
                 Poll::Pending => (),
             }
@@ -185,7 +185,7 @@ where
     }
 
     /// creates random query_id, validates against all active queries
-    fn next_random_query_id(&self) -> Result<u16, ProtoError> {
+    fn next_random_query_id(&self) -> Result<u16, NetError> {
         let mut rand = rand::rng();
 
         for _ in 0..100 {
@@ -196,13 +196,13 @@ where
             }
         }
 
-        Err(ProtoError::from(
+        Err(NetError::from(
             "id space exhausted, consider filing an issue",
         ))
     }
 
     /// Closes all outstanding completes with a closed stream error
-    fn stream_closed_close_all(&mut self, error: ProtoError) {
+    fn stream_closed_close_all(&mut self, error: NetError) {
         debug!(%error, stream = %self.stream);
 
         for (_, active_request) in self.active_requests.drain() {
@@ -217,7 +217,7 @@ where
 pub struct DnsMultiplexerConnect<F, S>
 where
     F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
-    S: Stream<Item = Result<SerialMessage, ProtoError>> + Unpin,
+    S: Stream<Item = Result<SerialMessage, NetError>> + Unpin,
 {
     stream: F,
     stream_handle: Option<BufDnsStreamHandle>,
@@ -268,7 +268,7 @@ where
         }
 
         if self.active_requests.len() > CHANNEL_BUFFER_SIZE {
-            return ProtoError::from(ProtoErrorKind::Busy).into();
+            return NetError::from(crate::NetErrorKind::Busy).into();
         }
 
         let query_id = match self.next_random_query_id() {
@@ -288,7 +288,7 @@ where
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
-                        return e.into();
+                        return NetError::from(e).into();
                     }
                 }
             }
@@ -330,7 +330,7 @@ where
                     "error message"
                 );
                 // complete with the error, don't add to the map of active requests
-                return error.into();
+                return NetError::from(error).into();
             }
         }
 
@@ -350,7 +350,7 @@ impl<S> Stream for DnsMultiplexer<S>
 where
     S: DnsClientStream + Unpin + 'static,
 {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // Always drop the cancelled queries first
@@ -377,11 +377,9 @@ where
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
                                 if let Some(verifier) = &mut active_request.verifier {
-                                    ignore_send(
-                                        active_request
-                                            .completion
-                                            .try_send(verifier(response.as_buffer())),
-                                    );
+                                    ignore_send(active_request.completion.try_send(
+                                        verifier(response.as_buffer()).map_err(NetError::from),
+                                    ));
                                 } else {
                                     ignore_send(active_request.completion.try_send(Ok(response)));
                                 }
@@ -395,7 +393,7 @@ where
                 Poll::Ready(err) => {
                     let err = match err {
                         Some(Err(e)) => e,
-                        None => ProtoError::from("stream closed"),
+                        None => NetError::from("stream closed"),
                         _ => unreachable!(),
                     };
 
@@ -468,7 +466,7 @@ mod test {
     }
 
     impl Stream for MockClientStream {
-        type Item = Result<SerialMessage, ProtoError>;
+        type Item = Result<SerialMessage, NetError>;
 
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             let id = if let Some(id) = self.id {

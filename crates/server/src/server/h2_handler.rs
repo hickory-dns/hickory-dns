@@ -28,7 +28,7 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    proto::{ProtoError, h2, http::Version, rr::Record, xfer::Protocol},
+    proto::{NetError, h2, http::Version, rr::Record, xfer::Protocol},
     zone_handler::MessageResponse,
 };
 
@@ -41,7 +41,7 @@ pub(super) async fn handle_h2(
     dns_hostname: Option<String>,
     http_endpoint: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     handle_h2_with_acceptor(
         listener,
         handshake_timeout,
@@ -65,7 +65,7 @@ pub(super) async fn handle_h2_with_acceptor(
     dns_hostname: Option<String>,
     http_endpoint: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
     debug!("registered https: {listener:?}");
@@ -129,7 +129,7 @@ pub(super) async fn handle_h2_with_acceptor(
     if cx.shutdown.is_cancelled() {
         Ok(())
     } else {
-        Err(ProtoError::from("unexpected close of socket"))
+        Err(NetError::from("unexpected close of socket"))
     }
 }
 

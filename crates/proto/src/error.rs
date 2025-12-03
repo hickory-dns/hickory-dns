@@ -62,24 +62,24 @@ macro_rules! trace {
 /// An alias for results returned by functions of this crate
 pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
-/// The error type for errors that get returned in the crate
+/// The error type for network protocol errors (UDP, TCP, QUIC, H2, H3)
 #[derive(Error, Clone, Debug)]
 #[non_exhaustive]
-pub struct ProtoError {
+pub struct NetError {
     /// Kind of error that occurred
-    pub kind: ProtoErrorKind,
+    pub kind: NetErrorKind,
     /// Backtrace to the source of the error
     #[cfg(feature = "backtrace")]
     pub backtrack: Option<ExtBacktrace>,
 }
 
-impl ProtoError {
+impl NetError {
     /// Returns true if the domain does not exist
     #[inline]
     pub fn is_nx_domain(&self) -> bool {
         matches!(
             self.kind,
-            ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+            NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                 response_code: ResponseCode::NXDomain,
                 ..
             }))
@@ -91,7 +91,7 @@ impl ProtoError {
     pub fn is_no_records_found(&self) -> bool {
         matches!(
             self.kind,
-            ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })
+            NetErrorKind::Dns(DnsError::NoRecordsFound { .. })
         )
     }
 
@@ -99,13 +99,13 @@ impl ProtoError {
     #[inline]
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
         match self.kind {
-            ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
+            NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
             _ => None,
         }
     }
 }
 
-impl fmt::Display for ProtoError {
+impl fmt::Display for NetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
@@ -122,7 +122,7 @@ impl fmt::Display for ProtoError {
     }
 }
 
-impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
+impl<E: Into<NetErrorKind>> From<E> for NetError {
     fn from(error: E) -> Self {
         Self {
             kind: error.into(),
@@ -132,52 +132,45 @@ impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
     }
 }
 
-impl From<NoRecords> for ProtoError {
+impl From<NoRecords> for NetError {
     fn from(no_records: NoRecords) -> Self {
-        ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)).into()
+        Self::from(NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)))
     }
 }
 
-impl From<&'static str> for ProtoError {
-    fn from(msg: &'static str) -> Self {
-        ProtoErrorKind::Message(msg).into()
-    }
-}
-
-impl From<String> for ProtoError {
+impl From<String> for NetError {
     fn from(msg: String) -> Self {
-        ProtoErrorKind::Msg(msg).into()
+        NetErrorKind::Msg(msg).into()
     }
 }
 
-#[cfg(target_os = "android")]
-impl From<jni::errors::Error> for ProtoError {
-    fn from(e: jni::errors::Error) -> Self {
-        ProtoErrorKind::Jni(Arc::new(e)).into()
+impl From<&'static str> for NetError {
+    fn from(msg: &'static str) -> Self {
+        NetErrorKind::Message(msg).into()
     }
 }
 
 #[cfg(feature = "std")]
-impl From<ProtoError> for io::Error {
-    fn from(e: ProtoError) -> Self {
-        match &e.kind {
-            ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
+impl From<NetError> for io::Error {
+    fn from(e: NetError) -> Self {
+        match e.kind {
+            NetErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::other(e),
         }
     }
 }
 
 #[cfg(feature = "wasm-bindgen")]
-impl From<ProtoError> for wasm_bindgen_crate::JsValue {
-    fn from(e: ProtoError) -> Self {
+impl From<NetError> for wasm_bindgen_crate::JsValue {
+    fn from(e: NetError) -> Self {
         js_sys::Error::new(&e.to_string()).into()
     }
 }
 
-/// The error kind for errors that get returned in the crate
+/// The error kind for network protocol errors
 #[derive(Clone, Debug, EnumAsInner, Error)]
 #[non_exhaustive]
-pub enum ProtoErrorKind {
+pub enum NetErrorKind {
     /// A UDP response was received with an incorrect transaction id, likely indicating a
     /// cache-poisoning attempt.
     #[error("bad transaction id received")]
@@ -191,41 +184,9 @@ pub enum ProtoErrorKind {
     #[error("resource too busy")]
     Busy,
 
-    /// Character data length exceeded the limit
-    #[non_exhaustive]
-    #[error("char data length exceeds {max}: {len}")]
-    CharacterDataTooLong {
-        /// Specified maximum
-        max: usize,
-        /// Actual length
-        len: usize,
-    },
-
-    /// Crypto operation failed
-    #[error("crypto error: {0}")]
-    #[cfg(feature = "__dnssec")]
-    Crypto(&'static str),
-
-    /// Message decoding error
-    #[error("decoding error: {0}")]
-    Decode(#[from] DecodeError),
-
     /// Semantic DNS errors
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
-
-    /// Format error in Message Parsing
-    #[error("message format error: {error}")]
-    FormError {
-        /// Header of the bad Message
-        header: Header,
-        /// Error that occurred while parsing the Message
-        error: Box<ProtoError>,
-    },
-
-    /// The maximum buffer size was exceeded
-    #[error("maximum buffer size exceeded: {0}")]
-    MaxBufferSizeExceeded(usize),
 
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
@@ -235,17 +196,13 @@ pub enum ProtoErrorKind {
     #[error("{0}")]
     Msg(String),
 
-    /// No resolvers available
+    /// No connections available
     #[error("no connections available")]
     NoConnections,
 
-    /// Not all records were able to be written
-    #[non_exhaustive]
-    #[error("not all records could be written, wrote: {count}")]
-    NotAllRecordsWritten {
-        /// Number of records that were written before the error
-        count: usize,
-    },
+    /// Protocol error from higher layers
+    #[error("protocol error: {0}")]
+    Proto(#[from] ProtoError),
 
     // foreign
     /// An error got returned from IO
@@ -256,22 +213,6 @@ pub enum ProtoErrorKind {
     /// A request timed out
     #[error("request timed out")]
     Timeout,
-
-    /// An url parsing error
-    #[error("url parsing error")]
-    UrlParsing(#[from] url::ParseError),
-
-    /// A utf8 parsing error
-    #[error("error parsing utf8 string")]
-    Utf8(#[from] core::str::Utf8Error),
-
-    /// A utf8 parsing error
-    #[error("error parsing utf8 string")]
-    FromUtf8(#[from] alloc::string::FromUtf8Error),
-
-    /// An int parsing error
-    #[error("error parsing int")]
-    ParseInt(#[from] core::num::ParseIntError),
 
     /// A Quinn (Quic) connection error occurred
     #[cfg(feature = "__quic")]
@@ -327,21 +268,169 @@ pub enum ProtoErrorKind {
     /// case.
     #[error("case of query name in response did not match")]
     QueryCaseMismatch,
-
-    /// A JNI call error
-    #[cfg(target_os = "android")]
-    #[error("JNI call error: {0}")]
-    Jni(Arc<jni::errors::Error>),
 }
 
 #[cfg(feature = "std")]
-impl From<io::Error> for ProtoErrorKind {
+impl From<io::Error> for NetErrorKind {
     fn from(e: io::Error) -> Self {
         match e.kind() {
             io::ErrorKind::TimedOut => Self::Timeout,
             _ => Self::Io(e.into()),
         }
     }
+}
+
+/// The error type for errors that get returned in the crate
+#[derive(Error, Clone, Debug)]
+#[non_exhaustive]
+pub struct ProtoError {
+    /// Kind of error that occurred
+    pub kind: ProtoErrorKind,
+    /// Backtrace to the source of the error
+    #[cfg(feature = "backtrace")]
+    pub backtrack: Option<ExtBacktrace>,
+}
+
+impl ProtoError {
+    /// Get the kind of the error
+    #[inline]
+    pub fn kind(&self) -> &ProtoErrorKind {
+        &self.kind
+    }
+}
+
+impl fmt::Display for ProtoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "backtrace")] {
+                if let Some(backtrace) = &self.backtrack {
+                    fmt::Display::fmt(&self.kind, f)?;
+                    fmt::Debug::fmt(backtrace, f)
+                } else {
+                    fmt::Display::fmt(&self.kind, f)
+                }
+            } else {
+                fmt::Display::fmt(&self.kind, f)
+            }
+        }
+    }
+}
+
+impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
+    fn from(error: E) -> Self {
+        Self {
+            kind: error.into(),
+            #[cfg(feature = "backtrace")]
+            backtrack: trace!(),
+        }
+    }
+}
+
+impl From<&'static str> for ProtoError {
+    fn from(msg: &'static str) -> Self {
+        ProtoErrorKind::Message(msg).into()
+    }
+}
+
+impl From<String> for ProtoError {
+    fn from(msg: String) -> Self {
+        ProtoErrorKind::Msg(msg).into()
+    }
+}
+
+#[cfg(target_os = "android")]
+impl From<jni::errors::Error> for ProtoError {
+    fn from(e: jni::errors::Error) -> Self {
+        ProtoErrorKind::Jni(Arc::new(e)).into()
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<ProtoError> for io::Error {
+    fn from(e: ProtoError) -> Self {
+        Self::other(e)
+    }
+}
+
+#[cfg(feature = "wasm-bindgen")]
+impl From<ProtoError> for wasm_bindgen_crate::JsValue {
+    fn from(e: ProtoError) -> Self {
+        js_sys::Error::new(&e.to_string()).into()
+    }
+}
+
+/// The error kind for errors that get returned in the crate
+#[derive(Clone, Debug, EnumAsInner, Error)]
+#[non_exhaustive]
+pub enum ProtoErrorKind {
+    /// Character data length exceeded the limit
+    #[non_exhaustive]
+    #[error("char data length exceeds {max}: {len}")]
+    CharacterDataTooLong {
+        /// Specified maximum
+        max: usize,
+        /// Actual length
+        len: usize,
+    },
+
+    /// Crypto operation failed
+    #[error("crypto error: {0}")]
+    #[cfg(feature = "__dnssec")]
+    Crypto(&'static str),
+
+    /// Message decoding error
+    #[error("decoding error: {0}")]
+    Decode(#[from] DecodeError),
+
+    /// Format error in Message Parsing
+    #[error("message format error: {error}")]
+    FormError {
+        /// Header of the bad Message
+        header: Header,
+        /// Error that occurred while parsing the Message
+        error: Box<ProtoError>,
+    },
+
+    /// The maximum buffer size was exceeded
+    #[error("maximum buffer size exceeded: {0}")]
+    MaxBufferSizeExceeded(usize),
+
+    /// An error with an arbitrary message, referenced as &'static str
+    #[error("{0}")]
+    Message(&'static str),
+
+    /// An error with an arbitrary message, stored as String
+    #[error("{0}")]
+    Msg(String),
+
+    /// Not all records were able to be written
+    #[non_exhaustive]
+    #[error("not all records could be written, wrote: {count}")]
+    NotAllRecordsWritten {
+        /// Number of records that were written before the error
+        count: usize,
+    },
+
+    /// An url parsing error
+    #[error("url parsing error")]
+    UrlParsing(#[from] url::ParseError),
+
+    /// A utf8 parsing error
+    #[error("error parsing utf8 string")]
+    Utf8(#[from] core::str::Utf8Error),
+
+    /// A utf8 parsing error
+    #[error("error parsing utf8 string")]
+    FromUtf8(#[from] alloc::string::FromUtf8Error),
+
+    /// An int parsing error
+    #[error("error parsing int")]
+    ParseInt(#[from] core::num::ParseIntError),
+
+    /// A JNI call error
+    #[cfg(target_os = "android")]
+    #[error("JNI call error: {0}")]
+    Jni(Arc<jni::errors::Error>),
 }
 
 /// Semantic DNS errors

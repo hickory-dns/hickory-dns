@@ -23,7 +23,7 @@ use super::{
 };
 use crate::{
     proto::{
-        ProtoError,
+        NetError,
         h3::{
             H3Error,
             h3_server::{H3Connection, H3Server},
@@ -40,7 +40,7 @@ pub(super) async fn handle_h3(
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     debug!("registered h3: {:?}", socket);
     handle_h3_with_server(
         H3Server::with_socket(socket, server_cert_resolver)?,
@@ -54,7 +54,7 @@ pub(super) async fn handle_h3_with_server(
     mut server: H3Server,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     let dns_hostname = dns_hostname.map(|n| n.into());
 
     let mut inner_join_set = JoinSet::new();
@@ -109,7 +109,7 @@ pub(crate) async fn h3_handler(
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     // TODO: we should make this configurable
     let mut max_requests = 100u32;
 
@@ -135,7 +135,7 @@ pub(crate) async fn h3_handler(
         let request = match stream
             .recv_data()
             .await
-            .map_err(|e| ProtoError::from(format!("h3 stream receive data failed: {e}")))?
+            .map_err(|e| NetError::from(format!("h3 stream receive data failed: {e}")))?
         {
             Some(mut request) => request.copy_to_bytes(request.remaining()),
             None => continue,

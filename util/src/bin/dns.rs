@@ -39,7 +39,7 @@ use hickory_proto::rustls::client_config;
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::tls_client_connect;
 use hickory_proto::{
-    ProtoError,
+    NetError,
     client::{Client, ClientHandle},
     op::DnsResponse,
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
@@ -146,7 +146,7 @@ impl QueryOpt {
         self,
         class: DNSClass,
         mut client: impl ClientHandle,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let Self { name, ty } = self;
         println!("; sending query: {name} {class} {ty}");
         client.query(name, class, ty).await
@@ -173,7 +173,7 @@ impl NotifyOpt {
         self,
         class: DNSClass,
         mut client: impl ClientHandle,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let Self { name, ty, rdata } = self;
         let rdata = if rdata.is_empty() {
             None
@@ -214,7 +214,7 @@ impl CreateOpt {
         self,
         class: DNSClass,
         mut client: impl ClientHandle,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let Self {
             name,
             ty,
@@ -260,7 +260,7 @@ impl AppendOpt {
         self,
         class: DNSClass,
         mut client: impl ClientHandle,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let Self {
             must_exist,
             name,
@@ -300,7 +300,7 @@ impl DeleteRecordOpt {
         self,
         class: DNSClass,
         mut client: impl ClientHandle,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let Self {
             name,
             ty,

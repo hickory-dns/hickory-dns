@@ -1127,7 +1127,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
 
         if request_info.query.query_type() == RecordType::AXFR {
             return (
-                LookupControlFlow::Break(Err(LookupError::ProtoError(
+                LookupControlFlow::Break(Err(LookupError::NetError(
                     "AXFR must be handled with ZoneHandler::zone_transfer()".into(),
                 ))),
                 None,

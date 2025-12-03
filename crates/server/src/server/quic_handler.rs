@@ -21,7 +21,7 @@ use super::{
 };
 use crate::{
     proto::{
-        ProtoError,
+        NetError,
         quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
         rr::Record,
         xfer::Protocol,
@@ -34,7 +34,7 @@ pub(super) async fn handle_quic(
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     debug!(?socket, "registered quic");
     handle_quic_with_server(
         QuicServer::with_socket(socket, server_cert_resolver)?,
@@ -48,7 +48,7 @@ pub(super) async fn handle_quic_with_server(
     mut server: QuicServer,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     let dns_hostname = dns_hostname.map(|n| n.into());
 
     let mut inner_join_set = JoinSet::new();
@@ -103,7 +103,7 @@ pub(crate) async fn quic_handler(
     src_addr: SocketAddr,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), ProtoError> {
+) -> Result<(), NetError> {
     // TODO: we should make this configurable
     let mut max_requests = 100u32;
 

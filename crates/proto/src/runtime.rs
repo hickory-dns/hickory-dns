@@ -17,7 +17,7 @@ use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::task::JoinHandle;
 
-use crate::error::ProtoError;
+use crate::error::NetError;
 use crate::tcp::DnsTcpStream;
 use crate::udp::DnsUdpSocket;
 
@@ -137,14 +137,14 @@ mod tokio_runtime {
     /// A handle to the Tokio runtime
     #[derive(Clone, Default)]
     pub struct TokioHandle {
-        join_set: Arc<Mutex<JoinSet<Result<(), ProtoError>>>>,
+        join_set: Arc<Mutex<JoinSet<Result<(), NetError>>>>,
     }
 
     impl Spawn for TokioHandle {
-        fn spawn_bg<F>(&mut self, future: F)
-        where
-            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
-        {
+        fn spawn_bg(
+            &mut self,
+            future: impl Future<Output = Result<(), NetError>> + Send + 'static,
+        ) {
             let mut join_set = self.join_set.lock().unwrap();
             join_set.spawn(future);
             reap_tasks(&mut join_set);
@@ -217,7 +217,7 @@ mod tokio_runtime {
     }
 
     /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
-    fn reap_tasks(join_set: &mut JoinSet<Result<(), ProtoError>>) {
+    fn reap_tasks(join_set: &mut JoinSet<Result<(), NetError>>) {
         while join_set.try_join_next().is_some() {}
     }
 
@@ -301,9 +301,7 @@ pub trait QuicSocketBinder {
 /// A type defines the Handle which can spawn future.
 pub trait Spawn {
     /// Spawn a future in the background
-    fn spawn_bg<F>(&mut self, future: F)
-    where
-        F: Future<Output = Result<(), ProtoError>> + Send + 'static;
+    fn spawn_bg(&mut self, future: impl Future<Output = Result<(), NetError>> + Send + 'static);
 }
 
 /// Generic executor.

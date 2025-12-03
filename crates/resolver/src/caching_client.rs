@@ -20,7 +20,7 @@ use crate::{
     cache::{MAX_TTL, ResponseCache, TtlConfig},
     lookup::Lookup,
     proto::{
-        NoRecords, ProtoError, ProtoErrorKind,
+        NetError, NetErrorKind, NoRecords,
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordType,
@@ -101,7 +101,7 @@ where
         &self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> BoxFuture<'static, Result<Lookup, ProtoError>> {
+    ) -> BoxFuture<'static, Result<Lookup, NetError>> {
         Box::pin(Self::inner_lookup(
             query,
             options,
@@ -117,7 +117,7 @@ where
         mut client: Self,
         preserved_records: Vec<Record>,
         depth: DepthTracker,
-    ) -> Result<Lookup, ProtoError> {
+    ) -> Result<Lookup, NetError> {
         // see https://tools.ietf.org/html/rfc6761
         //
         // ```text
@@ -173,7 +173,7 @@ where
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
         let response_message = if let Ok(response) = response_message {
-            DnsError::from_response(response).map_err(ProtoError::from)
+            DnsError::from_response(response).map_err(NetError::from)
         } else {
             response_message
         };
@@ -182,16 +182,16 @@ where
         //  if it's DNSSEC they must be signed, otherwise?
         let records = match response_message {
             // this is the only cacheable form
-            Err(e) => match &e.kind {
-                ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => {
-                    let mut new = no_records.clone();
-                    if is_dnssec {
-                        new.negative_ttl = None;
-                    }
-                    Err(new.into())
+            Err(NetError {
+                kind: NetErrorKind::Dns(DnsError::NoRecordsFound(mut no_records)),
+                ..
+            }) => {
+                if is_dnssec {
+                    no_records.negative_ttl = None;
                 }
-                _ => return Err(e),
-            },
+                Err(no_records.into())
+            }
+            Err(err) => return Err(err),
             Ok(response_message) => {
                 // allow the handle_noerror function to deal with any error codes
                 let records = Self::handle_noerror(
@@ -219,7 +219,7 @@ where
     }
 
     /// Check if this query is already cached
-    fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, ProtoError>> {
+    fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, NetError>> {
         let now = Instant::now();
         let message_res = self.cache.get(query, now)?;
         let message = match message_res {
@@ -237,7 +237,7 @@ where
         response: DnsResponse,
         mut preserved_records: Vec<Record>,
         depth: DepthTracker,
-    ) -> Result<Records, ProtoError> {
+    ) -> Result<Records, NetError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = MAX_TTL;
 
@@ -379,7 +379,7 @@ where
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn cname(&self, lookup: Lookup, query: Query) -> Result<Lookup, ProtoError> {
+    fn cname(&self, lookup: Lookup, query: Query) -> Result<Lookup, NetError> {
         let mut message = Message::response(0, OpCode::Query);
         message.add_answers(lookup.records().iter().cloned());
         self.cache.insert(query, Ok(message), Instant::now());
@@ -389,8 +389,8 @@ where
     fn cache(
         &self,
         query: Query,
-        records: Result<Vec<Record>, ProtoError>,
-    ) -> Result<Lookup, ProtoError> {
+        records: Result<Vec<Record>, NetError>,
+    ) -> Result<Lookup, NetError> {
         let rdata = match records {
             Ok(rdata) => rdata,
             Err(err) => {
@@ -425,7 +425,7 @@ enum Records {
     Exists(Vec<Record>),
     /// Future lookup for recursive cname records
     CnameChain {
-        next: BoxFuture<'static, Result<Lookup, ProtoError>>,
+        next: BoxFuture<'static, Result<Lookup, NetError>>,
     },
 }
 
@@ -444,15 +444,15 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use crate::proto::op::{Message, Query};
-    use crate::proto::rr::rdata::{NS, SRV};
-    use crate::proto::rr::{Name, Record};
     use futures_executor::block_on;
     use test_support::subscribe;
 
     use super::*;
     use crate::cache::TtlConfig;
     use crate::lookup_ip::tests::*;
+    use crate::proto::op::{Message, Query};
+    use crate::proto::rr::rdata::{NS, SRV};
+    use crate::proto::rr::{Name, Record};
 
     #[test]
     fn test_empty_cache() {
@@ -461,22 +461,23 @@ mod tests {
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
-        if let ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-            query,
-            negative_ttl,
-            ..
-        })) = &block_on(CachingClient::inner_lookup(
+        let error = block_on(CachingClient::inner_lookup(
             Query::new(),
             DnsRequestOptions::default(),
             client,
             vec![],
             DepthTracker::default(),
         ))
-        .unwrap_err()
-        .kind
+        .unwrap_err();
+
+        if let NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+            query,
+            negative_ttl,
+            ..
+        })) = error.kind
         {
-            assert_eq!(*query, Box::new(Query::new()));
-            assert_eq!(*negative_ttl, None);
+            assert_eq!(query, Box::new(Query::new()));
+            assert_eq!(negative_ttl, None);
         } else {
             panic!("wrong error received")
         }
@@ -555,7 +556,7 @@ mod tests {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn cname_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn cname_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),
@@ -570,7 +571,7 @@ mod tests {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn srv_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn srv_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
         message.add_query(Query::query(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),
@@ -590,7 +591,7 @@ mod tests {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn ns_message() -> Result<DnsResponse, ProtoError> {
+    pub(crate) fn ns_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),

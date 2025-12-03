@@ -14,9 +14,8 @@ use std::io;
 use futures_util::stream::Stream;
 
 use super::Client;
-use crate::ProtoError;
-use crate::dnssec::DnssecDnsHandle;
-use crate::dnssec::TrustAnchors;
+use crate::dnssec::{DnssecDnsHandle, TrustAnchors};
+use crate::error::NetError;
 use crate::op::{DnsRequest, DnsResponse};
 use crate::runtime::{TokioRuntimeProvider, TokioTime};
 use crate::xfer::{DnsExchangeBackground, DnsHandle, DnsRequestSender};
@@ -69,7 +68,7 @@ impl Clone for DnssecClient {
 }
 
 impl DnsHandle for DnssecClient {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send + 'static>>;
     type Runtime = TokioRuntimeProvider;
 
     fn send(&self, request: DnsRequest) -> Self::Response {

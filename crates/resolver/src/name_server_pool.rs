@@ -36,7 +36,7 @@ use crate::config::{
 use crate::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::{
-    DnsError, NoRecords, ProtoError, ProtoErrorKind,
+    DnsError, NetError, NetErrorKind, NoRecords,
     access_control::AccessControlSet,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, OpCode, Query, ResponseCode},
     rr::{
@@ -60,10 +60,10 @@ pub struct NameServerPool<P: ConnectionProvider> {
 }
 
 #[derive(Clone)]
-pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, ProtoError>>>>);
+pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, NetError>>>>);
 
 impl Future for SharedLookup {
-    type Output = Result<DnsResponse, ProtoError>;
+    type Output = Result<DnsResponse, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx).map(|o| match o {
@@ -185,7 +185,7 @@ type TtlInstant = std::time::Instant;
 type TtlInstant = tokio::time::Instant;
 
 impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = P::RuntimeProvider;
 
     fn lookup(&self, query: Query, mut options: DnsRequestOptions) -> Self::Response {
@@ -278,7 +278,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
             // Since the message might have changed, create a new response from
             // the message to update the buffer.
-            DnsResponse::from_message(response.into_message())
+            DnsResponse::from_message(response.into_message()).map_err(NetError::from)
         }))
     }
 }
@@ -290,7 +290,7 @@ struct PoolState<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
-    async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, ProtoError> {
+    async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
         let mut servers = self.servers.clone();
         match self.cx.options.server_ordering_strategy {
             // select the highest priority connection
@@ -316,7 +316,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
         }
 
-        // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
+        // If the name server we're trying is giving us backpressure by returning NetErrorKind::Busy,
         // we will first try the other name servers (as for other error types). However, if the other
         // servers are also busy, we're going to wait for a little while and then retry each server that
         // returned Busy in the previous round. If the server is still Busy, this continues, while
@@ -329,7 +329,7 @@ impl<P: ConnectionProvider> PoolState<P> {
         let mut servers = VecDeque::from(servers);
         let mut backoff = Duration::from_millis(20);
         let mut busy = SmallVec::<[Arc<NameServer<P>>; 2]>::new();
-        let mut err = ProtoError::from(ProtoErrorKind::NoConnections);
+        let mut err = NetError::from(NetErrorKind::NoConnections);
         let mut policy = ConnectionPolicy::default();
 
         loop {
@@ -378,7 +378,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     Ok(response) if response.truncated() => {
                         debug!("truncated response received, retrying over TCP");
                         policy.disable_udp = true;
-                        err = ProtoError::from("received truncated response");
+                        err = NetError::from("received truncated response");
                         servers.push_front(server);
                         continue;
                     }
@@ -389,18 +389,18 @@ impl<P: ConnectionProvider> PoolState<P> {
                 match &e.kind {
                     // We assume the response is spoofed, so ignore it and avoid UDP server for this
                     // request to try and avoid further spoofing.
-                    ProtoErrorKind::QueryCaseMismatch => {
+                    NetErrorKind::QueryCaseMismatch => {
                         servers.push_front(server);
                         policy.disable_udp = true;
                         continue;
                     }
                     // If the server is busy, try it again later if necessary.
-                    ProtoErrorKind::Busy => busy.push(server),
+                    NetErrorKind::Busy => busy.push(server),
                     // If the connection failed, try another one.
-                    ProtoErrorKind::Io(_) | ProtoErrorKind::NoConnections => {}
+                    NetErrorKind::Io(_) | NetErrorKind::NoConnections => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
-                    ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+                    NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                         response_code: ResponseCode::NXDomain,
                         ..
                     })) if !server.trust_negative_responses() => {}
@@ -413,31 +413,38 @@ impl<P: ConnectionProvider> PoolState<P> {
     }
 }
 
-/// Yield the most specific of two errors to return to the caller
-fn most_specific(previous: ProtoError, current: ProtoError) -> ProtoError {
-    match (&previous.kind, &current.kind) {
-        (
-            ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
-            ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
-        ) => {
+/// Compare two errors to see if one contains a server response.
+fn most_specific(previous: NetError, current: NetError) -> NetError {
+    let prev_dns = match &previous.kind {
+        NetErrorKind::Dns(dns) => Some(dns),
+        _ => None,
+    };
+
+    let cur_dns = match &current.kind {
+        NetErrorKind::Dns(dns) => Some(dns),
+        _ => None,
+    };
+
+    match (prev_dns, cur_dns) {
+        (Some(DnsError::NoRecordsFound { .. }), Some(DnsError::NoRecordsFound { .. })) => {
             return previous;
         }
-        (ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }), _) => return previous,
-        (_, ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. })) => return current,
+        (Some(DnsError::NoRecordsFound { .. }), _) => return previous,
+        (_, Some(DnsError::NoRecordsFound { .. })) => return current,
         _ => (),
     }
 
     match (&previous.kind, &current.kind) {
-        (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return previous,
-        (ProtoErrorKind::Io { .. }, _) => return current,
-        (_, ProtoErrorKind::Io { .. }) => return previous,
+        (NetErrorKind::Io { .. }, NetErrorKind::Io { .. }) => return previous,
+        (NetErrorKind::Io { .. }, _) => return current,
+        (_, NetErrorKind::Io { .. }) => return previous,
         _ => (),
     }
 
     match (&previous.kind, &current.kind) {
-        (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return previous,
-        (ProtoErrorKind::Timeout, _) => return previous,
-        (_, ProtoErrorKind::Timeout) => return current,
+        (NetErrorKind::Timeout, NetErrorKind::Timeout) => return previous,
+        (NetErrorKind::Timeout, _) => return previous,
+        (_, NetErrorKind::Timeout) => return current,
         _ => (),
     }
 
@@ -548,10 +555,10 @@ impl NameServerTransportState {
     }
 
     /// Update the transport state for the given IP and protocol to record a received error.
-    pub(crate) fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
+    pub(crate) fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &NetError) {
         let protocol_state = self.0.entry(ip).or_default();
         *protocol_state.get_mut(protocol) = match &error.kind {
-            ProtoErrorKind::Timeout => TransportState::TimedOut {
+            NetErrorKind::Timeout => TransportState::TimedOut {
                 #[cfg(any(feature = "__tls", feature = "__quic"))]
                 completed_at: SystemTime::now(),
             },
@@ -833,7 +840,7 @@ mod opportunistic_encryption_persistence {
             }
         }
 
-        async fn run(self) -> Result<(), ProtoError> {
+        async fn run(self) -> Result<(), NetError> {
             let Self {
                 save_interval,
                 path,

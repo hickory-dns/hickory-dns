@@ -29,7 +29,7 @@ use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
-use crate::error::ProtoError;
+use crate::error::{NetError, ProtoError};
 use crate::http::request::RequestContext;
 use crate::http::{SetHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
@@ -66,34 +66,34 @@ impl HttpsClientStream {
         h2: SendRequest<Bytes>,
         message: Bytes,
         cx: Arc<RequestContext>,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, NetError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
             Err(err) => {
                 // TODO: make specific error
-                return Err(ProtoError::from(format!("h2 send_request error: {err}")));
+                return Err(NetError::from(format!("h2 send_request error: {err}")));
             }
         };
 
         // build up the http request
         let request = cx
             .build(message.remaining())
-            .map_err(|err| ProtoError::from(format!("bad http request: {err}")))?;
+            .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
 
         debug!("request: {:#?}", request);
 
         // Send the request
         let (response_future, mut send_stream) = h2
             .send_request(request, false)
-            .map_err(|err| ProtoError::from(format!("h2 send_request error: {err}")))?;
+            .map_err(|err| NetError::from(format!("h2 send_request error: {err}")))?;
 
         send_stream
             .send_data(message, true)
-            .map_err(|e| ProtoError::from(format!("h2 send_data error: {e}")))?;
+            .map_err(|e| NetError::from(format!("h2 send_data error: {e}")))?;
 
         let mut response_stream = response_future
             .await
-            .map_err(|err| ProtoError::from(format!("received a stream error: {err}")))?;
+            .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
 
         debug!("got response: {:#?}", response_stream);
 
@@ -103,10 +103,10 @@ impl HttpsClientStream {
             .get(CONTENT_LENGTH)
             .map(|v| v.to_str())
             .transpose()
-            .map_err(|e| ProtoError::from(format!("bad headers received: {e}")))?
+            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
             .map(usize::from_str)
             .transpose()
-            .map_err(|e| ProtoError::from(format!("bad headers received: {e}")))?;
+            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
 
         // TODO: what is a good max here?
         // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
@@ -116,7 +116,7 @@ impl HttpsClientStream {
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
             let partial_bytes =
-                partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {e}")))?;
+                partial_bytes.map_err(|e| NetError::from(format!("bad http request: {e}")))?;
 
             debug!("got bytes: {}", partial_bytes.len());
             response_bytes.extend(partial_bytes);
@@ -133,7 +133,7 @@ impl HttpsClientStream {
         if let Some(content_length) = content_length {
             if response_bytes.len() != content_length {
                 // TODO: make explicit error type
-                return Err(ProtoError::from(format!(
+                return Err(NetError::from(format!(
                     "expected byte length: {}, got: {}",
                     content_length,
                     response_bytes.len()
@@ -146,7 +146,7 @@ impl HttpsClientStream {
             let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
             // TODO: make explicit error type
-            return Err(ProtoError::from(format!(
+            return Err(NetError::from(format!(
                 "http unsuccessful code: {}, message: {}",
                 response_stream.status(),
                 error_string
@@ -161,13 +161,13 @@ impl HttpsClientStream {
                     .map(|h| {
                         h.to_str().map_err(|err| {
                             // TODO: make explicit error type
-                            ProtoError::from(format!("ContentType header not a string: {err}"))
+                            NetError::from(format!("ContentType header not a string: {err}"))
                         })
                     })
                     .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
 
                 if content_type != crate::http::MIME_APPLICATION_DNS {
-                    return Err(ProtoError::from(format!(
+                    return Err(NetError::from(format!(
                         "ContentType unsupported (must be '{}'): '{}'",
                         crate::http::MIME_APPLICATION_DNS,
                         content_type
@@ -177,7 +177,7 @@ impl HttpsClientStream {
         };
 
         // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(response_bytes.to_vec())
+        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
     }
 }
 
@@ -243,7 +243,7 @@ impl DnsRequestSender for HttpsClientStream {
 
         let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return err.into(),
+            Err(err) => return NetError::from(err).into(),
         };
 
         Box::pin(Self::inner_send(
@@ -264,7 +264,7 @@ impl DnsRequestSender for HttpsClientStream {
 }
 
 impl Stream for HttpsClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -275,7 +275,7 @@ impl Stream for HttpsClientStream {
         match self.h2.poll_ready(cx) {
             Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(()))),
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
+            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(NetError::from(format!(
                 "h2 stream errored: {e}",
             ))))),
         }

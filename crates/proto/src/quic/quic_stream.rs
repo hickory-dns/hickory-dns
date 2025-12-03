@@ -10,7 +10,7 @@ use quinn::{RecvStream, SendStream, VarInt};
 use tracing::debug;
 
 use crate::{
-    error::{ProtoError, ProtoErrorKind},
+    error::{NetError, NetErrorKind, ProtoError, ProtoErrorKind},
     op::{DnsResponse, Message},
 };
 
@@ -131,7 +131,7 @@ impl QuicStream {
     }
 
     /// Send the DNS message to the other side
-    pub async fn send(&mut self, mut message: Message) -> Result<(), ProtoError> {
+    pub async fn send(&mut self, mut message: Message) -> Result<(), NetError> {
         // RFC: When sending queries over a QUIC connection, the DNS Message ID MUST be set to 0.
         // The stream mapping for DoQ allows for unambiguous correlation of queries and responses,
         // so the Message ID field is not required.
@@ -144,7 +144,7 @@ impl QuicStream {
     }
 
     /// Send pre-encoded bytes, warning, QUIC requires the message id to be 0.
-    pub async fn send_bytes(&mut self, bytes: Bytes) -> Result<(), ProtoError> {
+    pub async fn send_bytes(&mut self, bytes: Bytes) -> Result<(), NetError> {
         // In order for multiple responses to be parsed, a 2-octet length field is used in exactly
         // the same way as the 2-octet length field defined for DNS over TCP [RFC1035].  The
         // practical result of this is that the content of each QUIC stream is exactly the same as
@@ -152,8 +152,11 @@ impl QuicStream {
         //
         // All DNS messages (queries and responses) sent over DoQ connections MUST be encoded as a
         // 2-octet length field followed by the message content as specified in [RFC1035].
-        let bytes_len = u16::try_from(bytes.len())
-            .map_err(|_e| ProtoErrorKind::MaxBufferSizeExceeded(bytes.len()))?;
+        let bytes_len = u16::try_from(bytes.len()).map_err(|_e| {
+            NetError::from(ProtoError::from(ProtoErrorKind::MaxBufferSizeExceeded(
+                bytes.len(),
+            )))
+        })?;
         let len = bytes_len.to_be_bytes().to_vec();
         let len = Bytes::from(len);
 
@@ -163,13 +166,13 @@ impl QuicStream {
     }
 
     /// finishes the send stream, i.e. there will be no more data sent to the remote
-    pub async fn finish(&mut self) -> Result<(), ProtoError> {
+    pub async fn finish(&mut self) -> Result<(), NetError> {
         self.send_stream.finish()?;
         Ok(())
     }
 
     /// Receive a single packet
-    pub async fn receive(&mut self) -> Result<DnsResponse, ProtoError> {
+    pub async fn receive(&mut self) -> Result<DnsResponse, NetError> {
         let bytes = self.receive_bytes().await?;
         let message = Message::from_vec(&bytes)?;
 
@@ -178,15 +181,17 @@ impl QuicStream {
             if let Err(error) = self.reset(DoqErrorCode::ProtocolError) {
                 debug!(%error, "stream already closed");
             }
-            return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
+            return Err(NetError::from(NetErrorKind::QuicMessageIdNot0(
+                message.id(),
+            )));
         }
 
-        DnsResponse::from_buffer(bytes.to_vec())
+        Ok(DnsResponse::from_buffer(bytes.to_vec())?)
     }
 
     // TODO: we should change the protocol handlers to work with Messages since some require things like 0 for the Message ID.
     /// Receive a single packet as raw bytes
-    pub async fn receive_bytes(&mut self) -> Result<BytesMut, ProtoError> {
+    pub async fn receive_bytes(&mut self) -> Result<BytesMut, NetError> {
         // following above, the data should be first the length, followed by the message(s)
         let mut len = [0u8; 2];
         self.receive_stream.read_exact(&mut len).await?;
@@ -205,7 +210,7 @@ impl QuicStream {
             if let Err(error) = self.reset(DoqErrorCode::ProtocolError) {
                 debug!(%error, "stream already closed");
             }
-            return Err(e.into());
+            return Err(NetError::from(e));
         }
 
         debug!("received packet len: {} bytes: {:x?}", len, bytes);
@@ -213,16 +218,16 @@ impl QuicStream {
     }
 
     /// Reset the sending stream due to some error
-    pub fn reset(&mut self, code: DoqErrorCode) -> Result<(), ProtoError> {
+    pub fn reset(&mut self, code: DoqErrorCode) -> Result<(), NetError> {
         self.send_stream
             .reset(code.into())
-            .map_err(|_| ProtoError::from(ProtoErrorKind::QuinnUnknownStreamError))
+            .map_err(|_| NetError::from(NetErrorKind::QuinnUnknownStreamError))
     }
 
     /// Stop the receiving stream due to some error
-    pub fn stop(&mut self, code: DoqErrorCode) -> Result<(), ProtoError> {
+    pub fn stop(&mut self, code: DoqErrorCode) -> Result<(), NetError> {
         self.receive_stream
             .stop(code.into())
-            .map_err(|_| ProtoError::from(ProtoErrorKind::QuinnUnknownStreamError))
+            .map_err(|_| NetError::from(NetErrorKind::QuinnUnknownStreamError))
     }
 }
