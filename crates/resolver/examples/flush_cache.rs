@@ -1,5 +1,3 @@
-#![recursion_limit = "128"]
-
 use std::sync::Arc;
 
 #[tokio::main]

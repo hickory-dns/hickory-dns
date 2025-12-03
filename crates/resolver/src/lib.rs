@@ -187,7 +187,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![recursion_limit = "128"]
 #![allow(clippy::needless_doctest_main, clippy::single_component_path_imports)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
