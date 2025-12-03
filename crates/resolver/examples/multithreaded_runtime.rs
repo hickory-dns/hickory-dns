@@ -1,5 +1,3 @@
-#![recursion_limit = "128"]
-
 //! This example shows how to create a resolver that uses the tokio multithreaded runtime. This is how
 //! you might integrate the resolver into a more complex application.
 

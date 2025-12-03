@@ -1,5 +1,3 @@
-#![recursion_limit = "128"]
-
 use std::{fmt::Display, future::pending, io, net::SocketAddr};
 
 use once_cell::sync::Lazy;

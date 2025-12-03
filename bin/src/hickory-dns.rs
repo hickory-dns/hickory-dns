@@ -27,8 +27,6 @@
 //!       -V, --version            Print version
 //! ```
 
-#![recursion_limit = "128"]
-
 #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 use std::sync::Arc;
 #[cfg(feature = "metrics")]
