@@ -14,7 +14,6 @@ use core::convert::From;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::{cmp::Ordering, fmt};
 
-use enum_as_inner::EnumAsInner;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
@@ -59,7 +58,7 @@ use crate::dnssec::rdata::DNSSECRData;
 /// length (including the length octet).
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, EnumAsInner, PartialEq, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 #[non_exhaustive]
 pub enum RData {
     /// ```text

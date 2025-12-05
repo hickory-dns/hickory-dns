@@ -932,21 +932,22 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         };
 
         debug!("found keys {keys:?}");
-        let verified = keys
-            .iter()
-            .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
-            .any(
-                |key| match key.verify_message(&request.message, sig0.sig(), sig0.input()) {
-                    Ok(_) => {
-                        info!("verified sig: {sig0:?} with key: {key:?}");
-                        true
-                    }
-                    Err(_) => {
-                        debug!("did not verify sig: {sig0:?} with key: {key:?}");
-                        false
-                    }
-                },
-            );
+        let verified = keys.iter().any(|rr_set| {
+            let RData::DNSSEC(DNSSECRData::KEY(key)) = rr_set.data() else {
+                return false;
+            };
+
+            match key.verify_message(&request.message, sig0.sig(), sig0.input()) {
+                Ok(_) => {
+                    info!("verified sig: {sig0:?} with key: {key:?}");
+                    true
+                }
+                Err(_) => {
+                    debug!("did not verify sig: {sig0:?} with key: {key:?}");
+                    false
+                }
+            }
+        });
         match verified {
             true => Ok(()),
             false => {

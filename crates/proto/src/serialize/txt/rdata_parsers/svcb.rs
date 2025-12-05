@@ -401,29 +401,45 @@ mod tests {
         // alpn
         let param = params.next().expect("not alpn");
         assert_eq!(param.0, SvcParamKey::Alpn);
-        assert_eq!(param.1.as_alpn().expect("not alpn").0, &["http/1.1", "h2"]);
+        let value = match &param.1 {
+            SvcParamValue::Alpn(alpn) => alpn,
+            _ => panic!("expected alpn"),
+        };
+        assert_eq!(value.0, &["http/1.1", "h2"]);
 
         // ipv4 hint
         let param = params.next().expect("ipv4hint");
         assert_eq!(SvcParamKey::Ipv4Hint, param.0);
+        let value = match &param.1 {
+            SvcParamValue::Ipv4Hint(hint) => hint,
+            _ => panic!("expected ipv4hint"),
+        };
         assert_eq!(
-            param.1.as_ipv4_hint().expect("ipv4hint").0,
+            value.0,
             &[A::new(162, 159, 137, 85), A::new(162, 159, 138, 85)]
         );
 
         // echconfig
         let param = params.next().expect("echconfig");
         assert_eq!(SvcParamKey::EchConfigList, param.0);
+        let value = match &param.1 {
+            SvcParamValue::EchConfigList(ech) => ech,
+            _ => panic!("expected echconfig"),
+        };
         assert_eq!(
-            param.1.as_ech_config_list().expect("ech").0,
+            value.0,
             data_encoding::BASE64.decode(b"AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA=").unwrap()
         );
 
         // ipv6 hint
         let param = params.next().expect("ipv6hint");
         assert_eq!(SvcParamKey::Ipv6Hint, param.0);
+        let value = match &param.1 {
+            SvcParamValue::Ipv6Hint(hint) => hint,
+            _ => panic!("expected ipv6hint"),
+        };
         assert_eq!(
-            param.1.as_ipv6_hint().expect("ipv6hint").0,
+            value.0,
             &[
                 AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x8955),
                 AAAA::new(0x2606, 0x4700, 0x7, 0, 0, 0, 0xa29f, 0x8a5)
