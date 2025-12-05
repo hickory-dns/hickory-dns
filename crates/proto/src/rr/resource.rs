@@ -7,7 +7,7 @@
 
 //! resource record implementation
 
-use alloc::borrow::ToOwned;
+use alloc::{borrow::ToOwned, boxed::Box};
 use core::{cmp::Ordering, convert::TryFrom, fmt};
 
 #[cfg(feature = "serde")]
@@ -420,7 +420,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
         let class: DNSClass = if record_type == RecordType::OPT {
             // verify that the OPT record is Root
             if !name_labels.is_root() {
-                return Err(DecodeError::EdnsNameNotRoot(name_labels).into());
+                return Err(DecodeError::EdnsNameNotRoot(Box::new(name_labels)).into());
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
