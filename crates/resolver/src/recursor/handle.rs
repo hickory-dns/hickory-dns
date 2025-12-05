@@ -386,7 +386,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut response = match response.next().await {
             Some(Ok(r)) => r,
             Some(Err(e)) => {
-                warn!("lookup error: {e}");
+                warn!(?query, error=%e, "lookup error");
+                self.response_cache.insert(query, Err(e.clone()), now);
                 return Err(Error::from(e));
             }
             None => {
