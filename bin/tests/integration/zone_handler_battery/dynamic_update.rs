@@ -25,7 +25,7 @@ use hickory_proto::{
 };
 use hickory_server::{
     server::Request,
-    zone_handler::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{DnssecZoneHandler, LookupError, LookupOptions, MessageRequest, ZoneHandler},
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
@@ -654,10 +654,10 @@ pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
 
         let lookup = block_on(handler.search(&request, LookupOptions::default()));
 
-        assert_eq!(
-            *lookup.0.unwrap_err().as_response_code().unwrap(),
-            ResponseCode::NXDomain
-        );
+        assert!(matches!(
+            lookup.0.unwrap_err(),
+            LookupError::ResponseCode(ResponseCode::NXDomain)
+        ));
     }
 }
 
@@ -715,16 +715,16 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
         .unwrap();
 
         let lookup = block_on(handler.search(&request, LookupOptions::default()));
-        assert_eq!(
-            *lookup.0.unwrap_err().as_response_code().unwrap(),
-            ResponseCode::NXDomain
-        );
+        assert!(matches!(
+            lookup.0.unwrap_err(),
+            LookupError::ResponseCode(ResponseCode::NXDomain)
+        ));
 
         let lookup = block_on(handler.search(&request, LookupOptions::default()));
-        assert_eq!(
-            *lookup.0.unwrap_err().as_response_code().unwrap(),
-            ResponseCode::NXDomain
-        );
+        assert!(matches!(
+            lookup.0.unwrap_err(),
+            LookupError::ResponseCode(ResponseCode::NXDomain)
+        ));
     }
 }
 

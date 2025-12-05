@@ -565,7 +565,11 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
         .0
         .unwrap_err();
 
-    assert!(lookup.is_name_exists(), "lookup: {}", lookup);
+    assert!(
+        matches!(lookup, LookupError::NameExists),
+        "lookup: {}",
+        lookup
+    );
 
     // the rest should all be NameExists
     let request = Request::from_message(
@@ -582,7 +586,7 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
         .0
         .unwrap_err();
 
-    assert!(lookup.is_name_exists());
+    assert!(matches!(lookup, LookupError::NameExists));
 
     // and this should be an NXDOMAIN
     let request = Request::from_message(

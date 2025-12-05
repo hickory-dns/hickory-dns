@@ -831,7 +831,7 @@ async fn build_authoritative_response(
         Err(e) => {
             if e.is_nx_domain() {
                 response_header.set_response_code(ResponseCode::NXDomain);
-            } else if e.is_name_exists() {
+            } else if let LookupError::NameExists = e {
                 response_header.set_response_code(ResponseCode::NoError);
             };
             None

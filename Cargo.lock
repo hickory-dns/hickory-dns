@@ -950,7 +950,6 @@ dependencies = [
  "bytes",
  "cfg-if",
  "data-encoding",
- "enum-as-inner",
  "futures-executor",
  "futures-util",
  "h2",
