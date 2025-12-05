@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec, boxed::Box};
 
 use thiserror::Error;
 
@@ -46,7 +46,7 @@ pub enum DecodeError {
 
     /// EDNS resource record label is not the root label, although required
     #[error("edns resource record label must be the root label (.): {0}")]
-    EdnsNameNotRoot(Name),
+    EdnsNameNotRoot(Box<Name>),
 
     /// The length of rdata read was not as expected
     #[non_exhaustive]
