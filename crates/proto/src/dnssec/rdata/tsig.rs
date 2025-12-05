@@ -721,7 +721,7 @@ pub fn signed_bitmessage_to_buf(
     message: &[u8],
     previous_hash: Option<&[u8]>,
     first_message: bool,
-) -> ProtoResult<(Vec<u8>, Record)> {
+) -> ProtoResult<(Vec<u8>, Record<TSIG>)> {
     let mut decoder = BinDecoder::new(message);
     let mut header = Header::read(&mut decoder)?;
 
@@ -763,11 +763,8 @@ pub fn signed_bitmessage_to_buf(
     let MessageSignature::Tsig(tsig_rr) = sig else {
         return Err(ProtoError::from("TSIG signature record not found"));
     };
-    let Some(tsig) = tsig_rr.data().as_dnssec().and_then(DNSSECRData::as_tsig) else {
-        return Err(ProtoError::from(
-            "TSIG signature record invalid record data",
-        ));
-    };
+
+    let tsig = tsig_rr.data();
     header.set_id(tsig.oid);
 
     // Construct the TBS data.
@@ -800,16 +797,13 @@ pub fn signed_bitmessage_to_buf(
 }
 
 /// Helper function to make a TSIG record from the name of the key, and the TSIG RData
-pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
+pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record<TSIG> {
     // https://tools.ietf.org/html/rfc8945#section-4.2
 
     let mut tsig = Record::from_rdata(
-        //   NAME:  The name of the key used, in domain name syntax
-        name,
-        //   TTL:  This MUST be 0.
-        0,
-        //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
-        DNSSECRData::TSIG(rdata).into(),
+        name,  //   NAME:  The name of the key used, in domain name syntax
+        0,     //   TTL:  This MUST be 0.
+        rdata, //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
     );
 
     //   CLASS:  This MUST be ANY.
