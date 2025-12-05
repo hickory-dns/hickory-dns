@@ -31,7 +31,7 @@ use crate::{
         dnssec::{
             DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
             rdata::{
-                DNSSECRData,
+                DNSSECRData, TSIG,
                 key::KEY,
                 tsig::{TsigAlgorithm, TsigError},
             },
@@ -960,7 +960,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     #[cfg(feature = "__dnssec")]
     async fn authorized_tsig(
         &self,
-        tsig: &Record,
+        tsig: &Record<TSIG>,
         request: &Request,
         now: u64,
     ) -> (Result<(), ResponseCode>, Box<dyn ResponseSigner>) {
@@ -998,14 +998,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             error = Some(TsigError::BadTime);
         }
 
-        // Unwrap safety: verify_message_byte() has already successfully extracted & parsed the
-        // TSIG RR.
-        let req_tsig = tsig
-            .data()
-            .as_dnssec()
-            .and_then(DNSSECRData::as_tsig)
-            .unwrap();
-        (response, cx.sign(req_tsig, error, tsigner.clone()))
+        (response, cx.sign(tsig.data(), error, tsigner.clone()))
     }
 }
 

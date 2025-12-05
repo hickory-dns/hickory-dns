@@ -14,12 +14,14 @@ use core::{iter, mem, ops::Deref};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
+#[cfg(feature = "__dnssec")]
+use crate::dnssec::rdata::{DNSSECRData, TSIG};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
-    rr::{Record, RecordType},
+    rr::{RData, Record, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
 };
 
@@ -665,12 +667,21 @@ impl Message {
                 continue;
             }
 
-            match record.record_type() {
+            match record.data() {
                 #[cfg(feature = "__dnssec")]
-                RecordType::SIG => sig = MessageSignature::Sig0(record),
+                RData::DNSSEC(DNSSECRData::SIG(_)) => sig = MessageSignature::Sig0(record),
                 #[cfg(feature = "__dnssec")]
-                RecordType::TSIG => sig = MessageSignature::Tsig(record),
-                RecordType::OPT => {
+                RData::DNSSEC(DNSSECRData::TSIG(_)) => {
+                    sig = MessageSignature::Tsig(
+                        record
+                            .map(|data| match data {
+                                RData::DNSSEC(DNSSECRData::TSIG(tsig)) => Some(tsig),
+                                _ => None,
+                            })
+                            .unwrap(), // Safe: see `match` arm above
+                    )
+                }
+                RData::Update0(RecordType::OPT) | RData::OPT(_) => {
                     if edns.is_some() {
                         return Err("more than one edns record present".into());
                     }
@@ -966,9 +977,9 @@ where
     if include_signature {
         let count = match signature {
             #[cfg(feature = "__dnssec")]
-            MessageSignature::Sig0(rec) | MessageSignature::Tsig(rec) => {
-                count_was_truncated(encoder.emit_all(iter::once(rec)))?
-            }
+            MessageSignature::Sig0(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
+            #[cfg(feature = "__dnssec")]
+            MessageSignature::Tsig(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
             MessageSignature::Unsigned => (0, false),
         };
         additional_count.0 += count.0;
@@ -1106,13 +1117,15 @@ pub enum MessageSignature {
     Sig0(Record),
     /// The message has an RFC 8945 TSIG signature [Record].
     #[cfg(feature = "__dnssec")]
-    Tsig(Record),
+    Tsig(Record<TSIG>),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[cfg(feature = "__dnssec")]
+    use crate::dnssec::rdata::tsig::{TSIG, TsigAlgorithm};
     #[cfg(feature = "__dnssec")]
     use crate::rr::RecordType;
     use crate::rr::rdata::A;
@@ -1361,7 +1374,7 @@ mod tests {
             Record::from_rdata(
                 Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
                 0,
-                RData::Update0(RecordType::TSIG),
+                fake_tsig(),
             ),
         ];
         let result = encode_and_read_records(records, true);
@@ -1414,7 +1427,7 @@ mod tests {
             Record::from_rdata(
                 Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
                 0,
-                RData::Update0(RecordType::TSIG),
+                fake_tsig(),
             ),
         ];
 
@@ -1509,7 +1522,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::TSIG),
+                    fake_tsig(),
                 ),
             ],
             true,
@@ -1535,7 +1548,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::TSIG),
+                    fake_tsig(),
                 ),
             ],
             false,
@@ -1586,7 +1599,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::TSIG),
+                    fake_tsig(),
                 ),
                 a_record.clone(),
             ],
@@ -1611,7 +1624,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::SIG),
+                    fake_tsig(),
                 ),
                 a_record.clone(),
             ],
@@ -1640,7 +1653,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::TSIG),
+                    fake_tsig(),
                 ),
             ],
             true,
@@ -1656,7 +1669,7 @@ mod tests {
         let tsig_record = Record::from_rdata(
             Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
             0,
-            RData::Update0(RecordType::TSIG),
+            fake_tsig(),
         );
         let error = encode_and_read_records(
             vec![
@@ -1681,7 +1694,7 @@ mod tests {
         let sig0_record = Record::from_rdata(
             Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
             0,
-            RData::Update0(RecordType::SIG),
+            fake_tsig(),
         );
         let error = encode_and_read_records(
             vec![
@@ -1708,5 +1721,18 @@ mod tests {
         let mut encoder = BinEncoder::new(&mut bytes);
         encoder.emit_all(records.iter())?;
         Message::read_records(&mut BinDecoder::new(&bytes), records.len(), is_additional)
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn fake_tsig() -> RData {
+        RData::DNSSEC(DNSSECRData::TSIG(TSIG::new(
+            TsigAlgorithm::HmacSha256,
+            0,
+            0,
+            vec![],
+            0,
+            None,
+            vec![],
+        )))
     }
 }
