@@ -61,7 +61,10 @@ async fn readme_example() {
     //  In this case we are interested in A, IPv4 address
     let a_data = answers
         .iter()
-        .flat_map(|record| record.data().as_a())
+        .flat_map(|record| match record.data() {
+            RData::A(addr) => Some(addr),
+            _ => None,
+        })
         .collect::<Vec<_>>();
     assert!(!a_data.is_empty());
 }

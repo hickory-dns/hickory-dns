@@ -67,7 +67,9 @@ pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 
     assert_eq!(soa_records.len(), 1);
 
-    let soa = soa_records.first().unwrap().data().as_soa().unwrap();
+    let Some(RData::SOA(soa)) = soa_records.first().map(|r| r.data()) else {
+        panic!("expected SOA record");
+    };
 
     assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
     assert_eq!(
@@ -104,8 +106,14 @@ pub fn test_ns(handler: impl ZoneHandler, keys: &[DNSKEY]) {
         .partition(|r| r.record_type() == RecordType::NS);
 
     assert_eq!(
-        ns_records.first().unwrap().data().as_ns().unwrap().0,
-        Name::from_str("bbb.example.com.").unwrap()
+        ns_records
+            .first()
+            .and_then(|r| match r.data() {
+                RData::NS(ns) => Some(&ns.0),
+                _ => None,
+            })
+            .unwrap(),
+        &Name::from_str("bbb.example.com.").unwrap()
     );
 
     let rrsig_records: Vec<_> = other_records

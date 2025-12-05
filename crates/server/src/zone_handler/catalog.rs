@@ -16,7 +16,14 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "metrics")]
 use crate::zone_handler::metrics::CatalogMetrics;
 #[cfg(feature = "__dnssec")]
-use crate::{dnssec::NxProofKind, proto::dnssec::DnssecSummary, zone_handler::Nsec3QueryInfo};
+use crate::{
+    dnssec::NxProofKind,
+    proto::{
+        dnssec::{DnssecSummary, rdata::DNSSECRData},
+        rr::RData,
+    },
+    zone_handler::Nsec3QueryInfo,
+};
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{
     proto::{DnsError, NetError, NetErrorKind},
@@ -860,15 +867,11 @@ async fn build_authoritative_response(
         } else {
             #[cfg(feature = "__dnssec")]
             {
-                let has_wildcard_match = answers.iter().any(|rr| {
-                    let Some(dnssec) = rr.data().as_dnssec() else {
-                        return false;
-                    };
-                    let Some(rrsig) = dnssec.as_rrsig() else {
-                        return false;
-                    };
-
-                    rrsig.input().num_labels < rr.name().num_labels()
+                let has_wildcard_match = answers.iter().any(|rr| match rr.data() {
+                    RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                        rrsig.input().num_labels < rr.name().num_labels()
+                    }
+                    _ => false,
                 });
 
                 let res = match handler.nx_proof_kind() {

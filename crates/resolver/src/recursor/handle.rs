@@ -32,6 +32,8 @@ use super::{
         },
     },
 };
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::rdata::DNSSECRData;
 use crate::{
     ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
     TtlConfig,
@@ -335,7 +337,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
 
                 #[cfg(feature = "__dnssec")]
-                if let Some(rrsig) = r.data().as_dnssec().and_then(|rdata| rdata.as_rrsig()) {
+                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = r.data() {
                     let type_covered = rrsig.input().type_covered;
                     if type_covered == query_type || type_covered == RecordType::CNAME {
                         return Some(r.to_owned());
@@ -530,7 +532,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
 
             for zns in response.all_sections() {
-                let Some(ns_data) = zns.data().as_ns() else {
+                let RData::NS(ns_data) = zns.data() else {
                     continue;
                 };
 

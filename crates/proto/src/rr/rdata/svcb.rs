@@ -18,8 +18,6 @@ use core::{
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use enum_as_inner::EnumAsInner;
-
 use crate::{
     error::{ProtoError, ProtoErrorKind, ProtoResult},
     rr::{
@@ -366,7 +364,7 @@ impl PartialOrd for SvcParamKey {
 ///      determined by the SvcParamKey.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, EnumAsInner)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum SvcParamValue {
     ///    In a ServiceMode RR, a SvcParamKey is considered "mandatory" if the
     ///    RR will not function correctly for clients that ignore this

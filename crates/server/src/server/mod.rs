@@ -18,6 +18,7 @@ use std::{
 use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
 use futures_util::StreamExt;
+use hickory_proto::ProtoErrorKind;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -828,11 +829,11 @@ impl<T: RequestHandler> ServerContext<T> {
                 src: src_addr,
                 protocol,
             },
-            Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
+            Err(ProtoError {
+                kind: ProtoErrorKind::FormError { header, error },
+                ..
+            }) => {
                 // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
-                let (header, error) = kind
-                    .into_form_error()
-                    .expect("as form_error already confirmed this is a FormError");
                 let queries = Queries::empty();
 
                 error_response_handler(

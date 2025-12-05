@@ -101,8 +101,12 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
         // SOA must be present
         let soa = records
             .get(&RrKey::new(origin.clone().into(), RecordType::SOA))
-            .and_then(|rrset| rrset.records_without_rrsigs().next())
-            .and_then(|record| record.data().as_soa())
+            .and_then(
+                |rrset| match rrset.records_without_rrsigs().next()?.data() {
+                    RData::SOA(soa) => Some(soa),
+                    _ => None,
+                },
+            )
             .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
         let serial = soa.serial();
 
