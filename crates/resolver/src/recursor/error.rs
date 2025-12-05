@@ -11,13 +11,12 @@
 
 use std::{fmt, io, sync::Arc};
 
-use enum_as_inner::EnumAsInner;
-use hickory_proto::op::Query;
 use thiserror::Error;
 use tracing::warn;
 
 use crate::proto::{
     DnsError, ForwardNSData, NetError, NetErrorKind, NoRecords, ProtoError,
+    op::Query,
     op::ResponseCode,
     rr::{Name, Record, RecordType, rdata::SOA},
 };
@@ -25,7 +24,7 @@ use crate::proto::{
 use crate::proto::{ExtBacktrace, trace};
 
 /// The error kind for errors that get returned in the crate
-#[derive(Debug, EnumAsInner, Error)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ErrorKind {
     /// Maximum record limit was exceeded

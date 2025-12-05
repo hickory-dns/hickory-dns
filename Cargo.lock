@@ -910,7 +910,6 @@ dependencies = [
  "async-recursion",
  "backtrace",
  "cfg-if",
- "enum-as-inner",
  "futures-executor",
  "futures-util",
  "hickory-proto",
