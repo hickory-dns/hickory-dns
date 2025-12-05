@@ -943,7 +943,7 @@ mod tests {
     #[test]
     fn test_nsid_payload_too_large() {
         let err = NSIDPayload::try_from([0x00; (u16::MAX as usize) + 1].as_slice()).unwrap_err();
-        let ProtoErrorKind::Message(msg) = err.kind() else {
+        let ProtoErrorKind::Message(msg) = &err.kind else {
             panic!("expected ProtoErrorKind::Message, got {err}");
         };
         assert!(msg.contains("too large"));

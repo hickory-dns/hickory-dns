@@ -58,7 +58,7 @@ impl ResponseCache {
                     .clamp(positive_min_ttl, positive_max_ttl)
             }
             Err(e) => {
-                let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind() else {
+                let ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = &e.kind else {
                     return;
                 };
                 let (negative_min_ttl, negative_max_ttl) = self

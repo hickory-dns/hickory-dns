@@ -74,12 +74,6 @@ pub struct ProtoError {
 }
 
 impl ProtoError {
-    /// Get the kind of the error
-    #[inline]
-    pub fn kind(&self) -> &ProtoErrorKind {
-        &self.kind
-    }
-
     /// Returns true if the domain does not exist
     #[inline]
     pub fn is_nx_domain(&self) -> bool {
@@ -166,7 +160,7 @@ impl From<jni::errors::Error> for ProtoError {
 #[cfg(feature = "std")]
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
-        match e.kind() {
+        match &e.kind {
             ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
             _ => Self::other(e),
         }

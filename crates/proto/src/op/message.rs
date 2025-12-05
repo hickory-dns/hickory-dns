@@ -894,7 +894,7 @@ pub trait ResponseSigner: Send + Sync {
 fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
     match result {
         Ok(count) => Ok((count, false)),
-        Err(e) => match e.kind() {
+        Err(e) => match &e.kind {
             ProtoErrorKind::NotAllRecordsWritten { count } => Ok((*count, true)),
             _ => Err(e),
         },

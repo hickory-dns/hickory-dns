@@ -279,10 +279,10 @@ async fn test_exclude_nsec(
         .query(query_name.clone(), DNSClass::IN, query_type)
         .await
         .unwrap_err();
-    let ProtoErrorKind::Dns(DnsError::Nsec { proof, .. }) = error.kind() else {
+    let ProtoErrorKind::Dns(DnsError::Nsec { proof, .. }) = error.kind else {
         panic!("wrong proto error kind {error}");
     };
-    assert_eq!(proof, &Proof::Bogus);
+    assert_eq!(proof, Proof::Bogus);
 }
 
 /// Constructs a catalog based on the zone file described in RFC 4035 Appendix A.

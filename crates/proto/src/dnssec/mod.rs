@@ -211,7 +211,7 @@ impl From<String> for DnsSecError {
 
 impl From<ProtoError> for DnsSecError {
     fn from(e: ProtoError) -> Self {
-        match e.kind() {
+        match &e.kind {
             ProtoErrorKind::Timeout => DnsSecErrorKind::Timeout.into(),
             _ => DnsSecErrorKind::from(e).into(),
         }

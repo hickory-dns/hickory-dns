@@ -161,7 +161,7 @@ fn print_ok(lookup: Lookup) {
 }
 
 fn print_error(error: ProtoError) {
-    let no_records = match error.kind() {
+    let no_records = match &error.kind {
         ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
         _ => {
             println!("{error:?}");

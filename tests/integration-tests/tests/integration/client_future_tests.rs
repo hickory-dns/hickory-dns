@@ -972,7 +972,7 @@ async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
         .unwrap_err();
 
     println!("got error: {err:?}");
-    if let ProtoErrorKind::Timeout = err.kind() {
+    if let ProtoErrorKind::Timeout = err.kind {
     } else {
         panic!("expected timeout error");
     }

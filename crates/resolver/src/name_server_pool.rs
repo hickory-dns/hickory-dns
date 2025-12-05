@@ -386,7 +386,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     Err(e) => e,
                 };
 
-                match e.kind() {
+                match &e.kind {
                     // We assume the response is spoofed, so ignore it and avoid UDP server for this
                     // request to try and avoid further spoofing.
                     ProtoErrorKind::QueryCaseMismatch => {
@@ -415,7 +415,7 @@ impl<P: ConnectionProvider> PoolState<P> {
 
 /// Yield the most specific of two errors to return to the caller
 fn most_specific(previous: ProtoError, current: ProtoError) -> ProtoError {
-    match (previous.kind(), current.kind()) {
+    match (&previous.kind, &current.kind) {
         (
             ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
             ProtoErrorKind::Dns(DnsError::NoRecordsFound { .. }),
@@ -427,14 +427,14 @@ fn most_specific(previous: ProtoError, current: ProtoError) -> ProtoError {
         _ => (),
     }
 
-    match (previous.kind(), current.kind()) {
+    match (&previous.kind, &current.kind) {
         (ProtoErrorKind::Io { .. }, ProtoErrorKind::Io { .. }) => return previous,
         (ProtoErrorKind::Io { .. }, _) => return current,
         (_, ProtoErrorKind::Io { .. }) => return previous,
         _ => (),
     }
 
-    match (previous.kind(), current.kind()) {
+    match (&previous.kind, &current.kind) {
         (ProtoErrorKind::Timeout, ProtoErrorKind::Timeout) => return previous,
         (ProtoErrorKind::Timeout, _) => return previous,
         (_, ProtoErrorKind::Timeout) => return current,
@@ -550,7 +550,7 @@ impl NameServerTransportState {
     /// Update the transport state for the given IP and protocol to record a received error.
     pub(crate) fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &ProtoError) {
         let protocol_state = self.0.entry(ip).or_default();
-        *protocol_state.get_mut(protocol) = match error.kind() {
+        *protocol_state.get_mut(protocol) = match &error.kind {
             ProtoErrorKind::Timeout => TransportState::TimedOut {
                 #[cfg(any(feature = "__tls", feature = "__quic"))]
                 completed_at: SystemTime::now(),

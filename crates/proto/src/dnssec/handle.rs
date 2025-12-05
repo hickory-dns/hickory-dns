@@ -858,7 +858,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
         if let Some(ProtoErrorKind::Dns(DnsError::Nsec { query, proof, .. })) =
-            error_opt.as_ref().map(|e| e.kind())
+            error_opt.as_ref().map(|e| &e.kind)
         {
             if proof.is_insecure() {
                 debug!(

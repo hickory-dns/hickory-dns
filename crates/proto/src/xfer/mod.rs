@@ -119,7 +119,7 @@ impl Stream for DnsResponseStream {
         };
 
         match result {
-            Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => Poll::Ready(None),
+            Err(e) if matches!(e.kind, ProtoErrorKind::Timeout) => Poll::Ready(None),
             r => Poll::Ready(Some(r)),
         }
     }
