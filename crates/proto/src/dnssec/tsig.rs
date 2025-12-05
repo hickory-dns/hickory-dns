@@ -22,7 +22,6 @@ use core::ops::Range;
 
 use tracing::debug;
 
-use super::rdata::DNSSECRData;
 use super::rdata::tsig::{
     TSIG, TsigAlgorithm, make_tsig_record, message_tbs, signed_bitmessage_to_buf,
 };
@@ -32,7 +31,7 @@ use crate::error::{ProtoError, ProtoResult};
 use crate::op::{
     DnsResponse, Message, MessageSignature, MessageSigner, MessageVerifier, ResponseSigner,
 };
-use crate::rr::{Name, RData};
+use crate::rr::Name;
 use crate::serialize::binary::{BinEncoder, EncodeMode};
 
 /// Context for a TSIG response, used to construct a TSIG response signer
@@ -287,11 +286,7 @@ impl TSigner {
         first_message: bool,
     ) -> Result<(Vec<u8>, u64, Range<u64>), DnsSecError> {
         let (tbv, record) = signed_bitmessage_to_buf(message, previous_hash, first_message)?;
-        let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.data() {
-            tsig
-        } else {
-            unreachable!("tsig::signed_message_to_buff always returns a TSIG record")
-        };
+        let tsig = record.data();
 
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key

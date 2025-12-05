@@ -319,7 +319,10 @@ mod tests {
             .iter()
             .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
-        rdatas.sort_by_key(|r| r.as_ptr().as_ref().map(|p| p.0.clone()));
+        rdatas.sort_by_key(|r| match r {
+            RData::PTR(p) => Some(p.0.clone()),
+            _ => None,
+        });
         assert_eq!(
             rdatas,
             vec![

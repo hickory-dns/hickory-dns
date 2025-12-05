@@ -22,7 +22,6 @@ use std::io;
 
 #[cfg(feature = "backtrace")]
 pub use backtrace::Backtrace as ExtBacktrace;
-use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
 use once_cell::sync::Lazy;
 use thiserror::Error;
@@ -31,6 +30,7 @@ use tracing::debug;
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::Proof;
 use crate::op::{DnsResponse, Header, Query, ResponseCode};
+use crate::rr::RData;
 use crate::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
 
@@ -168,7 +168,7 @@ impl From<NetError> for wasm_bindgen_crate::JsValue {
 }
 
 /// The error kind for network protocol errors
-#[derive(Clone, Debug, EnumAsInner, Error)]
+#[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum NetErrorKind {
     /// A UDP response was received with an incorrect transaction id, likely indicating a
@@ -360,7 +360,7 @@ impl From<ProtoError> for wasm_bindgen_crate::JsValue {
 }
 
 /// The error kind for errors that get returned in the crate
-#[derive(Clone, Debug, EnumAsInner, Error)]
+#[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum ProtoErrorKind {
     /// Character data length exceeded the limit
@@ -434,7 +434,7 @@ pub enum ProtoErrorKind {
 }
 
 /// Semantic DNS errors
-#[derive(Clone, Debug, EnumAsInner, Error)]
+#[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum DnsError {
     /// Received an error response code from the server
@@ -498,11 +498,10 @@ impl DnsError {
                             .additionals()
                             .iter()
                             .filter_map(|record| {
-                                if let Some(ns_data) = ns.data().as_ns() {
-                                    if *record.name() == **ns_data &&
-                                       (record.data().as_a().is_some() || record.data().as_aaaa().is_some()) {
-                                           return Some(Record::to_owned(record));
-                                       }
+                                if let RData::NS(ns_data) = ns.data() {
+                                    if *record.name() == **ns_data && matches!(record.data(), RData::A(_) | RData::AAAA(_)) {
+                                        return Some(Record::to_owned(record));
+                                    }
                                 }
 
                                 None

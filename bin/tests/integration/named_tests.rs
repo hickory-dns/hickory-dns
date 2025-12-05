@@ -14,6 +14,8 @@ use tokio::runtime::Runtime;
 use crate::server_harness::{named_test_harness, query_a, query_a_refused};
 use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::op::ResponseCode;
+#[cfg(feature = "resolver")]
+use hickory_proto::rr::RData;
 use hickory_proto::rr::{DNSClass, Name, RecordType};
 use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::tcp::TcpClientStream;
@@ -288,7 +290,7 @@ fn test_forward() {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_a().is_some())
+                .any(|record| matches!(record.data(), RData::A(_)))
         );
 
         // just tests that multiple queries work
@@ -310,7 +312,7 @@ fn test_forward() {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_a().is_some())
+                .any(|record| matches!(record.data(), RData::A(_)))
         );
         assert!(!response.header().authoritative());
     })

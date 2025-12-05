@@ -10,7 +10,6 @@
 use std::{fmt, io, sync::Arc};
 
 use cfg_if::cfg_if;
-use enum_as_inner::EnumAsInner;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -375,7 +374,7 @@ impl<E: std::fmt::Display> LookupControlFlow<AuthLookup, E> {
 }
 
 /// A query could not be fulfilled
-#[derive(Debug, EnumAsInner, Error)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum LookupError {
     /// The query had an invalid number of queries

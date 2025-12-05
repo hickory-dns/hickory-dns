@@ -31,7 +31,7 @@ use crate::{
         dnssec::{
             DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
             rdata::{
-                DNSSECRData,
+                DNSSECRData, SIG, TSIG,
                 key::KEY,
                 tsig::{TsigAlgorithm, TsigError},
             },
@@ -557,7 +557,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         }
 
         match request.signature() {
-            MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, request).await, None),
+            MessageSignature::Sig0(sig0) => {
+                (self.authorized_sig0(sig0.data(), request).await, None)
+            }
             MessageSignature::Tsig(tsig) => {
                 let (resp, signer) = self.authorized_tsig(tsig, request, now).await;
                 (resp, Some(signer))
@@ -580,7 +582,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             // Allow only if a valid signature is present.
             #[cfg(feature = "__dnssec")]
             AxfrPolicy::AllowSigned => match _request.signature() {
-                MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, _request).await, None),
+                MessageSignature::Sig0(sig0) => {
+                    (self.authorized_sig0(sig0.data(), _request).await, None)
+                }
                 MessageSignature::Tsig(tsig) => {
                     let (resp, signer) = self.authorized_tsig(tsig, _request, _now).await;
                     (resp, Some(signer))
@@ -914,13 +918,8 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_sig0(&self, sig0: &Record, request: &Request) -> Result<(), ResponseCode> {
+    async fn authorized_sig0(&self, sig0: &SIG, request: &Request) -> Result<(), ResponseCode> {
         debug!("authorizing with: {sig0:?}");
-
-        let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
-            warn!("no sig0 matched registered records: id {}", request.id());
-            return Err(ResponseCode::Refused);
-        };
 
         let name = LowerName::from(&sig0.input().signer_name);
 
@@ -933,21 +932,22 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         };
 
         debug!("found keys {keys:?}");
-        let verified = keys
-            .iter()
-            .filter_map(|rr_set| rr_set.data().as_dnssec().and_then(DNSSECRData::as_key))
-            .any(
-                |key| match key.verify_message(&request.message, sig0.sig(), sig0.input()) {
-                    Ok(_) => {
-                        info!("verified sig: {sig0:?} with key: {key:?}");
-                        true
-                    }
-                    Err(_) => {
-                        debug!("did not verify sig: {sig0:?} with key: {key:?}");
-                        false
-                    }
-                },
-            );
+        let verified = keys.iter().any(|rr_set| {
+            let RData::DNSSEC(DNSSECRData::KEY(key)) = rr_set.data() else {
+                return false;
+            };
+
+            match key.verify_message(&request.message, sig0.sig(), sig0.input()) {
+                Ok(_) => {
+                    info!("verified sig: {sig0:?} with key: {key:?}");
+                    true
+                }
+                Err(_) => {
+                    debug!("did not verify sig: {sig0:?} with key: {key:?}");
+                    false
+                }
+            }
+        });
         match verified {
             true => Ok(()),
             false => {
@@ -960,7 +960,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     #[cfg(feature = "__dnssec")]
     async fn authorized_tsig(
         &self,
-        tsig: &Record,
+        tsig: &Record<TSIG>,
         request: &Request,
         now: u64,
     ) -> (Result<(), ResponseCode>, Box<dyn ResponseSigner>) {
@@ -998,14 +998,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             error = Some(TsigError::BadTime);
         }
 
-        // Unwrap safety: verify_message_byte() has already successfully extracted & parsed the
-        // TSIG RR.
-        let req_tsig = tsig
-            .data()
-            .as_dnssec()
-            .and_then(DNSSECRData::as_tsig)
-            .unwrap();
-        (response, cx.sign(req_tsig, error, tsigner.clone()))
+        (response, cx.sign(tsig.data(), error, tsigner.clone()))
     }
 }
 

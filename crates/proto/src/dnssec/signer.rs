@@ -15,7 +15,7 @@ use super::{DnsSecResult, SigningKey};
 use crate::{
     dnssec::{
         TBS,
-        rdata::{DNSKEY, DNSSECRData, KEY, SIG, SigInput},
+        rdata::{DNSKEY, KEY, SIG, SigInput},
     },
     error::{ProtoErrorKind, ProtoResult},
     op::{Message, MessageSignature, MessageSigner, MessageVerifier},
@@ -518,11 +518,10 @@ impl MessageSigner for SigSigner {
         };
 
         let sig = self.sign_message(message, &input)?;
-        let rdata = RData::DNSSEC(DNSSECRData::SIG(SIG { input, sig }));
 
         // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
         //  meaningless.' - 2931
-        let mut sig0 = Record::from_rdata(name, ttl, rdata);
+        let mut sig0 = Record::from_rdata(name, ttl, SIG { input, sig });
 
         // The CLASS field SHOULD be ANY
         sig0.set_dns_class(DNSClass::ANY);
@@ -544,7 +543,7 @@ mod tests {
     use crate::dnssec::{
         Algorithm, PublicKey, SigningKey, TBS, Verifier,
         crypto::RsaSigningKey,
-        rdata::{DNSSECRData, KEY, key::KeyUsage},
+        rdata::{KEY, key::KeyUsage},
     };
     use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
@@ -615,14 +614,11 @@ mod tests {
             );
         };
 
-        let RData::DNSSEC(DNSSECRData::SIG(sig)) = sig.data() else {
-            panic!(
-                "expected DNSSECRdata::SIG from Sig0 RR, not {:?}",
-                sig.data()
-            );
-        };
-
-        assert!(sig0key.verify_message(&question, sig.sig(), &input).is_ok());
+        assert!(
+            sig0key
+                .verify_message(&question, sig.data().sig(), &input)
+                .is_ok()
+        );
     }
 
     #[test]

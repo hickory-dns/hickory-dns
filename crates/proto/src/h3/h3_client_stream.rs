@@ -501,7 +501,7 @@ mod tests {
 
     use super::*;
     use crate::op::{DnsRequestOptions, Edns, Message, Query};
-    use crate::rr::{Name, RecordType};
+    use crate::rr::{Name, RData, RecordType};
     use crate::xfer::FirstAnswer;
 
     #[tokio::test]
@@ -539,7 +539,7 @@ mod tests {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_a().is_some())
+                .any(|record| matches!(record.data(), RData::A(_)))
         );
 
         //
@@ -568,7 +568,7 @@ mod tests {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_aaaa().is_some())
+                .any(|record| matches!(record.data(), RData::AAAA(_)))
         );
     }
 
@@ -611,7 +611,7 @@ mod tests {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_a().is_some())
+                .any(|record| matches!(record.data(), RData::A(_)))
         );
 
         //
@@ -640,7 +640,7 @@ mod tests {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_aaaa().is_some())
+                .any(|record| matches!(record.data(), RData::AAAA(_)))
         );
     }
 
@@ -685,7 +685,7 @@ mod tests {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_a().is_some())
+                .any(|record| matches!(record.data(), RData::A(_)))
         );
 
         //
@@ -712,7 +712,7 @@ mod tests {
             response
                 .answers()
                 .iter()
-                .any(|record| record.data().as_aaaa().is_some())
+                .any(|record| matches!(record.data(), RData::AAAA(_)))
         );
     }
 

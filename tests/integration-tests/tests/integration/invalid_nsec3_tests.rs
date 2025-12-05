@@ -393,13 +393,9 @@ async fn test_exclude_nsec3(
         "failed to remove expected NSEC3 record and signature at {nsec3_owner_name}: {modified_response:?}"
     );
 
-    let public_key = dnskey_response.answers()[0]
-        .data()
-        .as_dnssec()
-        .unwrap()
-        .as_dnskey()
-        .unwrap()
-        .public_key();
+    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers()[0].data() else {
+        panic!("expected DNSKEY record: {dnskey_response:#?}");
+    };
 
     let mock = MockHandler::new(
         query_name.into(),
@@ -407,7 +403,7 @@ async fn test_exclude_nsec3(
         modified_response,
         dnskey_response.clone(),
     );
-    let (mut client, _mock_server) = setup_dnssec_client_server(mock, public_key).await;
+    let (mut client, _mock_server) = setup_dnssec_client_server(mock, dnskey.public_key()).await;
 
     let error = client
         .query(query_name.clone(), DNSClass::IN, query_type)

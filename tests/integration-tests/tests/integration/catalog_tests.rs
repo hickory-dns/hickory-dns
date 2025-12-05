@@ -1031,7 +1031,9 @@ async fn test_empty_chain_axfr() {
 mod dnssec {
     use super::*;
     use hickory_proto::dnssec::{
-        Nsec3HashAlgorithm, SigSigner, SigningKey, crypto::Ed25519SigningKey, rdata::DNSKEY,
+        Nsec3HashAlgorithm, SigSigner, SigningKey,
+        crypto::Ed25519SigningKey,
+        rdata::{DNSKEY, DNSSECRData},
     };
 
     fn make_catalog() -> Catalog {
@@ -1119,23 +1121,17 @@ mod dnssec {
                 .expect("result to contain one DNSKEY");
             assert_eq!(result.answers().len(), 2, "expect only one answer");
 
-            let dnskey = dnskey
-                .data()
-                .clone()
-                .into_dnssec()
-                .unwrap()
-                .into_dnskey()
-                .unwrap();
-            assert!(dnskey.zone_key());
+            match dnskey.data() {
+                RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) => assert!(dnskey.zone_key()),
+                _ => panic!("expected DNSKEY RData: {dnskey}"),
+            }
 
-            let rrsig = rrsig
-                .data()
-                .clone()
-                .into_dnssec()
-                .unwrap()
-                .into_rrsig()
-                .unwrap();
-            assert_eq!(rrsig.input().type_covered, RecordType::DNSKEY);
+            match rrsig.data() {
+                RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                    assert_eq!(rrsig.input().type_covered, RecordType::DNSKEY)
+                }
+                _ => panic!("expected RRSIG RData {rrsig}"),
+            }
         }
 
         // Check NSEC3
@@ -1159,13 +1155,9 @@ mod dnssec {
                 .find(|e| e.record_type() == RecordType::NSEC3)
                 .expect("result to contain NSEC3");
 
-            let nsec3 = nsec3
-                .data()
-                .clone()
-                .into_dnssec()
-                .unwrap()
-                .into_nsec3()
-                .unwrap();
+            let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = nsec3.data() else {
+                panic!("expected NSEC3 RData: {nsec3}");
+            };
 
             for denied in [RecordType::NSEC, RecordType::NSEC3] {
                 assert!(
@@ -1202,13 +1194,9 @@ mod dnssec {
                 .find(|e| e.record_type() == RecordType::NSEC3PARAM)
                 .expect("result to contain one NSEC3PARAM");
 
-            let nsec3param = nsec3param
-                .data()
-                .clone()
-                .into_dnssec()
-                .unwrap()
-                .into_nsec3param()
-                .unwrap();
+            let RData::DNSSEC(DNSSECRData::NSEC3PARAM(nsec3param)) = nsec3param.data() else {
+                panic!("expected NSEC3PARAM RData: {nsec3param}");
+            };
 
             // Check default parameters
             assert_eq!(nsec3param.hash_algorithm(), Nsec3HashAlgorithm::SHA1);

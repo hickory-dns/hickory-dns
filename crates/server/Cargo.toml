@@ -105,7 +105,6 @@ toml = { workspace = true, optional = true }
 bytes.workspace = true
 cfg-if.workspace = true
 data-encoding.workspace = true
-enum-as-inner.workspace = true
 futures-util = { workspace = true, default-features = false, features = ["std"] }
 h2 = { workspace = true, features = ["stream"], optional = true }
 h3 = { workspace = true, optional = true }

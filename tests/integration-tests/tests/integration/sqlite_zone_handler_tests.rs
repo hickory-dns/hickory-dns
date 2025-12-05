@@ -13,8 +13,6 @@ use rusqlite::*;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::TSigner;
 #[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::rdata::DNSSECRData;
-#[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::rdata::tsig::{TsigAlgorithm, TsigError};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::{Edns, LowerQuery, Message, MessageSignature, MessageSigner};
@@ -991,12 +989,7 @@ async fn test_update_tsig_valid() {
     let MessageSignature::Tsig(tsig_rr) = sig.clone() else {
         panic!("unexpected message signature type");
     };
-    let tsig_rr = tsig_rr
-        .data()
-        .as_dnssec()
-        .and_then(DNSSECRData::as_tsig)
-        .unwrap();
-    let request_mac = tsig_rr.mac();
+    let request_mac = tsig_rr.data().mac();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1118,11 +1111,7 @@ async fn test_update_tsig_invalid_unknown_signer() {
     let Ok(MessageSignature::Tsig(tsig_rr)) = resp_signer.sign(&[]) else {
         panic!("unexpected result from resp_signer");
     };
-    let tsig_rr = tsig_rr
-        .data()
-        .as_dnssec()
-        .and_then(DNSSECRData::as_tsig)
-        .unwrap();
+    let tsig_rr = tsig_rr.data();
 
     // The TSIG RR should be unsigned.
     assert_eq!(tsig_rr.mac(), &[]);
@@ -1179,11 +1168,7 @@ async fn test_update_tsig_invalid_sig() {
     let Ok(MessageSignature::Tsig(tsig_rr)) = resp_signer.sign(&[]) else {
         panic!("unexpected result from resp_signer");
     };
-    let tsig_rr = tsig_rr
-        .data()
-        .as_dnssec()
-        .and_then(DNSSECRData::as_tsig)
-        .unwrap();
+    let tsig_rr = tsig_rr.data();
 
     // The TSIG RR should be unsigned.
     assert_eq!(tsig_rr.mac(), &[]);
@@ -1218,12 +1203,7 @@ async fn test_update_tsig_invalid_stale_sig() {
     let MessageSignature::Tsig(tsig_rr) = sig.clone() else {
         panic!("unexpected message signature type");
     };
-    let tsig_rr = tsig_rr
-        .data()
-        .as_dnssec()
-        .and_then(DNSSECRData::as_tsig)
-        .unwrap();
-    let request_mac = tsig_rr.mac();
+    let request_mac = tsig_rr.data().mac();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1261,11 +1241,7 @@ async fn test_update_tsig_invalid_stale_sig() {
     let MessageSignature::Tsig(rr) = resp_sig.clone() else {
         panic!("unexpected response message signature type");
     };
-    let tsig_rr = rr
-        .data()
-        .as_dnssec()
-        .and_then(DNSSECRData::as_tsig)
-        .unwrap();
+    let tsig_rr = rr.data();
     response.set_signature(resp_sig);
 
     // Serialize the now-signed response.

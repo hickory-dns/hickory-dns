@@ -8,7 +8,7 @@ use futures_executor::block_on;
 use hickory_proto::{
     op::{Header, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        Name, RData, Record, RecordType,
+        Name, RData, RecordType,
         rdata::{A as A4, AAAA},
     },
     runtime::{Time, TokioTime},
@@ -36,14 +36,13 @@ pub fn test_a_lookup(handler: impl ZoneHandler) {
         .0
         .unwrap();
 
-    match lookup
+    let a = lookup
         .into_iter()
         .next()
-        .expect("A record not found in zone handler")
-        .data()
-        .as_a()
-    {
-        Some(ip) => assert_eq!(A4::new(127, 0, 0, 1), *ip),
+        .expect("no record found in zone handler");
+
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
         _ => panic!("wrong rdata type returned"),
     }
 }
@@ -116,25 +115,21 @@ pub fn test_ns_lookup(handler: impl ZoneHandler) {
         .unwrap();
 
     let additionals = lookup.additionals().expect("no additionals in response");
-
     let ns = lookup
         .into_iter()
         .next()
-        .expect("NS record not found in zone handler")
-        .data()
-        .as_ns()
-        .expect("Not an NS record");
+        .expect("no record found in zone handler");
 
-    assert_eq!(Name::from_str("bbb.example.com.").unwrap(), ns.0);
+    match ns.data() {
+        RData::NS(ns) => assert_eq!(Name::from_str("bbb.example.com.").unwrap(), ns.0),
+        _ => panic!("wrong record type returned"),
+    }
 
-    let a = additionals
-        .into_iter()
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 2), *a);
+    let a = additionals.into_iter().next().expect("no record found (2)");
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 2), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_mx(handler: impl ZoneHandler) {
@@ -153,46 +148,38 @@ pub fn test_mx(handler: impl ZoneHandler) {
         .unwrap();
 
     let additionals = lookup.additionals().expect("no additionals in response");
-
     let mx = lookup
         .into_iter()
         .next()
-        .expect("MX record not found in zone handler")
-        .data()
-        .as_mx()
-        .expect("Not an MX record");
+        .expect("no record found in zone handler");
 
-    assert_eq!(
-        Name::from_str("alias.example.com.").unwrap(),
-        *mx.exchange()
-    );
+    match mx.data() {
+        RData::MX(mx) => assert_eq!(
+            Name::from_str("alias.example.com.").unwrap(),
+            *mx.exchange()
+        ),
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // assert the A record is in the additionals section
     let mut additionals = additionals.into_iter();
+    let cname = additionals.next().expect("CNAME record not found");
+    match cname.data() {
+        RData::CNAME(cname) => assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0),
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let cname = additionals
-        .next()
-        .expect("CNAME record not found")
-        .data()
-        .as_cname()
-        .expect("Not an CNAME record");
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+    let a = additionals.next().expect("A record not found");
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let a = additionals
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
-
-    let aaaa = additionals
-        .next()
-        .expect("AAAA record not found")
-        .data()
-        .as_aaaa()
-        .expect("Not an AAAA record");
-    assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+    let aaaa = additionals.next().expect("AAAA record not found");
+    match aaaa.data() {
+        RData::AAAA(aaaa) => assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_mx_to_null(handler: impl ZoneHandler) {
@@ -219,12 +206,12 @@ pub fn test_mx_to_null(handler: impl ZoneHandler) {
     let mx = lookup
         .into_iter()
         .next()
-        .expect("MX record not found in zone handler")
-        .data()
-        .as_mx()
-        .expect("Not an MX record");
+        .expect("MX record not found in zone handler");
 
-    assert_eq!(Name::from_str(".").unwrap(), *mx.exchange());
+    match mx.data() {
+        RData::MX(mx) => assert_eq!(Name::from_str(".").unwrap(), *mx.exchange()),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_cname(handler: impl ZoneHandler) {
@@ -248,12 +235,12 @@ pub fn test_cname(handler: impl ZoneHandler) {
     let cname = lookup
         .into_iter()
         .next()
-        .expect("CNAME record not found in zone handler")
-        .data()
-        .as_cname()
-        .expect("Not an A record");
+        .expect("CNAME record not found in zone handler");
 
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+    match cname.data() {
+        RData::CNAME(cname) => assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_cname_alias(handler: impl ZoneHandler) {
@@ -277,22 +264,21 @@ pub fn test_cname_alias(handler: impl ZoneHandler) {
     let cname = lookup
         .into_iter()
         .next()
-        .expect("CNAME record not found in zone handler")
-        .data()
-        .as_cname()
-        .expect("Not a CNAME record");
+        .expect("CNAME record not found in zone handler");
 
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+    match cname.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0)
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // assert the A record is in the additionals section
-    let a = additionals
-        .into_iter()
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
+    let a = additionals.into_iter().next().expect("A record not found");
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_cname_chain(handler: impl ZoneHandler) {
@@ -319,31 +305,31 @@ pub fn test_cname_chain(handler: impl ZoneHandler) {
     let cname = lookup
         .into_iter()
         .next()
-        .expect("CNAME record not found in zone handler")
-        .data()
-        .as_cname()
-        .expect("Not a CNAME record");
+        .expect("CNAME record not found in zone handler");
 
-    assert_eq!(Name::from_str("alias.example.com.").unwrap(), cname.0);
+    match cname.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("alias.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // assert the A record is in the additionals section
     let mut additionals = additionals.into_iter();
 
-    let cname = additionals
-        .next()
-        .expect("CNAME record not found")
-        .data()
-        .as_cname()
-        .expect("Not an CNAME record");
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+    let cname = additionals.next().expect("CNAME record not found");
+    match cname.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let a = additionals
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
+    let a = additionals.next().expect("A record not found");
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 /// In this the ANAME , should, return A and AAAA records in additional section
@@ -366,31 +352,37 @@ pub fn test_aname(handler: impl ZoneHandler) {
     let aname = lookup
         .into_iter()
         .next()
-        .expect("ANAME record not found in zone handler")
-        .data()
-        .as_aname()
-        .expect("Not an ANAME record");
+        .expect("ANAME record not found in zone handler");
 
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), aname.0);
+    match aname.data() {
+        RData::ANAME(aname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), aname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // check that additionals contain the info
     let a = lookup
         .additionals()
         .expect("no additionals from ANAME")
         .find(|r| r.record_type() == RecordType::A)
-        .map(Record::data)
-        .and_then(RData::as_a)
         .expect("A not found");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
+
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 
     let aaaa = lookup
         .additionals()
         .unwrap()
         .find(|r| r.record_type() == RecordType::AAAA)
-        .map(Record::data)
-        .and_then(RData::as_aaaa)
         .expect("AAAA not found");
-    assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+
+    match aaaa.data() {
+        RData::AAAA(aaaa) => assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 /// In this test the A record that the ANAME resolves to should be returned as the answer,
@@ -414,26 +406,26 @@ pub fn test_aname_a_lookup(handler: impl ZoneHandler) {
     let additionals = lookup.additionals().expect("no additionals for aname");
 
     // the name should match the lookup, not the A records
-    let (name, a) = lookup
-        .into_iter()
-        .next()
-        .map(|r| (r.name(), r.data()))
-        .expect("No A answer");
+    let a = lookup.into_iter().next().expect("No A answer");
+    assert_eq!(Name::from_str("example.com.").unwrap(), *a.name());
 
-    let a = a.as_a().expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
-    assert_eq!(Name::from_str("example.com.").unwrap(), *name);
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // check that additionals contain the info
     let aname = additionals
         .into_iter()
         .next()
-        .expect("ANAME record not found in zone handler")
-        .data()
-        .as_aname()
-        .expect("Not an ANAME record");
+        .expect("ANAME record not found in zone handler");
 
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), aname.0);
+    match aname.data() {
+        RData::ANAME(aname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), aname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 /// In this test the A record that the ANAME resolves to should be returned as the answer, not at the apex
@@ -459,43 +451,43 @@ pub fn test_aname_chain(handler: impl ZoneHandler) {
 
     let additionals = lookup.additionals().expect("no additionals");
 
-    let (name, a) = lookup
-        .into_iter()
-        .next()
-        .map(|r| (r.name(), r.data()))
-        .expect("Not an A record");
+    let a = lookup.into_iter().next().expect("Not an A record");
+    assert_eq!(
+        Name::from_str("aname-chain.example.com.").unwrap(),
+        *a.name()
+    );
 
-    let a = a.as_a().expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
-    assert_eq!(Name::from_str("aname-chain.example.com.").unwrap(), *name);
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // the name should match the lookup, not the A records
     let mut additionals = additionals.into_iter();
-
     let aname = additionals
         .next()
-        .expect("ANAME record not found in zone handler")
-        .data()
-        .as_aname()
-        .expect("Not an ANAME record");
+        .expect("ANAME record not found in zone handler");
 
-    assert_eq!(Name::from_str("alias.example.com.").unwrap(), aname.0);
+    match aname.data() {
+        RData::ANAME(aname) => {
+            assert_eq!(Name::from_str("alias.example.com.").unwrap(), aname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let cname = additionals
-        .next()
-        .expect("CNAME record not found")
-        .data()
-        .as_cname()
-        .expect("Not an CNAME record");
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+    let cname = additionals.next().expect("CNAME record not found");
+    match cname.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let a = additionals
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
+    let a = additionals.next().expect("A record not found");
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_update_errors(handler: impl ZoneHandler) {
@@ -536,16 +528,15 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
         .0
         .unwrap();
 
-    assert_eq!(
-        *lookup
-            .into_iter()
-            .next()
-            .expect("A record not found in zone handler")
-            .data()
-            .as_a()
-            .expect("wrong rdata type returned"),
-        A4::new(127, 0, 0, 3)
-    );
+    let record = lookup
+        .into_iter()
+        .next()
+        .expect("A record not found in zone handler");
+
+    match record.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 3), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // the rest should all be NameExists
     let request = Request::from_message(
@@ -565,7 +556,11 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
         .0
         .unwrap_err();
 
-    assert!(lookup.is_name_exists(), "lookup: {}", lookup);
+    assert!(
+        matches!(lookup, LookupError::NameExists),
+        "lookup: {}",
+        lookup
+    );
 
     // the rest should all be NameExists
     let request = Request::from_message(
@@ -582,7 +577,7 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
         .0
         .unwrap_err();
 
-    assert!(lookup.is_name_exists());
+    assert!(matches!(lookup, LookupError::NameExists));
 
     // and this should be an NXDOMAIN
     let request = Request::from_message(
@@ -624,17 +619,17 @@ pub fn test_wildcard(handler: impl ZoneHandler) {
         .0
         .unwrap();
 
-    assert_eq!(
-        lookup
-            .into_iter()
-            .next()
-            .expect("CNAME record not found in zone handler")
-            .data()
-            .as_cname()
-            .expect("wrong rdata type returned")
-            .0,
-        Name::from_str("www.example.com.").unwrap()
-    );
+    let record = lookup
+        .into_iter()
+        .next()
+        .expect("CNAME record not found in zone handler");
+
+    match record.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // check wildcard lookup
     let request = Request::from_message(
@@ -654,23 +649,23 @@ pub fn test_wildcard(handler: impl ZoneHandler) {
         .0
         .expect("lookup of www.wildcard.example.com. failed");
 
-    assert_eq!(
-        lookup
-            .into_iter()
-            .next()
-            .inspect(|r| {
-                assert_eq!(
-                    *r.name(),
-                    Name::from_str("www.wildcard.example.com.").unwrap()
-                );
-            })
-            .expect("CNAME record not found in zone handler")
-            .data()
-            .as_cname()
-            .expect("wrong rdata type returned")
-            .0,
-        Name::from_str("www.example.com.").unwrap()
-    );
+    let record = lookup
+        .into_iter()
+        .next()
+        .inspect(|r| {
+            assert_eq!(
+                *r.name(),
+                Name::from_str("www.wildcard.example.com.").unwrap()
+            );
+        })
+        .expect("CNAME record not found in zone handler");
+
+    match record.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_wildcard_subdomain(handler: impl ZoneHandler) {
@@ -692,23 +687,23 @@ pub fn test_wildcard_subdomain(handler: impl ZoneHandler) {
         .0
         .expect("lookup of subdomain.www.wildcard.example.com. failed");
 
-    assert_eq!(
-        lookup
-            .into_iter()
-            .next()
-            .inspect(|r| {
-                assert_eq!(
-                    *r.name(),
-                    Name::from_str("subdomain.www.wildcard.example.com.").unwrap()
-                );
-            })
-            .expect("CNAME record not found in zone handler")
-            .data()
-            .as_cname()
-            .expect("wrong rdata type returned")
-            .0,
-        Name::from_str("www.example.com.").unwrap()
-    );
+    let record = lookup
+        .into_iter()
+        .next()
+        .inspect(|r| {
+            assert_eq!(
+                *r.name(),
+                Name::from_str("subdomain.www.wildcard.example.com.").unwrap()
+            );
+        })
+        .expect("CNAME record not found in zone handler");
+
+    match record.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_wildcard_chain(handler: impl ZoneHandler) {
@@ -733,26 +728,24 @@ pub fn test_wildcard_chain(handler: impl ZoneHandler) {
     // the name should match the lookup, not the A records
     let additionals = lookup.additionals().expect("no additionals");
 
-    assert_eq!(
-        lookup
-            .into_iter()
-            .next()
-            .expect("CNAME record not found in zone handler")
-            .data()
-            .as_cname()
-            .expect("wrong rdata type returned")
-            .0,
-        Name::from_str("www.example.com.").unwrap()
-    );
+    let record = lookup
+        .into_iter()
+        .next()
+        .expect("CNAME record not found in zone handler");
+
+    match record.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
     let mut additionals = additionals.into_iter();
-    let a = additionals
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
+    let a = additionals.next().expect("A record not found");
+    match a.data() {
+        RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), *a),
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_srv(handler: impl ZoneHandler) {
@@ -778,39 +771,38 @@ pub fn test_srv(handler: impl ZoneHandler) {
     let srv = lookup
         .into_iter()
         .next()
-        .expect("SRV record not found in zone handler")
-        .data()
-        .as_srv()
-        .expect("Not an SRV record");
+        .expect("SRV record not found in zone handler");
 
-    assert_eq!(Name::from_str("alias.example.com.").unwrap(), *srv.target());
+    match srv.data() {
+        RData::SRV(srv) => assert_eq!(Name::from_str("alias.example.com.").unwrap(), *srv.target()),
+        _ => panic!("wrong rdata type returned"),
+    }
 
     // assert the A record is in the additionals section
     let mut additionals = additionals.into_iter();
+    let cname = additionals.next().expect("CNAME record not found");
+    match cname.data() {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let cname = additionals
-        .next()
-        .expect("CNAME record not found")
-        .data()
-        .as_cname()
-        .expect("Not an CNAME record");
-    assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
+    let a = additionals.next().expect("A record not found");
+    match a.data() {
+        RData::A(a) => {
+            assert_eq!(A4::new(127, 0, 0, 1), *a);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 
-    let a = additionals
-        .next()
-        .expect("A record not found")
-        .data()
-        .as_a()
-        .expect("Not an A record");
-    assert_eq!(A4::new(127, 0, 0, 1), *a);
-
-    let aaaa = additionals
-        .next()
-        .expect("AAAA record not found")
-        .data()
-        .as_aaaa()
-        .expect("Not an AAAA record");
-    assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+    let aaaa = additionals.next().expect("AAAA record not found");
+    match aaaa.data() {
+        RData::AAAA(aaaa) => {
+            assert_eq!(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
 }
 
 pub fn test_invalid_lookup(handler: impl ZoneHandler) {

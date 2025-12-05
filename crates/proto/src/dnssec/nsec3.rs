@@ -99,11 +99,16 @@ use core::fmt::Display;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::{DigestType, Proof, crypto::Digest, handle::proof_log_yield, rdata::NSEC3};
+use super::{
+    DigestType, Proof,
+    crypto::Digest,
+    handle::proof_log_yield,
+    rdata::{DNSSECRData, NSEC3},
+};
 use crate::{
     error::ProtoResult,
     op::{Query, ResponseCode},
-    rr::{Name, Record, RecordType, domain::Label},
+    rr::{Name, RData, Record, RecordType, domain::Label},
     serialize::binary::{BinEncodable, BinEncoder, DecodeError, NameEncoding},
 };
 
@@ -203,12 +208,9 @@ pub(super) fn verify_nsec3(
             // This would signal that we have a wildcard servicing our `query_name`.
             // `num_labels` will show how many labels are there
             // in the wildcard that services the `query_name`
-            let wildcard_num_labels = answers.iter().find_map(|record| {
-                record
-                    .data()
-                    .as_dnssec()?
-                    .as_rrsig()
-                    .map(|data| data.input.num_labels)
+            let wildcard_num_labels = answers.iter().find_map(|record| match record.data() {
+                RData::DNSSEC(DNSSECRData::RRSIG(data)) => Some(data.input.num_labels),
+                _ => None,
             });
             validate_nodata_response(query.query_type(), wildcard_num_labels, &cx)
         }

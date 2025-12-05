@@ -87,7 +87,6 @@ bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
 critical-section = { workspace = true, optional = true }
 data-encoding = { workspace = true, features = ["alloc"] }
-enum-as-inner.workspace = true
 futures-channel = { workspace = true, default-features = false, features = ["alloc"] }
 futures-io = { workspace = true, default-features = false, optional = true }
 futures-util = { workspace = true, default-features = false, features = ["alloc", "async-await-macro"] }
