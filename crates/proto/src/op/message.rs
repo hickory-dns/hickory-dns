@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 #[cfg(feature = "__dnssec")]
-use crate::dnssec::rdata::{DNSSECRData, TSIG};
+use crate::dnssec::rdata::{DNSSECRData, SIG, TSIG};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
 use crate::{
@@ -670,7 +670,14 @@ impl Message {
             match record.data() {
                 #[cfg(feature = "__dnssec")]
                 RData::Update0(RecordType::SIG) | RData::DNSSEC(DNSSECRData::SIG(_)) => {
-                    sig = MessageSignature::Sig0(record)
+                    sig = MessageSignature::Sig0(
+                        record
+                            .map(|data| match data {
+                                RData::DNSSEC(DNSSECRData::SIG(sig)) => Some(sig),
+                                _ => None,
+                            })
+                            .unwrap(),
+                    )
                 }
                 #[cfg(feature = "__dnssec")]
                 RData::Update0(RecordType::TSIG) | RData::DNSSEC(DNSSECRData::TSIG(_)) => {
@@ -1116,7 +1123,7 @@ pub enum MessageSignature {
     Unsigned,
     /// The message has an RFC 2931 SIG(0) signature [Record].
     #[cfg(feature = "__dnssec")]
-    Sig0(Record),
+    Sig0(Record<SIG>),
     /// The message has an RFC 8945 TSIG signature [Record].
     #[cfg(feature = "__dnssec")]
     Tsig(Record<TSIG>),
@@ -1127,15 +1134,19 @@ mod tests {
     use super::*;
 
     #[cfg(feature = "__dnssec")]
-    use crate::dnssec::rdata::tsig::{TSIG, TsigAlgorithm};
+    use crate::dnssec::Algorithm;
     #[cfg(feature = "__dnssec")]
-    use crate::rr::RecordType;
+    use crate::dnssec::rdata::sig::SigInput;
+    #[cfg(feature = "__dnssec")]
+    use crate::dnssec::rdata::tsig::{TSIG, TsigAlgorithm};
     use crate::rr::rdata::A;
     #[cfg(feature = "std")]
     use crate::rr::rdata::OPT;
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
     use crate::rr::{Name, RData};
+    #[cfg(feature = "__dnssec")]
+    use crate::rr::{RecordType, SerialNumber};
     #[cfg(feature = "std")]
     use crate::std::net::IpAddr;
     #[cfg(feature = "std")]
@@ -1398,7 +1409,7 @@ mod tests {
             Record::from_rdata(
                 Name::from_labels(vec!["sig", "example", "com"]).unwrap(),
                 0,
-                RData::Update0(RecordType::SIG),
+                fake_sig0(),
             ),
         ];
         let result = encode_and_read_records(records, true);
@@ -1575,7 +1586,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::SIG),
+                    fake_sig0(),
                 ),
             ],
             false,
@@ -1650,7 +1661,7 @@ mod tests {
                 Record::from_rdata(
                     Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
                     0,
-                    RData::Update0(RecordType::SIG),
+                    fake_sig0(),
                 ),
                 Record::from_rdata(
                     Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
@@ -1736,5 +1747,22 @@ mod tests {
             None,
             vec![],
         )))
+    }
+
+    #[cfg(feature = "__dnssec")]
+    fn fake_sig0() -> RData {
+        RData::DNSSEC(DNSSECRData::SIG(SIG {
+            input: SigInput {
+                type_covered: RecordType::A,
+                algorithm: Algorithm::RSASHA256,
+                num_labels: 0,
+                original_ttl: 0,
+                sig_expiration: SerialNumber(0),
+                sig_inception: SerialNumber(0),
+                key_tag: 0,
+                signer_name: Name::root(),
+            },
+            sig: Vec::new(),
+        }))
     }
 }
