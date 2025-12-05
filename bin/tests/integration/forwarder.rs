@@ -5,7 +5,7 @@ use std::str::FromStr;
 use tokio::runtime::Runtime;
 
 use hickory_proto::{
-    rr::{Name, RecordType},
+    rr::{Name, RData, RecordType},
     runtime::TokioRuntimeProvider,
 };
 use hickory_server::{store::forwarder::ForwardZoneHandler, zone_handler::ZoneHandler};
@@ -31,7 +31,9 @@ fn test_lookup() {
         .unwrap();
 
     assert!(
-        lookup.iter().any(|record| record.data().as_a().is_some()),
+        lookup
+            .iter()
+            .any(|record| matches!(record.data(), RData::A(_))),
         "no addresses returned!"
     );
 }

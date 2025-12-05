@@ -164,11 +164,12 @@ impl InnerInMemory {
         // TODO: can't there be an RrKeyRef?
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
 
-        self.records
-            .get(&rr_key)
-            .and_then(|rrset| rrset.records_without_rrsigs().next())
-            .map(Record::data)
-            .and_then(RData::as_soa)
+        self.records.get(&rr_key).and_then(|rrset| {
+            match rrset.records_without_rrsigs().next()?.data() {
+                RData::SOA(soa) => Some(soa),
+                _ => None,
+            }
+        })
     }
 
     /// Returns the minimum ttl (as used in the SOA record)

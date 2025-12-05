@@ -259,13 +259,9 @@ async fn test_exclude_nsec(
         "failed to remove expected NSEC record at {nsec_owner_name}: {modified_response:?}"
     );
 
-    let public_key = dnskey_response.answers()[0]
-        .data()
-        .as_dnssec()
-        .unwrap()
-        .as_dnskey()
-        .unwrap()
-        .public_key();
+    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers()[0].data() else {
+        panic!("expected DNSKEY in DNSKEY response: {dnskey_response:#?}");
+    };
 
     let mock = MockHandler::new(
         query_name.into(),
@@ -273,7 +269,7 @@ async fn test_exclude_nsec(
         modified_response,
         dnskey_response.clone(),
     );
-    let (mut client, _mock_server) = setup_dnssec_client_server(mock, public_key).await;
+    let (mut client, _mock_server) = setup_dnssec_client_server(mock, dnskey.public_key()).await;
 
     let error = client
         .query(query_name.clone(), DNSClass::IN, query_type)
@@ -546,19 +542,16 @@ fn example_zone_nsec_chain() {
             if key.record_type != RecordType::NSEC {
                 return None;
             }
+
             let mut iterator = records.records(false);
             let record = iterator.next().unwrap();
             assert_eq!(iterator.next(), None);
-            Some((
-                record.name().clone(),
-                record
-                    .data()
-                    .as_dnssec()
-                    .unwrap()
-                    .as_nsec()
-                    .unwrap()
-                    .clone(),
-            ))
+
+            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = record.data() else {
+                panic!("expected NSEC record: {record:#?}");
+            };
+
+            Some((record.name().clone(), nsec.clone()))
         })
         .collect::<Vec<_>>();
     nsecs.sort_by(|(left_name, _), (right_name, _)| left_name.cmp(right_name));

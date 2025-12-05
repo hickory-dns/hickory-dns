@@ -18,7 +18,7 @@ use hickory_proto::{
     dnssec::{
         PublicKeyBuf, SigSigner, SigningKey, TrustAnchors, crypto::Ed25519SigningKey, rdata::DNSKEY,
     },
-    op::ResponseCode,
+    op::{DnsResponse, ResponseCode},
     rr::{
         DNSClass, RData, Record, RecordType,
         rdata::{A, SOA},
@@ -54,12 +54,7 @@ async fn query_validate_true_signed_zone_with_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().iter().any(|record| {
-        record
-            .data()
-            .as_a()
-            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
-    }));
+    assert!(answered_a_1234(response));
 }
 
 #[tokio::test]
@@ -75,12 +70,7 @@ async fn query_validate_true_signed_zone_no_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().iter().any(|record| {
-        record
-            .data()
-            .as_a()
-            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
-    }));
+    assert!(answered_a_1234(response));
 }
 
 #[tokio::test]
@@ -126,12 +116,7 @@ async fn query_validate_false_signed_zone_with_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().iter().any(|record| {
-        record
-            .data()
-            .as_a()
-            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
-    }));
+    assert!(answered_a_1234(response));
 }
 
 #[tokio::test]
@@ -145,12 +130,7 @@ async fn query_validate_false_signed_zone_no_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().iter().any(|record| {
-        record
-            .data()
-            .as_a()
-            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
-    }));
+    assert!(answered_a_1234(response));
 }
 
 #[tokio::test]
@@ -164,12 +144,7 @@ async fn query_validate_false_unsigned_zone_with_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().iter().any(|record| {
-        record
-            .data()
-            .as_a()
-            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
-    }));
+    assert!(answered_a_1234(response));
 }
 
 #[tokio::test]
@@ -183,12 +158,7 @@ async fn query_validate_false_unsigned_zone_no_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().iter().any(|record| {
-        record
-            .data()
-            .as_a()
-            .is_some_and(|a| a.0 == Ipv4Addr::new(1, 2, 3, 4))
-    }));
+    assert!(answered_a_1234(response));
 }
 
 async fn setup_authoritative_server(
@@ -281,4 +251,11 @@ async fn setup_client_forwarder(
     spawn(bg);
 
     (client, server)
+}
+
+fn answered_a_1234(response: DnsResponse) -> bool {
+    response
+        .answers()
+        .iter()
+        .any(|record| matches!(record.data(), RData::A(a) if a.0 == Ipv4Addr::new(1, 2, 3, 4)))
 }

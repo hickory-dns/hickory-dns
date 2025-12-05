@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoError,
     op::Message,
-    rr::{RecordType, rdata::SOA, resource::RecordRef},
+    rr::{RData, RecordType, rdata::SOA, resource::RecordRef},
 };
 
 // TODO: this needs to have the IP addr of the remote system...
@@ -118,7 +118,10 @@ impl DnsResponse {
         // TODO: should this ensure that the SOA zone matches the Queried Zone?
         self.authorities()
             .iter()
-            .filter_map(|record| record.data().as_soa().map(|soa| (record.ttl(), soa)))
+            .filter_map(|record| match record.data() {
+                RData::SOA(soa) => Some((record.ttl(), soa)),
+                _ => None,
+            })
             .next()
             .map(|(ttl, soa)| (ttl).min(soa.minimum()))
     }

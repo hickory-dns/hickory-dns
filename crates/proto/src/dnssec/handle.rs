@@ -226,15 +226,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|rr| {
-            let Some(dnssec) = rr.data().as_dnssec() else {
-                return false;
-            };
-            let Some(rrsig) = dnssec.as_rrsig() else {
-                return false;
-            };
-
-            rrsig.input().num_labels < rr.name().num_labels()
+        let must_validate_nsec = answers.iter().any(|rr| match rr.data() {
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                rrsig.input().num_labels < rr.name().num_labels()
+            }
+            _ => false,
         });
 
         message.insert_answers(answers);
@@ -259,10 +255,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .iter()
                     .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
                 {
-                    rr.data()
-                        .as_dnssec()?
-                        .as_nsec3()
-                        .map(|data| (rr.name(), data))
+                    match rr.data() {
+                        RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => Some((rr.name(), nsec3)),
+                        _ => None,
+                    }
                 } else {
                     None
                 }
@@ -278,10 +274,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .iter()
                     .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
                 {
-                    rr.data()
-                        .as_dnssec()?
-                        .as_nsec()
-                        .map(|data| (rr.name(), data))
+                    match rr.data() {
+                        RData::DNSSEC(DNSSECRData::NSEC(nsec)) => Some((rr.name(), nsec)),
+                        _ => None,
+                    }
                 } else {
                     None
                 }
@@ -1700,13 +1696,16 @@ fn verify_nsec(
         answers
             .iter()
             .filter_map(|r| {
-                let rrsig_labels = r.data().as_dnssec()?.as_rrsig()?.input.num_labels;
-
                 if r.proof() != Proof::Secure {
                     debug!(name = ?r.name(), "ignoring RRSIG with insecure proof for wildcard_base_name");
                     return None;
                 }
 
+                let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = r.data() else {
+                    return None;
+                };
+
+                let rrsig_labels = rrsig.input.num_labels;
                 if rrsig_labels >= r.name().num_labels() || rrsig_labels >= query.name().num_labels() {
                     debug!(name = ?r.name(), labels = ?r.name().num_labels(), rrsig_labels, "ignoring RRSIG for wildcard base name rrsig_labels >= labels");
                     return None;

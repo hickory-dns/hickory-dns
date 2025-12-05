@@ -37,7 +37,7 @@ use crate::{
         DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageSigner, OpCode, Query,
         update_message,
     },
-    rr::{DNSClass, Name, Record, RecordSet, RecordType, rdata::SOA},
+    rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
     runtime::RuntimeProvider,
     xfer::{
         BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
@@ -697,7 +697,10 @@ impl<R> ClientStreamXfrState<R> {
     fn process(&mut self, answers: &[Record]) -> Result<(), ProtoError> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
-            r.data().as_soa().map(SOA::serial)
+            match r.data() {
+                RData::SOA(soa) => Some(soa.serial()),
+                _ => None,
+            }
         }
 
         if answers.is_empty() {
