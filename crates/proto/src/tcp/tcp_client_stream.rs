@@ -9,7 +9,7 @@ use alloc::boxed::Box;
 use core::fmt::{self, Display};
 use core::net::SocketAddr;
 use core::pin::Pin;
-use core::task::{Context, Poll};
+use core::task::{Context, Poll, ready};
 use core::time::Duration;
 use std::io;
 
@@ -87,11 +87,10 @@ impl<S: DnsTcpStream> Stream for TcpClientStream<S> {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let message = match self.tcp_stream.poll_next_unpin(cx) {
-            Poll::Ready(Some(Ok(t))) => t,
-            Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(From::from(e)))),
-            Poll::Ready(None) => return Poll::Ready(None),
-            Poll::Pending => return Poll::Pending,
+        let message = match ready!(self.tcp_stream.poll_next_unpin(cx)) {
+            Some(Ok(t)) => t,
+            Some(Err(e)) => return Poll::Ready(Some(Err(From::from(e)))),
+            None => return Poll::Ready(None),
         };
 
         // this is busted if the tcp connection doesn't have a peer
