@@ -321,7 +321,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let pool = mock_nameserver_pool(vec![nameserver], None, Default::default());
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
-    match error.kind() {
+    match error.kind {
         ProtoErrorKind::Dns(DnsError::ResponseCode(ResponseCode::ServFail)) => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected `ResponseCode` error with SERVFAIL,
@@ -364,7 +364,7 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let pool = mock_nameserver_pool(vec![nameserver], None, options);
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
-    match error.kind() {
+    match error.kind {
         ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             response_code: ResponseCode::NXDomain,
             ..
@@ -409,7 +409,7 @@ fn test_tcp_fallback_on_io_error() {
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
-    match error.kind() {
+    match error.kind {
         ProtoErrorKind::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
         kind => panic!(
             "expected `ResponseCode` with `response_code: NotImp`,
@@ -450,7 +450,7 @@ fn test_tcp_fallback_on_no_connections() {
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
-    match error.kind() {
+    match error.kind {
         ProtoErrorKind::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
         kind => panic!(
             "expected `ResponseCode` with `response_code: NotImp`,
@@ -499,8 +499,8 @@ fn test_trust_nx_responses_fails() {
     // Lookup on UDP should fail, since we trust nx responses.
     // (If we retried the query with the second name server, we'd see a successful response.)
     let future = pool.send(build_request(query)).first_answer();
-    let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
-    match response.kind() {
+    let error = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
+    match error.kind {
         ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             response_code: ResponseCode::NXDomain,
             ..
@@ -550,7 +550,7 @@ fn test_noerror_doesnt_leak() {
 
     // lookup should only hit the first server
     let future = pool.send(build_request(query)).first_answer();
-    match block_on(future).unwrap_err().kind() {
+    match &block_on(future).unwrap_err().kind {
         ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
             soa, response_code, ..
         })) => {
@@ -715,9 +715,9 @@ fn test_return_error_from_highest_priority_nameserver() {
     let expected_response_code = ERROR_RESPONSE_CODES.first().unwrap();
     eprintln!("error is: {error}");
 
-    match error.kind() {
+    match error.kind {
         ProtoErrorKind::Dns(DnsError::ResponseCode(response_code))
-            if response_code == expected_response_code => {}
+            if response_code == *expected_response_code => {}
         kind => panic!(
             "got unexpected kind of resolve error; expected error with response \
             code `{expected_response_code:?}`, got {kind:#?}",

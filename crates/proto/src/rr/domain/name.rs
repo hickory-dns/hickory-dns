@@ -1938,8 +1938,7 @@ mod tests {
             }
         }
 
-        assert!(result.is_err());
-        match result.unwrap_err().kind() {
+        match result.unwrap_err().kind {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
@@ -2085,7 +2084,7 @@ mod tests {
             .prepend_label(sfx)
             .expect_err("should have errored, too long");
 
-        match error.kind() {
+        match &error.kind {
             ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(_)) => (),
             _ => panic!("expected too long message"),
         }
@@ -2101,7 +2100,7 @@ mod tests {
             .append_domain(&sfx)
             .expect_err("should have errored, too long");
 
-        match error.kind() {
+        match &error.kind {
             ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(_)) => (),
             _ => panic!("expected too long message"),
         }
@@ -2171,13 +2170,13 @@ mod tests {
         // Should not be able to construct a longer name from a string.
         let long_label_error = Name::parse(&format!("a{expected_name_str}"), None).unwrap_err();
         assert!(matches!(
-            long_label_error.kind(),
+            long_label_error.kind,
             ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(64))
         ));
         let long_name_error =
             Name::parse(&format!("a.{}", &expected_name_str[1..]), None).unwrap_err();
         assert!(matches!(
-            long_name_error.kind(),
+            long_name_error.kind,
             ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(256))
         ))
     }

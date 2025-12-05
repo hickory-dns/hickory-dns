@@ -101,7 +101,7 @@ impl From<PersistenceErrorKind> for PersistenceError {
 
 impl From<ProtoError> for PersistenceError {
     fn from(e: ProtoError) -> Self {
-        match e.kind() {
+        match &e.kind {
             ProtoErrorKind::Timeout => PersistenceErrorKind::Timeout.into(),
             _ => PersistenceErrorKind::from(e).into(),
         }

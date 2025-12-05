@@ -121,7 +121,7 @@ impl Error {
             ErrorKind::Proto(proto) => proto,
             _ => return false,
         };
-        matches!(proto_error.kind(), ProtoErrorKind::Timeout)
+        matches!(proto_error.kind, ProtoErrorKind::Timeout)
     }
 
     /// Returns the SOA record, if the error contains one
@@ -215,20 +215,20 @@ impl From<Error> for String {
 
 impl From<ProtoError> for Error {
     fn from(e: ProtoError) -> Self {
-        let no_records = match e.kind() {
+        let no_records = match e.kind {
             ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
             _ => return ErrorKind::Proto(e).into(),
         };
 
-        if let Some(ns) = &no_records.ns {
-            ErrorKind::ForwardNS(ns.clone())
+        if let Some(ns) = no_records.ns {
+            ErrorKind::ForwardNS(ns)
         } else {
             ErrorKind::Negative(AuthorityData::new(
-                no_records.query.clone(),
-                no_records.soa.clone(),
+                no_records.query,
+                no_records.soa,
                 true,
                 matches!(no_records.response_code, ResponseCode::NXDomain),
-                no_records.authorities.clone(),
+                no_records.authorities,
             ))
         }
         .into()

@@ -439,7 +439,7 @@ impl LookupError {
     /// Return authority records
     pub fn authorities(&self) -> Option<Arc<[Record]>> {
         match self {
-            Self::ProtoError(e) => match e.kind() {
+            Self::ProtoError(e) => match &e.kind {
                 ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                     authorities, ..
                 })) => authorities.clone(),
@@ -448,7 +448,7 @@ impl LookupError {
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) => match e.kind() {
                 ErrorKind::Negative(fwd) => fwd.authorities.clone(),
-                ErrorKind::Proto(proto) => match proto.kind() {
+                ErrorKind::Proto(proto) => match &proto.kind {
                     ProtoErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
                         authorities,
                         ..

@@ -1515,10 +1515,10 @@ mod tests {
         )
         .await
         .expect_err("this should have been a NoRecordsFound")
-        .kind()
+        .kind
         {
-            assert_eq!(**query, Query::query(Name::root(), RecordType::A));
-            assert_eq!(*negative_ttl, None);
+            assert_eq!(*query, Query::query(Name::root(), RecordType::A));
+            assert_eq!(negative_ttl, None);
         } else {
             panic!("wrong error received");
         }

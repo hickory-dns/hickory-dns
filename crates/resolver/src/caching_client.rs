@@ -182,7 +182,7 @@ where
         //  if it's DNSSEC they must be signed, otherwise?
         let records = match response_message {
             // this is the only cacheable form
-            Err(e) => match e.kind() {
+            Err(e) => match &e.kind {
                 ProtoErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => {
                     let mut new = no_records.clone();
                     if is_dnssec {
@@ -465,7 +465,7 @@ mod tests {
             query,
             negative_ttl,
             ..
-        })) = block_on(CachingClient::inner_lookup(
+        })) = &block_on(CachingClient::inner_lookup(
             Query::new(),
             DnsRequestOptions::default(),
             client,
@@ -473,7 +473,7 @@ mod tests {
             DepthTracker::default(),
         ))
         .unwrap_err()
-        .kind()
+        .kind
         {
             assert_eq!(*query, Box::new(Query::new()));
             assert_eq!(*negative_ttl, None);

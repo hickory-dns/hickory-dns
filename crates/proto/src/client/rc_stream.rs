@@ -114,9 +114,9 @@ mod tests {
         let rc = rc_stream(once(future));
 
         let i = block_on(rc.clone().first_answer()).unwrap_err();
-        assert!(matches!(i.kind(), ProtoErrorKind::Busy));
+        assert!(matches!(i.kind, ProtoErrorKind::Busy));
 
         let i = block_on(rc.first_answer()).unwrap_err();
-        assert!(matches!(i.kind(), ProtoErrorKind::Busy));
+        assert!(matches!(i.kind, ProtoErrorKind::Busy));
     }
 }

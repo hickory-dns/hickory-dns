@@ -153,7 +153,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 meta.set_status(Status::Failed);
 
                 // record the failure
-                match error.kind() {
+                match &error.kind {
                     ProtoErrorKind::Busy | ProtoErrorKind::Io(_) | ProtoErrorKind::Timeout => {
                         meta.srtt.record_failure()
                     }
