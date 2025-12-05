@@ -31,7 +31,7 @@ use crate::{
         dnssec::{
             DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
             rdata::{
-                DNSSECRData, TSIG,
+                DNSSECRData, SIG, TSIG,
                 key::KEY,
                 tsig::{TsigAlgorithm, TsigError},
             },
@@ -557,7 +557,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         }
 
         match request.signature() {
-            MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, request).await, None),
+            MessageSignature::Sig0(sig0) => {
+                (self.authorized_sig0(sig0.data(), request).await, None)
+            }
             MessageSignature::Tsig(tsig) => {
                 let (resp, signer) = self.authorized_tsig(tsig, request, now).await;
                 (resp, Some(signer))
@@ -580,7 +582,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             // Allow only if a valid signature is present.
             #[cfg(feature = "__dnssec")]
             AxfrPolicy::AllowSigned => match _request.signature() {
-                MessageSignature::Sig0(sig0) => (self.authorized_sig0(sig0, _request).await, None),
+                MessageSignature::Sig0(sig0) => {
+                    (self.authorized_sig0(sig0.data(), _request).await, None)
+                }
                 MessageSignature::Tsig(tsig) => {
                     let (resp, signer) = self.authorized_tsig(tsig, _request, _now).await;
                     (resp, Some(signer))
@@ -914,13 +918,8 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_sig0(&self, sig0: &Record, request: &Request) -> Result<(), ResponseCode> {
+    async fn authorized_sig0(&self, sig0: &SIG, request: &Request) -> Result<(), ResponseCode> {
         debug!("authorizing with: {sig0:?}");
-
-        let Some(sig0) = sig0.data().as_dnssec().and_then(DNSSECRData::as_sig) else {
-            warn!("no sig0 matched registered records: id {}", request.id());
-            return Err(ResponseCode::Refused);
-        };
 
         let name = LowerName::from(&sig0.input().signer_name);
 
