@@ -45,7 +45,7 @@ dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "__dnssec"]
 dnssec-ring = ["hickory-proto/dnssec-ring", "__dnssec"]
 __dnssec = []
 
-recursor = ["dep:async-recursion", "dep:enum-as-inner", "dep:lru-cache"]
+recursor = ["dep:async-recursion", "dep:lru-cache"]
 
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
@@ -67,7 +67,6 @@ cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",
 ] }
-enum-as-inner = { workspace = true, optional = true }
 metrics = { workspace = true, optional = true }
 ipnet = { workspace = true, features = ["serde"] }
 lru-cache = { workspace = true, optional = true }
