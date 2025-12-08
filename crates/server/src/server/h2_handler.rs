@@ -28,13 +28,12 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    proto::{
+    net::{
         NetError, h2,
         http::{self, Version},
-        rr::Record,
-        serialize::binary::BinEncoder,
         xfer::Protocol,
     },
+    proto::{rr::Record, serialize::binary::BinEncoder},
     zone_handler::MessageResponse,
 };
 

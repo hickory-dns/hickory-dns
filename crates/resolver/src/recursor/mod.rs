@@ -26,7 +26,7 @@ use serde::Deserialize;
 use tracing::warn;
 
 #[cfg(feature = "tokio")]
-use crate::proto::runtime::TokioRuntimeProvider;
+use crate::net::runtime::TokioRuntimeProvider;
 #[cfg(feature = "serde")]
 use crate::proto::{
     rr::{RData, Record, RecordSet},
@@ -44,16 +44,17 @@ use crate::{
 #[cfg(feature = "__dnssec")]
 use crate::{
     ResponseCache,
-    proto::{
+    net::{
         DnsError, NetError, NoRecords,
-        dnssec::{DnssecDnsHandle, TrustAnchors},
-        op::{DnsRequestOptions, ResponseCode},
-        rr::RecordType,
+        dnssec::DnssecDnsHandle,
         xfer::{DnsHandle as _, FirstAnswer as _},
     },
+    proto::{
+        dnssec::TrustAnchors,
+        op::{DnsRequestOptions, ResponseCode},
+        rr::RecordType,
+    },
 };
-
-pub use hickory_proto as proto;
 
 mod error;
 pub use error::{AuthorityData, RecursorError};

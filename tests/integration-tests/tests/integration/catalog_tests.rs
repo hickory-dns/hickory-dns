@@ -1,5 +1,9 @@
 use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
 
+use hickory_net::{
+    runtime::{Time, TokioTime},
+    xfer::Protocol,
+};
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
@@ -9,9 +13,7 @@ use hickory_proto::{
             opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
     },
-    runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,
-    xfer::Protocol,
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;

@@ -20,23 +20,23 @@ license.workspace = true
 
 [features]
 dnssec-aws-lc-rs = [
+    "hickory-proto/dnssec-aws-lc-rs",
     "hickory-resolver/dnssec-aws-lc-rs",
     "hickory-server/dnssec-aws-lc-rs",
-    "hickory-proto/dnssec-aws-lc-rs",
     "dep:rustls-pki-types",
     "__dnssec",
 ]
 dnssec-ring = [
+    "hickory-proto/dnssec-ring",
     "hickory-resolver/dnssec-ring",
     "hickory-server/dnssec-ring",
-    "hickory-proto/dnssec-ring",
     "dep:rustls-pki-types",
     "__dnssec",
 ]
 __dnssec = []
 
 tls-aws-lc-rs = [
-    "hickory-proto/tls-aws-lc-rs",
+    "hickory-net/tls-aws-lc-rs",
     "hickory-resolver/tls-aws-lc-rs",
     "hickory-server/tls-aws-lc-rs",
     "__tls",
@@ -47,18 +47,18 @@ https-aws-lc-rs = [
     "__https",
 ]
 quic-aws-lc-rs = [
-    "hickory-proto/quic-aws-lc-rs",
+    "hickory-net/quic-aws-lc-rs",
     "hickory-resolver/quic-aws-lc-rs",
     "tls-aws-lc-rs",
 ]
 h3-aws-lc-rs = [
-    "hickory-proto/h3-aws-lc-rs",
+    "hickory-net/h3-aws-lc-rs",
     "hickory-resolver/h3-aws-lc-rs",
     "quic-aws-lc-rs",
 ]
 
 tls-ring = [
-    "hickory-proto/tls-ring",
+    "hickory-net/tls-ring",
     "hickory-resolver/tls-ring",
     "hickory-server/tls-ring",
     "__tls",
@@ -69,12 +69,12 @@ https-ring = [
     "__https",
 ]
 quic-ring = [
-    "hickory-proto/quic-ring",
+    "hickory-net/quic-ring",
     "hickory-resolver/quic-ring",
     "tls-ring",
 ]
 h3-ring = [
-    "hickory-proto/h3-ring",
+    "hickory-net/h3-ring",
     "hickory-resolver/h3-ring",
     "quic-ring",
 ]
@@ -97,6 +97,7 @@ time.workspace = true
 tokio = { workspace = true, features = ["time", "rt"] }
 tracing.workspace = true
 hickory-proto = { workspace = true, features = ["testing", "std"] }
+hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }
 webpki-roots = { workspace = true, optional = true }

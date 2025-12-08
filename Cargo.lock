@@ -720,6 +720,7 @@ version = "0.26.0-alpha.1"
 dependencies = [
  "data-encoding",
  "futures",
+ "hickory-net",
  "hickory-proto",
  "rand",
  "rustls-pki-types",
@@ -738,6 +739,7 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "hex",
+ "hickory-net",
  "hickory-proto",
  "hickory-resolver",
  "hickory-server",
@@ -776,6 +778,7 @@ dependencies = [
  "async-trait",
  "data-encoding",
  "futures",
+ "hickory-net",
  "hickory-proto",
  "hickory-resolver",
  "hickory-server",
@@ -794,7 +797,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hickory-proto"
+name = "hickory-net"
 version = "0.26.0-alpha.1"
 dependencies = [
  "async-trait",
@@ -802,7 +805,6 @@ dependencies = [
  "bitflags",
  "bytes",
  "cfg-if",
- "critical-section",
  "data-encoding",
  "futures-channel",
  "futures-executor",
@@ -811,16 +813,15 @@ dependencies = [
  "h2",
  "h3",
  "h3-quinn",
+ "hickory-proto",
  "http",
  "idna",
  "ipnet",
  "jni",
- "js-sys",
  "lru-cache",
  "once_cell",
  "parking_lot",
  "pin-project-lite",
- "prefix-trie",
  "quinn",
  "rand",
  "ring",
@@ -837,8 +838,34 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "url",
- "wasm-bindgen",
  "webpki-roots",
+]
+
+[[package]]
+name = "hickory-proto"
+version = "0.26.0-alpha.1"
+dependencies = [
+ "aws-lc-rs",
+ "bitflags",
+ "critical-section",
+ "data-encoding",
+ "idna",
+ "ipnet",
+ "jni",
+ "js-sys",
+ "once_cell",
+ "prefix-trie",
+ "rand",
+ "ring",
+ "rustls-pki-types",
+ "serde",
+ "test-support",
+ "thiserror 2.0.17",
+ "time",
+ "tinyvec",
+ "tracing",
+ "url",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -849,6 +876,7 @@ dependencies = [
  "cfg-if",
  "futures-executor",
  "futures-util",
+ "hickory-net",
  "hickory-proto",
  "ipconfig",
  "ipnet",
@@ -891,6 +919,7 @@ dependencies = [
  "h2",
  "h3",
  "h3-quinn",
+ "hickory-net",
  "hickory-proto",
  "hickory-resolver",
  "http",
@@ -918,6 +947,7 @@ dependencies = [
  "clap",
  "console",
  "data-encoding",
+ "hickory-net",
  "hickory-proto",
  "hickory-resolver",
  "rustls",
@@ -2322,6 +2352,7 @@ version = "0.26.0-alpha.1"
 dependencies = [
  "bytes",
  "futures-util",
+ "hickory-net",
  "hickory-proto",
  "hickory-resolver",
  "tokio",

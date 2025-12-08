@@ -41,10 +41,10 @@ use crate::{
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
 };
 use crate::{
+    net::runtime::{RuntimeProvider, TokioRuntimeProvider},
     proto::{
         op::{ResponseCode, ResponseSigner},
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        runtime::{RuntimeProvider, TokioRuntimeProvider},
     },
     server::{Request, RequestInfo},
     store::{

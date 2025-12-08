@@ -14,6 +14,11 @@ use serde::{Deserialize, Serialize};
 pub struct SerialNumber(pub(crate) u32);
 
 impl SerialNumber {
+    /// Create a new `SerialNumber` from the given value
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+
     /// Returns internal value
     pub fn get(&self) -> u32 {
         self.0

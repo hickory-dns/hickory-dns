@@ -32,7 +32,7 @@ pub struct DnsRequestOptions {
     #[cfg(feature = "std")]
     pub case_randomization: bool,
     /// Retry interval for unreliable transport protocols (plain UDP). Any value lower than the
-    /// retry_interval_floor value set by [`crate::udp::UdpClientStreamBuilder`] will effectively
+    /// retry_interval_floor value set by a protocol implementer will effectively
     /// be ignored, but higher values will result in less frequent retries.
     #[cfg(feature = "std")]
     pub retry_interval: Duration,

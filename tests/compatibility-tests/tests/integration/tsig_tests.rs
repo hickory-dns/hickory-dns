@@ -18,15 +18,15 @@ use futures::TryStreamExt;
 use time::Duration;
 
 use hickory_compatibility::NamedProcess;
-use hickory_proto::client::{Client, ClientHandle};
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::tcp::TcpClientStream;
+use hickory_net::udp::UdpClientStream;
+use hickory_net::xfer::DnsMultiplexer;
 use hickory_proto::dnssec::TSigner;
 use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_proto::op::{MessageSigner, ResponseCode};
 use hickory_proto::rr::{Name, RData, Record, rdata::A};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::udp::UdpClientStream;
-use hickory_proto::xfer::DnsMultiplexer;
 use test_support::subscribe;
 
 fn signer() -> Arc<dyn MessageSigner> {

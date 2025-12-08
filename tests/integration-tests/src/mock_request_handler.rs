@@ -1,14 +1,13 @@
 use async_trait::async_trait;
 #[cfg(feature = "__dnssec")]
-use hickory_proto::client::{ClientHandle, DnssecClient};
+use hickory_net::client::{ClientHandle, DnssecClient};
+use hickory_net::runtime::Time;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::DNSClass;
 use hickory_proto::{
     op::{DnsResponse, Header, MessageType, ResponseCode},
-    rr::{LowerName, RecordType},
-    runtime::Time,
+    rr::{LowerName, Name, RecordType},
 };
-use hickory_resolver::Name;
 use hickory_server::{
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     zone_handler::MessageResponseBuilder,

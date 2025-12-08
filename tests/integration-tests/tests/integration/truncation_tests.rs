@@ -1,11 +1,11 @@
-use hickory_proto::DnsHandle;
-use hickory_proto::client::Client;
+use hickory_net::DnsHandle;
+use hickory_net::client::Client;
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::udp::UdpClientStream;
+use hickory_net::xfer::FirstAnswer;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::udp::UdpClientStream;
-use hickory_proto::xfer::FirstAnswer;
 use hickory_server::Server;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;

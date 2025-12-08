@@ -20,27 +20,31 @@ use futures_util::{
 };
 use tracing::debug;
 
-use crate::cache::{MAX_TTL, ResponseCache, TtlConfig};
-use crate::caching_client::CachingClient;
-use crate::config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts};
-use crate::connection_provider::ConnectionProvider;
 #[cfg(feature = "__tls")]
 use crate::connection_provider::TlsConfig;
-use crate::hosts::Hosts;
-use crate::lookup::Lookup;
-use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 #[cfg(feature = "tokio")]
-use crate::proto::runtime::TokioRuntimeProvider;
-use crate::proto::{
-    NetError,
-    op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
-    rr::domain::usage::ONION,
-    rr::{IntoName, Name, RData, Record, RecordType},
-    xfer::{DnsHandle, RetryDnsHandle},
+use crate::net::runtime::TokioRuntimeProvider;
+use crate::{
+    cache::{MAX_TTL, ResponseCache, TtlConfig},
+    caching_client::CachingClient,
+    config::{OpportunisticEncryption, ResolveHosts, ResolverConfig, ResolverOpts},
+    connection_provider::ConnectionProvider,
+    hosts::Hosts,
+    lookup::Lookup,
+    lookup_ip::{LookupIp, LookupIpFuture},
+    name_server_pool::{NameServerPool, NameServerTransportState, PoolContext},
+    net::{
+        NetError,
+        xfer::{DnsHandle, RetryDnsHandle},
+    },
+    proto::{
+        op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
+        rr::domain::usage::ONION,
+        rr::{IntoName, Name, RData, Record, RecordType},
+    },
 };
+#[cfg(feature = "__dnssec")]
+use crate::{net::dnssec::DnssecDnsHandle, proto::dnssec::TrustAnchors};
 
 macro_rules! lookup_fn {
     ($p:ident, $r:path) => {
@@ -714,7 +718,8 @@ pub(crate) mod testing {
     use crate::Resolver;
     use crate::config::{GOOGLE, LookupIpStrategy, NameServerConfig, ResolverConfig};
     use crate::connection_provider::ConnectionProvider;
-    use crate::proto::{rr::Name, runtime::Executor};
+    use crate::net::runtime::Executor;
+    use crate::proto::rr::Name;
 
     /// Test IP lookup from URLs.
     pub(crate) async fn lookup_test<R: ConnectionProvider>(config: ResolverConfig, handle: R) {
@@ -1222,10 +1227,10 @@ mod tests {
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
     use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
-    use crate::proto::DnsError;
+    use crate::net::DnsError;
+    use crate::net::xfer::DnsExchange;
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::rdata::A;
-    use crate::proto::xfer::DnsExchange;
 
     fn is_send_t<T: Send>() -> bool {
         true

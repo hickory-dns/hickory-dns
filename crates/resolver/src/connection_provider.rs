@@ -28,25 +28,27 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 #[cfg(not(feature = "__tls"))]
 use tracing::warn;
 
-use crate::config::{ConnectionConfig, ProtocolConfig};
-use crate::name_server_pool::PoolContext;
 #[cfg(feature = "__https")]
-use crate::proto::h2::HttpsClientConnect;
+use crate::net::h2::HttpsClientConnect;
 #[cfg(feature = "__h3")]
-use crate::proto::h3::H3ClientStream;
+use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
-use crate::proto::quic::QuicClientStream;
+use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::proto::rustls::tls_client_stream::tls_client_connect_with_future;
-use crate::proto::{
-    NetError,
-    runtime::{RuntimeProvider, Spawn},
-    tcp::TcpClientStream,
-    udp::UdpClientStream,
-    xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
+use crate::net::rustls::{
+    client_config, default_provider, tls_client_stream::tls_client_connect_with_future,
 };
-#[cfg(feature = "__tls")]
-use hickory_proto::rustls::{client_config, default_provider};
+use crate::{
+    config::{ConnectionConfig, ProtocolConfig},
+    name_server_pool::PoolContext,
+    net::{
+        NetError,
+        runtime::{RuntimeProvider, Spawn},
+        tcp::TcpClientStream,
+        udp::UdpClientStream,
+        xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
+    },
+};
 
 /// Create `DnsHandle` with the help of `RuntimeProvider`.
 /// This trait is designed for customization.
@@ -390,9 +392,9 @@ mod tests {
     use crate::config::ServerGroup;
     #[cfg(feature = "__quic")]
     use crate::config::ServerOrderingStrategy;
-    use crate::proto::runtime::TokioRuntimeProvider;
+    use crate::net::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
-    use crate::proto::rustls::client_config;
+    use crate::net::rustls::client_config;
 
     #[cfg(feature = "__h3")]
     #[tokio::test]

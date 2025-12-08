@@ -18,7 +18,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
-use crate::proto::NetError;
+use crate::net::NetError;
 use crate::proto::rr::Name;
 
 pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), NetError> {

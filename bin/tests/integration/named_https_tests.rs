@@ -19,11 +19,11 @@ use rustls::{ClientConfig, RootCertStore};
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_proto::client::Client;
-use hickory_proto::h2::HttpsClientStreamBuilder;
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::rustls::default_provider;
-use hickory_proto::xfer::Protocol;
+use hickory_net::client::Client;
+use hickory_net::h2::HttpsClientStreamBuilder;
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::rustls::default_provider;
+use hickory_net::xfer::Protocol;
 use test_support::subscribe;
 
 #[test]
@@ -71,7 +71,7 @@ fn test_example_https_toml_startup() {
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        hickory_proto::runtime::spawn_bg(&io_loop, bg);
+        hickory_net::runtime::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 

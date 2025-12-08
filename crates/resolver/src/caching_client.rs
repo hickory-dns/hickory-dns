@@ -13,14 +13,16 @@ use std::{
 };
 
 use futures_util::future::BoxFuture;
-use hickory_proto::DnsError;
 use once_cell::sync::Lazy;
 
 use crate::{
     cache::{MAX_TTL, ResponseCache, TtlConfig},
     lookup::Lookup,
+    net::{
+        DnsError, NetError, NoRecords,
+        xfer::{DnsHandle, FirstAnswer},
+    },
     proto::{
-        NetError, NoRecords,
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordType,
@@ -31,7 +33,6 @@ use crate::{
             rdata::{A, AAAA, CNAME, PTR},
             resource::RecordRef,
         },
-        xfer::{DnsHandle, FirstAnswer},
     },
 };
 

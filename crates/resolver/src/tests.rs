@@ -8,8 +8,8 @@ async fn readme_example() {
     subscribe();
 
     use crate::Resolver;
-    use crate::config::*;
-    use crate::proto::runtime::TokioRuntimeProvider;
+    use crate::config::{GOOGLE, ResolverConfig};
+    use crate::net::runtime::TokioRuntimeProvider;
 
     // Construct a new Resolver with default configuration options
     let resolver = Resolver::builder_with_config(
@@ -35,8 +35,8 @@ async fn readme_example() {
 #[test]
 fn readme_tls() {
     use crate::Resolver;
-    use crate::config::*;
-    use crate::proto::runtime::TokioRuntimeProvider;
+    use crate::config::{CLOUDFLARE, ResolverConfig};
+    use crate::net::runtime::TokioRuntimeProvider;
 
     // Construct a new Resolver with default configuration options
     let resolver = Resolver::builder_with_config(

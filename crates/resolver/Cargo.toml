@@ -22,26 +22,26 @@ license.workspace = true
 [features]
 default = ["system-config", "tokio"]
 
-tls-aws-lc-rs = ["hickory-proto/tls-aws-lc-rs", "__tls"]
-https-aws-lc-rs = ["hickory-proto/https-aws-lc-rs", "__https"]
-quic-aws-lc-rs = ["hickory-proto/quic-aws-lc-rs", "__quic", "quinn/rustls-aws-lc-rs"]
-h3-aws-lc-rs = ["hickory-proto/h3-aws-lc-rs", "__h3"]
+tls-aws-lc-rs = ["hickory-net/tls-aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["hickory-net/https-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["hickory-net/quic-aws-lc-rs", "__quic", "quinn/rustls-aws-lc-rs"]
+h3-aws-lc-rs = ["hickory-net/h3-aws-lc-rs", "__h3"]
 
-tls-ring = ["hickory-proto/tls-ring", "__tls"]
-https-ring = ["hickory-proto/https-ring", "__https"]
-quic-ring = ["hickory-proto/quic-ring", "__quic", "quinn/rustls-ring"]
-h3-ring = ["hickory-proto/h3-ring", "__h3"]
+tls-ring = ["hickory-net/tls-ring", "__tls"]
+https-ring = ["hickory-net/https-ring", "__https"]
+quic-ring = ["hickory-net/quic-ring", "__quic", "quinn/rustls-ring"]
+h3-ring = ["hickory-net/h3-ring", "__h3"]
 
 __tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
 __https = ["__tls"]
 __quic = ["dep:quinn", "__tls"]
 __h3 = ["__quic"]
 
-webpki-roots = ["dep:webpki-roots", "hickory-proto/webpki-roots"]
-rustls-platform-verifier = ["hickory-proto/rustls-platform-verifier"]
+webpki-roots = ["dep:webpki-roots", "hickory-net/webpki-roots"]
+rustls-platform-verifier = ["hickory-net/rustls-platform-verifier"]
 
-dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "__dnssec"]
-dnssec-ring = ["hickory-proto/dnssec-ring", "__dnssec"]
+dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-net/dnssec-aws-lc-rs", "__dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-net/dnssec-ring", "__dnssec"]
 __dnssec = []
 
 recursor = ["dep:async-recursion", "dep:lru-cache", "hickory-proto/text-parsing"]
@@ -51,7 +51,7 @@ system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context"
 
 toml = ["dep:toml"]
 
-tokio = ["dep:tokio", "tokio/rt", "hickory-proto/tokio"]
+tokio = ["dep:tokio", "tokio/rt", "hickory-net/tokio"]
 
 metrics = ["dep:metrics"]
 
@@ -81,6 +81,7 @@ tracing.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
+hickory-net = { workspace = true }
 hickory-proto = { workspace = true, features = ["access-control"] }
 webpki-roots = { workspace = true, optional = true }
 
@@ -96,7 +97,7 @@ system-configuration = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
-hickory-proto = { workspace = true, features = ["tokio"] }
+hickory-proto = { workspace = true }
 metrics-util = { workspace = true, features = ["debugging"] }
 serde_json = { workspace = true }
 test-support.workspace = true

@@ -15,7 +15,9 @@ use rustls_pki_types::PrivatePkcs8KeyDer;
 use time::Duration;
 
 use hickory_compatibility::NamedProcess;
-use hickory_proto::client::{Client, ClientHandle};
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::udp::UdpClientStream;
 use hickory_proto::dnssec::crypto::RsaSigningKey;
 #[allow(deprecated)]
 use hickory_proto::dnssec::rdata::key::{KEY, KeyTrust, KeyUsage, Protocol, UpdateScope};
@@ -23,8 +25,6 @@ use hickory_proto::dnssec::{Algorithm, SigSigner, SigningKey};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::udp::UdpClientStream;
 
 #[tokio::test]
 async fn test_get() {

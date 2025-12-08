@@ -10,7 +10,6 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{collections::HashMap, iter, sync::Arc};
 
-use hickory_proto::runtime::Time;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
@@ -24,12 +23,8 @@ use crate::{
     },
     zone_handler::Nsec3QueryInfo,
 };
-#[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{
-    proto::{DnsError, NetError},
-    resolver::recursor,
-};
-use crate::{
+    net::runtime::Time,
     proto::{
         op::{Edns, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode},
         rr::{
@@ -43,6 +38,11 @@ use crate::{
         AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
         MessageResponseBuilder, ZoneHandler, ZoneType,
     },
+};
+#[cfg(all(feature = "__dnssec", feature = "recursor"))]
+use crate::{
+    net::{DnsError, NetError},
+    resolver::recursor,
 };
 
 /// Set of zones and zone handlers available to this server.
