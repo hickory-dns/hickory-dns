@@ -526,33 +526,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             _ => self.verify_default_rrset(&context).await,
         };
 
-        match proof {
+        match &proof {
             // These could be transient errors that should be retried.
-            Err(ref e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
+            Err(e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
                 debug!("not caching DNSSEC validation with ProofErrorKind::Net")
             }
             _ => {
-                debug!(
-                    name = ?context.rrset.name,
-                    record_type = ?context.rrset.record_type,
-                    "inserting DNSSEC validation cache entry",
-                );
-
-                let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
-                if proof.is_err() {
-                    if let Some(negative_bounds) = self.validation_cache.negative_ttl.clone() {
-                        (min, max) = negative_bounds.into_inner();
-                    }
-                } else if let Some(positive_bounds) = self.validation_cache.positive_ttl.clone() {
-                    (min, max) = positive_bounds.into_inner();
-                }
-
-                self.validation_cache.insert(
-                    key,
-                    Instant::now()
-                        + Duration::from_secs(context.rrset.record().ttl().into()).clamp(min, max),
-                    proof.clone(),
-                );
+                self.validation_cache.insert(proof.clone(), key, &context);
             }
         }
 
@@ -1504,8 +1484,35 @@ impl ValidationCache {
         }
     }
 
-    fn insert(&self, key: ValidationCacheKey, ttl: Instant, proof: Result<RrsetProof, ProofError>) {
-        self.inner.lock().insert(key, (ttl, proof));
+    fn insert(
+        &self,
+        proof: Result<RrsetProof, ProofError>,
+        key: ValidationCacheKey,
+        cx: &RrsetVerificationContext<'_>,
+    ) {
+        debug!(
+            name = ?cx.rrset.name,
+            record_type = ?cx.rrset.record_type,
+            "inserting DNSSEC validation cache entry",
+        );
+
+        let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
+        if proof.is_err() {
+            if let Some(negative_bounds) = self.negative_ttl.clone() {
+                (min, max) = negative_bounds.into_inner();
+            }
+        } else if let Some(positive_bounds) = self.positive_ttl.clone() {
+            (min, max) = positive_bounds.into_inner();
+        }
+
+        self.inner.lock().insert(
+            key,
+            (
+                Instant::now()
+                    + Duration::from_secs(cx.rrset.record().ttl().into()).clamp(min, max),
+                proof.clone(),
+            ),
+        );
     }
 }
 
