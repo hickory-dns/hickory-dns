@@ -17,17 +17,15 @@ use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
 
+use hickory_net::{NetError, client::ClientHandle, xfer::Protocol};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::client::Client;
+use hickory_net::{client::Client, runtime::TokioRuntimeProvider};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::Algorithm;
 use hickory_proto::{
-    NetError,
-    client::ClientHandle,
     op::{DnsResponse, ResponseCode},
     rr::{DNSClass, Name, RData, RecordType, rdata::A},
-    xfer::Protocol,
 };
-#[cfg(feature = "__dnssec")]
-use hickory_proto::{dnssec::Algorithm, runtime::TokioRuntimeProvider};
 
 mod mut_message_client;
 

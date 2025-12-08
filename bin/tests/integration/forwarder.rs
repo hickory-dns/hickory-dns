@@ -4,10 +4,8 @@ use std::str::FromStr;
 
 use tokio::runtime::Runtime;
 
-use hickory_proto::{
-    rr::{Name, RData, RecordType},
-    runtime::TokioRuntimeProvider,
-};
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_proto::rr::{Name, RData, RecordType};
 use hickory_server::{
     store::forwarder::ForwardZoneHandler,
     zone_handler::{LookupOptions, ZoneHandler},

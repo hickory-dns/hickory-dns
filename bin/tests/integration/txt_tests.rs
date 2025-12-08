@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
+use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_proto::rr::rdata::{A, AAAA, tlsa::*};
 use hickory_proto::rr::*;
-use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::serialize::txt::*;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;

@@ -10,6 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::*;
 
+use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
+use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::TSigner;
 #[cfg(feature = "__dnssec")]
@@ -21,10 +23,8 @@ use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
-use hickory_proto::runtime::{Time, TokioRuntimeProvider, TokioTime};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
-use hickory_proto::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;

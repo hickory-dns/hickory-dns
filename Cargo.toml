@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/net",
     "crates/proto",
     "crates/resolver",
     "crates/server",
@@ -26,6 +27,7 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
+hickory-net = { version = "0.26.0-alpha.1", path = "crates/net", default-features = false }
 hickory-resolver = { version = "0.26.0-alpha.1", path = "crates/resolver", default-features = false }
 hickory-server = { version = "0.26.0-alpha.1", path = "crates/server", default-features = false }
 hickory-proto = { version = "0.26.0-alpha.1", path = "crates/proto", default-features = false, features = ["std"] }

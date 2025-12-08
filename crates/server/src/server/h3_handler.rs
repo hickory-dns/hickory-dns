@@ -22,14 +22,13 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    proto::{
+    net::{
         NetError,
         h3::h3_server::{H3Connection, H3Server},
         http::{self, Version},
-        rr::Record,
-        serialize::binary::BinEncoder,
         xfer::Protocol,
     },
+    proto::{rr::Record, serialize::binary::BinEncoder},
     zone_handler::MessageResponse,
 };
 

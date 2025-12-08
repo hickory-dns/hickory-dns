@@ -8,17 +8,16 @@
 //! Request Handler for incoming requests
 
 use bytes::Bytes;
-use hickory_proto::runtime::Time;
 use std::net::SocketAddr;
 
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
+    net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
         serialize::binary::{BinDecodable, BinDecoder},
-        xfer::Protocol,
     },
     server::ResponseHandler,
     zone_handler::{LookupError, MessageRequest},

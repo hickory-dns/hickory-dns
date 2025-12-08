@@ -10,9 +10,8 @@ use hickory_integration::{
     mock_request_handler::{MockHandler, fetch_dnskey},
     print_response, setup_dnssec_client_server,
 };
-use hickory_proto::client::ClientHandle;
+use hickory_net::{DnsError, NetError, client::ClientHandle};
 use hickory_proto::{
-    DnsError, NetError,
     dnssec::{
         Algorithm, DigestType, Proof, SigSigner, SigningKey,
         crypto::Ed25519SigningKey,
@@ -20,11 +19,10 @@ use hickory_proto::{
     },
     op::{DnsResponse, ResponseCode},
     rr::{
-        DNSClass, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType,
         rdata::{A, AAAA, HINFO, MX, NS, SOA},
     },
 };
-use hickory_resolver::Name;
 use hickory_server::{
     dnssec::NxProofKind,
     store::in_memory::InMemoryZoneHandler,

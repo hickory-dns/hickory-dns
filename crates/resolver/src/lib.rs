@@ -62,7 +62,7 @@
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
 //! use hickory_resolver::Resolver;
-//! use hickory_resolver::proto::runtime::TokioRuntimeProvider;
+//! use hickory_resolver::net::runtime::TokioRuntimeProvider;
 //! use hickory_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
@@ -100,7 +100,7 @@
 //! # use std::net::TcpStream;
 //! # use tokio::runtime::Runtime;
 //! # use hickory_resolver::Resolver;
-//! # use hickory_resolver::proto::runtime::TokioRuntimeProvider;
+//! # use hickory_resolver::net::runtime::TokioRuntimeProvider;
 //! # use hickory_resolver::config::ResolverConfig;
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
@@ -151,7 +151,7 @@
 //! # #[cfg(feature = "tokio")]
 //! # {
 //! use hickory_resolver::Resolver;
-//! use hickory_resolver::proto::runtime::TokioRuntimeProvider;
+//! use hickory_resolver::net::runtime::TokioRuntimeProvider;
 //! use hickory_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
@@ -176,9 +176,8 @@
 #![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+pub use hickory_net as net;
 pub use hickory_proto as proto;
-// reexports from proto
-pub use proto::rr::{IntoName, Name};
 
 pub mod caching_client;
 pub mod config;

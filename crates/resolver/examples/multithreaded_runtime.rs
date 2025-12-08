@@ -16,7 +16,7 @@ fn run() {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
-            use hickory_resolver::{TokioResolver, proto::runtime::TokioRuntimeProvider};
+            use hickory_resolver::{TokioResolver, net::runtime::TokioRuntimeProvider};
 
             // use the system resolver configuration
             TokioResolver::builder(TokioRuntimeProvider::default())

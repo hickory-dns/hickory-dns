@@ -10,6 +10,10 @@ use std::{
 use futures_executor::block_on;
 
 use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
+use hickory_net::{
+    runtime::{Time, TokioTime},
+    xfer::Protocol,
+};
 use hickory_proto::{
     dnssec::{
         Algorithm, SigSigner,
@@ -20,9 +24,7 @@ use hickory_proto::{
         DNSClass, Name, RData, Record, RecordSet, RecordType,
         rdata::{A as A4, AAAA},
     },
-    runtime::{Time, TokioTime},
     serialize::binary::BinEncodable,
-    xfer::Protocol,
 };
 use hickory_server::{
     server::Request,

@@ -18,15 +18,16 @@ use futures::{
     stream::{Stream, once},
 };
 
+use hickory_net::NetError;
+use hickory_net::runtime::TokioTime;
+use hickory_net::runtime::{RuntimeProvider, TokioHandle};
+use hickory_net::tcp::DnsTcpStream;
+use hickory_net::udp::DnsUdpSocket;
+use hickory_net::xfer::DnsHandle;
+use hickory_proto::ProtoError;
 use hickory_proto::op::{DnsRequest, DnsResponse, Message, Query};
 use hickory_proto::rr::rdata::{CNAME, NS, SOA};
 use hickory_proto::rr::{Name, RData, Record};
-use hickory_proto::runtime::TokioTime;
-use hickory_proto::runtime::{RuntimeProvider, TokioHandle};
-use hickory_proto::tcp::DnsTcpStream;
-use hickory_proto::udp::DnsUdpSocket;
-use hickory_proto::xfer::DnsHandle;
-use hickory_proto::{NetError, ProtoError};
 use hickory_resolver::config::ConnectionConfig;
 use hickory_resolver::{ConnectionProvider, PoolContext};
 
