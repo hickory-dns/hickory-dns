@@ -98,7 +98,8 @@ pub enum DigestType {
 }
 
 impl DigestType {
-    fn is_supported(&self) -> bool {
+    /// Whether this is a supported digest type
+    pub fn is_supported(&self) -> bool {
         !matches!(self, Self::Unknown(_))
     }
 }
