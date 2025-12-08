@@ -1471,13 +1471,15 @@ struct RrsetProof {
 
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
-struct ValidationCache(
-    Arc<Mutex<LruCache<ValidationCacheKey, (Instant, Result<RrsetProof, ProofError>)>>>,
-);
+struct ValidationCache {
+    inner: Arc<Mutex<LruCache<ValidationCacheKey, (Instant, Result<RrsetProof, ProofError>)>>>,
+}
 
 impl ValidationCache {
     fn new(capacity: usize) -> Self {
-        Self(Arc::new(Mutex::new(LruCache::new(capacity))))
+        Self {
+            inner: Arc::new(Mutex::new(LruCache::new(capacity))),
+        }
     }
 
     fn get(
@@ -1485,7 +1487,7 @@ impl ValidationCache {
         key: &ValidationCacheKey,
         context: &RrsetVerificationContext<'_>,
     ) -> Option<Result<RrsetProof, ProofError>> {
-        let (ttl, cached) = self.0.lock().get_mut(key)?.clone();
+        let (ttl, cached) = self.inner.lock().get_mut(key)?.clone();
 
         if Instant::now() < ttl {
             debug!(
@@ -1505,7 +1507,7 @@ impl ValidationCache {
     }
 
     fn insert(&self, key: ValidationCacheKey, ttl: Instant, proof: Result<RrsetProof, ProofError>) {
-        self.0.lock().insert(key, (ttl, proof));
+        self.inner.lock().insert(key, (ttl, proof));
     }
 }
 
