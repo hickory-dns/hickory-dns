@@ -842,6 +842,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "hickory-net"
+version = "0.26.0-alpha.1"
+dependencies = [
+ "async-trait",
+ "aws-lc-rs",
+ "backtrace",
+ "bitflags",
+ "bytes",
+ "cfg-if",
+ "critical-section",
+ "data-encoding",
+ "futures-channel",
+ "futures-executor",
+ "futures-io",
+ "futures-util",
+ "h2",
+ "h3",
+ "h3-quinn",
+ "hickory-proto",
+ "http",
+ "idna",
+ "ipnet",
+ "jni",
+ "js-sys",
+ "lru-cache",
+ "once_cell",
+ "parking_lot",
+ "pin-project-lite",
+ "prefix-trie",
+ "quinn",
+ "rand",
+ "ring",
+ "rustls",
+ "rustls-pki-types",
+ "rustls-platform-verifier",
+ "serde",
+ "socket2 0.6.1",
+ "test-support",
+ "thiserror 2.0.17",
+ "time",
+ "tinyvec",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "url",
+ "wasm-bindgen",
+ "webpki-roots",
+]
+
+[[package]]
 name = "hickory-proto"
 version = "0.26.0-alpha.1"
 dependencies = [
@@ -899,6 +949,7 @@ dependencies = [
  "cfg-if",
  "futures-executor",
  "futures-util",
+ "hickory-net",
  "hickory-proto",
  "ipconfig",
  "ipnet",

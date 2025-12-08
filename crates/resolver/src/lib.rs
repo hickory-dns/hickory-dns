@@ -191,8 +191,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 pub use hickory_proto as proto;
-// reexports from proto
-pub use proto::rr::{IntoName, Name};
+pub use hickory_net as net;
 
 pub mod caching_client;
 pub mod config;

@@ -42,50 +42,18 @@ extern crate alloc;
 #[cfg(feature = "access-control")]
 pub mod access_control;
 
-#[cfg(feature = "std")]
-pub mod client;
-
 #[cfg(any(feature = "dnssec-aws-lc-rs", feature = "dnssec-ring"))]
 pub mod dnssec;
-mod error;
-#[cfg(feature = "__https")]
-pub mod h2;
-#[cfg(feature = "__h3")]
-pub mod h3;
-#[cfg(any(feature = "__https", feature = "__h3"))]
-pub mod http;
-#[cfg(feature = "mdns")]
-pub mod multicast;
-pub mod op;
-#[cfg(all(feature = "__quic", feature = "tokio"))]
-pub mod quic;
-pub mod rr;
-#[cfg(feature = "std")]
-pub mod runtime;
-#[cfg(feature = "__tls")]
-pub mod rustls;
-pub mod serialize;
-#[cfg(feature = "std")]
-pub mod tcp;
-#[cfg(feature = "std")]
-pub mod udp;
-pub mod xfer;
 
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub use crate::xfer::BufDnsStreamHandle;
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
+mod error;
 pub use error::{
     DnsError, ForwardNSData, NetError, NetErrorKind, NoRecords, ProtoError, ProtoErrorKind,
 };
+
+pub mod op;
+pub mod rr;
+pub mod serialize;
+
 #[cfg(feature = "backtrace")]
 pub use error::{ENABLE_BACKTRACE, ExtBacktrace};
 

@@ -27,18 +27,13 @@ use crate::trace;
 mod algorithm;
 pub use algorithm::Algorithm;
 
-mod handle;
-pub use handle::DnssecDnsHandle;
-
 /// Cryptographic backend implementations of DNSSEC traits.
 pub mod crypto;
 
 mod ec_public_key;
 
-mod nsec3;
-
 mod proof;
-pub use proof::{Proof, ProofError, ProofErrorKind, ProofFlags, Proven};
+pub use proof::{Proof, ProofFlags, Proven};
 
 mod public_key;
 pub use public_key::{PublicKey, PublicKeyBuf};

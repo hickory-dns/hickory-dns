@@ -21,7 +21,7 @@ use crate::serialize::binary::*;
 ///
 /// This represents the "type bit maps" field in various records.
 #[derive(Clone)]
-pub(crate) struct RecordTypeSet {
+pub struct RecordTypeSet {
     types: BTreeSet<RecordType>,
     original_encoding: Option<Vec<u8>>,
 }
@@ -40,7 +40,7 @@ impl RecordTypeSet {
     }
 
     #[cfg(feature = "__dnssec")]
-    pub(crate) fn contains(&self, r#type: RecordType) -> bool {
+    pub fn contains(&self, r#type: RecordType) -> bool {
         self.types.contains(&r#type)
     }
 }

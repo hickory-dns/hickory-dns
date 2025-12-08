@@ -32,7 +32,7 @@ use tracing::warn;
 use crate::config::{ConnectionConfig, ProtocolConfig};
 use crate::name_server_pool::PoolContext;
 #[cfg(feature = "__https")]
-use crate::proto::h2::HttpsClientConnect;
+use crate::net::h2::HttpsClientConnect;
 #[cfg(feature = "__h3")]
 use crate::proto::h3::H3ClientStream;
 #[cfg(feature = "__quic")]

@@ -35,7 +35,7 @@ use super::{
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::rdata::DNSSECRData;
 use crate::{
-    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+    ConnectionProvider, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
     TtlConfig,
     config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
 };
