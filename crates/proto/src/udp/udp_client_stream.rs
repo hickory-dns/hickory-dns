@@ -20,10 +20,12 @@ use futures_util::{
 use tracing::{debug, trace, warn};
 
 use crate::error::{NetError, NetErrorKind};
-use crate::op::{DnsRequest, DnsResponse, Message, MessageSigner, SerialMessage};
+use crate::op::{
+    DEFAULT_RETRY_FLOOR, DnsRequest, DnsResponse, Message, MessageSigner, SerialMessage,
+};
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::udp_stream::NextRandomUdpSocket;
-use crate::udp::{DEFAULT_RETRY_FLOOR, DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
+use crate::udp::{DnsUdpSocket, MAX_RECEIVE_BUFFER_SIZE};
 use crate::xfer::{DnsRequestSender, DnsResponseStream};
 
 /// A UDP client stream of DNS binary packets.

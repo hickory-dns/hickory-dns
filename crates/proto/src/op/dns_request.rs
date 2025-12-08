@@ -11,9 +11,9 @@ use core::ops::{Deref, DerefMut};
 #[cfg(feature = "std")]
 use core::time::Duration;
 
-use crate::op::{Message, Query};
 #[cfg(feature = "std")]
-use crate::{op::Edns, udp::DEFAULT_RETRY_FLOOR};
+use crate::op::{DEFAULT_RETRY_FLOOR, Edns};
+use crate::op::{Message, Query};
 
 /// A set of options for expressing options to how requests should be treated
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
