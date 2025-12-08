@@ -31,7 +31,7 @@ pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name};
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
-pub(crate) use self::record_type_set::RecordTypeSet;
+pub use self::record_type_set::RecordTypeSet;
 pub use self::resource::Record;
 #[cfg(feature = "__dnssec")]
 pub use self::rr_set::RecordsAndRrsigsIter;

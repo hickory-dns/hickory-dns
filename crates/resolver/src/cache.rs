@@ -11,11 +11,13 @@ use moka::{Expiry, sync::Cache};
 #[cfg(feature = "serde")]
 use serde::Deserialize;
 
-use crate::config;
-use crate::proto::{
-    DnsError, NetError, NoRecords,
-    op::{Message, Query},
-    rr::RecordType,
+use crate::{
+    config,
+    net::{DnsError, NetError, NoRecords},
+    proto::{
+        op::{Message, Query},
+        rr::RecordType,
+    },
 };
 
 /// A cache for DNS responses.
@@ -409,17 +411,18 @@ mod tests {
         time::{Duration, Instant},
     };
 
-    use hickory_proto::ForwardNSData;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
     use super::*;
-    use crate::proto::{
-        NoRecords,
-        op::{Message, OpCode, Query, ResponseCode},
-        rr::{
-            Name, RData, Record, RecordType,
-            rdata::{A, NS, SOA, TXT},
+    use crate::{
+        net::{ForwardNSData, NetError},
+        proto::{
+            op::{Message, OpCode, Query, ResponseCode},
+            rr::{
+                Name, RData, Record, RecordType,
+                rdata::{A, NS, SOA, TXT},
+            },
         },
     };
     use test_support::subscribe;

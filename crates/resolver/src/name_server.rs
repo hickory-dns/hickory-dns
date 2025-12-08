@@ -28,18 +28,22 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
-use crate::config::{
-    ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
-    ServerOrderingStrategy,
-};
-use crate::connection_provider::ConnectionProvider;
-use crate::name_server_pool::{NameServerTransportState, PoolContext};
-use crate::proto::{
-    DnsError, NetError, NoRecords,
-    op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
-    rr::{Name, RecordType},
-    runtime::{RuntimeProvider, Spawn},
-    xfer::{DnsHandle, FirstAnswer, Protocol},
+use crate::{
+    config::{
+        ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
+        ServerOrderingStrategy,
+    },
+    connection_provider::ConnectionProvider,
+    name_server_pool::{NameServerTransportState, PoolContext},
+    net::{
+        DnsError, NetError, NoRecords,
+        runtime::{RuntimeProvider, Spawn},
+        xfer::{DnsHandle, FirstAnswer, Protocol},
+    },
+    proto::{
+        op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
+        rr::{Name, RecordType},
+    },
 };
 
 /// A remote DNS server, identified by its IP address.
@@ -1002,10 +1006,10 @@ mod tests {
     use super::*;
     use crate::config::{ConnectionConfig, ProtocolConfig};
     use crate::connection_provider::TlsConfig;
+    use crate::net::runtime::TokioRuntimeProvider;
     use crate::proto::op::{DnsRequest, DnsRequestOptions, Message, Query, ResponseCode};
     use crate::proto::rr::rdata::NULL;
     use crate::proto::rr::{Name, RData, Record, RecordType};
-    use crate::proto::runtime::TokioRuntimeProvider;
 
     #[tokio::test]
     async fn test_name_server() {
@@ -1307,11 +1311,11 @@ mod opportunistic_enc_tests {
     use crate::connection_provider::{ConnectionProvider, TlsConfig};
     use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
+    use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::net::runtime::{RuntimeProvider, Spawn, TokioTime};
+    use crate::net::xfer::Protocol;
+    use crate::net::{DnsHandle, NetError};
     use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
-    use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
-    use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
-    use crate::proto::xfer::Protocol;
-    use crate::proto::{DnsHandle, NetError};
 
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {

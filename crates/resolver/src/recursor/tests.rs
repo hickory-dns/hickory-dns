@@ -14,11 +14,10 @@ use super::{Recursor, RecursorBuilder, RecursorError, RecursorMode, is_subzone};
 use crate::{
     cache::TtlConfig,
     config::ResolverOpts,
+    net::{NetError, xfer::Protocol},
     proto::{
-        NetError,
         op::{Message, Query, ResponseCode},
         rr::{Name, Record, RecordType},
-        xfer::Protocol,
     },
 };
 

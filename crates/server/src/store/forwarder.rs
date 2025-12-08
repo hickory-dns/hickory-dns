@@ -19,10 +19,10 @@ use tracing::{debug, info};
 #[cfg(feature = "__dnssec")]
 use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
+    net::runtime::TokioRuntimeProvider,
     proto::{
         op::ResponseSigner,
         rr::{LowerName, Name, RecordType},
-        runtime::TokioRuntimeProvider,
     },
     resolver::{
         ConnectionProvider, Resolver,

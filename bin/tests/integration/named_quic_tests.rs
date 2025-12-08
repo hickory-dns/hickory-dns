@@ -14,11 +14,11 @@ use rustls::{ClientConfig, RootCertStore, pki_types::CertificateDer};
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_proto::client::Client;
-use hickory_proto::quic::QuicClientStream;
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::rustls::default_provider;
-use hickory_proto::xfer::Protocol;
+use hickory_net::client::Client;
+use hickory_net::quic::QuicClientStream;
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::rustls::default_provider;
+use hickory_net::xfer::Protocol;
 use test_support::subscribe;
 
 #[test]
@@ -61,7 +61,7 @@ fn test_example_quic_toml_startup() {
 
         // ipv4 should succeed
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-        hickory_proto::runtime::spawn_bg(&io_loop, bg);
+        hickory_net::runtime::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 

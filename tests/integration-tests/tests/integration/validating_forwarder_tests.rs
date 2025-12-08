@@ -13,23 +13,22 @@ use std::{
     time::Duration,
 };
 
-use hickory_proto::{
+use hickory_net::{
     client::{Client, ClientHandle},
+    runtime::TokioRuntimeProvider,
+    udp::UdpClientStream,
+};
+use hickory_proto::{
     dnssec::{
         PublicKeyBuf, SigSigner, SigningKey, TrustAnchors, crypto::Ed25519SigningKey, rdata::DNSKEY,
     },
     op::{DnsResponse, ResponseCode},
     rr::{
-        DNSClass, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType,
         rdata::{A, SOA},
     },
-    runtime::TokioRuntimeProvider,
-    udp::UdpClientStream,
 };
-use hickory_resolver::{
-    Name,
-    config::{NameServerConfig, ResolverOpts},
-};
+use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use hickory_server::{
     Server,
     store::{

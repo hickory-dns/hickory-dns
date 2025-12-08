@@ -6,14 +6,15 @@ use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::executor::block_on;
 
-use hickory_proto::client::{Client, ClientHandle, MemoizeClientHandle};
-use hickory_proto::dnssec::{DnssecDnsHandle, TrustAnchors};
+use hickory_net::client::{Client, ClientHandle, MemoizeClientHandle};
+use hickory_net::dnssec::DnssecDnsHandle;
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::tcp::TcpClientStream;
+use hickory_net::udp::UdpClientStream;
+use hickory_proto::dnssec::TrustAnchors;
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::Name;
 use hickory_proto::rr::{DNSClass, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::udp::UdpClientStream;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
 
 use hickory_integration::example_zone::create_secure_example;

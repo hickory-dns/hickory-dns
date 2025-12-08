@@ -30,24 +30,26 @@ use tracing::{debug, error, info};
 
 #[cfg(any(feature = "__tls", feature = "__quic"))]
 use crate::config::OpportunisticEncryptionConfig;
-use crate::config::{
-    NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy,
-};
-use crate::connection_provider::{ConnectionProvider, TlsConfig};
-use crate::name_server::{ConnectionPolicy, NameServer};
-use crate::proto::{
-    DnsError, NetError, NoRecords,
-    access_control::AccessControlSet,
-    op::{DnsRequest, DnsRequestOptions, DnsResponse, OpCode, Query, ResponseCode},
-    rr::{
-        Name, RData, Record,
-        rdata::{
-            A, AAAA,
-            opt::{ClientSubnet, EdnsCode, EdnsOption},
+use crate::{
+    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy},
+    connection_provider::{ConnectionProvider, TlsConfig},
+    name_server::{ConnectionPolicy, NameServer},
+    net::{
+        DnsError, NetError, NoRecords,
+        runtime::{RuntimeProvider, Time},
+        xfer::{DnsHandle, Protocol},
+    },
+    proto::{
+        access_control::AccessControlSet,
+        op::{DnsRequest, DnsRequestOptions, DnsResponse, OpCode, Query, ResponseCode},
+        rr::{
+            Name, RData, Record,
+            rdata::{
+                A, AAAA,
+                opt::{ClientSubnet, EdnsCode, EdnsOption},
+            },
         },
     },
-    runtime::{RuntimeProvider, Time},
-    xfer::{DnsHandle, Protocol},
 };
 
 /// Abstract interface for mocking purpose
@@ -723,7 +725,7 @@ mod opportunistic_encryption_persistence {
 
     use super::*;
     use crate::config::OpportunisticEncryptionPersistence;
-    use crate::proto::runtime::Spawn;
+    use crate::net::runtime::Spawn;
 
     /// A background task for periodically saving opportunistic encryption state.
     pub struct OpportunisticEncryptionStatePersistTask<T> {
@@ -910,10 +912,10 @@ mod tests {
 
     use super::*;
     use crate::config::{NameServerConfig, ResolverConfig};
+    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::net::xfer::{DnsHandle, FirstAnswer};
     use crate::proto::op::{DnsRequestOptions, Query};
     use crate::proto::rr::{Name, RecordType};
-    use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::{DnsHandle, FirstAnswer};
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout

@@ -6,17 +6,18 @@
 use std::{net::Ipv4Addr, sync::Arc};
 
 use hickory_integration::print_response;
-use hickory_proto::{
+use hickory_net::{
     client::{Client, ClientHandle},
-    op::ResponseCode,
-    rr::{
-        DNSClass, RData, Record, RecordType,
-        rdata::{A, MX, NS, SOA, SRV, TXT},
-    },
     runtime::TokioRuntimeProvider,
     udp::UdpClientStream,
 };
-use hickory_resolver::Name;
+use hickory_proto::{
+    op::ResponseCode,
+    rr::{
+        DNSClass, Name, RData, Record, RecordType,
+        rdata::{A, MX, NS, SOA, SRV, TXT},
+    },
+};
 use hickory_server::{
     Server,
     store::in_memory::InMemoryZoneHandler,

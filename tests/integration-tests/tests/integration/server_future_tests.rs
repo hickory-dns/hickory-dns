@@ -23,16 +23,16 @@ use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
 use hickory_integration::example_zone::create_example;
-use hickory_proto::client::{Client, ClientHandle};
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
+#[cfg(feature = "__tls")]
+use hickory_net::rustls::{default_provider, tls_client_connect_with_bind_addr};
+use hickory_net::tcp::TcpClientStream;
+use hickory_net::udp::UdpClientStream;
+use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
-#[cfg(feature = "__tls")]
-use hickory_proto::rustls::{default_provider, tls_client_connect_with_bind_addr};
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::udp::UdpClientStream;
-use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_server::Server;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;

@@ -29,6 +29,7 @@ rand = { workspace = true, features = ["std", "thread_rng"] }
 
 [dev-dependencies]
 futures.workspace = true
+hickory-net = { workspace = true, features = ["dnssec-ring", "tokio"] }
 hickory-proto = { workspace = true, features = ["dnssec-ring"] }
 rustls-pki-types.workspace = true
 test-support.workspace = true

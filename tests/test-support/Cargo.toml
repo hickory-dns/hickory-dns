@@ -15,6 +15,7 @@ publish = false
 bytes.workspace = true
 futures-util = { workspace = true, default-features = false, features = ["std", "io"] }
 hickory-proto.workspace = true
+hickory-net.workspace = true
 hickory-resolver = { workspace = true, features = ["tokio"] }
 tokio = { workspace = true, features = ["net"] }
 tracing.workspace = true

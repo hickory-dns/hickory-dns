@@ -134,7 +134,8 @@ impl NSEC {
         self.type_bit_maps.iter()
     }
 
-    pub(crate) fn type_set(&self) -> &RecordTypeSet {
+    /// Returns the RecordTypeSet representing the type bit maps
+    pub fn type_set(&self) -> &RecordTypeSet {
         &self.type_bit_maps
     }
 }

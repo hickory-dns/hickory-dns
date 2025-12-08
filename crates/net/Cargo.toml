@@ -1,0 +1,114 @@
+[package]
+name = "hickory-net"
+
+description = """
+hickory-net is a safe and secure low-level DNS library. This is the foundational DNS protocol
+library used by the other higher-level Hickory DNS crates.
+"""
+
+documentation = "https://docs.rs/hickory-net"
+readme = "README.md"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+
+[features]
+tls-aws-lc-rs = ["tokio-rustls/aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["tls-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["quinn/rustls-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
+h3-aws-lc-rs = ["quic-aws-lc-rs", "__h3"]
+
+tls-ring = ["tokio-rustls/ring", "__tls"]
+https-ring = ["tls-ring", "__https"]
+quic-ring = ["quinn/rustls-ring", "tls-ring", "__quic"]
+h3-ring = ["quic-ring", "__h3"]
+
+__tls = ["dep:bytes", "dep:rustls", "dep:tokio-rustls", "tokio"]
+__https = ["dep:bytes", "dep:h2", "dep:http"]
+__quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn"]
+__h3 = ["dep:h3", "dep:h3-quinn", "dep:http"]
+
+rustls-platform-verifier = ["dep:rustls-platform-verifier"]
+
+dnssec-aws-lc-rs = ["dep:aws-lc-rs", "aws-lc-rs/aws-lc-sys", "aws-lc-rs/ring-io", "hickory-proto/dnssec-aws-lc-rs", "__dnssec"]
+dnssec-ring = ["dep:ring", "hickory-proto/dnssec-ring", "__dnssec"]
+__dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time", "dep:lru-cache", "dep:parking_lot"]
+
+tokio = ["dep:tokio", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
+default = ["tokio"]
+
+serde = ["dep:serde", "url/serde"]
+
+# enables experimental the mDNS (multicast) feature
+mdns = ["socket2/all"]
+
+[lib]
+name = "hickory_net"
+path = "src/lib.rs"
+
+[dependencies]
+async-trait.workspace = true
+aws-lc-rs = { workspace = true, optional = true }
+bitflags = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+cfg-if.workspace = true
+data-encoding = { workspace = true, features = ["alloc"] }
+futures-channel = { workspace = true, default-features = false, features = ["alloc", "std"] }
+futures-io = { workspace = true, default-features = false, features = ["std"] }
+futures-util = { workspace = true, default-features = false, features = ["alloc", "async-await-macro", "std"] }
+h2 = { workspace = true, features = ["stream"], optional = true }
+h3 = { workspace = true, optional = true }
+h3-quinn = { workspace = true, optional = true }
+hickory-proto.workspace = true
+http = { workspace = true, optional = true }
+idna.workspace = true
+ipnet.workspace = true
+lru-cache = { workspace = true, optional = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true, optional = true }
+pin-project-lite = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio"] }
+rand = { workspace = true, features = ["std_rng"] }
+ring = { workspace = true, optional = true, features = ["std"] }
+rustls = { workspace = true, optional = true, default-features = false }
+rustls-pki-types = { workspace = true, optional = true }
+rustls-platform-verifier = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+socket2 = { workspace = true, optional = true }
+thiserror.workspace = true
+time = { workspace = true, optional = true }
+tinyvec = { workspace = true, features = ["alloc"] }
+tracing = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
+tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
+url = { workspace = true }
+webpki-roots = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { workspace = true }
+
+[dev-dependencies]
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
+test-support.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "macros", "test-util"] }
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+max_combination_size = 2
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

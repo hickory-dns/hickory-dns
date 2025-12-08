@@ -15,6 +15,8 @@ use thiserror::Error;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::NxProofKind;
+use crate::net::{DnsError, NetError, NoRecords};
+use crate::proto::ProtoError;
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::crypto::Digest;
 #[cfg(feature = "__dnssec")]
@@ -25,7 +27,6 @@ use crate::proto::op::{Edns, ResponseCode, ResponseSigner};
 #[cfg(feature = "__dnssec")]
 use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
-use crate::proto::{DnsError, NetError, NoRecords, ProtoError};
 #[cfg(feature = "recursor")]
 use crate::resolver::recursor::RecursorError;
 use crate::server::{Request, RequestInfo};

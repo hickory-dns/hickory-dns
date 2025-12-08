@@ -551,7 +551,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hickory-proto"
+name = "hickory-net"
 version = "0.26.0-alpha.1"
 dependencies = [
  "async-trait",
@@ -562,6 +562,7 @@ dependencies = [
  "futures-channel",
  "futures-io",
  "futures-util",
+ "hickory-proto",
  "idna",
  "ipnet",
  "jni",
@@ -569,12 +570,32 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "rand",
- "ring",
  "rustls-pki-types",
  "thiserror 2.0.17",
  "time",
  "tinyvec",
  "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "hickory-proto"
+version = "0.26.0-alpha.1"
+dependencies = [
+ "aws-lc-rs",
+ "bitflags",
+ "data-encoding",
+ "idna",
+ "ipnet",
+ "jni",
+ "once_cell",
+ "rand",
+ "ring",
+ "rustls-pki-types",
+ "thiserror 2.0.17",
+ "time",
+ "tinyvec",
  "tracing",
  "url",
 ]
@@ -1309,6 +1330,7 @@ dependencies = [
  "clap",
  "data-encoding",
  "futures",
+ "hickory-net",
  "hickory-proto",
  "time",
  "tokio",

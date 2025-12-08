@@ -16,28 +16,24 @@ use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
-use super::{
-    RecursorBuilder, RecursorError,
-    error::AuthorityData,
-    is_subzone,
+use super::{RecursorBuilder, RecursorError, error::AuthorityData, is_subzone};
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::rdata::DNSSECRData;
+use crate::{
+    ConnectionProvider, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+    TtlConfig,
+    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
+    net::DnsHandle,
     proto::{
-        DnsHandle,
         access_control::AccessControlSet,
         op::{DnsRequestOptions, Message, Query},
         rr::{
-            RData,
+            Name, RData,
             RData::CNAME,
             Record, RecordType,
             rdata::{A, AAAA, NS},
         },
     },
-};
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::rdata::DNSSECRData;
-use crate::{
-    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
-    TtlConfig,
-    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
 };
 
 #[derive(Clone)]
@@ -753,9 +749,9 @@ mod for_dnssec {
     };
 
     use super::*;
-    use crate::proto::{
-        NetError,
-        op::{DnsRequest, DnsResponse, OpCode},
+    use crate::{
+        net::NetError,
+        proto::op::{DnsRequest, DnsResponse, OpCode},
     };
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {

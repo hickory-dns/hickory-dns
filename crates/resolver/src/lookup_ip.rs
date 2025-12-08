@@ -28,10 +28,10 @@ use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
 use crate::lookup::Lookup;
-use crate::proto::NetError;
+use crate::net::NetError;
+use crate::net::xfer::DnsHandle;
 use crate::proto::op::{DnsRequestOptions, Query};
 use crate::proto::rr::{Name, RData, Record, RecordType};
-use crate::proto::xfer::DnsHandle;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -330,10 +330,10 @@ pub(crate) mod tests {
     use test_support::subscribe;
 
     use super::*;
+    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::net::xfer::DnsHandle;
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::{Name, RData, Record};
-    use crate::proto::runtime::TokioRuntimeProvider;
-    use crate::proto::xfer::DnsHandle;
 
     #[derive(Clone)]
     pub(crate) struct MockDnsHandle {
