@@ -17,6 +17,7 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
     let sc = SCDynamicStoreBuilder::new("hickory-resolver").build();
 
     let dns_cfg = sc
+        .ok_or("failed to access System Configuration dynamic store")?
         .get("State:/Network/Global/DNS")
         .ok_or("no DNS information in System Configuration")?
         .downcast_into::<CFDictionary>()
