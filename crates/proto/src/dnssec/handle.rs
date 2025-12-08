@@ -58,8 +58,6 @@ pub struct DnssecDnsHandle<H> {
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
     validation_cache: ValidationCache,
-    validation_negative_ttl: Option<RangeInclusive<Duration>>,
-    validation_positive_ttl: Option<RangeInclusive<Duration>>,
 }
 
 impl<H: DnsHandle> DnssecDnsHandle<H> {
@@ -90,8 +88,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             nsec3_soft_iteration_limit: 100,
             nsec3_hard_iteration_limit: 500,
             validation_cache: ValidationCache::new(DEFAULT_VALIDATION_CACHE_SIZE),
-            validation_negative_ttl: None,
-            validation_positive_ttl: None,
         }
     }
 
@@ -135,7 +131,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// Validation cache TTLs are based on the Rrset TTL value, but will be clamped to
     /// this value, if specified, for negative responses.
     pub fn negative_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
-        self.validation_negative_ttl = Some(ttl);
+        self.validation_cache.negative_ttl = Some(ttl);
         self
     }
 
@@ -147,7 +143,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// Validation cache TTLs are based on the Rrset TTL value, but will be clamped to
     /// this value, if specified, for positive responses.
     pub fn positive_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
-        self.validation_positive_ttl = Some(ttl);
+        self.validation_cache.positive_ttl = Some(ttl);
         self
     }
 
@@ -544,10 +540,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
                 let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
                 if proof.is_err() {
-                    if let Some(negative_bounds) = self.validation_negative_ttl.clone() {
+                    if let Some(negative_bounds) = self.validation_cache.negative_ttl.clone() {
                         (min, max) = negative_bounds.into_inner();
                     }
-                } else if let Some(positive_bounds) = self.validation_positive_ttl.clone() {
+                } else if let Some(positive_bounds) = self.validation_cache.positive_ttl.clone() {
                     (min, max) = positive_bounds.into_inner();
                 }
 
@@ -1058,8 +1054,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             nsec3_soft_iteration_limit: self.nsec3_soft_iteration_limit,
             nsec3_hard_iteration_limit: self.nsec3_hard_iteration_limit,
             validation_cache: self.validation_cache.clone(),
-            validation_negative_ttl: self.validation_negative_ttl.clone(),
-            validation_positive_ttl: self.validation_positive_ttl.clone(),
         }
     }
 }
@@ -1473,12 +1467,16 @@ struct RrsetProof {
 #[allow(clippy::type_complexity)]
 struct ValidationCache {
     inner: Arc<Mutex<LruCache<ValidationCacheKey, (Instant, Result<RrsetProof, ProofError>)>>>,
+    negative_ttl: Option<RangeInclusive<Duration>>,
+    positive_ttl: Option<RangeInclusive<Duration>>,
 }
 
 impl ValidationCache {
     fn new(capacity: usize) -> Self {
         Self {
             inner: Arc::new(Mutex::new(LruCache::new(capacity))),
+            negative_ttl: None,
+            positive_ttl: None,
         }
     }
 
