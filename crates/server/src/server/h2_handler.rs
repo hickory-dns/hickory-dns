@@ -28,7 +28,13 @@ use super::{
     sanitize_src_address,
 };
 use crate::{
-    proto::{NetError, h2, http::Version, rr::Record, xfer::Protocol},
+    proto::{
+        NetError, h2,
+        http::{self, Version},
+        rr::Record,
+        serialize::binary::BinEncoder,
+        xfer::Protocol,
+    },
     zone_handler::MessageResponse,
 };
 
@@ -210,10 +216,6 @@ impl ResponseHandler for HttpsResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> io::Result<ResponseInfo> {
-        use crate::proto::h2::HttpsError;
-        use crate::proto::http::response;
-        use crate::proto::serialize::binary::BinEncoder;
-
         let id = response.header().id();
         let mut bytes = Vec::with_capacity(512);
         // mut block
@@ -225,7 +227,7 @@ impl ResponseHandler for HttpsResponseHandle {
             })?
         };
         let bytes = Bytes::from(bytes);
-        let response = response::new(Version::Http2, bytes.len())?;
+        let response = http::response::new(Version::Http2, bytes.len())?;
 
         debug!("sending response: {:#?}", response);
         let mut stream = self
@@ -233,8 +235,8 @@ impl ResponseHandler for HttpsResponseHandle {
             .lock()
             .await
             .send_response(response, false)
-            .map_err(HttpsError::from)?;
-        stream.send_data(bytes, true).map_err(HttpsError::from)?;
+            .map_err(http::Error::from)?;
+        stream.send_data(bytes, true).map_err(http::Error::from)?;
 
         Ok(info)
     }

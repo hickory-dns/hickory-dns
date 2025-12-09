@@ -12,8 +12,6 @@ pub mod h3_server;
 
 use quinn::{TransportConfig, VarInt};
 
-pub use crate::http::error::{Error as H3Error, Result as H3Result};
-
 pub use self::h3_client_stream::{
     H3ClientConnect, H3ClientResponse, H3ClientStream, H3ClientStreamBuilder,
 };

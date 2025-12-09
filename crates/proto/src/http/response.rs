@@ -12,7 +12,6 @@ use http::{Response, StatusCode};
 
 use crate::error::ProtoError;
 use crate::http::Version;
-use crate::http::error::Result;
 
 /// Create a new Response for an http dns-message request
 ///
@@ -41,7 +40,7 @@ use crate::http::error::Result;
 /// client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
 /// on.
 /// ```
-pub fn new(version: Version, message_len: usize) -> Result<Response<()>> {
+pub fn new(version: Version, message_len: usize) -> Result<Response<()>, super::Error> {
     Response::builder()
         .status(StatusCode::OK)
         .version(version.to_http())

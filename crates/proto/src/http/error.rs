@@ -13,9 +13,6 @@ use crate::error::ProtoError;
 use http::header::ToStrError;
 use thiserror::Error;
 
-/// An alias for results returned by functions of this crate
-pub type Result<T> = ::core::result::Result<T, Error>;
-
 /// Internal HTTP error type
 #[derive(Debug, Error)]
 #[non_exhaustive]
