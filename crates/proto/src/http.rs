@@ -8,17 +8,13 @@
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
 use alloc::sync::Arc;
-use core::num::ParseIntError;
 use core::str::FromStr;
-use std::io;
 
-use alloc::string::String;
-use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, ToStrError};
+use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, uri};
-use thiserror::Error;
 use tracing::debug;
 
-use crate::error::ProtoError;
+use crate::error::{NetError, ProtoError};
 
 pub(crate) struct RequestContext {
     pub(crate) version: Version,
@@ -39,7 +35,7 @@ impl RequestContext {
     /// request (as described in Section 6), encoded with base64url
     /// [RFC4648].
     /// ```
-    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>, Error> {
+    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>, NetError> {
         let mut parts = uri::Parts::default();
         parts.path_and_query = Some(
             uri::PathAndQuery::try_from(&*self.query_path)
@@ -81,7 +77,7 @@ pub fn verify<T>(
     name_server: Option<&str>,
     query_path: &str,
     request: &Request<T>,
-) -> Result<(), Error> {
+) -> Result<(), NetError> {
     // Verify all HTTP parameters
     let uri = request.uri();
 
@@ -188,7 +184,7 @@ pub fn verify<T>(
 /// client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
 /// on.
 /// ```
-pub fn response(version: Version, message_len: usize) -> Result<Response<()>, Error> {
+pub fn response(version: Version, message_len: usize) -> Result<Response<()>, NetError> {
     Response::builder()
         .status(StatusCode::OK)
         .version(version.to_http())
@@ -196,59 +192,6 @@ pub fn response(version: Version, message_len: usize) -> Result<Response<()>, Er
         .header(CONTENT_LENGTH, message_len)
         .body(())
         .map_err(|e| ProtoError::from(format!("invalid response: {e}")).into())
-}
-
-/// Internal HTTP error type
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum Error {
-    /// Unable to decode header value to string
-    #[error("header decode error: {0}")]
-    Decode(#[from] ToStrError),
-
-    /// An error with an arbitrary message, referenced as &'static str
-    #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
-
-    /// Unable to parse header value as number
-    #[error("unable to parse number: {0}")]
-    ParseInt(#[from] ParseIntError),
-
-    /// A proto error
-    #[error("proto error: {0}")]
-    ProtoError(#[from] ProtoError),
-
-    /// An HTTP/2 related error
-    #[error("H2: {0}")]
-    #[cfg(feature = "__https")]
-    H2(#[from] h2::Error),
-
-    /// An HTTP/3 related error
-    #[error("H3: {0}")]
-    #[cfg(feature = "__h3")]
-    H3(#[from] h3::error::StreamError),
-}
-
-impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Self {
-        Self::Message(msg)
-    }
-}
-
-impl From<String> for Error {
-    fn from(msg: String) -> Self {
-        Self::Msg(msg)
-    }
-}
-
-impl From<Error> for io::Error {
-    fn from(err: Error) -> Self {
-        Self::other(format!("https: {err}"))
-    }
 }
 
 /// Represents a version of the HTTP spec.
@@ -279,7 +222,7 @@ impl Version {
 /// on per-request HTTP headers and this trait allows their addition.
 pub trait SetHeaders: Send + Sync + 'static {
     /// Get a set of headers to add to the query
-    fn set_headers(&self, headers: &mut HeaderMap<HeaderValue>) -> Result<(), Error>;
+    fn set_headers(&self, headers: &mut HeaderMap<HeaderValue>) -> Result<(), NetError>;
 }
 
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
@@ -375,7 +318,7 @@ mod tests {
     }
 
     impl SetHeaders for Vec<(HeaderName, HeaderValue)> {
-        fn set_headers(&self, map: &mut HeaderMap<HeaderValue>) -> Result<(), crate::http::Error> {
+        fn set_headers(&self, map: &mut HeaderMap<HeaderValue>) -> Result<(), NetError> {
             for (name, value) in self.iter() {
                 map.insert(name.clone(), value.clone());
             }
