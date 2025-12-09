@@ -334,10 +334,6 @@ pub enum DnsSecError {
     #[error("ring error: {0}")]
     RingUnspecified(#[from] ring_like::Unspecified),
 
-    /// A request timed out
-    #[error("request timed out")]
-    Timeout,
-
     /// Tsig unsupported mac algorithm
     /// Supported algorithm documented in `TsigAlgorithm::supported` function.
     #[error("Tsig unsupported mac algorithm")]
@@ -371,7 +367,6 @@ impl Clone for DnsSecError {
             Proto(proto) => Proto(proto.clone()),
             RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
             RingUnspecified(_r) => RingUnspecified(ring_like::Unspecified),
-            Timeout => Timeout,
             TsigUnsupportedMacAlgorithm(alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
             TsigWrongKey => TsigWrongKey,
         }
