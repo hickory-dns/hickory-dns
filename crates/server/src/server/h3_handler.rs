@@ -27,6 +27,7 @@ use crate::{
         h3::h3_server::{H3Connection, H3Server},
         http::{self, Version},
         rr::Record,
+        serialize::binary::BinEncoder,
         xfer::Protocol,
     },
     zone_handler::MessageResponse,
@@ -179,9 +180,6 @@ impl ResponseHandler for H3ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> io::Result<ResponseInfo> {
-        use crate::proto::http::response;
-        use crate::proto::serialize::binary::BinEncoder;
-
         let id = response.header().id();
         let mut bytes = Vec::with_capacity(512);
         // mut block
@@ -193,7 +191,7 @@ impl ResponseHandler for H3ResponseHandle {
             })?
         };
         let bytes = Bytes::from(bytes);
-        let response = response::new(Version::Http3, bytes.len())?;
+        let response = http::response(Version::Http3, bytes.len())?;
 
         debug!("sending response: {:#?}", response);
         let mut stream = self.0.lock().await;
