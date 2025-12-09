@@ -389,10 +389,7 @@ impl HttpsClientConnect {
 
             let mut handshake = h2::client::Builder::new();
             handshake.enable_push(false);
-            let (h2, driver) = handshake
-                .handshake(tls)
-                .await
-                .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}")))?;
+            let (h2, driver) = handshake.handshake(tls).await?;
 
             debug!("h2 connection established to: {name_server}");
             tokio::spawn(async {

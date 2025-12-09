@@ -14,7 +14,7 @@ use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, uri};
 use tracing::debug;
 
-use crate::error::{NetError, ProtoError};
+use crate::error::NetError;
 
 pub(crate) struct RequestContext {
     pub(crate) version: Version,
@@ -39,16 +39,16 @@ impl RequestContext {
         let mut parts = uri::Parts::default();
         parts.path_and_query = Some(
             uri::PathAndQuery::try_from(&*self.query_path)
-                .map_err(|e| ProtoError::from(format!("invalid DoH path: {e}")))?,
+                .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
         );
         parts.scheme = Some(uri::Scheme::HTTPS);
         parts.authority = Some(
             uri::Authority::from_str(&self.server_name)
-                .map_err(|e| ProtoError::from(format!("invalid authority: {e}")))?,
+                .map_err(|e| NetError::from(format!("invalid authority: {e}")))?,
         );
 
-        let url = Uri::from_parts(parts)
-            .map_err(|e| ProtoError::from(format!("uri parse error: {e}")))?;
+        let url =
+            Uri::from_parts(parts).map_err(|e| NetError::from(format!("uri parse error: {e}")))?;
 
         // TODO: add user agent to TypedHeaders
         let mut request = Request::builder()
@@ -65,9 +65,9 @@ impl RequestContext {
             }
         }
 
-        Ok(request
+        request
             .body(())
-            .map_err(|e| ProtoError::from(format!("http stream errored: {e}")))?)
+            .map_err(|e| NetError::from(format!("http stream errored: {e}")))
     }
 }
 
@@ -83,7 +83,7 @@ pub fn verify<T>(
 
     // validate path
     if uri.path() != query_path {
-        return Err(format!("bad path: {}, expected: {}", uri.path(), query_path,).into());
+        return Err(format!("bad path: {}, expected: {}", uri.path(), query_path).into());
     }
 
     // we only accept HTTPS
@@ -191,7 +191,7 @@ pub fn response(version: Version, message_len: usize) -> Result<Response<()>, Ne
         .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
-        .map_err(|e| ProtoError::from(format!("invalid response: {e}")).into())
+        .map_err(|e| NetError::from(format!("invalid response: {e}")))
 }
 
 /// Represents a version of the HTTP spec.
