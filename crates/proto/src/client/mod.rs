@@ -31,7 +31,7 @@ use futures_util::{
 use tracing::debug;
 
 use crate::{
-    error::{NetError, ProtoError, ProtoErrorKind},
+    error::{NetError, ProtoError},
     op::{
         DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageSigner, OpCode, Query,
         update_message,
@@ -693,7 +693,7 @@ impl<R> ClientStreamXfrState<R> {
 
     /// Helper to ingest answer Records
     // TODO: this is complex enough it should get its own tests
-    fn process(&mut self, answers: &[Record]) -> Result<(), ProtoError> {
+    fn process(&mut self, answers: &[Record]) -> Result<(), NetError> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
             match r.data() {
@@ -733,10 +733,7 @@ impl<R> ClientStreamXfrState<R> {
                             Ok(())
                         } else {
                             // invalid answer : trailing records
-                            Err(ProtoErrorKind::Message(
-                                "invalid zone transfer, contains trailing records",
-                            )
-                            .into())
+                            Err("invalid zone transfer, contains trailing records".into())
                         }
                     } else if maybe_incr {
                         *self = Ixfr {
@@ -747,10 +744,7 @@ impl<R> ClientStreamXfrState<R> {
                         self.process(&answers[1..])
                     } else {
                         *self = Ended;
-                        Err(ProtoErrorKind::Message(
-                            "invalid zone transfer, expected AXFR, got IXFR",
-                        )
-                        .into())
+                        Err("invalid zone transfer, expected AXFR, got IXFR".into())
                     }
                 } else {
                     // standard AXFR
@@ -781,18 +775,12 @@ impl<R> ClientStreamXfrState<R> {
                         *self = Ended;
                         match answers.last().map(|r| r.record_type()) {
                             Some(RecordType::SOA) => Ok(()),
-                            _ => Err(ProtoErrorKind::Message(
-                                "invalid zone transfer, contains trailing records",
-                            )
-                            .into()),
+                            _ => Err("invalid zone transfer, contains trailing records".into()),
                         }
                     }
                     _ => {
                         *self = Ended;
-                        Err(ProtoErrorKind::Message(
-                            "invalid zone transfer, contains trailing records",
-                        )
-                        .into())
+                        Err("invalid zone transfer, contains trailing records".into())
                     }
                 }
             }

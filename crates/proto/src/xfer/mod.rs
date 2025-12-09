@@ -370,7 +370,7 @@ impl Stream for DnsResponseReceiver {
                     let future = ready!(
                         receiver
                             .poll(cx)
-                            .map_err(|_| ProtoError::from("receiver was canceled"))
+                            .map_err(|_| NetError::from("receiver was canceled"))
                     )?;
                     Self::Received(future)
                 }
