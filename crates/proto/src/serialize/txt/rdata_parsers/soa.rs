@@ -21,7 +21,7 @@ use alloc::string::ToString;
 use crate::{
     rr::{domain::Name, rdata::SOA},
     serialize::txt::{
-        errors::{ParseError, ParseErrorKind, ParseResult},
+        errors::{ParseError, ParseResult},
         zone,
     },
 };
@@ -33,43 +33,43 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
 ) -> ParseResult<SOA> {
     let mname: Name = tokens
         .next()
-        .ok_or_else(|| ParseErrorKind::MissingToken("mname".to_string()).into())
+        .ok_or_else(|| ParseError::MissingToken("mname".to_string()))
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     let rname: Name = tokens
         .next()
-        .ok_or_else(|| ParseErrorKind::MissingToken("rname".to_string()).into())
+        .ok_or_else(|| ParseError::MissingToken("rname".to_string()))
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     let serial: u32 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("serial".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("serial".to_string()))
         .and_then(zone::Parser::parse_time)?;
 
     let refresh: i32 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("refresh".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("refresh".to_string()))
         .and_then(zone::Parser::parse_time)?
         .try_into()
         .map_err(|_e| ParseError::from("refresh outside i32 range"))?;
 
     let retry: i32 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("retry".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("retry".to_string()))
         .and_then(zone::Parser::parse_time)?
         .try_into()
         .map_err(|_e| ParseError::from("retry outside i32 range"))?;
 
     let expire: i32 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("expire".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("expire".to_string()))
         .and_then(zone::Parser::parse_time)?
         .try_into()
         .map_err(|_e| ParseError::from("expire outside i32 range"))?;
 
     let minimum: u32 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("minimum".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("minimum".to_string()))
         .and_then(zone::Parser::parse_time)?;
 
     Ok(SOA::new(

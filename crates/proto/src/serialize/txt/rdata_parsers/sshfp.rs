@@ -11,7 +11,7 @@
 use alloc::vec::Vec;
 
 use crate::rr::rdata::{SSHFP, sshfp};
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -29,8 +29,8 @@ use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 ///    The use of mnemonics instead of numbers is not allowed.
 /// ```
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<SSHFP> {
-    fn missing_field<E: From<ParseErrorKind>>(field: &str) -> E {
-        ParseErrorKind::Msg(format!("SSHFP {field} field missing")).into()
+    fn missing_field<E: From<ParseError>>(field: &str) -> E {
+        ParseError::Msg(format!("SSHFP {field} field missing")).into()
     }
     let (algorithm, fingerprint_type) = {
         let mut parse_u8 = |field: &str| {
@@ -53,7 +53,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
     )?;
     Some(SSHFP::new(algorithm, fingerprint_type, fingerprint))
         .filter(|_| tokens.next().is_none())
-        .ok_or_else(|| ParseErrorKind::Message("too many fields for SSHFP").into())
+        .ok_or(ParseError::Message("too many fields for SSHFP"))
 }
 
 #[test]

@@ -20,7 +20,7 @@ use std::{
 use crate::{
     rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     serialize::txt::{
-        ParseError, ParseErrorKind, ParseResult,
+        ParseError, ParseResult,
         parse_rdata::RDataParser,
         zone_lex::{Lexer, Token},
     },
@@ -188,7 +188,7 @@ impl<'a> Parser<'a> {
                             // if blank, then nothing or ttl_class_type
                             Token::Blank => State::TtlClassType,
                             Token::EOL => State::StartLine, // probably a comment
-                            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                            _ => return Err(ParseError::UnexpectedToken(t)),
                         }
                     }
                     State::Ttl => match t {
@@ -196,7 +196,7 @@ impl<'a> Parser<'a> {
                             cx.ttl = Some(Self::parse_time(&data)?);
                             State::StartLine
                         }
-                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                        _ => return Err(ParseError::UnexpectedToken(t)),
                     },
                     State::Origin => {
                         match t {
@@ -205,7 +205,7 @@ impl<'a> Parser<'a> {
                                 cx.origin = Some(Name::parse(&data, None)?);
                                 State::StartLine
                             }
-                            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                            _ => return Err(ParseError::UnexpectedToken(t)),
                         }
                     }
                     State::Include(include_path) => match (t, include_path) {
@@ -222,10 +222,9 @@ impl<'a> Parser<'a> {
                             // and should probably be configurable by user.
 
                             if stack > MAX_INCLUDE_LEVEL {
-                                return Err(ParseErrorKind::Message(
+                                return Err(ParseError::Message(
                                     "Max depth level for nested $INCLUDE is reached",
-                                )
-                                .into());
+                                ));
                             }
 
                             let include = Path::new(&include_path);
@@ -236,10 +235,9 @@ impl<'a> Parser<'a> {
                                     .expect("file has to have parent folder")
                                     .join(include),
                                 (false, None) => {
-                                    return Err(ParseErrorKind::Message(
+                                    return Err(ParseError::Message(
                                         "Relative $INCLUDE is not supported",
-                                    )
-                                    .into());
+                                    ));
                                 }
                             };
 
@@ -251,13 +249,12 @@ impl<'a> Parser<'a> {
                             continue 'outer;
                         }
                         (Token::CharData(_), Some(_)) => {
-                            return Err(ParseErrorKind::Message(
+                            return Err(ParseError::Message(
                                 "Domain name for $INCLUDE is not supported",
-                            )
-                            .into());
+                            ));
                         }
                         (t, _) => {
-                            return Err(ParseErrorKind::UnexpectedToken(t).into());
+                            return Err(ParseError::UnexpectedToken(t));
                         }
                     },
                     State::TtlClassType => {
@@ -289,7 +286,7 @@ impl<'a> Parser<'a> {
                             Token::EOL => {
                                 State::StartLine // next line
                             }
-                            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                            _ => return Err(ParseError::UnexpectedToken(t)),
                         }
                     }
                     State::Record(record_parts) => {
@@ -311,7 +308,7 @@ impl<'a> Parser<'a> {
                                 record_parts.extend(list);
                                 State::Record(record_parts)
                             }
-                            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                            _ => return Err(ParseError::UnexpectedToken(t)),
                         }
                     }
                 };
@@ -328,9 +325,9 @@ impl<'a> Parser<'a> {
 
         //
         // build the Authority and return.
-        let origin = cx.origin.ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))
-        })?;
+        let origin = cx
+            .origin
+            .ok_or(ParseError::Message("$ORIGIN was not specified"))?;
         Ok((origin, cx.records))
     }
 
@@ -372,7 +369,7 @@ impl<'a> Parser<'a> {
     /// ```
     pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
         if ttl_str.is_empty() {
-            return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into());
+            return Err(ParseError::ParseTime(ttl_str.to_string()));
         }
 
         let (mut state, mut value) = (None, 0_u32);
@@ -384,12 +381,12 @@ impl<'a> Parser<'a> {
                 }
                 (Some(_), '0'..='9') => continue,
                 (Some(start), 'S' | 's' | 'M' | 'm' | 'H' | 'h' | 'D' | 'd' | 'W' | 'w') => start,
-                _ => return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into()),
+                _ => return Err(ParseError::ParseTime(ttl_str.to_string())),
             };
 
             // All allowed chars are ASCII, so using char indexes to slice &[u8] is OK
             let number = u32::from_str(&ttl_str[start..i])
-                .map_err(|_| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+                .map_err(|_| ParseError::ParseTime(ttl_str.to_string()))?;
 
             let multiplier = match c {
                 'S' | 's' => 1,
@@ -403,7 +400,7 @@ impl<'a> Parser<'a> {
             value = number
                 .checked_mul(multiplier)
                 .and_then(|add| value.checked_add(add))
-                .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+                .ok_or_else(|| ParseError::ParseTime(ttl_str.to_string()))?;
 
             state = None;
         }
@@ -411,10 +408,10 @@ impl<'a> Parser<'a> {
         if let Some(start) = state {
             // All allowed chars are ASCII, so using char indexes to slice &[u8] is OK
             let number = u32::from_str(&ttl_str[start..])
-                .map_err(|_| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+                .map_err(|_| ParseError::ParseTime(ttl_str.to_string()))?;
             value = value
                 .checked_add(number)
-                .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?;
+                .ok_or_else(|| ParseError::ParseTime(ttl_str.to_string()))?;
         }
 
         Ok(value)

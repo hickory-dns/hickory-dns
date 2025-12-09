@@ -13,7 +13,7 @@ use alloc::vec::Vec;
 
 use crate::rr::rdata::tlsa::{CertUsage, Matching, Selector};
 use crate::rr::rdata::{TLSA, sshfp};
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 fn to_u8(data: &str) -> ParseResult<u8> {
     data.parse().map_err(ParseError::from)
@@ -54,17 +54,17 @@ pub(super) fn parse_impl<'i, I: Iterator<Item = &'i str>>(
 
     let token: &str = iter
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("TLSA usage field missing")))?;
+        .ok_or(ParseError::Message("TLSA usage field missing"))?;
     let usage = CertUsage::from(to_u8(token)?);
 
     let token = iter
         .next()
-        .ok_or(ParseErrorKind::Message("TLSA selector field missing"))?;
+        .ok_or(ParseError::Message("TLSA selector field missing"))?;
     let selector = to_u8(token)?.into();
 
     let token = iter
         .next()
-        .ok_or(ParseErrorKind::Message("TLSA matching field missing"))?;
+        .ok_or(ParseError::Message("TLSA matching field missing"))?;
     let matching = to_u8(token)?.into();
 
     // these are all in hex: "a string of hexadecimal characters"
@@ -78,7 +78,7 @@ pub(super) fn parse_impl<'i, I: Iterator<Item = &'i str>>(
     if !cert_data.is_empty() {
         Ok((usage, selector, matching, cert_data))
     } else {
-        Err(ParseErrorKind::Message("TLSA data field missing").into())
+        Err(ParseError::Message("TLSA data field missing"))
     }
 }
 

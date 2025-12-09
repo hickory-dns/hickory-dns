@@ -8,7 +8,7 @@
 //! OPENPGPKEY records for OpenPGP public keys
 
 use crate::rr::rdata::OPENPGPKEY;
-use crate::serialize::txt::errors::{ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of tokens.
 ///
@@ -23,13 +23,13 @@ use crate::serialize::txt::errors::{ParseErrorKind, ParseResult};
 ///    of [RFC4648].
 /// ```
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<OPENPGPKEY> {
-    let encoded_public_key = tokens.next().ok_or(ParseErrorKind::Message(
+    let encoded_public_key = tokens.next().ok_or(ParseError::Message(
         "OPENPGPKEY public key field is missing",
     ))?;
     let public_key = data_encoding::BASE64.decode(encoded_public_key.as_bytes())?;
     Some(OPENPGPKEY::new(public_key))
         .filter(|_| tokens.next().is_none())
-        .ok_or_else(|| ParseErrorKind::Message("too many fields for OPENPGPKEY").into())
+        .ok_or(ParseError::Message("too many fields for OPENPGPKEY"))
 }
 
 #[test]
