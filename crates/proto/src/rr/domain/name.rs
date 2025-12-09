@@ -1512,7 +1512,7 @@ mod tests {
     use std::{collections::hash_map::DefaultHasher, println};
 
     use super::*;
-    use crate::error::ProtoErrorKind;
+    use crate::error::ProtoError;
     use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
@@ -1923,7 +1923,7 @@ mod tests {
 
     #[test]
     fn test_excessive_encoding_len() {
-        use crate::error::ProtoErrorKind;
+        use crate::error::ProtoError;
 
         // u16 max value is where issues start being tickled...
         let mut buf = Vec::with_capacity(u16::MAX as usize);
@@ -1938,8 +1938,8 @@ mod tests {
             }
         }
 
-        match result.unwrap_err().kind {
-            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+        match result.unwrap_err() {
+            ProtoError::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
     }
@@ -2084,8 +2084,8 @@ mod tests {
             .prepend_label(sfx)
             .expect_err("should have errored, too long");
 
-        match &error.kind {
-            ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(_)) => (),
+        match error {
+            ProtoError::Decode(DecodeError::DomainNameTooLong(_)) => (),
             _ => panic!("expected too long message"),
         }
     }
@@ -2100,8 +2100,8 @@ mod tests {
             .append_domain(&sfx)
             .expect_err("should have errored, too long");
 
-        match &error.kind {
-            ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(_)) => (),
+        match error {
+            ProtoError::Decode(DecodeError::DomainNameTooLong(_)) => (),
             _ => panic!("expected too long message"),
         }
     }
@@ -2170,14 +2170,14 @@ mod tests {
         // Should not be able to construct a longer name from a string.
         let long_label_error = Name::parse(&format!("a{expected_name_str}"), None).unwrap_err();
         assert!(matches!(
-            long_label_error.kind,
-            ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(64))
+            long_label_error,
+            ProtoError::Decode(DecodeError::LabelBytesTooLong(64))
         ));
         let long_name_error =
             Name::parse(&format!("a.{}", &expected_name_str[1..]), None).unwrap_err();
         assert!(matches!(
-            long_name_error.kind,
-            ProtoErrorKind::Decode(DecodeError::DomainNameTooLong(256))
+            long_name_error,
+            ProtoError::Decode(DecodeError::DomainNameTooLong(256))
         ))
     }
 

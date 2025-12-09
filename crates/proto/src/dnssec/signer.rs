@@ -17,7 +17,7 @@ use crate::{
         TBS,
         rdata::{DNSKEY, KEY, SIG, SigInput},
     },
-    error::{ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     op::{Message, MessageSignature, MessageSigner, MessageVerifier},
     rr::{DNSClass, Name, RData, Record, RecordType, SerialNumber},
     serialize::binary::{BinEncodable, BinEncoder},
@@ -326,7 +326,7 @@ impl SigSigner {
     pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
         self.key
             .sign(tbs)
-            .map_err(|e| ProtoErrorKind::Msg(format!("signing error: {e}")).into())
+            .map_err(|e| ProtoError::Msg(format!("signing error: {e}")))
     }
 
     /// The name of the signing entity, e.g. the DNS server name.

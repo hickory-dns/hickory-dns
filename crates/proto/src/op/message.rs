@@ -19,7 +19,7 @@ use crate::dnssec::rdata::{DNSSECRData, SIG, TSIG};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
     rr::{RData, Record, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
@@ -914,10 +914,8 @@ pub trait ResponseSigner: Send + Sync {
 fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
     match result {
         Ok(count) => Ok((count, false)),
-        Err(e) => match &e.kind {
-            ProtoErrorKind::NotAllRecordsWritten { count } => Ok((*count, true)),
-            _ => Err(e),
-        },
+        Err(ProtoError::NotAllRecordsWritten { count }) => Ok((count, true)),
+        Err(e) => Err(e),
     }
 }
 
