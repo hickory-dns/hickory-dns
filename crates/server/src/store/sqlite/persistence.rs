@@ -7,16 +7,18 @@
 
 //! All zone persistence related types
 
+use std::fmt;
 use std::iter::Iterator;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::types::ToSql;
 use rusqlite::{self, Connection};
+use thiserror::Error;
 use time;
 use tracing::error;
 
-use crate::error::{PersistenceError, PersistenceErrorKind};
+use crate::proto::ProtoError;
 use crate::proto::rr::Record;
 use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
@@ -328,5 +330,75 @@ impl Iterator for JournalIter<'_> {
                 None
             }
         }
+    }
+}
+
+/// The error kind for errors that get returned in the crate
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum PersistenceErrorKind {
+    /// An error that occurred when recovering from journal
+    #[error("error recovering from journal: {}", _0)]
+    Recovery(&'static str),
+
+    /// The number of inserted records didn't match the expected amount
+    #[error("wrong insert count: {} expect: {}", got, expect)]
+    WrongInsertCount {
+        /// The number of inserted records
+        got: usize,
+        /// The number of records expected to be inserted
+        expect: usize,
+    },
+
+    // foreign
+    /// An error got returned by the hickory-proto crate
+    #[error("proto error: {0}")]
+    Proto(#[from] ProtoError),
+
+    /// An error got returned from the sqlite crate
+    #[cfg(feature = "sqlite")]
+    #[error("sqlite error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+
+    /// A request timed out
+    #[error("request timed out")]
+    Timeout,
+}
+
+/// The error type for errors that get returned in the crate
+#[derive(Debug, Error)]
+pub struct PersistenceError {
+    kind: PersistenceErrorKind,
+}
+
+impl PersistenceError {
+    /// Get the kind of the error
+    pub fn kind(&self) -> &PersistenceErrorKind {
+        &self.kind
+    }
+}
+
+impl fmt::Display for PersistenceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{}", self.kind))
+    }
+}
+
+impl From<PersistenceErrorKind> for PersistenceError {
+    fn from(kind: PersistenceErrorKind) -> Self {
+        Self { kind }
+    }
+}
+
+impl From<ProtoError> for PersistenceError {
+    fn from(e: ProtoError) -> Self {
+        PersistenceErrorKind::from(e).into()
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl From<rusqlite::Error> for PersistenceError {
+    fn from(e: rusqlite::Error) -> Self {
+        PersistenceErrorKind::from(e).into()
     }
 }

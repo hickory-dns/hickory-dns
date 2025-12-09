@@ -41,7 +41,6 @@ use crate::{
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
 };
 use crate::{
-    error::{PersistenceError, PersistenceErrorKind},
     proto::{
         op::{ResponseCode, ResponseSigner},
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
@@ -61,7 +60,7 @@ use crate::{
 use LookupControlFlow::Continue;
 
 pub mod persistence;
-pub use persistence::Journal;
+pub use persistence::{Journal, PersistenceError, PersistenceErrorKind};
 
 /// SqliteZoneHandler is responsible for storing the resource records for a particular zone.
 ///
