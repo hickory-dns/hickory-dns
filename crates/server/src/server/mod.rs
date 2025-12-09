@@ -316,7 +316,7 @@ impl<T: RequestHandler> Server<T> {
         _timeout: Duration,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
-    ) -> io::Result<()> {
+    ) -> Result<(), NetError> {
         let cx = self.context.clone();
 
         self.join_set.spawn(quic_handler::handle_quic_with_server(
@@ -383,7 +383,7 @@ impl<T: RequestHandler> Server<T> {
         _timeout: Duration,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
-    ) -> io::Result<()> {
+    ) -> Result<(), NetError> {
         self.join_set.spawn(h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
             dns_hostname,

@@ -14,6 +14,7 @@ use std::{
 use bytes::Buf;
 use futures_util::{AsyncRead, AsyncWrite};
 use hickory_proto::{
+    NetError,
     op::{Message, OpCode, Query, ResponseCode},
     rr::{
         Name, RData, Record, RecordType,
@@ -296,7 +297,7 @@ impl RuntimeProvider for MockProvider {
         server_addr: SocketAddr,
         _bind_addr: Option<SocketAddr>,
         _timeout: Option<Duration>,
-    ) -> Pin<Box<dyn Future<Output = io::Result<Self::Tcp>> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, NetError>> + Send>> {
         self.new_connection_calls
             .lock()
             .unwrap()
@@ -311,7 +312,7 @@ impl RuntimeProvider for MockProvider {
         &self,
         _local_addr: SocketAddr,
         server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Future<Output = io::Result<Self::Udp>> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, NetError>> + Send>> {
         self.new_connection_calls
             .lock()
             .unwrap()

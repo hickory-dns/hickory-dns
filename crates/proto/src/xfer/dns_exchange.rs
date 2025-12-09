@@ -7,13 +7,11 @@
 
 //! This module contains all the types for demuxing DNS oriented streams.
 
-use alloc::string::ToString;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::mem;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use std::io;
 
 use futures_channel::mpsc;
 use futures_util::{
@@ -52,7 +50,7 @@ pub enum Connecting<P: RuntimeProvider> {
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TcpClientStream<P::Tcp>, io::Error>>,
+                BoxFuture<'static, Result<TcpClientStream<P::Tcp>, NetError>>,
                 TcpClientStream<<P as RuntimeProvider>::Tcp>,
             >,
             DnsMultiplexer<TcpClientStream<<P as RuntimeProvider>::Tcp>>,
@@ -63,7 +61,7 @@ pub enum Connecting<P: RuntimeProvider> {
     Tls(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TlsClientStream<<P as RuntimeProvider>::Tcp>, io::Error>>,
+                BoxFuture<'static, Result<TlsClientStream<<P as RuntimeProvider>::Tcp>, NetError>>,
                 TlsClientStream<<P as RuntimeProvider>::Tcp>,
             >,
             DnsMultiplexer<TlsClientStream<<P as RuntimeProvider>::Tcp>>,
@@ -131,7 +129,7 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     #[cfg(feature = "std")]
     pub fn connect<F, S>(connect_future: F) -> DnsExchangeConnect<F, S, P>
     where
-        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
         S: DnsRequestSender + 'static + Send + Unpin,
     {
         let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
@@ -144,12 +142,12 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     }
 
     /// Returns a future that returns an error immediately.
-    pub fn error<F, S>(error: io::Error) -> DnsExchangeConnect<F, S, P>
+    pub fn error<F, S>(error: impl Into<NetError>) -> DnsExchangeConnect<F, S, P>
     where
-        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
         S: DnsRequestSender + 'static + Send + Unpin,
     {
-        DnsExchangeConnect(DnsExchangeConnectInner::Error(error))
+        DnsExchangeConnect(DnsExchangeConnectInner::Error(error.into()))
     }
 }
 
@@ -300,13 +298,13 @@ where
 ///  the background. If returned, it must be spawned before any dns requests will function.
 pub struct DnsExchangeConnect<F, S, P>(DnsExchangeConnectInner<F, S, P>)
 where
-    F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static,
     P: RuntimeProvider;
 
 impl<F, S, P> DnsExchangeConnect<F, S, P>
 where
-    F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static,
     P: RuntimeProvider,
 {
@@ -325,11 +323,11 @@ where
 
 impl<F, S, P> Future for DnsExchangeConnect<F, S, P>
 where
-    F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static + Send + Unpin,
     P: RuntimeProvider,
 {
-    type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), io::Error>;
+    type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
@@ -339,7 +337,7 @@ where
 #[allow(clippy::large_enum_variant)]
 enum DnsExchangeConnectInner<F, S, P>
 where
-    F: Future<Output = Result<S, io::Error>> + 'static + Send,
+    F: Future<Output = Result<S, NetError>> + 'static + Send,
     S: DnsRequestSender + 'static + Send,
     P: RuntimeProvider,
 {
@@ -353,19 +351,19 @@ where
         background: Option<DnsExchangeBackground<S, P::Timer>>,
     },
     FailAll {
-        error: io::Error,
+        error: NetError,
         outbound_messages: mpsc::Receiver<OneshotDnsRequest>,
     },
-    Error(io::Error),
+    Error(NetError),
 }
 
 impl<F, S, P> Future for DnsExchangeConnectInner<F, S, P>
 where
-    F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static + Send + Unpin,
     P: RuntimeProvider,
 {
-    type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), io::Error>;
+    type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -424,17 +422,22 @@ where
                         Poll::Pending => return Poll::Pending,
                     } {
                         // ignoring errors... best effort send...
-                        let error = NetError::from(io::Error::new(error.kind(), error.to_string()));
                         let _ = outbound_message
                             .into_parts()
                             .1
                             .send_response(error.clone().into());
                     }
 
-                    return Poll::Ready(Err(mem::replace(error, io::Error::other("taken"))));
+                    return Poll::Ready(Err(mem::replace(
+                        error,
+                        NetError::from("polled after completion"),
+                    )));
                 }
                 Self::Error(error) => {
-                    return Poll::Ready(Err(mem::replace(error, io::Error::other("taken"))));
+                    return Poll::Ready(Err(mem::replace(
+                        error,
+                        NetError::from("polled after completion"),
+                    )));
                 }
             }
 

@@ -14,7 +14,6 @@ use core::net::SocketAddr;
 use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
-use std::io;
 
 use bytes::{Buf, Bytes, BytesMut};
 use futures_util::{
@@ -337,13 +336,13 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
 
 /// A future that resolves to an HttpsClientStream
 pub struct HttpsClientConnect(
-    Pin<Box<dyn Future<Output = Result<HttpsClientStream, io::Error>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<HttpsClientStream, NetError>> + Send>>,
 );
 
 impl HttpsClientConnect {
     /// Creates a new HttpsStream with existing connection
     pub fn new(
-        tcp: impl Future<Output = Result<impl DnsTcpStream, io::Error>> + Send + 'static,
+        tcp: impl Future<Output = Result<impl DnsTcpStream, NetError>> + Send + 'static,
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         server_name: Arc<str>,
@@ -369,10 +368,10 @@ impl HttpsClientConnect {
             let tls_server_name = match ServerName::try_from(&*context.server_name) {
                 Ok(dns_name) => dns_name.to_owned(),
                 Err(err) => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("bad server name {:?}: {err}", context.server_name),
-                    ));
+                    return Err(NetError::from(format!(
+                        "bad server name {:?}: {err}",
+                        context.server_name
+                    )));
                 }
             };
 
@@ -384,13 +383,8 @@ impl HttpsClientConnect {
 
             let tls = match future.await {
                 Ok(Ok(tls)) => tls,
-                Ok(Err(err)) => return Err(err),
-                Err(_) => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        format!("TLS handshake timed out after {CONNECT_TIMEOUT:?}"),
-                    ));
-                }
+                Ok(Err(err)) => return Err(NetError::from(err)),
+                Err(_) => return Err(NetError::Timeout),
             };
 
             let mut handshake = h2::client::Builder::new();
@@ -418,7 +412,7 @@ impl HttpsClientConnect {
 }
 
 impl Future for HttpsClientConnect {
-    type Output = Result<HttpsClientStream, io::Error>;
+    type Output = Result<HttpsClientStream, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)

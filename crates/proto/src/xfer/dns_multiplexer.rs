@@ -16,9 +16,6 @@ use core::{
     task::{Context, Poll},
     time::Duration,
 };
-use std::collections::{HashMap, hash_map::Entry};
-use std::io;
-
 use futures_channel::mpsc;
 use futures_util::{
     FutureExt,
@@ -27,6 +24,7 @@ use futures_util::{
     stream::{Stream, StreamExt},
 };
 use rand::Rng;
+use std::collections::{HashMap, hash_map::Entry};
 use tracing::debug;
 
 use crate::{
@@ -124,7 +122,7 @@ where
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<F, S>
     where
-        F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
+        F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
     {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
@@ -146,7 +144,7 @@ where
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<F, S>
     where
-        F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
+        F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
     {
         DnsMultiplexerConnect {
             stream,
@@ -216,7 +214,7 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsMultiplexerConnect<F, S>
 where
-    F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
+    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
     S: Stream<Item = Result<SerialMessage, NetError>> + Unpin,
 {
     stream: F,
@@ -227,10 +225,10 @@ where
 
 impl<F, S> Future for DnsMultiplexerConnect<F, S>
 where
-    F: Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
+    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
     S: DnsClientStream + Unpin + 'static,
 {
-    type Output = Result<DnsMultiplexer<S>, io::Error>;
+    type Output = Result<DnsMultiplexer<S>, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let stream: S = ready!(self.stream.poll_unpin(cx))?;
@@ -448,7 +446,7 @@ mod test {
         fn new(
             mut messages: Vec<Message>,
             addr: SocketAddr,
-        ) -> BoxFuture<'static, Result<Self, io::Error>> {
+        ) -> BoxFuture<'static, Result<Self, NetError>> {
             messages.reverse(); // so we can pop() and get messages in order
             Box::pin(future::ok(Self {
                 messages,

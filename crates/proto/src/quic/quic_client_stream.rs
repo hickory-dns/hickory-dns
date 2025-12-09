@@ -241,7 +241,7 @@ impl QuicClientStreamBuilder {
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> Result<QuicClientStream, io::Error> {
+    ) -> Result<QuicClientStream, NetError> {
         let endpoint_config = quic_config::endpoint();
         let endpoint = Endpoint::new_with_abstract_socket(
             endpoint_config,
@@ -256,7 +256,7 @@ impl QuicClientStreamBuilder {
         self,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> Result<QuicClientStream, io::Error> {
+    ) -> Result<QuicClientStream, NetError> {
         let connect = if let Some(bind_addr) = self.bind_addr {
             <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
         } else {
@@ -275,7 +275,7 @@ impl QuicClientStreamBuilder {
         endpoint: Endpoint,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> Result<QuicClientStream, io::Error> {
+    ) -> Result<QuicClientStream, NetError> {
         // ensure the ALPN protocol is set correctly
         let crypto_config = if let Some(crypto_config) = self.crypto_config {
             crypto_config
@@ -364,10 +364,10 @@ impl Default for QuicClientStreamBuilder {
 }
 
 /// A future that resolves to an QuicClientStream
-pub struct QuicClientConnect(BoxFuture<'static, Result<QuicClientStream, io::Error>>);
+pub struct QuicClientConnect(BoxFuture<'static, Result<QuicClientStream, NetError>>);
 
 impl Future for QuicClientConnect {
-    type Output = Result<QuicClientStream, io::Error>;
+    type Output = Result<QuicClientStream, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)

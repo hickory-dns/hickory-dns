@@ -22,6 +22,7 @@ use futures_util::{
 };
 use tracing::{debug, trace, warn};
 
+use crate::error::NetError;
 use crate::op::SerialMessage;
 use crate::runtime::{RuntimeProvider, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
@@ -119,7 +120,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
         os_port_selection: bool,
         provider: P,
     ) -> (
-        BoxFuture<'static, Result<Self, io::Error>>,
+        BoxFuture<'static, Result<Self, NetError>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
@@ -236,7 +237,7 @@ pub(crate) struct NextRandomUdpSocket<P: RuntimeProvider> {
     /// Number of unsuccessful attempts to pick a port.
     attempted: usize,
     #[allow(clippy::type_complexity)]
-    future: Option<Pin<Box<dyn Send + Future<Output = io::Result<P::Udp>>>>>,
+    future: Option<Pin<Box<dyn Send + Future<Output = Result<P::Udp, NetError>>>>>,
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
 }
@@ -274,7 +275,7 @@ impl<P: RuntimeProvider> NextRandomUdpSocket<P> {
 }
 
 impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
-    type Output = Result<P::Udp, io::Error>;
+    type Output = Result<P::Udp, NetError>;
 
     /// polls until there is an available next random UDP port,
     /// if no port has been specified in bind_addr.
@@ -287,19 +288,20 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                         debug!("created socket successfully");
                         return Poll::Ready(Ok(socket));
                     }
-                    Poll::Ready(Err(err)) => match err.kind() {
-                        io::ErrorKind::PermissionDenied | io::ErrorKind::AddrInUse
-                            if this.attempted < ATTEMPT_RANDOM + 1 =>
-                        {
-                            debug!("unable to bind port, attempt: {}: {err}", this.attempted);
-                            this.attempted += 1;
-                            None
-                        }
-                        _ => {
-                            debug!("failed to bind port: {}", err);
-                            return Poll::Ready(Err(err));
-                        }
-                    },
+                    Poll::Ready(Err(NetError::Io(io)))
+                        if matches!(
+                            io.kind(),
+                            io::ErrorKind::PermissionDenied | io::ErrorKind::AddrInUse
+                        ) && this.attempted < ATTEMPT_RANDOM + 1 =>
+                    {
+                        debug!("unable to bind port, attempt: {}: {io}", this.attempted);
+                        this.attempted += 1;
+                        None
+                    }
+                    Poll::Ready(Err(err)) => {
+                        debug!("failed to bind port: {err}");
+                        return Poll::Ready(Err(err));
+                    }
                     Poll::Pending => {
                         debug!("unable to bind port, attempt: {}", this.attempted);
                         this.future = Some(future);

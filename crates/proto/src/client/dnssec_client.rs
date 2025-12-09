@@ -9,7 +9,6 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
 use core::pin::Pin;
-use std::io;
 
 use futures_util::stream::Stream;
 
@@ -32,7 +31,7 @@ impl DnssecClient {
     /// Returns a DNSSEC verifying client with a TrustAnchor that can be replaced
     pub fn builder<F, S>(connect_future: F) -> AsyncSecureClientBuilder<F>
     where
-        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
         S: DnsRequestSender + 'static,
     {
         AsyncSecureClientBuilder {
@@ -44,10 +43,10 @@ impl DnssecClient {
     /// Returns a DNSSEC verifying client with the default TrustAnchor
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), io::Error>
+    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), NetError>
     where
         S: DnsRequestSender,
-        F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
     {
         Self::builder(connect_future).build().await
     }
@@ -84,7 +83,7 @@ pub struct AsyncSecureClientBuilder<F> {
 
 impl<F, S> AsyncSecureClientBuilder<F>
 where
-    F: Future<Output = Result<S, io::Error>> + 'static + Send + Unpin,
+    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static,
 {
     /// This variant allows for the trust_anchor to be replaced
@@ -101,7 +100,7 @@ where
     /// Construct the new client
     pub async fn build(
         mut self,
-    ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), io::Error> {
+    ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), NetError> {
         let trust_anchor = Arc::new(self.trust_anchor.take().unwrap_or_default());
         let result = Client::connect(self.connect_future).await;
 

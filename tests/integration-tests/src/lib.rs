@@ -4,7 +4,7 @@
 use std::{
     fmt,
     future::poll_fn,
-    io, mem,
+    mem,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     pin::Pin,
     sync::{
@@ -59,7 +59,7 @@ impl TestClientStream {
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
-        BoxFuture<'static, Result<Self, io::Error>>,
+        BoxFuture<'static, Result<Self, NetError>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
@@ -196,7 +196,7 @@ pub struct NeverReturnsClientStream {
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
     pub fn new() -> (
-        BoxFuture<'static, Result<Self, io::Error>>,
+        BoxFuture<'static, Result<Self, NetError>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
