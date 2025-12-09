@@ -30,8 +30,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::{NetError, ProtoError};
-use crate::http::request::RequestContext;
-use crate::http::{SetHeaders, Version};
+use crate::http::{RequestContext, SetHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
