@@ -38,6 +38,8 @@ use tracing::{debug, info, warn};
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::default_provider;
 use hickory_proto::{ProtoError, rr::Name};
+#[cfg(feature = "recursor")]
+use hickory_resolver::recursor::RecursiveConfig;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(any(feature = "recursor", feature = "sqlite"))]
@@ -50,8 +52,6 @@ use hickory_server::store::blocklist::BlocklistZoneHandler;
 use hickory_server::store::forwarder::ForwardConfig;
 #[cfg(feature = "resolver")]
 use hickory_server::store::forwarder::ForwardZoneHandler;
-#[cfg(feature = "recursor")]
-use hickory_server::store::recursor::RecursiveConfig;
 #[cfg(feature = "recursor")]
 use hickory_server::store::recursor::RecursiveZoneHandler;
 #[cfg(feature = "sqlite")]

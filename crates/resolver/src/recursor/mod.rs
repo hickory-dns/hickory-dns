@@ -25,6 +25,12 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+#[cfg(feature = "serde")]
+use std::{
+    borrow::Cow,
+    fs,
+    path::{Path, PathBuf},
+};
 use std::{
     collections::HashSet,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
@@ -33,10 +39,17 @@ use std::{
 };
 
 use ipnet::IpNet;
+#[cfg(feature = "serde")]
+use serde::Deserialize;
 use tracing::warn;
 
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
+#[cfg(feature = "serde")]
+use crate::proto::{
+    rr::{RData, RecordSet},
+    serialize::txt::{ParseError, Parser},
+};
 use crate::{
     ConnectionProvider, NameServerTransportState, PoolContext, TlsConfig, TtlConfig,
     config::OpportunisticEncryption,
@@ -90,6 +103,66 @@ impl Recursor<TokioRuntimeProvider> {
 }
 
 impl<P: ConnectionProvider> Recursor<P> {
+    /// Build a new [`Recursor`] from the specified configuration
+    #[cfg(feature = "serde")]
+    pub fn from_config(
+        config: &RecursiveConfig,
+        root_dir: Option<&Path>,
+        conn_provider: P,
+    ) -> Result<Self, RecursorError> {
+        // read the roots
+        let root_addrs = config
+            .read_roots(root_dir)
+            .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
+
+        let mut builder = Self::builder_with_provider(conn_provider.clone());
+        if let Some(ns_cache_size) = config.ns_cache_size {
+            builder = builder.ns_cache_size(ns_cache_size);
+        }
+        if let Some(response_cache_size) = config.response_cache_size {
+            builder = builder.response_cache_size(response_cache_size);
+        }
+        if !config.allow_answers.is_empty() {
+            builder = builder.clear_answer_address_filter_allow();
+            builder = builder.answer_address_filter_allow(config.allow_answers.iter());
+        }
+        if !config.deny_answers.is_empty() {
+            builder = builder.clear_answer_address_filter_deny();
+            builder = builder.answer_address_filter_deny(config.deny_answers.iter());
+        }
+
+        #[cfg_attr(
+            not(all(feature = "toml", any(feature = "__tls", feature = "__quic"))),
+            allow(unused_mut)
+        )]
+        let mut builder = builder
+            .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
+            .deny_servers(config.deny_server.iter())
+            .allow_servers(config.allow_server.iter())
+            .recursion_limit(match config.recursion_limit {
+                0 => None,
+                limit => Some(limit),
+            })
+            .ns_recursion_limit(match config.ns_recursion_limit {
+                0 => None,
+                limit => Some(limit),
+            })
+            .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
+            .ttl_config(config.cache_policy.clone())
+            .case_randomization(config.case_randomization)
+            .opportunistic_encryption(config.opportunistic_encryption.clone());
+
+        #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+        {
+            // Before building the recursor, potentially load some pre-existing opportunistic encrypted
+            // nameserver state to configure on the builder.
+            builder =
+                opportunistic_encryption_persistence::configure_opp_enc_state(config, builder)?;
+        }
+
+        builder.build(&root_addrs)
+    }
+
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
     pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
         RecursorBuilder::new(conn_provider)
@@ -449,6 +522,222 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             ))
         }
     }
+}
+
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+mod opportunistic_encryption_persistence {
+    use std::io;
+
+    use tracing::{debug, info};
+
+    use super::*;
+    use crate::config::{OpportunisticEncryptionConfig, OpportunisticEncryptionPersistence};
+    use crate::connection_provider::ConnectionProvider;
+
+    pub(super) fn configure_opp_enc_state<P: ConnectionProvider>(
+        config: &RecursiveConfig,
+        builder: RecursorBuilder<P>,
+    ) -> Result<RecursorBuilder<P>, String> {
+        let OpportunisticEncryption::Enabled {
+            config:
+                OpportunisticEncryptionConfig {
+                    persistence: Some(OpportunisticEncryptionPersistence { path, .. }),
+                    ..
+                },
+        } = &config.opportunistic_encryption
+        else {
+            return Ok(builder);
+        };
+
+        let state = match fs::read_to_string(path) {
+            Ok(toml_content) => toml::from_str(&toml_content).map_err(|e| {
+                format!(
+                    "failed to parse opportunistic encryption state TOML file: {file_path}: {e}",
+                    file_path = path.display()
+                )
+            })?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                info!(
+                    state_file = %path.display(),
+                    "no pre-existing opportunistic encryption state TOML file, starting with default state",
+                );
+                NameServerTransportState::default()
+            }
+            Err(e) => {
+                return Err(format!(
+                    "failed to read opportunistic encryption state TOML file: {file_path}: {e}",
+                    file_path = path.display()
+                ));
+            }
+        };
+
+        debug!(
+            path = %path.display(),
+            nameserver_count = state.nameserver_count(),
+            "loaded opportunistic encryption state"
+        );
+
+        Ok(builder.encrypted_transport_state(state))
+    }
+}
+
+/// Configuration for recursive resolver zones
+#[cfg(feature = "serde")]
+#[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RecursiveConfig {
+    /// File with roots, aka hints
+    pub roots: PathBuf,
+
+    /// Maximum nameserver cache size
+    pub ns_cache_size: Option<usize>,
+
+    /// Maximum DNS response cache size
+    #[serde(alias = "record_cache_size")]
+    pub response_cache_size: Option<u64>,
+
+    /// Maximum recursion depth for queries. Set to 0 for unlimited recursion depth.
+    #[serde(default = "recursion_limit_default")]
+    pub recursion_limit: u8,
+
+    /// Maximum recursion depth for building NS pools. Set to 0 for unlimited recursion depth.
+    #[serde(default = "ns_recursion_limit_default")]
+    pub ns_recursion_limit: u8,
+
+    /// DNSSEC policy
+    #[serde(default)]
+    pub dnssec_policy: DnssecPolicyConfig,
+
+    /// Networks that will not be filtered from responses.  This overrides anything present in
+    /// deny_answers
+    #[serde(default)]
+    pub allow_answers: Vec<IpNet>,
+
+    /// Networks that will be filtered from responses
+    #[serde(default)]
+    pub deny_answers: Vec<IpNet>,
+
+    /// Networks that will be queried during resolution
+    #[serde(default)]
+    pub allow_server: Vec<IpNet>,
+
+    /// Networks that will not be queried during resolution
+    #[serde(default)]
+    pub deny_server: Vec<IpNet>,
+
+    /// Local UDP ports to avoid when making outgoing queries
+    #[serde(default)]
+    pub avoid_local_udp_ports: HashSet<u16>,
+
+    /// Caching policy, setting minimum and maximum TTLs
+    #[serde(default)]
+    pub cache_policy: TtlConfig,
+
+    /// Enable case randomization.
+    ///
+    /// Randomize the case of letters in query names, and require that responses preserve the case
+    /// of the query name, in order to mitigate spoofing attacks. This is only applied over UDP.
+    ///
+    /// This implements the mechanism described in
+    /// [draft-vixie-dnsext-dns0x20-00](https://datatracker.ietf.org/doc/html/draft-vixie-dnsext-dns0x20-00).
+    #[serde(default)]
+    pub case_randomization: bool,
+
+    /// Configure RFC 9539 opportunistic encryption.
+    #[serde(default)]
+    pub opportunistic_encryption: OpportunisticEncryption,
+}
+
+#[cfg(feature = "serde")]
+impl RecursiveConfig {
+    pub(crate) fn read_roots(&self, root_dir: Option<&Path>) -> Result<Vec<IpAddr>, ParseError> {
+        let path = if let Some(root_dir) = root_dir {
+            Cow::Owned(root_dir.join(&self.roots))
+        } else {
+            Cow::Borrowed(&self.roots)
+        };
+
+        let roots_str = fs::read_to_string(path.as_ref())?;
+        let (_zone, roots_zone) =
+            Parser::new(roots_str, Some(path.into_owned()), Some(Name::root())).parse()?;
+
+        // TODO: we may want to deny some of the root nameservers, for reasons...
+        Ok(roots_zone
+            .values()
+            .flat_map(RecordSet::records_without_rrsigs)
+            .map(Record::data)
+            .filter_map(RData::ip_addr) // we only want IPs
+            .collect())
+    }
+}
+
+/// DNSSEC policy configuration
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+#[allow(missing_copy_implementations)]
+pub enum DnssecPolicyConfig {
+    /// security unaware; DNSSEC records will not be requested nor processed
+    #[default]
+    SecurityUnaware,
+
+    /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
+    #[cfg(feature = "__dnssec")]
+    ValidationDisabled,
+
+    /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
+    #[cfg(feature = "__dnssec")]
+    ValidateWithStaticKey {
+        /// set to `None` to use built-in trust anchor
+        path: Option<PathBuf>,
+        /// set to control the 'soft' NSEC3 iteration limit. Responses where valid NSEC3 records are
+        /// returned having an iteration count above this limit, but below the hard limit, will
+        /// be considered insecure (answered without the AD bit set.)
+        nsec3_soft_iteration_limit: Option<u16>,
+        /// set to control the 'hard' NSEC3 iteration limit. Responses where valid NSEC3 records are
+        /// returned having an iteration count above this limit will be considered Bogus and will
+        /// result in a SERVFAIL response being returned to the requester.
+        nsec3_hard_iteration_limit: Option<u16>,
+        /// set to control the size of the DNSSEC validation cache.  Set to none to use the default
+        validation_cache_size: Option<usize>,
+    },
+}
+
+#[cfg(feature = "serde")]
+impl DnssecPolicyConfig {
+    pub(crate) fn load(&self) -> Result<DnssecPolicy, ParseError> {
+        Ok(match self {
+            Self::SecurityUnaware => DnssecPolicy::SecurityUnaware,
+            #[cfg(feature = "__dnssec")]
+            Self::ValidationDisabled => DnssecPolicy::ValidationDisabled,
+            #[cfg(feature = "__dnssec")]
+            Self::ValidateWithStaticKey {
+                path,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+                validation_cache_size,
+            } => DnssecPolicy::ValidateWithStaticKey(DnssecConfig {
+                trust_anchor: path
+                    .as_ref()
+                    .map(|path| TrustAnchors::from_file(path))
+                    .transpose()?
+                    .map(Arc::new),
+                nsec3_soft_iteration_limit: *nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
+                validation_cache_size: *validation_cache_size,
+            }),
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+fn recursion_limit_default() -> u8 {
+    24
+}
+
+#[cfg(feature = "serde")]
+fn ns_recursion_limit_default() -> u8 {
+    24
 }
 
 /// A `Recursor` builder

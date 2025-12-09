@@ -783,6 +783,84 @@ mod metrics {
     const A_RR_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
 }
 
+#[cfg(all(
+    test,
+    feature = "serde",
+    feature = "toml",
+    any(feature = "__tls", feature = "__quic")
+))]
+mod config {
+    use std::path::Path;
+
+    use crate::{
+        config::{OpportunisticEncryption, OpportunisticEncryptionConfig},
+        recursor::{DnssecPolicyConfig, RecursiveConfig},
+    };
+
+    #[test]
+    fn can_parse_recursive_config() {
+        let input = r#"roots = "/etc/root.hints"
+dnssec_policy.ValidateWithStaticKey.path = "/etc/trusted-key.key""#;
+
+        let config = toml::from_str::<RecursiveConfig>(input).unwrap();
+
+        if let DnssecPolicyConfig::ValidateWithStaticKey { path, .. } = config.dnssec_policy {
+            assert_eq!(Some(Path::new("/etc/trusted-key.key")), path.as_deref());
+        } else {
+            unreachable!()
+        }
+    }
+
+    #[test]
+    fn can_parse_recursor_cache_policy() {
+        use std::time::Duration;
+
+        use hickory_proto::rr::RecordType;
+
+        let input = r#"roots = "/etc/root.hints"
+
+[cache_policy.default]
+positive_max_ttl = 14400
+
+[cache_policy.A]
+positive_max_ttl = 3600"#;
+
+        let config: RecursiveConfig = toml::from_str(input).unwrap();
+
+        assert_eq!(
+            *config
+                .cache_policy
+                .positive_response_ttl_bounds(RecordType::MX)
+                .end(),
+            Duration::from_secs(14400)
+        );
+
+        assert_eq!(
+            *config
+                .cache_policy
+                .positive_response_ttl_bounds(RecordType::A)
+                .end(),
+            Duration::from_secs(3600)
+        )
+    }
+
+    #[test]
+    fn can_parse_recursor_opportunistic_enc_policy() {
+        let input = r#"roots = "/etc/root.hints"
+[opportunistic_encryption]
+enabled = {}
+"#;
+
+        let config: RecursiveConfig = toml::from_str(input).unwrap();
+        assert_eq!(
+            config.opportunistic_encryption,
+            OpportunisticEncryption::Enabled {
+                config: OpportunisticEncryptionConfig::default()
+            }
+        );
+    }
+}
+
 const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
 const TLD_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 2, 1));
 const LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 3, 1));
