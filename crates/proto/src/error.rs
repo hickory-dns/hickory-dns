@@ -17,9 +17,12 @@ use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::fmt;
+use core::num::ParseIntError;
 #[cfg(feature = "std")]
 use std::io;
 
+#[cfg(any(feature = "__https", feature = "__h3"))]
+use http::header::ToStrError;
 use thiserror::Error;
 use tracing::debug;
 
@@ -50,9 +53,24 @@ pub enum NetError {
     #[error("resource too busy")]
     Busy,
 
+    /// Unable to decode HTTP header value to string
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("header decode error: {0}")]
+    Decode(Arc<ToStrError>),
+
     /// Semantic DNS errors
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
+
+    /// An HTTP/2 related error
+    #[error("H2 error: {0}")]
+    #[cfg(feature = "__https")]
+    H2(Arc<h2::Error>),
+
+    /// An HTTP/3 related error
+    #[error("H3 error: {0}")]
+    #[cfg(feature = "__h3")]
+    H3(Arc<h3::error::StreamError>),
 
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
@@ -61,6 +79,10 @@ pub enum NetError {
     /// An error with an arbitrary message, stored as String
     #[error("{0}")]
     Msg(String),
+
+    /// Unable to parse header value as number
+    #[error("unable to parse number: {0}")]
+    ParseInt(#[from] ParseIntError),
 
     /// No connections available
     #[error("no connections available")]
@@ -168,6 +190,27 @@ impl NetError {
 impl From<NoRecords> for NetError {
     fn from(no_records: NoRecords) -> Self {
         Self::Dns(DnsError::NoRecordsFound(no_records))
+    }
+}
+
+#[cfg(feature = "__h3")]
+impl From<h3::error::StreamError> for NetError {
+    fn from(e: h3::error::StreamError) -> Self {
+        Self::H3(Arc::new(e))
+    }
+}
+
+#[cfg(feature = "__https")]
+impl From<h2::Error> for NetError {
+    fn from(e: h2::Error) -> Self {
+        Self::H2(Arc::new(e))
+    }
+}
+
+#[cfg(any(feature = "__https", feature = "__h3"))]
+impl From<ToStrError> for NetError {
+    fn from(e: ToStrError) -> Self {
+        Self::Decode(Arc::new(e))
     }
 }
 

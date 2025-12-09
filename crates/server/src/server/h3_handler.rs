@@ -198,9 +198,9 @@ impl ResponseHandler for H3ResponseHandle {
         stream
             .send_response(response)
             .await
-            .map_err(http::Error::from)?;
-        stream.send_data(bytes).await.map_err(http::Error::from)?;
-        stream.finish().await.map_err(http::Error::from)?;
+            .map_err(NetError::from)?;
+        stream.send_data(bytes).await.map_err(NetError::from)?;
+        stream.finish().await.map_err(NetError::from)?;
 
         Ok(info)
     }

@@ -235,8 +235,8 @@ impl ResponseHandler for HttpsResponseHandle {
             .lock()
             .await
             .send_response(response, false)
-            .map_err(http::Error::from)?;
-        stream.send_data(bytes, true).map_err(http::Error::from)?;
+            .map_err(NetError::from)?;
+        stream.send_data(bytes, true).map_err(NetError::from)?;
 
         Ok(info)
     }

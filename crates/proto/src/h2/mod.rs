@@ -18,6 +18,7 @@ use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
 use tracing::debug;
 
+use crate::error::NetError;
 use crate::http::Version;
 
 mod h2_client_stream;
@@ -33,7 +34,7 @@ pub async fn message_from<R>(
     this_server_name: Option<Arc<str>>,
     this_server_endpoint: Arc<str>,
     request: Request<R>,
-) -> Result<BytesMut, crate::http::Error>
+) -> Result<BytesMut, NetError>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
@@ -69,7 +70,7 @@ where
 pub(crate) async fn message_from_post<R>(
     mut request_stream: R,
     length: Option<usize>,
-) -> Result<BytesMut, crate::http::Error>
+) -> Result<BytesMut, NetError>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
