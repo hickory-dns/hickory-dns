@@ -18,7 +18,7 @@ use super::DNSSECRData;
 use crate::dnssec::tsig::TSigner;
 use crate::op::MessageSignature;
 use crate::{
-    dnssec::{DnsSecError, DnsSecErrorKind, ring_like::hmac},
+    dnssec::{DnsSecError, ring_like::hmac},
     error::{ProtoError, ProtoResult},
     op::{Header, Message, Query},
     rr::{
@@ -571,7 +571,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
             HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
             HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
-            _ => return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
+            _ => return Err(DnsSecError::TsigUnsupportedMacAlgorithm(self.clone())),
         };
 
         let mac = hmac::sign(&key, message);
@@ -590,10 +590,10 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
             HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
             HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
-            _ => return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
+            _ => return Err(DnsSecError::TsigUnsupportedMacAlgorithm(self.clone())),
         };
 
-        hmac::verify(&key, message, tag).map_err(|_| DnsSecErrorKind::HmacInvalid.into())
+        hmac::verify(&key, message, tag).map_err(|_| DnsSecError::HmacInvalid)
     }
 
     /// Return length in bytes of the algorithms output
@@ -604,7 +604,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len(),
             HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len(),
             HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len(),
-            _ => return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
+            _ => return Err(DnsSecError::TsigUnsupportedMacAlgorithm(self.clone())),
         };
 
         Ok(len)
