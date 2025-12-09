@@ -22,10 +22,10 @@ use core::ops::Range;
 
 use tracing::debug;
 
+use super::DnsSecError;
 use super::rdata::tsig::{
     TSIG, TsigAlgorithm, make_tsig_record, message_tbs, signed_bitmessage_to_buf,
 };
-use super::{DnsSecError, DnsSecErrorKind};
 use crate::dnssec::rdata::tsig::TsigError;
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{
@@ -207,7 +207,7 @@ impl TSigner {
         fudge: u16,
     ) -> Result<Self, DnsSecError> {
         if !algorithm.supported() {
-            return Err(DnsSecErrorKind::TsigUnsupportedMacAlgorithm(algorithm).into());
+            return Err(DnsSecError::TsigUnsupportedMacAlgorithm(algorithm));
         }
 
         signer_name.set_fqdn(true);
@@ -291,7 +291,7 @@ impl TSigner {
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key
         if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
-            return Err(DnsSecErrorKind::TsigWrongKey.into());
+            return Err(DnsSecError::TsigWrongKey);
         }
 
         // 2.  Check MAC

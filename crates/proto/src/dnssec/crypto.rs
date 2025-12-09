@@ -8,7 +8,7 @@ use super::ring_like::{
     RsaKeyPair, SystemRandom, digest, signature,
 };
 use super::{
-    Algorithm, DigestType, DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
+    Algorithm, DigestType, DnsSecError, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
     ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey,
 };
 use crate::ProtoError;
@@ -87,7 +87,7 @@ impl EcdsaSigningKey {
         } else if algorithm == Algorithm::ECDSAP384SHA384 {
             &ECDSA_P384_SHA384_FIXED_SIGNING
         } else {
-            return Err(DnsSecErrorKind::Message("unsupported algorithm").into());
+            return Err(DnsSecError::Message("unsupported algorithm"));
         };
 
         #[cfg(all(feature = "dnssec-aws-lc-rs", not(feature = "dnssec-ring")))]
@@ -118,7 +118,7 @@ impl EcdsaSigningKey {
         } else if algorithm == Algorithm::ECDSAP384SHA384 {
             &ECDSA_P384_SHA384_FIXED_SIGNING
         } else {
-            return Err(DnsSecErrorKind::Message("unsupported algorithm").into());
+            return Err(DnsSecError::Message("unsupported algorithm"));
         };
 
         let pkcs8 = EcdsaKeyPair::generate_pkcs8(alg, &rng)?;

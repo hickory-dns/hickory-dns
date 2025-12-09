@@ -9,7 +9,6 @@
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -306,65 +305,10 @@ pub enum KeyFormat {
 /// An alias for dnssec results returned by functions of this crate
 pub type DnsSecResult<T> = ::core::result::Result<T, DnsSecError>;
 
-/// The error type for dnssec errors that get returned in the crate
-#[derive(Debug, Clone, Error)]
-pub struct DnsSecError {
-    kind: DnsSecErrorKind,
-}
-
-impl DnsSecError {
-    /// Get the kind of the error
-    pub fn kind(&self) -> &DnsSecErrorKind {
-        &self.kind
-    }
-}
-
-impl fmt::Display for DnsSecError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
-    }
-}
-
-impl From<DnsSecErrorKind> for DnsSecError {
-    fn from(kind: DnsSecErrorKind) -> Self {
-        Self { kind }
-    }
-}
-
-impl From<&'static str> for DnsSecError {
-    fn from(msg: &'static str) -> Self {
-        DnsSecErrorKind::Message(msg).into()
-    }
-}
-
-impl From<String> for DnsSecError {
-    fn from(msg: String) -> Self {
-        DnsSecErrorKind::Msg(msg).into()
-    }
-}
-
-impl From<ProtoError> for DnsSecError {
-    fn from(e: ProtoError) -> Self {
-        DnsSecErrorKind::from(e).into()
-    }
-}
-
-impl From<ring_like::KeyRejected> for DnsSecError {
-    fn from(e: ring_like::KeyRejected) -> Self {
-        DnsSecErrorKind::from(e).into()
-    }
-}
-
-impl From<ring_like::Unspecified> for DnsSecError {
-    fn from(e: ring_like::Unspecified) -> Self {
-        DnsSecErrorKind::from(e).into()
-    }
-}
-
 /// The error kind for dnssec errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum DnsSecErrorKind {
+pub enum DnsSecError {
     /// An HMAC failed to verify
     #[error("hmac validation failure")]
     HmacInvalid,
@@ -404,9 +348,21 @@ pub enum DnsSecErrorKind {
     TsigWrongKey,
 }
 
-impl Clone for DnsSecErrorKind {
+impl From<String> for DnsSecError {
+    fn from(msg: String) -> Self {
+        Self::Msg(msg)
+    }
+}
+
+impl From<&'static str> for DnsSecError {
+    fn from(msg: &'static str) -> Self {
+        Self::Message(msg)
+    }
+}
+
+impl Clone for DnsSecError {
     fn clone(&self) -> Self {
-        use DnsSecErrorKind::*;
+        use DnsSecError::*;
         match self {
             HmacInvalid => HmacInvalid,
             Message(msg) => Message(msg),
