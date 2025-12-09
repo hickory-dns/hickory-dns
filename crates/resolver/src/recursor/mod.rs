@@ -416,8 +416,6 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
 
             Err(Error {
                 kind: ErrorKind::Net(NetError::from(dns_error)),
-                #[cfg(feature = "backtrace")]
-                backtrack: None,
             })
         } else if response.answers().is_empty()
             && !response.authorities().is_empty()

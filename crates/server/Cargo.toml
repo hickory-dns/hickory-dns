@@ -24,7 +24,6 @@ categories.workspace = true
 license.workspace = true
 
 [features]
-backtrace = ["hickory-proto/backtrace"]
 # Recursive Resolution is Experimental!
 recursor = ["hickory-resolver/recursor"]
 resolver = ["dep:hickory-resolver"]

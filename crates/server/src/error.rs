@@ -22,8 +22,6 @@ use thiserror::Error;
 
 use crate::proto::ProtoError;
 use crate::proto::serialize::txt::ParseError;
-#[cfg(feature = "backtrace")]
-use crate::proto::{ExtBacktrace, trace};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
@@ -61,8 +59,6 @@ pub enum PersistenceErrorKind {
 #[derive(Debug, Error)]
 pub struct PersistenceError {
     kind: PersistenceErrorKind,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
 }
 
 impl PersistenceError {
@@ -74,18 +70,7 @@ impl PersistenceError {
 
 impl fmt::Display for PersistenceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
@@ -93,8 +78,6 @@ impl From<PersistenceErrorKind> for PersistenceError {
     fn from(kind: PersistenceErrorKind) -> Self {
         Self {
             kind,
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
         }
     }
 }
@@ -135,8 +118,6 @@ pub enum ConfigErrorKind {
 #[derive(Debug)]
 pub struct ConfigError {
     kind: Box<ConfigErrorKind>,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
 }
 
 impl ConfigError {
@@ -148,18 +129,7 @@ impl ConfigError {
 
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
@@ -168,12 +138,8 @@ where
     E: Into<ConfigErrorKind>,
 {
     fn from(error: E) -> Self {
-        let kind: ConfigErrorKind = error.into();
-
         Self {
-            kind: Box::new(kind),
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
+            kind: Box::new(error.into()),
         }
     }
 }

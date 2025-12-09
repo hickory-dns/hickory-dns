@@ -21,7 +21,6 @@ license.workspace = true
 
 [features]
 default = ["system-config", "tokio"]
-backtrace = ["dep:backtrace", "hickory-proto/backtrace"]
 
 tls-aws-lc-rs = ["hickory-proto/tls-aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["hickory-proto/https-aws-lc-rs", "__https"]
@@ -62,7 +61,6 @@ path = "src/lib.rs"
 
 [dependencies]
 async-recursion = { workspace = true, optional = true }
-backtrace = { workspace = true, optional = true }
 cfg-if.workspace = true
 futures-util = { workspace = true, default-features = false, features = [
     "std",

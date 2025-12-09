@@ -11,8 +11,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-#[cfg(feature = "backtrace")]
-use backtrace::Backtrace;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -21,8 +19,6 @@ use crate::dnssec::crypto::Digest;
 use crate::error::ProtoError;
 use crate::rr::{Name, Record};
 use crate::serialize::binary::{BinEncodable, BinEncoder, DecodeError, NameEncoding};
-#[cfg(feature = "backtrace")]
-use crate::trace;
 
 mod algorithm;
 pub use algorithm::Algorithm;
@@ -314,8 +310,6 @@ pub type DnsSecResult<T> = ::core::result::Result<T, DnsSecError>;
 #[derive(Debug, Clone, Error)]
 pub struct DnsSecError {
     kind: DnsSecErrorKind,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<Backtrace>,
 }
 
 impl DnsSecError {
@@ -327,28 +321,13 @@ impl DnsSecError {
 
 impl fmt::Display for DnsSecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
 impl From<DnsSecErrorKind> for DnsSecError {
     fn from(kind: DnsSecErrorKind) -> Self {
-        Self {
-            kind,
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
-        }
+        Self { kind }
     }
 }
 
