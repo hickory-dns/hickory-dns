@@ -15,7 +15,7 @@ use std::ffi::OsStr;
 #[cfg(feature = "prometheus-metrics")]
 use std::net::SocketAddr;
 use std::{
-    fmt, fs,
+    fmt, fs, io,
     net::{AddrParseError, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     str::FromStr,
@@ -33,11 +33,12 @@ use rustls::{
 };
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
+use thiserror::Error;
 use tracing::{debug, info, warn};
 
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::default_provider;
-use hickory_proto::{ProtoError, rr::Name};
+use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
 #[cfg(feature = "recursor")]
 use hickory_resolver::recursor::RecursiveConfig;
 #[cfg(feature = "__dnssec")]
@@ -57,7 +58,6 @@ use hickory_server::store::recursor::RecursiveZoneHandler;
 #[cfg(feature = "sqlite")]
 use hickory_server::store::sqlite::{SqliteConfig, SqliteZoneHandler};
 use hickory_server::{
-    ConfigError,
     store::file::{FileConfig, FileZoneHandler},
     zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
 };
@@ -738,6 +738,54 @@ impl TlsCertConfig {
             .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
 
         Ok(Arc::new(SingleCertAndKey::from(certified_key)))
+    }
+}
+
+/// The error kind for errors that get returned in the crate
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum ConfigErrorKind {
+    // foreign
+    /// An error got returned from IO
+    #[error("io error: {0}")]
+    Io(#[from] io::Error),
+
+    /// An error occurred while decoding toml data
+    #[error("toml decode error: {0}")]
+    TomlDecode(#[from] toml::de::Error),
+
+    /// An error occurred while parsing a zone file
+    #[error("failed to parse the zone file: {0}")]
+    ZoneParse(#[from] ParseError),
+}
+
+/// The error type for errors that get returned in the crate
+#[derive(Debug)]
+pub struct ConfigError {
+    kind: Box<ConfigErrorKind>,
+}
+
+impl ConfigError {
+    /// Get the kind of the error
+    pub fn kind(&self) -> &ConfigErrorKind {
+        &self.kind
+    }
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{}", self.kind))
+    }
+}
+
+impl<E> From<E> for ConfigError
+where
+    E: Into<ConfigErrorKind>,
+{
+    fn from(error: E) -> Self {
+        Self {
+            kind: Box::new(error.into()),
+        }
     }
 }
 

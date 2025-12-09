@@ -52,11 +52,9 @@ pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 
 mod access;
-mod error;
-pub mod zone_handler;
-pub use error::{ConfigError, ConfigErrorKind};
 pub mod server;
 pub mod store;
+pub mod zone_handler;
 
 pub use self::server::Server;
 

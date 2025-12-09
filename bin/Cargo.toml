@@ -80,6 +80,7 @@ socket2.workspace = true
 rustls = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
