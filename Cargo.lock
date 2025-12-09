@@ -759,6 +759,7 @@ dependencies = [
  "serde",
  "socket2 0.6.1",
  "test-support",
+ "thiserror 2.0.17",
  "time",
  "tokio",
  "tokio-util",
