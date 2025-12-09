@@ -29,8 +29,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::error::{NetError, ProtoError};
-use crate::http::request::RequestContext;
-use crate::http::{SetHeaders, Version};
+use crate::http::{RequestContext, SetHeaders, Version};
 use crate::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
 use crate::rustls::client_config;

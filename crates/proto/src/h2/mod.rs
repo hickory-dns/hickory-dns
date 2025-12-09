@@ -40,7 +40,7 @@ where
     debug!("Received request: {:#?}", request);
 
     let this_server_name = this_server_name.as_deref();
-    match crate::http::request::verify(
+    match crate::http::verify(
         Version::Http2,
         this_server_name,
         &this_server_endpoint,
@@ -111,7 +111,7 @@ mod tests {
 
     use test_support::subscribe;
 
-    use crate::http::request::RequestContext;
+    use crate::http::RequestContext;
     use crate::op::Message;
 
     use super::*;
