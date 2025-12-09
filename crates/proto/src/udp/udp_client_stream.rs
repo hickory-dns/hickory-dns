@@ -12,7 +12,6 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 use std::collections::HashSet;
-use std::io;
 
 use futures_util::{
     FutureExt, Stream, StreamExt, future::Future, pin_mut, stream::FuturesUnordered,
@@ -436,7 +435,7 @@ pub struct UdpClientConnect<P> {
 }
 
 impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
-    type Output = Result<UdpClientStream<P>, io::Error>;
+    type Output = Result<UdpClientStream<P>, NetError>;
 
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         // TODO: this doesn't need to be a future?
@@ -504,6 +503,7 @@ mod tests {
         net::{IpAddr, Ipv4Addr, Ipv6Addr},
         sync::atomic::{AtomicU8, Ordering},
     };
+    use std::io;
 
     use test_support::subscribe;
     use tokio::time::sleep;
@@ -572,7 +572,7 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn retry_handler_test() -> Result<(), std::io::Error> {
+    async fn retry_handler_test() -> Result<(), NetError> {
         let mut message = Message::query();
         message.set_response_code(ResponseCode::NoError);
 

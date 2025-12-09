@@ -10,7 +10,6 @@ use std::time::{Duration, Instant};
 use std::{
     cmp,
     fmt::Debug,
-    io,
     marker::PhantomData,
     net::IpAddr,
     sync::{
@@ -359,7 +358,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         ns: &NameServer<P>,
         cx: &Arc<PoolContext>,
         #[cfg(feature = "metrics")] metrics: ProbeMetrics,
-    ) -> Result<Self, io::Error> {
+    ) -> Result<Self, NetError> {
         Ok(Self {
             ip: ns.config.ip,
             proto: config.protocol.to_protocol(),
@@ -2100,7 +2099,7 @@ mod opportunistic_enc_tests {
             ip: IpAddr,
             config: &ConnectionConfig,
             _cx: &PoolContext,
-        ) -> Result<Self::FutureConn, std::io::Error> {
+        ) -> Result<Self::FutureConn, NetError> {
             self.new_connection_calls
                 .lock()
                 .push((ip, config.protocol.clone()));
@@ -2169,7 +2168,7 @@ mod opportunistic_enc_tests {
             _server_addr: std::net::SocketAddr,
             _bind_addr: Option<std::net::SocketAddr>,
             _timeout: Option<Duration>,
-        ) -> Pin<Box<dyn Future<Output = std::io::Result<Self::Tcp>> + Send>> {
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, NetError>> + Send>> {
             unimplemented!();
         }
 
@@ -2178,7 +2177,7 @@ mod opportunistic_enc_tests {
             &self,
             _local_addr: std::net::SocketAddr,
             _server_addr: std::net::SocketAddr,
-        ) -> Pin<Box<dyn Future<Output = std::io::Result<Self::Udp>> + Send>> {
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, NetError>> + Send>> {
             unimplemented!();
         }
     }

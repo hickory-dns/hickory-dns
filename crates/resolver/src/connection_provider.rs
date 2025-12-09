@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::future::Future;
-use std::io;
 use std::marker::Unpin;
 use std::net::{IpAddr, SocketAddr};
 #[cfg(feature = "__quic")]
@@ -65,7 +64,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         ip: IpAddr,
         config: &ConnectionConfig,
         cx: &PoolContext,
-    ) -> Result<Self::FutureConn, io::Error>;
+    ) -> Result<Self::FutureConn, NetError>;
 
     /// Get a reference to a [`RuntimeProvider`].
     fn runtime_provider(&self) -> &Self::RuntimeProvider;
@@ -132,7 +131,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
         ip: IpAddr,
         config: &ConnectionConfig,
         cx: &PoolContext,
-    ) -> Result<Self::FutureConn, io::Error> {
+    ) -> Result<Self::FutureConn, NetError> {
         let remote_addr = SocketAddr::new(ip, config.port);
         let dns_connect = match (&config.protocol, self.quic_binder()) {
             (ProtocolConfig::Udp, _) => {
@@ -166,10 +165,9 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 let tcp_future = self.connect_tcp(remote_addr, None, None);
 
                 let Ok(server_name) = ServerName::try_from(&**server_name) else {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        format!("invalid server name: {server_name}"),
-                    ));
+                    return Err(NetError::from(format!(
+                        "invalid server name: {server_name}"
+                    )));
                 };
 
                 let mut tls_config = cx.tls.clone();
@@ -243,17 +241,11 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { .. }, None) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "runtime provider does not support QUIC",
-                ));
+                return Err(NetError::from("runtime provider does not support QUIC"));
             }
             #[cfg(feature = "__h3")]
             (ProtocolConfig::H3 { .. }, None) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "runtime provider does not support QUIC",
-                ));
+                return Err(NetError::from("runtime provider does not support QUIC"));
             }
         };
 

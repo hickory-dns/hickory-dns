@@ -1,4 +1,3 @@
-use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
@@ -60,7 +59,7 @@ impl TestClientConnection {
         &self,
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> DnsMultiplexerConnect<
-        BoxFuture<'static, Result<TestClientStream, io::Error>>,
+        BoxFuture<'static, Result<TestClientStream, NetError>>,
         TestClientStream,
     > {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
@@ -287,7 +286,7 @@ async fn test_timeout_query_tcp() {
 
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
     match Client::<TokioRuntimeProvider>::connect(multiplexer).await {
-        Err(e) if matches!(e.kind(), io::ErrorKind::TimedOut) => {}
+        Err(NetError::Timeout) => {}
         _ => panic!("expected timeout"),
     }
 }

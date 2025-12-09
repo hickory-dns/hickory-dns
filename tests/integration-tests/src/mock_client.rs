@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::future::{Future, ready};
-use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -108,7 +107,7 @@ impl RuntimeProvider for MockRuntimeProvider {
         _server_addr: SocketAddr,
         _bind_addr: Option<SocketAddr>,
         _wait_for: Option<std::time::Duration>,
-    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Tcp>>>> {
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, NetError>>>> {
         Box::pin(async { Ok(TcpPlaceholder) })
     }
 
@@ -116,7 +115,7 @@ impl RuntimeProvider for MockRuntimeProvider {
         &self,
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Send + Future<Output = std::io::Result<Self::Udp>>>> {
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, NetError>>>> {
         Box::pin(async { Ok(UdpPlaceholder) })
     }
 }
@@ -136,7 +135,7 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
         _: IpAddr,
         _config: &ConnectionConfig,
         _cx: &PoolContext,
-    ) -> Result<Self::FutureConn, io::Error> {
+    ) -> Result<Self::FutureConn, NetError> {
         println!("MockConnProvider::new_connection");
         Ok(Box::pin(future::ok(MockClientHandle::mock_on_send(
             vec![],

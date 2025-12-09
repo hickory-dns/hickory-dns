@@ -11,11 +11,11 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::future::Future;
 use core::net::SocketAddr;
-use std::io;
 
 use futures_util::future::BoxFuture;
 use rustls::{ClientConfig, pki_types::ServerName};
 
+use crate::error::NetError;
 use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::rustls::tls_stream::{tls_connect_with_bind_addr, tls_connect_with_future};
@@ -40,7 +40,7 @@ pub fn tls_client_connect<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    BoxFuture<'static, Result<TlsClientStream<P::Tcp>, io::Error>>,
+    BoxFuture<'static, Result<TlsClientStream<P::Tcp>, NetError>>,
     BufDnsStreamHandle,
 ) {
     tls_client_connect_with_bind_addr(name_server, None, server_name, client_config, provider)
@@ -61,7 +61,7 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    BoxFuture<'static, Result<TlsClientStream<P::Tcp>, io::Error>>,
+    BoxFuture<'static, Result<TlsClientStream<P::Tcp>, NetError>>,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) =
@@ -84,12 +84,12 @@ pub fn tls_client_connect_with_future<S, F>(
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
-    BoxFuture<'static, Result<TlsClientStream<S>, io::Error>>,
+    BoxFuture<'static, Result<TlsClientStream<S>, NetError>>,
     BufDnsStreamHandle,
 )
 where
     S: DnsTcpStream,
-    F: Future<Output = io::Result<S>> + Send + Unpin + 'static,
+    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
 {
     let (stream_future, sender) =
         tls_connect_with_future(future, socket_addr, server_name, client_config);

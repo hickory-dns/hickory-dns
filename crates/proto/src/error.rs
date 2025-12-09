@@ -236,16 +236,6 @@ impl From<&'static str> for NetError {
     }
 }
 
-#[cfg(feature = "std")]
-impl From<NetError> for io::Error {
-    fn from(e: NetError) -> Self {
-        match e {
-            NetError::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::other(e),
-        }
-    }
-}
-
 /// The error type for errors that get returned in the crate
 #[derive(Error, Clone, Debug)]
 #[non_exhaustive]
