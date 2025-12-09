@@ -60,7 +60,7 @@ use crate::{
 use LookupControlFlow::Continue;
 
 pub mod persistence;
-pub use persistence::{Journal, PersistenceError, PersistenceErrorKind};
+pub use persistence::{Journal, PersistenceError};
 
 /// SqliteZoneHandler is responsible for storing the resource records for a particular zone.
 ///
@@ -227,7 +227,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                         #[cfg(feature = "metrics")]
                         self.metrics.zone_records.increment(1);
                     }
-                    Err(error) => return Err(PersistenceErrorKind::Recovery(error.to_str()).into()),
+                    Err(error) => return Err(PersistenceError::Recovery(error.to_str())),
                 }
             }
         }
