@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{io, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 use bytes::Bytes;
 use futures_util::lock::Mutex;
@@ -24,6 +24,7 @@ use crate::{
         NetError,
         quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
         rr::Record,
+        serialize::binary::BinEncoder,
         xfer::Protocol,
     },
     zone_handler::MessageResponse,
@@ -168,9 +169,7 @@ impl ResponseHandler for QuicResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> io::Result<ResponseInfo> {
-        use crate::proto::serialize::binary::BinEncoder;
-
+    ) -> Result<ResponseInfo, NetError> {
         // The id should always be 0 in DoQ
         response.header_mut().set_id(0);
 

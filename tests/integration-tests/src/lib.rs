@@ -120,13 +120,11 @@ impl ResponseHandler for TestResponseHandler {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> io::Result<ResponseInfo> {
+    ) -> Result<ResponseInfo, NetError> {
         let buf = &mut self.buf.lock().unwrap();
         buf.clear();
         let mut encoder = BinEncoder::new(buf);
-        let info = response
-            .destructive_emit(&mut encoder)
-            .expect("could not encode");
+        let info = response.destructive_emit(&mut encoder)?;
         self.message_ready.store(true, Ordering::Release);
         Ok(info)
     }
