@@ -10,7 +10,7 @@ use crate::{
     dnssec::rdata::DNSKEY,
     rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
-        ParseError, ParseErrorKind, ParseResult,
+        ParseError, ParseResult,
         rdata_parsers::dnskey,
         zone,
         zone_lex::{Lexer, Token as LexToken},
@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
                             State::Class { name, ttl }
                         }
                     } else {
-                        return Err(ParseErrorKind::UnexpectedToken(token.into()).into());
+                        return Err(ParseError::UnexpectedToken(token.into()));
                     }
                 }
 
@@ -75,7 +75,7 @@ impl<'a> Parser<'a> {
                             class,
                         }
                     } else {
-                        return Err(ParseErrorKind::UnexpectedToken(token.into()).into());
+                        return Err(ParseError::UnexpectedToken(token.into()));
                     }
                 }
 
@@ -84,7 +84,7 @@ impl<'a> Parser<'a> {
                         let rtype = RecordType::from_str(&data)?;
 
                         if !matches!(rtype, RecordType::DNSKEY) {
-                            return Err(ParseErrorKind::UnsupportedRecordType(rtype).into());
+                            return Err(ParseError::UnsupportedRecordType(rtype));
                         }
 
                         State::RData {
@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
                             parts: vec![],
                         }
                     } else {
-                        return Err(ParseErrorKind::UnexpectedToken(token.into()).into());
+                        return Err(ParseError::UnexpectedToken(token.into()));
                     }
                 }
 
@@ -120,7 +120,7 @@ impl<'a> Parser<'a> {
                         }
                     }
 
-                    _ => return Err(ParseErrorKind::UnexpectedToken(token.into()).into()),
+                    _ => return Err(ParseError::UnexpectedToken(token.into())),
                 },
             };
         }
@@ -244,7 +244,7 @@ impl TryFrom<LexToken> for Token {
             | LexToken::Include
             | LexToken::Origin
             | LexToken::Ttl
-            | LexToken::List(_) => return Err(ParseErrorKind::UnexpectedToken(token).into()),
+            | LexToken::List(_) => return Err(ParseError::UnexpectedToken(token)),
             LexToken::Blank => Self::Blank,
             LexToken::CharData(data) => Self::CharData(data),
             LexToken::EOL => Self::EOL,
@@ -347,14 +347,14 @@ mod tests {
     #[test]
     fn origin() {
         let err = parse_err("$ORIGIN example.com.");
-        assert!(matches!(err.kind(), ParseErrorKind::UnexpectedToken(_)));
+        assert!(matches!(err, ParseError::UnexpectedToken(_)));
     }
 
     #[test]
     fn at_sign() {
         let input = format!("@           34076   IN  DNSKEY  256 3 8 {ENCODED}");
         let err = parse_err(&input);
-        assert!(matches!(err.kind(), ParseErrorKind::UnexpectedToken(_)));
+        assert!(matches!(err, ParseError::UnexpectedToken(_)));
     }
 
     #[test]
@@ -362,10 +362,7 @@ mod tests {
         // $ dig example.com. A
         let input = "example.com.       657 IN  A   93.184.215.14";
         let err = parse_err(input);
-        assert!(matches!(
-            err.kind(),
-            ParseErrorKind::UnsupportedRecordType(_)
-        ));
+        assert!(matches!(err, ParseError::UnsupportedRecordType(_)));
     }
 
     fn parse_ok(input: &str) -> Vec<Record<DNSKEY>> {

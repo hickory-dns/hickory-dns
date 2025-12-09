@@ -28,4 +28,4 @@ pub use self::parse_rdata::RDataParser;
 pub use self::zone::Parser;
 use self::zone_lex::Lexer;
 pub use self::zone_lex::Token;
-pub use errors::{ParseError, ParseErrorKind, ParseResult};
+pub use errors::{ParseError, ParseResult};

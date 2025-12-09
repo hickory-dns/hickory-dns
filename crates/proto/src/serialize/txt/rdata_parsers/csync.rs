@@ -13,7 +13,7 @@ use core::str::FromStr;
 
 use crate::rr::RecordType;
 use crate::rr::rdata::CSYNC;
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -24,12 +24,12 @@ use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<CSYNC> {
     let soa_serial: u32 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("soa_serial".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("soa_serial".to_string()))
         .and_then(|s| s.parse().map_err(Into::into))?;
 
     let flags: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("flags".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("flags".to_string()))
         .and_then(|s| s.parse().map_err(Into::into))?;
 
     let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;

@@ -16,7 +16,7 @@ use crate::{
         rdata::{ANAME, CNAME, HTTPS, NS, PTR},
     },
     serialize::txt::{
-        errors::{ParseError, ParseErrorKind, ParseResult},
+        errors::{ParseError, ParseResult},
         rdata_parsers::*,
         zone_lex::Lexer,
     },
@@ -79,9 +79,9 @@ impl RDataParser for RData {
             RecordType::MX => Self::MX(mx::parse(tokens, origin)?),
             RecordType::NAPTR => Self::NAPTR(naptr::parse(tokens, origin)?),
             RecordType::NULL => {
-                return Err(ParseError::from(ParseErrorKind::Message(
+                return Err(ParseError::Message(
                     "parse is not implemented for NULL record",
-                )));
+                ));
             }
             RecordType::NS => Self::NS(NS(name::parse(tokens, origin)?)),
             RecordType::OPENPGPKEY => Self::OPENPGPKEY(openpgpkey::parse(tokens)?),
@@ -126,7 +126,7 @@ impl RDataParser for RData {
             RecordType::ZERO => Self::ZERO,
             r @ RecordType::Unknown(..) => {
                 // TODO: add a way to associate generic record types to the zone
-                return Err(ParseError::from(ParseErrorKind::UnsupportedRecordType(r)));
+                return Err(ParseError::UnsupportedRecordType(r));
             }
         };
 

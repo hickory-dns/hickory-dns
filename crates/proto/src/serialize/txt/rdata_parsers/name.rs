@@ -19,7 +19,7 @@
 use alloc::string::ToString;
 
 use crate::rr::domain::Name;
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
@@ -28,7 +28,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
 ) -> ParseResult<Name> {
     let name: Name = tokens
         .next()
-        .ok_or_else(|| ParseErrorKind::MissingToken("name".to_string()).into())
+        .ok_or_else(|| ParseError::MissingToken("name".to_string()))
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
     Ok(name)
 }

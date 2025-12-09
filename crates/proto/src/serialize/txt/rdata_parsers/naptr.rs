@@ -12,7 +12,7 @@ use core::str::FromStr;
 
 use crate::rr::Name;
 use crate::rr::rdata::naptr::{NAPTR, verify_flags};
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -28,17 +28,17 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
 ) -> ParseResult<NAPTR> {
     let order: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("order".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("order".to_string()))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
 
     let preference: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("preference".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("preference".to_string()))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
 
     let flags = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("flags".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("flags".to_string()))
         .map(ToString::to_string)
         .map(|s| s.into_bytes().into_boxed_slice())?;
     if !verify_flags(&flags) {
@@ -47,19 +47,19 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
 
     let service = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("service".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("service".to_string()))
         .map(ToString::to_string)
         .map(|s| s.into_bytes().into_boxed_slice())?;
 
     let regexp = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("regexp".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("regexp".to_string()))
         .map(ToString::to_string)
         .map(|s| s.into_bytes().into_boxed_slice())?;
 
     let replacement: Name = tokens
         .next()
-        .ok_or_else(|| ParseErrorKind::MissingToken("replacement".to_string()).into())
+        .ok_or_else(|| ParseError::MissingToken("replacement".to_string()))
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     Ok(NAPTR::new(

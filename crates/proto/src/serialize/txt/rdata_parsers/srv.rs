@@ -20,7 +20,7 @@ use core::str::FromStr;
 
 use crate::rr::domain::Name;
 use crate::rr::rdata::SRV;
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
@@ -29,22 +29,22 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
 ) -> ParseResult<SRV> {
     let priority: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("priority".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("priority".to_string()))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
 
     let weight: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("weight".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("weight".to_string()))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
 
     let port: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("port".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("port".to_string()))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
 
     let target: Name = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("target".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("target".to_string()))
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     Ok(SRV::new(priority, weight, port, target))

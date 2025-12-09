@@ -21,7 +21,7 @@ use alloc::borrow::ToOwned;
 use tracing::warn;
 
 use crate::rr::rdata::CAA;
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -47,13 +47,13 @@ use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<CAA> {
     let flags_str: &str = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("caa flags not present")))?;
+        .ok_or(ParseError::Message("caa flags not present"))?;
     let tag_str: &str = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("caa tag not present")))?;
+        .ok_or(ParseError::Message("caa tag not present"))?;
     let value_str: &str = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("caa value not present")))?;
+        .ok_or(ParseError::Message("caa value not present"))?;
 
     // parse the flags
     let flags = flags_str.parse::<u8>()?;

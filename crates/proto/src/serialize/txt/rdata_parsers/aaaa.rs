@@ -22,14 +22,14 @@ use core::str::FromStr;
 
 use crate::{
     rr::rdata::AAAA,
-    serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult},
+    serialize::txt::errors::{ParseError, ParseResult},
 };
 
 /// Parse the RData from a set of Tokens
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<AAAA> {
     let address: Ipv6Addr = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("ipv6 address".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("ipv6 address".to_string()))
         .and_then(|s| Ipv6Addr::from_str(s).map_err(Into::into))?;
     Ok(address.into())
 }

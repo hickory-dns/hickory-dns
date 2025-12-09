@@ -18,7 +18,7 @@
 
 use crate::rr::rdata::CERT;
 use crate::rr::rdata::cert::{Algorithm, CertType};
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 fn to_u16(data: &str) -> ParseResult<u16> {
     data.parse().map_err(ParseError::from)
@@ -34,38 +34,31 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<C
 
     let token = iter
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT cert type field missing")))?;
-    let cert_type = CertType::from(to_u16(token).map_err(|_| {
-        ParseError::from(ParseErrorKind::Message(
-            "Invalid digit found in cert_type token",
-        ))
-    })?);
+        .ok_or(ParseError::Message("CERT cert type field missing"))?;
+    let cert_type = CertType::from(
+        to_u16(token).map_err(|_| ParseError::Message("Invalid digit found in cert_type token"))?,
+    );
 
     let token = iter
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT key tag field missing")))?;
-    let key_tag = to_u16(token).map_err(|_| {
-        ParseError::from(ParseErrorKind::Message(
-            "Invalid digit found in key_tag token",
-        ))
-    })?;
+        .ok_or(ParseError::Message("CERT key tag field missing"))?;
+    let key_tag =
+        to_u16(token).map_err(|_| ParseError::Message("Invalid digit found in key_tag token"))?;
 
     let token = iter
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT algorithm field missing")))?;
-    let algorithm = Algorithm::from(to_u8(token).map_err(|_| {
-        ParseError::from(ParseErrorKind::Message(
-            "Invalid digit found in algorithm token",
-        ))
-    })?);
+        .ok_or(ParseError::Message("CERT algorithm field missing"))?;
+    let algorithm = Algorithm::from(
+        to_u8(token).map_err(|_| ParseError::Message("Invalid digit found in algorithm token"))?,
+    );
 
     let token = iter
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("CERT data missing")))?;
+        .ok_or(ParseError::Message("CERT data missing"))?;
 
     let cert_data = data_encoding::BASE64
         .decode(token.as_bytes())
-        .map_err(|_| ParseError::from(ParseErrorKind::Message("Invalid base64 CERT data")))?;
+        .map_err(|_| ParseError::Message("Invalid base64 CERT data"))?;
 
     Ok(CERT::new(cert_type, key_tag, algorithm, cert_data))
 }

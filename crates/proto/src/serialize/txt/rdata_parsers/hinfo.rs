@@ -10,7 +10,7 @@
 use alloc::string::ToString;
 
 use crate::rr::rdata::HINFO;
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
+use crate::serialize::txt::errors::{ParseError, ParseResult};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -21,11 +21,11 @@ use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<HINFO> {
     let cpu = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("cpu".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("cpu".to_string()))
         .map(ToString::to_string)?;
     let os = tokens
         .next()
-        .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("os".to_string())))
+        .ok_or_else(|| ParseError::MissingToken("os".to_string()))
         .map(ToString::to_string)?;
     Ok(HINFO::new(cpu, os))
 }

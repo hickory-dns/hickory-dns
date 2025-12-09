@@ -1,4 +1,4 @@
-use alloc::{fmt, string::String};
+use alloc::string::String;
 use std::io;
 
 use thiserror::Error;
@@ -15,7 +15,7 @@ pub type ParseResult<T> = ::core::result::Result<T, ParseError>;
 /// The error kind for parse errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum ParseErrorKind {
+pub enum ParseError {
     /// An invalid numerical character was found
     #[error("invalid numerical character: {0}")]
     CharToInt(char),
@@ -75,9 +75,9 @@ pub enum ParseErrorKind {
     UnsupportedRecordType(RecordType),
 }
 
-impl Clone for ParseErrorKind {
+impl Clone for ParseError {
     fn clone(&self) -> Self {
-        use ParseErrorKind::*;
+        use ParseError::*;
         match self {
             CharToInt(c) => CharToInt(*c),
             Message(msg) => Message(msg),
@@ -99,90 +99,21 @@ impl Clone for ParseErrorKind {
     }
 }
 
-/// The error type for parse errors that get returned in the crate
-#[derive(Error, Debug)]
-pub struct ParseError {
-    kind: ParseErrorKind,
-}
-
-impl ParseError {
-    /// Get the kind of the error
-    pub fn kind(&self) -> &ParseErrorKind {
-        &self.kind
-    }
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
-    }
-}
-
-impl From<ParseErrorKind> for ParseError {
-    fn from(kind: ParseErrorKind) -> Self {
-        Self { kind }
-    }
-}
-
 impl From<&'static str> for ParseError {
     fn from(msg: &'static str) -> Self {
-        ParseErrorKind::Message(msg).into()
+        Self::Message(msg)
     }
 }
 
 impl From<String> for ParseError {
     fn from(msg: String) -> Self {
-        ParseErrorKind::Msg(msg).into()
+        Self::Msg(msg)
     }
 }
 
 impl From<DecodeError> for ParseError {
     fn from(e: DecodeError) -> Self {
-        ParseErrorKind::from(ProtoError::from(e)).into()
-    }
-}
-
-#[cfg(not(feature = "std"))]
-impl From<core::net::AddrParseError> for ParseError {
-    fn from(e: core::net::AddrParseError) -> Self {
-        ParseErrorKind::from(e).into()
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<core::net::AddrParseError> for ParseError {
-    fn from(e: core::net::AddrParseError) -> Self {
-        ParseErrorKind::from(e).into()
-    }
-}
-
-impl From<::data_encoding::DecodeError> for ParseError {
-    fn from(e: data_encoding::DecodeError) -> Self {
-        ParseErrorKind::from(e).into()
-    }
-}
-
-impl From<io::Error> for ParseError {
-    fn from(e: io::Error) -> Self {
-        ParseErrorKind::from(e).into()
-    }
-}
-
-impl From<LexerError> for ParseError {
-    fn from(e: LexerError) -> Self {
-        ParseErrorKind::from(e).into()
-    }
-}
-
-impl From<core::num::ParseIntError> for ParseError {
-    fn from(e: core::num::ParseIntError) -> Self {
-        ParseErrorKind::from(e).into()
-    }
-}
-
-impl From<ProtoError> for ParseError {
-    fn from(e: ProtoError) -> Self {
-        ParseErrorKind::from(e).into()
+        Self::from(ProtoError::from(e))
     }
 }
 
