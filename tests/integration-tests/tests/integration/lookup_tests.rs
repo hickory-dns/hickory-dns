@@ -446,7 +446,7 @@ async fn test_max_chained_lookup_depth() {
 // no NS records present (!ns.is_some())
 #[tokio::test]
 async fn test_forward_soa() {
-    use hickory_proto::NetErrorKind;
+    use hickory_proto::NetError;
 
     subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
@@ -472,8 +472,8 @@ async fn test_forward_soa() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind else {
-        panic!("Unexpected kind: {e:?}");
+    let NetError::Dns(DnsError::NoRecordsFound(no_records)) = e else {
+        panic!("unexpected error: {e:?}");
     };
 
     assert!(no_records.soa.is_some());
@@ -485,7 +485,7 @@ async fn test_forward_soa() {
 // no SOA records present (!soa.is_some())
 #[tokio::test]
 async fn test_forward_ns() {
-    use hickory_proto::NetErrorKind;
+    use hickory_proto::NetError;
 
     subscribe();
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
@@ -511,8 +511,8 @@ async fn test_forward_ns() {
         panic!("Expected Error type for {lookup:?}");
     };
 
-    let NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = e.kind else {
-        panic!("Unexpected kind: {e:?}");
+    let NetError::Dns(DnsError::NoRecordsFound(no_records)) = e else {
+        panic!("unexpected error: {e:?}");
     };
 
     assert!(no_records.soa.is_none());

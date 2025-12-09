@@ -10,7 +10,7 @@ use quinn::{RecvStream, SendStream, VarInt};
 use tracing::debug;
 
 use crate::{
-    error::{NetError, NetErrorKind, ProtoError, ProtoErrorKind},
+    error::{NetError, ProtoError, ProtoErrorKind},
     op::{DnsResponse, Message},
 };
 
@@ -181,9 +181,7 @@ impl QuicStream {
             if let Err(error) = self.reset(DoqErrorCode::ProtocolError) {
                 debug!(%error, "stream already closed");
             }
-            return Err(NetError::from(NetErrorKind::QuicMessageIdNot0(
-                message.id(),
-            )));
+            return Err(NetError::QuicMessageIdNot0(message.id()));
         }
 
         Ok(DnsResponse::from_buffer(bytes.to_vec())?)
@@ -221,13 +219,13 @@ impl QuicStream {
     pub fn reset(&mut self, code: DoqErrorCode) -> Result<(), NetError> {
         self.send_stream
             .reset(code.into())
-            .map_err(|_| NetError::from(NetErrorKind::QuinnUnknownStreamError))
+            .map_err(|_| NetError::QuinnUnknownStreamError)
     }
 
     /// Stop the receiving stream due to some error
     pub fn stop(&mut self, code: DoqErrorCode) -> Result<(), NetError> {
         self.receive_stream
             .stop(code.into())
-            .map_err(|_| NetError::from(NetErrorKind::QuinnUnknownStreamError))
+            .map_err(|_| NetError::QuinnUnknownStreamError)
     }
 }

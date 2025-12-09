@@ -31,7 +31,7 @@ use tracing::debug;
 
 use crate::{
     DnsStreamHandle,
-    error::{NetError, NetErrorKind},
+    error::NetError,
     op::{DnsRequest, DnsResponse, MessageSigner, MessageVerifier, SerialMessage},
     runtime::Time,
     xfer::{
@@ -169,7 +169,7 @@ where
             match active_req.poll_timeout(cx) {
                 Poll::Ready(()) => {
                     debug!("request timed out: {}", id);
-                    canceled.insert(id, NetError::from(NetErrorKind::Timeout));
+                    canceled.insert(id, NetError::Timeout);
                 }
                 Poll::Pending => (),
             }
@@ -268,7 +268,7 @@ where
         }
 
         if self.active_requests.len() > CHANNEL_BUFFER_SIZE {
-            return NetError::from(crate::NetErrorKind::Busy).into();
+            return crate::NetError::Busy.into();
         }
 
         let query_id = match self.next_random_query_id() {

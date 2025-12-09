@@ -13,7 +13,7 @@ use serde::Deserialize;
 
 use crate::config;
 use crate::proto::{
-    DnsError, NetError, NetErrorKind, NoRecords,
+    DnsError, NetError, NoRecords,
     op::{Message, Query},
     rr::RecordType,
 };
@@ -57,11 +57,7 @@ impl ResponseCache {
                     .unwrap_or(positive_min_ttl)
                     .clamp(positive_min_ttl, positive_max_ttl)
             }
-            Err(e) => {
-                let NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = &e.kind else {
-                    return;
-                };
-
+            Err(NetError::Dns(DnsError::NoRecordsFound(no_records))) => {
                 let (negative_min_ttl, negative_max_ttl) = self
                     .ttl_config
                     .negative_response_ttl_bounds(query.query_type())
@@ -72,6 +68,7 @@ impl ResponseCache {
                     negative_min_ttl
                 }
             }
+            Err(_) => return,
         };
         let valid_until = now + ttl;
         self.cache.insert(
@@ -135,10 +132,10 @@ impl Entry {
             }
             Err(e) => {
                 let mut e = e.clone();
-                if let NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+                if let NetError::Dns(DnsError::NoRecordsFound(NoRecords {
                     negative_ttl: Some(ttl),
                     ..
-                })) = &mut e.kind
+                })) = &mut e
                 {
                     *ttl = ttl.saturating_sub(elapsed);
                 }
@@ -385,7 +382,7 @@ mod tests {
         let past_the_future = now + Duration::from_secs(6);
 
         let entry = Entry {
-            result: Err(NetErrorKind::Message("test error").into()).into(),
+            result: Err(NetError::Message("test error")).into(),
             original_time: now,
             valid_until: future,
         };

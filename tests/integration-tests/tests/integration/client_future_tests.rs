@@ -14,7 +14,7 @@ use hickory_integration::{
 };
 use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::{
-    DnsHandle, NetErrorKind,
+    DnsHandle, NetError,
     op::{DnsRequest, Edns, Message, Query, ResponseCode},
     rr::{
         DNSClass, Name, RecordSet, RecordType,
@@ -972,8 +972,7 @@ async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
         .unwrap_err();
 
     println!("got error: {err:?}");
-    if let NetErrorKind::Timeout = err.kind {
-    } else {
+    if !matches!(err, NetError::Timeout) {
         panic!("expected timeout error");
     }
 

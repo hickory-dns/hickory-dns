@@ -10,6 +10,7 @@ use std::{println, process, thread};
 use futures_util::stream::StreamExt;
 use tracing::debug;
 
+use crate::NetError;
 use crate::op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, Query, SerialMessage};
 use crate::rr::rdata::NULL;
 use crate::rr::{Name, RData, Record, RecordType};
@@ -17,7 +18,6 @@ use crate::runtime::RuntimeProvider;
 use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::{DnsRequestSender, FirstAnswer};
-use crate::{NetError, NetErrorKind};
 
 /// Test next random udpsocket.
 pub(super) async fn next_random_socket_test(provider: impl RuntimeProvider) {
@@ -154,13 +154,7 @@ pub(super) async fn udp_client_stream_bad_id_test(
         },
         |response| {
             // The test should pass when we see a bad transaction ID response error.
-            matches!(
-                response,
-                Err(NetError {
-                    kind: NetErrorKind::BadTransactionId,
-                    ..
-                })
-            )
+            matches!(response, Err(NetError::BadTransactionId))
         },
     )
     .await;
@@ -194,10 +188,7 @@ pub(super) async fn udp_client_stream_response_limit_test(
             // The test should pass when we get a UDP receive limit exceeded error.
             matches!(
                 response,
-                Err(NetError {
-                    kind: NetErrorKind::Message("udp receive attempts exceeded"),
-                    ..
-                })
+                Err(NetError::Message("udp receive attempts exceeded"))
             )
         },
     )

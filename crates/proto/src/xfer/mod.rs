@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use tracing::{debug, warn};
 
-use crate::error::{NetError, NetErrorKind, ProtoError};
+use crate::error::{NetError, ProtoError};
 #[cfg(feature = "std")]
 use crate::op::{DnsRequest, DnsResponse, SerialMessage};
 #[cfg(feature = "std")]
@@ -118,7 +118,7 @@ impl Stream for DnsResponseStream {
         };
 
         match result {
-            Err(e) if matches!(e.kind, NetErrorKind::Timeout) => Poll::Ready(None),
+            Err(NetError::Timeout) => Poll::Ready(None),
             r => Poll::Ready(Some(r)),
         }
     }
@@ -294,7 +294,7 @@ impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
         let mut sender = self.sender.clone();
         let try_send = sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
-            NetError::from(NetErrorKind::Busy)
+            NetError::Busy
         });
 
         match try_send {
@@ -419,7 +419,7 @@ where
             .expect("polling FirstAnswerFuture twice");
         let item = match ready!(s.poll_next_unpin(cx)) {
             Some(r) => r,
-            None => Err(NetErrorKind::Timeout.into()),
+            None => Err(NetError::Timeout),
         };
         self.stream.take();
         Poll::Ready(item)

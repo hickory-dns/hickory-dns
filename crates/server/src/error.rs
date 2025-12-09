@@ -76,9 +76,7 @@ impl fmt::Display for PersistenceError {
 
 impl From<PersistenceErrorKind> for PersistenceError {
     fn from(kind: PersistenceErrorKind) -> Self {
-        Self {
-            kind,
-        }
+        Self { kind }
     }
 }
 

@@ -91,8 +91,8 @@ mod tests {
     use futures_util::stream::once;
 
     use super::*;
+    use crate::NetError;
     use crate::xfer::FirstAnswer;
-    use crate::{NetError, NetErrorKind};
 
     #[test]
     fn test_rc_stream() {
@@ -109,14 +109,14 @@ mod tests {
 
     #[test]
     fn test_rc_stream_failed() {
-        let future = future::err::<usize, NetError>(NetError::from(NetErrorKind::Busy));
+        let future = future::err::<usize, NetError>(NetError::Busy);
 
         let rc = rc_stream(once(future));
 
         let i = block_on(rc.clone().first_answer()).unwrap_err();
-        assert!(matches!(i.kind, NetErrorKind::Busy));
+        assert!(matches!(i, NetError::Busy));
 
         let i = block_on(rc.first_answer()).unwrap_err();
-        assert!(matches!(i.kind, NetErrorKind::Busy));
+        assert!(matches!(i, NetError::Busy));
     }
 }

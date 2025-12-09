@@ -69,9 +69,7 @@ impl fmt::Display for Error {
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Self {
-        Self {
-            kind,
-        }
+        Self { kind }
     }
 }
 

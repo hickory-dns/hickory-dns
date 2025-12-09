@@ -83,9 +83,7 @@ pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
-pub use error::{
-    DnsError, ForwardNSData, NetError, NetErrorKind, NoRecords, ProtoError, ProtoErrorKind,
-};
+pub use error::{DnsError, ForwardNSData, NetError, NoRecords, ProtoError, ProtoErrorKind};
 
 #[cfg(feature = "std")]
 pub(crate) use rand::random;

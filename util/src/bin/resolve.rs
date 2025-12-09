@@ -36,7 +36,7 @@ use tokio::task::JoinSet;
 use tokio::time::MissedTickBehavior;
 
 use hickory_proto::{
-    DnsError, NetError, NetErrorKind,
+    DnsError, NetError,
     rr::{Record, RecordData, RecordType},
     runtime::TokioRuntimeProvider,
 };
@@ -161,12 +161,9 @@ fn print_ok(lookup: Lookup) {
 }
 
 fn print_error(error: NetError) {
-    let no_records = match error.kind {
-        NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
-        _ => {
-            println!("{error:?}");
-            return;
-        }
+    let NetError::Dns(DnsError::NoRecordsFound(no_records)) = error else {
+        println!("{error:?}");
+        return;
     };
 
     println!(

@@ -15,7 +15,7 @@ use hickory_integration::mock_client::*;
 use hickory_proto::op::{DnsResponse, Query, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::xfer::{DnsHandle, FirstAnswer};
-use hickory_proto::{DnsError, NetError, NetErrorKind, NoRecords};
+use hickory_proto::{DnsError, NetError, NoRecords};
 use hickory_resolver::config::{
     ConnectionConfig, NameServerConfig, ProtocolConfig, ResolverOpts, ServerOrderingStrategy,
 };
@@ -321,12 +321,9 @@ fn test_tcp_fallback_only_on_truncated() {
     let pool = mock_nameserver_pool(vec![nameserver], None, Default::default());
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
-    match error.kind {
-        NetErrorKind::Dns(DnsError::ResponseCode(ResponseCode::ServFail)) => {}
-        kind => panic!(
-            "got unexpected kind of resolve error; expected `ResponseCode` error with SERVFAIL,
-            got {kind:#?}",
-        ),
+    match error {
+        NetError::Dns(DnsError::ResponseCode(ResponseCode::ServFail)) => {}
+        error => panic!("expected `ResponseCode` error with SERVFAIL, got {error:#?}"),
     }
 }
 
@@ -364,15 +361,12 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let pool = mock_nameserver_pool(vec![nameserver], None, options);
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NXDomain`");
-    match error.kind {
-        NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+    match error {
+        NetError::Dns(DnsError::NoRecordsFound(NoRecords {
             response_code: ResponseCode::NXDomain,
             ..
         })) => {}
-        kind => panic!(
-            "expected `NoRecordsFound` with `response_code: NXDomain`,
-            got {kind:#?}",
-        ),
+        error => panic!("expected `NoRecordsFound` with `response_code: NXDomain`, got {error:#?}"),
     }
 }
 
@@ -409,12 +403,9 @@ fn test_tcp_fallback_on_io_error() {
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
-    match error.kind {
-        NetErrorKind::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
-        kind => panic!(
-            "expected `ResponseCode` with `response_code: NotImp`,
-            got {kind:#?}",
-        ),
+    match error {
+        NetError::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
+        error => panic!("expected `ResponseCode` with `response_code: NotImp`, got {error:#?}"),
     }
 }
 
@@ -427,7 +418,7 @@ fn test_tcp_fallback_on_no_connections() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_message: Result<DnsResponse, _> = Err(NetError::from(NetErrorKind::NoConnections));
+    let udp_message: Result<DnsResponse, _> = Err(NetError::NoConnections);
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
     tcp_message.set_response_code(ResponseCode::NotImp);
@@ -450,12 +441,9 @@ fn test_tcp_fallback_on_no_connections() {
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err("DNS query should result in a `NotImp`");
-    match error.kind {
-        NetErrorKind::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
-        kind => panic!(
-            "expected `ResponseCode` with `response_code: NotImp`,
-            got {kind:#?}",
-        ),
+    match error {
+        NetError::Dns(DnsError::ResponseCode(ResponseCode::NotImp)) => {}
+        error => panic!("expected `ResponseCode` with `response_code: NotImp`, got {error:#?}"),
     }
 }
 
@@ -500,15 +488,12 @@ fn test_trust_nx_responses_fails() {
     // (If we retried the query with the second name server, we'd see a successful response.)
     let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
-    match response.kind {
-        NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+    match response {
+        NetError::Dns(DnsError::NoRecordsFound(NoRecords {
             response_code: ResponseCode::NXDomain,
             ..
         })) => {}
-        kind => panic!(
-            "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
-            got {kind:#?}",
-        ),
+        error => panic!("expected `NoRecordsFound` error with NXDOMAIN, got {error:#?}"),
     }
 }
 
@@ -550,14 +535,14 @@ fn test_noerror_doesnt_leak() {
 
     // lookup should only hit the first server
     let future = pool.send(build_request(query)).first_answer();
-    match block_on(future).unwrap_err().kind {
-        NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+    match block_on(future).unwrap_err() {
+        NetError::Dns(DnsError::NoRecordsFound(NoRecords {
             soa, response_code, ..
         })) => {
             assert_eq!(response_code, ResponseCode::NoError);
             assert!(soa.is_some());
         }
-        x => panic!("Expected NoRecordsFound, got {x:?}"),
+        x => panic!("expected NoRecordsFound, got {x:?}"),
     }
 }
 
@@ -715,13 +700,12 @@ fn test_return_error_from_highest_priority_nameserver() {
     let expected_response_code = ERROR_RESPONSE_CODES.first().unwrap();
     eprintln!("error is: {error}");
 
-    match error.kind {
-        NetErrorKind::Dns(DnsError::ResponseCode(response_code))
+    match error {
+        NetError::Dns(DnsError::ResponseCode(response_code))
             if response_code == *expected_response_code => {}
-        kind => panic!(
-            "got unexpected kind of resolve error; expected error with response \
-            code `{expected_response_code:?}`, got {kind:#?}",
-        ),
+        error => {
+            panic!("expected error with response code `{expected_response_code:?}`, got {error:#?}")
+        }
     }
 }
 

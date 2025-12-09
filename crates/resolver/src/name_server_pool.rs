@@ -36,7 +36,7 @@ use crate::config::{
 use crate::connection_provider::{ConnectionProvider, TlsConfig};
 use crate::name_server::{ConnectionPolicy, NameServer};
 use crate::proto::{
-    DnsError, NetError, NetErrorKind, NoRecords,
+    DnsError, NetError, NoRecords,
     access_control::AccessControlSet,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, OpCode, Query, ResponseCode},
     rr::{
@@ -329,7 +329,7 @@ impl<P: ConnectionProvider> PoolState<P> {
         let mut servers = VecDeque::from(servers);
         let mut backoff = Duration::from_millis(20);
         let mut busy = SmallVec::<[Arc<NameServer<P>>; 2]>::new();
-        let mut err = NetError::from(NetErrorKind::NoConnections);
+        let mut err = NetError::NoConnections;
         let mut policy = ConnectionPolicy::default();
 
         loop {
@@ -386,21 +386,21 @@ impl<P: ConnectionProvider> PoolState<P> {
                     Err(e) => e,
                 };
 
-                match &e.kind {
+                match &e {
                     // We assume the response is spoofed, so ignore it and avoid UDP server for this
                     // request to try and avoid further spoofing.
-                    NetErrorKind::QueryCaseMismatch => {
+                    NetError::QueryCaseMismatch => {
                         servers.push_front(server);
                         policy.disable_udp = true;
                         continue;
                     }
                     // If the server is busy, try it again later if necessary.
-                    NetErrorKind::Busy => busy.push(server),
+                    NetError::Busy => busy.push(server),
                     // If the connection failed, try another one.
-                    NetErrorKind::Io(_) | NetErrorKind::NoConnections => {}
+                    NetError::Io(_) | NetError::NoConnections => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
-                    NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+                    NetError::Dns(DnsError::NoRecordsFound(NoRecords {
                         response_code: ResponseCode::NXDomain,
                         ..
                     })) if !server.trust_negative_responses() => {}
@@ -415,36 +415,27 @@ impl<P: ConnectionProvider> PoolState<P> {
 
 /// Compare two errors to see if one contains a server response.
 fn most_specific(previous: NetError, current: NetError) -> NetError {
-    let prev_dns = match &previous.kind {
-        NetErrorKind::Dns(dns) => Some(dns),
-        _ => None,
-    };
-
-    let cur_dns = match &current.kind {
-        NetErrorKind::Dns(dns) => Some(dns),
-        _ => None,
-    };
-
-    match (prev_dns, cur_dns) {
-        (Some(DnsError::NoRecordsFound { .. }), Some(DnsError::NoRecordsFound { .. })) => {
-            return previous;
-        }
-        (Some(DnsError::NoRecordsFound { .. }), _) => return previous,
-        (_, Some(DnsError::NoRecordsFound { .. })) => return current,
+    match (&previous, &current) {
+        (
+            NetError::Dns(DnsError::NoRecordsFound { .. }),
+            NetError::Dns(DnsError::NoRecordsFound { .. }),
+        ) => return previous,
+        (NetError::Dns(DnsError::NoRecordsFound { .. }), _) => return previous,
+        (_, NetError::Dns(DnsError::NoRecordsFound { .. })) => return current,
         _ => (),
     }
 
-    match (&previous.kind, &current.kind) {
-        (NetErrorKind::Io { .. }, NetErrorKind::Io { .. }) => return previous,
-        (NetErrorKind::Io { .. }, _) => return current,
-        (_, NetErrorKind::Io { .. }) => return previous,
+    match (&previous, &current) {
+        (NetError::Io { .. }, NetError::Io { .. }) => return previous,
+        (NetError::Io { .. }, _) => return current,
+        (_, NetError::Io { .. }) => return previous,
         _ => (),
     }
 
-    match (&previous.kind, &current.kind) {
-        (NetErrorKind::Timeout, NetErrorKind::Timeout) => return previous,
-        (NetErrorKind::Timeout, _) => return previous,
-        (_, NetErrorKind::Timeout) => return current,
+    match (&previous, &current) {
+        (NetError::Timeout, NetError::Timeout) => return previous,
+        (NetError::Timeout, _) => return previous,
+        (_, NetError::Timeout) => return current,
         _ => (),
     }
 
@@ -557,8 +548,8 @@ impl NameServerTransportState {
     /// Update the transport state for the given IP and protocol to record a received error.
     pub(crate) fn error_received(&mut self, ip: IpAddr, protocol: Protocol, error: &NetError) {
         let protocol_state = self.0.entry(ip).or_default();
-        *protocol_state.get_mut(protocol) = match &error.kind {
-            NetErrorKind::Timeout => TransportState::TimedOut {
+        *protocol_state.get_mut(protocol) = match &error {
+            NetError::Timeout => TransportState::TimedOut {
                 #[cfg(any(feature = "__tls", feature = "__quic"))]
                 completed_at: SystemTime::now(),
             },
