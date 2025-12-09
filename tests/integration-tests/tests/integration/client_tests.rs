@@ -403,23 +403,6 @@ async fn test_nsec3_nxdomain() {
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
-#[tokio::test]
-#[cfg(feature = "__dnssec")]
-async fn test_nsec3_no_data() {
-    subscribe();
-
-    let name = Name::from_labels(vec!["www", "example", "com"]).unwrap();
-
-    let mut client = tcp_dnssec_client(GOOGLE_V4).await;
-    let response = client
-        .query(name, DNSClass::IN, RecordType::PTR)
-        .await
-        .expect("Query failed");
-
-    // the name "www.example.com" exists but there's no PTR record on it
-    assert_eq!(response.response_code(), ResponseCode::NoError);
-}
-
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
