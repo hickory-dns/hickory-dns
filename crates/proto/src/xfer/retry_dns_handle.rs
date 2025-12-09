@@ -14,7 +14,7 @@ use core::task::{Context, Poll};
 use futures_util::stream::{Stream, StreamExt};
 
 use crate::xfer::{DnsHandle, DnsRequest, DnsResponse};
-use crate::{DnsError, NetError, NetErrorKind};
+use crate::{DnsError, NetError};
 
 /// Can be used to reattempt queries if they fail
 ///
@@ -89,23 +89,11 @@ impl<H: DnsHandle> Stream for RetrySendStream<H> {
                 // Don't retry some kinds of errors
                 (
                     _,
-                    err @ NetError {
-                        kind: NetErrorKind::NoConnections,
-                        ..
-                    }
-                    | err @ NetError {
-                        kind: NetErrorKind::Dns(DnsError::NoRecordsFound(_)),
-                        ..
-                    },
+                    err @ NetError::NoConnections
+                    | err @ NetError::Dns(DnsError::NoRecordsFound(_)),
                 ) => return Poll::Ready(Some(Err(err))),
                 // Don't count `Busy` as an attempt
-                (
-                    _,
-                    NetError {
-                        kind: NetErrorKind::Busy,
-                        ..
-                    },
-                ) => {}
+                (_, NetError::Busy) => {}
                 // Try again and count this as one attempt
                 (_, _) => self.remaining_attempts -= 1,
             }

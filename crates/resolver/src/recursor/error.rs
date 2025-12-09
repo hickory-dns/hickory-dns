@@ -15,7 +15,7 @@ use thiserror::Error;
 use tracing::warn;
 
 use crate::proto::{
-    DnsError, ForwardNSData, NetError, NetErrorKind, NoRecords, ProtoError,
+    DnsError, ForwardNSData, NetError, NoRecords, ProtoError,
     op::Query,
     op::ResponseCode,
     rr::{Name, Record, RecordType, rdata::SOA},
@@ -111,7 +111,7 @@ impl Error {
     /// Returns true if a query timed out
     pub fn is_timeout(&self) -> bool {
         match &self.kind {
-            ErrorKind::Net(net) => matches!(net.kind, NetErrorKind::Timeout),
+            ErrorKind::Net(net) => matches!(net, NetError::Timeout),
             _ => false,
         }
     }
@@ -159,9 +159,7 @@ where
     E: Into<ErrorKind>,
 {
     fn from(error: E) -> Self {
-        Self {
-            kind: error.into(),
-        }
+        Self { kind: error.into() }
     }
 }
 
@@ -200,8 +198,8 @@ impl From<ProtoError> for Error {
 
 impl From<NetError> for Error {
     fn from(e: NetError) -> Self {
-        let no_records = match e.kind {
-            NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
+        let no_records = match e {
+            NetError::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
             _ => return ErrorKind::Net(e).into(),
         };
 

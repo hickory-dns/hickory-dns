@@ -32,7 +32,7 @@ use futures_util::{
 use tracing::debug;
 
 use crate::{
-    error::{NetError, NetErrorKind, ProtoError, ProtoErrorKind},
+    error::{NetError, ProtoError, ProtoErrorKind},
     op::{
         DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageSigner, OpCode, Query,
         update_message,
@@ -627,7 +627,7 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(match ready!(self.0.poll_next_unpin(cx)) {
             Some(r) => r,
-            None => Err(NetError::from(NetErrorKind::Timeout)),
+            None => Err(NetError::Timeout),
         })
     }
 }

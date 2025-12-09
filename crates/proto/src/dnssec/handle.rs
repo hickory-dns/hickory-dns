@@ -35,7 +35,7 @@ use crate::{
         nsec3::verify_nsec3,
         rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
     },
-    error::{DnsError, NetError, NetErrorKind, NoRecords},
+    error::{DnsError, NetError, NoRecords},
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode},
     rr::{Name, RData, Record, RecordType, SerialNumber, resource::RecordRef},
     runtime::{RuntimeProvider, Time},
@@ -157,16 +157,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             Ok(response) => response,
             // Translate NoRecordsFound errors into a DnsResponse message so the rest of the
             // DNSSEC handler chain can validate negative responses.
-            Err(NetError {
-                kind:
-                    NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-                        query,
-                        authorities,
-                        response_code,
-                        ..
-                    })),
+            Err(NetError::Dns(DnsError::NoRecordsFound(NoRecords {
+                query,
+                authorities,
+                response_code,
                 ..
-            }) => {
+            }))) => {
                 debug!("translating NoRecordsFound to DnsResponse for {query}");
                 let mut msg = Message::query();
                 msg.add_query(*query);
@@ -826,8 +822,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         };
 
         // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
-        let dns_err = error_opt.as_ref().and_then(|e| match &e.kind {
-            NetErrorKind::Dns(err) => Some(err),
+        let dns_err = error_opt.as_ref().and_then(|e| match &e {
+            NetError::Dns(err) => Some(err),
             _ => None,
         });
 

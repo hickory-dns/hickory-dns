@@ -35,7 +35,7 @@ use crate::proto::dnssec::{DnssecDnsHandle, TrustAnchors};
 #[cfg(feature = "tokio")]
 use crate::proto::runtime::TokioRuntimeProvider;
 use crate::proto::{
-    NetError, NetErrorKind,
+    NetError,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
     rr::domain::usage::ONION,
     rr::{IntoName, Name, RData, Record, RecordType, rdata},
@@ -625,7 +625,7 @@ where
     ) -> Self {
         let name = names
             .pop()
-            .ok_or_else(|| NetError::from(NetErrorKind::Message("can not lookup for no names")));
+            .ok_or(NetError::Message("can not lookup for no names"));
 
         let query = match name {
             Ok(name) => {
@@ -1207,10 +1207,10 @@ mod tests {
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
     use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
+    use crate::proto::DnsError;
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::rdata::A;
     use crate::proto::xfer::DnsExchange;
-    use crate::proto::{DnsError, NoRecords};
 
     fn is_send_t<T: Send>() -> bool {
         true
@@ -1512,17 +1512,12 @@ mod tests {
         .await
         .expect_err("this should have been a NoRecordsFound");
 
-        if let NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-            query,
-            negative_ttl,
-            ..
-        })) = error.kind
-        {
-            assert_eq!(*query, Query::query(Name::root(), RecordType::A));
-            assert_eq!(negative_ttl, None);
-        } else {
+        let NetError::Dns(DnsError::NoRecordsFound(no_records)) = error else {
             panic!("wrong error received");
-        }
+        };
+
+        assert_eq!(*no_records.query, Query::query(Name::root(), RecordType::A));
+        assert_eq!(no_records.negative_ttl, None);
     }
 
     #[derive(Clone)]

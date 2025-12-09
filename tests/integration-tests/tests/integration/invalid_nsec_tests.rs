@@ -12,7 +12,7 @@ use hickory_integration::{
 };
 use hickory_proto::client::ClientHandle;
 use hickory_proto::{
-    DnsError, NetErrorKind,
+    DnsError, NetError,
     dnssec::{
         Algorithm, DigestType, Proof, SigSigner, SigningKey,
         crypto::Ed25519SigningKey,
@@ -275,7 +275,7 @@ async fn test_exclude_nsec(
         .query(query_name.clone(), DNSClass::IN, query_type)
         .await
         .unwrap_err();
-    let NetErrorKind::Dns(DnsError::Nsec { proof, .. }) = error.kind else {
+    let NetError::Dns(DnsError::Nsec { proof, .. }) = error else {
         panic!("wrong proto error kind {error}");
     };
     assert_eq!(proof, Proof::Bogus);

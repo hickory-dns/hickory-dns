@@ -16,7 +16,7 @@ use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
-use hickory_proto::NetErrorKind;
+use hickory_proto::NetError;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::client::DnssecClient;
 use hickory_proto::client::{Client, ClientHandle};
@@ -263,9 +263,8 @@ async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
 
     let err = response.unwrap_err();
 
-    if let NetErrorKind::Timeout = err.kind {
-    } else {
-        panic!("expected timeout error")
+    if !matches!(err, NetError::Timeout) {
+        panic!("expected timeout error");
     }
 }
 

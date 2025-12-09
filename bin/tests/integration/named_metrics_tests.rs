@@ -29,7 +29,7 @@ use hickory_proto::dnssec::{
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
 #[cfg(feature = "blocklist")]
-use hickory_proto::{NetError, NetErrorKind, op::DnsResponse};
+use hickory_proto::{NetError, op::DnsResponse};
 use hickory_proto::{
     client::{Client, ClientHandle},
     op::MessageSigner,
@@ -812,10 +812,7 @@ async fn retry_client_lookup(
     loop {
         return match client.query(name.clone(), class, rtype).await {
             Ok(res) => Ok(res),
-            Err(NetError {
-                kind: NetErrorKind::Timeout,
-                ..
-            }) if i < LOOKUP_RETRIES => {
+            Err(NetError::Timeout) if i < LOOKUP_RETRIES => {
                 i += 1;
                 sleep(Duration::from_secs(2)).await;
                 continue;

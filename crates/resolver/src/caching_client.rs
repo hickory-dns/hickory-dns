@@ -20,7 +20,7 @@ use crate::{
     cache::{MAX_TTL, ResponseCache, TtlConfig},
     lookup::Lookup,
     proto::{
-        NetError, NetErrorKind, NoRecords,
+        NetError, NoRecords,
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordType,
@@ -181,17 +181,6 @@ where
         // TODO: take all records and cache them?
         //  if it's DNSSEC they must be signed, otherwise?
         let records = match response_message {
-            // this is the only cacheable form
-            Err(NetError {
-                kind: NetErrorKind::Dns(DnsError::NoRecordsFound(mut no_records)),
-                ..
-            }) => {
-                if is_dnssec {
-                    no_records.negative_ttl = None;
-                }
-                Err(no_records.into())
-            }
-            Err(err) => return Err(err),
             Ok(response_message) => {
                 // allow the handle_noerror function to deal with any error codes
                 let records = Self::handle_noerror(
@@ -205,6 +194,14 @@ where
 
                 Ok(records)
             }
+            // this is the only cacheable form
+            Err(NetError::Dns(DnsError::NoRecordsFound(mut no_records))) => {
+                if is_dnssec {
+                    no_records.negative_ttl = None;
+                }
+                Err(no_records.into())
+            }
+            Err(err) => return Err(err),
         };
 
         // after the request, evaluate if we have additional queries to perform
@@ -470,17 +467,12 @@ mod tests {
         ))
         .unwrap_err();
 
-        if let NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-            query,
-            negative_ttl,
-            ..
-        })) = error.kind
-        {
-            assert_eq!(query, Box::new(Query::new()));
-            assert_eq!(negative_ttl, None);
-        } else {
+        let NetError::Dns(DnsError::NoRecordsFound(no_records)) = error else {
             panic!("wrong error received")
-        }
+        };
+
+        assert_eq!(no_records.query, Box::new(Query::new()));
+        assert_eq!(no_records.negative_ttl, None);
     }
 
     #[test]

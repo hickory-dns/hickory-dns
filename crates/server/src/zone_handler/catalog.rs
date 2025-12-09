@@ -26,7 +26,7 @@ use crate::{
 };
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
 use crate::{
-    proto::{DnsError, NetError, NetErrorKind},
+    proto::{DnsError, NetError},
     resolver::recursor,
 };
 use crate::{
@@ -1092,13 +1092,9 @@ async fn build_forwarded_response(
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
         Err(LookupError::RecursiveError(recursor::Error {
             kind:
-                recursor::ErrorKind::Net(NetError {
-                    kind:
-                        NetErrorKind::Dns(DnsError::Nsec {
-                            response, proof, ..
-                        }),
-                    ..
-                }),
+                recursor::ErrorKind::Net(NetError::Dns(DnsError::Nsec {
+                    response, proof, ..
+                })),
             ..
         })) if proof.is_insecure() => {
             response_header.set_response_code(response.response_code());

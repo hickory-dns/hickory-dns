@@ -36,7 +36,7 @@ use crate::config::{
 use crate::connection_provider::ConnectionProvider;
 use crate::name_server_pool::{NameServerTransportState, PoolContext};
 use crate::proto::{
-    DnsError, NetError, NetErrorKind, NoRecords,
+    DnsError, NetError, NoRecords,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
     rr::{Name, RecordType},
     runtime::{RuntimeProvider, Spawn},
@@ -155,17 +155,17 @@ impl<P: ConnectionProvider> NameServer<P> {
                 meta.set_status(Status::Failed);
 
                 // record the failure
-                match &error.kind {
-                    NetErrorKind::Busy | NetErrorKind::Io(_) | NetErrorKind::Timeout => {
+                match &error {
+                    NetError::Busy | NetError::Io(_) | NetError::Timeout => {
                         meta.srtt.record_failure()
                     }
                     #[cfg(feature = "__quic")]
-                    NetErrorKind::QuinnConfigError(_)
-                    | NetErrorKind::QuinnConnect(_)
-                    | NetErrorKind::QuinnConnection(_)
-                    | NetErrorKind::QuinnTlsConfigError(_) => meta.srtt.record_failure(),
+                    NetError::QuinnConfigError(_)
+                    | NetError::QuinnConnect(_)
+                    | NetError::QuinnConnection(_)
+                    | NetError::QuinnTlsConfigError(_) => meta.srtt.record_failure(),
                     #[cfg(feature = "__tls")]
-                    NetErrorKind::RustlsError(_) => meta.srtt.record_failure(),
+                    NetError::RustlsError(_) => meta.srtt.record_failure(),
                     _ => {}
                 }
 
@@ -208,7 +208,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 &cx.opportunistic_encryption,
                 &self.config.connections,
             )
-            .ok_or_else(|| NetError::from(NetErrorKind::NoConnections))?;
+            .ok_or(NetError::NoConnections)?;
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
@@ -483,15 +483,15 @@ impl ProbeMetrics {
     }
 
     fn increment_errors(&self, proto: Protocol, err: &NetError) {
-        match (&err.kind, proto) {
+        match (&err, proto) {
             #[cfg(feature = "__tls")]
-            (NetErrorKind::Timeout, Protocol::Tls) => {
+            (NetError::Timeout, Protocol::Tls) => {
                 self.tls_probe_metrics.probe_timeouts.increment(1)
             }
             #[cfg(feature = "__tls")]
             (_, Protocol::Tls) => self.tls_probe_metrics.probe_errors.increment(1),
             #[cfg(feature = "__quic")]
-            (NetErrorKind::Timeout, Protocol::Quic) => {
+            (NetError::Timeout, Protocol::Quic) => {
                 self.quic_probe_metrics.probe_timeouts.increment(1)
             }
             #[cfg(feature = "__quic")]
@@ -1308,8 +1308,6 @@ mod opportunistic_enc_tests {
     use crate::connection_provider::{ConnectionProvider, TlsConfig};
     use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
-    #[cfg(feature = "metrics")]
-    use crate::proto::NetErrorKind;
     use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
     use crate::proto::runtime::iocompat::AsyncIoTokioAsStd;
     use crate::proto::runtime::{RuntimeProvider, Spawn, TokioTime};
@@ -1981,7 +1979,7 @@ mod opportunistic_enc_tests {
                     ),
                     // Configure a mock provider that always produces a Timeout error when new connections are requested.
                     &MockProvider {
-                        new_connection_error: Some(NetError::from(NetErrorKind::Timeout)),
+                        new_connection_error: Some(NetError::Timeout),
                         ..MockProvider::default()
                     },
                 )

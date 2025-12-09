@@ -19,7 +19,7 @@ use futures_util::{
 };
 use tracing::{debug, trace, warn};
 
-use crate::error::{NetError, NetErrorKind};
+use crate::error::NetError;
 use crate::op::{
     DEFAULT_RETRY_FLOOR, DnsRequest, DnsResponse, Message, MessageSigner, SerialMessage,
 };
@@ -255,7 +255,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                     response.id()
                 );
 
-                return Err(NetError::from(NetErrorKind::BadTransactionId));
+                return Err(NetError::BadTransactionId);
             }
 
             // Validate the returned query name.
@@ -301,7 +301,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                 warn!(
                     "case of question section did not match: we expected '{request_queries:?}', but received '{response_queries:?}' from server {src}"
                 );
-                return Err(NetError::from(NetErrorKind::QueryCaseMismatch));
+                return Err(NetError::QueryCaseMismatch);
             }
             if !question_matches {
                 warn!(

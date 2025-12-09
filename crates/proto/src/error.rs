@@ -34,96 +34,9 @@ use crate::serialize::binary::DecodeError;
 pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
 /// The error type for network protocol errors (UDP, TCP, QUIC, H2, H3)
+#[non_exhaustive]
 #[derive(Error, Clone, Debug)]
-#[non_exhaustive]
-pub struct NetError {
-    /// Kind of error that occurred
-    pub kind: NetErrorKind,
-}
-
-impl NetError {
-    /// Returns true if the domain does not exist
-    #[inline]
-    pub fn is_nx_domain(&self) -> bool {
-        matches!(
-            self.kind,
-            NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-                response_code: ResponseCode::NXDomain,
-                ..
-            }))
-        )
-    }
-
-    /// Returns true if the error represents NoRecordsFound
-    #[inline]
-    pub fn is_no_records_found(&self) -> bool {
-        matches!(
-            self.kind,
-            NetErrorKind::Dns(DnsError::NoRecordsFound { .. })
-        )
-    }
-
-    /// Returns the SOA record, if the error contains one
-    #[inline]
-    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
-        match self.kind {
-            NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for NetError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
-    }
-}
-
-impl<E: Into<NetErrorKind>> From<E> for NetError {
-    fn from(error: E) -> Self {
-        Self { kind: error.into() }
-    }
-}
-
-impl From<NoRecords> for NetError {
-    fn from(no_records: NoRecords) -> Self {
-        Self::from(NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)))
-    }
-}
-
-impl From<String> for NetError {
-    fn from(msg: String) -> Self {
-        NetErrorKind::Msg(msg).into()
-    }
-}
-
-impl From<&'static str> for NetError {
-    fn from(msg: &'static str) -> Self {
-        NetErrorKind::Message(msg).into()
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<NetError> for io::Error {
-    fn from(e: NetError) -> Self {
-        match e.kind {
-            NetErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::other(e),
-        }
-    }
-}
-
-#[cfg(feature = "wasm-bindgen")]
-impl From<NetError> for wasm_bindgen_crate::JsValue {
-    fn from(e: NetError) -> Self {
-        js_sys::Error::new(&e.to_string()).into()
-    }
-}
-
-/// The error kind for network protocol errors
-#[derive(Clone, Debug, Error)]
-#[non_exhaustive]
-pub enum NetErrorKind {
+pub enum NetError {
     /// A UDP response was received with an incorrect transaction id, likely indicating a
     /// cache-poisoning attempt.
     #[error("bad transaction id received")]
@@ -223,12 +136,69 @@ pub enum NetErrorKind {
     QueryCaseMismatch,
 }
 
+impl NetError {
+    /// Returns true if the domain does not exist
+    #[inline]
+    pub fn is_nx_domain(&self) -> bool {
+        matches!(
+            self,
+            Self::Dns(DnsError::NoRecordsFound(NoRecords {
+                response_code: ResponseCode::NXDomain,
+                ..
+            }))
+        )
+    }
+
+    /// Returns true if the error represents NoRecordsFound
+    #[inline]
+    pub fn is_no_records_found(&self) -> bool {
+        matches!(self, Self::Dns(DnsError::NoRecordsFound { .. }))
+    }
+
+    /// Returns the SOA record, if the error contains one
+    #[inline]
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match self {
+            Self::Dns(DnsError::NoRecordsFound(NoRecords { soa, .. })) => soa,
+            _ => None,
+        }
+    }
+}
+
+impl From<NoRecords> for NetError {
+    fn from(no_records: NoRecords) -> Self {
+        Self::Dns(DnsError::NoRecordsFound(no_records))
+    }
+}
+
 #[cfg(feature = "std")]
-impl From<io::Error> for NetErrorKind {
+impl From<io::Error> for NetError {
     fn from(e: io::Error) -> Self {
         match e.kind() {
             io::ErrorKind::TimedOut => Self::Timeout,
-            _ => Self::Io(e.into()),
+            _ => Self::Io(Arc::new(e)),
+        }
+    }
+}
+
+impl From<String> for NetError {
+    fn from(msg: String) -> Self {
+        Self::Msg(msg)
+    }
+}
+
+impl From<&'static str> for NetError {
+    fn from(msg: &'static str) -> Self {
+        Self::Message(msg)
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<NetError> for io::Error {
+    fn from(e: NetError) -> Self {
+        match e {
+            NetError::Timeout => Self::new(io::ErrorKind::TimedOut, e),
+            _ => Self::other(e),
         }
     }
 }
@@ -257,9 +227,7 @@ impl fmt::Display for ProtoError {
 
 impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
     fn from(error: E) -> Self {
-        Self {
-            kind: error.into(),
-        }
+        Self { kind: error.into() }
     }
 }
 
