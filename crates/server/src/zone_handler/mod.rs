@@ -27,7 +27,7 @@ use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
 use crate::proto::{DnsError, NetError, NoRecords, ProtoError};
 #[cfg(feature = "recursor")]
-use crate::resolver::recursor::{self, Error};
+use crate::resolver::recursor::{self, RecursorError};
 use crate::server::{Request, RequestInfo};
 
 mod auth_lookup;
@@ -392,7 +392,7 @@ pub enum LookupError {
     /// Recursive Resolver Error
     #[cfg(feature = "recursor")]
     #[error("Recursive resolution error: {0}")]
-    RecursiveError(#[from] recursor::Error),
+    RecursiveError(#[from] recursor::RecursorError),
     /// An underlying IO error occurred
     #[error("io error: {0}")]
     Io(io::Error),
@@ -444,9 +444,9 @@ impl LookupError {
             }))) => authorities.clone(),
             Self::NetError(_) => None,
             #[cfg(feature = "recursor")]
-            Self::RecursiveError(Error::Negative(fwd)) => fwd.authorities.clone(),
+            Self::RecursiveError(RecursorError::Negative(fwd)) => fwd.authorities.clone(),
             #[cfg(feature = "recursor")]
-            Self::RecursiveError(Error::Net(NetError::Dns(DnsError::NoRecordsFound(
+            Self::RecursiveError(RecursorError::Net(NetError::Dns(DnsError::NoRecordsFound(
                 NoRecords { authorities, .. },
             )))) => authorities.clone(),
             _ => None,

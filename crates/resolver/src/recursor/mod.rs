@@ -61,7 +61,7 @@ use crate::{
 pub use hickory_proto as proto;
 
 mod error;
-pub use error::Error;
+pub use error::RecursorError;
 
 mod handle;
 use handle::RecursorDnsHandle;
@@ -261,9 +261,11 @@ impl<P: ConnectionProvider> Recursor<P> {
         query: Query,
         request_time: Instant,
         query_has_dnssec_ok: bool,
-    ) -> Result<Message, Error> {
+    ) -> Result<Message, RecursorError> {
         if !query.name().is_fqdn() {
-            return Err(Error::from("query's domain name must be fully qualified"));
+            return Err(RecursorError::from(
+                "query's domain name must be fully qualified",
+            ));
         }
 
         match &self.mode {
@@ -330,11 +332,11 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         config: DnssecConfig,
         response_cache_size: u64,
         ttl_config: TtlConfig,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, RecursorError> {
         let validated_response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
         let trust_anchor = match config.trust_anchor {
             Some(anchor) if anchor.is_empty() => {
-                return Err(Error::from("trust anchor must not be empty"));
+                return Err(RecursorError::from("trust anchor must not be empty"));
             }
             Some(anchor) => anchor,
             None => Arc::new(TrustAnchors::default()),
@@ -368,7 +370,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         query: Query,
         request_time: Instant,
         query_has_dnssec_ok: bool,
-    ) -> Result<Message, Error> {
+    ) -> Result<Message, RecursorError> {
         if let Some(Ok(response)) = self.validated_response_cache.get(&query, request_time) {
             // Increment metrics on cache hits only. We will check the cache a second time
             // inside resolve(), thus we only track cache misses there.
@@ -406,15 +408,15 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         // to preserve SOA and DNSSEC records, and to keep those records in the authorities
         // section of the response.
         if response.response_code() == ResponseCode::NXDomain {
-            use crate::recursor::Error;
+            use crate::recursor::RecursorError;
 
             let Err(dns_error) = DnsError::from_response(response) else {
-                return Err(Error::from(
+                return Err(RecursorError::from(
                     "unable to build ProtoError from response {response:?}",
                 ));
             };
 
-            Err(Error::Net(NetError::from(dns_error)))
+            Err(RecursorError::Net(NetError::from(dns_error)))
         } else if response.answers().is_empty()
             && !response.authorities().is_empty()
             && response.response_code() == ResponseCode::NoError
@@ -435,7 +437,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                     .collect(),
             );
 
-            Err(Error::from(NetError::from(no_records)))
+            Err(RecursorError::from(NetError::from(no_records)))
         } else {
             let message = response.into_message();
             self.validated_response_cache
@@ -645,7 +647,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, Error> {
+    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, RecursorError> {
         let mut tls_config = TlsConfig::new()?;
         if self.opportunistic_encryption.is_enabled() {
             warn!("disabling TLS peer verification for opportunistic encryption mode");

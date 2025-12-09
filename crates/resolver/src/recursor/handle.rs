@@ -17,7 +17,7 @@ use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use super::{
-    Error, RecursorBuilder,
+    RecursorBuilder, RecursorError,
     error::AuthorityData,
     is_subzone,
     proto::{
@@ -62,7 +62,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         roots: &[IpAddr],
         tls: TlsConfig,
         builder: RecursorBuilder<P>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, RecursorError> {
         assert!(!roots.is_empty(), "roots must not be empty");
         let servers = roots
             .iter()
@@ -146,7 +146,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         query_has_dnssec_ok: bool,
         depth: u8,
         cname_limit: Arc<AtomicU8>,
-    ) -> Result<Message, Error> {
+    ) -> Result<Message, RecursorError> {
         if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = result?;
             if response.authoritative() {
@@ -215,7 +215,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // Handle the short circuit case for when we receive NXDOMAIN on a parent name, per RFC
             // 8020.
             Err(e) if e.is_nx_domain() => return Err(e),
-            Err(e) => return Err(Error::from(format!("no nameserver found for {zone}: {e}"))),
+            Err(e) => {
+                return Err(RecursorError::from(format!(
+                    "no nameserver found for {zone}: {e}"
+                )));
+            }
         };
 
         // Set the zone based on the longest delegation found by ns_pool_for_name.  This will
@@ -269,7 +273,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         query_has_dnssec_ok: bool,
         mut depth: u8,
         cname_limit: Arc<AtomicU8>,
-    ) -> Result<Message, Error> {
+    ) -> Result<Message, RecursorError> {
         let query_type = query.query_type();
         let query_name = query.name().clone();
 
@@ -279,7 +283,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         depth += 1;
-        Error::recursion_exceeded(self.recursion_limit, depth, &query_name)?;
+        RecursorError::recursion_exceeded(self.recursion_limit, depth, &query_name)?;
 
         let mut cname_chain = vec![];
 
@@ -302,7 +306,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
             if count > MAX_CNAME_LOOKUPS {
                 warn!("cname limit exceeded for query {query}");
-                return Err(Error::MaxRecordLimitExceeded {
+                return Err(RecursorError::MaxRecordLimitExceeded {
                     count: count as usize,
                     record_type: RecordType::CNAME,
                 });
@@ -355,7 +359,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     /// Retrieve a response from the cache, filtering out non-authoritative responses.
-    fn filtered_cache_lookup(&self, query: &Query, now: Instant) -> Option<Result<Message, Error>> {
+    fn filtered_cache_lookup(
+        &self,
+        query: &Query,
+        now: Instant,
+    ) -> Option<Result<Message, RecursorError>> {
         let response = match self.response_cache.get(query, now) {
             Some(Ok(response)) => response,
             Some(Err(e)) => return Some(Err(e.into())),
@@ -376,7 +384,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         zone: Name,
         ns: NameServerPool<P>,
         now: Instant,
-    ) -> Result<Message, Error> {
+    ) -> Result<Message, RecursorError> {
         let mut response = ns.lookup(query.clone(), self.request_options);
 
         #[cfg(feature = "metrics")]
@@ -388,7 +396,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             Some(Ok(r)) => r,
             Some(Err(e)) => {
                 warn!("lookup error: {e}");
-                return Err(Error::from(e));
+                return Err(RecursorError::from(e));
             }
             None => {
                 warn!("no response to lookup for {query}");
@@ -422,7 +430,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 && response.authorities().is_empty()
                 && authorities_len != 0)
         {
-            return Err(Error::Negative(AuthorityData::new(
+            return Err(RecursorError::Negative(AuthorityData::new(
                 Box::new(query),
                 None,
                 false,
@@ -443,7 +451,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         query_name: Name,
         request_time: Instant,
         mut depth: u8,
-    ) -> Result<(u8, NameServerPool<P>), Error> {
+    ) -> Result<(u8, NameServerPool<P>), RecursorError> {
         // Build a list of every zone between the root and the query name (but not including the root.)
         let mut zones = vec![];
         for i in 1..=query_name.num_labels() {
@@ -467,7 +475,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             trace!(depth, ?zone, "ns_pool_for_name: depth {depth} for {zone}");
             depth += 1;
-            Error::recursion_exceeded(self.ns_recursion_limit, depth, &zone)?;
+            RecursorError::recursion_exceeded(self.ns_recursion_limit, depth, &zone)?;
 
             let parent_zone = zone.base_name();
 
@@ -674,7 +682,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         nameserver_pool: NameServerPool<P>,
         nameservers: I,
         config: &mut Vec<NameServerConfig>,
-    ) -> Result<(u32, u8), Error> {
+    ) -> Result<(u32, u8), RecursorError> {
         let mut pool_queries = vec![];
 
         for ns in nameservers {

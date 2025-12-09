@@ -10,7 +10,7 @@ use std::{
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
 use tokio::time as TokioTime;
 
-use super::{Error, Recursor, RecursorBuilder, RecursorMode, is_subzone};
+use super::{Recursor, RecursorBuilder, RecursorError, RecursorMode, is_subzone};
 use crate::{
     cache::TtlConfig,
     config::ResolverOpts,
@@ -512,7 +512,7 @@ fn ns_cache_test_fixture(
     ns_ttl: u32,
     ttl_config: TtlConfig,
     off_domain: bool,
-) -> Result<Recursor<MockProvider>, Error> {
+) -> Result<Recursor<MockProvider>, RecursorError> {
     subscribe();
     let query_1_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let query_2_name = Name::from_ascii("host2.hickory-dns.testing.")?;
@@ -621,7 +621,10 @@ fn ns_cache_test_fixture(
         .build(&[ROOT_IP])
 }
 
-async fn ttl_lookup(recursor: &Recursor<MockProvider>, name: &Name) -> Result<Message, Error> {
+async fn ttl_lookup(
+    recursor: &Recursor<MockProvider>,
+    name: &Name,
+) -> Result<Message, RecursorError> {
     recursor
         .resolve(
             Query::query(name.clone(), RecordType::A),
