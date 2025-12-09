@@ -34,7 +34,6 @@ use crate::{
     zone_handler::Nsec3QueryInfo,
 };
 use crate::{
-    error::ConfigError,
     proto::{
         op::Query,
         op::ResponseSigner,
@@ -321,7 +320,7 @@ pub struct RecursiveConfig {
 }
 
 impl RecursiveConfig {
-    pub(crate) fn read_roots(&self, root_dir: Option<&Path>) -> Result<Vec<IpAddr>, ConfigError> {
+    pub(crate) fn read_roots(&self, root_dir: Option<&Path>) -> Result<Vec<IpAddr>, ParseError> {
         let path = if let Some(root_dir) = root_dir {
             Cow::Owned(root_dir.join(&self.roots))
         } else {
