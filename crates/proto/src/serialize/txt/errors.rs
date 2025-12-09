@@ -204,7 +204,7 @@ pub(crate) type LexerResult<T> = core::result::Result<T, LexerError>;
 /// The error kind for lexer errors that get returned in the crate
 #[derive(Eq, PartialEq, Debug, Error, Clone)]
 #[non_exhaustive]
-pub enum LexerErrorKind {
+pub enum LexerError {
     /// Unexpected end of input
     #[error("unexpected end of input")]
     EOF,
@@ -240,29 +240,4 @@ pub enum LexerErrorKind {
     /// An unrecognized octet was found
     #[error("unrecognized octet: {0:x}")]
     UnrecognizedOctet(u32),
-}
-
-/// The error type for lexer errors that get returned in the crate
-#[derive(Clone, Error, Debug)]
-pub struct LexerError {
-    kind: LexerErrorKind,
-}
-
-impl LexerError {
-    /// Get the kind of the error
-    pub fn kind(&self) -> &LexerErrorKind {
-        &self.kind
-    }
-}
-
-impl From<LexerErrorKind> for LexerError {
-    fn from(kind: LexerErrorKind) -> Self {
-        Self { kind }
-    }
-}
-
-impl fmt::Display for LexerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
-    }
 }
