@@ -24,7 +24,7 @@ use crate::proto::{
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum Error {
+pub enum RecursorError {
     /// Maximum record limit was exceeded
     #[error("maximum record limit for {record_type} exceeded: {count} records")]
     MaxRecordLimitExceeded {
@@ -71,7 +71,7 @@ pub enum Error {
     },
 }
 
-impl Error {
+impl RecursorError {
     /// Test if the recursion depth has been exceeded, and return an error if it has.
     pub fn recursion_exceeded(limit: Option<u8>, depth: u8, name: &Name) -> Result<(), Self> {
         match limit {
@@ -121,7 +121,7 @@ impl Error {
     }
 }
 
-impl From<NetError> for Error {
+impl From<NetError> for RecursorError {
     fn from(e: NetError) -> Self {
         let no_records = match e {
             NetError::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
@@ -142,36 +142,36 @@ impl From<NetError> for Error {
     }
 }
 
-impl From<Error> for NetError {
-    fn from(e: Error) -> Self {
+impl From<RecursorError> for NetError {
+    fn from(e: RecursorError) -> Self {
         match e {
-            Error::Negative(fwd) => DnsError::NoRecordsFound(fwd.into()).into(),
+            RecursorError::Negative(fwd) => DnsError::NoRecordsFound(fwd.into()).into(),
             _ => Self::from(e.to_string()),
         }
     }
 }
 
-impl From<ProtoError> for Error {
+impl From<ProtoError> for RecursorError {
     fn from(e: ProtoError) -> Self {
         NetError::from(e).into()
     }
 }
 
-impl From<String> for Error {
+impl From<String> for RecursorError {
     fn from(msg: String) -> Self {
         Self::Msg(msg)
     }
 }
 
-impl From<&'static str> for Error {
+impl From<&'static str> for RecursorError {
     fn from(msg: &'static str) -> Self {
         Self::Message(msg)
     }
 }
 
-impl Clone for Error {
+impl Clone for RecursorError {
     fn clone(&self) -> Self {
-        use self::Error::*;
+        use self::RecursorError::*;
         match self {
             MaxRecordLimitExceeded { count, record_type } => MaxRecordLimitExceeded {
                 count: *count,
