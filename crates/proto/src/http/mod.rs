@@ -17,11 +17,6 @@ use thiserror::Error;
 
 use crate::error::ProtoError;
 
-pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
-
-/// The default query path for DNS-over-HTTPS if none was given.
-pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
-
 pub mod request;
 
 /// Create a new Response for an http dns-message request
@@ -144,3 +139,8 @@ pub trait SetHeaders: Send + Sync + 'static {
     /// Get a set of headers to add to the query
     fn set_headers(&self, headers: &mut HeaderMap<HeaderValue>) -> Result<(), Error>;
 }
+
+pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
+
+/// The default query path for DNS-over-HTTPS if none was given.
+pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
