@@ -19,7 +19,6 @@ use http::{Method, Request};
 use tracing::debug;
 
 use crate::http::Version;
-pub use crate::http::error::{Error as HttpsError, Result as HttpsResult};
 
 mod h2_client_stream;
 pub use h2_client_stream::{
@@ -34,7 +33,7 @@ pub async fn message_from<R>(
     this_server_name: Option<Arc<str>>,
     this_server_endpoint: Arc<str>,
     request: Request<R>,
-) -> Result<BytesMut, HttpsError>
+) -> Result<BytesMut, crate::http::Error>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
@@ -70,7 +69,7 @@ where
 pub(crate) async fn message_from_post<R>(
     mut request_stream: R,
     length: Option<usize>,
-) -> Result<BytesMut, HttpsError>
+) -> Result<BytesMut, crate::http::Error>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {

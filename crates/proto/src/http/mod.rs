@@ -15,6 +15,7 @@ pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
 
 pub(crate) mod error;
+pub use error::Error;
 pub mod request;
 pub mod response;
 

@@ -14,7 +14,6 @@ use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{Request, Uri, header, uri};
 use tracing::debug;
 
-use super::error::Result;
 use super::{SetHeaders, Version};
 use crate::error::ProtoError;
 
@@ -37,7 +36,7 @@ impl RequestContext {
     /// request (as described in Section 6), encoded with base64url
     /// [RFC4648].
     /// ```
-    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>> {
+    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>, super::Error> {
         let mut parts = uri::Parts::default();
         parts.path_and_query = Some(
             uri::PathAndQuery::try_from(&*self.query_path)
@@ -79,7 +78,7 @@ pub fn verify<T>(
     name_server: Option<&str>,
     query_path: &str,
     request: &Request<T>,
-) -> Result<()> {
+) -> Result<(), super::Error> {
     // Verify all HTTP parameters
     let uri = request.uri();
 
@@ -247,7 +246,7 @@ mod tests {
     }
 
     impl SetHeaders for Vec<(HeaderName, HeaderValue)> {
-        fn set_headers(&self, map: &mut HeaderMap<HeaderValue>) -> Result<()> {
+        fn set_headers(&self, map: &mut HeaderMap<HeaderValue>) -> Result<(), crate::http::Error> {
             for (name, value) in self.iter() {
                 map.insert(name.clone(), value.clone());
             }
