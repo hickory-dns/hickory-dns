@@ -88,6 +88,7 @@ tokio-util = { workspace = true, optional = true }
 toml.workspace = true
 hex.workspace = true
 hickory-proto.workspace = true
+hickory-resolver.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
 hostname.workspace = true
 metrics = { workspace = true, optional = true }
