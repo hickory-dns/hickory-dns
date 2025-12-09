@@ -10,7 +10,7 @@ use quinn::{RecvStream, SendStream, VarInt};
 use tracing::debug;
 
 use crate::{
-    error::{NetError, ProtoError, ProtoErrorKind},
+    error::{NetError, ProtoError},
     op::{DnsResponse, Message},
 };
 
@@ -152,11 +152,8 @@ impl QuicStream {
         //
         // All DNS messages (queries and responses) sent over DoQ connections MUST be encoded as a
         // 2-octet length field followed by the message content as specified in [RFC1035].
-        let bytes_len = u16::try_from(bytes.len()).map_err(|_e| {
-            NetError::from(ProtoError::from(ProtoErrorKind::MaxBufferSizeExceeded(
-                bytes.len(),
-            )))
-        })?;
+        let bytes_len = u16::try_from(bytes.len())
+            .map_err(|_e| NetError::from(ProtoError::MaxBufferSizeExceeded(bytes.len())))?;
         let len = bytes_len.to_be_bytes().to_vec();
         let len = Bytes::from(len);
 

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    error::{ProtoError, ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict,
@@ -677,10 +677,9 @@ impl BinEncodable for ClientSubnet {
                 if addr_len <= octets.len() {
                     encoder.emit_vec(&octets[0..addr_len])?
                 } else {
-                    return Err(ProtoErrorKind::Message(
+                    return Err(ProtoError::Message(
                         "Invalid addr length for encode EcsOption",
-                    )
-                    .into());
+                    ));
                 }
             }
             IpAddr::V6(ip) => {
@@ -692,10 +691,9 @@ impl BinEncodable for ClientSubnet {
                 if addr_len <= octets.len() {
                     encoder.emit_vec(&octets[0..addr_len])?
                 } else {
-                    return Err(ProtoErrorKind::Message(
+                    return Err(ProtoError::Message(
                         "Invalid addr length for encode EcsOption",
-                    )
-                    .into());
+                    ));
                 }
             }
         }
@@ -716,7 +714,7 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                     (source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }) as usize;
                 let mut octets = Ipv4Addr::UNSPECIFIED.octets();
                 if addr_len > octets.len() {
-                    return Err(ProtoErrorKind::Message("Invalid address length").into());
+                    return Err(ProtoError::Message("Invalid address length"));
                 }
                 for octet in octets.iter_mut().take(addr_len) {
                     *octet = decoder.read_u8()?.unverified();
@@ -735,7 +733,7 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                     (source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }) as usize;
                 let mut octets = Ipv6Addr::UNSPECIFIED.octets();
                 if addr_len > octets.len() {
-                    return Err(ProtoErrorKind::Message("Invalid address length").into());
+                    return Err(ProtoError::Message("Invalid address length"));
                 }
                 for octet in octets.iter_mut().take(addr_len) {
                     *octet = decoder.read_u8()?.unverified();
@@ -747,7 +745,7 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                     scope_prefix,
                 })
             }
-            _ => Err(ProtoErrorKind::Message("Invalid family type.").into()),
+            _ => Err(ProtoError::Message("Invalid family type.")),
         }
     }
 }
@@ -943,7 +941,7 @@ mod tests {
     #[test]
     fn test_nsid_payload_too_large() {
         let err = NSIDPayload::try_from([0x00; (u16::MAX as usize) + 1].as_slice()).unwrap_err();
-        let ProtoErrorKind::Message(msg) = &err.kind else {
+        let ProtoError::Message(msg) = &err else {
             panic!("expected ProtoErrorKind::Message, got {err}");
         };
         assert!(msg.contains("too large"));

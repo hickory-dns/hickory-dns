@@ -16,7 +16,6 @@ use alloc::string::String;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use core::fmt;
 use core::num::ParseIntError;
 #[cfg(feature = "std")]
 use std::io;
@@ -236,71 +235,10 @@ impl From<&'static str> for NetError {
     }
 }
 
-/// The error type for errors that get returned in the crate
-#[derive(Error, Clone, Debug)]
-#[non_exhaustive]
-pub struct ProtoError {
-    /// Kind of error that occurred
-    pub kind: ProtoErrorKind,
-}
-
-impl ProtoError {
-    /// Get the kind of the error
-    #[inline]
-    pub fn kind(&self) -> &ProtoErrorKind {
-        &self.kind
-    }
-}
-
-impl fmt::Display for ProtoError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
-    }
-}
-
-impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
-    fn from(error: E) -> Self {
-        Self { kind: error.into() }
-    }
-}
-
-impl From<&'static str> for ProtoError {
-    fn from(msg: &'static str) -> Self {
-        ProtoErrorKind::Message(msg).into()
-    }
-}
-
-impl From<String> for ProtoError {
-    fn from(msg: String) -> Self {
-        ProtoErrorKind::Msg(msg).into()
-    }
-}
-
-#[cfg(target_os = "android")]
-impl From<jni::errors::Error> for ProtoError {
-    fn from(e: jni::errors::Error) -> Self {
-        ProtoErrorKind::Jni(Arc::new(e)).into()
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<ProtoError> for io::Error {
-    fn from(e: ProtoError) -> Self {
-        Self::other(e)
-    }
-}
-
-#[cfg(feature = "wasm-bindgen")]
-impl From<ProtoError> for wasm_bindgen_crate::JsValue {
-    fn from(e: ProtoError) -> Self {
-        js_sys::Error::new(&e.to_string()).into()
-    }
-}
-
 /// The error kind for errors that get returned in the crate
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
-pub enum ProtoErrorKind {
+pub enum ProtoError {
     /// Character data length exceeded the limit
     #[non_exhaustive]
     #[error("char data length exceeds {max}: {len}")]
@@ -326,7 +264,7 @@ pub enum ProtoErrorKind {
         /// Header of the bad Message
         header: Header,
         /// Error that occurred while parsing the Message
-        error: Box<ProtoError>,
+        error: Box<Self>,
     },
 
     /// The maximum buffer size was exceeded
@@ -369,6 +307,32 @@ pub enum ProtoErrorKind {
     #[cfg(target_os = "android")]
     #[error("JNI call error: {0}")]
     Jni(Arc<jni::errors::Error>),
+}
+
+impl From<String> for ProtoError {
+    fn from(msg: String) -> Self {
+        Self::Msg(msg)
+    }
+}
+
+impl From<&'static str> for ProtoError {
+    fn from(msg: &'static str) -> Self {
+        Self::Message(msg)
+    }
+}
+
+#[cfg(target_os = "android")]
+impl From<jni::errors::Error> for ProtoError {
+    fn from(e: jni::errors::Error) -> Self {
+        ProtoError::Jni(Arc::new(e))
+    }
+}
+
+#[cfg(feature = "wasm-bindgen")]
+impl From<ProtoError> for wasm_bindgen_crate::JsValue {
+    fn from(e: ProtoError) -> Self {
+        js_sys::Error::new(&e.to_string()).into()
+    }
 }
 
 /// Semantic DNS errors

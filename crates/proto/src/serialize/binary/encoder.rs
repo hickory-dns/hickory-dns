@@ -13,8 +13,7 @@ use core::{
 use alloc::vec::Vec;
 
 use crate::{
-    ProtoError,
-    error::{ProtoErrorKind, ProtoResult},
+    error::{ProtoError, ProtoResult},
     op::Header,
 };
 
@@ -24,7 +23,7 @@ use super::BinEncodable;
 mod private {
     use alloc::vec::Vec;
 
-    use crate::{ProtoErrorKind, error::ProtoResult};
+    use crate::{ProtoError, error::ProtoResult};
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
     pub(super) struct MaximalBuf<'a> {
@@ -48,7 +47,7 @@ mod private {
         pub(super) fn write(&mut self, offset: usize, data: &[u8]) -> ProtoResult<()> {
             debug_assert!(offset <= self.buffer.len());
             if offset + data.len() > self.max_size {
-                return Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into());
+                return Err(ProtoError::MaxBufferSizeExceeded(self.max_size));
             }
 
             if offset == self.buffer.len() {
@@ -68,7 +67,7 @@ mod private {
         pub(super) fn reserve(&mut self, offset: usize, len: usize) -> ProtoResult<()> {
             let end = offset + len;
             if end > self.max_size {
-                return Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into());
+                return Err(ProtoError::MaxBufferSizeExceeded(self.max_size));
             }
 
             self.buffer.resize(end, 0);
@@ -331,11 +330,10 @@ impl<'a> BinEncoder<'a> {
     pub fn emit_character_data<S: AsRef<[u8]>>(&mut self, char_data: S) -> ProtoResult<()> {
         let char_bytes = char_data.as_ref();
         if char_bytes.len() > 255 {
-            return Err(ProtoErrorKind::CharacterDataTooLong {
+            return Err(ProtoError::CharacterDataTooLong {
                 max: 255,
                 len: char_bytes.len(),
-            }
-            .into());
+            });
         }
 
         self.emit_character_data_unrestricted(char_data)
@@ -412,10 +410,10 @@ impl<'a> BinEncoder<'a> {
         for i in iter {
             let rollback = self.set_rollback();
             if let Err(e) = i.emit(self) {
-                return Err(match &e.kind {
-                    ProtoErrorKind::MaxBufferSizeExceeded(_) => {
+                return Err(match &e {
+                    ProtoError::MaxBufferSizeExceeded(_) => {
                         rollback.rollback(self);
-                        ProtoError::from(ProtoErrorKind::NotAllRecordsWritten { count })
+                        ProtoError::NotAllRecordsWritten { count }
                     }
                     _ => e,
                 });
@@ -681,8 +679,8 @@ mod tests {
         encoder.emit(4).expect("failed to write");
         let error = encoder.emit(5).unwrap_err();
 
-        match &error.kind {
-            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+        match error {
+            ProtoError::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
     }
@@ -695,8 +693,8 @@ mod tests {
         encoder.set_max_size(0);
         let error = encoder.emit(0).unwrap_err();
 
-        match &error.kind {
-            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+        match error {
+            ProtoError::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
     }
@@ -712,8 +710,8 @@ mod tests {
 
         let error = encoder.place::<u16>().unwrap_err();
 
-        match &error.kind {
-            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+        match error {
+            ProtoError::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
     }

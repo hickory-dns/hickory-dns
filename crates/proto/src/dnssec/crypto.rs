@@ -11,7 +11,7 @@ use super::{
     Algorithm, DigestType, DnsSecErrorKind, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
     ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey,
 };
-use crate::ProtoErrorKind;
+use crate::ProtoError;
 use crate::error::ProtoResult;
 use crate::serialize::binary::DecodeError;
 
@@ -250,7 +250,7 @@ impl PublicKey for Ec {
         let public_key = signature::UnparsedPublicKey::new(alg, self.prefixed_bytes());
         public_key
             .verify(message, signature)
-            .map_err(|_| ProtoErrorKind::Crypto("ECDSA signature verification failed").into())
+            .map_err(|_| ProtoError::Crypto("ECDSA signature verification failed"))
     }
 
     fn algorithm(&self) -> Algorithm {
@@ -296,7 +296,7 @@ impl PublicKey for Ed25519<'_> {
         let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.raw.as_ref());
         public_key
             .verify(message, signature)
-            .map_err(|_| ProtoErrorKind::Crypto("ED25519 signature verification failed").into())
+            .map_err(|_| ProtoError::Crypto("ED25519 signature verification failed"))
     }
 
     fn algorithm(&self) -> Algorithm {
@@ -376,7 +376,7 @@ impl PublicKey for Rsa<'_> {
         };
         public_key
             .verify(alg, message, signature)
-            .map_err(|_| ProtoErrorKind::Crypto("RSA signature verification failed").into())
+            .map_err(|_| ProtoError::Crypto("RSA signature verification failed"))
     }
 
     fn algorithm(&self) -> Algorithm {

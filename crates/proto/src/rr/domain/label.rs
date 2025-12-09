@@ -405,9 +405,9 @@ mod tests {
         #[cfg(feature = "std")]
         eprintln!("{error:?}");
         assert!(error.is_err());
-        match error.unwrap_err().kind {
-            ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(n)) if n == len => (),
-            ProtoErrorKind::Decode(DecodeError::LabelBytesTooLong(e)) => {
+        match error.unwrap_err() {
+            ProtoError::Decode(DecodeError::LabelBytesTooLong(n)) if n == len => (),
+            ProtoError::Decode(DecodeError::LabelBytesTooLong(e)) => {
                 panic!(
                     "LabelTooLongError error don't report expected size {} of the label provided.",
                     e

@@ -7,7 +7,7 @@
 
 use crate::{
     proto::{
-        ProtoError, ProtoErrorKind,
+        ProtoError,
         op::{
             Edns, EmitAndCount, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode,
             ResponseCode, emit_message_parts,
@@ -233,11 +233,10 @@ impl<'q> BinDecodable<'q> for MessageRequest {
 
         match try_parse_rest() {
             Ok(message) => Ok(message),
-            Err(e) => Err(ProtoErrorKind::FormError {
+            Err(e) => Err(ProtoError::FormError {
                 header,
                 error: Box::new(e),
-            }
-            .into()),
+            }),
         }
     }
 }

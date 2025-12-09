@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 use pretty_assertions::assert_eq;
 
 use hickory_proto::{
-    ProtoErrorKind,
+    ProtoError,
     op::Message,
     rr::Record,
     serialize::binary::{BinDecodable, BinEncodable},
@@ -18,7 +18,7 @@ fuzz_target!(|data: &[u8]| {
     let reencoded = match original.to_bytes() {
         Ok(reencoded) => reencoded,
         // If we can't re-encode the original message, we can't re-parse it.
-        Err(err) if matches!(err.kind(), ProtoErrorKind::NotAllRecordsWritten { .. }) => return,
+        Err(ProtoError::NotAllRecordsWritten { .. }) => return,
         Err(err) => {
             eprintln!("{original:?}");
             panic!("Message failed to serialize: {err:?}");

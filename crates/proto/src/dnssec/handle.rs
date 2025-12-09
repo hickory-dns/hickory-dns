@@ -1915,14 +1915,13 @@ const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
 
 #[cfg(test)]
 mod test {
-    use std::io::Error;
-
     use super::{no_closer_matches, verify_nsec};
     use crate::{
         dnssec::{
             Algorithm, Proof,
             rdata::{DNSSECRData, NSEC as rdataNSEC, RRSIG as rdataRRSIG, SigInput},
         },
+        error::ProtoError,
         op::{Query, ResponseCode},
         rr::{
             Name, RData, Record,
@@ -1933,7 +1932,7 @@ mod test {
     use test_support::subscribe;
 
     #[test]
-    fn test_no_closer_matches() -> Result<(), Error> {
+    fn test_no_closer_matches() -> Result<(), ProtoError> {
         subscribe();
 
         assert!(no_closer_matches(
@@ -2019,7 +2018,7 @@ mod test {
 
     // These test cases prove a name does not exist
     #[test]
-    fn nsec_name_error() -> Result<(), Error> {
+    fn nsec_name_error() -> Result<(), ProtoError> {
         subscribe();
 
         // Based on RFC 4035 B.2 - Name Error
@@ -2069,7 +2068,7 @@ mod test {
 
     /// Ensure invalid name error NSEC scenarios fail
     #[test]
-    fn nsec_invalid_name_error() -> Result<(), Error> {
+    fn nsec_invalid_name_error() -> Result<(), ProtoError> {
         subscribe();
         assert_eq!(
             verify_nsec(
@@ -2148,7 +2147,7 @@ mod test {
 
     // These test cases prove that the requested record type does not exist at the query name
     #[test]
-    fn nsec_no_data_error() -> Result<(), Error> {
+    fn nsec_no_data_error() -> Result<(), ProtoError> {
         subscribe();
 
         // Based on RFC 4035 B.3 - No Data Error
@@ -2194,7 +2193,7 @@ mod test {
 
     // Ensure invalid no data NSEC scenarios fails
     #[test]
-    fn nsec_invalid_no_data_error() -> Result<(), Error> {
+    fn nsec_invalid_no_data_error() -> Result<(), ProtoError> {
         subscribe();
 
         assert_eq!(
@@ -2254,7 +2253,7 @@ mod test {
 
     // Ensure that positive answers expanded from wildcards pass validation
     #[test]
-    fn nsec_wildcard_expansion() -> Result<(), Error> {
+    fn nsec_wildcard_expansion() -> Result<(), ProtoError> {
         subscribe();
 
         let input = SigInput {
@@ -2335,7 +2334,7 @@ mod test {
 
     // Ensure that defective wildcard expansion positive answer scenarios fail validation
     #[test]
-    fn nsec_invalid_wildcard_expansion() -> Result<(), Error> {
+    fn nsec_invalid_wildcard_expansion() -> Result<(), ProtoError> {
         subscribe();
 
         let input = SigInput {
@@ -2398,7 +2397,7 @@ mod test {
     }
 
     #[test]
-    fn nsec_wildcard_no_data_error() -> Result<(), Error> {
+    fn nsec_wildcard_no_data_error() -> Result<(), ProtoError> {
         subscribe();
 
         // Based on RFC 4035 B.7 - Wildcard No Data Error
@@ -2458,7 +2457,7 @@ mod test {
     }
 
     #[test]
-    fn nsec_invalid_wildcard_no_data_error() -> Result<(), Error> {
+    fn nsec_invalid_wildcard_no_data_error() -> Result<(), ProtoError> {
         subscribe();
 
         assert_eq!(

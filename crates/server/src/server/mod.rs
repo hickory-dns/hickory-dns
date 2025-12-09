@@ -14,11 +14,8 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "__tls")]
-use crate::proto::rustls::tls_from_stream;
 use bytes::Bytes;
 use futures_util::StreamExt;
-use hickory_proto::ProtoErrorKind;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -36,6 +33,8 @@ use crate::proto::h3::h3_server::H3Server;
 use crate::proto::quic::QuicServer;
 #[cfg(feature = "__tls")]
 use crate::proto::rustls::default_provider;
+#[cfg(feature = "__tls")]
+use crate::proto::rustls::tls_from_stream;
 use crate::{
     access::AccessControl,
     proto::{
@@ -829,10 +828,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 src: src_addr,
                 protocol,
             },
-            Err(ProtoError {
-                kind: ProtoErrorKind::FormError { header, error },
-                ..
-            }) => {
+            Err(ProtoError::FormError { header, error }) => {
                 // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
                 let queries = Queries::empty();
 
