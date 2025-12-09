@@ -27,7 +27,7 @@ use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
 use crate::proto::{DnsError, NetError, NoRecords, ProtoError};
 #[cfg(feature = "recursor")]
-use crate::resolver::recursor::{self, ErrorKind};
+use crate::resolver::recursor::{self, Error};
 use crate::server::{Request, RequestInfo};
 
 mod auth_lookup;
@@ -444,14 +444,11 @@ impl LookupError {
             }))) => authorities.clone(),
             Self::NetError(_) => None,
             #[cfg(feature = "recursor")]
-            Self::RecursiveError(e) => match e.kind() {
-                ErrorKind::Negative(fwd) => fwd.authorities.clone(),
-                ErrorKind::Net(NetError::Dns(DnsError::NoRecordsFound(NoRecords {
-                    authorities,
-                    ..
-                }))) => authorities.clone(),
-                _ => None,
-            },
+            Self::RecursiveError(Error::Negative(fwd)) => fwd.authorities.clone(),
+            #[cfg(feature = "recursor")]
+            Self::RecursiveError(Error::Net(NetError::Dns(DnsError::NoRecordsFound(
+                NoRecords { authorities, .. },
+            )))) => authorities.clone(),
             _ => None,
         }
     }

@@ -61,7 +61,7 @@ use crate::{
 pub use hickory_proto as proto;
 
 mod error;
-pub use error::{Error, ErrorKind};
+pub use error::Error;
 
 mod handle;
 use handle::RecursorDnsHandle;
@@ -406,7 +406,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         // to preserve SOA and DNSSEC records, and to keep those records in the authorities
         // section of the response.
         if response.response_code() == ResponseCode::NXDomain {
-            use crate::recursor::ErrorKind;
+            use crate::recursor::Error;
 
             let Err(dns_error) = DnsError::from_response(response) else {
                 return Err(Error::from(
@@ -414,9 +414,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                 ));
             };
 
-            Err(Error {
-                kind: ErrorKind::Net(NetError::from(dns_error)),
-            })
+            Err(Error::Net(NetError::from(dns_error)))
         } else if response.answers().is_empty()
             && !response.authorities().is_empty()
             && response.response_code() == ResponseCode::NoError

@@ -1090,13 +1090,13 @@ async fn build_forwarded_response(
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
-        Err(LookupError::RecursiveError(recursor::Error {
-            kind:
-                recursor::ErrorKind::Net(NetError::Dns(DnsError::Nsec {
-                    response, proof, ..
-                })),
+        Err(LookupError::RecursiveError(recursor::Error::Net(NetError::Dns(DnsError::Nsec {
+            response,
+            proof,
             ..
-        })) if proof.is_insecure() => {
+        }))))
+            if proof.is_insecure() =>
+        {
             response_header.set_response_code(response.response_code());
 
             if let Some(soa) = response.soa() {

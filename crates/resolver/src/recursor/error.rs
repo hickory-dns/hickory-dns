@@ -9,7 +9,7 @@
 
 #![deny(missing_docs)]
 
-use std::{fmt, io, sync::Arc};
+use std::sync::Arc;
 
 use thiserror::Error;
 use tracing::warn;
@@ -24,7 +24,7 @@ use crate::proto::{
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum ErrorKind {
+pub enum Error {
     /// Maximum record limit was exceeded
     #[error("maximum record limit for {record_type} exceeded: {count} records")]
     MaxRecordLimitExceeded {
@@ -71,68 +71,7 @@ pub enum ErrorKind {
     },
 }
 
-/// The error type for errors that get returned in the crate
-#[derive(Error, Clone, Debug)]
-#[non_exhaustive]
-pub struct Error {
-    /// Kind of error that occurred
-    pub kind: ErrorKind,
-}
-
 impl Error {
-    /// Get the kind of the error
-    pub fn kind(&self) -> &ErrorKind {
-        &self.kind
-    }
-
-    /// Take kind from the Error
-    pub fn into_kind(self) -> ErrorKind {
-        self.kind
-    }
-
-    /// Returns true if the domain does not exist
-    pub fn is_nx_domain(&self) -> bool {
-        match &self.kind {
-            ErrorKind::Net(net) => net.is_nx_domain(),
-            ErrorKind::Negative(fwd) => fwd.is_nx_domain(),
-            _ => false,
-        }
-    }
-
-    /// Returns true if no records were returned
-    pub fn is_no_records_found(&self) -> bool {
-        match &self.kind {
-            ErrorKind::Net(net) => net.is_no_records_found(),
-            ErrorKind::Negative(fwd) => fwd.is_no_records_found(),
-            _ => false,
-        }
-    }
-
-    /// Returns true if a query timed out
-    pub fn is_timeout(&self) -> bool {
-        match &self.kind {
-            ErrorKind::Net(net) => matches!(net, NetError::Timeout),
-            _ => false,
-        }
-    }
-
-    /// Returns the SOA record, if the error contains one
-    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
-        match self.kind {
-            ErrorKind::Net(net) => net.into_soa(),
-            ErrorKind::Negative(fwd) => fwd.soa,
-            _ => None,
-        }
-    }
-
-    /// Return additional records
-    pub fn authorities(self) -> Option<Arc<[Record]>> {
-        match self.kind {
-            ErrorKind::Negative(fwd) => fwd.authorities,
-            _ => None,
-        }
-    }
-
     /// Test if the recursion depth has been exceeded, and return an error if it has.
     pub fn recursion_exceeded(limit: Option<u8>, depth: u8, name: &Name) -> Result<(), Self> {
         match limit {
@@ -141,52 +80,74 @@ impl Error {
         }
 
         warn!("recursion depth exceeded for {name}");
-        Err(ErrorKind::RecursionLimitExceeded {
+        Err(Self::RecursionLimitExceeded {
             count: depth as usize,
+        })
+    }
+
+    /// Returns the SOA record, if the error contains one
+    pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
+        match self {
+            Self::Net(net) => net.into_soa(),
+            Self::Negative(fwd) => fwd.soa,
+            _ => None,
         }
-        .into())
     }
-}
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
+    /// Returns true if no records were returned
+    pub fn is_no_records_found(&self) -> bool {
+        match self {
+            Self::Net(net) => net.is_no_records_found(),
+            Self::Negative(fwd) => fwd.is_no_records_found(),
+            _ => false,
+        }
     }
-}
 
-impl<E> From<E> for Error
-where
-    E: Into<ErrorKind>,
-{
-    fn from(error: E) -> Self {
-        Self { kind: error.into() }
+    /// Returns true if the domain does not exist
+    pub fn is_nx_domain(&self) -> bool {
+        match self {
+            Self::Net(net) => net.is_nx_domain(),
+            Self::Negative(fwd) => fwd.is_nx_domain(),
+            _ => false,
+        }
     }
-}
 
-impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Self {
-        ErrorKind::Message(msg).into()
-    }
-}
-
-impl From<String> for Error {
-    fn from(msg: String) -> Self {
-        ErrorKind::Msg(msg).into()
-    }
-}
-
-impl From<Error> for io::Error {
-    fn from(e: Error) -> Self {
-        match e.kind() {
-            ErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
-            _ => Self::other(e),
+    /// Returns true if a query timed out
+    pub fn is_timeout(&self) -> bool {
+        match self {
+            Self::Net(net) => matches!(net, NetError::Timeout),
+            _ => false,
         }
     }
 }
 
-impl From<Error> for String {
+impl From<NetError> for Error {
+    fn from(e: NetError) -> Self {
+        let no_records = match e {
+            NetError::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
+            _ => return Self::Net(e),
+        };
+
+        if let Some(ns) = no_records.ns {
+            Self::ForwardNS(ns)
+        } else {
+            Self::Negative(AuthorityData::new(
+                no_records.query,
+                no_records.soa,
+                true,
+                matches!(no_records.response_code, ResponseCode::NXDomain),
+                no_records.authorities,
+            ))
+        }
+    }
+}
+
+impl From<Error> for NetError {
     fn from(e: Error) -> Self {
-        e.to_string()
+        match e {
+            Error::Negative(fwd) => DnsError::NoRecordsFound(fwd.into()).into(),
+            _ => Self::from(e.to_string()),
+        }
     }
 }
 
@@ -196,31 +157,21 @@ impl From<ProtoError> for Error {
     }
 }
 
-impl From<NetError> for Error {
-    fn from(e: NetError) -> Self {
-        let no_records = match e {
-            NetError::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
-            _ => return ErrorKind::Net(e).into(),
-        };
-
-        if let Some(ns) = no_records.ns {
-            ErrorKind::ForwardNS(ns)
-        } else {
-            ErrorKind::Negative(AuthorityData::new(
-                no_records.query,
-                no_records.soa,
-                true,
-                matches!(no_records.response_code, ResponseCode::NXDomain),
-                no_records.authorities,
-            ))
-        }
-        .into()
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Self::Msg(msg)
     }
 }
 
-impl Clone for ErrorKind {
+impl From<&'static str> for Error {
+    fn from(msg: &'static str) -> Self {
+        Self::Message(msg)
+    }
+}
+
+impl Clone for Error {
     fn clone(&self) -> Self {
-        use self::ErrorKind::*;
+        use self::Error::*;
         match self {
             MaxRecordLimitExceeded { count, record_type } => MaxRecordLimitExceeded {
                 count: *count,
@@ -234,15 +185,6 @@ impl Clone for ErrorKind {
             Net(net) => Net(net.clone()),
             Timeout => Self::Timeout,
             RecursionLimitExceeded { count } => RecursionLimitExceeded { count: *count },
-        }
-    }
-}
-
-impl From<Error> for NetError {
-    fn from(e: Error) -> Self {
-        match e.kind {
-            ErrorKind::Negative(fwd) => DnsError::NoRecordsFound(fwd.into()).into(),
-            _ => Self::from(e.to_string()),
         }
     }
 }
