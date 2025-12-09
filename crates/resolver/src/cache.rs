@@ -125,7 +125,7 @@ impl Entry {
                     Message::additionals_mut,
                 ] {
                     for record in section_fn(&mut response) {
-                        record.set_ttl(record.ttl().saturating_sub(elapsed));
+                        record.decrement_ttl(elapsed);
                     }
                 }
                 Ok(response)
