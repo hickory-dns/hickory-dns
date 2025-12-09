@@ -227,7 +227,7 @@ impl ResponseHandler for HttpsResponseHandle {
             })?
         };
         let bytes = Bytes::from(bytes);
-        let response = http::response::new(Version::Http2, bytes.len())?;
+        let response = http::response(Version::Http2, bytes.len())?;
 
         debug!("sending response: {:#?}", response);
         let mut stream = self
