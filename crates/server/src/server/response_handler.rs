@@ -5,13 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{io, net::SocketAddr};
+use std::net::SocketAddr;
 
 use tracing::{debug, error, trace};
 
 use crate::{
     proto::{
-        BufDnsStreamHandle, DnsStreamHandle, ProtoError,
+        BufDnsStreamHandle, DnsStreamHandle, NetError, ProtoError,
         op::{Header, MessageType, OpCode, ResponseCode, SerialMessage},
         rr::Record,
         serialize::binary::BinEncodable,
@@ -39,7 +39,7 @@ pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> io::Result<ResponseInfo>;
+    ) -> Result<ResponseInfo, NetError>;
 }
 
 /// A handler for wrapping a [`BufDnsStreamHandle`], which will properly serialize the message and add the
@@ -101,7 +101,7 @@ impl ResponseHandler for ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> io::Result<ResponseInfo> {
+    ) -> Result<ResponseInfo, NetError> {
         let id = response.header().id();
         debug!(
             id,
@@ -129,8 +129,7 @@ impl ResponseHandler for ResponseHandle {
         })?;
 
         self.stream_handle
-            .send(SerialMessage::new(buffer, self.dst))
-            .map_err(|_| io::Error::other("unknown"))?;
+            .send(SerialMessage::new(buffer, self.dst))?;
 
         Ok(info)
     }

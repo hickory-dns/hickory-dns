@@ -697,7 +697,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> io::Result<ResponseInfo> {
+    ) -> Result<ResponseInfo, NetError> {
         let response_info = self.handler.send_response(response).await?;
 
         let id = self.request_header.id();

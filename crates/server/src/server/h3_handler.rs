@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{io, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
@@ -179,7 +179,7 @@ impl ResponseHandler for H3ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> io::Result<ResponseInfo> {
+    ) -> Result<ResponseInfo, NetError> {
         let id = response.header().id();
         let mut bytes = Vec::with_capacity(512);
         // mut block
@@ -195,12 +195,9 @@ impl ResponseHandler for H3ResponseHandle {
 
         debug!("sending response: {:#?}", response);
         let mut stream = self.0.lock().await;
-        stream
-            .send_response(response)
-            .await
-            .map_err(NetError::from)?;
-        stream.send_data(bytes).await.map_err(NetError::from)?;
-        stream.finish().await.map_err(NetError::from)?;
+        stream.send_response(response).await?;
+        stream.send_data(bytes).await?;
+        stream.finish().await?;
 
         Ok(info)
     }
