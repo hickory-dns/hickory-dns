@@ -7,7 +7,6 @@
 
 //! All zone persistence related types
 
-use std::fmt;
 use std::iter::Iterator;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
@@ -104,11 +103,10 @@ impl Journal {
         )?;
         //
         if count != 1 {
-            return Err(PersistenceErrorKind::WrongInsertCount {
+            return Err(PersistenceError::WrongInsertCount {
                 got: count,
                 expect: 1,
-            }
-            .into());
+            });
         };
 
         Ok(())
@@ -336,7 +334,7 @@ impl Iterator for JournalIter<'_> {
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum PersistenceErrorKind {
+pub enum PersistenceError {
     /// An error that occurred when recovering from journal
     #[error("error recovering from journal: {}", _0)]
     Recovery(&'static str),
@@ -363,42 +361,4 @@ pub enum PersistenceErrorKind {
     /// A request timed out
     #[error("request timed out")]
     Timeout,
-}
-
-/// The error type for errors that get returned in the crate
-#[derive(Debug, Error)]
-pub struct PersistenceError {
-    kind: PersistenceErrorKind,
-}
-
-impl PersistenceError {
-    /// Get the kind of the error
-    pub fn kind(&self) -> &PersistenceErrorKind {
-        &self.kind
-    }
-}
-
-impl fmt::Display for PersistenceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.kind))
-    }
-}
-
-impl From<PersistenceErrorKind> for PersistenceError {
-    fn from(kind: PersistenceErrorKind) -> Self {
-        Self { kind }
-    }
-}
-
-impl From<ProtoError> for PersistenceError {
-    fn from(e: ProtoError) -> Self {
-        PersistenceErrorKind::from(e).into()
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl From<rusqlite::Error> for PersistenceError {
-    fn from(e: rusqlite::Error) -> Self {
-        PersistenceErrorKind::from(e).into()
-    }
 }
