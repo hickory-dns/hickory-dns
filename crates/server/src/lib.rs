@@ -54,7 +54,7 @@ pub use hickory_resolver as resolver;
 mod access;
 mod error;
 pub mod zone_handler;
-pub use error::{ConfigError, ConfigErrorKind, PersistenceError, PersistenceErrorKind};
+pub use error::{ConfigError, ConfigErrorKind};
 pub mod server;
 pub mod store;
 
