@@ -1,6 +1,6 @@
 # Overview
 
-`hickory-proto` is a safe and secure low-level DNS library. 
+`hickory-proto` is a safe and secure low-level DNS library.
 This is the foundational DNS protocol library used by the other higher-level Hickory DNS crates.
 
 Unless you want to manipulate the DNS packets directly, it is likely not the library you want.
@@ -53,7 +53,6 @@ desired cryptography provider:
 * `no-std-rand` - enables a custom random function backed by a no_std compatible mutex.
 * `mdns` (experimental) - enable experimental mDNS support.
 * `wasm-bindgen` - support for WASM.
-* `backtrace` - enable error backtrace collection.
 * `access-control` - enable data structures useful for blocklists and access control.
 
 [rustls-platform-verifier]: https://crates.io/crates/rustls-platform-verifier

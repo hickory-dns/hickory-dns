@@ -3,7 +3,7 @@
 `hickory-resolver` is a safe and secure DNS stub resolver library intended to be a high-level library
 for DNS record resolution.
 
-It can be configured to use the system resolver configuration and will properly follow CNAME chains 
+It can be configured to use the system resolver configuration and will properly follow CNAME chains
 as well as SRV record lookups.
 
 ## Features
@@ -63,7 +63,6 @@ implemented.
   [rustls-platform-verifier].
 * `webpki-roots` - use the [webpki-roots] crate for TLS certificate verification.
 * `metrics` - support exposing metrics using the [`metrics`] crate.
-* `backtrace` - enable error backtrace collection.
 
 [rustls-platform-verifier]: https://crates.io/crates/rustls-platform-verifier
 [webpki-roots]: https://crates.io/crates/webpki-roots

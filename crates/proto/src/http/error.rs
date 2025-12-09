@@ -13,9 +13,6 @@ use crate::error::ProtoError;
 use http::header::ToStrError;
 use thiserror::Error;
 
-#[cfg(feature = "backtrace")]
-use crate::{ExtBacktrace, trace};
-
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::core::result::Result<T, Error>;
 
@@ -55,8 +52,6 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
@@ -68,18 +63,7 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
@@ -87,8 +71,6 @@ impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Self {
         Self {
             kind,
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
         }
     }
 }

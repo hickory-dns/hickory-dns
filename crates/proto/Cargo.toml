@@ -70,8 +70,6 @@ no-std-rand = ["once_cell/critical-section", "dep:critical-section"]
 
 wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
-backtrace = ["dep:backtrace", "std"]
-
 access-control  = ["std", "dep:prefix-trie"]
 
 [lib]
@@ -81,7 +79,6 @@ path = "src/lib.rs"
 [dependencies]
 async-trait.workspace = true
 aws-lc-rs = { workspace = true, optional = true }
-backtrace = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true

@@ -83,7 +83,6 @@ http = "1.1"
 critical-section = { version = "1.1.1" }
 
 # others
-backtrace = "0.3.50"
 bitflags = "2.4.1"
 bytes = "1"
 cfg-if = "1"

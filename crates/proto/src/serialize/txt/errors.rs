@@ -1,17 +1,13 @@
 use alloc::{fmt, string::String};
 use std::io;
 
-#[cfg(feature = "backtrace")]
-use crate::trace;
+use thiserror::Error;
+
 use crate::{
     error::ProtoError,
     rr::RecordType,
     serialize::{binary::DecodeError, txt::Token},
 };
-
-#[cfg(feature = "backtrace")]
-use backtrace::Backtrace as ExtBacktrace;
-use thiserror::Error;
 
 /// An alias for parse results returned by functions of this crate
 pub type ParseResult<T> = ::core::result::Result<T, ParseError>;
@@ -107,8 +103,6 @@ impl Clone for ParseErrorKind {
 #[derive(Error, Debug)]
 pub struct ParseError {
     kind: ParseErrorKind,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
 }
 
 impl ParseError {
@@ -120,28 +114,13 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
 impl From<ParseErrorKind> for ParseError {
     fn from(kind: ParseErrorKind) -> Self {
-        Self {
-            kind,
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
-        }
+        Self { kind }
     }
 }
 
@@ -267,8 +246,6 @@ pub enum LexerErrorKind {
 #[derive(Clone, Error, Debug)]
 pub struct LexerError {
     kind: LexerErrorKind,
-    #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
 }
 
 impl LexerError {
@@ -280,27 +257,12 @@ impl LexerError {
 
 impl From<LexerErrorKind> for LexerError {
     fn from(kind: LexerErrorKind) -> Self {
-        Self {
-            kind,
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
-        }
+        Self { kind }
     }
 }
 
 impl fmt::Display for LexerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }

@@ -20,8 +20,6 @@ use crate::proto::{
     op::ResponseCode,
     rr::{Name, Record, RecordType, rdata::SOA},
 };
-#[cfg(feature = "backtrace")]
-use crate::proto::{ExtBacktrace, trace};
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
@@ -79,9 +77,6 @@ pub enum ErrorKind {
 pub struct Error {
     /// Kind of error that occurred
     pub kind: ErrorKind,
-    /// Backtrace to the source of the error
-    #[cfg(feature = "backtrace")]
-    pub backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
@@ -155,18 +150,7 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
@@ -177,8 +161,6 @@ where
     fn from(error: E) -> Self {
         Self {
             kind: error.into(),
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
         }
     }
 }

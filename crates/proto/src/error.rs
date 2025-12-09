@@ -20,10 +20,6 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-#[cfg(feature = "backtrace")]
-pub use backtrace::Backtrace as ExtBacktrace;
-#[cfg(feature = "backtrace")]
-use once_cell::sync::Lazy;
 use thiserror::Error;
 use tracing::debug;
 
@@ -34,31 +30,6 @@ use crate::rr::RData;
 use crate::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
 use crate::serialize::binary::DecodeError;
 
-/// Boolean for checking if backtrace is enabled at runtime
-#[cfg(feature = "backtrace")]
-pub static ENABLE_BACKTRACE: Lazy<bool> = Lazy::new(|| {
-    use std::env;
-    let bt = env::var("RUST_BACKTRACE");
-    matches!(bt.as_ref().map(|s| s as &str), Ok("full") | Ok("1"))
-});
-
-/// Generate a backtrace
-///
-/// If RUST_BACKTRACE is 1 or full then this will return Some(Backtrace), otherwise, NONE.
-#[cfg(feature = "backtrace")]
-#[macro_export]
-macro_rules! trace {
-    () => {{
-        use $crate::ExtBacktrace as Backtrace;
-
-        if *$crate::ENABLE_BACKTRACE {
-            Some(Backtrace::new())
-        } else {
-            None
-        }
-    }};
-}
-
 /// An alias for results returned by functions of this crate
 pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 
@@ -68,9 +39,6 @@ pub(crate) type ProtoResult<T> = ::core::result::Result<T, ProtoError>;
 pub struct NetError {
     /// Kind of error that occurred
     pub kind: NetErrorKind,
-    /// Backtrace to the source of the error
-    #[cfg(feature = "backtrace")]
-    pub backtrack: Option<ExtBacktrace>,
 }
 
 impl NetError {
@@ -107,28 +75,13 @@ impl NetError {
 
 impl fmt::Display for NetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
 impl<E: Into<NetErrorKind>> From<E> for NetError {
     fn from(error: E) -> Self {
-        Self {
-            kind: error.into(),
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
-        }
+        Self { kind: error.into() }
     }
 }
 
@@ -286,9 +239,6 @@ impl From<io::Error> for NetErrorKind {
 pub struct ProtoError {
     /// Kind of error that occurred
     pub kind: ProtoErrorKind,
-    /// Backtrace to the source of the error
-    #[cfg(feature = "backtrace")]
-    pub backtrack: Option<ExtBacktrace>,
 }
 
 impl ProtoError {
@@ -301,18 +251,7 @@ impl ProtoError {
 
 impl fmt::Display for ProtoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "backtrace")] {
-                if let Some(backtrace) = &self.backtrack {
-                    fmt::Display::fmt(&self.kind, f)?;
-                    fmt::Debug::fmt(backtrace, f)
-                } else {
-                    fmt::Display::fmt(&self.kind, f)
-                }
-            } else {
-                fmt::Display::fmt(&self.kind, f)
-            }
-        }
+        f.write_fmt(format_args!("{}", self.kind))
     }
 }
 
@@ -320,8 +259,6 @@ impl<E: Into<ProtoErrorKind>> From<E> for ProtoError {
     fn from(error: E) -> Self {
         Self {
             kind: error.into(),
-            #[cfg(feature = "backtrace")]
-            backtrack: trace!(),
         }
     }
 }
