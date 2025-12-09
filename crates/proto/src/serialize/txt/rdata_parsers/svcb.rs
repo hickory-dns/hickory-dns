@@ -168,7 +168,7 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
 ///
 /// Currently this does not validate that the mandatory section matches the other keys
 fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or({ ParseError::Message("expected at least one Mandatory field") })?;
+    let value = value.ok_or(ParseError::Message("expected at least one Mandatory field"))?;
 
     let mandatories = parse_list::<SvcParamKey>(value)?;
     Ok(SvcParamValue::Mandatory(Mandatory(mandatories)))
@@ -267,8 +267,9 @@ fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///  contain escape sequences.
 /// ```
 fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value =
-        value.ok_or({ ParseError::Message("expected a base64 encoded string for EchConfig") })?;
+    let value = value.ok_or(ParseError::Message(
+        "expected a base64 encoded string for EchConfig",
+    ))?;
 
     let value = parse_char_data(value)?;
     let ech_config_bytes = data_encoding::BASE64.decode(value.as_bytes())?;

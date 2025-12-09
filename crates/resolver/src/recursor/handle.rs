@@ -17,7 +17,7 @@ use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use super::{
-    Error, ErrorKind, RecursorBuilder,
+    Error, RecursorBuilder,
     error::AuthorityData,
     is_subzone,
     proto::{
@@ -302,11 +302,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
             if count > MAX_CNAME_LOOKUPS {
                 warn!("cname limit exceeded for query {query}");
-                return Err(ErrorKind::MaxRecordLimitExceeded {
+                return Err(Error::MaxRecordLimitExceeded {
                     count: count as usize,
                     record_type: RecordType::CNAME,
-                }
-                .into());
+                });
             }
 
             // Note that we aren't worried about whether the intermediates are local or remote
@@ -423,14 +422,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 && response.authorities().is_empty()
                 && authorities_len != 0)
         {
-            return Err(ErrorKind::Negative(AuthorityData::new(
+            return Err(Error::Negative(AuthorityData::new(
                 Box::new(query),
                 None,
                 false,
                 true,
                 None,
-            ))
-            .into());
+            )));
         }
 
         let message = response.into_message();
