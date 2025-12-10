@@ -180,7 +180,6 @@
     clippy::print_stdout,
     clippy::unimplemented,
     clippy::use_self,
-    missing_copy_implementations,
     missing_docs,
     non_snake_case,
     non_upper_case_globals,

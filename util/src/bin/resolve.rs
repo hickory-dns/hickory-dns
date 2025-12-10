@@ -12,7 +12,6 @@
     clippy::default_trait_access,
     clippy::dbg_macro,
     clippy::unimplemented,
-    missing_copy_implementations,
     missing_docs,
     non_snake_case,
     non_upper_case_globals,

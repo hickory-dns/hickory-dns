@@ -261,7 +261,6 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 }
 
 /// TLS configuration for the connection provider.
-#[cfg_attr(not(feature = "__tls"), allow(missing_copy_implementations))]
 pub struct TlsConfig {
     /// The TLS configuration to use for secure connections.
     #[cfg(feature = "__tls")]
