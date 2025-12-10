@@ -1114,7 +1114,6 @@ impl fmt::Display for Message {
 /// information.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[cfg_attr(not(feature = "__dnssec"), allow(missing_copy_implementations))]
 pub enum MessageSignature {
     /// The message is not signed, or the dnssec crate feature is not enabled.
     #[default]

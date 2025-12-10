@@ -35,7 +35,6 @@ use crate::rr::Name;
 use crate::serialize::binary::{BinEncoder, EncodeMode};
 
 /// Context for a TSIG response, used to construct a TSIG response signer
-#[allow(missing_copy_implementations)]
 pub struct TSigResponseContext {
     request_id: u16,
     time: u64,

@@ -657,7 +657,6 @@ impl RecursiveConfig {
 #[cfg(feature = "serde")]
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
-#[allow(missing_copy_implementations)]
 pub enum DnssecPolicyConfig {
     /// security unaware; DNSSEC records will not be requested nor processed
     #[default]
@@ -949,7 +948,6 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
 /// `Recursor`'s DNSSEC policy
 // `Copy` can only be implemented when `dnssec` is disabled we don't want to remove a trait
 // implementation when a feature is enabled as features are meant to be additive
-#[allow(missing_copy_implementations)]
 #[derive(Clone)]
 pub enum DnssecPolicy {
     /// security unaware; DNSSEC records will not be requested nor processed

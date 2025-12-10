@@ -391,7 +391,7 @@ impl<'de> serde::Deserialize<'de> for ConnectionConfig {
 }
 
 /// Protocol configuration
-#[allow(missing_docs, missing_copy_implementations)]
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(
     feature = "serde",
@@ -472,7 +472,6 @@ impl ProtocolConfig {
     derive(Serialize, Deserialize),
     serde(default, deny_unknown_fields)
 )]
-#[allow(missing_copy_implementations)]
 #[non_exhaustive]
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
