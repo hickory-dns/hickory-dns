@@ -106,3 +106,6 @@ webpki-roots = { workspace = true, optional = true }
 skip_optional_dependencies = true
 max_combination_size = 2
 denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]
+
+[lints]
+workspace = true
