@@ -8,7 +8,7 @@ use dns_test::{
     zone_file::SignSettings,
 };
 
-pub fn bad_signature_in_leaf_nameserver(
+pub(super) fn bad_signature_in_leaf_nameserver(
     leaf_fqdn: &FQDN,
     leaf_ipv4_addr: Ipv4Addr,
 ) -> Result<(Resolver, Graph), Error> {
@@ -54,7 +54,7 @@ pub fn bad_signature_in_leaf_nameserver(
     Ok((resolver, graph))
 }
 
-pub fn minimally_secure(
+pub(super) fn minimally_secure(
     leaf_fqdn: FQDN,
     leaf_ipv4_addr: Ipv4Addr,
     settings: SignSettings,

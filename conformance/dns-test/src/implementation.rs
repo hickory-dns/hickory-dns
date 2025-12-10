@@ -12,7 +12,7 @@ use crate::zone_file::ZoneFile;
 use crate::{Error, FQDN};
 
 #[derive(Clone)]
-pub enum Config<'a> {
+pub(crate) enum Config<'a> {
     NameServer {
         origin: &'a FQDN,
         use_dnssec: bool,
@@ -34,7 +34,7 @@ pub enum Config<'a> {
 }
 
 impl Config<'_> {
-    pub fn role(&self) -> Role {
+    pub(crate) fn role(&self) -> Role {
         match self {
             Config::NameServer { .. } => Role::NameServer,
             Config::Resolver { .. } => Role::Resolver,
@@ -45,11 +45,11 @@ impl Config<'_> {
 
 /// Configuration for a TLS server
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
-pub struct TlsServerConfig {
+pub(crate) struct TlsServerConfig {
     /// Path to a PEM encoded certificate chain for the server.
-    pub cert_chain: PathBuf,
+    pub(crate) cert_chain: PathBuf,
     /// Path to the PEM encoded private key associated with the leaf cert of `cert_chain`.
-    pub private_key: PathBuf,
+    pub(crate) private_key: PathBuf,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -80,12 +80,12 @@ pub enum Implementation {
 impl Implementation {
     pub fn supports_ede(&self) -> bool {
         match self {
-            Implementation::Bind => false,
-            Implementation::Hickory { .. } => true,
-            Implementation::Pdns => true,
-            Implementation::Unbound => true,
-            Implementation::EdeDotCom => false, // does not support running a resolver
-            Implementation::TestServer { .. } => true,
+            Self::Bind => false,
+            Self::Hickory { .. } => true,
+            Self::Pdns => true,
+            Self::Unbound => true,
+            Self::EdeDotCom => false, // does not support running a resolver
+            Self::TestServer { .. } => true,
         }
     }
 
@@ -109,8 +109,8 @@ impl Implementation {
     /// A test peer that cannot be changed using the `DNS_TEST_PEER` env variable.
     ///
     /// This is intended for use within `e2e-tests`, not `conformance-tests`.
-    pub const fn test_peer() -> Implementation {
-        Implementation::Unbound
+    pub const fn test_peer() -> Self {
+        Self::Unbound
     }
 
     #[must_use]
@@ -138,7 +138,7 @@ impl Implementation {
         matches!(self, Self::Unbound)
     }
 
-    pub(crate) fn format_config(&self, config: Config) -> String {
+    pub(crate) fn format_config(&self, config: Config<'_>) -> String {
         match config {
             Config::Resolver {
                 use_dnssec,
@@ -312,17 +312,17 @@ impl Implementation {
 
     pub(crate) fn cmd_args(&self, role: Role) -> Vec<String> {
         let base = match self {
-            Implementation::Bind | Implementation::EdeDotCom => "named -g -d5",
-            Implementation::Hickory { .. } => "hickory-dns -d",
-            Implementation::Pdns => match role {
+            Self::Bind | Self::EdeDotCom => "named -g -d5",
+            Self::Hickory { .. } => "hickory-dns -d",
+            Self::Pdns => match role {
                 Role::Resolver | Role::Forwarder => "pdns_recursor",
                 Role::NameServer => "pdns_server",
             },
-            Implementation::Unbound => match role {
+            Self::Unbound => match role {
                 Role::NameServer => "nsd -d",
                 Role::Resolver | Role::Forwarder => "unbound -d",
             },
-            Implementation::TestServer {
+            Self::TestServer {
                 handler, transport, ..
             } => &format!("test-server --handler {handler} --transport {transport}")[..],
         };
@@ -350,18 +350,18 @@ impl Implementation {
         let suffix = stream.as_str();
 
         let path = match self {
-            Implementation::Bind | Implementation::EdeDotCom => "/tmp/named",
+            Self::Bind | Self::EdeDotCom => "/tmp/named",
 
-            Implementation::Hickory { .. } => "/tmp/hickory",
+            Self::Hickory { .. } => "/tmp/hickory",
 
-            Implementation::Pdns => "/tmp/pdns",
+            Self::Pdns => "/tmp/pdns",
 
-            Implementation::Unbound => match role {
+            Self::Unbound => match role {
                 Role::NameServer => "/tmp/nsd",
                 Role::Resolver | Role::Forwarder => "/tmp/unbound",
             },
 
-            Implementation::TestServer { .. } => "/tmp/test-server",
+            Self::TestServer { .. } => "/tmp/test-server",
         };
 
         format!("{path}.{suffix}")

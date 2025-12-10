@@ -26,27 +26,27 @@ pub fn FQDN(input: impl Into<Cow<'static, str>>) -> Result<FQDN, Error> {
 }
 
 impl FQDN {
-    pub const ROOT: FQDN = FQDN {
+    pub const ROOT: Self = Self {
         inner: Cow::Borrowed("."),
     };
 
-    pub const TEST_TLD: FQDN = FQDN {
+    pub const TEST_TLD: Self = Self {
         inner: Cow::Borrowed("testing."),
     };
 
-    pub const COM_TLD: FQDN = FQDN {
+    pub const COM_TLD: Self = Self {
         inner: Cow::Borrowed("com."),
     };
 
-    pub const EDE_DOT_COM: FQDN = FQDN {
+    pub const EDE_DOT_COM: Self = Self {
         inner: Cow::Borrowed("extended-dns-errors.com."),
     };
 
-    pub const TEST_DOMAIN: FQDN = FQDN {
+    pub const TEST_DOMAIN: Self = Self {
         inner: Cow::Borrowed("hickory-dns.testing."),
     };
 
-    pub const EXAMPLE_SUBDOMAIN: FQDN = FQDN {
+    pub const EXAMPLE_SUBDOMAIN: Self = Self {
         inner: Cow::Borrowed("example.hickory-dns.testing."),
     };
 
@@ -67,25 +67,25 @@ impl FQDN {
         }
     }
 
-    pub fn into_owned(self) -> FQDN {
+    pub fn into_owned(self) -> Self {
         let owned = match self.inner {
             Cow::Borrowed(borrowed) => borrowed.to_string(),
             Cow::Owned(owned) => owned,
         };
 
-        FQDN {
+        Self {
             inner: Cow::Owned(owned),
         }
     }
 
-    pub fn parent(&self) -> Option<FQDN> {
+    pub fn parent(&self) -> Option<Self> {
         let (fragment, parent) = self.inner.split_once('.').unwrap();
 
         if fragment.is_empty() {
             None
         } else {
             let parent = if parent.is_empty() {
-                FQDN::ROOT
+                Self::ROOT
             } else {
                 FQDN(parent.to_string()).unwrap()
             };
