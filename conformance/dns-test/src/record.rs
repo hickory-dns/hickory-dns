@@ -240,21 +240,21 @@ impl FromStr for Record {
             .ok_or("record is missing the type column")?;
 
         let record = match record_type {
-            "A" => Record::A(input.parse()?),
-            "CAA" => Record::CAA(input.parse()?),
-            "CNAME" => Record::CNAME(input.parse()?),
-            "DNSKEY" => Record::DNSKEY(input.parse()?),
-            "DS" => Record::DS(input.parse()?),
-            "NS" => Record::NS(input.parse()?),
-            "NSEC" => Record::NSEC(input.parse()?),
-            "NSEC3" => Record::NSEC3(input.parse()?),
-            "NSEC3PARAM" => Record::NSEC3PARAM(input.parse()?),
-            "RRSIG" => Record::RRSIG(input.parse()?),
-            "SOA" => Record::SOA(input.parse()?),
-            "TXT" => Record::TXT(input.parse()?),
+            "A" => Self::A(input.parse()?),
+            "CAA" => Self::CAA(input.parse()?),
+            "CNAME" => Self::CNAME(input.parse()?),
+            "DNSKEY" => Self::DNSKEY(input.parse()?),
+            "DS" => Self::DS(input.parse()?),
+            "NS" => Self::NS(input.parse()?),
+            "NSEC" => Self::NSEC(input.parse()?),
+            "NSEC3" => Self::NSEC3(input.parse()?),
+            "NSEC3PARAM" => Self::NSEC3PARAM(input.parse()?),
+            "RRSIG" => Self::RRSIG(input.parse()?),
+            "SOA" => Self::SOA(input.parse()?),
+            "TXT" => Self::TXT(input.parse()?),
             _ => {
                 if record_type.starts_with("TYPE") {
-                    Record::Unknown(input.parse()?)
+                    Self::Unknown(input.parse()?)
                 } else {
                     return Err(format!("unknown record type: {record_type}").into());
                 }
@@ -268,19 +268,19 @@ impl FromStr for Record {
 impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Record::A(a) => write!(f, "{a}"),
-            Record::CAA(caa) => write!(f, "{caa}"),
-            Record::CNAME(cname) => write!(f, "{cname}"),
-            Record::DS(ds) => write!(f, "{ds}"),
-            Record::DNSKEY(dnskey) => write!(f, "{dnskey}"),
-            Record::NS(ns) => write!(f, "{ns}"),
-            Record::NSEC(nsec) => write!(f, "{nsec}"),
-            Record::NSEC3(nsec3) => write!(f, "{nsec3}"),
-            Record::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
-            Record::RRSIG(rrsig) => write!(f, "{rrsig}"),
-            Record::SOA(soa) => write!(f, "{soa}"),
-            Record::TXT(txt) => write!(f, "{txt}"),
-            Record::Unknown(other) => write!(f, "{other}"),
+            Self::A(a) => write!(f, "{a}"),
+            Self::CAA(caa) => write!(f, "{caa}"),
+            Self::CNAME(cname) => write!(f, "{cname}"),
+            Self::DS(ds) => write!(f, "{ds}"),
+            Self::DNSKEY(dnskey) => write!(f, "{dnskey}"),
+            Self::NS(ns) => write!(f, "{ns}"),
+            Self::NSEC(nsec) => write!(f, "{nsec}"),
+            Self::NSEC3(nsec3) => write!(f, "{nsec3}"),
+            Self::NSEC3PARAM(nsec3param) => write!(f, "{nsec3param}"),
+            Self::RRSIG(rrsig) => write!(f, "{rrsig}"),
+            Self::SOA(soa) => write!(f, "{soa}"),
+            Self::TXT(txt) => write!(f, "{txt}"),
+            Self::Unknown(other) => write!(f, "{other}"),
         }
     }
 }

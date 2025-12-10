@@ -388,8 +388,8 @@ impl Direction {
     /// The address of the peer, independent of the direction of the packet
     pub fn peer_addr(&self) -> Ipv4Addr {
         match self {
-            Direction::Incoming { source } => *source,
-            Direction::Outgoing { destination } => *destination,
+            Self::Incoming { source } => *source,
+            Self::Outgoing { destination } => *destination,
         }
     }
 
@@ -520,7 +520,7 @@ impl StreamingCaptureVisitor {
 impl<'de> Visitor<'de> for StreamingCaptureVisitor {
     type Value = ();
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a sequence")
     }
 
@@ -628,7 +628,7 @@ mod tests {
     fn test_nameserver(
         network: &Network,
         ns: NameServer<Running>,
-        dig_settings: DigSettings,
+        dig_settings: DigSettings<'_>,
         expected_protocol: Protocol,
         mut tshark: Tshark,
     ) -> Result<(), Error> {

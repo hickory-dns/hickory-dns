@@ -62,7 +62,7 @@ impl Client {
 
     pub fn dig(
         &self,
-        settings: DigSettings,
+        settings: DigSettings<'_>,
         server: Ipv4Addr,
         record_type: RecordType,
         fqdn: &FQDN,

@@ -128,8 +128,8 @@ impl Root {
         }
     }
 
-    pub fn public_dns() -> Root {
-        Root {
+    pub fn public_dns() -> Self {
+        Self {
             ipv4_addr: Ipv4Addr::new(198, 41, 0, 4),
             ns: FQDN("a.root-servers.net.").unwrap(),
             ttl: DEFAULT_TTL,

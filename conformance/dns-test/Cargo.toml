@@ -21,3 +21,6 @@ doctest = false
 [dev-dependencies]
 ctrlc = "3.4.2"
 pretty_assertions = "1.4.0"
+
+[lints]
+workspace = true

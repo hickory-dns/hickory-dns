@@ -42,7 +42,7 @@ impl Graph {
     /// key to the parent's zone file
     ///
     /// a non-empty `TrustAnchor` is returned only when `Sign::Yes` or `Sign::AndAmend` is used
-    pub fn build(leaf: NameServer<Stopped>, sign: Sign) -> Result<Self, Error> {
+    pub fn build(leaf: NameServer<Stopped>, sign: Sign<'_>) -> Result<Self, Error> {
         assert_eq!(2, leaf.zone().num_labels(), "not yet implemented");
         assert_eq!(
             Some(FQDN::TEST_TLD),
@@ -159,7 +159,7 @@ impl Graph {
             }
         };
 
-        Ok(Graph {
+        Ok(Self {
             nameservers,
             root,
             trust_anchor,
@@ -665,7 +665,11 @@ pub struct DS2 {
 }
 
 impl DS2 {
-    pub(crate) fn classify(dses: Vec<DS>, zsk: &zone_file::DNSKEY, ksk: &zone_file::DNSKEY) -> DS2 {
+    pub(crate) fn classify(
+        dses: Vec<DS>,
+        zsk: &zone_file::DNSKEY,
+        ksk: &zone_file::DNSKEY,
+    ) -> Self {
         let mut ksk_ds = None;
         let mut zsk_ds = None;
 
@@ -681,7 +685,7 @@ impl DS2 {
             }
         }
 
-        DS2 {
+        Self {
             ksk: ksk_ds.expect("DS for KSK not found"),
             zsk: zsk_ds.expect("DS for ZSK not found"),
         }

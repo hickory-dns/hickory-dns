@@ -55,7 +55,7 @@ impl Drop for NetworkInner {
 }
 
 impl NetworkInner {
-    pub fn new(pid: u32, network_name: &str, internal: bool) -> Result<Self, Error> {
+    fn new(pid: u32, network_name: &str, internal: bool) -> Result<Self, Error> {
         static CRITICAL_SECTION: Mutex<()> = Mutex::new(());
 
         // `docker network create` is racy in some versions of Docker. this `Mutex` ensure that
@@ -93,7 +93,7 @@ impl NetworkInner {
 }
 
 /// Collects all important configs.
-pub struct NetworkConfig {
+struct NetworkConfig {
     /// The CIDR subnet mask, e.g. "172.21.0.0/16"
     subnet: String,
 }

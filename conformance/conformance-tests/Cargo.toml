@@ -11,3 +11,6 @@ dns-test.path = "../dns-test"
 
 [lib]
 doctest = false
+
+[lints]
+workspace = true

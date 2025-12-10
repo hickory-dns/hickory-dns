@@ -6,3 +6,6 @@ description = "tests that rely on the public DNS testing infrastructure extended
 
 [dev-dependencies]
 dns-test = { path = "../dns-test" }
+
+[lints]
+workspace = true

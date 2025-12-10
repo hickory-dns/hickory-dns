@@ -188,7 +188,7 @@ enum Implementation {
 }
 
 /// Generates the command string to generate ZSK using `ldns-keygen`
-pub fn ldns_keygen_zsk(settings: &SignSettings, zone: &FQDN) -> String {
+fn ldns_keygen_zsk(settings: &SignSettings, zone: &FQDN) -> String {
     let algorithm = settings.algorithm;
     match settings.zsk_bits {
         Some(bits) => format!("ldns-keygen -a {algorithm} -b {bits} {zone}"),
@@ -197,7 +197,7 @@ pub fn ldns_keygen_zsk(settings: &SignSettings, zone: &FQDN) -> String {
 }
 
 /// Generates the command string to generate KSK using `ldns-keygen`
-pub fn ldns_keygen_ksk(settings: &SignSettings, zone: &FQDN) -> String {
+fn ldns_keygen_ksk(settings: &SignSettings, zone: &FQDN) -> String {
     let algorithm = settings.algorithm;
     match settings.ksk_bits {
         Some(bits) => format!("ldns-keygen -k -a {algorithm} -b {bits} {zone}"),

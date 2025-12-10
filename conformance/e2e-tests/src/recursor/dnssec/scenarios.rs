@@ -163,7 +163,7 @@ fn hard_nsec3_iteration_invalid_rrsig() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn insecure_record_fixture(
+fn insecure_record_fixture(
     query_fqdn: FQDN,
     sign_settings: SignSettings,
     custom_config: Option<String>,
