@@ -14,23 +14,7 @@
  * limitations under the License.
  */
 
-// LIBRARY WARNINGS
-#![warn(
-    clippy::default_trait_access,
-    clippy::dbg_macro,
-    clippy::print_stdout,
-    clippy::unimplemented,
-    clippy::use_self,
-    missing_docs,
-    non_snake_case,
-    non_upper_case_globals,
-    rust_2018_idioms,
-    unreachable_pub
-)]
-#![allow(
-    clippy::single_component_path_imports,
-    clippy::upper_case_acronyms, // can be removed on a major release boundary
-)]
+#![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 //! Hickory DNS is intended to be a fully compliant domain name server and client library.
