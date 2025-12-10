@@ -7,18 +7,6 @@
 
 //! The dns client program
 
-// BINARY WARNINGS
-#![warn(
-    clippy::default_trait_access,
-    clippy::dbg_macro,
-    clippy::unimplemented,
-    missing_docs,
-    non_snake_case,
-    non_upper_case_globals,
-    rust_2018_idioms,
-    unreachable_pub
-)]
-
 use std::net::SocketAddr;
 #[cfg(feature = "__tls")]
 use std::sync::Arc;
