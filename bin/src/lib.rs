@@ -16,6 +16,7 @@ use std::ffi::OsStr;
 use std::net::SocketAddr;
 use std::{
     fmt, fs, io,
+    marker::PhantomData,
     net::{AddrParseError, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     str::FromStr,
@@ -647,7 +648,7 @@ where
     impl<'de, T: Deserialize<'de>> Visitor<'de> for MapOrSequence<T> {
         type Value = Vec<T>;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("map or sequence")
         }
 
@@ -669,7 +670,7 @@ where
         }
     }
 
-    deserializer.deserialize_any(MapOrSequence::<T>(Default::default()))
+    deserializer.deserialize_any(MapOrSequence::<T>(PhantomData))
 }
 
 /// Configuration for a TLS certificate
@@ -826,7 +827,7 @@ mod tests {
                ]"#,
         ) {
             Ok(val) => panic!("expected error value; got ok: {val:?}"),
-            Err(e) => assert!(dbg!(e).to_string().contains("unknown field `rotocol`")),
+            Err(e) => assert!(e.to_string().contains("unknown field `rotocol`")),
         }
     }
 

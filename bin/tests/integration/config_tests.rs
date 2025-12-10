@@ -274,7 +274,7 @@ struct TableMutator<'a> {
     original: &'a Table,
     yielded_base_case: bool,
     key_iter: Keys<'a, String, Value>,
-    nested_table_mutator: Option<(&'a str, Box<TableMutator<'a>>)>,
+    nested_table_mutator: Option<(&'a str, Box<Self>)>,
     nested_array_mutator: Option<(&'a str, Box<ArrayMutator<'a>>)>,
 }
 
@@ -354,7 +354,7 @@ struct ArrayMutator<'a> {
     original: &'a Array,
     index_iter: Range<usize>,
     nested_table_mutator: Option<(usize, Box<TableMutator<'a>>)>,
-    nested_array_mutator: Option<(usize, Box<ArrayMutator<'a>>)>,
+    nested_array_mutator: Option<(usize, Box<Self>)>,
 }
 
 impl<'a> ArrayMutator<'a> {

@@ -1,4 +1,4 @@
-#![allow(clippy::dbg_macro)]
+#![allow(unreachable_pub)]
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;

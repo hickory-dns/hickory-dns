@@ -1,4 +1,5 @@
 #![cfg(all(feature = "__dnssec", feature = "sqlite"))]
+#![allow(unreachable_pub)]
 
 use std::{
     net::{Ipv4Addr, SocketAddr},

@@ -16,10 +16,10 @@ pub struct MutMessageHandle<C: ClientHandle + Unpin> {
 impl<C: ClientHandle + Unpin> MutMessageHandle<C> {
     #[allow(dead_code)]
     pub fn new(client: C) -> Self {
-        MutMessageHandle {
+        Self {
             client,
             #[cfg(feature = "__dnssec")]
-            lookup_options: Default::default(),
+            lookup_options: LookupOptions::default(),
         }
     }
 }

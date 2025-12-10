@@ -1,4 +1,4 @@
-pub mod mut_message_client;
+#![allow(unreachable_pub)]
 
 use std::{
     collections::HashMap,
@@ -29,8 +29,10 @@ use hickory_proto::{
 #[cfg(feature = "__dnssec")]
 use hickory_proto::{dnssec::Algorithm, runtime::TokioRuntimeProvider};
 
+mod mut_message_client;
+
 #[derive(Debug, Default)]
-pub struct SocketPort {
+struct SocketPort {
     v4: u16,
     v6: u16,
 }
@@ -40,7 +42,7 @@ pub struct SocketPorts(HashMap<ServerProtocol, SocketPort>);
 
 impl SocketPorts {
     /// This will overwrite the existing value
-    pub fn put(&mut self, protocol: impl Into<ServerProtocol>, addr: SocketAddr) {
+    fn put(&mut self, protocol: impl Into<ServerProtocol>, addr: SocketAddr) {
         let entry = self.0.entry(protocol.into()).or_default();
 
         if addr.is_ipv4() {
