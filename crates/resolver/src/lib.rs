@@ -173,20 +173,7 @@
 //! complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be
 //! added to the `Resolver` and used for any lookups performed in the `.local.` zone.
 
-// LIBRARY WARNINGS
-#![warn(
-    clippy::default_trait_access,
-    clippy::dbg_macro,
-    clippy::print_stdout,
-    clippy::unimplemented,
-    clippy::use_self,
-    missing_docs,
-    non_snake_case,
-    non_upper_case_globals,
-    rust_2018_idioms,
-    unreachable_pub
-)]
-#![allow(clippy::needless_doctest_main, clippy::single_component_path_imports)]
+#![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 pub use hickory_proto as proto;
