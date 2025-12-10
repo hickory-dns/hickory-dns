@@ -38,3 +38,6 @@ rustls-pki-types.workspace = true
 test-support.workspace = true
 time.workspace = true
 tokio.workspace = true
+
+[lints]
+workspace = true

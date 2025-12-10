@@ -64,7 +64,7 @@ impl TestClientStream {
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
 
-        let stream = Box::pin(future::ok(TestClientStream {
+        let stream = Box::pin(future::ok(Self {
             catalog,
             outbound_messages,
         }));
@@ -83,7 +83,7 @@ impl TestResponseHandler {
     pub fn new() -> Self {
         let buf = Arc::new(Mutex::new(Vec::with_capacity(512)));
         let message_ready = Arc::new(AtomicBool::new(false));
-        TestResponseHandler { message_ready, buf }
+        Self { message_ready, buf }
     }
 
     fn into_inner(self) -> impl Future<Output = Vec<u8>> {
@@ -131,7 +131,7 @@ impl ResponseHandler for TestResponseHandler {
 }
 
 impl fmt::Display for TestClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "TestClientStream")
     }
 }
@@ -147,7 +147,7 @@ impl DnsClientStream for TestClientStream {
 impl Stream for TestClientStream {
     type Item = Result<SerialMessage, NetError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use futures::executor::block_on;
 
         match self.outbound_messages.next().poll_unpin(cx) {
@@ -181,7 +181,7 @@ impl Stream for TestClientStream {
 }
 
 impl fmt::Debug for TestClientStream {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "TestClientStream catalog")
     }
 }
@@ -202,7 +202,7 @@ impl NeverReturnsClientStream {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
 
         let stream = Box::pin(future::lazy(|_| {
-            Ok(NeverReturnsClientStream {
+            Ok(Self {
                 timeout: Box::pin(tokio::time::sleep(Duration::from_secs(1))),
                 outbound_messages,
             })
@@ -213,7 +213,7 @@ impl NeverReturnsClientStream {
 }
 
 impl fmt::Display for NeverReturnsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "NeverReturnsClientStream")
     }
 }
@@ -229,7 +229,7 @@ impl DnsClientStream for NeverReturnsClientStream {
 impl Stream for NeverReturnsClientStream {
     type Item = Result<SerialMessage, NetError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // poll the timer forever...
         if self.timeout.poll_unpin(cx).is_pending() {
             return Poll::Pending;
@@ -247,7 +247,7 @@ impl Stream for NeverReturnsClientStream {
 }
 
 impl fmt::Debug for NeverReturnsClientStream {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "TestClientStream catalog")
     }
 }

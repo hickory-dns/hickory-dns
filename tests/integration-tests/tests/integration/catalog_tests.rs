@@ -30,7 +30,7 @@ use hickory_integration::{example_zone::create_example, *};
 use test_support::subscribe;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_records(records: &mut InMemoryZoneHandler) {
+fn create_records(records: &mut InMemoryZoneHandler) {
     let origin: Name = records.origin().into();
     records.upsert_mut(
         Record::from_rdata(
@@ -112,7 +112,7 @@ pub fn create_records(records: &mut InMemoryZoneHandler) {
     );
 }
 
-pub fn create_test() -> InMemoryZoneHandler {
+fn create_test() -> InMemoryZoneHandler {
     let origin = Name::parse("test.com.", None).unwrap();
 
     let mut records = InMemoryZoneHandler::empty(
@@ -1044,9 +1044,9 @@ mod dnssec {
             ZoneType::Primary,
             AxfrPolicy::Deny,
             Some(NxProofKind::Nsec3 {
-                algorithm: Default::default(),
-                salt: Default::default(),
-                iterations: Default::default(),
+                algorithm: Nsec3HashAlgorithm::default(),
+                salt: Arc::default(),
+                iterations: 0,
                 opt_out: false,
             }),
         );
