@@ -160,8 +160,8 @@ struct TestZoneHandler {
 }
 
 impl TestZoneHandler {
-    pub fn new(origin: Name, lookup_records: TestRecords, consult_records: TestRecords) -> Self {
-        TestZoneHandler {
+    fn new(origin: Name, lookup_records: TestRecords, consult_records: TestRecords) -> Self {
+        Self {
             origin: origin.into(),
             zone_type: ZoneType::External,
             lookup_records,

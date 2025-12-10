@@ -43,14 +43,14 @@ use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-pub struct TestClientConnection {
+struct TestClientConnection {
     catalog: Arc<StdMutex<Catalog>>,
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 impl TestClientConnection {
-    pub fn new(catalog: Catalog) -> TestClientConnection {
-        TestClientConnection {
+    fn new(catalog: Catalog) -> Self {
+        Self {
             catalog: Arc::new(StdMutex::new(catalog)),
         }
     }
@@ -404,6 +404,7 @@ async fn test_nsec3_nxdomain() {
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
+    use hickory_proto::dnssec::rdata::key::{KeyTrust, KeyUsage, Protocol, UpdateScope};
     use hickory_server::store::sqlite::SqliteZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
@@ -432,10 +433,10 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
         Name::from_str("trusted.example.com.").unwrap(),
         Duration::minutes(5).whole_seconds() as u32,
         RData::DNSSEC(DNSSECRData::KEY(KEY::new(
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
+            KeyTrust::default(),
+            KeyUsage::default(),
+            UpdateScope::default(),
+            Protocol::default(),
             signer.key().algorithm(),
             pub_key.public_bytes().to_vec(),
         ))),

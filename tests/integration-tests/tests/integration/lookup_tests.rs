@@ -6,7 +6,7 @@ use std::{
 
 use hickory_proto::{
     DnsError,
-    op::{DnsResponse, Query},
+    op::{DnsRequestOptions, DnsResponse, Query},
     rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
     runtime::TokioRuntimeProvider,
     xfer::{DnsExchange, DnsMultiplexer},
@@ -40,7 +40,7 @@ async fn test_lookup() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         CachingClient::new(0, client, false),
     );
     let lookup = lookup.await.unwrap();
@@ -84,7 +84,7 @@ async fn test_lookup_hosts() {
         vec![Name::from_str("www.example.com.").unwrap()],
         LookupIpStrategy::default(),
         CachingClient::new(0, client, false),
-        Default::default(),
+        DnsRequestOptions::default(),
         Arc::new(hosts),
         None,
     );
@@ -127,7 +127,7 @@ async fn test_lookup_ipv4_like() {
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
         LookupIpStrategy::default(),
         CachingClient::new(0, client, false),
-        Default::default(),
+        DnsRequestOptions::default(),
         Arc::new(Hosts::default()),
         Some(RData::A(A::new(1, 2, 3, 4))),
     );
@@ -157,7 +157,7 @@ async fn test_lookup_ipv4_like_fall_through() {
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
         LookupIpStrategy::default(),
         CachingClient::new(0, client, false),
-        Default::default(),
+        DnsRequestOptions::default(),
         Arc::new(Hosts::default()),
         Some(RData::A(A::new(198, 51, 100, 35))),
     );
@@ -184,7 +184,7 @@ async fn test_mock_lookup() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         CachingClient::new(0, client, false),
     );
 
@@ -215,7 +215,7 @@ async fn test_cname_lookup() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         CachingClient::new(0, client, false),
     );
 
@@ -251,7 +251,7 @@ async fn test_cname_lookup_preserve() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         CachingClient::new(0, client, true),
     );
 
@@ -288,7 +288,7 @@ async fn test_chained_cname_lookup() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         CachingClient::new(0, client, false),
     );
 
@@ -331,7 +331,7 @@ async fn test_chained_cname_lookup_preserve() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         CachingClient::new(0, client, true),
     );
 
@@ -417,7 +417,7 @@ async fn test_max_chained_lookup_depth() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         client.clone(),
     );
 
@@ -428,7 +428,7 @@ async fn test_max_chained_lookup_depth() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("cname9.example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         client,
     );
 
@@ -463,7 +463,7 @@ async fn test_forward_soa() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::NS,
-        Default::default(),
+        DnsRequestOptions::default(),
         client.clone(),
     );
 
@@ -489,10 +489,7 @@ async fn test_forward_ns() {
 
     subscribe();
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
-    let ns1 = ns_record(
-        Default::default(),
-        Name::from_str("ns1.example.com").unwrap(),
-    );
+    let ns1 = ns_record(Name::default(), Name::from_str("ns1.example.com").unwrap());
     let message = message(resp_query.clone(), vec![], vec![ns1], vec![]);
 
     let client: MockClientHandle<_> =
@@ -502,7 +499,7 @@ async fn test_forward_ns() {
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("example.com.").unwrap()],
         RecordType::A,
-        Default::default(),
+        DnsRequestOptions::default(),
         client.clone(),
     );
 

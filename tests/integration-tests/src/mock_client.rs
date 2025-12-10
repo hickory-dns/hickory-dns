@@ -160,7 +160,7 @@ impl MockClientHandle<DefaultOnSend> {
     pub fn mock(messages: Vec<Result<DnsResponse, NetError>>) -> Self {
         println!("MockClientHandle::mock message count: {}", messages.len());
 
-        MockClientHandle {
+        Self {
             messages: Arc::new(Mutex::new(messages)),
             on_send: DefaultOnSend,
         }
@@ -176,7 +176,7 @@ impl<O: OnSend> MockClientHandle<O> {
             messages.len()
         );
 
-        MockClientHandle {
+        Self {
             messages: Arc::new(Mutex::new(messages)),
             on_send,
         }
@@ -210,7 +210,7 @@ pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
 }
 
 pub fn soa_record(name: Name, mname: Name) -> Record {
-    let soa = SOA::new(mname, Default::default(), 1, 3600, 60, 86400, 3600);
+    let soa = SOA::new(mname, Name::default(), 1, 3600, 60, 86400, 3600);
     Record::from_rdata(name, 86400, RData::SOA(soa))
 }
 

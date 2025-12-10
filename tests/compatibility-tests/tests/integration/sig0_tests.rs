@@ -17,7 +17,8 @@ use time::Duration;
 use hickory_compatibility::named_process;
 use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::dnssec::crypto::RsaSigningKey;
-use hickory_proto::dnssec::rdata::key::{KEY, KeyUsage};
+#[allow(deprecated)]
+use hickory_proto::dnssec::rdata::key::{KEY, KeyTrust, KeyUsage, Protocol, UpdateScope};
 use hickory_proto::dnssec::{Algorithm, SigSigner, SigningKey};
 use hickory_proto::op::ResponseCode;
 use hickory_proto::rr::rdata::A;
@@ -62,10 +63,11 @@ async fn test_create() {
     let key =
         RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
     let sig0key = KEY::new(
-        Default::default(),
+        KeyTrust::default(),
         KeyUsage::Entity,
-        Default::default(),
-        Default::default(),
+        #[allow(deprecated)]
+        UpdateScope::default(),
+        Protocol::default(),
         Algorithm::RSASHA256,
         key.to_public_key().unwrap().into_inner(),
     );
