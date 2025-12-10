@@ -129,4 +129,16 @@ opt-level = 3
 strip = "symbols"
 
 [workspace.lints.rust]
+non_snake_case = "warn"
+non_upper_case_globals = "warn"
+rust_2018_idioms = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nightly)'] }
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+bool_to_int_with_if = "allow"
+default_trait_access = "warn"
+single_component_path_imports = "allow"
+unimplemented = "warn"
+upper_case_acronyms = "allow"
+use_self = "warn"

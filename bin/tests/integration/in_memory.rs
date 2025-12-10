@@ -11,7 +11,7 @@ use hickory_proto::{
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     store::in_memory::InMemoryZoneHandler,
-    zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
+    zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType},
 };
 
 #[test]
@@ -77,7 +77,7 @@ fn test_cname_loop() {
             &Name::from_str("foo.example.com.").unwrap().into(),
             RecordType::A,
             None,
-            Default::default(),
+            LookupOptions::default(),
         ))
         .unwrap();
 
@@ -100,7 +100,7 @@ fn test_cname_loop() {
             &Name::from_str("bar.example.com.").unwrap().into(),
             RecordType::A,
             None,
-            Default::default(),
+            LookupOptions::default(),
         ))
         .unwrap();
 
@@ -130,7 +130,7 @@ fn test_cname_loop() {
             &Name::from_str("baz.example.com.").unwrap().into(),
             RecordType::A,
             None,
-            Default::default(),
+            LookupOptions::default(),
         ))
         .unwrap();
 
