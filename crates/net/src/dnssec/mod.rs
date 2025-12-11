@@ -317,8 +317,22 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     return Ok(message);
                 }
 
-                // Return Ok if the zone is insecure
-                if let Err(err) = self.find_ds_records(query.name().clone(), options).await {
+                // Calling find_ds_records for a DS query will cause a validation loop if the zone being
+                // queried is insecure and its parent zone is insecure (no DS records will exist and no
+                // NSEC records will be available to prove that non-existence.)  Return ok/insecure:
+                //
+                // * If the query type is DS *and* the parent zone is Insecure
+                // * For other query types, if the queried name is provably Insecure
+                if let Err(err) = self
+                    .find_ds_records(
+                        match query.query_type() {
+                            RecordType::DS => query.name().base_name(),
+                            _ => query.name().clone(),
+                        },
+                        options,
+                    )
+                    .await
+                {
                     if err.proof == Proof::Insecure {
                         return Ok(message);
                     }
@@ -821,7 +835,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 } else {
                     // If the response was an authenticated proof of nonexistence, then we have an
                     // insecure zone.
-                    debug!("marking {zone} as insecure based on secure NSEC/NSEC3 proof");
+                    debug!(
+                        %zone,
+                        "marking zone as insecure based on secure NSEC/NSEC3 proof or insecure parent zone",
+                    );
                     return Err(ProofError::new(
                         Proof::Insecure,
                         ProofErrorKind::DsResponseNsec { name: zone },
