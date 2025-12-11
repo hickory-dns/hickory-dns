@@ -14,7 +14,7 @@ use std::sync::Arc;
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use time::Duration;
 
-use hickory_compatibility::named_process;
+use hickory_compatibility::NamedProcess;
 use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::dnssec::crypto::RsaSigningKey;
 #[allow(deprecated)]
@@ -30,7 +30,7 @@ use hickory_proto::udp::UdpClientStream;
 async fn test_get() {
     test_support::subscribe();
 
-    let (_process, port) = named_process();
+    let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default()).build();
     let (mut client, driver) = Client::<TokioRuntimeProvider>::connect(conn)
@@ -79,7 +79,7 @@ async fn test_create() {
     );
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935);
 
-    let (_process, port) = named_process();
+    let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(Arc::new(signer)))

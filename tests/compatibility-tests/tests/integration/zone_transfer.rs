@@ -13,7 +13,7 @@ use std::str::FromStr;
 use futures::TryStreamExt;
 use time::Duration;
 
-use hickory_compatibility::named_process;
+use hickory_compatibility::NamedProcess;
 use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::A};
 use hickory_proto::runtime::TokioRuntimeProvider;
@@ -36,7 +36,7 @@ macro_rules! assert_serial {
 async fn test_zone_transfer() {
     subscribe();
 
-    let (_process, port) = named_process();
+    let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let (stream, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
