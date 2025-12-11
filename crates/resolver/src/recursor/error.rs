@@ -123,9 +123,8 @@ impl RecursorError {
 
 impl From<NetError> for RecursorError {
     fn from(e: NetError) -> Self {
-        let no_records = match e {
-            NetError::Dns(DnsError::NoRecordsFound(no_records)) => no_records,
-            _ => return Self::Net(e),
+        let NetError::Dns(DnsError::NoRecordsFound(no_records)) = e else {
+            return Self::Net(e);
         };
 
         if let Some(ns) = no_records.ns {

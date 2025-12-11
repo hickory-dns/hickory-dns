@@ -59,10 +59,8 @@ async fn test_zone_transfer() {
         2000 + 3
     );
 
-    let soa = if let RData::SOA(soa) = result[0].answers()[0].data() {
-        soa
-    } else {
-        panic!("First answer was not an SOA record")
+    let RData::SOA(soa) = result[0].answers()[0].data() else {
+        panic!("First answer was not an SOA record");
     };
 
     assert_eq!(result[0].answers()[0].record_type(), RecordType::SOA);

@@ -369,9 +369,7 @@ impl InnerInMemory {
             // TODO: there should be an unwrap on rrset, but it's behind Arc
             .and_then(|rrset| rrset.records_without_rrsigs().next().cloned());
 
-        let mut record = if let Some(record) = record {
-            record
-        } else {
+        let Some(mut record) = record else {
             error!("could not lookup SOA for zone handler: {}", origin);
             return 0;
         };
