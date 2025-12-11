@@ -109,8 +109,11 @@ impl SupportedAlgorithms {
     }
 
     /// Return an Iterator over the supported set.
-    pub fn iter(&self) -> SupportedAlgorithmsIter<'_> {
-        SupportedAlgorithmsIter::new(self)
+    pub fn iter(&self) -> impl Iterator<Item = Algorithm> + '_ {
+        SupportedAlgorithmsIter {
+            algorithms: self,
+            current: 0,
+        }
     }
 
     /// Return the count of supported algorithms
@@ -176,18 +179,9 @@ impl From<Algorithm> for SupportedAlgorithms {
     }
 }
 
-pub struct SupportedAlgorithmsIter<'a> {
+struct SupportedAlgorithmsIter<'a> {
     algorithms: &'a SupportedAlgorithms,
     current: usize,
-}
-
-impl<'a> SupportedAlgorithmsIter<'a> {
-    pub fn new(algorithms: &'a SupportedAlgorithms) -> Self {
-        SupportedAlgorithmsIter {
-            algorithms,
-            current: 0,
-        }
-    }
 }
 
 impl Iterator for SupportedAlgorithmsIter<'_> {
