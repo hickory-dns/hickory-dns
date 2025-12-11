@@ -135,6 +135,7 @@ rust_2018_idioms = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nightly)'] }
 unnameable_types = "warn"
 unreachable_pub = "warn"
+unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_qualifications = "warn"
 
