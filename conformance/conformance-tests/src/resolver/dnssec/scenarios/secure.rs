@@ -14,7 +14,7 @@ use crate::resolver::dnssec::fixtures;
 #[test]
 fn can_validate_without_delegation() -> Result<(), Error> {
     let network = Network::new()?;
-    let mut ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+    let mut ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     ns.add(ns.a());
     let ns = ns.sign(SignSettings::default())?;
 
@@ -179,12 +179,12 @@ fn ds_of_zsk() -> Result<(), Error> {
     let needle_fqdn = no_ds_zone.push_label("example");
     let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, no_ds_zone.clone(), &network)?;
+    let mut leaf_ns = NameServer::new(&PEER, no_ds_zone.clone(), &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), needle_ipv4_addr));
 
-    let mut sibling_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
-    let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
-    let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+    let mut sibling_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
 
     sibling_ns.add(root_ns.a());
     sibling_ns.add(tld_ns.a());

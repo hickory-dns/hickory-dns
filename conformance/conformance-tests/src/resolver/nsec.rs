@@ -79,7 +79,7 @@ fn zone_exist_domain_does_not(nsec: Nsec) -> Result<(), Error> {
     let needle_fqdn = leaf_zone.push_label("unicorn");
 
     let network = Network::new()?;
-    let leaf_ns = NameServer::new(&dns_test::PEER, leaf_zone.clone(), &network)?;
+    let leaf_ns = NameServer::new(&PEER, leaf_zone.clone(), &network)?;
 
     let mut settings = SignSettings::default();
     settings = settings.nsec(nsec);
@@ -117,7 +117,7 @@ fn zone_does_not_exist(nsec: Nsec) -> Result<(), Error> {
     let needle_fqdn = leaf_zone.push_label("unicorn");
 
     let network = Network::new()?;
-    let parent_ns = NameServer::new(&dns_test::PEER, parent_zone, &network)?;
+    let parent_ns = NameServer::new(&PEER, parent_zone, &network)?;
 
     let mut settings = SignSettings::default();
     settings = settings.nsec(nsec);
@@ -154,7 +154,7 @@ fn domain_exists_record_type_does_not(nsec: Nsec) -> Result<(), Error> {
     let needle_fqdn = leaf_zone.push_label("example");
 
     let network = Network::new()?;
-    let mut leaf_ns = NameServer::new(&dns_test::PEER, leaf_zone.clone(), &network)?;
+    let mut leaf_ns = NameServer::new(&PEER, leaf_zone.clone(), &network)?;
     leaf_ns.add(Record::a(needle_fqdn.clone(), Ipv4Addr::new(1, 2, 3, 4)));
 
     let mut settings = SignSettings::default();

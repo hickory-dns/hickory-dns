@@ -441,6 +441,7 @@ pub(crate) mod tests {
 
     // one_shot tests are basically clones from the udp tests
     #[tokio::test]
+    #[allow(unused_qualifications)] // https://github.com/rust-lang/rust/issues/149873
     async fn test_next_random_socket() {
         subscribe();
 
@@ -478,7 +479,7 @@ pub(crate) mod tests {
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
         use core::time::Duration;
 
-        let client_done = alloc::sync::Arc::new(core::sync::atomic::AtomicBool::new(false));
+        let client_done = Arc::new(core::sync::atomic::AtomicBool::new(false));
 
         let test_bytes: &'static [u8; 8] = b"DEADBEEF";
         let send_recv_times = 10;
@@ -630,7 +631,7 @@ pub(crate) mod tests {
     fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
         use core::time::Duration;
 
-        let server_got_packet = alloc::sync::Arc::new(core::sync::atomic::AtomicBool::new(false));
+        let server_got_packet = Arc::new(core::sync::atomic::AtomicBool::new(false));
 
         let test_bytes: &'static [u8; 8] = b"DEADBEEF";
         let send_recv_times = 10;

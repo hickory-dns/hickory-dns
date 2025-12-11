@@ -942,8 +942,8 @@ impl Name {
     }
 }
 
-impl core::fmt::Debug for Name {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Debug for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Name(\"")?;
         self.write_labels::<_, LabelEncUtf8>(f)?;
         f.write_str("\")")

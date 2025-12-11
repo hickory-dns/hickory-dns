@@ -1311,7 +1311,7 @@ mod tests {
         }
     }
 
-    fn record_type_from_rdata(rdata: &RData) -> crate::rr::record_type::RecordType {
+    fn record_type_from_rdata(rdata: &RData) -> RecordType {
         match rdata {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,

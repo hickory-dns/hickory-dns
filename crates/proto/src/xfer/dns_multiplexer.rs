@@ -266,7 +266,7 @@ where
         }
 
         if self.active_requests.len() > CHANNEL_BUFFER_SIZE {
-            return crate::NetError::Busy.into();
+            return NetError::Busy.into();
         }
 
         let query_id = match self.next_random_query_id() {
@@ -457,7 +457,7 @@ mod test {
         }
     }
 
-    impl fmt::Display for MockClientStream {
+    impl Display for MockClientStream {
         fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
             write!(formatter, "TestClientStream")
         }

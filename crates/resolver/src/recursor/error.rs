@@ -9,6 +9,7 @@
 
 #![deny(missing_docs)]
 
+use std::io;
 use std::sync::Arc;
 
 use thiserror::Error;
@@ -53,7 +54,7 @@ pub enum RecursorError {
 
     /// An error got returned from IO
     #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 
     /// An error got returned by the hickory-proto crate
     #[error("net error: {0}")]
@@ -180,7 +181,7 @@ impl Clone for RecursorError {
             Msg(msg) => Msg(msg.clone()),
             Negative(ns) => Negative(ns.clone()),
             ForwardNS(ns) => ForwardNS(ns.clone()),
-            Io(io) => Io(std::io::Error::from(io.kind())),
+            Io(io) => Io(io::Error::from(io.kind())),
             Net(net) => Net(net.clone()),
             Timeout => Self::Timeout,
             RecursionLimitExceeded { count } => RecursionLimitExceeded { count: *count },

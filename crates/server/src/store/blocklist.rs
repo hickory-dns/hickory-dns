@@ -12,8 +12,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io,
-    io::{Error, Read},
+    io::{self, Read},
     net::{Ipv4Addr, Ipv6Addr},
     path::Path,
     str::FromStr,
@@ -218,7 +217,7 @@ impl BlocklistZoneHandler {
     ///     };
     /// }
     /// ```
-    pub fn add(&mut self, mut handle: impl Read) -> Result<(), Error> {
+    pub fn add(&mut self, mut handle: impl Read) -> Result<(), io::Error> {
         let mut contents = String::new();
 
         handle.read_to_string(&mut contents)?;

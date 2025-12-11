@@ -27,7 +27,7 @@ use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
 use crate::proto::{DnsError, NetError, NoRecords, ProtoError};
 #[cfg(feature = "recursor")]
-use crate::resolver::recursor::{self, RecursorError};
+use crate::resolver::recursor::RecursorError;
 use crate::server::{Request, RequestInfo};
 
 mod auth_lookup;
@@ -289,7 +289,7 @@ impl<T, E> LookupControlFlow<T, E> {
     }
 }
 
-impl<E: std::fmt::Display> LookupControlFlow<AuthLookup, E> {
+impl<E: fmt::Display> LookupControlFlow<AuthLookup, E> {
     /// Return inner Ok variant or panic with a custom error message.
     pub fn expect(self, msg: &str) -> AuthLookup {
         match self {
@@ -393,7 +393,7 @@ pub enum LookupError {
     /// Recursive Resolver Error
     #[cfg(feature = "recursor")]
     #[error("Recursive resolution error: {0}")]
-    RecursiveError(#[from] recursor::RecursorError),
+    RecursiveError(#[from] RecursorError),
     /// An underlying IO error occurred
     #[error("io error: {0}")]
     Io(io::Error),

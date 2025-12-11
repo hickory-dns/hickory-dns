@@ -328,7 +328,7 @@ fn inner_lookup(
                         ResponseCode::NXDomain,
                     ))));
                 }
-                ResponseType::Skip => return Some(LookupControlFlow::Skip),
+                ResponseType::Skip => return Some(Skip),
             }
         }
     }

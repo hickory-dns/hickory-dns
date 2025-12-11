@@ -321,7 +321,7 @@ struct ZoneConfigWithFile {
 fn deserialize_with_file<'de, D>(deserializer: D) -> Result<Vec<ZoneConfig>, D::Error>
 where
     D: Deserializer<'de>,
-    D::Error: serde::de::Error,
+    D::Error: de::Error,
 {
     Vec::<ZoneConfigWithFile>::deserialize(deserializer)?
         .into_iter()
@@ -334,7 +334,7 @@ where
                         .iter()
                         .any(|store| matches!(store, ServerStoreConfig::File(_)))
                     {
-                        Err(<D::Error as serde::de::Error>::custom(
+                        Err(<D::Error as de::Error>::custom(
                             "having `file` and `[zones.store]` item with type `file` is ambiguous",
                         ))
                     } else {
@@ -350,7 +350,7 @@ where
                         Ok(config)
                     }
                 }
-                _ => Err(<D::Error as serde::de::Error>::custom(
+                _ => Err(<D::Error as de::Error>::custom(
                     "cannot use `file` on a zone that is not primary or secondary",
                 )),
             },
@@ -643,7 +643,7 @@ where
     D: Deserializer<'de>,
     T: Deserialize<'de>,
 {
-    struct MapOrSequence<T>(std::marker::PhantomData<T>);
+    struct MapOrSequence<T>(PhantomData<T>);
 
     impl<'de, T: Deserialize<'de>> Visitor<'de> for MapOrSequence<T> {
         type Value = Vec<T>;

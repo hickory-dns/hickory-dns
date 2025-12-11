@@ -6,7 +6,6 @@
 
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
-#[cfg(feature = "std")]
 use core::fmt::Display;
 use core::fmt::{self, Debug};
 use core::future::Future;
@@ -481,7 +480,7 @@ impl Protocol {
     }
 }
 
-impl fmt::Display for Protocol {
+impl Display for Protocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Udp => "udp",

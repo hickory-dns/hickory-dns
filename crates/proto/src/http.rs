@@ -55,8 +55,8 @@ impl RequestContext {
             .method("POST")
             .uri(url)
             .version(self.version.to_http())
-            .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
-            .header(ACCEPT, crate::http::MIME_APPLICATION_DNS)
+            .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
+            .header(ACCEPT, MIME_APPLICATION_DNS)
             .header(CONTENT_LENGTH, message_len);
 
         if let Some(headers) = &self.set_headers {
@@ -104,7 +104,7 @@ pub fn verify<T>(
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == crate::http::MIME_APPLICATION_DNS => {}
+        Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => {}
         _ => return Err("unsupported content type".into()),
     };
 
@@ -115,7 +115,7 @@ pub fn verify<T>(
             for mime_and_quality in ctype.split(',') {
                 let mut parts = mime_and_quality.splitn(2, ';');
                 match parts.next() {
-                    Some(mime) if mime.trim() == crate::http::MIME_APPLICATION_DNS => {
+                    Some(mime) if mime.trim() == MIME_APPLICATION_DNS => {
                         found = true;
                         break;
                     }
@@ -188,7 +188,7 @@ pub fn response(version: Version, message_len: usize) -> Result<Response<()>, Ne
     Response::builder()
         .status(StatusCode::OK)
         .version(version.to_http())
-        .header(CONTENT_TYPE, crate::http::MIME_APPLICATION_DNS)
+        .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
         .map_err(|e| NetError::from(format!("invalid response: {e}")))

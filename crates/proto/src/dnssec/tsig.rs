@@ -17,7 +17,6 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use core::mem;
 use core::ops::Range;
 
 use tracing::debug;
@@ -342,7 +341,7 @@ impl TSigner {
         // prefix, the size of the encoded response, and a rough approximation of the
         // size of the stub TSIG RR.
         let mut tbs_buf = Vec::with_capacity(
-            previous_mac.len() + mem::size_of::<u16>() + encoded_response.len() + 128,
+            previous_mac.len() + size_of::<u16>() + encoded_response.len() + 128,
         );
         let mut encoder = BinEncoder::with_mode(&mut tbs_buf, EncodeMode::Normal);
 

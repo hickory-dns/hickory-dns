@@ -832,7 +832,7 @@ mod tests {
         // Based on RFC 5155 B.1 - Name Error
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -868,7 +868,7 @@ mod tests {
         // Missing wildcard at the closest encloser
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -897,7 +897,7 @@ mod tests {
         // No record matching the next closer name
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -926,7 +926,7 @@ mod tests {
         // Invalid SOA
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, RecordType::A),
+                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("x.w.example.")?),
                 ResponseCode::NXDomain,
                 &[],

@@ -57,12 +57,12 @@ impl LogWriter {
 }
 
 impl Write for LogWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         print!("{}", String::from_utf8(buf.to_vec()).unwrap());
         self.0.lock().unwrap().write(buf)
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         self.0.lock().unwrap().flush()
     }
 }

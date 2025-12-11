@@ -381,7 +381,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         let inner = self.inner.read().await;
 
         if query_type == RecordType::AXFR {
-            return LookupControlFlow::Break(Err(LookupError::NetError(
+            return Break(Err(LookupError::NetError(
                 "AXFR must be handled with ZoneHandler::zone_transfer()".into(),
             )));
         }
@@ -494,7 +494,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             }
         };
 
-        LookupControlFlow::Continue(Ok(AuthLookup::answers(
+        Continue(Ok(AuthLookup::answers(
             answers,
             additionals.map(|a| LookupRecords::many(lookup_options, a)),
         )))

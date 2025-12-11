@@ -663,7 +663,7 @@ pub enum ExtendedDnsError {
 impl FromStr for ExtendedDnsError {
     type Err = Error;
 
-    fn from_str(input: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let code: u16 = input.parse()?;
 
         let code = match code {
@@ -694,7 +694,7 @@ pub struct DigFlags {
 impl FromStr for DigFlags {
     type Err = Error;
 
-    fn from_str(input: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let mut qr = false;
         let mut recursion_desired = false;
         let mut recursion_available = false;

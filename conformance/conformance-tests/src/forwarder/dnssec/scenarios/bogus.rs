@@ -13,7 +13,7 @@ fn wrong_key() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
     let leaf_zone = FQDN::TEST_TLD.push_label("wrong-key");
-    let peer = &dns_test::PEER;
+    let peer = &PEER;
 
     let wrong_key_ns = NameServer::new(peer, leaf_zone.clone(), &network)?;
     let wrong_key_ns = wrong_key_ns.sign(sign_settings.clone())?;
