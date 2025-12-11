@@ -381,18 +381,16 @@ mod tests {
         // alpn
         let param = params.next().expect("not alpn");
         assert_eq!(param.0, SvcParamKey::Alpn);
-        let value = match &param.1 {
-            SvcParamValue::Alpn(alpn) => alpn,
-            _ => panic!("expected alpn"),
+        let SvcParamValue::Alpn(value) = &param.1 else {
+            panic!("expected alpn");
         };
         assert_eq!(value.0, &["http/1.1", "h2"]);
 
         // ipv4 hint
         let param = params.next().expect("ipv4hint");
         assert_eq!(SvcParamKey::Ipv4Hint, param.0);
-        let value = match &param.1 {
-            SvcParamValue::Ipv4Hint(hint) => hint,
-            _ => panic!("expected ipv4hint"),
+        let SvcParamValue::Ipv4Hint(value) = &param.1 else {
+            panic!("expected ipv4hint");
         };
         assert_eq!(
             value.0,
@@ -402,9 +400,8 @@ mod tests {
         // echconfig
         let param = params.next().expect("echconfig");
         assert_eq!(SvcParamKey::EchConfigList, param.0);
-        let value = match &param.1 {
-            SvcParamValue::EchConfigList(ech) => ech,
-            _ => panic!("expected echconfig"),
+        let SvcParamValue::EchConfigList(value) = &param.1 else {
+            panic!("expected echconfig");
         };
         assert_eq!(
             value.0,
@@ -414,9 +411,8 @@ mod tests {
         // ipv6 hint
         let param = params.next().expect("ipv6hint");
         assert_eq!(SvcParamKey::Ipv6Hint, param.0);
-        let value = match &param.1 {
-            SvcParamValue::Ipv6Hint(hint) => hint,
-            _ => panic!("expected ipv6hint"),
+        let SvcParamValue::Ipv6Hint(value) = &param.1 else {
+            panic!("expected ipv6hint");
         };
         assert_eq!(
             value.0,

@@ -86,9 +86,8 @@ impl H3Server {
     ///
     /// A remote connection that could accept many potential requests and the remote socket address
     pub async fn accept(&mut self) -> Result<Option<(H3Connection, SocketAddr)>, NetError> {
-        let connecting = match self.endpoint.accept().await {
-            Some(conn) => conn,
-            None => return Ok(None),
+        let Some(connecting) = self.endpoint.accept().await else {
+            return Ok(None);
         };
 
         let remote_addr = connecting.remote_address();

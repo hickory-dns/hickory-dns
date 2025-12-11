@@ -1061,9 +1061,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
 
         // This will fail on no queries, that is a very odd type of request, isn't it?
         // TODO: with mDNS there can be multiple queries
-        let query = if let Some(query) = request.queries().first().cloned() {
-            query
-        } else {
+        let Some(query) = request.queries().first().cloned() else {
             return Box::pin(stream::once(future::err(NetError::from(
                 "no query in request",
             ))));
