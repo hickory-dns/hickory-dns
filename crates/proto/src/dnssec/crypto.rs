@@ -2,18 +2,17 @@ use alloc::{borrow::Cow, boxed::Box, sync::Arc, vec::Vec};
 
 use rustls_pki_types::{PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer};
 
-use super::ring_like::{
-    ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING, ED25519_PUBLIC_KEY_LEN,
-    EcdsaKeyPair, Ed25519KeyPair, KeyPair, PublicKeyComponents, RSA_PKCS1_SHA256, RSA_PKCS1_SHA512,
-    RsaKeyPair, SystemRandom, digest, signature,
-};
 use super::{
     Algorithm, DigestType, DnsSecError, DnsSecResult, PublicKey, PublicKeyBuf, SigningKey, TBS,
-    ec_public_key::ECPublicKey, rsa_public_key::RSAPublicKey,
+    ec_public_key::ECPublicKey,
+    ring_like::{
+        ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING, ED25519_PUBLIC_KEY_LEN,
+        EcdsaKeyPair, Ed25519KeyPair, KeyPair, PublicKeyComponents, RSA_PKCS1_SHA256,
+        RSA_PKCS1_SHA512, RsaKeyPair, SystemRandom, digest, signature,
+    },
+    rsa_public_key::RSAPublicKey,
 };
-use crate::ProtoError;
-use crate::error::ProtoResult;
-use crate::serialize::binary::DecodeError;
+use crate::{ProtoError, error::ProtoResult, serialize::binary::DecodeError};
 
 /// Decode private key
 pub fn signing_key_from_der(
@@ -43,9 +42,9 @@ pub(super) fn decode_public_key<'a>(
 
     #[allow(deprecated)]
     match algorithm {
-        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-            Ok(Arc::new(Ec::from_public_bytes(public_key, algorithm)?))
-        }
+        Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(Arc::new(
+            ECPublicKey::from_public_bytes(public_key, algorithm)?,
+        )),
         Algorithm::ED25519 => Ok(Arc::new(Ed25519::from_public_bytes(public_key.into())?)),
         Algorithm::RSASHA1
         | Algorithm::RSASHA1NSEC3SHA1
@@ -191,70 +190,6 @@ impl SigningKey for Ed25519SigningKey {
 
     fn algorithm(&self) -> Algorithm {
         Algorithm::ED25519
-    }
-}
-
-/// Elyptic Curve public key type
-pub type Ec = ECPublicKey;
-
-impl Ec {
-    /// ```text
-    /// RFC 6605                    ECDSA for DNSSEC                  April 2012
-    ///
-    ///   4.  DNSKEY and RRSIG Resource Records for ECDSA
-    ///
-    ///   ECDSA public keys consist of a single value, called "Q" in FIPS
-    ///   186-3.  In DNSSEC keys, Q is a simple bit string that represents the
-    ///   uncompressed form of a curve point, "x | y".
-    ///
-    ///   The ECDSA signature is the combination of two non-negative integers,
-    ///   called "r" and "s" in FIPS 186-3.  The two integers, each of which is
-    ///   formatted as a simple octet string, are combined into a single longer
-    ///   octet string for DNSSEC as the concatenation "r | s".  (Conversion of
-    ///   the integers to bit strings is described in Section C.2 of FIPS
-    ///   186-3.)  For P-256, each integer MUST be encoded as 32 octets; for
-    ///   P-384, each integer MUST be encoded as 48 octets.
-    ///
-    ///   The algorithm numbers associated with the DNSKEY and RRSIG resource
-    ///   records are fully defined in the IANA Considerations section.  They
-    ///   are:
-    ///
-    ///   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-256 curve and
-    ///      SHA-256 use the algorithm number 13.
-    ///
-    ///   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-384 curve and
-    ///      SHA-384 use the algorithm number 14.
-    ///
-    ///   Conformant implementations that create records to be put into the DNS
-    ///   MUST implement signing and verification for both of the above
-    ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
-    ///   for both of the above algorithms.
-    /// ```
-    pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
-        Self::from_unprefixed(public_key, algorithm)
-    }
-}
-
-impl PublicKey for Ec {
-    fn public_bytes(&self) -> &[u8] {
-        self.unprefixed_bytes()
-    }
-
-    fn verify(&self, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        // TODO: assert_eq!(algorithm, self.algorithm); once *ring* allows this.
-        let alg = match self.algorithm {
-            Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
-            Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
-            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
-        };
-        let public_key = signature::UnparsedPublicKey::new(alg, self.prefixed_bytes());
-        public_key
-            .verify(message, signature)
-            .map_err(|_| ProtoError::Crypto("ECDSA signature verification failed"))
-    }
-
-    fn algorithm(&self) -> Algorithm {
-        self.algorithm
     }
 }
 
