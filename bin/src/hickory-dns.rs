@@ -267,7 +267,7 @@ async fn async_run(args: Cli) -> Result<(), String> {
     let prometheus_server_opt = if !args.disable_prometheus && !config.disable_prometheus() {
         let socket_addr = args
             .prometheus_listen_addr
-            .unwrap_or(config.prometheus_listen_addr());
+            .unwrap_or_else(|| config.prometheus_listen_addr());
         let listener = build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
             format!("failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}")
         })?;

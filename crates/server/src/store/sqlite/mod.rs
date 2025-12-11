@@ -1262,7 +1262,7 @@ impl TsigKeyConfig {
                 self.key_file.display()
             )
         })?;
-        let signer_name = Name::from_str(&self.name).unwrap_or(zone_name.clone());
+        let signer_name = Name::from_str(&self.name).unwrap_or_else(|_| zone_name.clone());
 
         TSigner::new(key_data, self.algorithm.clone(), signer_name, self.fudge)
             .map_err(|e| format!("invalid TSIG key configuration: {e}"))

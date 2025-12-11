@@ -208,7 +208,7 @@ impl Config {
     #[cfg(feature = "prometheus-metrics")]
     pub fn prometheus_listen_addr(&self) -> SocketAddr {
         self.prometheus_listen_addr
-            .unwrap_or(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
+            .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
     }
 
     /// get if TCP protocol should be disabled
@@ -263,7 +263,7 @@ impl Config {
     pub fn directory(&self) -> &Path {
         self.directory
             .as_ref()
-            .map_or(Path::new(DEFAULT_PATH), Path::new)
+            .map_or_else(|| Path::new(DEFAULT_PATH), Path::new)
     }
 
     /// the set of zones which should be loaded
