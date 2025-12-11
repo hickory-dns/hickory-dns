@@ -11,13 +11,15 @@
 use std::env;
 use std::fs;
 use std::fs::DirBuilder;
-use std::io::{BufRead, BufReader, Read, Write, stdout};
+#[cfg(feature = "bind")]
+use std::io::{BufRead, BufReader, Write, stdout};
 use std::path::Path;
 use std::process::Child;
 #[cfg(feature = "bind")]
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(feature = "bind")]
 use std::thread;
 
 use data_encoding::BASE32;
@@ -73,8 +75,59 @@ impl NamedProcess {
 
         //
         let stderr = named.stderr.take().unwrap();
-        let process = wrap_process(working_dir, named, stderr, "running\n");
-        (process, test_port)
+        let mut named_out = BufReader::new(stderr);
+
+        // we should get the correct output before 1000 lines...
+        let mut output = String::new();
+        let mut found = false;
+
+        println!("TEST: waiting for server to start");
+        for _ in 0..1000 {
+            output.clear();
+            named_out
+                .read_line(&mut output)
+                .expect("could not read stdout");
+
+            if !output.is_empty() {
+                print!("SRV: {output}");
+            }
+
+            if output.ends_with("running\n") {
+                found = true;
+                break;
+            }
+        }
+
+        stdout().flush().unwrap();
+        assert!(found, "server did not startup...");
+
+        let thread_notice = Arc::new(AtomicBool::new(false));
+        let thread_notice_clone = thread_notice.clone();
+
+        thread::Builder::new()
+            .name("named stdout".into())
+            .spawn(move || {
+                let thread_notice = thread_notice_clone;
+                while !thread_notice.load(std::sync::atomic::Ordering::Acquire) {
+                    output.clear();
+                    named_out
+                        .read_line(&mut output)
+                        .expect("could not read stdout");
+                    // stdout().write(b"SRV: ").unwrap();
+                    // stdout().write(output.as_bytes()).unwrap();
+                }
+            })
+            .expect("no thread available");
+
+        // return handle to child process
+        (
+            Self {
+                working_dir,
+                named: Some(named),
+                thread_notice,
+            },
+            test_port,
+        )
     }
 
     #[cfg(not(feature = "bind"))]
@@ -117,60 +170,4 @@ fn new_working_dir() -> String {
     }
 
     working_dir
-}
-
-fn wrap_process<R>(working_dir: String, named: Child, io: R, started_str: &str) -> NamedProcess
-where
-    R: Read + Send + 'static,
-{
-    let mut named_out = BufReader::new(io);
-
-    // we should get the correct output before 1000 lines...
-    let mut output = String::new();
-    let mut found = false;
-
-    println!("TEST: waiting for server to start");
-    for _ in 0..1000 {
-        output.clear();
-        named_out
-            .read_line(&mut output)
-            .expect("could not read stdout");
-
-        if !output.is_empty() {
-            print!("SRV: {output}");
-        }
-
-        if output.ends_with(started_str) {
-            found = true;
-            break;
-        }
-    }
-
-    stdout().flush().unwrap();
-    assert!(found, "server did not startup...");
-
-    let thread_notice = Arc::new(AtomicBool::new(false));
-    let thread_notice_clone = thread_notice.clone();
-
-    thread::Builder::new()
-        .name("named stdout".into())
-        .spawn(move || {
-            let thread_notice = thread_notice_clone;
-            while !thread_notice.load(std::sync::atomic::Ordering::Acquire) {
-                output.clear();
-                named_out
-                    .read_line(&mut output)
-                    .expect("could not read stdout");
-                // stdout().write(b"SRV: ").unwrap();
-                // stdout().write(output.as_bytes()).unwrap();
-            }
-        })
-        .expect("no thread available");
-
-    // return handle to child process
-    NamedProcess {
-        working_dir,
-        named: Some(named),
-        thread_notice,
-    }
 }
