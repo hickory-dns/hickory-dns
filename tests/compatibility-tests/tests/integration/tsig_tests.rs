@@ -17,7 +17,7 @@ use std::sync::Arc;
 use futures::TryStreamExt;
 use time::Duration;
 
-use hickory_compatibility::named_process;
+use hickory_compatibility::NamedProcess;
 use hickory_proto::client::{Client, ClientHandle};
 use hickory_proto::dnssec::TSigner;
 use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
@@ -48,7 +48,7 @@ fn signer() -> Arc<dyn MessageSigner> {
 async fn test_create() {
     subscribe();
 
-    let (_process, port) = named_process();
+    let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let stream = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(signer()))
@@ -102,7 +102,7 @@ async fn test_create() {
 async fn test_tsig_zone_transfer() {
     subscribe();
 
-    let (_process, port) = named_process();
+    let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let (stream, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
