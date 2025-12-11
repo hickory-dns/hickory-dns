@@ -20,11 +20,10 @@ use std::{
 };
 
 use futures_util::lock::Mutex as AsyncMutex;
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
+use metrics::{Counter, Histogram, counter, describe_counter, describe_histogram, histogram};
 #[cfg(feature = "metrics")]
-use metrics::{
-    Counter, Gauge, Histogram, Unit, counter, describe_counter, describe_gauge, describe_histogram,
-    gauge, histogram,
-};
+use metrics::{Gauge, Unit, describe_gauge, gauge};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
@@ -515,6 +514,10 @@ impl ProbeMetrics {
         }
     }
 
+    #[cfg_attr(
+        not(any(feature = "__tls", feature = "__quic")),
+        allow(unused_variables)
+    )]
     fn record_probe_duration(&self, proto: Protocol, duration: Duration) {
         match proto {
             #[cfg(feature = "__tls")]
@@ -548,7 +551,7 @@ impl Default for ProbeMetrics {
     }
 }
 
-#[cfg(feature = "metrics")]
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 #[derive(Clone)]
 struct ProbeProtocolMetrics {
     probe_attempts: Counter,
@@ -558,7 +561,7 @@ struct ProbeProtocolMetrics {
     probe_duration: Histogram,
 }
 
-#[cfg(feature = "metrics")]
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 impl ProbeProtocolMetrics {
     fn new(protocol: Protocol) -> Self {
         describe_counter!(
