@@ -92,7 +92,7 @@ fn ds_bad_key_algo() -> Result<(), Error> {
 fn no_rrsig_ksk() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_zone = FQDN::TEST_TLD.push_label("no-rrsig-ksk");
-    let leaf_ns = NameServer::new(&dns_test::PEER, leaf_zone.clone(), &network)?;
+    let leaf_ns = NameServer::new(&PEER, leaf_zone.clone(), &network)?;
 
     let Graph {
         nameservers: _nameservers,
@@ -188,7 +188,7 @@ fn malformed_ds_fixture(
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
 
-    let peer = &dns_test::PEER;
+    let peer = &PEER;
     let mut root_ns = NameServer::new(peer, FQDN::ROOT, &network)?;
     let mut tld_ns = NameServer::new(peer, FQDN::TEST_TLD, &network)?;
     let mut nameservers_ns = NameServer::new(peer, FQDN::TEST_DOMAIN, &network)?;

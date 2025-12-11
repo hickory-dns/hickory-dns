@@ -542,7 +542,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     continue;
                 };
 
-                if !super::is_subzone(&zone.base_name(), zns.name()) {
+                if !is_subzone(&zone.base_name(), zns.name()) {
                     warn!(
                         name = ?zns.name(),
                         parent = ?zone.base_name(),
@@ -692,7 +692,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // nameserver_pool, but for a non-child nameservers we need to get an appropriate pool.
             // To avoid incrementing the depth counter for each nameserver, we'll use the passed in
             // depth as a fixed base for the nameserver lookups
-            let nameserver_pool = if !super::is_subzone(zone, &record_name) {
+            let nameserver_pool = if !is_subzone(zone, &record_name) {
                 self.ns_pool_for_name(record_name.clone(), request_time, depth)
                     .await?
                     .1 // discard the depth part of the tuple

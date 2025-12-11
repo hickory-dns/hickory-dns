@@ -8,6 +8,7 @@ use core::marker::Send;
 use core::net::SocketAddr;
 use core::pin::Pin;
 use core::time::Duration;
+use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
@@ -339,7 +340,7 @@ pub trait Time: Send + Sync + Unpin {
     async fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
-    ) -> Result<F::Output, std::io::Error>;
+    ) -> Result<F::Output, io::Error>;
 
     /// Get the current time as a Unix timestamp.
     ///
@@ -367,9 +368,9 @@ impl Time for TokioTime {
     async fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
-    ) -> Result<F::Output, std::io::Error> {
+    ) -> Result<F::Output, io::Error> {
         tokio::time::timeout(duration, future)
             .await
-            .map_err(move |_| std::io::Error::new(std::io::ErrorKind::TimedOut, "future timed out"))
+            .map_err(move |_| io::Error::new(io::ErrorKind::TimedOut, "future timed out"))
     }
 }

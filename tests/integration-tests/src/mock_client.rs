@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::future::{Future, ready};
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -36,7 +37,7 @@ impl AsyncRead for TcpPlaceholder {
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(buf.len()))
     }
 }
@@ -46,15 +47,15 @@ impl AsyncWrite for TcpPlaceholder {
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(buf.len()))
     }
 
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 
-    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 }
@@ -72,7 +73,7 @@ impl DnsUdpSocket for UdpPlaceholder {
         &self,
         _cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<std::io::Result<(usize, SocketAddr)>> {
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
         Poll::Ready(Ok((
             buf.len(),
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(255, 255, 255, 77)), 1),
@@ -84,7 +85,7 @@ impl DnsUdpSocket for UdpPlaceholder {
         _cx: &mut Context<'_>,
         buf: &[u8],
         _target: SocketAddr,
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(buf.len()))
     }
 }

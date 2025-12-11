@@ -52,7 +52,7 @@ pub enum ParseError {
     /// An error got returned from IO
     #[cfg(feature = "std")]
     #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 
     /// An error from the lexer
     #[error("lexer error: {0}")]
@@ -89,7 +89,7 @@ impl Clone for ParseError {
             AddrParse(e) => AddrParse(e.clone()),
             DataEncoding(e) => DataEncoding(*e),
             #[cfg(feature = "std")]
-            Io(e) => Io(std::io::Error::from(e.kind())),
+            Io(e) => Io(io::Error::from(e.kind())),
             Lexer(e) => Lexer(e.clone()),
             ParseInt(e) => ParseInt(e.clone()),
             Proto(e) => Proto(e.clone()),
@@ -130,7 +130,7 @@ impl From<ParseError> for io::Error {
 }
 
 /// An alias for lexer results returned by functions of this crate
-pub(crate) type LexerResult<T> = core::result::Result<T, LexerError>;
+pub(crate) type LexerResult<T> = Result<T, LexerError>;
 
 /// The error kind for lexer errors that get returned in the crate
 #[derive(Eq, PartialEq, Debug, Error, Clone)]

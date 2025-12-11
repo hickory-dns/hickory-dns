@@ -429,7 +429,7 @@ fn test_reject_unknown_fields() {
         println!("seed file: {file_name}");
 
         let contents = fs::read_to_string(entry.path()).unwrap();
-        let value = toml::from_str::<toml::Value>(&contents).unwrap();
+        let value = toml::from_str::<Value>(&contents).unwrap();
         let config_table = value.as_table().unwrap();
 
         // Skip over configs that can't be read with the current set of features.

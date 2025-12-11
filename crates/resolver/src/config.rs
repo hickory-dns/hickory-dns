@@ -369,7 +369,7 @@ impl ConnectionConfig {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ConnectionConfig {
+impl<'de> Deserialize<'de> for ConnectionConfig {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]

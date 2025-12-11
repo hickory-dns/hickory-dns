@@ -301,7 +301,7 @@ pub enum ProtoError {
 
     /// An int parsing error
     #[error("error parsing int")]
-    ParseInt(#[from] core::num::ParseIntError),
+    ParseInt(#[from] ParseIntError),
 
     /// A JNI call error
     #[cfg(target_os = "android")]

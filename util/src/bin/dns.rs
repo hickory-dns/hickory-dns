@@ -478,7 +478,7 @@ async fn tls<P: RuntimeProvider>(
 
     let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
-        self::do_not_verify_nameserver_cert(&mut config);
+        do_not_verify_nameserver_cert(&mut config);
     }
     if let Some(alpn) = alpn {
         config.alpn_protocols.push(alpn);
@@ -527,7 +527,7 @@ async fn https<P: RuntimeProvider>(
 
     let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
-        self::do_not_verify_nameserver_cert(&mut config);
+        do_not_verify_nameserver_cert(&mut config);
     }
     config.alpn_protocols.push(alpn);
     let config = Arc::new(config);
@@ -568,7 +568,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
-        self::do_not_verify_nameserver_cert(&mut config);
+        do_not_verify_nameserver_cert(&mut config);
     }
     config.alpn_protocols.push(alpn);
 
@@ -610,7 +610,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut config = client_config()?;
     if opts.do_not_verify_nameserver_cert {
-        self::do_not_verify_nameserver_cert(&mut config);
+        do_not_verify_nameserver_cert(&mut config);
     }
     config.alpn_protocols.push(alpn);
 

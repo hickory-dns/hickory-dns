@@ -280,7 +280,7 @@ fn test_read_and_emit() {
 #[test]
 fn test_mdns_unicast_response_bit_handling() {
     const QCLASS_OFFSET: usize = 1 /* empty name */ +
-        core::mem::size_of::<u16>() /* query_type */;
+        size_of::<u16>() /* query_type */;
 
     let mut query = Query::new();
     query.set_mdns_unicast_response(true);

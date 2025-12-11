@@ -108,7 +108,7 @@ impl NamedProcess {
             .name("named stdout".into())
             .spawn(move || {
                 let thread_notice = thread_notice_clone;
-                while !thread_notice.load(std::sync::atomic::Ordering::Acquire) {
+                while !thread_notice.load(Ordering::Acquire) {
                     output.clear();
                     named_out
                         .read_line(&mut output)

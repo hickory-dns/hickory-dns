@@ -510,7 +510,7 @@ impl fmt::Display for KEY {
 
 impl From<KEY> for RData {
     fn from(key: KEY) -> Self {
-        Self::DNSSEC(super::DNSSECRData::KEY(key))
+        Self::DNSSEC(DNSSECRData::KEY(key))
     }
 }
 

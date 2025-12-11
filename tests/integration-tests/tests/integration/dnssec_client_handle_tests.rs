@@ -196,7 +196,7 @@ where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client<TokioRuntimeProvider>>>) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
@@ -253,7 +253,7 @@ where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client<TokioRuntimeProvider>>>) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
@@ -289,7 +289,7 @@ where
     F: Fn(DnssecDnsHandle<MemoizeClientHandle<Client<TokioRuntimeProvider>>>) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
