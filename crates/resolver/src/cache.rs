@@ -128,19 +128,71 @@ impl Entry {
                     Message::additionals_mut,
                 ] {
                     for record in section_fn(&mut response) {
-                        record.set_ttl(record.ttl().saturating_sub(elapsed));
+                        record.decrement_ttl(elapsed);
                     }
                 }
                 Ok(response)
             }
             Err(e) => {
                 let mut e = e.clone();
+
+                // The NoRecords error may contain up to four fields with TTL values present: negative_ttl, soa, authorities, and ns.
+                // For completeness, we update each field, if present.
                 if let NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
-                    negative_ttl: Some(ttl),
+                    negative_ttl,
+                    soa,
+                    authorities,
+                    ns,
                     ..
                 })) = &mut e.kind
                 {
-                    *ttl = ttl.saturating_sub(elapsed);
+                    if let Some(ttl) = negative_ttl {
+                        *ttl = ttl.saturating_sub(elapsed);
+                    }
+
+                    if let Some(soa) = soa {
+                        soa.decrement_ttl(elapsed);
+                    }
+
+                    if let Some(recs) = authorities {
+                        let updated_auths = recs
+                            .iter()
+                            .cloned()
+                            .map(|mut rec| {
+                                rec.decrement_ttl(elapsed);
+                                rec
+                            })
+                            .collect::<Vec<_>>()
+                            .into_boxed_slice();
+
+                        authorities.replace(Arc::from(updated_auths));
+                    }
+
+                    if let Some(ns_recs) = ns {
+                        let updated_ns = ns_recs
+                            .iter()
+                            .cloned()
+                            .map(|mut ns| {
+                                ns.ns.decrement_ttl(elapsed);
+                                let glue = ns
+                                    .glue
+                                    .iter()
+                                    .cloned()
+                                    .map(|mut glue| {
+                                        glue.decrement_ttl(elapsed);
+                                        glue
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .into_boxed_slice();
+
+                                ns.glue = Arc::from(glue);
+
+                                ns
+                            })
+                            .collect::<Vec<_>>()
+                            .into_boxed_slice();
+                        ns.replace(Arc::from(updated_ns));
+                    }
                 }
                 Err(e)
             }
@@ -364,6 +416,7 @@ mod tests {
         time::{Duration, Instant},
     };
 
+    use hickory_proto::ForwardNSData;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
@@ -373,9 +426,10 @@ mod tests {
         op::{Message, OpCode, Query, ResponseCode},
         rr::{
             Name, RData, Record, RecordType,
-            rdata::{A, TXT},
+            rdata::{A, NS, SOA, TXT},
         },
     };
+    use test_support::subscribe;
 
     #[test]
     fn test_is_current() {
@@ -565,6 +619,32 @@ mod tests {
     }
 
     #[test]
+    fn test_insert_negative() {
+        subscribe();
+        let now = Instant::now();
+
+        let query = Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::AAAA,
+        );
+
+        let mut norecs = NoRecords::new(query.clone(), ResponseCode::NXDomain);
+        norecs.negative_ttl = Some(10);
+        let error = NetError::from(norecs);
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        cache.insert(query.clone(), Err(error), now);
+
+        let cache_err = cache.get(&query, now).unwrap().unwrap_err();
+        let NetErrorKind::Dns(DnsError::NoRecordsFound(_no_records)) = &cache_err.kind else {
+            panic!("expected NoRecordsFound");
+        };
+
+        // Cache should be expired
+        assert!(cache.get(&query, now + Duration::from_secs(11)).is_none());
+    }
+
+    #[test]
     fn test_update_ttl() {
         let now = Instant::now();
 
@@ -583,6 +663,76 @@ mod tests {
         let cache_message = result.unwrap();
         let record = cache_message.answers().first().unwrap();
         assert_eq!(record.ttl(), 8);
+    }
+
+    #[test]
+    fn test_update_ttl_negative() -> Result<(), NetError> {
+        subscribe();
+        let now = Instant::now();
+        let name = Name::from_str("www.example.com.")?;
+        let ns_name = Name::from_str("ns1.example.com")?;
+        let zone_name = name.base_name();
+        let query = Query::query(name.clone(), RecordType::AAAA);
+
+        let mut norecs = NoRecords::new(query.clone(), ResponseCode::NXDomain);
+        norecs.negative_ttl = Some(10);
+        norecs.soa = Some(Box::new(Record::from_rdata(
+            zone_name.clone(),
+            10,
+            SOA::new(name.base_name(), name.clone(), 1, 1, 1, 1, 1),
+        )));
+        norecs.authorities = Some(Arc::new([Record::from_rdata(
+            zone_name.clone(),
+            10,
+            RData::NS(NS(ns_name.clone())),
+        )]));
+        norecs.ns = Some(Arc::new([ForwardNSData {
+            ns: Record::from_rdata(zone_name.clone(), 10, RData::NS(NS(ns_name.clone()))),
+            glue: Arc::new([Record::from_rdata(
+                ns_name.clone(),
+                10,
+                RData::A(A([192, 0, 2, 1].into())),
+            )]),
+        }]));
+
+        let error = NetError::from(norecs);
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+        cache.insert(query.clone(), Err(error), now);
+
+        let cache_err = cache.get(&query, now).unwrap().unwrap_err();
+        let NetErrorKind::Dns(DnsError::NoRecordsFound(no_records)) = &cache_err.kind else {
+            panic!("expected NoRecordsFound");
+        };
+
+        let Some(soa) = no_records.soa.clone() else {
+            panic!("no SOA in NoRecordsFound");
+        };
+        assert_eq!(soa.ttl(), 10);
+
+        let cache_err = cache
+            .get(&query, now + Duration::from_secs(2))
+            .unwrap()
+            .unwrap_err();
+        let NetErrorKind::Dns(DnsError::NoRecordsFound(NoRecords {
+            negative_ttl: Some(negative_ttl),
+            soa: Some(soa),
+            authorities: Some(authorities),
+            ns: Some(ns),
+            ..
+        })) = &cache_err.kind
+        else {
+            panic!("expected NoRecordsFound with negative_ttl, soa, authorities, and ns");
+        };
+
+        assert_eq!(*negative_ttl, 8);
+        assert_eq!(soa.ttl(), 8);
+        assert_eq!(authorities[0].ttl(), 8);
+        assert_eq!(ns[0].ns.ttl(), 8);
+
+        // Cache should be expired
+        assert!(cache.get(&query, now + Duration::from_secs(11)).is_none());
+        Ok(())
     }
 
     #[test]
