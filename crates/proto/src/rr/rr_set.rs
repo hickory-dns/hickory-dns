@@ -418,13 +418,20 @@ impl RecordSet {
 /// be destructured and taken by value
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecordSetParts {
+    /// Name for this record set
     pub name: Name,
+    /// Type for this record set
     pub record_type: RecordType,
+    /// DNS class for this record set
     pub dns_class: DNSClass,
+    /// Time to live for this record set
     pub ttl: u32,
+    /// Records in this record set
     pub records: Vec<Record>,
+    /// RRSIGs for this record set
     pub rrsigs: Vec<Record>,
-    pub serial: u32, // serial number at which this record was modified,
+    /// Serial number at which this record was modified
+    pub serial: u32,
 }
 
 impl From<RecordSet> for RecordSetParts {

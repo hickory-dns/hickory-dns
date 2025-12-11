@@ -11,5 +11,5 @@ mod label;
 mod name;
 pub mod usage;
 
-pub use self::label::{IntoLabel, Label};
+pub use self::label::{IntoLabel, Label, LabelCmp};
 pub use self::name::{IntoName, LabelIter, Name};

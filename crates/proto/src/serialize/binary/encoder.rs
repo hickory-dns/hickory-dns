@@ -547,6 +547,7 @@ impl Drop for ModalEncoder<'_, '_> {
 ///
 /// it does not necessarily equal `core::mem::size_of`, though it might, especially for primitives
 pub trait EncodedSize: BinEncodable {
+    /// Number of bytes used when encoding the type
     const LEN: usize;
 }
 
@@ -558,6 +559,7 @@ impl EncodedSize for Header {
     const LEN: usize = 12;
 }
 
+/// A place in the encoded stream that the encoder can rewrite
 #[derive(Debug)]
 #[must_use = "data must be written back to the place"]
 pub struct Place<T: EncodedSize> {
@@ -566,6 +568,7 @@ pub struct Place<T: EncodedSize> {
 }
 
 impl<T: EncodedSize> Place<T> {
+    /// Replaces the data at this place with the given data
     pub fn replace(self, encoder: &mut BinEncoder<'_>, data: T) -> ProtoResult<()> {
         encoder.emit_at(self, data)
     }

@@ -56,7 +56,7 @@ use crate::{
 pub use hickory_proto as proto;
 
 mod error;
-pub use error::RecursorError;
+pub use error::{AuthorityData, RecursorError};
 
 mod handle;
 use handle::RecursorDnsHandle;

@@ -8,11 +8,11 @@ use client::Client;
 use name_server::{NameServer, Running};
 
 pub use crate::container::Network;
-pub use crate::forwarder::Forwarder;
+pub use crate::forwarder::{Forwarder, ForwarderSettings};
 pub use crate::fqdn::FQDN;
-pub use crate::implementation::{HickoryCryptoProvider, Implementation, Repository};
+pub use crate::implementation::{HickoryCryptoProvider, Implementation, Repository, Role};
 pub use crate::pki::Pki;
-pub use crate::resolver::Resolver;
+pub use crate::resolver::{Resolver, ResolverSettings};
 pub use crate::trust_anchor::TrustAnchor;
 
 pub mod client;
