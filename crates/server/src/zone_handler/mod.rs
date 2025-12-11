@@ -38,7 +38,8 @@ mod message_response;
 pub(crate) mod metrics;
 
 pub use self::auth_lookup::{
-    AuthLookup, AuthLookupIter, AxfrRecords, LookupRecords, LookupRecordsIter, ZoneTransfer,
+    AuthLookup, AuthLookupIter, AxfrRecords, AxfrRecordsIter, LookupRecords, LookupRecordsIter,
+    ZoneTransfer,
 };
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};

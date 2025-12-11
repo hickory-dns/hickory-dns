@@ -29,7 +29,7 @@ mod edns;
 pub use edns::{Edns, EdnsFlags};
 
 mod header;
-pub use header::{Header, MessageType};
+pub use header::{Flags, Header, MessageType};
 
 mod lower_query;
 pub use lower_query::LowerQuery;

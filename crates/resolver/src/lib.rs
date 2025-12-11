@@ -183,7 +183,7 @@ pub use proto::rr::{IntoName, Name};
 pub mod caching_client;
 pub mod config;
 mod connection_provider;
-pub use connection_provider::{ConnectionProvider, TlsConfig};
+pub use connection_provider::{ConnectionFuture, ConnectionProvider, TlsConfig};
 mod hosts;
 pub use hosts::Hosts;
 pub mod lookup;
