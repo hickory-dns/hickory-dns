@@ -27,7 +27,7 @@ use crate::connection_provider::ConnectionProvider;
 #[cfg(feature = "__tls")]
 use crate::connection_provider::TlsConfig;
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, TypedLookup};
+use crate::lookup::Lookup;
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::name_server_pool::{NameServerPool, NameServerTransportState, PoolContext};
 #[cfg(feature = "__dnssec")]
@@ -38,12 +38,12 @@ use crate::proto::{
     NetError,
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
     rr::domain::usage::ONION,
-    rr::{IntoName, Name, RData, Record, RecordType, rdata},
+    rr::{IntoName, Name, RData, Record, RecordType},
     xfer::{DnsHandle, RetryDnsHandle},
 };
 
 macro_rules! lookup_fn {
-    ($p:ident, $l:ty, $r:path) => {
+    ($p:ident, $r:path) => {
         /// Performs a lookup for the associated type.
         ///
         /// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
@@ -51,7 +51,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
-        pub async fn $p(&self, query: impl IntoName) -> Result<TypedLookup<$l>, NetError> {
+        pub async fn $p(&self, query: impl IntoName) -> Result<Lookup, NetError> {
             self.inner_lookup(query.into_name()?, $r, self.request_options())
                 .await
         }
@@ -325,17 +325,17 @@ impl<R: ConnectionProvider> Resolver<R> {
         }
     }
 
-    lookup_fn!(reverse_lookup, rdata::PTR, RecordType::PTR);
-    lookup_fn!(ipv4_lookup, rdata::A, RecordType::A);
-    lookup_fn!(ipv6_lookup, rdata::AAAA, RecordType::AAAA);
-    lookup_fn!(mx_lookup, rdata::MX, RecordType::MX);
-    lookup_fn!(ns_lookup, rdata::NS, RecordType::NS);
-    lookup_fn!(smimea_lookup, rdata::SMIMEA, RecordType::SMIMEA);
-    lookup_fn!(soa_lookup, rdata::SOA, RecordType::SOA);
-    lookup_fn!(srv_lookup, rdata::SRV, RecordType::SRV);
-    lookup_fn!(tlsa_lookup, rdata::TLSA, RecordType::TLSA);
-    lookup_fn!(txt_lookup, rdata::TXT, RecordType::TXT);
-    lookup_fn!(cert_lookup, rdata::CERT, RecordType::CERT);
+    lookup_fn!(reverse_lookup, RecordType::PTR);
+    lookup_fn!(ipv4_lookup, RecordType::A);
+    lookup_fn!(ipv6_lookup, RecordType::AAAA);
+    lookup_fn!(mx_lookup, RecordType::MX);
+    lookup_fn!(ns_lookup, RecordType::NS);
+    lookup_fn!(smimea_lookup, RecordType::SMIMEA);
+    lookup_fn!(soa_lookup, RecordType::SOA);
+    lookup_fn!(srv_lookup, RecordType::SRV);
+    lookup_fn!(tlsa_lookup, RecordType::TLSA);
+    lookup_fn!(txt_lookup, RecordType::TXT);
+    lookup_fn!(cert_lookup, RecordType::CERT);
 
     /// Flushes/Removes all entries from the cache
     pub fn clear_cache(&self) {
@@ -668,7 +668,7 @@ where
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(lookup)) => lookup.records().is_empty(),
+                Poll::Ready(Ok(lookup)) => lookup.answers().is_empty(),
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };
@@ -822,12 +822,17 @@ pub(crate) mod testing {
         assert_ne!(response.iter().count(), 0);
         println!(
             "{:?}",
-            response.as_lookup().record_iter().collect::<Vec<_>>()
+            response
+                .as_lookup()
+                .message()
+                .all_sections()
+                .collect::<Vec<_>>()
         );
         assert!(
             response
                 .as_lookup()
-                .record_iter()
+                .message()
+                .all_sections()
                 .any(|record| record.proof().is_secure())
         );
     }
@@ -848,9 +853,13 @@ pub(crate) mod testing {
         let lookup_ip = response.unwrap();
         println!(
             "{:?}",
-            lookup_ip.as_lookup().record_iter().collect::<Vec<_>>()
+            lookup_ip
+                .as_lookup()
+                .message()
+                .all_sections()
+                .collect::<Vec<_>>()
         );
-        for record in lookup_ip.as_lookup().record_iter() {
+        for record in lookup_ip.as_lookup().message().all_sections() {
             assert!(record.proof().is_insecure());
         }
     }
@@ -1442,8 +1451,9 @@ mod tests {
             )
             .await
             .unwrap()
+            .answers()
             .iter()
-            .map(|r| r.ip_addr().unwrap())
+            .map(|r| r.data().ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -1461,7 +1471,7 @@ mod tests {
                 )
                 .await
                 .unwrap()
-                .records()[0]
+                .answers()[0]
             )
             .ip_addr()
             .unwrap(),
@@ -1480,8 +1490,9 @@ mod tests {
             )
             .await
             .unwrap()
+            .answers()
             .iter()
-            .map(|r| r.ip_addr().unwrap())
+            .map(|r| r.data().ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );

@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 #[cfg(feature = "__dnssec")]
-use crate::dnssec::rdata::{DNSSECRData, SIG, TSIG};
+use crate::dnssec::{
+    DnssecIter,
+    rdata::{DNSSECRData, SIG, TSIG},
+};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
 use crate::{
@@ -475,6 +478,12 @@ impl Message {
     /// Removes the Answer section records from the message
     pub fn take_answers(&mut self) -> Vec<Record> {
         mem::take(&mut self.answers)
+    }
+
+    /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
+    #[cfg(feature = "__dnssec")]
+    pub fn dnssec_answers(&self) -> DnssecIter<'_> {
+        DnssecIter::new(self.answers.iter())
     }
 
     /// ```text

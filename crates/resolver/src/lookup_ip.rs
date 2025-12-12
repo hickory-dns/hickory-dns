@@ -12,6 +12,7 @@
 use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
+use std::slice::Iter;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
@@ -26,7 +27,7 @@ use crate::cache::MAX_TTL;
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, LookupIter};
+use crate::lookup::Lookup;
 use crate::proto::NetError;
 use crate::proto::op::{DnsRequestOptions, Query};
 use crate::proto::rr::{Name, RData, Record, RecordType};
@@ -42,8 +43,8 @@ impl LookupIp {
     /// Returns an iterator over the response records.
     ///
     /// Only IP records will be returned, either A or AAAA record types.
-    pub fn iter(&self) -> LookupIpIter<'_> {
-        LookupIpIter(self.0.iter())
+    pub fn iter(&self) -> LookupIpIter<Iter<'_, Record>> {
+        LookupIpIter(self.0.answers().iter())
     }
 
     /// Returns a reference to the `Query` that was used to produce this result.
@@ -77,14 +78,16 @@ impl From<LookupIp> for Lookup {
 }
 
 /// Borrowed view of set of IPs returned from a LookupIp
-pub struct LookupIpIter<'i>(pub(crate) LookupIter<'i>);
+pub struct LookupIpIter<I>(I);
 
-impl Iterator for LookupIpIter<'_> {
+impl<'i, I> Iterator for LookupIpIter<I>
+where
+    I: Iterator<Item = &'i Record>,
+{
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match rdata {
+        self.0.find_map(|record| match record.data() {
             RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(*ip))),
             RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(*ip))),
             _ => None,
@@ -150,7 +153,7 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Poll::Ready(Ok(lookup)) => lookup.is_empty(),
+                Poll::Ready(Ok(lookup)) => lookup.answers().is_empty(),
                 // If the query failed, we will attempt to retry.
                 Poll::Ready(Err(_)) => true,
             };
@@ -292,7 +295,7 @@ impl<C: DnsHandle> LookupContext<C> {
 
         match res {
             Ok(ips) => {
-                if ips.is_empty() {
+                if ips.answers().is_empty() {
                     // no ips returns, NXDomain or Otherwise, doesn't matter
                     self.hosts_lookup(Query::query(name.clone(), second_type))
                         .await
@@ -403,8 +406,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_only(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -423,8 +427,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_only(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
@@ -445,8 +450,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -459,8 +465,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
@@ -470,8 +477,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
@@ -481,8 +489,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
@@ -492,8 +501,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
@@ -513,8 +523,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_then_ipv4(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
@@ -524,8 +535,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_then_ipv4(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -535,8 +547,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv6_then_ipv4(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -556,8 +569,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_then_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -567,8 +581,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_then_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
@@ -578,8 +593,9 @@ pub(crate) mod tests {
         assert_eq!(
             block_on(cx.ipv4_then_ipv6(Name::root()))
                 .unwrap()
+                .answers()
                 .iter()
-                .map(|r| r.ip_addr().unwrap())
+                .map(|r| r.data().ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );

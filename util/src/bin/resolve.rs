@@ -209,7 +209,7 @@ async fn execute_query(
         let v4addr = name
             .parse::<IpAddr>()
             .unwrap_or_else(|_| panic!("Could not parse {name} into an IP address"));
-        Ok(resolver.reverse_lookup(v4addr).await?.into())
+        Ok(resolver.reverse_lookup(v4addr).await?)
     } else {
         Ok(resolver.lookup(name.to_string(), ty).await?)
     }
