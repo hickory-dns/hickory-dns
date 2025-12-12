@@ -75,15 +75,7 @@ pub struct Recursor<P: ConnectionProvider> {
 }
 
 #[cfg(feature = "tokio")]
-impl Recursor<TokioRuntimeProvider> {
-    /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
-    ///
-    /// This uses the Tokio async runtime. To use a different runtime provider, see
-    /// [`Recursor::builder_with_provider`].
-    pub fn builder() -> RecursorBuilder<TokioRuntimeProvider> {
-        RecursorBuilder::new(TokioRuntimeProvider::default())
-    }
-}
+impl Recursor<TokioRuntimeProvider> {}
 
 impl<P: ConnectionProvider> Recursor<P> {
     /// Build a new [`Recursor`] from the specified configuration
@@ -93,7 +85,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         root_dir: Option<&Path>,
         conn_provider: P,
     ) -> Result<Self, RecursorError> {
-        let mut builder = Self::builder_with_provider(conn_provider.clone());
+        let mut builder = Self::builder();
         builder = builder.ns_cache_size(config.ns_cache_size);
         builder = builder.response_cache_size(config.response_cache_size);
         builder = builder.answer_address_filter_allow(config.allow_answers.iter());
@@ -143,12 +135,15 @@ impl<P: ConnectionProvider> Recursor<P> {
             .filter_map(RData::ip_addr) // we only want IPs
             .collect::<Vec<_>>();
 
-        builder.build(&root_addrs)
+        builder.build(&root_addrs, conn_provider)
     }
 
     /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
-    pub fn builder_with_provider(conn_provider: P) -> RecursorBuilder<P> {
-        RecursorBuilder::new(conn_provider)
+    ///
+    /// This uses the Tokio async runtime. To use a different runtime provider, see
+    /// [`Recursor::builder_with_provider`].
+    pub fn builder() -> RecursorBuilder {
+        RecursorBuilder::new()
     }
 
     /// Perform a recursive resolution
@@ -710,7 +705,7 @@ fn deny_server_default() -> Vec<IpNet> {
 }
 
 /// A `Recursor` builder
-pub struct RecursorBuilder<P: ConnectionProvider> {
+pub struct RecursorBuilder {
     pub(super) ns_cache_size: usize,
     pub(super) response_cache_size: u64,
     /// This controls how many nested lookups will be attempted to resolve a CNAME chain.
@@ -727,11 +722,10 @@ pub struct RecursorBuilder<P: ConnectionProvider> {
     pub(super) case_randomization: bool,
     pub(super) opportunistic_encryption: OpportunisticEncryption,
     pub(super) encrypted_transport_state: NameServerTransportState,
-    pub(super) conn_provider: P,
 }
 
-impl<P: ConnectionProvider> RecursorBuilder<P> {
-    fn new(conn_provider: P) -> Self {
+impl RecursorBuilder {
+    fn new() -> Self {
         Self {
             ns_cache_size: 1_024,
             response_cache_size: 1_048_576,
@@ -751,7 +745,6 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
             case_randomization: false,
             opportunistic_encryption: OpportunisticEncryption::default(),
             encrypted_transport_state: NameServerTransportState::default(),
-            conn_provider,
         }
     }
 
@@ -905,7 +898,11 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
     /// # Panics
     ///
     /// This will panic if the roots are empty.
-    pub fn build(self, roots: &[IpAddr]) -> Result<Recursor<P>, RecursorError> {
+    pub fn build<P: ConnectionProvider>(
+        self,
+        roots: &[IpAddr],
+        conn_provider: P,
+    ) -> Result<Recursor<P>, RecursorError> {
         let mut tls_config = TlsConfig::new()?;
         if self.opportunistic_encryption.is_enabled() {
             warn!("disabling TLS peer verification for opportunistic encryption mode");
@@ -917,7 +914,7 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         let response_cache_size = self.response_cache_size;
         #[cfg(feature = "__dnssec")]
         let ttl_config = self.ttl_config.clone();
-        let handle = RecursorDnsHandle::new(roots, tls_config, self)?;
+        let handle = RecursorDnsHandle::new(roots, tls_config, self, conn_provider)?;
 
         Ok(Recursor {
             mode: match dnssec_policy {
