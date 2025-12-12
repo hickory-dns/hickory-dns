@@ -9,20 +9,15 @@
 
 use std::{
     cmp::min,
-    marker::PhantomData,
-    slice::Iter,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use hickory_proto::rr::RecordData;
-
 use crate::{
     cache::MAX_TTL,
-    lookup_ip::LookupIpIter,
     proto::{
         op::{Message, OpCode, Query},
-        rr::{RData, Record, rdata},
+        rr::{RData, Record},
     },
 };
 
@@ -143,199 +138,6 @@ impl Lookup {
     }
 }
 
-// TODO: no longer a zero cost abstraction, remove once no longer in use.
-impl IntoIterator for Lookup {
-    type Item = RData;
-    type IntoIter = LookupIntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        LookupIntoIter {
-            // This is not a free conversion, because the `RData`s are cloned.
-            records: Arc::from(self.answers()),
-            index: 0,
-        }
-    }
-}
-
-/// Borrowed view of set of [`RData`]s returned from a [`Lookup`].
-///
-/// This is not a zero overhead `Iterator`, because it clones each [`RData`].
-pub struct LookupIntoIter {
-    records: Arc<[Record]>,
-    index: usize,
-}
-
-impl Iterator for LookupIntoIter {
-    type Item = RData;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let rdata = self.records.get(self.index).map(Record::data);
-        self.index += 1;
-        rdata.cloned()
-    }
-}
-
-/// Borrowed view of set of [`RData`]s returned from a Lookup
-pub struct LookupIter<'a>(Box<dyn Iterator<Item = &'a Record> + 'a>);
-
-impl<'a> LookupIter<'a> {
-    /// Create a new LookupIter from an iterator over Records
-    pub(crate) fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
-        Self(Box::new(iter))
-    }
-}
-
-impl<'a> Iterator for LookupIter<'a> {
-    type Item = &'a RData;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Record::data)
-    }
-}
-
-/// Borrowed view of set of [`Record`]s returned from a Lookup
-pub struct LookupRecordIter<'a>(Iter<'a, Record>);
-
-impl<'a> Iterator for LookupRecordIter<'a> {
-    type Item = &'a Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-/// The result of an SRV lookup
-#[derive(Debug, Clone)]
-pub struct SrvLookup(Lookup);
-
-impl SrvLookup {
-    /// Returns an iterator over the SRV RData
-    ///
-    /// For backwards compatibility, this returns records from all sections
-    /// (ANSWER, AUTHORITY, ADDITIONAL).
-    pub fn iter(&self) -> SrvLookupIter<'_> {
-        SrvLookupIter(LookupIter::new(self.0.message.all_sections()))
-    }
-
-    /// Returns a reference to the Query that was used to produce this result.
-    pub fn query(&self) -> &Query {
-        self.0.query()
-    }
-
-    /// Returns the list of IPs associated with the SRV record.
-    ///
-    /// *Note*: That Hickory DNS performs a recursive lookup on SRV records for IPs if they were not included in the original request. If there are no IPs associated to the result, a subsequent query for the IPs via the `srv.target()` should not resolve to the IPs.
-    pub fn ip_iter(&self) -> LookupIpIter<'_> {
-        // Use all_sections() to get IPs from ANSWER and ADDITIONAL sections
-        // (ADDITIONAL may contain glue records for SRV targets)
-        LookupIpIter(LookupIter::new(self.0.message.all_sections()))
-    }
-
-    /// Return a reference to the inner lookup
-    ///
-    /// This can be useful for getting all records from the request
-    pub fn as_lookup(&self) -> &Lookup {
-        &self.0
-    }
-
-    /// Returns a reference to the underlying DNS Message
-    pub fn as_message(&self) -> &Message {
-        &self.0.message
-    }
-}
-
-impl From<Lookup> for SrvLookup {
-    fn from(lookup: Lookup) -> Self {
-        Self(lookup)
-    }
-}
-
-/// An iterator over the Lookup type
-pub struct SrvLookupIter<'i>(LookupIter<'i>);
-
-impl<'i> Iterator for SrvLookupIter<'i> {
-    type Item = &'i rdata::SRV;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let iter: &mut _ = &mut self.0;
-        iter.find_map(|rdata| match rdata {
-            RData::SRV(data) => Some(data),
-            _ => None,
-        })
-    }
-}
-
-/// Contains the results of a lookup for the associated RecordType
-#[derive(Debug, Clone)]
-pub struct TypedLookup<T> {
-    inner: Lookup,
-    _marker: PhantomData<T>,
-}
-
-impl<T> TypedLookup<T> {
-    /// Returns an iterator over the matching records
-    ///
-    /// For backwards compatibility, this returns records from all sections
-    /// (ANSWER, AUTHORITY, ADDITIONAL).
-    pub fn iter(&self) -> TypedLookupIter<'_, T> {
-        TypedLookupIter {
-            inner: LookupIter::new(self.inner.message.all_sections()),
-            _marker: PhantomData,
-        }
-    }
-
-    /// Returns a reference to the Query that was used to produce this result.
-    pub fn query(&self) -> &Query {
-        self.inner.query()
-    }
-
-    /// Returns the `Instant` at which this result is no longer valid.
-    pub fn valid_until(&self) -> Instant {
-        self.inner.valid_until()
-    }
-
-    /// Return a reference to the inner lookup
-    ///
-    /// This can be useful for getting all records from the request
-    pub fn as_lookup(&self) -> &Lookup {
-        &self.inner
-    }
-
-    /// Returns a reference to the underlying DNS Message
-    pub fn as_message(&self) -> &Message {
-        &self.inner.message
-    }
-}
-
-impl<T> From<Lookup> for TypedLookup<T> {
-    fn from(inner: Lookup) -> Self {
-        Self {
-            inner,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T> From<TypedLookup<T>> for Lookup {
-    fn from(typed_lookup: TypedLookup<T>) -> Self {
-        typed_lookup.inner
-    }
-}
-
-/// An iterator over the Lookup type
-pub struct TypedLookupIter<'i, T> {
-    inner: LookupIter<'i>,
-    _marker: PhantomData<T>,
-}
-
-impl<'i, T: RecordData + 'i> Iterator for TypedLookupIter<'i, T> {
-    type Item = &'i T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.find_map(T::try_borrow)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -345,27 +147,6 @@ mod tests {
     use crate::proto::rr::{Name, RData, Record, RecordType};
 
     use super::*;
-
-    #[test]
-    fn test_lookup_into_iter_arc() {
-        let records = &[
-            Record::from_rdata(
-                Name::from_str("www.example.com.").unwrap(),
-                80,
-                RData::A(A::new(127, 0, 0, 1)),
-            ),
-            Record::from_rdata(
-                Name::from_str("www.example.com.").unwrap(),
-                80,
-                RData::A(A::new(127, 0, 0, 2)),
-            ),
-        ];
-
-        let mut lookup = LookupIter::new(records.iter());
-        assert_eq!(lookup.next().unwrap(), &RData::A(A::new(127, 0, 0, 1)));
-        assert_eq!(lookup.next().unwrap(), &RData::A(A::new(127, 0, 0, 2)));
-        assert_eq!(lookup.next(), None);
-    }
 
     #[test]
     #[cfg(feature = "__dnssec")]
