@@ -78,9 +78,10 @@ pub enum ProofErrorKind {
         name: Name,
     },
 
-    /// DS record does not exist, and this was proven with an NSEC
+    /// DS record does not exist, and this was proven with an NSEC or an
+    /// insecure parent zone
     #[error("ds record does not exist: {name}")]
-    DsResponseNsec {
+    DsResponseInsecure {
         /// The name of the DS record
         name: Name,
     },

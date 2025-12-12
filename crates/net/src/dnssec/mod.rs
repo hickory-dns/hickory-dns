@@ -457,7 +457,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
                 Err(err) => {
                     match err.kind() {
-                        ProofErrorKind::DsResponseNsec { .. } => {
+                        ProofErrorKind::DsResponseInsecure { .. } => {
                             debug!("verified insecure {name}/{record_type}")
                         }
                         kind => {
@@ -841,7 +841,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     );
                     return Err(ProofError::new(
                         Proof::Insecure,
-                        ProofErrorKind::DsResponseNsec { name: zone },
+                        ProofErrorKind::DsResponseInsecure { name: zone },
                     ));
                 }
             }
@@ -863,7 +863,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
                 return Err(ProofError::new(
                     Proof::Insecure,
-                    ProofErrorKind::DsResponseNsec {
+                    ProofErrorKind::DsResponseInsecure {
                         name: query.name().to_owned(),
                     },
                 ));
