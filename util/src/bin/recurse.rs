@@ -12,6 +12,7 @@ use std::{net::IpAddr, time::Instant};
 use clap::Parser;
 use console::style;
 
+use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_proto::{
     ROOTS,
     op::Query,
@@ -61,7 +62,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         opts.nameservers = ROOTS.to_vec();
     }
 
-    let recursor = Recursor::builder().build(&opts.nameservers)?;
+    let recursor = Recursor::<TokioRuntimeProvider>::builder()
+        .build(&opts.nameservers, TokioRuntimeProvider::default())?;
 
     // execute query
     println!(
