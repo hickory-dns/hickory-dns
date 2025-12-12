@@ -61,7 +61,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     pub(super) fn new(
         roots: &[IpAddr],
         tls: TlsConfig,
-        builder: RecursorBuilder<P>,
+        builder: RecursorBuilder,
+        conn_provider: P,
     ) -> Result<Self, RecursorError> {
         assert!(!roots.is_empty(), "roots must not be empty");
         let servers = roots
@@ -83,7 +84,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             case_randomization,
             opportunistic_encryption,
             encrypted_transport_state,
-            conn_provider,
         } = builder;
 
         let avoid_local_udp_ports = Arc::new(avoid_local_udp_ports);
@@ -890,6 +890,7 @@ const MAX_CNAME_LOOKUPS: u8 = 64;
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
+    use hickory_proto::runtime::TokioRuntimeProvider;
     use ipnet::IpNet;
 
     use crate::recursor::{Recursor, RecursorMode};
@@ -903,7 +904,7 @@ mod tests {
             IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
         ];
 
-        let builder = Recursor::builder()
+        let builder = Recursor::<TokioRuntimeProvider>::builder()
             .clear_deny_servers() // We use addresses in the default recommended deny list.
             .deny_servers(deny_server.iter())
             .allow_servers(allow_server.iter());
@@ -911,7 +912,12 @@ mod tests {
         #[cfg_attr(not(feature = "__dnssec"), allow(irrefutable_let_patterns))]
         let Recursor {
             mode: RecursorMode::NonValidating { handle },
-        } = builder.build(&[IpAddr::from([192, 0, 2, 1])]).unwrap()
+        } = builder
+            .build(
+                &[IpAddr::from([192, 0, 2, 1])],
+                TokioRuntimeProvider::default(),
+            )
+            .unwrap()
         else {
             panic!("unexpected DNSSEC validation mode");
         };

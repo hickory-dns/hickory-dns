@@ -16,6 +16,7 @@ use hickory_proto::{
     ROOTS,
     op::Query,
     rr::{Name, RecordType},
+    runtime::TokioRuntimeProvider,
 };
 use hickory_resolver::recursor::Recursor;
 
@@ -61,7 +62,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         opts.nameservers = ROOTS.to_vec();
     }
 
-    let recursor = Recursor::builder().build(&opts.nameservers)?;
+    let recursor = Recursor::<TokioRuntimeProvider>::builder()
+        .build(&opts.nameservers, TokioRuntimeProvider::default())?;
 
     // execute query
     println!(
