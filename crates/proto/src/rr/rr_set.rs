@@ -125,6 +125,34 @@ impl RecordSet {
         self.ttl
     }
 
+    /// Set the records of the RecordSet
+    ///
+    /// # Arguments
+    ///
+    /// * `records` - `self.records` will be replaced with this value
+    pub fn set_records(&mut self, records: Vec<Record>) {
+        self.records = records;
+    }
+
+    /// Set the RRSIGs of the RecordSet
+    ///
+    /// # Arguments
+    ///
+    /// * `rrsigs` - `self.rrsigs` will be replaced with this value
+    pub fn set_rrsigs(&mut self, rrsigs: Vec<Record>) {
+        self.rrsigs = rrsigs;
+    }
+
+    /// return the first record of the RecordSet
+    pub fn record(&self) -> Option<&Record> {
+        self.records.first()
+    }
+
+    /// Return the number of records in the RecordSet
+    pub fn records_count(&self) -> usize {
+        self.records.len()
+    }
+
     /// Returns a Vec of all records in the set.
     ///
     /// # Arguments
