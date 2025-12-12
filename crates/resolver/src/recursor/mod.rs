@@ -99,20 +99,10 @@ impl<P: ConnectionProvider> Recursor<P> {
             .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
 
         let mut builder = Self::builder_with_provider(conn_provider.clone());
-        if let Some(ns_cache_size) = config.ns_cache_size {
-            builder = builder.ns_cache_size(ns_cache_size);
-        }
-        if let Some(response_cache_size) = config.response_cache_size {
-            builder = builder.response_cache_size(response_cache_size);
-        }
-        if !config.allow_answers.is_empty() {
-            builder = builder.clear_answer_address_filter_allow();
-            builder = builder.answer_address_filter_allow(config.allow_answers.iter());
-        }
-        if !config.deny_answers.is_empty() {
-            builder = builder.clear_answer_address_filter_deny();
-            builder = builder.answer_address_filter_deny(config.deny_answers.iter());
-        }
+        builder = builder.ns_cache_size(config.ns_cache_size);
+        builder = builder.response_cache_size(config.response_cache_size);
+        builder = builder.answer_address_filter_allow(config.allow_answers.iter());
+        builder = builder.answer_address_filter_deny(config.deny_answers.iter());
 
         #[cfg_attr(
             not(all(feature = "toml", any(feature = "__tls", feature = "__quic"))),
@@ -566,11 +556,12 @@ pub struct RecursiveConfig {
     pub roots: PathBuf,
 
     /// Maximum nameserver cache size
-    pub ns_cache_size: Option<usize>,
+    #[serde(default = "default_ns_cache_size")]
+    pub ns_cache_size: usize,
 
     /// Maximum DNS response cache size
-    #[serde(alias = "record_cache_size")]
-    pub response_cache_size: Option<u64>,
+    #[serde(default = "default_response_cache_size", alias = "record_cache_size")]
+    pub response_cache_size: u64,
 
     /// Maximum recursion depth for queries. Set to 0 for unlimited recursion depth.
     #[serde(default = "recursion_limit_default")]
@@ -598,7 +589,7 @@ pub struct RecursiveConfig {
     pub allow_server: Vec<IpNet>,
 
     /// Networks that will not be queried during resolution
-    #[serde(default)]
+    #[serde(default = "deny_server_default")]
     pub deny_server: Vec<IpNet>,
 
     /// Local UDP ports to avoid when making outgoing queries
@@ -706,6 +697,16 @@ impl DnssecPolicyConfig {
 }
 
 #[cfg(feature = "serde")]
+fn default_ns_cache_size() -> usize {
+    1_024
+}
+
+#[cfg(feature = "serde")]
+fn default_response_cache_size() -> u64 {
+    1_048_576
+}
+
+#[cfg(feature = "serde")]
 fn recursion_limit_default() -> u8 {
     24
 }
@@ -713,6 +714,11 @@ fn recursion_limit_default() -> u8 {
 #[cfg(feature = "serde")]
 fn ns_recursion_limit_default() -> u8 {
     24
+}
+
+#[cfg(feature = "serde")]
+fn deny_server_default() -> Vec<IpNet> {
+    RECOMMENDED_SERVER_FILTERS.to_vec()
 }
 
 /// A `Recursor` builder
