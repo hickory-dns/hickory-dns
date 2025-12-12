@@ -112,14 +112,8 @@ impl<P: ConnectionProvider> Recursor<P> {
             .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
             .deny_servers(config.deny_server.iter())
             .allow_servers(config.allow_server.iter())
-            .recursion_limit(match config.recursion_limit {
-                0 => None,
-                limit => Some(limit),
-            })
-            .ns_recursion_limit(match config.ns_recursion_limit {
-                0 => None,
-                limit => Some(limit),
-            })
+            .recursion_limit(config.recursion_limit)
+            .ns_recursion_limit(config.ns_recursion_limit)
             .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
             .ttl_config(config.cache_policy.clone())
             .case_randomization(config.case_randomization)
@@ -563,11 +557,15 @@ pub struct RecursiveConfig {
     #[serde(default = "default_response_cache_size", alias = "record_cache_size")]
     pub response_cache_size: u64,
 
-    /// Maximum recursion depth for queries. Set to 0 for unlimited recursion depth.
+    /// Maximum recursion depth for queries
+    ///
+    /// Setting to 0 will fail all requests requiring recursion.
     #[serde(default = "recursion_limit_default")]
     pub recursion_limit: u8,
 
-    /// Maximum recursion depth for building NS pools. Set to 0 for unlimited recursion depth.
+    /// Maximum recursion depth for building NS pools
+    ///
+    /// Setting to 0 will fail all requests requiring recursion.
     #[serde(default = "ns_recursion_limit_default")]
     pub ns_recursion_limit: u8,
 
@@ -725,12 +723,12 @@ fn deny_server_default() -> Vec<IpNet> {
 pub struct RecursorBuilder<P: ConnectionProvider> {
     pub(super) ns_cache_size: usize,
     pub(super) response_cache_size: u64,
-    /// This controls how many nested lookups will be attempted to resolve a CNAME chain. Setting it
-    /// to None will disable the recursion limit check, and is not recommended.
-    pub(super) recursion_limit: Option<u8>,
+    /// This controls how many nested lookups will be attempted to resolve a CNAME chain.
+    /// Setting it to 0 will fail any request to resolve a CNAME chain.
+    pub(super) recursion_limit: u8,
     /// This controls how many nested lookups will be attempted when trying to build an NS pool.
-    /// Setting it to None will disable the recursion limit check, and is not recommended.
-    pub(super) ns_recursion_limit: Option<u8>,
+    /// Setting it to 0 will fail any request that requires building an NS pool via recursion.
+    pub(super) ns_recursion_limit: u8,
     pub(super) dnssec_policy: DnssecPolicy,
     pub(super) answer_address_filter: AccessControlSet,
     pub(super) name_server_filter: AccessControlSet,
@@ -747,8 +745,8 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
         Self {
             ns_cache_size: 1_024,
             response_cache_size: 1_048_576,
-            recursion_limit: Some(24),
-            ns_recursion_limit: Some(24),
+            recursion_limit: 24,
+            ns_recursion_limit: 24,
             dnssec_policy: DnssecPolicy::SecurityUnaware,
             answer_address_filter: AccessControlSetBuilder::new("answers")
                 .allow([].iter() /* no recommended exceptions */)
@@ -781,14 +779,14 @@ impl<P: ConnectionProvider> RecursorBuilder<P> {
 
     /// Sets the maximum recursion depth for queries; set to None for unlimited
     /// recursion.
-    pub fn recursion_limit(mut self, limit: Option<u8>) -> Self {
+    pub fn recursion_limit(mut self, limit: u8) -> Self {
         self.recursion_limit = limit;
         self
     }
 
     /// Sets the maximum recursion depth for building NS pools; set to None for unlimited
     /// recursion.
-    pub fn ns_recursion_limit(mut self, limit: Option<u8>) -> Self {
+    pub fn ns_recursion_limit(mut self, limit: u8) -> Self {
         self.ns_recursion_limit = limit;
         self
     }
