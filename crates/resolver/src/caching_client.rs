@@ -580,8 +580,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(A::new(127, 0, 0, 1))]
+            ips.answers(),
+            &[Record::from_rdata(
+                query.name().clone(),
+                u32::MAX,
+                RData::A(A::new(127, 0, 0, 1))
+            )]
         );
     }
 
@@ -603,8 +607,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(A::new(127, 0, 0, 1))]
+            ips.answers(),
+            &[Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::A(A::new(127, 0, 0, 1))
+            )]
         );
 
         // next should come from cache...
@@ -621,8 +629,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(A::new(127, 0, 0, 1))]
+            ips.answers(),
+            &[Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::A(A::new(127, 0, 0, 1))
+            )]
         );
     }
 
@@ -693,10 +705,12 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::CNAME(CNAME(
-                Name::from_str("actual.example.com.").unwrap()
-            ))]
+            ips.answers(),
+            &[Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                86400,
+                RData::CNAME(CNAME(Name::from_str("actual.example.com.").unwrap()))
+            )]
         );
     }
 
@@ -735,13 +749,17 @@ mod tests {
         .expect("lookup failed");
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::SRV(SRV::new(
-                1,
-                2,
-                443,
-                Name::from_str("www.example.com.").unwrap(),
-            ))]
+            ips.answers(),
+            &[Record::from_rdata(
+                Name::from_str("_443._tcp.www.example.com.").unwrap(),
+                86400,
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    443,
+                    Name::from_str("www.example.com.").unwrap(),
+                ))
+            )]
         );
     }
 
@@ -1660,8 +1678,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
-                vec![LOCALHOST_V4.clone()]
+                lookup.answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST_V4.clone()
+                )]
             );
         }
 
@@ -1671,8 +1693,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
-                vec![LOCALHOST_V6.clone()]
+                lookup.answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST_V6.clone()
+                )]
             );
         }
 
@@ -1682,8 +1708,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
-                vec![LOCALHOST.clone()]
+                lookup.answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST.clone()
+                )]
             );
         }
 
@@ -1696,8 +1726,12 @@ mod tests {
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
-                lookup.iter().cloned().collect::<Vec<_>>(),
-                vec![LOCALHOST.clone()]
+                lookup.answers(),
+                &[Record::from_rdata(
+                    query.name().clone(),
+                    MAX_TTL,
+                    LOCALHOST.clone()
+                )]
             );
         }
 
