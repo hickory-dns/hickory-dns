@@ -142,8 +142,30 @@ fn print_ok(lookup: Lookup) {
         style(lookup.query()).blue()
     );
 
-    for r in lookup.record_iter() {
-        print_record(&r);
+    let message = lookup.message();
+
+    let answers = message.answers();
+    if !answers.is_empty() {
+        println!("\n;; {} SECTION:", style("ANSWER").yellow());
+        for r in answers {
+            print_record(&r);
+        }
+    }
+
+    let authority = message.authorities();
+    if !authority.is_empty() {
+        println!("\n;; {} SECTION:", style("AUTHORITY").yellow());
+        for r in authority {
+            print_record(&r);
+        }
+    }
+
+    let additional = message.additionals();
+    if !additional.is_empty() {
+        println!("\n;; {} SECTION:", style("ADDITIONAL").yellow());
+        for r in additional {
+            print_record(&r);
+        }
     }
 }
 
