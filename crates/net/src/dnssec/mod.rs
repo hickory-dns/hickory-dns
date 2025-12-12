@@ -440,15 +440,42 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             );
 
             // verify this rrset
-            let proof = self
-                .verify_rrset(RrsetVerificationContext {
-                    query,
-                    rrset: &rrset,
-                    rrsigs,
-                    options,
-                    current_time,
-                })
-                .await;
+            let context = RrsetVerificationContext {
+                query,
+                rrset: &rrset,
+                rrsigs,
+                options,
+                current_time,
+            };
+            let key = context.key();
+
+            let proof = match self.validation_cache.get(&key, &context) {
+                Some(cached) => cached,
+                None => {
+                    // Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
+                    //  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
+                    //  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
+                    //  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
+                    //  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
+                    //  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
+                    let proof = match context.rrset.record_type {
+                        RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
+                        _ => self.verify_default_rrset(&context).await,
+                    };
+
+                    match &proof {
+                        // These could be transient errors that should be retried.
+                        Err(e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
+                            debug!("not caching DNSSEC validation with ProofErrorKind::Net")
+                        }
+                        _ => {
+                            self.validation_cache.insert(proof.clone(), key, &context);
+                        }
+                    }
+
+                    proof
+                }
+            };
 
             let proof = match proof {
                 Ok(proof) => {
@@ -510,48 +537,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         return_records.extend(rrsigs);
         return_records.extend(records);
         return_records
-    }
-
-    /// Generic entrypoint to verify any RRSET against the provided signatures.
-    ///
-    /// Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
-    ///  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
-    ///  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
-    ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
-    ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
-    ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-    ///
-    /// # Returns
-    ///
-    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and an index of the RRSIG used for
-    /// validation of the rrset.
-    async fn verify_rrset(
-        &self,
-        context: RrsetVerificationContext<'_>,
-    ) -> Result<RrsetProof, ProofError> {
-        let key = context.key();
-
-        if let Some(cached) = self.validation_cache.get(&key, &context) {
-            return cached;
-        }
-
-        // DNSKEYS have different logic for their verification
-        let proof = match context.rrset.record_type {
-            RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
-            _ => self.verify_default_rrset(&context).await,
-        };
-
-        match &proof {
-            // These could be transient errors that should be retried.
-            Err(e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
-                debug!("not caching DNSSEC validation with ProofErrorKind::Net")
-            }
-            _ => {
-                self.validation_cache.insert(proof.clone(), key, &context);
-            }
-        }
-
-        proof
     }
 
     /// DNSKEY-specific verification
