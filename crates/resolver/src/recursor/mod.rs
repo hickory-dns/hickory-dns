@@ -139,8 +139,11 @@ impl<P: ConnectionProvider> Recursor<P> {
         {
             // Before building the recursor, potentially load some pre-existing opportunistic encrypted
             // nameserver state to configure on the builder.
-            builder =
-                opportunistic_encryption_persistence::configure_opp_enc_state(config, builder)?;
+            if let Some(state) = opportunistic_encryption_persistence::configure_opp_enc_state(
+                &config.opportunistic_encryption,
+            )? {
+                builder = builder.encrypted_transport_state(state);
+            };
         }
 
         builder.build(&root_addrs)
@@ -507,21 +510,19 @@ mod opportunistic_encryption_persistence {
 
     use super::*;
     use crate::config::{OpportunisticEncryptionConfig, OpportunisticEncryptionPersistence};
-    use crate::connection_provider::ConnectionProvider;
 
-    pub(super) fn configure_opp_enc_state<P: ConnectionProvider>(
-        config: &RecursiveConfig,
-        builder: RecursorBuilder<P>,
-    ) -> Result<RecursorBuilder<P>, String> {
+    pub(super) fn configure_opp_enc_state(
+        config: &OpportunisticEncryption,
+    ) -> Result<Option<NameServerTransportState>, String> {
         let OpportunisticEncryption::Enabled {
             config:
                 OpportunisticEncryptionConfig {
                     persistence: Some(OpportunisticEncryptionPersistence { path, .. }),
                     ..
                 },
-        } = &config.opportunistic_encryption
+        } = config
         else {
-            return Ok(builder);
+            return Ok(None);
         };
 
         let state = match fs::read_to_string(path) {
@@ -552,7 +553,7 @@ mod opportunistic_encryption_persistence {
             "loaded opportunistic encryption state"
         );
 
-        Ok(builder.encrypted_transport_state(state))
+        Ok(Some(state))
     }
 }
 
