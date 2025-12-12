@@ -18,7 +18,7 @@ use hickory_proto::{
     op::Query,
     rr::{Name, RecordType},
 };
-use hickory_resolver::recursor::Recursor;
+use hickory_resolver::recursor::{Recursor, RecursorOptions};
 
 /// A CLI interface for the hickory-dns-recursor.
 ///
@@ -62,8 +62,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         opts.nameservers = ROOTS.to_vec();
     }
 
-    let recursor = Recursor::<TokioRuntimeProvider>::builder()
-        .build(&opts.nameservers, TokioRuntimeProvider::default())?;
+    let recursor = Recursor::with_options(
+        &opts.nameservers,
+        RecursorOptions::default(),
+        TokioRuntimeProvider::default(),
+    )?;
 
     // execute query
     println!(

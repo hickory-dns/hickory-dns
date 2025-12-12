@@ -84,25 +84,18 @@ impl<P: ConnectionProvider> Recursor<P> {
         root_dir: Option<&Path>,
         conn_provider: P,
     ) -> Result<Self, RecursorError> {
-        let mut builder = Self::builder();
-        builder.options = config.options.clone();
+        let dnssec_policy = config.dnssec_policy.load().map_err(|e| e.to_string())?;
 
-        #[cfg_attr(
-            not(all(feature = "toml", any(feature = "__tls", feature = "__quic"))),
-            allow(unused_mut)
-        )]
-        let mut builder =
-            builder.dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?);
-
+        #[allow(unused_mut, unused_assignments)]
+        let mut encrypted_transport_state = None;
         #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
         {
             // Before building the recursor, potentially load some pre-existing opportunistic encrypted
             // nameserver state to configure on the builder.
-            if let Some(state) = opportunistic_encryption_persistence::configure_opp_enc_state(
-                &config.options.opportunistic_encryption,
-            )? {
-                builder = builder.encrypted_transport_state(state);
-            };
+            encrypted_transport_state =
+                opportunistic_encryption_persistence::configure_opp_enc_state(
+                    &config.options.opportunistic_encryption,
+                )?;
         }
 
         let path = match root_dir {
@@ -123,15 +116,62 @@ impl<P: ConnectionProvider> Recursor<P> {
             .filter_map(RData::ip_addr) // we only want IPs
             .collect::<Vec<_>>();
 
-        builder.build(&root_addrs, conn_provider)
+        Self::new(
+            &root_addrs,
+            dnssec_policy,
+            encrypted_transport_state,
+            config.options.clone(),
+            conn_provider,
+        )
     }
 
-    /// Construct a new [`Recursor`] via the [`RecursorBuilder`].
-    ///
-    /// This uses the Tokio async runtime. To use a different runtime provider, see
-    /// [`Recursor::builder_with_provider`].
-    pub fn builder() -> RecursorBuilder {
-        RecursorBuilder::new()
+    /// Build a DNSSEC-unaware [`Recursor`] without any name server transport state
+    pub fn with_options(
+        roots: &[IpAddr],
+        options: RecursorOptions,
+        conn_provider: P,
+    ) -> Result<Self, RecursorError> {
+        Self::new(roots, DnssecPolicy::default(), None, options, conn_provider)
+    }
+
+    /// Build a new [`Recursor`]
+    pub fn new(
+        roots: &[IpAddr],
+        dnssec_policy: DnssecPolicy,
+        encrypted_transport_state: Option<NameServerTransportState>,
+        options: RecursorOptions,
+        conn_provider: P,
+    ) -> Result<Self, RecursorError> {
+        let mut tls_config = TlsConfig::new()?;
+        if options.opportunistic_encryption.is_enabled() {
+            warn!("disabling TLS peer verification for opportunistic encryption mode");
+            tls_config.insecure_skip_verify();
+        }
+
+        #[cfg(feature = "__dnssec")]
+        let response_cache_size = options.response_cache_size;
+        #[cfg(feature = "__dnssec")]
+        let ttl_config = options.cache_policy.clone();
+        let handle = RecursorDnsHandle::new(
+            roots,
+            dnssec_policy.clone(),
+            encrypted_transport_state,
+            options,
+            tls_config,
+            conn_provider,
+        )?;
+
+        Ok(Self {
+            mode: match dnssec_policy {
+                DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
+                #[cfg(feature = "__dnssec")]
+                DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
+                #[cfg(feature = "__dnssec")]
+                DnssecPolicy::ValidateWithStaticKey(config) => RecursorMode::Validating(
+                    ValidatingRecursor::new(handle, config, response_cache_size, ttl_config)?,
+                ),
+            },
+        })
     }
 
     /// Perform a recursive resolution
@@ -553,52 +593,56 @@ pub struct RecursiveConfig {
 }
 
 /// Options for the [`Recursor`]
-#[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[derive(Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct RecursorOptions {
     /// Maximum nameserver cache size
-    #[serde(default = "default_ns_cache_size")]
+    #[cfg_attr(feature = "serde", serde(default = "default_ns_cache_size"))]
     pub ns_cache_size: usize,
 
     /// Maximum DNS response cache size
-    #[serde(default = "default_response_cache_size", alias = "record_cache_size")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_response_cache_size", alias = "record_cache_size")
+    )]
     pub response_cache_size: u64,
 
     /// Maximum recursion depth for queries
     ///
     /// Setting to 0 will fail all requests requiring recursion.
-    #[serde(default = "recursion_limit_default")]
+    #[cfg_attr(feature = "serde", serde(default = "recursion_limit_default"))]
     pub recursion_limit: u8,
 
     /// Maximum recursion depth for building NS pools
     ///
     /// Setting to 0 will fail all requests requiring recursion.
-    #[serde(default = "ns_recursion_limit_default")]
+    #[cfg_attr(feature = "serde", serde(default = "ns_recursion_limit_default"))]
     pub ns_recursion_limit: u8,
 
     /// Networks that will not be filtered from responses.  This overrides anything present in
     /// deny_answers
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub allow_answers: Vec<IpNet>,
 
     /// Networks that will be filtered from responses
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub deny_answers: Vec<IpNet>,
 
     /// Networks that will be queried during resolution
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub allow_server: Vec<IpNet>,
 
     /// Networks that will not be queried during resolution
-    #[serde(default = "deny_server_default")]
+    #[cfg_attr(feature = "serde", serde(default = "deny_server_default"))]
     pub deny_server: Vec<IpNet>,
 
     /// Local UDP ports to avoid when making outgoing queries
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub avoid_local_udp_ports: HashSet<u16>,
 
     /// Caching policy, setting minimum and maximum TTLs
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub cache_policy: TtlConfig,
 
     /// Enable case randomization.
@@ -608,11 +652,11 @@ pub struct RecursorOptions {
     ///
     /// This implements the mechanism described in
     /// [draft-vixie-dnsext-dns0x20-00](https://datatracker.ietf.org/doc/html/draft-vixie-dnsext-dns0x20-00).
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub case_randomization: bool,
 
     /// Configure RFC 9539 opportunistic encryption.
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub opportunistic_encryption: OpportunisticEncryption,
 }
 
@@ -718,80 +762,13 @@ fn deny_server_default() -> Vec<IpNet> {
     RECOMMENDED_SERVER_FILTERS.to_vec()
 }
 
-/// A `Recursor` builder
-pub struct RecursorBuilder {
-    pub(super) options: RecursorOptions,
-    pub(super) dnssec_policy: DnssecPolicy,
-    pub(super) encrypted_transport_state: NameServerTransportState,
-}
-
-impl RecursorBuilder {
-    fn new() -> Self {
-        Self {
-            options: RecursorOptions::default(),
-            dnssec_policy: DnssecPolicy::SecurityUnaware,
-            encrypted_transport_state: NameServerTransportState::default(),
-        }
-    }
-
-    /// Sets the DNSSEC policy
-    pub fn dnssec_policy(mut self, dnssec_policy: DnssecPolicy) -> Self {
-        self.dnssec_policy = dnssec_policy;
-        self
-    }
-
-    /// Load pre-existing encrypted transport state for use with opportunistic encryption.
-    pub fn encrypted_transport_state(
-        mut self,
-        encrypted_transport_state: NameServerTransportState,
-    ) -> Self {
-        self.encrypted_transport_state = encrypted_transport_state;
-        self
-    }
-
-    /// Construct a new recursor using the list of root zone name server addresses
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the roots are empty.
-    pub fn build<P: ConnectionProvider>(
-        self,
-        roots: &[IpAddr],
-        conn_provider: P,
-    ) -> Result<Recursor<P>, RecursorError> {
-        let mut tls_config = TlsConfig::new()?;
-        if self.options.opportunistic_encryption.is_enabled() {
-            warn!("disabling TLS peer verification for opportunistic encryption mode");
-            tls_config.insecure_skip_verify();
-        }
-
-        let dnssec_policy = self.dnssec_policy.clone();
-        #[cfg(feature = "__dnssec")]
-        let response_cache_size = self.options.response_cache_size;
-        #[cfg(feature = "__dnssec")]
-        let ttl_config = self.options.cache_policy.clone();
-        let handle = RecursorDnsHandle::new(roots, tls_config, self, conn_provider)?;
-
-        Ok(Recursor {
-            mode: match dnssec_policy {
-                DnssecPolicy::SecurityUnaware => RecursorMode::NonValidating { handle },
-                #[cfg(feature = "__dnssec")]
-                DnssecPolicy::ValidationDisabled => RecursorMode::NonValidating { handle },
-                #[cfg(feature = "__dnssec")]
-                DnssecPolicy::ValidateWithStaticKey(config) => RecursorMode::Validating(
-                    ValidatingRecursor::new(handle, config, response_cache_size, ttl_config)?,
-                ),
-            },
-        })
-    }
-}
-
 /// `Recursor`'s DNSSEC policy
 // `Copy` can only be implemented when `dnssec` is disabled we don't want to remove a trait
 // implementation when a feature is enabled as features are meant to be additive
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum DnssecPolicy {
     /// security unaware; DNSSEC records will not be requested nor processed
+    #[default]
     SecurityUnaware,
 
     /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
