@@ -65,10 +65,9 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
-    let (provider, recursor_builder) = test_fixture()?;
-    let recursor = recursor_builder
-        .ns_cache_size(1)
-        .build(&[ROOT_IP], provider.clone())?;
+    let (provider, mut recursor_builder) = test_fixture()?;
+    recursor_builder.options.ns_cache_size = 1;
+    let recursor = recursor_builder.build(&[ROOT_IP], provider.clone())?;
 
     let response = recursor
         .resolve(
@@ -375,21 +374,21 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
         ),
     ];
 
-    let recursor_no_cache = Recursor::<MockProvider>::builder()
-        .clear_deny_servers()
-        .ns_cache_size(1)
-        .build(
-            &[ROOT_IP],
-            MockProvider::new(MockNetworkHandler::new(responses.clone())),
-        )?;
+    let mut builder = Recursor::<MockProvider>::builder();
+    builder.options.deny_server.clear();
+    builder.options.ns_cache_size = 1;
+    let recursor_no_cache = builder.build(
+        &[ROOT_IP],
+        MockProvider::new(MockNetworkHandler::new(responses.clone())),
+    )?;
 
-    let recursor_cache = Recursor::<MockProvider>::builder()
-        .clear_deny_servers()
-        .ns_cache_size(1024)
-        .build(
-            &[ROOT_IP],
-            MockProvider::new(MockNetworkHandler::new(responses)),
-        )?;
+    let mut builder = Recursor::<MockProvider>::builder();
+    builder.options.deny_server.clear();
+    builder.options.ns_cache_size = 1024;
+    let recursor_cache = builder.build(
+        &[ROOT_IP],
+        MockProvider::new(MockNetworkHandler::new(responses)),
+    )?;
 
     for recursor in [recursor_no_cache, recursor_cache] {
         assert_eq!(
@@ -492,9 +491,9 @@ async fn cache_negative_responses() -> Result<(), NetError> {
     ];
 
     let provider = MockProvider::new(MockNetworkHandler::new(responses));
-    let recursor = Recursor::<MockProvider>::builder()
-        .clear_deny_servers() // We use addresses in the default deny filters.
-        .build(&[ROOT_IP], provider.clone())?;
+    let mut builder = Recursor::<MockProvider>::builder();
+    builder.options.deny_server.clear(); // We use addresses in the default deny filters.
+    let recursor = builder.build(&[ROOT_IP], provider.clone())?;
 
     for _ in 0..2 {
         let response = recursor
@@ -681,10 +680,10 @@ fn ns_cache_test_fixture(
         },
     ));
 
-    Recursor::<MockProvider>::builder()
-        .clear_deny_servers() // We use addresses in the default deny filters.
-        .ttl_config(ttl_config)
-        .build(&[ROOT_IP], MockProvider::new(handler))
+    let mut builder = Recursor::<MockProvider>::builder();
+    builder.options.deny_server.clear();
+    builder.options.cache_policy = ttl_config;
+    builder.build(&[ROOT_IP], MockProvider::new(handler))
 }
 
 async fn ttl_lookup(
@@ -745,8 +744,9 @@ fn test_fixture() -> Result<(MockProvider, RecursorBuilder), NetError> {
     ));
 
     let provider = MockProvider::new(handler);
-    let recursor = Recursor::<MockProvider>::builder().clear_deny_servers(); // We use addresses in the default deny filters.
-    Ok((provider, recursor))
+    let mut builder = Recursor::<MockProvider>::builder();
+    builder.options.deny_server.clear();
+    Ok((provider, builder))
 }
 
 #[cfg(feature = "metrics")]
@@ -792,10 +792,9 @@ mod metrics {
 
             let provider = MockProvider::new(handler);
             runtime.block_on(async {
-                let recursor = Recursor::<MockProvider>::builder()
-                    .clear_deny_servers() // We use addresses in the default deny filters.
-                    .build(&[ROOT_IP], provider)
-                    .unwrap();
+                let mut builder = Recursor::<MockProvider>::builder();
+                builder.options.deny_server.clear(); // We use addresses in the default deny filters.
+                let recursor = builder.build(&[ROOT_IP], provider).unwrap();
                 for _ in 0..3 {
                     let response = recursor
                         .resolve(
