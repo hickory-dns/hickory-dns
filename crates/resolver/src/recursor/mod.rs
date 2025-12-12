@@ -86,10 +86,10 @@ impl<P: ConnectionProvider> Recursor<P> {
         conn_provider: P,
     ) -> Result<Self, RecursorError> {
         let mut builder = Self::builder();
-        builder = builder.ns_cache_size(config.ns_cache_size);
-        builder = builder.response_cache_size(config.response_cache_size);
-        builder = builder.answer_address_filter_allow(config.allow_answers.iter());
-        builder = builder.answer_address_filter_deny(config.deny_answers.iter());
+        builder = builder.ns_cache_size(config.options.ns_cache_size);
+        builder = builder.response_cache_size(config.options.response_cache_size);
+        builder = builder.answer_address_filter_allow(config.options.allow_answers.iter());
+        builder = builder.answer_address_filter_deny(config.options.deny_answers.iter());
 
         #[cfg_attr(
             not(all(feature = "toml", any(feature = "__tls", feature = "__quic"))),
@@ -97,21 +97,21 @@ impl<P: ConnectionProvider> Recursor<P> {
         )]
         let mut builder = builder
             .dnssec_policy(config.dnssec_policy.load().map_err(|e| e.to_string())?)
-            .deny_servers(config.deny_server.iter())
-            .allow_servers(config.allow_server.iter())
-            .recursion_limit(config.recursion_limit)
-            .ns_recursion_limit(config.ns_recursion_limit)
-            .avoid_local_udp_ports(config.avoid_local_udp_ports.clone())
-            .ttl_config(config.cache_policy.clone())
-            .case_randomization(config.case_randomization)
-            .opportunistic_encryption(config.opportunistic_encryption.clone());
+            .deny_servers(config.options.deny_server.iter())
+            .allow_servers(config.options.allow_server.iter())
+            .recursion_limit(config.options.recursion_limit)
+            .ns_recursion_limit(config.options.ns_recursion_limit)
+            .avoid_local_udp_ports(config.options.avoid_local_udp_ports.clone())
+            .ttl_config(config.options.cache_policy.clone())
+            .case_randomization(config.options.case_randomization)
+            .opportunistic_encryption(config.options.opportunistic_encryption.clone());
 
         #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
         {
             // Before building the recursor, potentially load some pre-existing opportunistic encrypted
             // nameserver state to configure on the builder.
             if let Some(state) = opportunistic_encryption_persistence::configure_opp_enc_state(
-                &config.opportunistic_encryption,
+                &config.options.opportunistic_encryption,
             )? {
                 builder = builder.encrypted_transport_state(state);
             };
@@ -556,7 +556,18 @@ mod opportunistic_encryption_persistence {
 pub struct RecursiveConfig {
     /// File with roots, aka hints
     pub roots: PathBuf,
+    /// DNSSEC policy
+    #[serde(default)]
+    pub dnssec_policy: DnssecPolicyConfig,
+    /// Options for the recursor
+    #[serde(flatten)]
+    pub options: RecursorOptions,
+}
 
+/// Options for the [`Recursor`]
+#[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RecursorOptions {
     /// Maximum nameserver cache size
     #[serde(default = "default_ns_cache_size")]
     pub ns_cache_size: usize,
@@ -576,10 +587,6 @@ pub struct RecursiveConfig {
     /// Setting to 0 will fail all requests requiring recursion.
     #[serde(default = "ns_recursion_limit_default")]
     pub ns_recursion_limit: u8,
-
-    /// DNSSEC policy
-    #[serde(default)]
-    pub dnssec_policy: DnssecPolicyConfig,
 
     /// Networks that will not be filtered from responses.  This overrides anything present in
     /// deny_answers
