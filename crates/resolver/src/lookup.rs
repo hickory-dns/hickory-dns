@@ -147,6 +147,17 @@ impl<'a> Iterator for LookupIter<'a> {
     }
 }
 
+/// Borrowed view of set of [`Record`]s returned from a Lookup
+pub struct LookupRecordIter<'a>(Iter<'a, Record>);
+
+impl<'a> Iterator for LookupRecordIter<'a> {
+    type Item = &'a Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
 /// An iterator over record data with all data wrapped in a Proven type for dnssec validation
 #[cfg(feature = "__dnssec")]
 pub struct DnssecIter<'a>(DnssecLookupRecordIter<'a>);
@@ -157,17 +168,6 @@ impl<'a> Iterator for DnssecIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|r| r.map(Record::data))
-    }
-}
-
-/// Borrowed view of set of [`Record`]s returned from a Lookup
-pub struct LookupRecordIter<'a>(Iter<'a, Record>);
-
-impl<'a> Iterator for LookupRecordIter<'a> {
-    type Item = &'a Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
     }
 }
 
