@@ -78,27 +78,27 @@ impl Hosts {
                 let ip = name.parse_arpa_name().ok()?;
 
                 let ip_addr = ip.addr();
-                let records = self
-                    .by_name
-                    .iter()
-                    .filter(|(_, v)| match ip_addr {
-                        IpAddr::V4(ip) => match v.a.as_ref() {
-                            Some(lookup) => lookup
-                                .iter()
-                                .any(|r| r.ip_addr().map(|it| it == ip).unwrap_or_default()),
-                            None => false,
-                        },
-                        IpAddr::V6(ip) => match v.aaaa.as_ref() {
-                            Some(lookup) => lookup
-                                .iter()
-                                .any(|r| r.ip_addr().map(|it| it == ip).unwrap_or_default()),
-                            None => false,
-                        },
-                    })
-                    .map(|(n, _)| {
-                        Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone())))
-                    })
-                    .collect::<Arc<[Record]>>();
+                let records =
+                    self.by_name
+                        .iter()
+                        .filter(|(_, v)| match ip_addr {
+                            IpAddr::V4(ip) => match v.a.as_ref() {
+                                Some(lookup) => lookup.answers().iter().any(|r| {
+                                    r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
+                                }),
+                                None => false,
+                            },
+                            IpAddr::V6(ip) => match v.aaaa.as_ref() {
+                                Some(lookup) => lookup.answers().iter().any(|r| {
+                                    r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
+                                }),
+                                None => false,
+                            },
+                        })
+                        .map(|(n, _)| {
+                            Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone())))
+                        })
+                        .collect::<Arc<[Record]>>();
 
                 if records.is_empty() {
                     return None;
@@ -252,82 +252,109 @@ mod tests {
         let hosts = Hosts::from_file(path).unwrap();
 
         let name = Name::from_str("localhost.").unwrap();
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::A))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
-
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::LOCALHOST.into())]);
-
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::AAAA))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
-
         assert_eq!(
-            rdatas,
-            vec![RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into())]
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name.clone(),
+                MAX_TTL,
+                RData::A(Ipv4Addr::LOCALHOST.into())
+            )]
         );
 
-        let name = Name::from_str("broadcasthost").unwrap();
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::A))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
         assert_eq!(
-            rdatas,
-            vec![RData::A(Ipv4Addr::new(255, 255, 255, 255).into())]
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::AAAA))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name,
+                MAX_TTL,
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into())
+            )]
         );
 
-        let name = Name::from_str("example.com").unwrap();
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::A))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 102).into())]);
+        let mut name = Name::from_str("broadcasthost").unwrap();
+        name.set_fqdn(true);
+        assert_eq!(
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name,
+                MAX_TTL,
+                RData::A(Ipv4Addr::new(255, 255, 255, 255).into())
+            )]
+        );
 
-        let name = Name::from_str("a.example.com").unwrap();
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::A))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
+        let mut name = Name::from_str("example.com").unwrap();
+        name.set_fqdn(true);
+        assert_eq!(
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name,
+                MAX_TTL,
+                RData::A(Ipv4Addr::new(10, 0, 1, 102).into())
+            )]
+        );
 
-        let name = Name::from_str("b.example.com").unwrap();
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::A))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
-        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111).into())]);
+        let mut name = Name::from_str("a.example.com").unwrap();
+        name.set_fqdn(true);
+        assert_eq!(
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name,
+                MAX_TTL,
+                RData::A(Ipv4Addr::new(10, 0, 1, 111).into())
+            )]
+        );
+
+        let mut name = Name::from_str("b.example.com").unwrap();
+        name.set_fqdn(true);
+        assert_eq!(
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name,
+                MAX_TTL,
+                RData::A(Ipv4Addr::new(10, 0, 1, 111).into())
+            )]
+        );
 
         let name = Name::from_str("111.1.0.10.in-addr.arpa.").unwrap();
-        let mut rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::PTR))
+        let mut answers = hosts
+            .lookup_static_host(&Query::query(name.clone(), RecordType::PTR))
             .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
-        rdatas.sort_by_key(|r| match r {
-            RData::PTR(p) => Some(p.0.clone()),
+            .answers()
+            .to_vec();
+        answers.sort_by_key(|r| match r.data() {
+            RData::PTR(ptr) => Some(ptr.0.clone()),
             _ => None,
         });
         assert_eq!(
-            rdatas,
+            answers,
             vec![
-                RData::PTR(PTR("a.example.com.".parse().unwrap())),
-                RData::PTR(PTR("b.example.com.".parse().unwrap()))
+                Record::from_rdata(
+                    name.clone(),
+                    MAX_TTL,
+                    RData::PTR(PTR("a.example.com.".parse().unwrap()))
+                ),
+                Record::from_rdata(
+                    name,
+                    MAX_TTL,
+                    RData::PTR(PTR("b.example.com.".parse().unwrap()))
+                )
             ]
         );
 
@@ -335,15 +362,16 @@ mod tests {
             "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.",
         )
         .unwrap();
-        let rdatas = hosts
-            .lookup_static_host(&Query::query(name, RecordType::PTR))
-            .unwrap()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect::<Vec<RData>>();
         assert_eq!(
-            rdatas,
-            vec![RData::PTR(PTR("localhost.".parse().unwrap())),]
+            hosts
+                .lookup_static_host(&Query::query(name.clone(), RecordType::PTR))
+                .unwrap()
+                .answers(),
+            &[Record::from_rdata(
+                name,
+                MAX_TTL,
+                RData::PTR(PTR("localhost.".parse().unwrap()))
+            )]
         );
     }
 }

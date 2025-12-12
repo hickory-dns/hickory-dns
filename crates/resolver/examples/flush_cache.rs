@@ -79,11 +79,22 @@ async fn resolve_list<P: hickory_resolver::ConnectionProvider>(
 
     // Go through the list of resolution operations in parallel and wait for them to complete.
     for (name, lookup) in futures {
-        let txts = lookup.await.expect("unable to spawn resolver").map(|txt| {
-            txt.iter()
-                .map(|rdata| rdata.to_string())
-                .collect::<Vec<_>>()
-        });
+        let txts = lookup
+            .await
+            .expect("unable to spawn resolver")
+            .map(|lookup| {
+                lookup
+                    .answers()
+                    .iter()
+                    .filter_map(|record| {
+                        if let hickory_proto::rr::RData::TXT(txt) = record.data() {
+                            Some(txt.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            });
         println!("  {name} returned to {txts:?}");
     }
     println!();
