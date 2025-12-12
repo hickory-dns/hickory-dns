@@ -93,11 +93,6 @@ impl<P: ConnectionProvider> Recursor<P> {
         root_dir: Option<&Path>,
         conn_provider: P,
     ) -> Result<Self, RecursorError> {
-        // read the roots
-        let root_addrs = config
-            .read_roots(root_dir)
-            .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
-
         let mut builder = Self::builder_with_provider(conn_provider.clone());
         builder = builder.ns_cache_size(config.ns_cache_size);
         builder = builder.response_cache_size(config.response_cache_size);
@@ -129,6 +124,24 @@ impl<P: ConnectionProvider> Recursor<P> {
                 builder = builder.encrypted_transport_state(state);
             };
         }
+
+        let path = match root_dir {
+            Some(root_dir) => Cow::Owned(root_dir.join(&config.roots)),
+            None => Cow::Borrowed(&config.roots),
+        };
+
+        let roots_str = fs::read_to_string(path.as_ref())?;
+        let (_zone, roots_zone) =
+            Parser::new(roots_str, Some(path.into_owned()), Some(Name::root()))
+                .parse()
+                .map_err(|e| format!("failed to read roots {}: {e}", config.roots.display()))?;
+
+        let root_addrs = roots_zone
+            .values()
+            .flat_map(RecordSet::records_without_rrsigs)
+            .map(Record::data)
+            .filter_map(RData::ip_addr) // we only want IPs
+            .collect::<Vec<_>>();
 
         builder.build(&root_addrs)
     }
@@ -611,29 +624,6 @@ pub struct RecursiveConfig {
     /// Configure RFC 9539 opportunistic encryption.
     #[serde(default)]
     pub opportunistic_encryption: OpportunisticEncryption,
-}
-
-#[cfg(feature = "serde")]
-impl RecursiveConfig {
-    pub(crate) fn read_roots(&self, root_dir: Option<&Path>) -> Result<Vec<IpAddr>, ParseError> {
-        let path = if let Some(root_dir) = root_dir {
-            Cow::Owned(root_dir.join(&self.roots))
-        } else {
-            Cow::Borrowed(&self.roots)
-        };
-
-        let roots_str = fs::read_to_string(path.as_ref())?;
-        let (_zone, roots_zone) =
-            Parser::new(roots_str, Some(path.into_owned()), Some(Name::root())).parse()?;
-
-        // TODO: we may want to deny some of the root nameservers, for reasons...
-        Ok(roots_zone
-            .values()
-            .flat_map(RecordSet::records_without_rrsigs)
-            .map(Record::data)
-            .filter_map(RData::ip_addr) // we only want IPs
-            .collect())
-    }
 }
 
 /// DNSSEC policy configuration
