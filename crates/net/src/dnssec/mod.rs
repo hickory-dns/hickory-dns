@@ -775,12 +775,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         zone: Name,
         options: DnsRequestOptions,
     ) -> Result<Vec<Record<DS>>, ProofError> {
-        let ds_message = self
+        match self
             .lookup(Query::query(zone.clone(), RecordType::DS), options)
             .first_answer()
-            .await;
-
-        let error_opt = match ds_message {
+            .await
+        {
             Ok(mut ds_message)
                 if ds_message
                     .answers()
@@ -789,7 +788,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .any(|r| r.proof().is_secure()) =>
             {
                 // This is a secure DS RRset.
-
                 let all_records = ds_message.take_answers().into_iter().filter_map(|r| {
                     r.map(|data| match data {
                         RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
@@ -821,20 +819,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     ));
                 } else if !supported_records.is_empty() {
                     return Ok(supported_records);
-                } else {
-                    None
                 }
             }
             Ok(response) => {
-                let any_ds_rr = response
+                if !response
                     .answers()
                     .iter()
-                    .any(|r| r.record_type() == RecordType::DS);
-                if any_ds_rr {
-                    None
-                } else {
-                    // If the response was an authenticated proof of nonexistence, then we have an
-                    // insecure zone.
+                    .any(|r| r.record_type() == RecordType::DS)
+                {
                     debug!(
                         zone = %zone,
                         "marking zone as insecure based on secure NSEC/NSEC3 proof or insecure parent zone",
@@ -845,29 +837,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     ));
                 }
             }
-            Err(error) => Some(error),
-        };
-
-        // If the response was an empty DS RRset that was itself insecure, then we have another insecure zone.
-        let dns_err = error_opt.as_ref().and_then(|e| match &e {
-            NetError::Dns(err) => Some(err),
-            _ => None,
-        });
-
-        if let Some(DnsError::Nsec { query, proof, .. }) = dns_err {
-            if proof.is_insecure() {
-                debug!(
-                    "marking {} as insecure based on insecure NSEC/NSEC3 proof",
-                    query.name()
-                );
-
-                return Err(ProofError::new(
-                    Proof::Insecure,
-                    ProofErrorKind::DsResponseInsecure {
-                        name: query.name().to_owned(),
-                    },
-                ));
-            }
+            Err(_) => {}
         }
 
         Err(ProofError::ds_should_exist(zone))
