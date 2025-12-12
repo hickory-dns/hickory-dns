@@ -206,11 +206,11 @@ where
 
         // after the request, evaluate if we have additional queries to perform
         match records {
-            Ok(Records::CnameChain { next: future }) => match future.await {
+            Ok(Records::CnameChain { next: future, .. }) => match future.await {
                 Ok(lookup) => client.cname(lookup, query),
                 Err(e) => client.cache(query, Err(e)),
             },
-            Ok(Records::Exists(rdata)) => client.cache(query, Ok(rdata)),
+            Ok(Records::Exists { message, min_ttl }) => client.cache(query, Ok((message, min_ttl))),
             Err(e) => client.cache(query, Err(e)),
         }
     }
@@ -235,7 +235,11 @@ where
         mut preserved_records: Vec<Record>,
         depth: DepthTracker,
     ) -> Result<Records, NetError> {
-        // initial ttl is what CNAMES for min usage
+        // TODO: there should be a ResolverOpts config to disable the
+        // name validation in this function to more closely match the
+        // behaviour of glibc if that's what the user expects.
+
+        // initial ttl is what CNAMES use for min usage
         const INITIAL_TTL: u32 = MAX_TTL;
 
         // need to capture these before the subsequent and destructive record processing
@@ -288,64 +292,127 @@ where
                 };
 
             // take all answers. // TODO: following CNAMES?
-            let mut response = response.into_message();
-            let answers = response.take_answers();
-            let additionals = response.take_additionals();
-            let authorities = response.take_authorities();
+            let mut message = response.into_message();
 
             // set of names that still require resolution
             // TODO: this needs to be enhanced for SRV
             let mut found_name = false;
+            let mut found_cname_target = false;
+            let mut min_ttl = cname_ttl;
+
+            // Scan through all sections to determine what we found and calculate minimum TTL
+            // We need this first pass to decide our strategy: return complete message vs filter
+            for r in message.all_sections() {
+                // because this resolved potentially recursively, we want the min TTL from the chain
+                min_ttl = min_ttl.min(r.ttl());
+
+                // restrict to the RData type requested
+                if query.query_class() != r.dns_class() {
+                    continue;
+                }
+
+                // standard evaluation, it's an any type, or it's the requested type and the
+                // search_name matches
+                let type_matches =
+                    query.query_type().is_any() || query.query_type() == r.record_type();
+                let name_matches = search_name.as_ref() == r.name() || query.name() == r.name();
+                if type_matches && name_matches {
+                    found_name = true;
+                    // Track if we found the CNAME target (not just the original name)
+                    if was_cname && search_name.as_ref() == r.name() {
+                        found_cname_target = true;
+                    }
+                }
+            }
+
+            // Decide strategy: do we need to filter, or return the message as-is?
+            // - If we have accumulated records from previous CNAME hops → must filter and merge
+            // - If we found the CNAME target in this response → filter out intermediate CNAMEs
+            //   (unless preserve_intermediates)
+            // - Otherwise → return complete message to preserve all sections exactly as DNS server
+            //   sent them
+            let needs_filtering = !preserved_records.is_empty()
+                || (found_cname_target && !client.preserve_intermediates);
 
             // After following all the CNAMES to the last one, try and lookup the final name
-            let records = answers
-                .into_iter()
-                // Chained records will generally exist in the additionals section
-                .chain(additionals)
-                .chain(authorities)
-                .filter_map(|mut r| {
+            if found_name && (!was_cname || preserved_records.is_empty()) {
+                if needs_filtering {
+                    // Filter records that belong in ANSWER section only
+                    // Don't include records from ADDITIONAL/AUTHORITY here - they're preserved as-is below
+                    let records = message
+                        .all_sections()
+                        .filter_map(|r| {
+                            // because this resolved potentially recursively, we want the min TTL from the chain
+                            let ttl = cname_ttl.min(r.ttl());
+                            let mut r = r.clone();
+                            r.set_ttl(ttl);
+
+                            // restrict to the RData type requested
+                            if query.query_class() != r.dns_class() {
+                                return None;
+                            }
+
+                            // standard evaluation, it's an any type, or it's the requested type
+                            // and the search_name matches
+                            let query_type = query.query_type();
+                            let record_type = r.record_type();
+                            let type_matches = query_type.is_any() || query_type == record_type;
+                            let name_matches =
+                                search_name.as_ref() == r.name() || query.name() == r.name();
+                            if type_matches && name_matches {
+                                return Some(r);
+                            }
+
+                            // CNAME evaluation, the record is from the CNAME lookup chain.
+                            if client.preserve_intermediates && record_type == RecordType::CNAME {
+                                return Some(r);
+                            }
+
+                            // Note: NS glue and SRV target IPs are NOT included here
+                            // They belong in ADDITIONAL section and are preserved below via insert_additionals
+                            None
+                        })
+                        .collect::<Vec<_>>();
+
+                    // adding the newly collected records to the preserved records
+                    preserved_records.extend(records);
+
+                    // Replace ANSWER section with filtered records, preserve AUTHORITY and ADDITIONAL sections
+                    *message.answers_mut() = preserved_records;
+                }
+
+                return Ok(Records::Exists { message, min_ttl });
+            }
+
+            // We didn't find the answer - need to continue following CNAME chain
+            // Only accumulate ANSWER-section records (CNAMEs) for next hop
+            // AUTHORITY and ADDITIONAL records stay with their original message and are not carried forward
+            let records = message
+                .all_sections()
+                .filter_map(|r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
+                    let mut r = r.clone();
                     r.set_ttl(ttl);
-                    // TODO: disable name validation with ResolverOpts? glibc feature...
+
                     // restrict to the RData type requested
-                    if query.query_class() == r.dns_class() {
-                        // standard evaluation, it's an any type or it's the requested type and the search_name matches
-                        #[allow(clippy::suspicious_operation_groupings)]
-                        if (query.query_type().is_any() || query.query_type() == r.record_type())
-                            && (search_name.as_ref() == r.name() || query.name() == r.name())
-                        {
-                            found_name = true;
-                            return Some(r);
-                        }
-                        // CNAME evaluation, the record is from the CNAME lookup chain.
-                        if client.preserve_intermediates && r.record_type() == RecordType::CNAME {
-                            return Some(r);
-                        }
-                        // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
-                        //    and it's an IP
-                        if query.query_type().is_srv()
-                            && r.record_type().is_ip_addr()
-                            && search_name.as_ref() == r.name()
-                        {
-                            found_name = true;
-                            Some(r)
-                        } else if query.query_type().is_ns() && r.record_type().is_ip_addr() {
-                            Some(r)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
+                    if query.query_class() != r.dns_class() {
+                        return None;
                     }
+
+                    // CNAME evaluation, the record is from the CNAME lookup chain.
+                    if client.preserve_intermediates && r.record_type() == RecordType::CNAME {
+                        return Some(r);
+                    }
+
+                    // Note: NS glue and SRV target IPs are NOT accumulated across hops
+                    // They belong in ADDITIONAL section of their original response, not in ANSWER
+                    None
                 })
                 .collect::<Vec<_>>();
 
             // adding the newly collected records to the preserved records
             preserved_records.extend(records);
-            if !preserved_records.is_empty() && found_name {
-                return Ok(Records::Exists(preserved_records));
-            }
 
             (search_name.into_owned(), was_cname, preserved_records)
         };
@@ -360,9 +427,14 @@ where
                     next_query,
                     options,
                     client.clone(),
+                    #[cfg(test)]
+                    preserved_records.clone(),
+                    #[cfg(not(test))]
                     preserved_records,
                     depth.nest(),
                 )),
+                #[cfg(test)]
+                preserved_records,
             })
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
@@ -389,24 +461,21 @@ where
     fn cache(
         &self,
         query: Query,
-        records: Result<Vec<Record>, NetError>,
+        result: Result<(Message, u32), NetError>,
     ) -> Result<Lookup, NetError> {
-        let rdata = match records {
-            Ok(rdata) => rdata,
-            Err(err) => {
-                self.cache.insert(query, Err(err.clone()), Instant::now());
-                return Err(err);
-            }
-        };
-
         let now = Instant::now();
-        let lookup = records_to_lookup(query.clone(), &rdata, now);
-
-        let mut message = Message::response(0, OpCode::Query);
-        message.add_answers(rdata);
-        self.cache.insert(query, Ok(message), now);
-
-        Ok(lookup)
+        match result {
+            Ok((message, min_ttl)) => {
+                let valid_until = now + Duration::from_secs(min_ttl.into());
+                let lookup = Lookup::new(query.clone(), message.clone(), valid_until);
+                self.cache.insert(query, Ok(message), now);
+                Ok(lookup)
+            }
+            Err(err) => {
+                self.cache.insert(query, Err(err.clone()), now);
+                Err(err)
+            }
+        }
     }
 
     /// Flushes/Removes all entries from the cache
@@ -420,12 +489,15 @@ where
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum Records {
-    /// The records exists, a vec of rdata with ttl
-    Exists(Vec<Record>),
+    /// The records exist, stored as a complete DNS Message
+    Exists { message: Message, min_ttl: u32 },
     /// Future lookup for recursive cname records
     CnameChain {
         next: BoxFuture<'static, Result<Lookup, NetError>>,
+        #[cfg(test)]
+        preserved_records: Vec<Record>,
     },
 }
 
@@ -433,8 +505,12 @@ enum Records {
 fn records_to_lookup(query: Query, records: &[Record], now: Instant) -> Lookup {
     let ttl = records.iter().map(Record::ttl).min().unwrap_or(MAX_TTL);
     let valid_until = now + Duration::from_secs(ttl.into());
-    let records = records.to_vec().into();
-    Lookup::new_with_deadline(query, records, valid_until)
+
+    let mut message = Message::response(0, OpCode::Query);
+    message.add_query(query.clone());
+    message.add_answers(records.iter().cloned());
+
+    Lookup::new(query, message, valid_until)
 }
 
 // see also the lookup_tests.rs in integration-tests crate
@@ -730,19 +806,30 @@ mod tests {
         ))
         .expect("lookup failed");
 
-        assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![
-                RData::SRV(SRV::new(
-                    1,
-                    2,
-                    443,
-                    Name::from_str("www.example.com.").unwrap(),
-                )),
-                RData::A(A::new(127, 0, 0, 1)),
-                RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            ]
-        );
+        // Answers section should have SRV + CNAME
+        let answers = ips
+            .answers()
+            .iter()
+            .map(|r| r.data().clone())
+            .collect::<Vec<_>>();
+        assert!(answers.contains(&RData::SRV(SRV::new(
+            1,
+            2,
+            443,
+            Name::from_str("www.example.com.").unwrap(),
+        ))));
+        assert!(answers.contains(&RData::CNAME(CNAME(
+            Name::from_str("actual.example.com.").unwrap()
+        ))));
+
+        // Additionals section should have A + AAAA records
+        let additionals = ips
+            .additionals()
+            .iter()
+            .map(|r| r.data().clone())
+            .collect::<Vec<_>>();
+        assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
+        assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
     }
 
     // TODO: if we ever enable recursive lookups for SRV, here are the tests...
@@ -834,13 +921,702 @@ mod tests {
         ))
         .expect("lookup failed");
 
+        // Answers section should have NS + CNAME
+        let answers = ips
+            .answers()
+            .iter()
+            .map(|r| r.data().clone())
+            .collect::<Vec<_>>();
+        assert!(answers.contains(&RData::NS(NS(Name::from_str("www.example.com.").unwrap()))));
+        assert!(answers.contains(&RData::CNAME(CNAME(
+            Name::from_str("actual.example.com.").unwrap()
+        ))));
+
+        // Additionals section should have A + AAAA records
+        let additionals = ips
+            .additionals()
+            .iter()
+            .map(|r| r.data().clone())
+            .collect::<Vec<_>>();
+        assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
+        assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
+    }
+
+    /// Purpose: Verify glue records stay in ADDITIONAL section
+    ///
+    /// This test ensures that when querying for NS records, the glue A records for those
+    /// nameservers stay in the ADDITIONAL section and do NOT leak into the ANSWER section.
+    #[test]
+    fn test_ns_query_glue_in_additional_section() {
+        subscribe();
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        // Create NS query response for example.com with glue in ADDITIONAL section
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("example.com.").unwrap(),
+            RecordType::NS,
+        ));
+
+        // ANSWER section: NS records
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("example.com.").unwrap(),
+                3600,
+                RData::NS(NS(Name::from_str("ns1.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("example.com.").unwrap(),
+                3600,
+                RData::NS(NS(Name::from_str("ns2.example.com.").unwrap())),
+            ),
+        ]);
+
+        // ADDITIONAL section: Glue A records for the nameservers
+        message.insert_additionals(vec![
+            Record::from_rdata(
+                Name::from_str("ns1.example.com.").unwrap(),
+                3600,
+                RData::A(A::new(192, 0, 2, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_str("ns2.example.com.").unwrap(),
+                3600,
+                RData::A(A::new(192, 0, 2, 2)),
+            ),
+        ]);
+
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
+        let client = CachingClient::with_cache(cache, client, false);
+
+        let lookup = block_on(CachingClient::inner_lookup(
+            Query::query(Name::from_str("example.com.").unwrap(), RecordType::NS),
+            DnsRequestOptions::default(),
+            client,
+            vec![],
+            DepthTracker::default(),
+        ))
+        .expect("lookup failed");
+
+        // Verify: NS records in ANSWER section only
+        let answers = lookup.answers().iter().collect::<Vec<_>>();
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<_>>(),
-            vec![
-                RData::NS(NS(Name::from_str("www.example.com.").unwrap())),
-                RData::A(A::new(127, 0, 0, 1)),
-                RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            ]
+            answers.len(),
+            2,
+            "Should have exactly 2 NS records in ANSWER"
+        );
+
+        // Verify all answer records are NS type
+        for answer in &answers {
+            assert_eq!(
+                answer.record_type(),
+                RecordType::NS,
+                "All ANSWER section records should be NS type"
+            );
+        }
+
+        // Verify: Glue A records in ADDITIONAL section only
+        let additionals = lookup.additionals().iter().collect::<Vec<_>>();
+        assert_eq!(
+            additionals.len(),
+            2,
+            "Should have exactly 2 glue A records in ADDITIONAL"
+        );
+
+        // Verify all additional records are A type
+        for additional in &additionals {
+            assert_eq!(
+                additional.record_type(),
+                RecordType::A,
+                "All ADDITIONAL section records should be A type (glue records)"
+            );
+        }
+
+        // Verify glue records do NOT appear in ANSWER section
+        for answer in &answers {
+            assert_ne!(
+                answer.record_type(),
+                RecordType::A,
+                "A records (glue) should NEVER appear in ANSWER for NS query - this was the original bug!"
+            );
+        }
+
+        // Verify AUTHORITY section is empty
+        assert_eq!(
+            lookup.authorities().len(),
+            0,
+            "AUTHORITY section should be empty"
+        );
+    }
+
+    /// Purpose: Verify sections preserved when CNAME and target in same response
+    ///
+    /// This test verifies that when a CNAME and its target appear in the same DNS response,
+    /// the AUTHORITY and ADDITIONAL sections are preserved correctly, and filtering only
+    /// affects the ANSWER section when preserve_intermediates=false.
+    #[test]
+    fn test_single_hop_cname_preserves_sections() {
+        subscribe();
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        // Create a response with CNAME + A in ANSWER, plus AUTHORITY and ADDITIONAL sections
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        // ANSWER section: CNAME + A record
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                300,
+                RData::CNAME(CNAME(Name::from_str("v4.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("v4.example.com.").unwrap(),
+                300,
+                RData::A(A::new(192, 0, 2, 1)),
+            ),
+        ]);
+
+        // AUTHORITY section: NS record
+        message.insert_authorities(vec![Record::from_rdata(
+            Name::from_str("example.com.").unwrap(),
+            3600,
+            RData::NS(NS(Name::from_str("ns1.example.com.").unwrap())),
+        )]);
+
+        // ADDITIONAL section: Glue for NS
+        message.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("ns1.example.com.").unwrap(),
+            3600,
+            RData::A(A::new(192, 0, 2, 10)),
+        )]);
+
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
+        let client = CachingClient::with_cache(cache, client, false); // preserve_intermediates=false
+
+        let lookup = block_on(CachingClient::inner_lookup(
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            DnsRequestOptions::default(),
+            client,
+            vec![],
+            DepthTracker::default(),
+        ))
+        .expect("lookup failed");
+
+        // Verify ANSWER: Only A record (CNAME filtered out because target was found)
+        let answers = lookup.answers().iter().collect::<Vec<_>>();
+        assert_eq!(
+            answers.len(),
+            1,
+            "ANSWER should have 1 record (CNAME filtered)"
+        );
+        assert_eq!(
+            answers[0].record_type(),
+            RecordType::A,
+            "ANSWER should contain only the A record"
+        );
+        match answers[0].data() {
+            RData::A(a) => assert_eq!(a, &A::new(192, 0, 2, 1), "A record should have correct IP"),
+            _ => panic!("wrong rdata type"),
+        }
+
+        // Verify AUTHORITY: NS record preserved
+        let authorities = lookup.authorities().iter().collect::<Vec<_>>();
+        assert_eq!(
+            authorities.len(),
+            1,
+            "AUTHORITY section should be preserved"
+        );
+        assert_eq!(
+            authorities[0].record_type(),
+            RecordType::NS,
+            "AUTHORITY should contain NS record"
+        );
+
+        // Verify ADDITIONAL: Glue preserved
+        let additionals = lookup.additionals().iter().collect::<Vec<_>>();
+        assert_eq!(
+            additionals.len(),
+            1,
+            "ADDITIONAL section should be preserved"
+        );
+        assert_eq!(
+            additionals[0].record_type(),
+            RecordType::A,
+            "ADDITIONAL should contain glue A record"
+        );
+        match additionals[0].data() {
+            RData::A(a) => assert_eq!(
+                a,
+                &A::new(192, 0, 2, 10),
+                "Glue record should have correct IP"
+            ),
+            _ => panic!("wrong rdata type"),
+        }
+    }
+
+    /// test_single_hop_cname_with_preserve_intermediates
+    ///
+    /// Purpose: Verify CNAME is kept when preserve_intermediates=true
+    ///
+    /// Same setup as Test 2.1 but with preserve_intermediates=true, so the CNAME
+    /// should be kept in the ANSWER section along with the A record.
+    #[test]
+    fn test_single_hop_cname_with_preserve_intermediates() {
+        subscribe();
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        // Same response as Test 2.1
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                300,
+                RData::CNAME(CNAME(Name::from_str("v4.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("v4.example.com.").unwrap(),
+                300,
+                RData::A(A::new(192, 0, 2, 1)),
+            ),
+        ]);
+
+        message.insert_authorities(vec![Record::from_rdata(
+            Name::from_str("example.com.").unwrap(),
+            3600,
+            RData::NS(NS(Name::from_str("ns1.example.com.").unwrap())),
+        )]);
+
+        message.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("ns1.example.com.").unwrap(),
+            3600,
+            RData::A(A::new(192, 0, 2, 10)),
+        )]);
+
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
+        let client = CachingClient::with_cache(cache, client, true); // preserve_intermediates=true
+
+        let lookup = block_on(CachingClient::inner_lookup(
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            DnsRequestOptions::default(),
+            client,
+            vec![],
+            DepthTracker::default(),
+        ))
+        .expect("lookup failed");
+
+        // Verify ANSWER: Both CNAME and A record
+        let answers = lookup.answers().iter().collect::<Vec<_>>();
+        assert_eq!(answers.len(), 2, "ANSWER should have 2 records (CNAME + A)");
+
+        // Check for CNAME record
+        let cname_records = answers
+            .iter()
+            .filter(|r| r.record_type() == RecordType::CNAME)
+            .collect::<Vec<_>>();
+        assert_eq!(cname_records.len(), 1, "Should have 1 CNAME record");
+
+        // Check for A record
+        let a_records = answers
+            .iter()
+            .filter(|r| r.record_type() == RecordType::A)
+            .collect::<Vec<_>>();
+        assert_eq!(a_records.len(), 1, "Should have 1 A record");
+
+        // Verify AUTHORITY: NS records preserved (1 record)
+        assert_eq!(
+            lookup.authorities().len(),
+            1,
+            "AUTHORITY section should be preserved"
+        );
+
+        // Verify ADDITIONAL: Glue preserved (1 record)
+        assert_eq!(
+            lookup.additionals().len(),
+            1,
+            "ADDITIONAL section should be preserved"
+        );
+    }
+
+    /// Purpose: Verify only final response sections are preserved in multi-hop CNAME chains
+    ///
+    /// This test verifies that in a multi-hop CNAME chain, only the AUTHORITY and ADDITIONAL
+    /// sections from the FINAL response are preserved, not merged from intermediate responses.
+    #[test]
+    fn test_multi_hop_cname_preserves_final_sections() {
+        subscribe();
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        // Response 1 (first hop): CNAME only
+        let mut message1 = Message::response(0, OpCode::Query);
+        message1.add_query(Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        message1.insert_answers(vec![Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            300,
+            RData::CNAME(CNAME(Name::from_str("v4.example.com.").unwrap())),
+        )]);
+
+        // AUTHORITY from first response (should NOT be in final result)
+        message1.insert_authorities(vec![Record::from_rdata(
+            Name::from_str("www-zone.example.com.").unwrap(),
+            3600,
+            RData::NS(NS(Name::from_str("ns-www.example.com.").unwrap())),
+        )]);
+
+        // ADDITIONAL from first response (should NOT be in final result)
+        message1.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("ns-www.example.com.").unwrap(),
+            3600,
+            RData::A(A::new(192, 0, 2, 20)),
+        )]);
+
+        // Response 2 (second hop): Final A record
+        let mut message2 = Message::response(0, OpCode::Query);
+        message2.add_query(Query::query(
+            Name::from_str("v4.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        message2.insert_answers(vec![Record::from_rdata(
+            Name::from_str("v4.example.com.").unwrap(),
+            300,
+            RData::A(A::new(192, 0, 2, 1)),
+        )]);
+
+        // AUTHORITY from second response (SHOULD be in final result)
+        message2.insert_authorities(vec![Record::from_rdata(
+            Name::from_str("v4-zone.example.com.").unwrap(),
+            3600,
+            RData::NS(NS(Name::from_str("ns-v4.example.com.").unwrap())),
+        )]);
+
+        // ADDITIONAL from second response (SHOULD be in final result)
+        message2.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("ns-v4.example.com.").unwrap(),
+            3600,
+            RData::A(A::new(192, 0, 2, 30)),
+        )]);
+
+        let mut client = CachingClient::with_cache(cache, mock(vec![]), false); // preserve_intermediates=false
+
+        // First hop: Process CNAME response
+        let result1 = CachingClient::handle_noerror(
+            &mut client,
+            DnsRequestOptions::default(),
+            &Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            DnsResponse::from_message(message1).unwrap(),
+            vec![],
+            DepthTracker::default(),
+        );
+
+        // Should return Records::CnameChain with empty preserved_records (preserve_intermediates=false)
+        let preserved_records = match result1 {
+            Ok(Records::CnameChain {
+                preserved_records, ..
+            }) => {
+                // Verify preserved_records is empty when preserve_intermediates=false
+                assert_eq!(
+                    preserved_records.len(),
+                    0,
+                    "With preserve_intermediates=false, preserved_records should be empty"
+                );
+                preserved_records
+            }
+            Ok(Records::Exists { .. }) => {
+                panic!("Expected Records::CnameChain from first hop, got Records::Exists")
+            }
+            Err(e) => panic!(
+                "Expected Records::CnameChain from first hop, got error: {}",
+                e
+            ),
+        };
+
+        // Second hop: Process final A record response
+        let result2 = CachingClient::handle_noerror(
+            &mut client,
+            DnsRequestOptions::default(),
+            &Query::query(Name::from_str("v4.example.com.").unwrap(), RecordType::A),
+            DnsResponse::from_message(message2).unwrap(),
+            preserved_records,
+            DepthTracker::default().nest(),
+        );
+
+        // Should return Records::Exists
+        let lookup_message = match result2 {
+            Ok(Records::Exists { message, .. }) => message,
+            Ok(Records::CnameChain { .. }) => {
+                panic!("Expected Records::Exists from second hop, got Records::CnameChain")
+            }
+            Err(e) => panic!("Expected Records::Exists from second hop, got error: {}", e),
+        };
+
+        // Create a Lookup from the final message
+        let lookup = Lookup::new(
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            lookup_message,
+            Instant::now() + Duration::from_secs(300),
+        );
+
+        // Verify ANSWER: Only final A record (CNAME from Response 1 filtered)
+        let answers = lookup.answers().iter().collect::<Vec<_>>();
+        assert_eq!(
+            answers.len(),
+            1,
+            "ANSWER should have only the final A record"
+        );
+        assert_eq!(answers[0].record_type(), RecordType::A);
+        match answers[0].data() {
+            RData::A(a) => assert_eq!(a, &A::new(192, 0, 2, 1), "Should have IP from Response 2"),
+            _ => panic!("wrong rdata type"),
+        }
+        match answers[0].data() {
+            RData::A(a) => assert_eq!(a, &A::new(192, 0, 2, 1), "Should have IP from Response 2"),
+            _ => panic!("wrong rdata type"),
+        }
+
+        // Verify AUTHORITY: From Response 2 only (not merged with Response 1)
+        let authorities = lookup.authorities().iter().collect::<Vec<_>>();
+        assert_eq!(
+            authorities.len(),
+            1,
+            "AUTHORITY should have 1 record from final response only"
+        );
+
+        // Check it's the NS from Response 2, not Response 1
+        match authorities[0].data() {
+            RData::NS(ns_name) => assert_eq!(
+                ns_name.0,
+                Name::from_str("ns-v4.example.com.").unwrap(),
+                "AUTHORITY should be from Response 2 (ns-v4), NOT Response 1 (ns-www)"
+            ),
+            _ => panic!("wrong rdata type"),
+        }
+
+        // Verify ADDITIONAL: From Response 2 only
+        let additionals = lookup.additionals().iter().collect::<Vec<_>>();
+        assert_eq!(
+            additionals.len(),
+            1,
+            "ADDITIONAL should have 1 record from final response only"
+        );
+
+        // Check it's the IP from Response 2, not Response 1
+        match additionals[0].data() {
+            RData::A(a) => assert_eq!(
+                a,
+                &A::new(192, 0, 2, 30),
+                "ADDITIONAL should have IP 192.0.2.30 from Response 2, NOT 192.0.2.20 from Response 1"
+            ),
+            _ => panic!("wrong rdata type"),
+        }
+    }
+
+    /// test_multi_hop_cname_with_preserve_accumulates_cnames
+    ///
+    /// Purpose: Verify CNAMEs from multiple hops are accumulated when
+    /// preserve_intermediates=true
+    ///
+    /// Same setup as test_multi_hop_cname_preserves_final_sections
+    /// but with preserve_intermediates=true, so the CNAME from the
+    /// first hop should be included in the final ANSWER section.
+    ///
+    /// Uses handle_noerror directly to test the two-hop CNAME chain
+    /// with CNAME preservation.
+    #[test]
+    fn test_multi_hop_cname_with_preserve_accumulates_cnames() {
+        subscribe();
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        // Response 1 (first hop): CNAME only
+        let mut message1 = Message::response(0, OpCode::Query);
+        message1.add_query(Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        message1.insert_answers(vec![Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            300,
+            RData::CNAME(CNAME(Name::from_str("v4.example.com.").unwrap())),
+        )]);
+
+        message1.insert_authorities(vec![Record::from_rdata(
+            Name::from_str("www-zone.example.com.").unwrap(),
+            3600,
+            RData::NS(NS(Name::from_str("ns-www.example.com.").unwrap())),
+        )]);
+
+        message1.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("ns-www.example.com.").unwrap(),
+            3600,
+            RData::A(A::new(192, 0, 2, 20)),
+        )]);
+
+        // Response 2 (second hop): Final A record
+        let mut message2 = Message::response(0, OpCode::Query);
+        message2.add_query(Query::query(
+            Name::from_str("v4.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        message2.insert_answers(vec![Record::from_rdata(
+            Name::from_str("v4.example.com.").unwrap(),
+            300,
+            RData::A(A::new(192, 0, 2, 1)),
+        )]);
+
+        message2.insert_authorities(vec![Record::from_rdata(
+            Name::from_str("v4-zone.example.com.").unwrap(),
+            3600,
+            RData::NS(NS(Name::from_str("ns-v4.example.com.").unwrap())),
+        )]);
+
+        message2.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("ns-v4.example.com.").unwrap(),
+            3600,
+            RData::A(A::new(192, 0, 2, 30)),
+        )]);
+
+        let client = mock(vec![]);
+        let mut client = CachingClient::with_cache(cache, client, true); // preserve_intermediates=true
+
+        // First hop: Process CNAME response
+        let result1 = CachingClient::handle_noerror(
+            &mut client,
+            DnsRequestOptions::default(),
+            &Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            DnsResponse::from_message(message1.clone()).unwrap(),
+            vec![],
+            DepthTracker::default(),
+        );
+
+        // With preserve_intermediates=true, verify CNAME is preserved
+        let preserved_records = match result1 {
+            Ok(Records::CnameChain {
+                preserved_records, ..
+            }) => {
+                // Verify preserved_records contains the CNAME when preserve_intermediates=true
+                assert_eq!(
+                    preserved_records.len(),
+                    1,
+                    "With preserve_intermediates=true, preserved_records should contain the CNAME"
+                );
+                assert_eq!(
+                    preserved_records[0].record_type(),
+                    RecordType::CNAME,
+                    "Preserved record should be a CNAME"
+                );
+                preserved_records
+            }
+            _ => panic!("Expected CnameChain from first hop"),
+        };
+
+        // Second hop: Process final A record with preserved CNAME
+        let result2 = CachingClient::handle_noerror(
+            &mut client,
+            DnsRequestOptions::default(),
+            &Query::query(Name::from_str("v4.example.com.").unwrap(), RecordType::A),
+            DnsResponse::from_message(message2).unwrap(),
+            preserved_records,
+            DepthTracker::default().nest(),
+        );
+
+        let lookup_message = match result2 {
+            Ok(Records::Exists { message, .. }) => message,
+            Ok(Records::CnameChain { .. }) => {
+                panic!("Expected Records::Exists from second hop, got Records::CnameChain")
+            }
+            Err(e) => panic!("Expected Records::Exists from second hop, got error: {}", e),
+        };
+
+        // Create a Lookup from the final message
+        let lookup = Lookup::new(
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            lookup_message,
+            Instant::now() + Duration::from_secs(300),
+        );
+
+        // Verify ANSWER: CNAME from Response 1 + A from Response 2
+        let answers = lookup.answers().iter().collect::<Vec<_>>();
+        assert_eq!(
+            answers.len(),
+            2,
+            "ANSWER should have CNAME + A (both preserved)"
+        );
+
+        // Check for CNAME record (from Response 1)
+        let cname_records = answers
+            .iter()
+            .filter(|r| r.record_type() == RecordType::CNAME)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            cname_records.len(),
+            1,
+            "Should have 1 CNAME from Response 1"
+        );
+
+        match cname_records[0].data() {
+            RData::CNAME(cname_target) => assert_eq!(
+                cname_target.0,
+                Name::from_str("v4.example.com.").unwrap(),
+                "CNAME should point to v4.example.com"
+            ),
+            _ => panic!("wrong rdata type"),
+        }
+
+        // Check for A record (from Response 2)
+        let a_records = answers
+            .iter()
+            .filter(|r| r.record_type() == RecordType::A)
+            .collect::<Vec<_>>();
+        assert_eq!(a_records.len(), 1, "Should have 1 A record");
+        match a_records[0].data() {
+            RData::A(a) => assert_eq!(
+                a,
+                &A::new(192, 0, 2, 1),
+                "A record should have IP from Response 2"
+            ),
+            _ => panic!("wrong rdata type"),
+        };
+
+        // Verify AUTHORITY: From Response 2 only (1 record)
+        assert_eq!(
+            lookup.authorities().len(),
+            1,
+            "AUTHORITY should be from final response only"
+        );
+
+        // Verify ADDITIONAL: From Response 2 only (1 record)
+        assert_eq!(
+            lookup.additionals().len(),
+            1,
+            "ADDITIONAL should be from final response only"
         );
     }
 
@@ -871,13 +1647,9 @@ mod tests {
         );
 
         if let Ok(records) = records {
-            if let Records::Exists(records) = records {
-                for record in records.iter() {
-                    if record.record_type() == RecordType::CNAME {
-                        continue;
-                    }
-                    assert_eq!(record.ttl(), 1);
-                }
+            if let Records::Exists { message, min_ttl } = records {
+                assert_eq!(min_ttl, 1);
+                assert!(!message.answers().is_empty());
             } else {
                 panic!("records don't exist");
             }
