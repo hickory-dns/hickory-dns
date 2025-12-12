@@ -453,7 +453,10 @@ where
     #[allow(clippy::unnecessary_wraps)]
     fn cname(&self, lookup: Lookup, query: Query) -> Result<Lookup, NetError> {
         let mut message = Message::response(0, OpCode::Query);
-        message.add_answers(lookup.records().iter().cloned());
+        message.add_query(query.clone());
+        message.add_answers(lookup.answers().iter().cloned());
+        message.add_authorities(lookup.authorities().iter().cloned());
+        message.add_additionals(lookup.additionals().iter().cloned());
         self.cache.insert(query, Ok(message), Instant::now());
         Ok(lookup)
     }

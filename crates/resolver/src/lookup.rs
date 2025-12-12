@@ -106,18 +106,6 @@ impl Lookup {
         self.valid_until
     }
 
-    /// Returns all records that were returned during the query.
-    ///
-    /// Note: This allocates and clones records on each call.
-    ///
-    /// It may include additional record types beyond the queried type, e.g. CNAME.
-    ///
-    /// For backwards compatibility, this returns records from all sections
-    /// (ANSWER, AUTHORITY, ADDITIONAL).
-    pub fn records(&self) -> Arc<[Record]> {
-        self.message.all_sections().cloned().collect()
-    }
-
     /// Combine two lookup results, preserving section structure
     ///
     /// Appends records from each section of `other` to the corresponding section of `self`.
