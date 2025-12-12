@@ -43,8 +43,8 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
     pub(super) metrics: RecursorMetrics,
-    recursion_limit: Option<u8>,
-    ns_recursion_limit: Option<u8>,
+    recursion_limit: u8,
+    ns_recursion_limit: u8,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
     conn_provider: P,

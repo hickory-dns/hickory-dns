@@ -77,10 +77,9 @@ pub enum RecursorError {
 
 impl RecursorError {
     /// Test if the recursion depth has been exceeded, and return an error if it has.
-    pub fn recursion_exceeded(limit: Option<u8>, depth: u8, name: &Name) -> Result<(), Self> {
-        match limit {
-            Some(limit) if depth > limit => {}
-            _ => return Ok(()),
+    pub fn recursion_exceeded(limit: u8, depth: u8, name: &Name) -> Result<(), Self> {
+        if depth < limit {
+            return Ok(());
         }
 
         warn!("recursion depth exceeded for {name}");
