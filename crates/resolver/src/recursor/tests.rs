@@ -890,10 +890,11 @@ positive_max_ttl = 14400
 [cache_policy.A]
 positive_max_ttl = 3600"#;
 
-        let config: RecursiveConfig = toml::from_str(input).unwrap();
+        let config = toml::from_str::<RecursiveConfig>(input).unwrap();
 
         assert_eq!(
             *config
+                .options
                 .cache_policy
                 .positive_response_ttl_bounds(RecordType::MX)
                 .end(),
@@ -902,6 +903,7 @@ positive_max_ttl = 3600"#;
 
         assert_eq!(
             *config
+                .options
                 .cache_policy
                 .positive_response_ttl_bounds(RecordType::A)
                 .end(),
@@ -916,9 +918,9 @@ positive_max_ttl = 3600"#;
 enabled = {}
 "#;
 
-        let config: RecursiveConfig = toml::from_str(input).unwrap();
+        let config = toml::from_str::<RecursiveConfig>(input).unwrap();
         assert_eq!(
-            config.opportunistic_encryption,
+            config.options.opportunistic_encryption,
             OpportunisticEncryption::Enabled {
                 config: OpportunisticEncryptionConfig::default()
             }
