@@ -10,7 +10,7 @@ use std::{
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
 use tokio::time as TokioTime;
 
-use super::{Recursor, RecursorBuilder, RecursorError, RecursorMode, is_subzone};
+use super::{Recursor, RecursorError, RecursorMode, RecursorOptions, is_subzone};
 use crate::{
     cache::TtlConfig,
     config::ResolverOpts,
@@ -29,8 +29,8 @@ async fn recursor_connection_deduplication() -> Result<(), NetError> {
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
-    let (provider, recursor_builder) = test_fixture()?;
-    let recursor = recursor_builder.build(&[ROOT_IP], provider.clone())?;
+    let (provider, options) = test_fixture()?;
+    let recursor = Recursor::with_options(&[ROOT_IP], options, provider.clone())?;
 
     // This test is inspecting the number of new TCP connection calls for each nameserver.
     // If deduplication is working correctly, there should be one for each after the
@@ -67,9 +67,15 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
-    let (provider, mut recursor_builder) = test_fixture()?;
-    recursor_builder.options.ns_cache_size = 1;
-    let recursor = recursor_builder.build(&[ROOT_IP], provider.clone())?;
+    let (provider, options) = test_fixture()?;
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            ns_cache_size: 1,
+            ..options
+        },
+        provider.clone(),
+    )?;
 
     let response = recursor
         .resolve(
@@ -376,20 +382,24 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
         ),
     ];
 
-    let mut builder = Recursor::<MockProvider>::builder();
-    builder.options.deny_server.clear();
-    builder.options.ns_cache_size = 1;
-    let recursor_no_cache = builder.build(
+    let recursor_no_cache = Recursor::with_options(
         &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ns_cache_size: 1,
+            ..RecursorOptions::default()
+        },
         MockProvider::new(MockNetworkHandler::new(responses.clone())),
     )?;
 
-    let mut builder = Recursor::<MockProvider>::builder();
-    builder.options.deny_server.clear();
-    builder.options.ns_cache_size = 1024;
-    let recursor_cache = builder.build(
+    let recursor_cache = Recursor::with_options(
         &[ROOT_IP],
-        MockProvider::new(MockNetworkHandler::new(responses)),
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ns_cache_size: 1024,
+            ..RecursorOptions::default()
+        },
+        MockProvider::new(MockNetworkHandler::new(responses.clone())),
     )?;
 
     for recursor in [recursor_no_cache, recursor_cache] {
@@ -444,8 +454,12 @@ async fn not_fully_qualified_domain_name_in_query() -> Result<(), NetError> {
     subscribe();
 
     let j_root_servers_net_ip = IpAddr::from([192, 58, 128, 30]);
-    let recursor = Recursor::<TokioRuntimeProvider>::builder()
-        .build(&[j_root_servers_net_ip], TokioRuntimeProvider::default())?;
+    let recursor = Recursor::with_options(
+        &[j_root_servers_net_ip],
+        RecursorOptions::default(),
+        TokioRuntimeProvider::default(),
+    )?;
+
     let name = Name::from_ascii("example.com")?;
     assert!(!name.is_fqdn());
     let query = Query::query(name, RecordType::A);
@@ -620,10 +634,15 @@ fn ns_cache_test_fixture(
         },
     ));
 
-    let mut builder = Recursor::<MockProvider>::builder();
-    builder.options.deny_server.clear();
-    builder.options.cache_policy = ttl_config;
-    builder.build(&[ROOT_IP], MockProvider::new(handler))
+    Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            cache_policy: ttl_config,
+            ..RecursorOptions::default()
+        },
+        MockProvider::new(handler),
+    )
 }
 
 async fn ttl_lookup(
@@ -644,7 +663,7 @@ fn validate_response(response: Message, name: &Name, ip: IpAddr) -> bool {
         && response.answers() == [Record::from_rdata(name.clone(), 0, ip.into())]
 }
 
-fn test_fixture() -> Result<(MockProvider, RecursorBuilder), NetError> {
+fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
 
@@ -684,9 +703,12 @@ fn test_fixture() -> Result<(MockProvider, RecursorBuilder), NetError> {
     ));
 
     let provider = MockProvider::new(handler);
-    let mut builder = Recursor::<MockProvider>::builder();
-    builder.options.deny_server.clear();
-    Ok((provider, builder))
+    let options = RecursorOptions {
+        deny_server: Vec::new(),
+        ..RecursorOptions::default()
+    };
+
+    Ok((provider, options))
 }
 
 #[cfg(feature = "metrics")]
@@ -731,10 +753,17 @@ mod metrics {
             ]);
 
             let provider = MockProvider::new(handler);
+            let recursor = Recursor::with_options(
+                &[ROOT_IP],
+                RecursorOptions {
+                    deny_server: Vec::new(),
+                    ..RecursorOptions::default()
+                },
+                provider,
+            )
+            .unwrap();
+
             runtime.block_on(async {
-                let mut builder = Recursor::<MockProvider>::builder();
-                builder.options.deny_server.clear(); // We use addresses in the default deny filters.
-                let recursor = builder.build(&[ROOT_IP], provider).unwrap();
                 for _ in 0..3 {
                     let response = recursor
                         .resolve(
