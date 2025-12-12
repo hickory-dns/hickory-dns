@@ -349,6 +349,12 @@ impl<R: ConnectionProvider> Resolver<R> {
         request_opts.use_edns = self.context.options.edns0;
         request_opts.case_randomization = self.context.options.case_randomization;
 
+        // Set DNSSEC OK bit when DNSSEC validation is enabled
+        #[cfg(feature = "__dnssec")]
+        {
+            request_opts.edns_set_dnssec_ok = self.context.options.validate;
+        }
+
         request_opts
     }
 
