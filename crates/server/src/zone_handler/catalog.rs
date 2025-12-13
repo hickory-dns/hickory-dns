@@ -31,7 +31,7 @@ use crate::{
 };
 use crate::{
     proto::{
-        op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
+        op::{Edns, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode},
         rr::{
             LowerName, RecordSet, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
@@ -547,7 +547,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
             .await;
         };
 
-        let (response_header, sections) = build_response(
+        let response_message = build_response(
             result,
             &**handler,
             request_id,
@@ -559,11 +559,11 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
         let mut message_response =
             MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
-                response_header,
-                sections.answers.iter(),
-                sections.ns.iter(),
-                sections.soa.iter(),
-                sections.additionals.iter(),
+                *response_message.header(),
+                response_message.answers().iter(),
+                response_message.authorities().iter(),
+                iter::empty(),
+                response_message.additionals().iter(),
             );
 
         if let Some(signer) = signer {
@@ -571,11 +571,11 @@ async fn lookup<R: ResponseHandler + Unpin>(
             let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
             let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
                 .build(
-                    response_header,
-                    sections.answers.iter(),
-                    sections.ns.iter(),
-                    sections.soa.iter(),
-                    sections.additionals.iter(),
+                    *response_message.header(),
+                    response_message.answers().iter(),
+                    response_message.authorities().iter(),
+                    iter::empty(),
+                    response_message.additionals().iter(),
                 );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
@@ -603,7 +603,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         }
 
         #[cfg(feature = "metrics")]
-        metrics.update_request_response(query, sections.answers.iter());
+        metrics.update_request_response(query, response_message.answers().iter());
 
         match response_handle.send_response(message_response).await {
             Err(error) => {
@@ -774,16 +774,15 @@ async fn build_response(
     request_header: &Header,
     query: &LowerQuery,
     edns: Option<&Edns>,
-) -> (Header, LookupSections) {
+) -> Message {
     let lookup_options = LookupOptions::from_edns(edns);
 
-    let mut response_header = Header::response_from_request(request_header);
-    let sections = match handler.zone_type() {
+    match handler.zone_type() {
         ZoneType::Primary | ZoneType::Secondary => {
             build_authoritative_response(
                 result,
                 handler,
-                &mut response_header,
+                request_header,
                 lookup_options,
                 request_id,
                 query,
@@ -794,7 +793,6 @@ async fn build_response(
             build_forwarded_response(
                 result,
                 request_header,
-                &mut response_header,
                 #[cfg(feature = "__dnssec")]
                 handler.can_validate_dnssec(),
                 query,
@@ -802,21 +800,27 @@ async fn build_response(
             )
             .await
         }
-    };
-
-    (response_header, sections)
+    }
 }
 
 /// Prepare a response for an authoritative zone
 async fn build_authoritative_response(
     response: Result<AuthLookup, LookupError>,
     handler: &dyn ZoneHandler,
-    response_header: &mut Header,
+    request_header: &Header,
     lookup_options: LookupOptions,
     _request_id: u16,
     query: &LowerQuery,
-) -> LookupSections {
+) -> Message {
+    let mut response_header = Header::response_from_request(request_header);
     response_header.set_authoritative(true);
+
+    let mut message = Message::new(
+        response_header.id(),
+        response_header.message_type(),
+        response_header.op_code(),
+    );
+    message.add_query(query.original().clone());
 
     // In this state we await the records, on success we transition to getting
     // NS records, which indicate an authoritative response.
@@ -825,7 +829,6 @@ async fn build_authoritative_response(
     let answers = match response {
         Ok(records) => {
             response_header.set_response_code(ResponseCode::NoError);
-            response_header.set_authoritative(true);
             Some(records)
         }
         // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
@@ -833,14 +836,15 @@ async fn build_authoritative_response(
             rcode @ ResponseCode::Refused | rcode @ ResponseCode::NotAuth,
         )) => {
             response_header.set_response_code(rcode);
-            return LookupSections::default();
+            message.set_header(response_header);
+            return message;
         }
         Err(e) => {
-            if e.is_nx_domain() {
-                response_header.set_response_code(ResponseCode::NXDomain);
-            } else if let LookupError::NameExists = e {
-                response_header.set_response_code(ResponseCode::NoError);
-            };
+            response_header.set_response_code(if e.is_nx_domain() {
+                ResponseCode::NXDomain
+            } else {
+                ResponseCode::NoError
+            });
             None
         }
     };
@@ -988,7 +992,7 @@ async fn build_authoritative_response(
         }
     };
 
-    // everything is done, return results.
+    // everything is done, construct a Message with all sections.
     let (answers, additionals) = match answers {
         Some(mut answers) => match answers.take_additionals() {
             Some(additionals) => (
@@ -1003,25 +1007,44 @@ async fn build_authoritative_response(
         None => (AuthLookup::default(), AuthLookup::default()),
     };
 
-    LookupSections {
-        answers,
-        ns: ns.unwrap_or_default(),
-        soa: soa.unwrap_or_default(),
-        additionals,
+    message.set_header(response_header);
+    message.answers_mut().extend(answers.iter().cloned());
+
+    if let Some(ns_records) = ns {
+        message.authorities_mut().extend(ns_records.iter().cloned());
     }
+
+    if let Some(soa_records) = soa {
+        message
+            .authorities_mut()
+            .extend(soa_records.iter().cloned());
+    }
+
+    message
+        .additionals_mut()
+        .extend(additionals.iter().cloned());
+
+    message
 }
 
 /// Prepare a response for a forwarded zone.
 async fn build_forwarded_response(
     response: Result<AuthLookup, LookupError>,
     request_header: &Header,
-    response_header: &mut Header,
     #[cfg(feature = "__dnssec")] can_validate_dnssec: bool,
     query: &LowerQuery,
     lookup_options: LookupOptions,
-) -> LookupSections {
+) -> Message {
+    let mut response_header = Header::response_from_request(request_header);
     response_header.set_recursion_available(true);
     response_header.set_authoritative(false);
+    let mut message = Message::new(
+        response_header.id(),
+        response_header.message_type(),
+        response_header.op_code(),
+    );
+    message.add_query(query.original().clone());
+
     if !request_header.recursion_desired() {
         info!(
             id = request_header.id(),
@@ -1029,7 +1052,8 @@ async fn build_forwarded_response(
         );
 
         response_header.set_response_code(ResponseCode::Refused);
-        return LookupSections::default();
+        message.set_header(response_header);
+        return message;
     }
 
     enum Answer {
@@ -1177,43 +1201,20 @@ async fn build_forwarded_response(
         }
     }
 
-    // Strip out DNSSEC records unless the DO bit is set.
-    let authorities = if !lookup_options.dnssec_ok {
-        let auth = authorities
-            .into_iter()
-            .filter_map(|record| {
-                let record_type = record.record_type();
-                if record_type == query.query_type() || !record_type.is_dnssec() {
-                    Some(record.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        AuthLookup::answers(LookupRecords::Section(auth), None)
-    } else {
-        authorities
-    };
+    message.set_header(response_header);
 
     match answers {
-        Answer::Normal(answers) => LookupSections {
-            answers,
-            ns: authorities,
-            ..LookupSections::default()
-        },
-        Answer::NoRecords(soa) => LookupSections {
-            ns: authorities,
-            soa,
-            ..LookupSections::default()
-        },
+        Answer::Normal(answers) => {
+            message.answers_mut().extend(answers.iter().cloned());
+        }
+        Answer::NoRecords(soa) => {
+            message.authorities_mut().extend(soa.iter().cloned());
+        }
     }
-}
+    message
+        .authorities_mut()
+        .extend(authorities.iter().cloned());
 
-#[derive(Default)]
-struct LookupSections {
-    answers: AuthLookup,
-    ns: AuthLookup,
-    soa: AuthLookup,
-    additionals: AuthLookup,
+    // Strip DNSSEC records from all applicable sections based on the DNSSEC OK setting.
+    message.maybe_strip_dnssec_records(lookup_options.dnssec_ok)
 }
