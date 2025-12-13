@@ -127,7 +127,7 @@ pub struct Config {
     /// This is principally useful for decrypting captured packet data with tools like Wireshark.
     #[cfg(feature = "__tls")]
     #[serde(default)]
-    ssl_keylog_enabled: bool,
+    pub(crate) ssl_keylog_enabled: bool,
     /// Base configuration directory, i.e. root path for zones
     directory: Option<String>,
     /// User to run the server as.
@@ -226,16 +226,6 @@ impl Config {
     /// get the networks allowed to connect to this server
     pub fn allow_networks(&self) -> &[IpNet] {
         &self.allow_networks
-    }
-
-    pub fn ssl_keylog_enabled(&self) -> bool {
-        cfg_if! {
-            if #[cfg(feature = "__tls")] {
-                self.ssl_keylog_enabled
-            } else {
-                false
-            }
-        }
     }
 }
 

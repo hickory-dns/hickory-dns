@@ -495,7 +495,7 @@ fn config_tls(
 
         let mut tls_config = default_tls_server_config(b"dot", tls_cert)
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if config.ssl_keylog_enabled() {
+        if config.ssl_keylog_enabled {
             warn!("DoT SSL_KEYLOG_FILE support enabled");
             tls_config.key_log = Arc::new(KeyLogFile::new());
         }
@@ -552,7 +552,7 @@ fn config_https(
 
         let mut tls_config = default_tls_server_config(b"h2", tls_cert)
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if config.ssl_keylog_enabled() {
+        if config.ssl_keylog_enabled {
             warn!("DoH SSL_KEYLOG_FILE support enabled");
             tls_config.key_log = Arc::new(KeyLogFile::new());
         }
@@ -610,7 +610,7 @@ fn config_quic(
 
         let mut tls_config = default_tls_server_config(b"doq", tls_cert)
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if config.ssl_keylog_enabled() {
+        if config.ssl_keylog_enabled {
             warn!("DoQ SSL_KEYLOG_FILE support enabled");
             tls_config.key_log = Arc::new(KeyLogFile::new());
         }
