@@ -361,8 +361,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         Ok(message)
     }
 
-    /// This pulls all answers returned in a Message response and returns a future which will
-    ///  validate all of them.
+    /// This pulls all answers returned in a Message response and returns a Vec of records with proofs
+    /// attached.
     async fn verify_rrsets(
         &self,
         query: &Query,
@@ -422,13 +422,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             rrset.set_records(current_rrset);
             rrset.set_rrsigs(current_rrsigs);
 
-            // TODO: support non-IN classes?
             debug!(
-                "verifying: {name} record_type: {record_type}, rrsigs: {rrsig_len}",
-                rrsig_len = rrsigs.len()
+                %name,
+                %record_type,
+                rrsig_len = rrset.rrsigs().len(),
+                "verifying rrset",
             );
 
-            // verify this rrset
             let context = RrsetVerificationContext {
                 query,
                 rrset: &rrset,
@@ -467,16 +467,16 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
             let proof = match proof {
                 Ok(proof) => {
-                    debug!("verified: {name} record_type: {record_type}",);
+                    debug!(%name, %record_type, "verified rrset");
                     proof
                 }
                 Err(err) => {
                     match err.kind() {
                         ProofErrorKind::DsResponseInsecure { .. } => {
-                            debug!("verified insecure {name}/{record_type}")
+                            debug!(%name, %record_type, "verified insecure rrset")
                         }
-                        kind => {
-                            debug!("failed to verify: {name} record_type: {record_type}: {kind}")
+                        error_kind => {
+                            debug!(%name, %record_type, %error_kind, "failed to verify rrset")
                         }
                     }
                     RrsetProof {
@@ -518,8 +518,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     }
                 } else {
                     warn!(
-                        "bad rrsig index {rrsig_idx} rrsigs.len = {}",
-                        current_rrsigs.len()
+                        rrsig_idx,
+                        rrsigs_len = current_rrsigs.len(),
+                        "no rrsig at index",
                     );
                 }
             }
