@@ -207,13 +207,15 @@ impl Cli {
             (process_metrics_collector, config_metrics)
         };
 
-        let zone_dir = match zonedir {
-            Some(dir) => dir,
-            None => config.directory,
-        };
-
         #[cfg(feature = "prometheus-metrics")]
         let disable_prometheus = disable_prometheus | config.disable_prometheus;
+        #[cfg(feature = "prometheus-metrics")]
+        let prometheus_listen_addr = prometheus_listen_addr.unwrap_or_else(|| {
+            config
+                .prometheus_listen_addr
+                .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
+        });
+
         let disable_udp = disable_udp | config.disable_udp;
         let disable_tcp = disable_tcp | config.disable_tcp;
         #[cfg(feature = "__tls")]
@@ -223,19 +225,47 @@ impl Cli {
         #[cfg(feature = "__quic")]
         let disable_quic = disable_quic | config.disable_quic;
 
+        let Config {
+            listen_addrs_ipv4,
+            listen_addrs_ipv6,
+            listen_port,
+            tls_listen_port,
+            https_listen_port,
+            quic_listen_port,
+            #[cfg(feature = "prometheus-metrics")]
+                prometheus_listen_addr: _,
+            disable_tcp: _,
+            disable_udp: _,
+            disable_tls: _,
+            disable_https: _,
+            disable_quic: _,
+            disable_prometheus: _,
+            tcp_request_timeout,
+            ssl_keylog_enabled,
+            directory,
+            user,
+            group,
+            zones,
+            tls_cert,
+            http_endpoint,
+            deny_networks,
+            allow_networks,
+        } = config;
+
+        let zone_dir = match zonedir {
+            Some(dir) => dir,
+            None => directory,
+        };
+
         #[cfg(feature = "prometheus-metrics")]
         let prometheus_server_opt = if !disable_prometheus {
-            let socket_addr = prometheus_listen_addr.unwrap_or_else(|| {
-                config
-                    .prometheus_listen_addr
-                    .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
-            });
             let listener =
-                build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
-                    format!(
-                        "failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}"
-                    )
-                })?;
+                build_tcp_listener(prometheus_listen_addr.ip(), prometheus_listen_addr.port())
+                    .map_err(|err| {
+                        format!(
+                            "failed to bind to Prometheus TCP socket address {prometheus_listen_addr:?}: {err}"
+                        )
+                    })?;
             let local_addr = listener
                 .local_addr()
                 .map_err(|err| format!("failed to look up local address: {err}"))?;
@@ -265,7 +295,7 @@ impl Cli {
         }
 
         // configure our server based on the config_path
-        for zone in &config.zones {
+        for zone in &zones {
             let zone_name = zone
                 .zone()
                 .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
@@ -279,14 +309,13 @@ impl Cli {
             config_metrics.increment_zone_metrics(zone);
         }
 
-        let mut listen_addrs = config
-            .listen_addrs_ipv4
+        let mut listen_addrs = listen_addrs_ipv4
             .into_iter()
             .map(IpAddr::V4)
-            .chain(config.listen_addrs_ipv6.into_iter().map(IpAddr::V6))
+            .chain(listen_addrs_ipv6.into_iter().map(IpAddr::V6))
             .collect::<Vec<_>>();
 
-        let listen_port = port.unwrap_or_else(|| config.listen_port);
+        let listen_port = port.unwrap_or_else(|| listen_port);
 
         if listen_addrs.is_empty() {
             listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
@@ -300,7 +329,7 @@ impl Cli {
 
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-        let mut server = Server::with_access(catalog, config.deny_networks, config.allow_networks);
+        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
         if !disable_udp {
             // load all udp listeners
@@ -340,25 +369,25 @@ impl Cli {
                         .map_err(|err| format!("failed to lookup local address: {err}"))?
                 );
 
-                server.register_listener(tcp_listener, config.tcp_request_timeout);
+                server.register_listener(tcp_listener, tcp_request_timeout);
             }
         } else {
             info!("TCP protocol is disabled");
         }
 
         #[cfg(feature = "__tls")]
-        if let Some(tls_cert_config) = &config.tls_cert {
+        if let Some(tls_cert_config) = &tls_cert {
             #[cfg(feature = "__tls")]
             if !disable_tls {
                 // setup TLS listeners
                 config_tls(
-                    tls_port.unwrap_or_else(|| config.tls_listen_port),
+                    tls_port.unwrap_or_else(|| tls_listen_port),
                     &mut server,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
-                    config.ssl_keylog_enabled,
-                    config.tcp_request_timeout,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
                 )?;
             } else {
                 info!("TLS protocol is disabled");
@@ -368,14 +397,14 @@ impl Cli {
             if !disable_https {
                 // setup HTTPS listeners
                 config_https(
-                    https_port.unwrap_or_else(|| config.https_listen_port),
+                    https_port.unwrap_or_else(|| https_listen_port),
                     &mut server,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
-                    &config.http_endpoint,
-                    config.ssl_keylog_enabled,
-                    config.tcp_request_timeout,
+                    &http_endpoint,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
                 )?;
             } else {
                 info!("HTTPS protocol is disabled");
@@ -385,13 +414,13 @@ impl Cli {
             if !disable_quic {
                 // setup QUIC listeners
                 config_quic(
-                    quic_port.unwrap_or_else(|| config.quic_listen_port),
+                    quic_port.unwrap_or_else(|| quic_listen_port),
                     &mut server,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
-                    config.ssl_keylog_enabled,
-                    config.tcp_request_timeout,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
                 )?;
             } else {
                 info!("QUIC protocol is disabled");
@@ -404,11 +433,11 @@ impl Cli {
         // Drop privileges on Unix systems if running as root.
         #[cfg(target_family = "unix")]
         check_drop_privs(
-            config.user.as_deref().unwrap_or(DEFAULT_USER),
-            config.group.as_deref().unwrap_or(DEFAULT_GROUP),
+            user.as_deref().unwrap_or(DEFAULT_USER),
+            group.as_deref().unwrap_or(DEFAULT_GROUP),
         )?;
         #[cfg(not(target_family = "unix"))]
-        if config.user.is_some() || config.group.is_some() {
+        if user.is_some() || group.is_some() {
             return Err("dropping privileges is only supported on Unix systems".to_string());
         }
 
