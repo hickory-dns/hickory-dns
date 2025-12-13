@@ -210,8 +210,11 @@ impl Cli {
 
         #[cfg(feature = "prometheus-metrics")]
         let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus {
-            let socket_addr =
-                prometheus_listen_addr.unwrap_or_else(|| config.prometheus_listen_addr());
+            let socket_addr = prometheus_listen_addr.unwrap_or_else(|| {
+                config
+                    .prometheus_listen_addr
+                    .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
+            });
             let listener =
                 build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
                     format!(

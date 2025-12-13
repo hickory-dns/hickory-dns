@@ -89,7 +89,7 @@ pub struct Config {
     pub(crate) quic_listen_port: u16,
     /// Prometheus listen address
     #[cfg(feature = "prometheus-metrics")]
-    prometheus_listen_addr: Option<SocketAddr>,
+    pub(crate) prometheus_listen_addr: Option<SocketAddr>,
     /// Disable TCP protocol
     #[serde(default)]
     pub(crate) disable_tcp: bool,
@@ -169,13 +169,6 @@ impl Config {
     /// Read a [`Config`] from the given TOML string.
     pub fn from_toml(toml: &str) -> Result<Self, ConfigError> {
         Ok(toml::from_str(toml)?)
-    }
-
-    /// prometheus metric endpoint listen address
-    #[cfg(feature = "prometheus-metrics")]
-    pub fn prometheus_listen_addr(&self) -> SocketAddr {
-        self.prometheus_listen_addr
-            .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
     }
 
     /// the path for all zone configurations, defaults to `/var/named`
