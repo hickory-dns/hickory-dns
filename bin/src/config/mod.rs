@@ -73,31 +73,45 @@ pub struct Config {
     #[serde(default)]
     listen_addrs_ipv6: Vec<String>,
     /// Port on which to listen (associated to all IPs)
-    listen_port: Option<u16>,
+    #[serde(default = "default_port")]
+    pub(crate) listen_port: u16,
     /// Secure port to listen on
-    tls_listen_port: Option<u16>,
+    #[cfg(feature = "__tls")]
+    #[serde(default = "default_tls_port")]
+    pub(crate) tls_listen_port: u16,
     /// HTTPS port to listen on
-    https_listen_port: Option<u16>,
+    #[cfg(feature = "__https")]
+    #[serde(default = "default_https_port")]
+    pub(crate) https_listen_port: u16,
     /// QUIC port to listen on
-    quic_listen_port: Option<u16>,
-    /// HTTP/3 port to listen on
-    h3_listen_port: Option<u16>,
+    #[cfg(feature = "__quic")]
+    #[serde(default = "default_tls_port")]
+    pub(crate) quic_listen_port: u16,
     /// Prometheus listen address
     #[cfg(feature = "prometheus-metrics")]
     prometheus_listen_addr: Option<SocketAddr>,
     /// Disable TCP protocol
-    disable_tcp: Option<bool>,
+    #[serde(default)]
+    pub(crate) disable_tcp: bool,
     /// Disable UDP protocol
-    disable_udp: Option<bool>,
+    #[serde(default)]
+    pub(crate) disable_udp: bool,
     /// Disable TLS protocol
-    disable_tls: Option<bool>,
+    #[cfg(feature = "__tls")]
+    #[serde(default)]
+    pub(crate) disable_tls: bool,
     /// Disable HTTPS protocol
-    disable_https: Option<bool>,
+    #[cfg(feature = "__https")]
+    #[serde(default)]
+    pub(crate) disable_https: bool,
     /// Disable QUIC protocol
-    disable_quic: Option<bool>,
+    #[cfg(feature = "__quic")]
+    #[serde(default)]
+    pub(crate) disable_quic: bool,
     /// Disable Prometheus metrics
     #[cfg(feature = "prometheus-metrics")]
-    disable_prometheus: Option<bool>,
+    #[serde(default)]
+    pub(crate) disable_prometheus: bool,
     /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
     /// Whether to respect the SSLKEYLOGFILE environment variable.
@@ -162,67 +176,11 @@ impl Config {
         self.listen_addrs_ipv6.iter().map(|s| s.parse()).collect()
     }
 
-    /// port on which to listen for connections on specified addresses
-    pub fn listen_port(&self) -> u16 {
-        self.listen_port.unwrap_or(DEFAULT_PORT)
-    }
-
-    /// port on which to listen for TLS connections
-    pub fn tls_listen_port(&self) -> u16 {
-        self.tls_listen_port.unwrap_or(DEFAULT_TLS_PORT)
-    }
-
-    /// port on which to listen for HTTPS connections
-    pub fn https_listen_port(&self) -> u16 {
-        self.https_listen_port.unwrap_or(DEFAULT_HTTPS_PORT)
-    }
-
-    /// port on which to listen for QUIC connections
-    pub fn quic_listen_port(&self) -> u16 {
-        self.quic_listen_port.unwrap_or(DEFAULT_QUIC_PORT)
-    }
-
-    /// port on which to listen for HTTP/3 connections
-    pub fn h3_listen_port(&self) -> u16 {
-        self.h3_listen_port.unwrap_or(DEFAULT_H3_PORT)
-    }
-
     /// prometheus metric endpoint listen address
     #[cfg(feature = "prometheus-metrics")]
     pub fn prometheus_listen_addr(&self) -> SocketAddr {
         self.prometheus_listen_addr
             .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
-    }
-
-    /// get if TCP protocol should be disabled
-    pub fn disable_tcp(&self) -> bool {
-        self.disable_tcp.unwrap_or_default()
-    }
-
-    /// get if UDP protocol should be disabled
-    pub fn disable_udp(&self) -> bool {
-        self.disable_udp.unwrap_or_default()
-    }
-
-    /// get if TLS protocol should be disabled
-    pub fn disable_tls(&self) -> bool {
-        self.disable_tls.unwrap_or_default()
-    }
-
-    /// get if HTTPS protocol should be disabled
-    pub fn disable_https(&self) -> bool {
-        self.disable_https.unwrap_or_default()
-    }
-
-    /// get if QUIC protocol should be disabled
-    pub fn disable_quic(&self) -> bool {
-        self.disable_quic.unwrap_or_default()
-    }
-
-    /// get if Prometheus metrics endpoint should be disabled
-    #[cfg(feature = "prometheus-metrics")]
-    pub fn disable_prometheus(&self) -> bool {
-        self.disable_prometheus.unwrap_or_default()
     }
 
     /// default timeout for all TCP connections before forcibly shutdown
@@ -734,10 +692,19 @@ pub enum ConfigError {
     ZoneParse(#[from] ParseError),
 }
 
+fn default_port() -> u16 {
+    53
+}
+
+#[cfg(any(feature = "__tls", feature = "__quic"))]
+fn default_tls_port() -> u16 {
+    853
+}
+
+#[cfg(feature = "__https")]
+fn default_https_port() -> u16 {
+    443
+}
+
 const DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
-const DEFAULT_PORT: u16 = 53;
-const DEFAULT_TLS_PORT: u16 = 853;
-const DEFAULT_HTTPS_PORT: u16 = 443;
-const DEFAULT_QUIC_PORT: u16 = 853; // https://www.rfc-editor.org/rfc/rfc9250.html#name-reservation-of-a-dedicated-
-const DEFAULT_H3_PORT: u16 = 443;
 const DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
