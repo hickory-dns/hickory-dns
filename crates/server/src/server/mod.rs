@@ -78,11 +78,15 @@ pub struct Server<T: RequestHandler> {
 impl<T: RequestHandler> Server<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
-        Self::with_access(handler, &[], &[])
+        Self::with_access(handler, [], [])
     }
 
     /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
-    pub fn with_access(handler: T, denied_networks: &[IpNet], allowed_networks: &[IpNet]) -> Self {
+    pub fn with_access(
+        handler: T,
+        denied_networks: impl IntoIterator<Item = IpNet>,
+        allowed_networks: impl IntoIterator<Item = IpNet>,
+    ) -> Self {
         let mut access = AccessControl::default();
         access.insert_deny(denied_networks);
         access.insert_allow(allowed_networks);

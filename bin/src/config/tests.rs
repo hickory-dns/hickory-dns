@@ -1,19 +1,3 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 use std::env;
 use std::fs::{self, read_dir};
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -25,8 +9,10 @@ use toml::map::Keys;
 use toml::value::Array;
 use toml::{Table, Value};
 
-use hickory_dns::{Config, ServerZoneConfig};
+use super::{Config, ServerZoneConfig};
 use hickory_server::zone_handler::ZoneType;
+
+use super::*;
 
 #[test]
 fn test_read_config() {
@@ -41,53 +27,52 @@ fn test_read_config() {
     println!("reading config");
     let config = Config::read_config(&path).unwrap();
 
-    assert_eq!(config.listen_port(), 53);
-    assert_eq!(config.listen_addrs_ipv4(), Ok(Vec::<Ipv4Addr>::new()));
-    assert_eq!(config.listen_addrs_ipv6(), Ok(Vec::<Ipv6Addr>::new()));
-    assert_eq!(config.tcp_request_timeout(), Duration::from_secs(5));
-    assert_eq!(config.log_level(), tracing::Level::INFO);
-    assert_eq!(config.directory(), Path::new("/var/named"));
+    assert_eq!(config.listen_port, 53);
+    assert_eq!(config.listen_addrs_ipv4, Vec::<Ipv4Addr>::new());
+    assert_eq!(config.listen_addrs_ipv6, Vec::<Ipv6Addr>::new());
+    assert_eq!(config.tcp_request_timeout, Duration::from_secs(5));
+    assert_eq!(config.directory, Path::new("/var/named"));
 
-    assert_eq!(config.zones()[0].zone, "localhost");
-    assert_eq!(config.zones()[0].zone_type(), ZoneType::Primary);
+    assert_eq!(config.zones[0].zone, "localhost");
+    assert_eq!(config.zones[0].zone_type(), ZoneType::Primary);
     assert_eq!(
         server_zone(&config, 0).file(),
         Some(Path::new("default/localhost.zone"))
     );
 
-    assert_eq!(config.zones()[1].zone, "0.0.127.in-addr.arpa");
-    assert_eq!(config.zones()[1].zone_type(), ZoneType::Primary);
+    assert_eq!(config.zones[1].zone, "0.0.127.in-addr.arpa");
+    assert_eq!(config.zones[1].zone_type(), ZoneType::Primary);
     assert_eq!(
         server_zone(&config, 1).file(),
         Some(Path::new("default/127.0.0.1.zone"))
     );
 
     assert_eq!(
-        config.zones()[2].zone,
+        config.zones[2].zone,
         "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
     );
-    assert_eq!(config.zones()[2].zone_type(), ZoneType::Primary);
+    assert_eq!(config.zones[2].zone_type(), ZoneType::Primary);
     assert_eq!(
         server_zone(&config, 2).file(),
         Some(Path::new("default/ipv6_1.zone"))
     );
 
-    assert_eq!(config.zones()[3].zone, "255.in-addr.arpa");
-    assert_eq!(config.zones()[3].zone_type(), ZoneType::Primary);
+    assert_eq!(config.zones[3].zone, "255.in-addr.arpa");
+    assert_eq!(config.zones[3].zone_type(), ZoneType::Primary);
     assert_eq!(
         server_zone(&config, 3).file(),
         Some(Path::new("default/255.zone"))
     );
 
-    assert_eq!(config.zones()[4].zone, "0.in-addr.arpa");
-    assert_eq!(config.zones()[4].zone_type(), ZoneType::Primary);
+    assert_eq!(config.zones[4].zone, "0.in-addr.arpa");
+    assert_eq!(config.zones[4].zone_type(), ZoneType::Primary);
     assert_eq!(
         server_zone(&config, 4).file(),
         Some(Path::new("default/0.zone"))
     );
 
-    assert_eq!(config.zones()[5].zone, "example.com");
-    assert_eq!(config.zones()[5].zone_type(), ZoneType::Primary);
+    assert_eq!(config.zones[5].zone, "example.com");
+    assert_eq!(config.zones[5].zone_type(), ZoneType::Primary);
     assert_eq!(
         server_zone(&config, 5).file(),
         Some(Path::new("example.com.zone"))
@@ -97,43 +82,37 @@ fn test_read_config() {
 #[test]
 fn test_parse_toml() {
     let config = Config::from_toml("listen_port = 2053").unwrap();
-    assert_eq!(config.listen_port(), 2053);
+    assert_eq!(config.listen_port, 2053);
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\"]").unwrap();
-    assert_eq!(config.listen_addrs_ipv4(), Ok(vec![Ipv4Addr::UNSPECIFIED]));
+    assert_eq!(config.listen_addrs_ipv4, vec![Ipv4Addr::UNSPECIFIED]);
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]").unwrap();
     assert_eq!(
-        config.listen_addrs_ipv4(),
-        Ok(vec![Ipv4Addr::UNSPECIFIED, Ipv4Addr::LOCALHOST])
+        config.listen_addrs_ipv4,
+        vec![Ipv4Addr::UNSPECIFIED, Ipv4Addr::LOCALHOST]
     );
 
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\"]").unwrap();
-    assert_eq!(config.listen_addrs_ipv6(), Ok(vec![Ipv6Addr::UNSPECIFIED]));
+    assert_eq!(config.listen_addrs_ipv6, vec![Ipv6Addr::UNSPECIFIED]);
 
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\", \"::1\"]").unwrap();
     assert_eq!(
-        config.listen_addrs_ipv6(),
-        Ok(vec![
-            Ipv6Addr::UNSPECIFIED,
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
-        ])
+        config.listen_addrs_ipv6,
+        vec![Ipv6Addr::UNSPECIFIED, Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
     );
 
     let config = Config::from_toml("tcp_request_timeout = 25").unwrap();
-    assert_eq!(config.tcp_request_timeout(), Duration::from_secs(25));
-
-    let config = Config::from_toml("log_level = \"Debug\"").unwrap();
-    assert_eq!(config.log_level(), tracing::Level::DEBUG);
+    assert_eq!(config.tcp_request_timeout, Duration::from_secs(25));
 
     let config = Config::from_toml("directory = \"/dev/null\"").unwrap();
-    assert_eq!(config.directory(), Path::new("/dev/null"));
+    assert_eq!(config.directory, Path::new("/dev/null"));
 }
 
 #[cfg(feature = "__dnssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use hickory_dns::dnssec::KeyPurpose;
+    use crate::dnssec::KeyPurpose;
     use hickory_proto::dnssec::Algorithm;
     use hickory_proto::rr::Name;
 
@@ -210,8 +189,8 @@ fn test_parse_tls() {
     // defaults
     let config = Config::from_toml("").unwrap();
 
-    assert_eq!(config.tls_listen_port(), 853);
-    assert_eq!(config.tls_cert(), None);
+    assert_eq!(config.tls_listen_port, 853);
+    assert_eq!(config.tls_cert, None);
 
     let config = Config::from_toml(
         "tls_cert = { path = \"path/to/some.pkcs12\", endpoint_name = \"ns.example.com\", private_key = \"foo.pem\" }
@@ -220,9 +199,9 @@ tls_listen_port = 8853
     )
     .unwrap();
 
-    assert_eq!(config.tls_listen_port(), 8853);
+    assert_eq!(config.tls_listen_port, 8853);
     assert_eq!(
-        config.tls_cert().unwrap().path,
+        config.tls_cert.unwrap().path,
         Path::new("path/to/some.pkcs12")
     );
 }
@@ -533,8 +512,102 @@ fn test_reject_unknown_fields() {
 }
 
 fn server_zone(config: &Config, index: usize) -> &ServerZoneConfig {
-    config.zones()[index]
+    config.zones[index]
         .zone_type_config
         .as_server()
         .expect("expected nameserver")
+}
+
+#[cfg(feature = "recursor")]
+#[test]
+fn example_recursor_config() {
+    toml::from_str::<Config>(include_str!(
+        "../../../tests/test-data/test_configs/example_recursor.toml"
+    ))
+    .unwrap();
+}
+
+#[cfg(all(feature = "recursor", any(feature = "__tls", feature = "__quic")))]
+#[test]
+fn example_recursor_opportunistic_enc_config() {
+    toml::from_str::<Config>(include_str!(
+        "../../../tests/test-data/test_configs/example_recursor_opportunistic_enc.toml"
+    ))
+    .unwrap();
+}
+
+#[cfg(feature = "resolver")]
+#[test]
+fn single_store_config_error_message() {
+    match toml::from_str::<Config>(
+        r#"[[zones]]
+               zone = "."
+               zone_type = "External"
+
+               [zones.stores]
+               ype = "forward""#,
+    ) {
+        Ok(val) => panic!("expected error value; got ok: {val:?}"),
+        Err(e) => assert!(e.to_string().contains("missing field `type`")),
+    }
+}
+
+#[cfg(feature = "resolver")]
+#[test]
+fn chained_store_config_error_message() {
+    match toml::from_str::<Config>(
+        r#"[[zones]]
+               zone = "."
+               zone_type = "External"
+
+               [[zones.stores]]
+               type = "forward"
+
+               [[zones.stores.name_servers]]
+               ip = "8.8.8.8"
+               trust_negative_responses = false
+               connections = [
+                   { protocol = { type = "udp" } },
+               ]
+
+               [[zones.stores]]
+               type = "forward"
+
+               [[zones.stores.name_servers]]
+               ip = "1.1.1.1"
+               trust_negative_responses = false
+               connections = [
+                   { rotocol = { type = "udp" } },
+               ]"#,
+    ) {
+        Ok(val) => panic!("expected error value; got ok: {val:?}"),
+        Err(e) => assert!(e.to_string().contains("unknown field `rotocol`")),
+    }
+}
+
+#[cfg(feature = "resolver")]
+#[test]
+fn file_store_zone_path() {
+    match toml::from_str::<Config>(
+        r#"[[zones]]
+               zone = "localhost"
+               zone_type = "Primary"
+
+               [zones.stores]
+               type = "file"
+               zone_path = "default/localhost.zone""#,
+    ) {
+        Ok(val) => {
+            let ZoneTypeConfig::Primary(config) = &val.zones[0].zone_type_config else {
+                panic!("expected primary zone type");
+            };
+
+            assert_eq!(config.stores.len(), 1);
+            assert!(matches!(
+                    &config.stores[0],
+                ServerStoreConfig::File(FileConfig { zone_path }) if zone_path == Path::new("default/localhost.zone"),
+            ));
+        }
+        Err(e) => panic!("expected successful parse: {e:?}"),
+    }
 }

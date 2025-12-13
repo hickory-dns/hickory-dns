@@ -1,860 +1,955 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
-//
-// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// https://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use std::sync::Arc;
+#[cfg(feature = "metrics")]
+use std::time::Duration;
+use std::{
+    io::Error,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    path::{Path, PathBuf},
+};
 
-//! Configuration module for the server binary, `hickory-dns`.
+use clap::Parser;
+#[cfg(feature = "metrics")]
+use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
+#[cfg(feature = "metrics")]
+use metrics_process::Collector;
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use rustls::KeyLogFile;
+use socket2::{Domain, Socket, Type};
+use tokio::net::{TcpListener, UdpSocket};
+#[cfg(unix)]
+use tokio::signal::unix::{SignalKind, signal};
+#[cfg(feature = "metrics")]
+use tokio::time::sleep;
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use tracing::warn;
+use tracing::{error, info};
+
+use hickory_server::proto::ProtoError;
+use hickory_server::proto::rr::rdata::opt::NSIDPayload;
+#[cfg(feature = "__tls")]
+use hickory_server::server::default_tls_server_config;
+use hickory_server::{server::Server, zone_handler::Catalog};
+
+mod config;
+pub use config::{
+    Config, ConfigError, ExternalStoreConfig, ServerStoreConfig, ServerZoneConfig, TlsCertConfig,
+    ZoneConfig, ZoneTypeConfig,
+};
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
 
-#[cfg(feature = "__tls")]
-use std::ffi::OsStr;
-#[cfg(feature = "prometheus-metrics")]
-use std::net::SocketAddr;
-use std::{
-    fmt, fs, io,
-    marker::PhantomData,
-    net::{AddrParseError, Ipv4Addr, Ipv6Addr},
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::Arc,
-    time::Duration,
-};
-
-use cfg_if::cfg_if;
-use ipnet::IpNet;
-#[cfg(feature = "__tls")]
-use rustls::{
-    pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
-    server::ResolvesServerCert,
-    sign::{CertifiedKey, SingleCertAndKey},
-};
-use serde::de::{self, MapAccess, SeqAccess, Visitor};
-use serde::{self, Deserialize, Deserializer};
-use thiserror::Error;
-use tracing::{debug, info, warn};
-
-#[cfg(feature = "__tls")]
-use hickory_proto::rustls::default_provider;
-use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
-#[cfg(feature = "recursor")]
-use hickory_resolver::recursor::RecursiveConfig;
-#[cfg(feature = "__dnssec")]
-use hickory_server::dnssec::NxProofKind;
-#[cfg(any(feature = "recursor", feature = "sqlite"))]
-use hickory_server::proto::runtime::TokioRuntimeProvider;
-#[cfg(feature = "blocklist")]
-use hickory_server::store::blocklist::BlocklistConfig;
-#[cfg(feature = "blocklist")]
-use hickory_server::store::blocklist::BlocklistZoneHandler;
-#[cfg(feature = "resolver")]
-use hickory_server::store::forwarder::ForwardConfig;
-#[cfg(feature = "resolver")]
-use hickory_server::store::forwarder::ForwardZoneHandler;
-#[cfg(feature = "recursor")]
-use hickory_server::store::recursor::RecursiveZoneHandler;
-#[cfg(feature = "sqlite")]
-use hickory_server::store::sqlite::{SqliteConfig, SqliteZoneHandler};
-use hickory_server::{
-    store::file::{FileConfig, FileZoneHandler},
-    zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
-};
-
 #[cfg(feature = "prometheus-metrics")]
 mod prometheus_server;
-
 #[cfg(feature = "prometheus-metrics")]
 pub use prometheus_server::PrometheusServer;
 
-static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
-static DEFAULT_PORT: u16 = 53;
-static DEFAULT_TLS_PORT: u16 = 853;
-static DEFAULT_HTTPS_PORT: u16 = 443;
-static DEFAULT_QUIC_PORT: u16 = 853; // https://www.rfc-editor.org/rfc/rfc9250.html#name-reservation-of-a-dedicated-
-static DEFAULT_H3_PORT: u16 = 443;
-static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
+/// Cli struct for all options managed with clap derive api.
+#[derive(Debug, Parser)]
+#[clap(name = "Hickory DNS named server", version, about)]
+pub struct Cli {
+    /// Test validation of configuration files
+    #[clap(long = "validate")]
+    validate: bool,
 
-/// Server configuration
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct Config {
-    /// The list of IPv4 addresses to listen on
-    #[serde(default)]
-    listen_addrs_ipv4: Vec<String>,
-    /// This list of IPv6 addresses to listen on
-    #[serde(default)]
-    listen_addrs_ipv6: Vec<String>,
-    /// Port on which to listen (associated to all IPs)
-    listen_port: Option<u16>,
-    /// Secure port to listen on
-    tls_listen_port: Option<u16>,
-    /// HTTPS port to listen on
-    https_listen_port: Option<u16>,
-    /// QUIC port to listen on
-    quic_listen_port: Option<u16>,
-    /// HTTP/3 port to listen on
-    h3_listen_port: Option<u16>,
-    /// Prometheus listen address
+    /// Number of runtime workers, defaults to the number of CPU cores
+    #[clap(long = "workers")]
+    pub workers: Option<usize>,
+
+    /// Disable INFO messages, WARN and ERROR will remain
+    #[clap(short = 'q', long = "quiet", conflicts_with = "debug")]
+    pub quiet: bool,
+
+    /// Turn on `DEBUG` messages (default is only `INFO`)
+    #[clap(short = 'd', long = "debug", conflicts_with = "quiet")]
+    pub debug: bool,
+
+    /// Path to configuration file of named server
+    #[clap(
+        short = 'c',
+        long = "config",
+        default_value = "/etc/named.toml",
+        value_name = "NAME",
+        value_hint=clap::ValueHint::FilePath,
+    )]
+    config: PathBuf,
+
+    /// Path to the root directory for all zone files,
+    /// see also config toml
+    #[clap(short = 'z', long = "zonedir", value_name = "DIR", value_hint=clap::ValueHint::DirPath)]
+    zonedir: Option<PathBuf>,
+
+    /// Listening port for DNS queries,
+    /// overrides any value in config file
+    #[clap(short = 'p', long = "port", value_name = "PORT")]
+    port: Option<u16>,
+
+    /// Listening port for DNS over TLS queries,
+    /// overrides any value in config file
+    #[cfg(feature = "__tls")]
+    #[clap(long = "tls-port", value_name = "TLS-PORT")]
+    tls_port: Option<u16>,
+
+    /// Listening port for DNS over HTTPS queries,
+    /// overrides any value in config file
+    #[cfg(feature = "__https")]
+    #[clap(long = "https-port", value_name = "HTTPS-PORT")]
+    https_port: Option<u16>,
+
+    /// Listening port for DNS over QUIC queries,
+    /// overrides any value in config file
+    #[cfg(feature = "__quic")]
+    #[clap(long = "quic-port", value_name = "QUIC-PORT")]
+    quic_port: Option<u16>,
+
+    /// Listening socket for Prometheus metrics,
+    /// for remote access configure socket as needed (e.g. 0.0.0.0:9000)
+    /// overrides any value in config file
     #[cfg(feature = "prometheus-metrics")]
+    #[clap(
+        long = "prometheus-listen-address",
+        value_name = "PROMETHEUS-LISTEN-ADDRESS"
+    )]
     prometheus_listen_addr: Option<SocketAddr>,
-    /// Disable TCP protocol
-    disable_tcp: Option<bool>,
-    /// Disable UDP protocol
-    disable_udp: Option<bool>,
-    /// Disable TLS protocol
-    disable_tls: Option<bool>,
-    /// Disable HTTPS protocol
-    disable_https: Option<bool>,
-    /// Disable QUIC protocol
-    disable_quic: Option<bool>,
-    /// Disable Prometheus metrics
+
+    /// Disable TCP protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-tcp")]
+    disable_tcp: bool,
+
+    /// Disable UDP protocol,
+    /// overrides any value in config file
+    #[clap(long = "disable-udp")]
+    disable_udp: bool,
+
+    /// Disable TLS protocol,
+    /// overrides any value in config file
+    #[cfg(feature = "__tls")]
+    #[clap(long = "disable-tls", conflicts_with = "tls_port")]
+    disable_tls: bool,
+
+    /// Disable HTTPS protocol,
+    /// overrides any value in config file
+    #[cfg(feature = "__https")]
+    #[clap(long = "disable-https", conflicts_with = "https_port")]
+    disable_https: bool,
+
+    /// Disable QUIC protocol,
+    /// overrides any value in config file
+    #[cfg(feature = "__quic")]
+    #[clap(long = "disable-quic", conflicts_with = "quic_port")]
+    disable_quic: bool,
+
+    /// Disable Prometheus metrics,
+    /// overrides any value in config file
     #[cfg(feature = "prometheus-metrics")]
-    disable_prometheus: Option<bool>,
-    /// Timeout associated to a request before it is closed.
-    tcp_request_timeout: Option<u64>,
-    /// Level at which to log, default is INFO
-    log_level: Option<String>,
-    /// Whether to respect the SSLKEYLOGFILE environment variable.
-    ///
-    /// This should only be enabled WITH CARE! When enabled, and the SSLKEYLOGFILE environment
-    /// variable is set, TLS session keys will be logged to the filepath specified by the
-    /// environment variable value.
-    ///
-    /// This is principally useful for decrypting captured packet data with tools like Wireshark.
-    #[cfg(feature = "__tls")]
-    #[serde(default)]
-    ssl_keylog_enabled: bool,
-    /// Base configuration directory, i.e. root path for zones
-    directory: Option<String>,
-    /// User to run the server as.
-    ///
-    /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
-    /// is root, we will attempt to change to this user (or to nobody if no user is specified here.)
-    pub user: Option<String>,
-    /// Group to run the server as.
-    ///
-    /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
-    /// is root, we will attempt to change to this group (or to nobody if no group is specified here.)
-    pub group: Option<String>,
-    /// List of configurations for zones
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_with_file")]
-    zones: Vec<ZoneConfig>,
-    /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
-    #[cfg(feature = "__tls")]
-    tls_cert: Option<TlsCertConfig>,
-    /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
-    /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
-    #[cfg(any(feature = "__https", feature = "__h3"))]
-    http_endpoint: Option<String>,
-    /// Networks denied to access the server
-    #[serde(default)]
-    deny_networks: Vec<IpNet>,
-    /// Networks allowed to access the server
-    #[serde(default)]
-    allow_networks: Vec<IpNet>,
+    #[clap(long = "disable-prometheus", conflicts_with = "prometheus_listen_addr")]
+    disable_prometheus: bool,
+
+    /// Name server identifier (NSID) payload for EDNS responses.
+    /// Use `0x` prefix for hex-encoded data. Mutually exclusive with --nsid-hostname
+    #[clap(long = "nsid", value_name = "NSID", conflicts_with = "nsid_hostname", value_parser = parse_nsid_payload)]
+    nsid: Option<NSIDPayload>,
+
+    /// Use the system hostname as the name server identifier (NSID) payload
+    /// for EDNS responses.
+    /// Mutually exclusive with --nsid
+    #[clap(long = "nsid-hostname", conflicts_with = "nsid")]
+    nsid_hostname: bool,
 }
 
-impl Config {
-    /// read a Config file from the file specified at path.
-    pub fn read_config(path: &Path) -> Result<Self, ConfigError> {
-        Self::from_toml(&fs::read_to_string(path)?)
-    }
+impl Cli {
+    pub async fn run(self) -> Result<(), String> {
+        let Self {
+            validate,
+            workers: _, // Used in `main()`
+            quiet: _,   // Used in `main()`
+            debug: _,   // Used in `main()`
+            config,
+            zonedir,
+            port,
+            tls_port,
+            https_port,
+            quic_port,
+            prometheus_listen_addr,
+            disable_tcp,
+            disable_udp,
+            disable_tls,
+            disable_https,
+            disable_quic,
+            disable_prometheus,
+            nsid,
+            nsid_hostname,
+        } = self;
 
-    /// Read a [`Config`] from the given TOML string.
-    pub fn from_toml(toml: &str) -> Result<Self, ConfigError> {
-        Ok(toml::from_str(toml)?)
-    }
+        let config_path = Path::new(&config);
+        info!("loading configuration from: {config_path:?}");
+        let config = Config::read_config(config_path)
+            .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
 
-    /// set of listening ipv4 addresses (for TCP and UDP)
-    pub fn listen_addrs_ipv4(&self) -> Result<Vec<Ipv4Addr>, AddrParseError> {
-        self.listen_addrs_ipv4.iter().map(|s| s.parse()).collect()
-    }
+        #[cfg(feature = "metrics")]
+        let (process_metrics_collector, config_metrics) = {
+            // setup process metrics (cpu, memory, ...) collection
+            let collector = Collector::default();
+            collector.describe(); // add metric descriptions
 
-    /// set of listening ipv6 addresses (for TCP and UDP)
-    pub fn listen_addrs_ipv6(&self) -> Result<Vec<Ipv6Addr>, AddrParseError> {
-        self.listen_addrs_ipv6.iter().map(|s| s.parse()).collect()
-    }
+            let process_metrics_collector = tokio::spawn(async move {
+                loop {
+                    sleep(Duration::from_secs(1)).await;
+                    collector.collect();
+                }
+            });
 
-    /// port on which to listen for connections on specified addresses
-    pub fn listen_port(&self) -> u16 {
-        self.listen_port.unwrap_or(DEFAULT_PORT)
-    }
+            // metrics need to be created after the recorder is registered
+            // calling increment() after registration is not sufficient
+            let config_metrics = ConfigMetrics::new(&config);
+            (process_metrics_collector, config_metrics)
+        };
 
-    /// port on which to listen for TLS connections
-    pub fn tls_listen_port(&self) -> u16 {
-        self.tls_listen_port.unwrap_or(DEFAULT_TLS_PORT)
-    }
+        #[cfg(feature = "prometheus-metrics")]
+        let disable_prometheus = disable_prometheus | config.disable_prometheus;
+        #[cfg(feature = "prometheus-metrics")]
+        let prometheus_listen_addr = prometheus_listen_addr.unwrap_or_else(|| {
+            config
+                .prometheus_listen_addr
+                .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
+        });
 
-    /// port on which to listen for HTTPS connections
-    pub fn https_listen_port(&self) -> u16 {
-        self.https_listen_port.unwrap_or(DEFAULT_HTTPS_PORT)
-    }
+        let disable_udp = disable_udp | config.disable_udp;
+        let disable_tcp = disable_tcp | config.disable_tcp;
+        #[cfg(feature = "__tls")]
+        let disable_tls = disable_tls | config.disable_tls;
+        #[cfg(feature = "__https")]
+        let disable_https = disable_https | config.disable_https;
+        #[cfg(feature = "__quic")]
+        let disable_quic = disable_quic | config.disable_quic;
 
-    /// port on which to listen for QUIC connections
-    pub fn quic_listen_port(&self) -> u16 {
-        self.quic_listen_port.unwrap_or(DEFAULT_QUIC_PORT)
-    }
+        let Config {
+            listen_addrs_ipv4,
+            listen_addrs_ipv6,
+            listen_port,
+            tls_listen_port,
+            https_listen_port,
+            quic_listen_port,
+            #[cfg(feature = "prometheus-metrics")]
+                prometheus_listen_addr: _,
+            disable_tcp: _,
+            disable_udp: _,
+            disable_tls: _,
+            disable_https: _,
+            disable_quic: _,
+            disable_prometheus: _,
+            tcp_request_timeout,
+            ssl_keylog_enabled,
+            directory,
+            user,
+            group,
+            zones,
+            tls_cert,
+            http_endpoint,
+            deny_networks,
+            allow_networks,
+        } = config;
 
-    /// port on which to listen for HTTP/3 connections
-    pub fn h3_listen_port(&self) -> u16 {
-        self.h3_listen_port.unwrap_or(DEFAULT_H3_PORT)
-    }
+        let zone_dir = match zonedir {
+            Some(dir) => dir,
+            None => directory,
+        };
 
-    /// prometheus metric endpoint listen address
-    #[cfg(feature = "prometheus-metrics")]
-    pub fn prometheus_listen_addr(&self) -> SocketAddr {
-        self.prometheus_listen_addr
-            .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
-    }
+        #[cfg(feature = "prometheus-metrics")]
+        let prometheus_server_opt = if !disable_prometheus {
+            let listener =
+                build_tcp_listener(prometheus_listen_addr.ip(), prometheus_listen_addr.port())
+                    .map_err(|err| {
+                        format!(
+                            "failed to bind to Prometheus TCP socket address {prometheus_listen_addr:?}: {err}"
+                        )
+                    })?;
+            let local_addr = listener
+                .local_addr()
+                .map_err(|err| format!("failed to look up local address: {err}"))?;
 
-    /// get if TCP protocol should be disabled
-    pub fn disable_tcp(&self) -> bool {
-        self.disable_tcp.unwrap_or_default()
-    }
-
-    /// get if UDP protocol should be disabled
-    pub fn disable_udp(&self) -> bool {
-        self.disable_udp.unwrap_or_default()
-    }
-
-    /// get if TLS protocol should be disabled
-    pub fn disable_tls(&self) -> bool {
-        self.disable_tls.unwrap_or_default()
-    }
-
-    /// get if HTTPS protocol should be disabled
-    pub fn disable_https(&self) -> bool {
-        self.disable_https.unwrap_or_default()
-    }
-
-    /// get if QUIC protocol should be disabled
-    pub fn disable_quic(&self) -> bool {
-        self.disable_quic.unwrap_or_default()
-    }
-
-    /// get if Prometheus metrics endpoint should be disabled
-    #[cfg(feature = "prometheus-metrics")]
-    pub fn disable_prometheus(&self) -> bool {
-        self.disable_prometheus.unwrap_or_default()
-    }
-
-    /// default timeout for all TCP connections before forcibly shutdown
-    pub fn tcp_request_timeout(&self) -> Duration {
-        Duration::from_secs(
-            self.tcp_request_timeout
-                .unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT),
-        )
-    }
-
-    /// specify the log level which should be used, ["Trace", "Debug", "Info", "Warn", "Error"]
-    pub fn log_level(&self) -> tracing::Level {
-        if let Some(level_str) = &self.log_level {
-            tracing::Level::from_str(level_str).unwrap_or(tracing::Level::INFO)
+            // Set up Prometheus HTTP server.
+            let server = PrometheusServer::new(listener)?;
+            info!("listening for Prometheus metrics on {local_addr:?}");
+            Some(server)
         } else {
-            tracing::Level::INFO
+            info!("Prometheus metrics are disabled");
+            None
+        };
+
+        #[cfg(unix)]
+        let mut signal = signal(SignalKind::terminate())
+            .map_err(|e| format!("failed to register signal handler: {e}"))?;
+
+        let mut catalog = Catalog::new();
+        catalog.set_nsid(nsid);
+
+        if nsid_hostname {
+            let hostname =
+                hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
+            let payload = NSIDPayload::new(hostname.into_encoded_bytes())
+                .map_err(|e| format!("invalid NSID payload: {e}"))?;
+            catalog.set_nsid(Some(payload));
         }
-    }
 
-    /// the path for all zone configurations, defaults to `/var/named`
-    pub fn directory(&self) -> &Path {
-        self.directory
-            .as_ref()
-            .map_or_else(|| Path::new(DEFAULT_PATH), Path::new)
-    }
+        // configure our server based on the config_path
+        for zone in zones {
+            let zone_name = zone
+                .zone()
+                .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
 
-    /// the set of zones which should be loaded
-    pub fn zones(&self) -> &[ZoneConfig] {
-        &self.zones
-    }
+            #[cfg(feature = "metrics")]
+            config_metrics.increment_zone_metrics(&zone);
 
-    /// the tls certificate to use for accepting tls connections
-    pub fn tls_cert(&self) -> Option<&TlsCertConfig> {
-        cfg_if! {
-            if #[cfg(feature = "__tls")] {
-                self.tls_cert.as_ref()
-            } else {
-                None
+            match zone.load(&zone_dir).await {
+                Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
+                Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
             }
         }
-    }
 
-    /// the HTTP endpoint from where requests are received
-    #[cfg(any(feature = "__https", feature = "__h3"))]
-    pub fn http_endpoint(&self) -> &str {
-        self.http_endpoint
-            .as_deref()
-            .unwrap_or(hickory_proto::http::DEFAULT_DNS_QUERY_PATH)
-    }
+        let mut listen_addrs = listen_addrs_ipv4
+            .into_iter()
+            .map(IpAddr::V4)
+            .chain(listen_addrs_ipv6.into_iter().map(IpAddr::V6))
+            .collect::<Vec<_>>();
 
-    /// get the networks denied access to this server
-    pub fn deny_networks(&self) -> &[IpNet] {
-        &self.deny_networks
-    }
+        let listen_port = port.unwrap_or_else(|| listen_port);
 
-    /// get the networks allowed to connect to this server
-    pub fn allow_networks(&self) -> &[IpNet] {
-        &self.allow_networks
-    }
-
-    pub fn ssl_keylog_enabled(&self) -> bool {
-        cfg_if! {
-            if #[cfg(feature = "__tls")] {
-                self.ssl_keylog_enabled
-            } else {
-                false
-            }
+        if listen_addrs.is_empty() {
+            listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+            listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
         }
-    }
-}
 
-#[derive(Deserialize, Debug)]
-struct ZoneConfigWithFile {
-    file: Option<PathBuf>,
-    #[serde(flatten)]
-    config: ZoneConfig,
-}
+        if validate {
+            info!("configuration files are validated");
+            return Ok(());
+        }
 
-fn deserialize_with_file<'de, D>(deserializer: D) -> Result<Vec<ZoneConfig>, D::Error>
-where
-    D: Deserializer<'de>,
-    D::Error: de::Error,
-{
-    Vec::<ZoneConfigWithFile>::deserialize(deserializer)?
-        .into_iter()
-        .map(|ZoneConfigWithFile { file, mut config }| match file {
-            Some(file) => match &mut config.zone_type_config {
-                ZoneTypeConfig::Primary(server_config)
-                | ZoneTypeConfig::Secondary(server_config) => {
-                    if server_config
-                        .stores
-                        .iter()
-                        .any(|store| matches!(store, ServerStoreConfig::File(_)))
-                    {
-                        Err(<D::Error as de::Error>::custom(
-                            "having `file` and `[zones.store]` item with type `file` is ambiguous",
-                        ))
-                    } else {
-                        let store = ServerStoreConfig::File(FileConfig { zone_path: file });
+        // now, run the server, based on the config
+        #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
+        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
-                        if server_config.stores.len() == 1
-                            && matches!(&server_config.stores[0], ServerStoreConfig::Default)
-                        {
-                            server_config.stores[0] = store;
-                        } else {
-                            server_config.stores.push(store);
-                        }
-                        Ok(config)
-                    }
-                }
-                _ => Err(<D::Error as de::Error>::custom(
-                    "cannot use `file` on a zone that is not primary or secondary",
-                )),
-            },
+        if !disable_udp {
+            // load all udp listeners
+            for addr in &listen_addrs {
+                info!("binding UDP to {addr:?}");
 
-            _ => Ok(config),
-        })
-        .collect::<Result<Vec<_>, _>>()
-}
+                let udp_socket = build_udp_socket(*addr, listen_port).map_err(|err| {
+                    format!("failed to bind to UDP socket address {addr:?}: {err}")
+                })?;
 
-/// Configuration for a zone
-#[derive(Deserialize, Debug)]
-pub struct ZoneConfig {
-    /// name of the zone
-    pub zone: String, // TODO: make Domain::Name decodable
-    /// type of the zone
-    #[serde(flatten)]
-    pub zone_type_config: ZoneTypeConfig,
-}
-
-impl ZoneConfig {
-    #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, ProtoError> {
-        debug!("loading zone with config: {self:#?}");
-
-        let zone_name = self
-            .zone()
-            .map_err(|err| format!("failed to read zone name: {err}"))?;
-        let zone_type = self.zone_type();
-
-        // load the zone and insert any configured zone handlers in the catalog.
-
-        let mut handlers: Vec<Arc<dyn ZoneHandler>> = vec![];
-        match &self.zone_type_config {
-            ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
-                debug!(
-                    "loading zone handlers for {zone_name} with stores {:?}",
-                    server_config.stores
+                info!(
+                    "listening for UDP on {:?}",
+                    udp_socket
+                        .local_addr()
+                        .map_err(|err| format!("failed to lookup local address: {err}"))?
                 );
 
-                let axfr_policy = server_config.axfr_policy();
-                for store in &server_config.stores {
-                    let handler: Arc<dyn ZoneHandler> = match store {
-                        #[cfg(feature = "sqlite")]
-                        ServerStoreConfig::Sqlite(config) => {
-                            #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut handler =
-                                SqliteZoneHandler::<TokioRuntimeProvider>::try_from_config(
-                                    zone_name.clone(),
-                                    zone_type,
-                                    axfr_policy,
-                                    server_config.is_dnssec_enabled(),
-                                    Some(zone_dir),
-                                    config,
-                                    #[cfg(feature = "__dnssec")]
-                                    server_config.nx_proof_kind.clone(),
-                                )
-                                .await?;
-
-                            #[cfg(feature = "__dnssec")]
-                            dnssec::load_keys(&mut handler, &zone_name, &server_config.keys)
-                                .await?;
-                            Arc::new(handler)
-                        }
-
-                        ServerStoreConfig::File(config) => {
-                            #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-                            let mut handler = FileZoneHandler::try_from_config(
-                                zone_name.clone(),
-                                zone_type,
-                                axfr_policy,
-                                Some(zone_dir),
-                                config,
-                                #[cfg(feature = "__dnssec")]
-                                server_config.nx_proof_kind.clone(),
-                            )?;
-
-                            #[cfg(feature = "__dnssec")]
-                            dnssec::load_keys(&mut handler, &zone_name, &server_config.keys)
-                                .await?;
-                            Arc::new(handler)
-                        }
-                        _ => return Err(ProtoError::from(EMPTY_STORES)),
-                    };
-
-                    handlers.push(handler);
-                }
+                server.register_socket(udp_socket);
             }
-            ZoneTypeConfig::External { stores } => {
-                debug!(
-                    "loading zone handlers for {zone_name} with stores {:?}",
-                    stores
+        } else {
+            info!("UDP protocol is disabled");
+        }
+
+        if !disable_tcp {
+            // load all tcp listeners
+            for addr in &listen_addrs {
+                info!("binding TCP to {addr:?}");
+
+                let tcp_listener = build_tcp_listener(*addr, listen_port).map_err(|err| {
+                    format!("failed to bind to TCP socket address {addr:?}: {err}")
+                })?;
+
+                info!(
+                    "listening for TCP on {:?}",
+                    tcp_listener
+                        .local_addr()
+                        .map_err(|err| format!("failed to lookup local address: {err}"))?
                 );
 
-                #[cfg_attr(
-                    not(any(feature = "blocklist", feature = "resolver")),
-                    allow(unreachable_code, unused_variables, clippy::never_loop)
-                )]
-                for store in stores {
-                    let handler: Arc<dyn ZoneHandler> = match store {
-                        #[cfg(feature = "blocklist")]
-                        ExternalStoreConfig::Blocklist(config) => {
-                            Arc::new(BlocklistZoneHandler::try_from_config(
-                                zone_name.clone(),
-                                config,
-                                Some(zone_dir),
-                            )?)
-                        }
-                        #[cfg(feature = "resolver")]
-                        ExternalStoreConfig::Forward(config) => {
-                            let forwarder = ForwardZoneHandler::builder_tokio(config.clone())
-                                .with_origin(zone_name.clone())
-                                .build()?;
-
-                            Arc::new(forwarder)
-                        }
-                        #[cfg(feature = "recursor")]
-                        ExternalStoreConfig::Recursor(config) => {
-                            let recursor = RecursiveZoneHandler::try_from_config(
-                                zone_name.clone(),
-                                zone_type,
-                                config,
-                                Some(zone_dir),
-                                TokioRuntimeProvider::default(),
-                            )
-                            .await?;
-
-                            Arc::new(recursor)
-                        }
-                        _ => return Err(ProtoError::from(EMPTY_STORES)),
-                    };
-
-                    handlers.push(handler);
-                }
+                server.register_listener(tcp_listener, tcp_request_timeout);
             }
+        } else {
+            info!("TCP protocol is disabled");
         }
 
-        info!("zone successfully loaded: {}", self.zone()?);
-        Ok(handlers)
-    }
-
-    // TODO this is a little ugly for the parse, b/c there is no terminal char
-    /// returns the name of the Zone, i.e. the `example.com` of `www.example.com.`
-    pub fn zone(&self) -> Result<Name, ProtoError> {
-        Name::parse(&self.zone, Some(&Name::new()))
-    }
-
-    /// the type of the zone
-    pub fn zone_type(&self) -> ZoneType {
-        match &self.zone_type_config {
-            ZoneTypeConfig::Primary { .. } => ZoneType::Primary,
-            ZoneTypeConfig::Secondary { .. } => ZoneType::Secondary,
-            ZoneTypeConfig::External { .. } => ZoneType::External,
-        }
-    }
-}
-
-const EMPTY_STORES: &str = "empty [[zones.stores]] in config";
-
-#[derive(Deserialize, Debug)]
-#[serde(tag = "zone_type")]
-#[serde(deny_unknown_fields)]
-/// Enumeration over each zone type's configuration.
-pub enum ZoneTypeConfig {
-    Primary(ServerZoneConfig),
-    Secondary(ServerZoneConfig),
-    External {
-        /// Store configurations.  Note: we specify a default handler to get a Vec containing a
-        /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
-        /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
-        /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
-        /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
-        #[serde(default = "store_config_default")]
-        #[serde(deserialize_with = "store_config_visitor")]
-        stores: Vec<ExternalStoreConfig>,
-    },
-}
-
-impl ZoneTypeConfig {
-    pub fn as_server(&self) -> Option<&ServerZoneConfig> {
-        match self {
-            Self::Primary(c) | Self::Secondary(c) => Some(c),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct ServerZoneConfig {
-    /// A policy used to determine whether AXFR requests are allowed
-    ///
-    /// By default, all AXFR requests are rejected
-    #[serde(default)]
-    pub axfr_policy: AxfrPolicy,
-    /// Keys for use by the zone
-    #[cfg(feature = "__dnssec")]
-    #[serde(default)]
-    pub keys: Vec<dnssec::KeyConfig>,
-    /// The kind of non-existence proof provided by the nameserver
-    #[cfg(feature = "__dnssec")]
-    pub nx_proof_kind: Option<NxProofKind>,
-    /// Store configurations.  Note: we specify a default handler to get a Vec containing a
-    /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
-    /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
-    /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
-    /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
-    #[serde(default = "store_config_default")]
-    #[serde(deserialize_with = "store_config_visitor")]
-    pub stores: Vec<ServerStoreConfig>,
-}
-
-impl ServerZoneConfig {
-    /// path to the zone file, i.e. the base set of original records in the zone
-    ///
-    /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
-    /// file is the actual source of truth for the zone.
-    pub fn file(&self) -> Option<&Path> {
-        self.stores.iter().find_map(|store| match store {
-            ServerStoreConfig::File(file_config) => Some(&*file_config.zone_path),
-            #[cfg(feature = "sqlite")]
-            ServerStoreConfig::Sqlite(sqlite_config) => Some(&*sqlite_config.zone_path),
-            ServerStoreConfig::Default => None,
-        })
-    }
-
-    /// Return a policy that can be used to determine how AXFR requests should be handled.
-    pub fn axfr_policy(&self) -> AxfrPolicy {
-        self.axfr_policy
-    }
-
-    /// declare that this zone should be signed, see keys for configuration of the keys for signing
-    pub fn is_dnssec_enabled(&self) -> bool {
-        cfg_if! {
-            if #[cfg(feature = "__dnssec")] {
-                !self.keys.is_empty()
+        #[cfg(feature = "__tls")]
+        if let Some(tls_cert_config) = &tls_cert {
+            #[cfg(feature = "__tls")]
+            if !disable_tls {
+                // setup TLS listeners
+                config_tls(
+                    tls_port.unwrap_or_else(|| tls_listen_port),
+                    &mut server,
+                    tls_cert_config,
+                    &zone_dir,
+                    &listen_addrs,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
+                )?;
             } else {
-                false
+                info!("TLS protocol is disabled");
             }
-        }
-    }
-}
 
-/// Enumeration over store types for secondary nameservers.
-#[derive(Deserialize, Debug, Default)]
-#[serde(tag = "type")]
-#[serde(rename_all = "lowercase")]
-#[non_exhaustive]
-pub enum ServerStoreConfig {
-    /// File based configuration
-    File(FileConfig),
-    /// Sqlite based configuration file
-    #[cfg(feature = "sqlite")]
-    Sqlite(SqliteConfig),
-    /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
-    #[default]
-    Default,
-}
-
-/// Enumeration over store types for external nameservers.
-#[allow(clippy::large_enum_variant)]
-#[derive(Deserialize, Debug, Default)]
-#[serde(rename_all = "lowercase", tag = "type")]
-#[non_exhaustive]
-pub enum ExternalStoreConfig {
-    /// Blocklist configuration
-    #[cfg(feature = "blocklist")]
-    Blocklist(BlocklistConfig),
-    /// Forwarding Resolver
-    #[cfg(feature = "resolver")]
-    Forward(ForwardConfig),
-    /// Recursive Resolver
-    #[cfg(feature = "recursor")]
-    Recursor(Box<RecursiveConfig>),
-    /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
-    #[default]
-    Default,
-}
-
-/// Create a default value for serde for store config enums.
-fn store_config_default<S: Default>() -> Vec<S> {
-    vec![Default::default()]
-}
-
-/// Custom serde visitor that can deserialize a map (single configuration store, expressed as a TOML
-/// table) or sequence (chained configuration stores, expressed as a TOML array of tables.)
-/// This is used instead of an untagged enum because serde cannot provide variant-specific error
-/// messages when using an untagged enum.
-fn store_config_visitor<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    struct MapOrSequence<T>(PhantomData<T>);
-
-    impl<'de, T: Deserialize<'de>> Visitor<'de> for MapOrSequence<T> {
-        type Value = Vec<T>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("map or sequence")
-        }
-
-        fn visit_seq<S>(self, seq: S) -> Result<Vec<T>, S::Error>
-        where
-            S: SeqAccess<'de>,
-        {
-            Deserialize::deserialize(de::value::SeqAccessDeserializer::new(seq))
-        }
-
-        fn visit_map<M>(self, map: M) -> Result<Vec<T>, M::Error>
-        where
-            M: MapAccess<'de>,
-        {
-            match Deserialize::deserialize(de::value::MapAccessDeserializer::new(map)) {
-                Ok(seq) => Ok(vec![seq]),
-                Err(e) => Err(e),
+            #[cfg(feature = "__https")]
+            if !disable_https {
+                // setup HTTPS listeners
+                config_https(
+                    https_port.unwrap_or_else(|| https_listen_port),
+                    &mut server,
+                    tls_cert_config,
+                    &zone_dir,
+                    &listen_addrs,
+                    &http_endpoint,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
+                )?;
+            } else {
+                info!("HTTPS protocol is disabled");
             }
+
+            #[cfg(feature = "__quic")]
+            if !disable_quic {
+                // setup QUIC listeners
+                config_quic(
+                    quic_port.unwrap_or_else(|| quic_listen_port),
+                    &mut server,
+                    tls_cert_config,
+                    &zone_dir,
+                    &listen_addrs,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
+                )?;
+            } else {
+                info!("QUIC protocol is disabled");
+            }
+        } else {
+            info!("TLS certificates are not provided");
+            info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled")
         }
+
+        // Drop privileges on Unix systems if running as root.
+        #[cfg(target_family = "unix")]
+        check_drop_privs(
+            user.as_deref().unwrap_or(DEFAULT_USER),
+            group.as_deref().unwrap_or(DEFAULT_GROUP),
+        )?;
+        #[cfg(not(target_family = "unix"))]
+        if user.is_some() || group.is_some() {
+            return Err("dropping privileges is only supported on Unix systems".to_string());
+        }
+
+        #[cfg(unix)]
+        {
+            let token = server.shutdown_token().clone();
+            tokio::spawn(async move {
+                signal.recv().await;
+                token.cancel();
+            });
+        }
+
+        // config complete, starting!
+        banner();
+
+        // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
+        // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
+        //  request handling. It would generally be the case that n <= m.
+        info!("server starting up, awaiting connections...");
+        match server.block_until_done().await {
+            Ok(()) => {
+                // we're exiting for some reason...
+                info!("Hickory DNS {} stopping", env!("CARGO_PKG_VERSION"));
+            }
+            Err(e) => {
+                let error_msg = format!(
+                    "Hickory DNS {} has encountered an error: {}",
+                    env!("CARGO_PKG_VERSION"),
+                    e
+                );
+
+                error!("{}", error_msg);
+                panic!("{}", error_msg);
+            }
+        };
+
+        // Shut down the Prometheus metrics server after the DNS server has gracefully shut down.
+        #[cfg(feature = "prometheus-metrics")]
+        if let Some(server) = prometheus_server_opt {
+            server.stop().await;
+        }
+
+        #[cfg(feature = "metrics")]
+        process_metrics_collector.abort();
+
+        Ok(())
     }
-
-    deserializer.deserialize_any(MapOrSequence::<T>(PhantomData))
-}
-
-/// Configuration for a TLS certificate
-#[derive(Deserialize, PartialEq, Eq, Debug)]
-#[serde(deny_unknown_fields)]
-#[non_exhaustive]
-pub struct TlsCertConfig {
-    pub path: PathBuf,
-    pub endpoint_name: Option<String>,
-    pub private_key: PathBuf,
 }
 
 #[cfg(feature = "__tls")]
-impl TlsCertConfig {
-    /// Load a Certificate from the path (with rustls)
-    pub fn load(&self, zone_dir: &Path) -> Result<Arc<dyn ResolvesServerCert>, String> {
-        if self.path.extension().and_then(OsStr::to_str) != Some("pem") {
-            return Err(format!(
-                "unsupported certificate file format (expected `.pem` extension): {}",
-                self.path.display()
-            ));
-        }
+fn config_tls(
+    tls_port: u16,
+    server: &mut Server<Catalog>,
+    tls_cert_config: &TlsCertConfig,
+    zone_dir: &Path,
+    listen_addrs: &[IpAddr],
+    ssl_keylog_enabled: bool,
+    request_timeout: Duration,
+) -> Result<(), String> {
+    if listen_addrs.is_empty() {
+        warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
+        return Ok(());
+    }
 
-        let cert_path = zone_dir.join(&self.path);
+    for addr in listen_addrs {
+        let tls_cert_path = &tls_cert_config.path;
+        info!("loading cert for DNS over TLS: {tls_cert_path:?}");
+
+        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
+            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        })?;
+
+        info!("binding TLS to {addr:?}");
+
+        let tls_listener = build_tcp_listener(*addr, tls_port)
+            .map_err(|err| format!("failed to bind to TLS socket address {addr:?}: {err}"))?;
+
         info!(
-            "loading TLS PEM certificate chain from: {}",
-            cert_path.display()
+            "listening for TLS on {:?}",
+            tls_listener
+                .local_addr()
+                .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let cert_chain = CertificateDer::pem_file_iter(&cert_path)
-            .map_err(|e| {
-                format!(
-                    "failed to read cert chain from {}: {e}",
-                    cert_path.display()
-                )
-            })?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                format!(
-                    "failed to parse cert chain from {}: {e}",
-                    cert_path.display()
-                )
-            })?;
+        let mut tls_config = default_tls_server_config(b"dot", tls_cert)
+            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+        if ssl_keylog_enabled {
+            warn!("DoT SSL_KEYLOG_FILE support enabled");
+            tls_config.key_log = Arc::new(KeyLogFile::new());
+        }
 
-        let key_extension = self.private_key.extension();
-        let key = if key_extension.is_some_and(|ext| ext == "pem") {
-            let key_path = zone_dir.join(&self.private_key);
-            info!("loading TLS PKCS8 key from PEM: {}", key_path.display());
-            PrivateKeyDer::from_pem_file(&key_path)
-                .map_err(|e| format!("failed to read key from {}: {e}", key_path.display()))?
-        } else if key_extension.is_some_and(|ext| ext == "der" || ext == "key") {
-            let key_path = zone_dir.join(&self.private_key);
-            info!("loading TLS PKCS8 key from DER: {}", key_path.display());
+        server
+            .register_tls_listener_with_tls_config(
+                tls_listener,
+                request_timeout,
+                Arc::new(tls_config),
+            )
+            .map_err(|err| format!("failed to register TLS listener: {err}"))?;
+    }
+    Ok(())
+}
 
-            let buf =
-                fs::read(&key_path).map_err(|e| format!("error reading key from file: {e}"))?;
-            PrivateKeyDer::try_from(buf).map_err(|e| format!("error parsing key DER: {e}"))?
+#[cfg(feature = "__https")]
+fn config_https(
+    https_listen_port: u16,
+    server: &mut Server<Catalog>,
+    tls_cert_config: &TlsCertConfig,
+    zone_dir: &Path,
+    listen_addrs: &[IpAddr],
+    http_endpoint: &str,
+    ssl_keylog_enabled: bool,
+    request_timeout: Duration,
+) -> Result<(), String> {
+    if listen_addrs.is_empty() {
+        warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
+        return Ok(());
+    }
+
+    for addr in listen_addrs {
+        let tls_cert_path = &tls_cert_config.path;
+        if let Some(endpoint_name) = &tls_cert_config.endpoint_name {
+            info!("loading cert for DNS over TLS named {endpoint_name} from {tls_cert_path:?}");
         } else {
+            info!("loading cert for DNS over TLS from {tls_cert_path:?}");
+        }
+        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
+            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        })?;
+
+        info!("binding HTTPS to {addr:?}");
+
+        let https_listener = build_tcp_listener(*addr, https_listen_port)
+            .map_err(|err| format!("failed to bind to HTTPS socket address {addr:?}: {err}"))?;
+
+        info!(
+            "listening for HTTPS on {:?}",
+            https_listener
+                .local_addr()
+                .map_err(|err| format!("failed to lookup local address: {err}"))?
+        );
+
+        let mut tls_config = default_tls_server_config(b"h2", tls_cert)
+            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+        if ssl_keylog_enabled {
+            warn!("DoH SSL_KEYLOG_FILE support enabled");
+            tls_config.key_log = Arc::new(KeyLogFile::new());
+        }
+
+        server
+            .register_https_listener_with_tls_config(
+                https_listener,
+                request_timeout,
+                Arc::new(tls_config),
+                tls_cert_config.endpoint_name.clone(),
+                http_endpoint.to_owned(),
+            )
+            .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "__quic")]
+fn config_quic(
+    quic_port: u16,
+    server: &mut Server<Catalog>,
+    tls_cert_config: &TlsCertConfig,
+    zone_dir: &Path,
+    listen_addrs: &[IpAddr],
+    ssl_keylog_enabled: bool,
+    request_timeout: Duration,
+) -> Result<(), String> {
+    if listen_addrs.is_empty() {
+        warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
+        return Ok(());
+    }
+
+    for addr in listen_addrs {
+        let tls_cert_path = &tls_cert_config.path;
+        if let Some(endpoint_name) = &tls_cert_config.endpoint_name {
+            info!("loading cert for DNS over QUIC named {endpoint_name} from {tls_cert_path:?}");
+        } else {
+            info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
+        }
+        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
+            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        })?;
+
+        info!("Binding QUIC to {addr:?}");
+
+        let quic_listener = build_udp_socket(*addr, quic_port)
+            .map_err(|err| format!("failed to bind to QUIC socket address {addr:?}: {err}"))?;
+
+        info!(
+            "listening for QUIC on {:?}",
+            quic_listener
+                .local_addr()
+                .map_err(|err| format!("failed to lookup local address: {err}"))?
+        );
+
+        let mut tls_config = default_tls_server_config(b"doq", tls_cert)
+            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+        if ssl_keylog_enabled {
+            warn!("DoQ SSL_KEYLOG_FILE support enabled");
+            tls_config.key_log = Arc::new(KeyLogFile::new());
+        }
+
+        server
+            .register_quic_listener_and_tls_config(
+                quic_listener,
+                request_timeout,
+                Arc::new(tls_config),
+                tls_cert_config.endpoint_name.clone(),
+            )
+            .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
+    }
+    Ok(())
+}
+
+fn banner() {
+    #[cfg(feature = "ascii-art")]
+    const HICKORY_DNS_LOGO: &str = include_str!("hickory-dns.ascii");
+
+    #[cfg(not(feature = "ascii-art"))]
+    const HICKORY_DNS_LOGO: &str = "Hickory DNS";
+
+    info!("");
+    for line in HICKORY_DNS_LOGO.lines() {
+        info!(" {line}");
+    }
+    info!("");
+}
+
+#[cfg(feature = "metrics")]
+struct ConfigMetrics {
+    #[cfg(feature = "resolver")]
+    zones_forwarder: Counter,
+
+    zones_file_primary: Counter,
+    zones_file_secondary: Counter,
+    #[cfg(feature = "sqlite")]
+    zones_sqlite_primary: Counter,
+    #[cfg(feature = "sqlite")]
+    zones_sqlite_secondary: Counter,
+}
+
+#[cfg(feature = "metrics")]
+impl ConfigMetrics {
+    fn new(config: &Config) -> Self {
+        let hickory_build_info =
+            gauge!("hickory_build_info", "version" => env!("CARGO_PKG_VERSION"));
+        describe_gauge!(
+            "hickory_build_info",
+            Unit::Count,
+            "A metric with a constant '1' labeled by the version from which Hickory DNS was built."
+        );
+        hickory_build_info.set(1);
+
+        let hickory_config_info = gauge!("hickory_config_info",
+            "directory" => config.directory.to_string_lossy().to_string(),
+            "disable_https" => config.disable_https.to_string(),
+            "disable_quic" => config.disable_quic.to_string(),
+            "disable_tcp" => config.disable_tcp.to_string(),
+            "disable_tls" => config.disable_tls.to_string(),
+            "disable_udp" => config.disable_udp.to_string(),
+            "allow_networks" => config.allow_networks.len().to_string(),
+            "deny_networks" => config.deny_networks.len().to_string(),
+            "zones" => config.zones.len().to_string()
+        );
+        describe_gauge!(
+            "hickory_config_info",
+            Unit::Count,
+            "Hickory DNS configuration metadata."
+        );
+        hickory_config_info.set(1);
+
+        let zones_total_name = "hickory_zones_total";
+        let zones_file_primary = counter!(zones_total_name, "store" => "file", "role" => "primary");
+        let zones_file_secondary =
+            counter!(zones_total_name, "store" => "file", "role" => "secondary");
+
+        describe_counter!(
+            zones_total_name,
+            Unit::Count,
+            "Number of DNS zones in stores."
+        );
+
+        #[cfg(feature = "resolver")]
+        let zones_forwarder = counter!(zones_total_name, "store" => "forwarder");
+
+        #[cfg(feature = "sqlite")]
+        let (zones_sqlite_primary, zones_sqlite_secondary) = {
+            let zones_primary_sqlite =
+                counter!(zones_total_name, "store" => "sqlite", "role" => "primary");
+            let zones_secondary_sqlite =
+                counter!(zones_total_name, "store" => "sqlite", "role" => "secondary");
+            (zones_primary_sqlite, zones_secondary_sqlite)
+        };
+
+        Self {
+            #[cfg(feature = "resolver")]
+            zones_forwarder,
+            #[cfg(feature = "sqlite")]
+            zones_sqlite_primary,
+            zones_file_primary,
+            #[cfg(feature = "sqlite")]
+            zones_sqlite_secondary,
+            zones_file_secondary,
+        }
+    }
+
+    fn increment_zone_metrics(&self, zone: &ZoneConfig) {
+        match &zone.zone_type_config {
+            ZoneTypeConfig::Primary(server_config) => self.increment_stores(server_config, true),
+            ZoneTypeConfig::Secondary(server_config) => self.increment_stores(server_config, false),
+            #[cfg_attr(not(feature = "resolver"), allow(unused_variables))]
+            ZoneTypeConfig::External { stores } =>
+            {
+                #[cfg(feature = "resolver")]
+                for store in stores {
+                    if let ExternalStoreConfig::Forward(_) = store {
+                        self.zones_forwarder.increment(1)
+                    }
+                }
+            }
+        }
+    }
+
+    fn increment_stores(&self, server_config: &ServerZoneConfig, primary: bool) {
+        for store in &server_config.stores {
+            if matches!(store, ServerStoreConfig::File(_)) {
+                if primary {
+                    self.zones_file_primary.increment(1)
+                } else {
+                    self.zones_file_secondary.increment(1)
+                }
+            }
+            #[cfg(feature = "sqlite")]
+            if matches!(store, ServerStoreConfig::Sqlite(_)) {
+                if primary {
+                    self.zones_sqlite_primary.increment(1)
+                } else {
+                    self.zones_sqlite_secondary.increment(1)
+                }
+            };
+        }
+    }
+}
+
+/// Build a TcpListener for a given IP, port pair; IPv6 listeners will not accept v4 connections
+fn build_tcp_listener(ip: IpAddr, port: u16) -> Result<TcpListener, Error> {
+    let sock = if ip.is_ipv4() {
+        Socket::new(Domain::IPV4, Type::STREAM, None)?
+    } else {
+        let s = Socket::new(Domain::IPV6, Type::STREAM, None)?;
+        s.set_only_v6(true)?;
+        s
+    };
+
+    sock.set_nonblocking(true)?;
+
+    let s_addr = SocketAddr::new(ip, port);
+    sock.bind(&s_addr.into())?;
+
+    // this is a fairly typical backlog value, but we don't have any good data to support it as of yet
+    sock.listen(128)?;
+
+    TcpListener::from_std(sock.into())
+}
+
+/// Build a UdpSocket for a given IP, port pair; IPv6 sockets will not accept v4 connections
+fn build_udp_socket(ip: IpAddr, port: u16) -> Result<UdpSocket, Error> {
+    let sock = if ip.is_ipv4() {
+        Socket::new(Domain::IPV4, Type::DGRAM, None)?
+    } else {
+        let s = Socket::new(Domain::IPV6, Type::DGRAM, None)?;
+        s.set_only_v6(true)?;
+        s
+    };
+
+    sock.set_nonblocking(true)?;
+
+    let s_addr = SocketAddr::new(ip, port);
+    sock.bind(&s_addr.into())?;
+
+    UdpSocket::from_std(sock.into())
+}
+
+/// Drop privileges on Unix systems if running as root. Errors that prevent dropping privileges will
+/// halt the server.  This must be called after binding to low numbered sockets is complete.
+#[cfg(target_family = "unix")]
+fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
+    use libc::{getegid, geteuid, getgid, getgrnam, getpwnam, getuid, setgid, setuid};
+    use std::ffi::CString;
+
+    // These calls are guaranteed to succeed in a POSIX-conforming environment. In non-conforming
+    // environments, implementations may return -1 to indicate a process running without an
+    // associated UID/EUID/GID/EGID. In that case, our main block below will not execute as
+    // libc typedefs uid_t and gid_t to u32; -1 will be u32::MAX.
+    //
+    // POSIX reference: IEEE Std 1003.1-1024 getuid, geteuid, getgid, and getegid specifications
+    // https://pubs.opengroup.org/onlinepubs/9799919799/functions/getuid.html
+    // https://pubs.opengroup.org/onlinepubs/9799919799/functions/geteuid.html
+    // https://pubs.opengroup.org/onlinepubs/9799919799/functions/getgid.html
+    // https://pubs.opengroup.org/onlinepubs/9799919799/functions/getegid.html
+    let (uid, gid, euid, egid) = unsafe { (getuid(), getgid(), geteuid(), getegid()) };
+
+    if uid == 0 || euid == 0 {
+        info!(
+            "running as root (uid: {uid} gid: {gid} euid: {euid} egid: {egid})...dropping privileges.",
+        );
+
+        let Ok(user_cstring) = CString::new(user) else {
+            return Err(format!("unable to create CString for user {user}"));
+        };
+
+        let Ok(group_cstring) = CString::new(group) else {
             return Err(format!(
-                "unsupported private key file format (expected `.pem` or `.der` extension): {}",
-                self.private_key.display()
+                "unable to create CString for group {group}. Exiting."
             ));
         };
 
-        let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider())
-            .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
+        // These functions must be supplied a NULL-terminated string, which is guaranteed by
+        // std::ffi::CString.  Upon success, they will return a pointer to a struct passwd or
+        // struct group, or NULL upon failure. Testing for a NULL return value is mandatory.
+        //
+        // POSIX reference: IEEE Std 1003.1-1024 getpwnam and getgrnam specifications
+        // https://pubs.opengroup.org/onlinepubs/9799919799/functions/getpwnam.html
+        // https://pubs.opengroup.org/onlinepubs/9799919799/functions/getgrnam.html
+        let (user_info, group_info) = unsafe {
+            (
+                getpwnam(user_cstring.as_ptr()),
+                getgrnam(group_cstring.as_ptr()),
+            )
+        };
 
-        Ok(Arc::new(SingleCertAndKey::from(certified_key)))
+        if user_info.is_null() {
+            return Err(format!("unable to lookup user '{user}'. Exiting."));
+        }
+
+        if group_info.is_null() {
+            return Err(format!("unable to lookup group '{group}'. Exiting."));
+        }
+
+        // These functions must be supplied a gid_t (setgid) and uid_t (setuid), which are
+        // supplied by the passwd and group structs returned by getpwnam and getgrnam.
+        // The structs are tested to be valid by the calls to is_null() above.
+        //
+        // The call to setgid must be completed before the call to setuid is made or the
+        // process will almost certainly lack the privileges necessary to switch its real gid.
+        //
+        // POSIX reference: IEEE Std 1003.1-1024 setgid and setuid specifications
+        // https://pubs.opengroup.org/onlinepubs/9799919799/functions/setgid.html
+        // https://pubs.opengroup.org/onlinepubs/9799919799/functions/setuid.html
+        let (setgid_rc, setuid_rc) =
+            unsafe { (setgid((*group_info).gr_gid), setuid((*user_info).pw_uid)) };
+
+        if setgid_rc < 0 {
+            return Err("unable to set gid. Exiting.".into());
+        }
+
+        if setuid_rc < 0 {
+            return Err("unable to set uid. Exiting.".into());
+        }
     }
+
+    let (uid, gid, euid, egid) = unsafe { (getuid(), getgid(), geteuid(), getegid()) };
+
+    info!("now running as uid: {uid}, gid: {gid} (euid: {euid}, egid: {egid})",);
+    Ok(())
 }
 
-/// The error kind for errors that get returned in the crate
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum ConfigError {
-    // foreign
-    /// An error got returned from IO
-    #[error("io error: {0}")]
-    Io(#[from] io::Error),
-
-    /// An error occurred while decoding toml data
-    #[error("toml decode error: {0}")]
-    TomlDecode(#[from] toml::de::Error),
-
-    /// An error occurred while parsing a zone file
-    #[error("failed to parse the zone file: {0}")]
-    ZoneParse(#[from] ParseError),
+fn parse_nsid_payload(raw_payload: &str) -> Result<NSIDPayload, ProtoError> {
+    let bytes = if let Some(hex_str) = raw_payload.strip_prefix("0x") {
+        hex::decode(hex_str)
+            .map_err(|e| ProtoError::from(format!("invalid NSID hex encoding: {e}")))?
+    } else {
+        raw_payload.as_bytes().to_vec()
+    };
+    NSIDPayload::new(bytes)
 }
 
-#[cfg(all(test, any(feature = "resolver", feature = "recursor")))]
+#[cfg(target_family = "unix")]
+const DEFAULT_USER: &str = "nobody";
+#[cfg(target_family = "unix")]
+const DEFAULT_GROUP: &str = "nobody";
+
+#[cfg(test)]
 mod tests {
-    use super::*;
+    use hickory_proto::rr::rdata::opt::NSIDPayload;
 
-    #[cfg(feature = "recursor")]
+    use super::parse_nsid_payload;
+
     #[test]
-    fn example_recursor_config() {
-        toml::from_str::<Config>(include_str!(
-            "../../tests/test-data/test_configs/example_recursor.toml"
-        ))
-        .unwrap();
+    fn test_hex_nsid_payload() {
+        let expected = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
+        let value = parse_nsid_payload("0xC0FFEE").unwrap();
+        assert_eq!(value, expected);
     }
 
-    #[cfg(all(feature = "recursor", any(feature = "__tls", feature = "__quic")))]
     #[test]
-    fn example_recursor_opportunistic_enc_config() {
-        toml::from_str::<Config>(include_str!(
-            "../../tests/test-data/test_configs/example_recursor_opportunistic_enc.toml"
-        ))
-        .unwrap();
+    fn test_string_nsid_payload() {
+        let string_value = "HickoryDNS";
+        let expected = NSIDPayload::new(string_value.as_bytes()).unwrap();
+        let value = parse_nsid_payload(string_value).unwrap();
+        assert_eq!(value, expected);
     }
 
-    #[cfg(feature = "resolver")]
     #[test]
-    fn single_store_config_error_message() {
-        match toml::from_str::<Config>(
-            r#"[[zones]]
-               zone = "."
-               zone_type = "External"
-
-               [zones.stores]
-               ype = "forward""#,
-        ) {
-            Ok(val) => panic!("expected error value; got ok: {val:?}"),
-            Err(e) => assert!(e.to_string().contains("missing field `type`")),
-        }
-    }
-
-    #[cfg(feature = "resolver")]
-    #[test]
-    fn chained_store_config_error_message() {
-        match toml::from_str::<Config>(
-            r#"[[zones]]
-               zone = "."
-               zone_type = "External"
-
-               [[zones.stores]]
-               type = "forward"
-
-               [[zones.stores.name_servers]]
-               ip = "8.8.8.8"
-               trust_negative_responses = false
-               connections = [
-                   { protocol = { type = "udp" } },
-               ]
-
-               [[zones.stores]]
-               type = "forward"
-
-               [[zones.stores.name_servers]]
-               ip = "1.1.1.1"
-               trust_negative_responses = false
-               connections = [
-                   { rotocol = { type = "udp" } },
-               ]"#,
-        ) {
-            Ok(val) => panic!("expected error value; got ok: {val:?}"),
-            Err(e) => assert!(e.to_string().contains("unknown field `rotocol`")),
-        }
-    }
-
-    #[cfg(feature = "resolver")]
-    #[test]
-    fn file_store_zone_path() {
-        match toml::from_str::<Config>(
-            r#"[[zones]]
-               zone = "localhost"
-               zone_type = "Primary"
-
-               [zones.stores]
-               type = "file"
-               zone_path = "default/localhost.zone""#,
-        ) {
-            Ok(val) => {
-                let ZoneTypeConfig::Primary(config) = &val.zones[0].zone_type_config else {
-                    panic!("expected primary zone type");
-                };
-
-                assert_eq!(config.stores.len(), 1);
-                assert!(matches!(
-                        &config.stores[0],
-                    ServerStoreConfig::File(FileConfig { zone_path }) if zone_path == Path::new("default/localhost.zone"),
-                ));
-            }
-            Err(e) => panic!("expected successful parse: {e:?}"),
-        }
+    fn test_nsid_payload_too_long() {
+        let too_large = "x".repeat(u16::MAX as usize + 1);
+        let err = parse_nsid_payload(&too_large).unwrap_err();
+        assert_eq!(err.to_string(), "NSID EDNS payload too large");
     }
 }
