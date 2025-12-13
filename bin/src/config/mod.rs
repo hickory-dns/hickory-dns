@@ -149,10 +149,10 @@ pub struct Config {
     http_endpoint: Option<String>,
     /// Networks denied to access the server
     #[serde(default)]
-    deny_networks: Vec<IpNet>,
+    pub(crate) deny_networks: Vec<IpNet>,
     /// Networks allowed to access the server
     #[serde(default)]
-    allow_networks: Vec<IpNet>,
+    pub(crate) allow_networks: Vec<IpNet>,
 }
 
 impl Config {

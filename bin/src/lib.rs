@@ -299,13 +299,15 @@ impl Cli {
             return Ok(());
         }
 
-        let deny_networks = config.deny_networks();
-        let allow_networks = config.allow_networks();
         let tcp_request_timeout = config.tcp_request_timeout();
 
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
+        let mut server = Server::with_access(
+            catalog,
+            config.deny_networks().iter().copied(),
+            config.allow_networks().iter().copied(),
+        );
 
         if !disable_udp && !config.disable_udp {
             // load all udp listeners
