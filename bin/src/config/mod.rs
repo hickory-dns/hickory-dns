@@ -761,7 +761,7 @@ mod tests {
     #[test]
     fn example_recursor_config() {
         toml::from_str::<Config>(include_str!(
-            "../../tests/test-data/test_configs/example_recursor.toml"
+            "../../../tests/test-data/test_configs/example_recursor.toml"
         ))
         .unwrap();
     }
@@ -770,7 +770,7 @@ mod tests {
     #[test]
     fn example_recursor_opportunistic_enc_config() {
         toml::from_str::<Config>(include_str!(
-            "../../tests/test-data/test_configs/example_recursor_opportunistic_enc.toml"
+            "../../../tests/test-data/test_configs/example_recursor_opportunistic_enc.toml"
         ))
         .unwrap();
     }
