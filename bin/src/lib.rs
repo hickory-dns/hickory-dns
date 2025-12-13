@@ -159,16 +159,6 @@ pub struct Cli {
     nsid_hostname: bool,
 }
 
-fn parse_nsid_payload(raw_payload: &str) -> Result<NSIDPayload, ProtoError> {
-    let bytes = if let Some(hex_str) = raw_payload.strip_prefix("0x") {
-        hex::decode(hex_str)
-            .map_err(|e| ProtoError::from(format!("invalid NSID hex encoding: {e}")))?
-    } else {
-        raw_payload.as_bytes().to_vec()
-    };
-    NSIDPayload::new(bytes)
-}
-
 pub async fn async_run(args: Cli) -> Result<(), String> {
     // Load configuration files
 
@@ -861,6 +851,16 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
 
     info!("now running as uid: {uid}, gid: {gid} (euid: {euid}, egid: {egid})",);
     Ok(())
+}
+
+fn parse_nsid_payload(raw_payload: &str) -> Result<NSIDPayload, ProtoError> {
+    let bytes = if let Some(hex_str) = raw_payload.strip_prefix("0x") {
+        hex::decode(hex_str)
+            .map_err(|e| ProtoError::from(format!("invalid NSID hex encoding: {e}")))?
+    } else {
+        raw_payload.as_bytes().to_vec()
+    };
+    NSIDPayload::new(bytes)
 }
 
 #[cfg(target_family = "unix")]
