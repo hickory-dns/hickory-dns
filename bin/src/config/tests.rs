@@ -31,7 +31,6 @@ fn test_read_config() {
     assert_eq!(config.listen_addrs_ipv4(), Ok(Vec::<Ipv4Addr>::new()));
     assert_eq!(config.listen_addrs_ipv6(), Ok(Vec::<Ipv6Addr>::new()));
     assert_eq!(config.tcp_request_timeout(), Duration::from_secs(5));
-    assert_eq!(config.log_level(), tracing::Level::INFO);
     assert_eq!(config.directory(), Path::new("/var/named"));
 
     assert_eq!(config.zones()[0].zone, "localhost");
@@ -108,9 +107,6 @@ fn test_parse_toml() {
 
     let config = Config::from_toml("tcp_request_timeout = 25").unwrap();
     assert_eq!(config.tcp_request_timeout(), Duration::from_secs(25));
-
-    let config = Config::from_toml("log_level = \"Debug\"").unwrap();
-    assert_eq!(config.log_level(), tracing::Level::DEBUG);
 
     let config = Config::from_toml("directory = \"/dev/null\"").unwrap();
     assert_eq!(config.directory(), Path::new("/dev/null"));
