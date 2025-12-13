@@ -59,57 +59,6 @@ pub struct NameServerPool<P: ConnectionProvider> {
     zone: Option<Name>,
 }
 
-#[derive(Clone)]
-pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, NetError>>>>);
-
-impl Future for SharedLookup {
-    type Output = Result<DnsResponse, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx).map(|o| match o {
-            Some(r) => r,
-            None => Err("no response from nameserver".into()),
-        })
-    }
-}
-
-/// Fields of a [`DnsRequest`] that are used as a key when memoizing queries.
-#[derive(PartialEq, Eq, Hash)]
-struct CacheKey {
-    op_code: OpCode,
-    recursion_desired: bool,
-    checking_disabled: bool,
-    queries: Vec<Query>,
-    dnssec_ok: bool,
-    client_subnet: Option<ClientSubnet>,
-}
-
-impl CacheKey {
-    fn from_request(request: &DnsRequest) -> Self {
-        let dnssec_ok;
-        let client_subnet;
-        if let Some(edns) = request.extensions() {
-            dnssec_ok = edns.flags().dnssec_ok;
-            if let Some(EdnsOption::Subnet(subnet)) = edns.option(EdnsCode::Subnet) {
-                client_subnet = Some(*subnet);
-            } else {
-                client_subnet = None;
-            }
-        } else {
-            dnssec_ok = false;
-            client_subnet = None;
-        }
-        Self {
-            op_code: request.op_code(),
-            recursion_desired: request.recursion_desired(),
-            checking_disabled: request.checking_disabled(),
-            queries: request.queries().to_vec(),
-            dnssec_ok,
-            client_subnet,
-        }
-    }
-}
-
 impl<P: ConnectionProvider> NameServerPool<P> {
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
@@ -896,6 +845,57 @@ mod opportunistic_encryption_persistence {
         Some(match parent == Path::new("") {
             true => Path::new("."),
             false => parent,
+        })
+    }
+}
+
+/// Fields of a [`DnsRequest`] that are used as a key when memoizing queries.
+#[derive(PartialEq, Eq, Hash)]
+struct CacheKey {
+    op_code: OpCode,
+    recursion_desired: bool,
+    checking_disabled: bool,
+    queries: Vec<Query>,
+    dnssec_ok: bool,
+    client_subnet: Option<ClientSubnet>,
+}
+
+impl CacheKey {
+    fn from_request(request: &DnsRequest) -> Self {
+        let dnssec_ok;
+        let client_subnet;
+        if let Some(edns) = request.extensions() {
+            dnssec_ok = edns.flags().dnssec_ok;
+            if let Some(EdnsOption::Subnet(subnet)) = edns.option(EdnsCode::Subnet) {
+                client_subnet = Some(*subnet);
+            } else {
+                client_subnet = None;
+            }
+        } else {
+            dnssec_ok = false;
+            client_subnet = None;
+        }
+        Self {
+            op_code: request.op_code(),
+            recursion_desired: request.recursion_desired(),
+            checking_disabled: request.checking_disabled(),
+            queries: request.queries().to_vec(),
+            dnssec_ok,
+            client_subnet,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct SharedLookup(Shared<BoxFuture<'static, Option<Result<DnsResponse, NetError>>>>);
+
+impl Future for SharedLookup {
+    type Output = Result<DnsResponse, NetError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.0.poll_unpin(cx).map(|o| match o {
+            Some(r) => r,
+            None => Err("no response from nameserver".into()),
         })
     }
 }
