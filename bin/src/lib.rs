@@ -213,7 +213,18 @@ impl Cli {
         };
 
         #[cfg(feature = "prometheus-metrics")]
-        let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus {
+        let disable_prometheus = disable_prometheus | config.disable_prometheus;
+        let disable_udp = disable_udp | config.disable_udp;
+        let disable_tcp = disable_tcp | config.disable_tcp;
+        #[cfg(feature = "__tls")]
+        let disable_tls = disable_tls | config.disable_tls;
+        #[cfg(feature = "__https")]
+        let disable_https = disable_https | config.disable_https;
+        #[cfg(feature = "__quic")]
+        let disable_quic = disable_quic | config.disable_quic;
+
+        #[cfg(feature = "prometheus-metrics")]
+        let prometheus_server_opt = if !disable_prometheus {
             let socket_addr = prometheus_listen_addr.unwrap_or_else(|| {
                 config
                     .prometheus_listen_addr
@@ -291,7 +302,7 @@ impl Cli {
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
         let mut server = Server::with_access(catalog, config.deny_networks, config.allow_networks);
 
-        if !disable_udp && !config.disable_udp {
+        if !disable_udp {
             // load all udp listeners
             for addr in &listen_addrs {
                 info!("binding UDP to {addr:?}");
@@ -313,7 +324,7 @@ impl Cli {
             info!("UDP protocol is disabled");
         }
 
-        if !disable_tcp && !config.disable_tcp {
+        if !disable_tcp {
             // load all tcp listeners
             for addr in &listen_addrs {
                 info!("binding TCP to {addr:?}");
@@ -338,7 +349,7 @@ impl Cli {
         #[cfg(feature = "__tls")]
         if let Some(tls_cert_config) = &config.tls_cert {
             #[cfg(feature = "__tls")]
-            if !disable_tls && !config.disable_tls {
+            if !disable_tls {
                 // setup TLS listeners
                 config_tls(
                     tls_port.unwrap_or_else(|| config.tls_listen_port),
@@ -354,7 +365,7 @@ impl Cli {
             }
 
             #[cfg(feature = "__https")]
-            if !disable_https && !config.disable_https {
+            if !disable_https {
                 // setup HTTPS listeners
                 config_https(
                     https_port.unwrap_or_else(|| config.https_listen_port),
@@ -371,7 +382,7 @@ impl Cli {
             }
 
             #[cfg(feature = "__quic")]
-            if !disable_quic && !config.disable_quic {
+            if !disable_quic {
                 // setup QUIC listeners
                 config_quic(
                     quic_port.unwrap_or_else(|| config.quic_listen_port),
