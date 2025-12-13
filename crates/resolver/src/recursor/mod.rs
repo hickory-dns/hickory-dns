@@ -52,8 +52,6 @@ use crate::{
     },
 };
 
-pub use hickory_proto as proto;
-
 mod error;
 pub use error::{AuthorityData, RecursorError};
 

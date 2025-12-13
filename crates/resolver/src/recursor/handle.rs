@@ -17,12 +17,19 @@ use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use super::{
-    DnssecPolicy, NameServerTransportState, RecursorError, RecursorOptions,
-    error::AuthorityData,
+    DnssecPolicy, NameServerTransportState, RecursorError, RecursorOptions, error::AuthorityData,
     is_subzone,
+};
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::rdata::DNSSECRData;
+use crate::{
+    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+    TtlConfig,
+    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     proto::{
         DnsHandle,
         access_control::AccessControlSet,
+        access_control::AccessControlSetBuilder,
         op::{DnsRequestOptions, Message, Query},
         rr::{
             RData,
@@ -31,14 +38,6 @@ use super::{
             rdata::{A, AAAA, NS},
         },
     },
-};
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::rdata::DNSSECRData;
-use crate::{
-    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
-    TtlConfig,
-    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
-    proto::access_control::AccessControlSetBuilder,
 };
 
 #[derive(Clone)]
