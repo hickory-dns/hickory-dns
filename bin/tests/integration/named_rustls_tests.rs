@@ -20,10 +20,10 @@ use test_support::subscribe;
 use tokio::runtime::Runtime;
 
 use crate::server_harness::{named_test_harness, query_a};
-use hickory_proto::client::Client;
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::rustls::{default_provider, tls_client_connect};
-use hickory_proto::xfer::Protocol;
+use hickory_net::client::Client;
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::rustls::{default_provider, tls_client_connect};
+use hickory_net::xfer::Protocol;
 
 #[test]
 fn test_example_tls_toml_startup() {
@@ -69,7 +69,7 @@ fn test_example_tls_toml_startup() {
             let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+            hickory_net::runtime::spawn_bg(&io_loop, bg);
 
             // ipv4 should succeed
             query_a(&mut io_loop, &mut client);
@@ -84,7 +84,7 @@ fn test_example_tls_toml_startup() {
             let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-            hickory_proto::runtime::spawn_bg(&io_loop, bg);
+            hickory_net::runtime::spawn_bg(&io_loop, bg);
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);

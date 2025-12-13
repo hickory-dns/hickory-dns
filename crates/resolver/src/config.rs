@@ -20,9 +20,9 @@ use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 
 #[cfg(any(feature = "__https", feature = "__h3"))]
-use crate::proto::http::DEFAULT_DNS_QUERY_PATH;
+use crate::net::http::DEFAULT_DNS_QUERY_PATH;
+use crate::net::xfer::Protocol;
 use crate::proto::rr::Name;
-use crate::proto::xfer::Protocol;
 
 /// Configuration for the upstream nameservers to use for resolution
 #[non_exhaustive]

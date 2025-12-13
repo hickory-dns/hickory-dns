@@ -5,12 +5,10 @@ use std::sync::{
 
 use futures::{Stream, executor::block_on, future, stream};
 
-use hickory_proto::{
-    DnsError, DnsHandle, NetError, RetryDnsHandle,
-    op::{DnsRequest, DnsResponse, Message, OpCode, ResponseCode},
-    runtime::TokioRuntimeProvider,
-    xfer::FirstAnswer,
+use hickory_net::{
+    DnsError, DnsHandle, NetError, RetryDnsHandle, runtime::TokioRuntimeProvider, xfer::FirstAnswer,
 };
+use hickory_proto::op::{DnsRequest, DnsResponse, Message, OpCode, ResponseCode};
 use test_support::subscribe;
 
 #[derive(Clone)]

@@ -22,11 +22,8 @@ use console::style;
 use tokio::task::JoinSet;
 use tokio::time::MissedTickBehavior;
 
-use hickory_proto::{
-    DnsError, NetError,
-    rr::{Record, RecordData, RecordType},
-    runtime::TokioRuntimeProvider,
-};
+use hickory_net::{DnsError, NetError, runtime::TokioRuntimeProvider};
+use hickory_proto::rr::{Record, RecordData, RecordType};
 use hickory_resolver::{
     TokioResolver,
     config::{

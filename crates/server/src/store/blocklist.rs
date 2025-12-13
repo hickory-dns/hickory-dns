@@ -168,8 +168,7 @@ impl BlocklistZoneHandler {
     /// # Example
     /// ```
     /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::Path, str::FromStr, sync::Arc};
-    /// use hickory_proto::rr::{LowerName, RecordType};
-    /// use hickory_resolver::Name;
+    /// use hickory_proto::rr::{LowerName, RecordType, Name};
     /// use hickory_server::{
     ///     store::blocklist::*,
     ///     zone_handler::{LookupControlFlow, LookupOptions, ZoneHandler, ZoneType},

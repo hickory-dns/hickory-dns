@@ -26,20 +26,18 @@ use tracing::{debug, info};
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
-    proto::{
-        dnssec::{
-            DnsSecResult, SigSigner,
-            rdata::{DNSKEY, DNSSECRData, key::KEY},
-        },
-        runtime::Time,
+    net::runtime::Time,
+    proto::dnssec::{
+        DnsSecResult, SigSigner,
+        rdata::{DNSKEY, DNSSECRData, key::KEY},
     },
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
 };
 use crate::{
+    net::runtime::{RuntimeProvider, TokioRuntimeProvider},
     proto::{
         op::{ResponseCode, ResponseSigner},
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
-        runtime::{RuntimeProvider, TokioRuntimeProvider},
         serialize::txt::Parser,
     },
     server::{Request, RequestInfo},

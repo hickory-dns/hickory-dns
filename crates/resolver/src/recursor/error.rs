@@ -15,11 +15,14 @@ use std::sync::Arc;
 use thiserror::Error;
 use tracing::warn;
 
-use crate::proto::{
-    DnsError, ForwardNSData, NetError, NoRecords, ProtoError,
-    op::Query,
-    op::ResponseCode,
-    rr::{Name, Record, RecordType, rdata::SOA},
+use crate::{
+    net::{DnsError, ForwardNSData, NetError, NoRecords},
+    proto::{
+        ProtoError,
+        op::Query,
+        op::ResponseCode,
+        rr::{Name, Record, RecordType, rdata::SOA},
+    },
 };
 
 /// The error kind for errors that get returned in the crate

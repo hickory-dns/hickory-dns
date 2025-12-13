@@ -11,16 +11,15 @@ use std::{
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, subscribe};
 
-use hickory_resolver::{
-    NameServer, NameServerPool, PoolContext, TlsConfig,
-    config::{NameServerConfig, ResolverOpts},
-};
-
+use hickory_net::xfer::{DnsHandle, FirstAnswer, Protocol};
 use hickory_proto::{
     ProtoError,
     op::{DnsRequestOptions, Message, Query, ResponseCode},
     rr::{Name, RecordType},
-    xfer::{DnsHandle, FirstAnswer, Protocol},
+};
+use hickory_resolver::{
+    NameServer, NameServerPool, PoolContext, TlsConfig,
+    config::{NameServerConfig, ResolverOpts},
 };
 
 #[tokio::test]

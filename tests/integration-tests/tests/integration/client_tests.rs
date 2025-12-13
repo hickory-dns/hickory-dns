@@ -15,10 +15,16 @@ use hickory_integration::TestClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
-use hickory_proto::NetError;
+use hickory_net::NetError;
 #[cfg(feature = "__dnssec")]
-use hickory_proto::client::DnssecClient;
-use hickory_proto::client::{Client, ClientHandle};
+use hickory_net::client::DnssecClient;
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
+use hickory_net::tcp::TcpClientStream;
+use hickory_net::udp::UdpClientStream;
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use hickory_net::xfer::DnsMultiplexerConnect;
+use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -32,12 +38,6 @@ use hickory_proto::op::{DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
-use hickory_proto::runtime::TokioRuntimeProvider;
-use hickory_proto::tcp::TcpClientStream;
-use hickory_proto::udp::UdpClientStream;
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::xfer::DnsMultiplexerConnect;
-use hickory_proto::xfer::{DnsHandle, DnsMultiplexer};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;

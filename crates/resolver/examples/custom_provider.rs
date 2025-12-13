@@ -8,7 +8,7 @@ use {
     hickory_resolver::{
         ConnectionProvider, Resolver,
         config::{GOOGLE, ResolverConfig},
-        proto::{
+        net::{
             NetError,
             runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
         },

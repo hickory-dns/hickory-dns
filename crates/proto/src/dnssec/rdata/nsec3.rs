@@ -269,7 +269,8 @@ impl NSEC3 {
         self.type_bit_maps.iter()
     }
 
-    pub(crate) fn type_set(&self) -> &RecordTypeSet {
+    /// Types
+    pub fn type_set(&self) -> &RecordTypeSet {
         &self.type_bit_maps
     }
 

@@ -19,11 +19,11 @@ use crate::resolver::OpportunisticEncryptionStatePersistTask;
 #[cfg(feature = "__dnssec")]
 use crate::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use crate::{
+    net::runtime::RuntimeProvider,
     proto::{
         op::Query,
         op::ResponseSigner,
         rr::{LowerName, Name, RecordType},
-        runtime::RuntimeProvider,
     },
     resolver::{config::OpportunisticEncryption, recursor::Recursor},
     server::{Request, RequestInfo},

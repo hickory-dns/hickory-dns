@@ -37,15 +37,15 @@ use serde::{self, Deserialize, Deserializer};
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
-#[cfg(feature = "__tls")]
-use hickory_proto::rustls::default_provider;
 use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
 #[cfg(feature = "recursor")]
 use hickory_resolver::recursor::RecursiveConfig;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 #[cfg(any(feature = "recursor", feature = "sqlite"))]
-use hickory_server::proto::runtime::TokioRuntimeProvider;
+use hickory_server::net::runtime::TokioRuntimeProvider;
+#[cfg(feature = "__tls")]
+use hickory_server::net::rustls::default_provider;
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::BlocklistConfig;
 #[cfg(feature = "blocklist")]
@@ -287,7 +287,7 @@ impl Config {
     pub fn http_endpoint(&self) -> &str {
         self.http_endpoint
             .as_deref()
-            .unwrap_or(hickory_proto::http::DEFAULT_DNS_QUERY_PATH)
+            .unwrap_or(hickory_server::net::http::DEFAULT_DNS_QUERY_PATH)
     }
 
     /// get the networks denied access to this server

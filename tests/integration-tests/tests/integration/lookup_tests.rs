@@ -4,12 +4,14 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
 };
 
-use hickory_proto::{
-    DnsError,
-    op::{DnsRequestOptions, DnsResponse, Query},
-    rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
+use hickory_net::{
+    DnsError, NetError,
     runtime::TokioRuntimeProvider,
     xfer::{DnsExchange, DnsMultiplexer},
+};
+use hickory_proto::{
+    op::{DnsRequestOptions, DnsResponse, Query},
+    rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
 };
 use hickory_resolver::{
     Hosts, LookupFuture, caching_client::CachingClient, config::LookupIpStrategy, lookup::Lookup,
@@ -446,8 +448,6 @@ async fn test_max_chained_lookup_depth() {
 // no NS records present (!ns.is_some())
 #[tokio::test]
 async fn test_forward_soa() {
-    use hickory_proto::NetError;
-
     subscribe();
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
     let soa_record = soa_record(
@@ -485,8 +485,6 @@ async fn test_forward_soa() {
 // no SOA records present (!soa.is_some())
 #[tokio::test]
 async fn test_forward_ns() {
-    use hickory_proto::NetError;
-
     subscribe();
     let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
     let ns1 = ns_record(Name::default(), Name::from_str("ns1.example.com").unwrap());
