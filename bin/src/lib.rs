@@ -257,6 +257,43 @@ impl Cli {
             (process_metrics_collector, config_metrics)
         };
 
+        let Config {
+            listen_addrs_ipv4,
+            listen_addrs_ipv6,
+            listen_port,
+            #[cfg(feature = "__tls")]
+            tls_listen_port,
+            #[cfg(feature = "__https")]
+            https_listen_port,
+            #[cfg(feature = "__quic")]
+            quic_listen_port,
+            #[cfg(feature = "prometheus-metrics")]
+                prometheus_listen_addr: _,
+            disable_tcp: _,
+            disable_udp: _,
+            #[cfg(feature = "__tls")]
+                disable_tls: _,
+            #[cfg(feature = "__https")]
+                disable_https: _,
+            #[cfg(feature = "__quic")]
+                disable_quic: _,
+            #[cfg(feature = "prometheus-metrics")]
+                disable_prometheus: _,
+            tcp_request_timeout,
+            #[cfg(feature = "__tls")]
+            ssl_keylog_enabled,
+            directory,
+            user,
+            group,
+            zones,
+            #[cfg(feature = "__tls")]
+            tls_cert,
+            #[cfg(feature = "__https")]
+            http_endpoint,
+            deny_networks,
+            allow_networks,
+        } = config;
+
         #[cfg(unix)]
         let mut signal = signal(SignalKind::terminate())
             .map_err(|e| format!("failed to register signal handler: {e}"))?;
@@ -272,13 +309,9 @@ impl Cli {
             catalog.set_nsid(Some(payload));
         }
 
-        let zone_dir = match zonedir {
-            Some(dir) => dir,
-            None => config.directory,
-        };
-
         // configure our server based on the config_path
-        for zone in &config.zones {
+        let zone_dir = zonedir.unwrap_or(directory);
+        for zone in &zones {
             let zone_name = zone
                 .zone()
                 .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
@@ -292,15 +325,13 @@ impl Cli {
             config_metrics.increment_zone_metrics(zone);
         }
 
-        let mut listen_addrs = config
-            .listen_addrs_ipv4
+        let mut listen_addrs = listen_addrs_ipv4
             .into_iter()
             .map(IpAddr::V4)
-            .chain(config.listen_addrs_ipv6.into_iter().map(IpAddr::V6))
+            .chain(listen_addrs_ipv6.into_iter().map(IpAddr::V6))
             .collect::<Vec<_>>();
 
-        let listen_port = port.unwrap_or(config.listen_port);
-
+        let listen_port = port.unwrap_or(listen_port);
         if listen_addrs.is_empty() {
             listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
             listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
@@ -313,7 +344,7 @@ impl Cli {
 
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-        let mut server = Server::with_access(catalog, config.deny_networks, config.allow_networks);
+        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
         if !disable_udp {
             // load all udp listeners
@@ -353,25 +384,25 @@ impl Cli {
                         .map_err(|err| format!("failed to lookup local address: {err}"))?
                 );
 
-                server.register_listener(tcp_listener, config.tcp_request_timeout);
+                server.register_listener(tcp_listener, tcp_request_timeout);
             }
         } else {
             info!("TCP protocol is disabled");
         }
 
         #[cfg(feature = "__tls")]
-        if let Some(tls_cert_config) = &config.tls_cert {
+        if let Some(tls_cert_config) = &tls_cert {
             #[cfg(feature = "__tls")]
             if !disable_tls {
                 // setup TLS listeners
                 config_tls(
-                    tls_port.unwrap_or(config.tls_listen_port),
+                    tls_port.unwrap_or(tls_listen_port),
                     &mut server,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
-                    config.ssl_keylog_enabled,
-                    config.tcp_request_timeout,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
                 )?;
             } else {
                 info!("TLS protocol is disabled");
@@ -381,14 +412,14 @@ impl Cli {
             if !disable_https {
                 // setup HTTPS listeners
                 config_https(
-                    https_port.unwrap_or(config.https_listen_port),
+                    https_port.unwrap_or(https_listen_port),
                     &mut server,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
-                    &config.http_endpoint,
-                    config.ssl_keylog_enabled,
-                    config.tcp_request_timeout,
+                    &http_endpoint,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
                 )?;
             } else {
                 info!("HTTPS protocol is disabled");
@@ -398,13 +429,13 @@ impl Cli {
             if !disable_quic {
                 // setup QUIC listeners
                 config_quic(
-                    quic_port.unwrap_or(config.quic_listen_port),
+                    quic_port.unwrap_or(quic_listen_port),
                     &mut server,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
-                    config.ssl_keylog_enabled,
-                    config.tcp_request_timeout,
+                    ssl_keylog_enabled,
+                    tcp_request_timeout,
                 )?;
             } else {
                 info!("QUIC protocol is disabled");
@@ -417,11 +448,11 @@ impl Cli {
         // Drop privileges on Unix systems if running as root.
         #[cfg(target_family = "unix")]
         check_drop_privs(
-            config.user.as_deref().unwrap_or(DEFAULT_USER),
-            config.group.as_deref().unwrap_or(DEFAULT_GROUP),
+            user.as_deref().unwrap_or(DEFAULT_USER),
+            group.as_deref().unwrap_or(DEFAULT_GROUP),
         )?;
         #[cfg(not(target_family = "unix"))]
-        if config.user.is_some() || config.group.is_some() {
+        if user.is_some() || group.is_some() {
             return Err("dropping privileges is only supported on Unix systems".to_string());
         }
 
