@@ -35,7 +35,7 @@ use tracing::{debug, info, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec;
-#[cfg(any(feature = "__https", feature = "__h3"))]
+#[cfg(feature = "__https")]
 use hickory_net::http::DEFAULT_DNS_QUERY_PATH;
 #[cfg(feature = "__tls")]
 use hickory_net::rustls::default_provider;
@@ -149,8 +149,9 @@ pub struct Config {
     tls_cert: Option<TlsCertConfig>,
     /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
-    #[cfg(any(feature = "__https", feature = "__h3"))]
-    http_endpoint: Option<String>,
+    #[cfg(feature = "__https")]
+    #[serde(default = "default_http_endpoint")]
+    pub(crate) http_endpoint: String,
     /// Networks denied to access the server
     #[serde(default)]
     pub(crate) deny_networks: Vec<IpNet>,
@@ -208,14 +209,6 @@ impl Config {
                 None
             }
         }
-    }
-
-    /// the HTTP endpoint from where requests are received
-    #[cfg(any(feature = "__https", feature = "__h3"))]
-    pub fn http_endpoint(&self) -> &str {
-        self.http_endpoint
-            .as_deref()
-            .unwrap_or(DEFAULT_DNS_QUERY_PATH)
     }
 
     /// get the networks denied access to this server
@@ -684,6 +677,11 @@ fn parse_request_timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<D
 
 fn default_request_timeout() -> Duration {
     Duration::from_secs(5)
+}
+
+#[cfg(feature = "__https")]
+fn default_http_endpoint() -> String {
+    DEFAULT_DNS_QUERY_PATH.to_string()
 }
 
 fn default_port() -> u16 {
