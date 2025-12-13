@@ -160,27 +160,51 @@ pub struct Cli {
 }
 
 pub async fn async_run(args: Cli) -> Result<(), String> {
-    // Load configuration files
+    let Cli {
+        validate,
+        workers: _, // Used in `main()`
+        quiet: _,   // Used in `main()`
+        debug: _,   // Used in `main()`
+        config,
+        zonedir,
+        port,
+        #[cfg(feature = "__tls")]
+        tls_port,
+        #[cfg(feature = "__https")]
+        https_port,
+        #[cfg(feature = "__quic")]
+        quic_port,
+        #[cfg(feature = "prometheus-metrics")]
+        prometheus_listen_addr,
+        disable_tcp,
+        disable_udp,
+        #[cfg(feature = "__tls")]
+        disable_tls,
+        #[cfg(feature = "__https")]
+        disable_https,
+        #[cfg(feature = "__quic")]
+        disable_quic,
+        #[cfg(feature = "prometheus-metrics")]
+        disable_prometheus,
+        nsid,
+        nsid_hostname,
+    } = args;
 
-    let config = args.config.clone();
     let config_path = Path::new(&config);
-
     info!("loading configuration from: {config_path:?}");
-
     let config = Config::read_config(config_path)
         .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
+
     let directory_config = config.directory().to_path_buf();
-    let zonedir = args.zonedir.clone();
+    let zonedir = zonedir.clone();
     let zone_dir: PathBuf = zonedir
         .as_ref()
         .map(PathBuf::from)
         .unwrap_or(directory_config);
 
     #[cfg(feature = "prometheus-metrics")]
-    let prometheus_server_opt = if !args.disable_prometheus && !config.disable_prometheus() {
-        let socket_addr = args
-            .prometheus_listen_addr
-            .unwrap_or_else(|| config.prometheus_listen_addr());
+    let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus() {
+        let socket_addr = prometheus_listen_addr.unwrap_or_else(|| config.prometheus_listen_addr());
         let listener = build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
             format!("failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}")
         })?;
@@ -220,10 +244,10 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
     let mut signal = signal(SignalKind::terminate())
         .map_err(|e| format!("failed to register signal handler: {e}"))?;
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.set_nsid(args.nsid);
+    let mut catalog = Catalog::new();
+    catalog.set_nsid(nsid);
 
-    if args.nsid_hostname {
+    if nsid_hostname {
         let hostname =
             hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
         let payload = NSIDPayload::new(hostname.into_encoded_bytes())
@@ -258,14 +282,14 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
         .chain(v6addr.into_iter().map(IpAddr::V6))
         .collect();
 
-    let listen_port: u16 = args.port.unwrap_or_else(|| config.listen_port());
+    let listen_port = port.unwrap_or_else(|| config.listen_port());
 
     if listen_addrs.is_empty() {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
         listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
     }
 
-    if args.validate {
+    if validate {
         info!("configuration files are validated");
         return Ok(());
     }
@@ -278,7 +302,7 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
     #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
     let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
-    if !args.disable_udp && !config.disable_udp() {
+    if !disable_udp && !config.disable_udp() {
         // load all udp listeners
         for addr in &listen_addrs {
             info!("binding UDP to {addr:?}");
@@ -299,7 +323,7 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
         info!("UDP protocol is disabled");
     }
 
-    if !args.disable_tcp && !config.disable_tcp() {
+    if !disable_tcp && !config.disable_tcp() {
         // load all tcp listeners
         for addr in &listen_addrs {
             info!("binding TCP to {addr:?}");
@@ -323,10 +347,10 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
     #[cfg(feature = "__tls")]
     if let Some(tls_cert_config) = config.tls_cert() {
         #[cfg(feature = "__tls")]
-        if !args.disable_tls && !config.disable_tls() {
+        if !disable_tls && !config.disable_tls() {
             // setup TLS listeners
             config_tls(
-                args.tls_port,
+                tls_port,
                 &mut server,
                 &config,
                 tls_cert_config,
@@ -338,10 +362,10 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
         }
 
         #[cfg(feature = "__https")]
-        if !args.disable_https && !config.disable_https() {
+        if !disable_https && !config.disable_https() {
             // setup HTTPS listeners
             config_https(
-                args.https_port,
+                https_port,
                 &mut server,
                 &config,
                 tls_cert_config,
@@ -353,10 +377,10 @@ pub async fn async_run(args: Cli) -> Result<(), String> {
         }
 
         #[cfg(feature = "__quic")]
-        if !args.disable_quic && !config.disable_quic() {
+        if !disable_quic && !config.disable_quic() {
             // setup QUIC listeners
             config_quic(
-                args.quic_port,
+                quic_port,
                 &mut server,
                 &config,
                 tls_cert_config,
