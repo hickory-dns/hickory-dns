@@ -23,10 +23,6 @@ default = ["none"]
 none = []
 bind = []
 
-[lib]
-name = "hickory_compatibility"
-path = "src/lib.rs"
-
 [dependencies]
 data-encoding = { workspace = true, features = ["alloc"] }
 rand = { workspace = true, features = ["std", "thread_rng"] }

@@ -94,10 +94,6 @@ rustls-platform-verifier = ["hickory-resolver?/rustls-platform-verifier"]
 
 testing = []
 
-[lib]
-name = "hickory_server"
-path = "src/lib.rs"
-
 [dependencies]
 async-trait.workspace = true
 toml = { workspace = true, optional = true }

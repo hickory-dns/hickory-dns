@@ -55,10 +55,6 @@ tokio = ["dep:tokio", "tokio/rt", "hickory-proto/tokio"]
 
 metrics = ["dep:metrics"]
 
-[lib]
-name = "hickory_resolver"
-path = "src/lib.rs"
-
 [dependencies]
 async-recursion = { workspace = true, optional = true }
 cfg-if.workspace = true
