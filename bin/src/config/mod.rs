@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 use std::{
     fmt, fs, io,
     marker::PhantomData,
-    net::{AddrParseError, Ipv4Addr, Ipv6Addr},
+    net::{Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -68,10 +68,10 @@ mod tests;
 pub struct Config {
     /// The list of IPv4 addresses to listen on
     #[serde(default)]
-    listen_addrs_ipv4: Vec<String>,
+    pub(crate) listen_addrs_ipv4: Vec<Ipv4Addr>,
     /// This list of IPv6 addresses to listen on
     #[serde(default)]
-    listen_addrs_ipv6: Vec<String>,
+    pub(crate) listen_addrs_ipv6: Vec<Ipv6Addr>,
     /// Port on which to listen (associated to all IPs)
     #[serde(default = "default_port")]
     pub(crate) listen_port: u16,
@@ -129,7 +129,7 @@ pub struct Config {
     #[serde(default)]
     pub(crate) ssl_keylog_enabled: bool,
     /// Base configuration directory, i.e. root path for zones
-    directory: Option<String>,
+    directory: Option<PathBuf>,
     /// User to run the server as.
     ///
     /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
@@ -146,7 +146,7 @@ pub struct Config {
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "__tls")]
-    tls_cert: Option<TlsCertConfig>,
+    pub(crate) tls_cert: Option<TlsCertConfig>,
     /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
     #[cfg(feature = "__https")]
@@ -171,16 +171,6 @@ impl Config {
         Ok(toml::from_str(toml)?)
     }
 
-    /// set of listening ipv4 addresses (for TCP and UDP)
-    pub fn listen_addrs_ipv4(&self) -> Result<Vec<Ipv4Addr>, AddrParseError> {
-        self.listen_addrs_ipv4.iter().map(|s| s.parse()).collect()
-    }
-
-    /// set of listening ipv6 addresses (for TCP and UDP)
-    pub fn listen_addrs_ipv6(&self) -> Result<Vec<Ipv6Addr>, AddrParseError> {
-        self.listen_addrs_ipv6.iter().map(|s| s.parse()).collect()
-    }
-
     /// prometheus metric endpoint listen address
     #[cfg(feature = "prometheus-metrics")]
     pub fn prometheus_listen_addr(&self) -> SocketAddr {
@@ -198,27 +188,6 @@ impl Config {
     /// the set of zones which should be loaded
     pub fn zones(&self) -> &[ZoneConfig] {
         &self.zones
-    }
-
-    /// the tls certificate to use for accepting tls connections
-    pub fn tls_cert(&self) -> Option<&TlsCertConfig> {
-        cfg_if! {
-            if #[cfg(feature = "__tls")] {
-                self.tls_cert.as_ref()
-            } else {
-                None
-            }
-        }
-    }
-
-    /// get the networks denied access to this server
-    pub fn deny_networks(&self) -> &[IpNet] {
-        &self.deny_networks
-    }
-
-    /// get the networks allowed to connect to this server
-    pub fn allow_networks(&self) -> &[IpNet] {
-        &self.allow_networks
     }
 }
 
