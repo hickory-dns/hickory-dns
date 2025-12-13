@@ -16,7 +16,6 @@ use std::{
     marker::PhantomData,
     net::{AddrParseError, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
-    str::FromStr,
     sync::Arc,
     time::Duration,
 };
@@ -101,8 +100,6 @@ pub struct Config {
     disable_prometheus: Option<bool>,
     /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
-    /// Level at which to log, default is INFO
-    log_level: Option<String>,
     /// Whether to respect the SSLKEYLOGFILE environment variable.
     ///
     /// This should only be enabled WITH CARE! When enabled, and the SSLKEYLOGFILE environment
@@ -234,15 +231,6 @@ impl Config {
             self.tcp_request_timeout
                 .unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT),
         )
-    }
-
-    /// specify the log level which should be used, ["Trace", "Debug", "Info", "Warn", "Error"]
-    pub fn log_level(&self) -> tracing::Level {
-        if let Some(level_str) = &self.log_level {
-            tracing::Level::from_str(level_str).unwrap_or(tracing::Level::INFO)
-        } else {
-            tracing::Level::INFO
-        }
     }
 
     /// the path for all zone configurations, defaults to `/var/named`
