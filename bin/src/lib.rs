@@ -204,7 +204,7 @@ impl Cli {
             .unwrap_or(directory_config);
 
         #[cfg(feature = "prometheus-metrics")]
-        let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus() {
+        let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus {
             let socket_addr =
                 prometheus_listen_addr.unwrap_or_else(|| config.prometheus_listen_addr());
             let listener =
@@ -287,7 +287,7 @@ impl Cli {
             .chain(v6addr.into_iter().map(IpAddr::V6))
             .collect();
 
-        let listen_port = port.unwrap_or_else(|| config.listen_port());
+        let listen_port = port.unwrap_or(config.listen_port);
 
         if listen_addrs.is_empty() {
             listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
@@ -307,7 +307,7 @@ impl Cli {
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
         let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
-        if !disable_udp && !config.disable_udp() {
+        if !disable_udp && !config.disable_udp {
             // load all udp listeners
             for addr in &listen_addrs {
                 info!("binding UDP to {addr:?}");
@@ -329,7 +329,7 @@ impl Cli {
             info!("UDP protocol is disabled");
         }
 
-        if !disable_tcp && !config.disable_tcp() {
+        if !disable_tcp && !config.disable_tcp {
             // load all tcp listeners
             for addr in &listen_addrs {
                 info!("binding TCP to {addr:?}");
@@ -354,7 +354,7 @@ impl Cli {
         #[cfg(feature = "__tls")]
         if let Some(tls_cert_config) = config.tls_cert() {
             #[cfg(feature = "__tls")]
-            if !disable_tls && !config.disable_tls() {
+            if !disable_tls && !config.disable_tls {
                 // setup TLS listeners
                 config_tls(
                     tls_port,
@@ -369,7 +369,7 @@ impl Cli {
             }
 
             #[cfg(feature = "__https")]
-            if !disable_https && !config.disable_https() {
+            if !disable_https && !config.disable_https {
                 // setup HTTPS listeners
                 config_https(
                     https_port,
@@ -384,7 +384,7 @@ impl Cli {
             }
 
             #[cfg(feature = "__quic")]
-            if !disable_quic && !config.disable_quic() {
+            if !disable_quic && !config.disable_quic {
                 // setup QUIC listeners
                 config_quic(
                     quic_port,
@@ -468,7 +468,7 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let tls_listen_port = tls_port.unwrap_or_else(|| config.tls_listen_port());
+    let tls_listen_port = tls_port.unwrap_or(config.tls_listen_port);
 
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
@@ -522,7 +522,7 @@ fn config_https(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let https_listen_port = https_port.unwrap_or_else(|| config.https_listen_port());
+    let https_listen_port = https_port.unwrap_or(config.https_listen_port);
     let endpoint_path = config.http_endpoint();
 
     if listen_addrs.is_empty() {
@@ -583,7 +583,7 @@ fn config_quic(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let quic_listen_port = quic_port.unwrap_or_else(|| config.quic_listen_port());
+    let quic_listen_port = quic_port.unwrap_or(config.quic_listen_port);
 
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
@@ -671,13 +671,26 @@ impl ConfigMetrics {
         );
         hickory_build_info.set(1);
 
+        #[cfg(feature = "__tls")]
+        let disable_tls = config.disable_tls;
+        #[cfg(not(feature = "__tls"))]
+        let disable_tls = false;
+        #[cfg(feature = "__https")]
+        let disable_https = config.disable_https;
+        #[cfg(not(feature = "__https"))]
+        let disable_https = false;
+        #[cfg(feature = "__quic")]
+        let disable_quic = config.disable_quic;
+        #[cfg(not(feature = "__quic"))]
+        let disable_quic = false;
+
         let hickory_config_info = gauge!("hickory_config_info",
             "directory" => config.directory().to_string_lossy().to_string(),
-            "disable_https" => config.disable_https().to_string(),
-            "disable_quic" => config.disable_quic().to_string(),
-            "disable_tcp" => config.disable_tcp().to_string(),
-            "disable_tls" => config.disable_tls().to_string(),
-            "disable_udp" => config.disable_udp().to_string(),
+            "disable_udp" => config.disable_udp.to_string(),
+            "disable_tcp" => config.disable_tcp.to_string(),
+            "disable_tls" => disable_tls.to_string(),
+            "disable_https" => disable_https.to_string(),
+            "disable_quic" => disable_quic.to_string(),
             "allow_networks" => config.allow_networks().len().to_string(),
             "deny_networks" => config.deny_networks().len().to_string(),
             "zones" => config.zones().len().to_string()

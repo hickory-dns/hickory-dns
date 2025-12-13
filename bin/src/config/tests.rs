@@ -27,7 +27,7 @@ fn test_read_config() {
     println!("reading config");
     let config = Config::read_config(&path).unwrap();
 
-    assert_eq!(config.listen_port(), 53);
+    assert_eq!(config.listen_port, 53);
     assert_eq!(config.listen_addrs_ipv4(), Ok(Vec::<Ipv4Addr>::new()));
     assert_eq!(config.listen_addrs_ipv6(), Ok(Vec::<Ipv6Addr>::new()));
     assert_eq!(config.tcp_request_timeout(), Duration::from_secs(5));
@@ -82,7 +82,7 @@ fn test_read_config() {
 #[test]
 fn test_parse_toml() {
     let config = Config::from_toml("listen_port = 2053").unwrap();
-    assert_eq!(config.listen_port(), 2053);
+    assert_eq!(config.listen_port, 2053);
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\"]").unwrap();
     assert_eq!(config.listen_addrs_ipv4(), Ok(vec![Ipv4Addr::UNSPECIFIED]));
@@ -192,7 +192,7 @@ fn test_parse_tls() {
     // defaults
     let config = Config::from_toml("").unwrap();
 
-    assert_eq!(config.tls_listen_port(), 853);
+    assert_eq!(config.tls_listen_port, 853);
     assert_eq!(config.tls_cert(), None);
 
     let config = Config::from_toml(
@@ -202,7 +202,7 @@ tls_listen_port = 8853
     )
     .unwrap();
 
-    assert_eq!(config.tls_listen_port(), 8853);
+    assert_eq!(config.tls_listen_port, 8853);
     assert_eq!(
         config.tls_cert().unwrap().path,
         Path::new("path/to/some.pkcs12")
