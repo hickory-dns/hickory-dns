@@ -159,296 +159,304 @@ pub struct Cli {
     nsid_hostname: bool,
 }
 
-pub async fn async_run(args: Cli) -> Result<(), String> {
-    let Cli {
-        validate,
-        workers: _, // Used in `main()`
-        quiet: _,   // Used in `main()`
-        debug: _,   // Used in `main()`
-        config,
-        zonedir,
-        port,
-        #[cfg(feature = "__tls")]
-        tls_port,
-        #[cfg(feature = "__https")]
-        https_port,
-        #[cfg(feature = "__quic")]
-        quic_port,
+impl Cli {
+    pub async fn run(self) -> Result<(), String> {
+        let Self {
+            validate,
+            workers: _, // Used in `main()`
+            quiet: _,   // Used in `main()`
+            debug: _,   // Used in `main()`
+            config,
+            zonedir,
+            port,
+            #[cfg(feature = "__tls")]
+            tls_port,
+            #[cfg(feature = "__https")]
+            https_port,
+            #[cfg(feature = "__quic")]
+            quic_port,
+            #[cfg(feature = "prometheus-metrics")]
+            prometheus_listen_addr,
+            disable_tcp,
+            disable_udp,
+            #[cfg(feature = "__tls")]
+            disable_tls,
+            #[cfg(feature = "__https")]
+            disable_https,
+            #[cfg(feature = "__quic")]
+            disable_quic,
+            #[cfg(feature = "prometheus-metrics")]
+            disable_prometheus,
+            nsid,
+            nsid_hostname,
+        } = self;
+
+        let config_path = Path::new(&config);
+        info!("loading configuration from: {config_path:?}");
+        let config = Config::read_config(config_path)
+            .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
+
+        let directory_config = config.directory().to_path_buf();
+        let zonedir = zonedir.clone();
+        let zone_dir: PathBuf = zonedir
+            .as_ref()
+            .map(PathBuf::from)
+            .unwrap_or(directory_config);
+
         #[cfg(feature = "prometheus-metrics")]
-        prometheus_listen_addr,
-        disable_tcp,
-        disable_udp,
-        #[cfg(feature = "__tls")]
-        disable_tls,
-        #[cfg(feature = "__https")]
-        disable_https,
-        #[cfg(feature = "__quic")]
-        disable_quic,
-        #[cfg(feature = "prometheus-metrics")]
-        disable_prometheus,
-        nsid,
-        nsid_hostname,
-    } = args;
+        let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus() {
+            let socket_addr =
+                prometheus_listen_addr.unwrap_or_else(|| config.prometheus_listen_addr());
+            let listener =
+                build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
+                    format!(
+                        "failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}"
+                    )
+                })?;
+            let local_addr = listener
+                .local_addr()
+                .map_err(|err| format!("failed to look up local address: {err}"))?;
 
-    let config_path = Path::new(&config);
-    info!("loading configuration from: {config_path:?}");
-    let config = Config::read_config(config_path)
-        .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
+            // Set up Prometheus HTTP server.
+            let server = PrometheusServer::new(listener)?;
+            info!("listening for Prometheus metrics on {local_addr:?}");
+            Some(server)
+        } else {
+            info!("Prometheus metrics are disabled");
+            None
+        };
 
-    let directory_config = config.directory().to_path_buf();
-    let zonedir = zonedir.clone();
-    let zone_dir: PathBuf = zonedir
-        .as_ref()
-        .map(PathBuf::from)
-        .unwrap_or(directory_config);
+        #[cfg(feature = "metrics")]
+        let (process_metrics_collector, config_metrics) = {
+            // setup process metrics (cpu, memory, ...) collection
+            let collector = Collector::default();
+            collector.describe(); // add metric descriptions
 
-    #[cfg(feature = "prometheus-metrics")]
-    let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus() {
-        let socket_addr = prometheus_listen_addr.unwrap_or_else(|| config.prometheus_listen_addr());
-        let listener = build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
-            format!("failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}")
-        })?;
-        let local_addr = listener
-            .local_addr()
-            .map_err(|err| format!("failed to look up local address: {err}"))?;
+            let process_metrics_collector = tokio::spawn(async move {
+                loop {
+                    sleep(Duration::from_secs(1)).await;
+                    collector.collect();
+                }
+            });
 
-        // Set up Prometheus HTTP server.
-        let server = PrometheusServer::new(listener)?;
-        info!("listening for Prometheus metrics on {local_addr:?}");
-        Some(server)
-    } else {
-        info!("Prometheus metrics are disabled");
-        None
-    };
+            // metrics need to be created after the recorder is registered
+            // calling increment() after registration is not sufficient
+            let config_metrics = ConfigMetrics::new(&config);
+            (process_metrics_collector, config_metrics)
+        };
 
-    #[cfg(feature = "metrics")]
-    let (process_metrics_collector, config_metrics) = {
-        // setup process metrics (cpu, memory, ...) collection
-        let collector = Collector::default();
-        collector.describe(); // add metric descriptions
+        #[cfg(unix)]
+        let mut signal = signal(SignalKind::terminate())
+            .map_err(|e| format!("failed to register signal handler: {e}"))?;
 
-        let process_metrics_collector = tokio::spawn(async move {
-            loop {
-                sleep(Duration::from_secs(1)).await;
-                collector.collect();
+        let mut catalog = Catalog::new();
+        catalog.set_nsid(nsid);
+
+        if nsid_hostname {
+            let hostname =
+                hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
+            let payload = NSIDPayload::new(hostname.into_encoded_bytes())
+                .map_err(|e| format!("invalid NSID payload: {e}"))?;
+            catalog.set_nsid(Some(payload));
+        }
+
+        // configure our server based on the config_path
+        for zone in config.zones() {
+            let zone_name = zone
+                .zone()
+                .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
+
+            match zone.load(&zone_dir).await {
+                Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
+                Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
             }
-        });
 
-        // metrics need to be created after the recorder is registered
-        // calling increment() after registration is not sufficient
-        let config_metrics = ConfigMetrics::new(&config);
-        (process_metrics_collector, config_metrics)
-    };
+            #[cfg(feature = "metrics")]
+            config_metrics.increment_zone_metrics(zone);
+        }
 
-    #[cfg(unix)]
-    let mut signal = signal(SignalKind::terminate())
-        .map_err(|e| format!("failed to register signal handler: {e}"))?;
+        let v4addr = config
+            .listen_addrs_ipv4()
+            .map_err(|err| format!("failed to parse IPv4 addresses from {config_path:?}: {err}"))?;
+        let v6addr = config
+            .listen_addrs_ipv6()
+            .map_err(|err| format!("failed to parse IPv6 addresses from {config_path:?}: {err}"))?;
+        let mut listen_addrs: Vec<IpAddr> = v4addr
+            .into_iter()
+            .map(IpAddr::V4)
+            .chain(v6addr.into_iter().map(IpAddr::V6))
+            .collect();
 
-    let mut catalog = Catalog::new();
-    catalog.set_nsid(nsid);
+        let listen_port = port.unwrap_or_else(|| config.listen_port());
 
-    if nsid_hostname {
-        let hostname =
-            hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
-        let payload = NSIDPayload::new(hostname.into_encoded_bytes())
-            .map_err(|e| format!("invalid NSID payload: {e}"))?;
-        catalog.set_nsid(Some(payload));
-    }
+        if listen_addrs.is_empty() {
+            listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+            listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
+        }
 
-    // configure our server based on the config_path
-    for zone in config.zones() {
-        let zone_name = zone
-            .zone()
-            .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
+        if validate {
+            info!("configuration files are validated");
+            return Ok(());
+        }
 
-        match zone.load(&zone_dir).await {
-            Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
-            Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
+        let deny_networks = config.deny_networks();
+        let allow_networks = config.allow_networks();
+        let tcp_request_timeout = config.tcp_request_timeout();
+
+        // now, run the server, based on the config
+        #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
+        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
+
+        if !disable_udp && !config.disable_udp() {
+            // load all udp listeners
+            for addr in &listen_addrs {
+                info!("binding UDP to {addr:?}");
+
+                let udp_socket = build_udp_socket(*addr, listen_port).map_err(|err| {
+                    format!("failed to bind to UDP socket address {addr:?}: {err}")
+                })?;
+
+                info!(
+                    "listening for UDP on {:?}",
+                    udp_socket
+                        .local_addr()
+                        .map_err(|err| format!("failed to lookup local address: {err}"))?
+                );
+
+                server.register_socket(udp_socket);
+            }
+        } else {
+            info!("UDP protocol is disabled");
+        }
+
+        if !disable_tcp && !config.disable_tcp() {
+            // load all tcp listeners
+            for addr in &listen_addrs {
+                info!("binding TCP to {addr:?}");
+
+                let tcp_listener = build_tcp_listener(*addr, listen_port).map_err(|err| {
+                    format!("failed to bind to TCP socket address {addr:?}: {err}")
+                })?;
+
+                info!(
+                    "listening for TCP on {:?}",
+                    tcp_listener
+                        .local_addr()
+                        .map_err(|err| format!("failed to lookup local address: {err}"))?
+                );
+
+                server.register_listener(tcp_listener, tcp_request_timeout);
+            }
+        } else {
+            info!("TCP protocol is disabled");
+        }
+
+        #[cfg(feature = "__tls")]
+        if let Some(tls_cert_config) = config.tls_cert() {
+            #[cfg(feature = "__tls")]
+            if !disable_tls && !config.disable_tls() {
+                // setup TLS listeners
+                config_tls(
+                    tls_port,
+                    &mut server,
+                    &config,
+                    tls_cert_config,
+                    &zone_dir,
+                    &listen_addrs,
+                )?;
+            } else {
+                info!("TLS protocol is disabled");
+            }
+
+            #[cfg(feature = "__https")]
+            if !disable_https && !config.disable_https() {
+                // setup HTTPS listeners
+                config_https(
+                    https_port,
+                    &mut server,
+                    &config,
+                    tls_cert_config,
+                    &zone_dir,
+                    &listen_addrs,
+                )?;
+            } else {
+                info!("HTTPS protocol is disabled");
+            }
+
+            #[cfg(feature = "__quic")]
+            if !disable_quic && !config.disable_quic() {
+                // setup QUIC listeners
+                config_quic(
+                    quic_port,
+                    &mut server,
+                    &config,
+                    tls_cert_config,
+                    &zone_dir,
+                    &listen_addrs,
+                )?;
+            } else {
+                info!("QUIC protocol is disabled");
+            }
+        } else {
+            info!("TLS certificates are not provided");
+            info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled")
+        }
+
+        // Drop privileges on Unix systems if running as root.
+        #[cfg(target_family = "unix")]
+        check_drop_privs(
+            config.user.as_deref().unwrap_or(DEFAULT_USER),
+            config.group.as_deref().unwrap_or(DEFAULT_GROUP),
+        )?;
+        #[cfg(not(target_family = "unix"))]
+        if config.user.is_some() || config.group.is_some() {
+            return Err("dropping privileges is only supported on Unix systems".to_string());
+        }
+
+        #[cfg(unix)]
+        {
+            let token = server.shutdown_token().clone();
+            tokio::spawn(async move {
+                signal.recv().await;
+                token.cancel();
+            });
+        }
+
+        // config complete, starting!
+        banner();
+
+        // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
+        // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
+        //  request handling. It would generally be the case that n <= m.
+        info!("server starting up, awaiting connections...");
+        match server.block_until_done().await {
+            Ok(()) => {
+                // we're exiting for some reason...
+                info!("Hickory DNS {} stopping", env!("CARGO_PKG_VERSION"));
+            }
+            Err(e) => {
+                let error_msg = format!(
+                    "Hickory DNS {} has encountered an error: {}",
+                    env!("CARGO_PKG_VERSION"),
+                    e
+                );
+
+                error!("{}", error_msg);
+                panic!("{}", error_msg);
+            }
+        };
+
+        // Shut down the Prometheus metrics server after the DNS server has gracefully shut down.
+        #[cfg(feature = "prometheus-metrics")]
+        if let Some(server) = prometheus_server_opt {
+            server.stop().await;
         }
 
         #[cfg(feature = "metrics")]
-        config_metrics.increment_zone_metrics(zone);
+        process_metrics_collector.abort();
+
+        Ok(())
     }
-
-    let v4addr = config
-        .listen_addrs_ipv4()
-        .map_err(|err| format!("failed to parse IPv4 addresses from {config_path:?}: {err}"))?;
-    let v6addr = config
-        .listen_addrs_ipv6()
-        .map_err(|err| format!("failed to parse IPv6 addresses from {config_path:?}: {err}"))?;
-    let mut listen_addrs: Vec<IpAddr> = v4addr
-        .into_iter()
-        .map(IpAddr::V4)
-        .chain(v6addr.into_iter().map(IpAddr::V6))
-        .collect();
-
-    let listen_port = port.unwrap_or_else(|| config.listen_port());
-
-    if listen_addrs.is_empty() {
-        listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
-    }
-
-    if validate {
-        info!("configuration files are validated");
-        return Ok(());
-    }
-
-    let deny_networks = config.deny_networks();
-    let allow_networks = config.allow_networks();
-    let tcp_request_timeout = config.tcp_request_timeout();
-
-    // now, run the server, based on the config
-    #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-    let mut server = Server::with_access(catalog, deny_networks, allow_networks);
-
-    if !disable_udp && !config.disable_udp() {
-        // load all udp listeners
-        for addr in &listen_addrs {
-            info!("binding UDP to {addr:?}");
-
-            let udp_socket = build_udp_socket(*addr, listen_port)
-                .map_err(|err| format!("failed to bind to UDP socket address {addr:?}: {err}"))?;
-
-            info!(
-                "listening for UDP on {:?}",
-                udp_socket
-                    .local_addr()
-                    .map_err(|err| format!("failed to lookup local address: {err}"))?
-            );
-
-            server.register_socket(udp_socket);
-        }
-    } else {
-        info!("UDP protocol is disabled");
-    }
-
-    if !disable_tcp && !config.disable_tcp() {
-        // load all tcp listeners
-        for addr in &listen_addrs {
-            info!("binding TCP to {addr:?}");
-
-            let tcp_listener = build_tcp_listener(*addr, listen_port)
-                .map_err(|err| format!("failed to bind to TCP socket address {addr:?}: {err}"))?;
-
-            info!(
-                "listening for TCP on {:?}",
-                tcp_listener
-                    .local_addr()
-                    .map_err(|err| format!("failed to lookup local address: {err}"))?
-            );
-
-            server.register_listener(tcp_listener, tcp_request_timeout);
-        }
-    } else {
-        info!("TCP protocol is disabled");
-    }
-
-    #[cfg(feature = "__tls")]
-    if let Some(tls_cert_config) = config.tls_cert() {
-        #[cfg(feature = "__tls")]
-        if !disable_tls && !config.disable_tls() {
-            // setup TLS listeners
-            config_tls(
-                tls_port,
-                &mut server,
-                &config,
-                tls_cert_config,
-                &zone_dir,
-                &listen_addrs,
-            )?;
-        } else {
-            info!("TLS protocol is disabled");
-        }
-
-        #[cfg(feature = "__https")]
-        if !disable_https && !config.disable_https() {
-            // setup HTTPS listeners
-            config_https(
-                https_port,
-                &mut server,
-                &config,
-                tls_cert_config,
-                &zone_dir,
-                &listen_addrs,
-            )?;
-        } else {
-            info!("HTTPS protocol is disabled");
-        }
-
-        #[cfg(feature = "__quic")]
-        if !disable_quic && !config.disable_quic() {
-            // setup QUIC listeners
-            config_quic(
-                quic_port,
-                &mut server,
-                &config,
-                tls_cert_config,
-                &zone_dir,
-                &listen_addrs,
-            )?;
-        } else {
-            info!("QUIC protocol is disabled");
-        }
-    } else {
-        info!("TLS certificates are not provided");
-        info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled")
-    }
-
-    // Drop privileges on Unix systems if running as root.
-    #[cfg(target_family = "unix")]
-    check_drop_privs(
-        config.user.as_deref().unwrap_or(DEFAULT_USER),
-        config.group.as_deref().unwrap_or(DEFAULT_GROUP),
-    )?;
-    #[cfg(not(target_family = "unix"))]
-    if config.user.is_some() || config.group.is_some() {
-        return Err("dropping privileges is only supported on Unix systems".to_string());
-    }
-
-    #[cfg(unix)]
-    {
-        let token = server.shutdown_token().clone();
-        tokio::spawn(async move {
-            signal.recv().await;
-            token.cancel();
-        });
-    }
-
-    // config complete, starting!
-    banner();
-
-    // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
-    // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
-    //  request handling. It would generally be the case that n <= m.
-    info!("server starting up, awaiting connections...");
-    match server.block_until_done().await {
-        Ok(()) => {
-            // we're exiting for some reason...
-            info!("Hickory DNS {} stopping", env!("CARGO_PKG_VERSION"));
-        }
-        Err(e) => {
-            let error_msg = format!(
-                "Hickory DNS {} has encountered an error: {}",
-                env!("CARGO_PKG_VERSION"),
-                e
-            );
-
-            error!("{}", error_msg);
-            panic!("{}", error_msg);
-        }
-    };
-
-    // Shut down the Prometheus metrics server after the DNS server has gracefully shut down.
-    #[cfg(feature = "prometheus-metrics")]
-    if let Some(server) = prometheus_server_opt {
-        server.stop().await;
-    }
-
-    #[cfg(feature = "metrics")]
-    process_metrics_collector.abort();
-
-    Ok(())
 }
 
 #[cfg(feature = "__tls")]

@@ -32,7 +32,7 @@ use tokio::runtime;
 use tracing::{Level, info};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-use hickory_dns::{Cli, async_run};
+use hickory_dns::Cli;
 
 /// Main method for running the named server.
 fn main() -> Result<(), String> {
@@ -80,5 +80,5 @@ fn run() -> Result<(), String> {
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
-    runtime.block_on(async_run(args))
+    runtime.block_on(args.run())
 }
