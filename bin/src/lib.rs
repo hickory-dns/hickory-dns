@@ -351,7 +351,7 @@ impl Cli {
             if !disable_tls && !config.disable_tls {
                 // setup TLS listeners
                 config_tls(
-                    tls_port,
+                    tls_port.unwrap_or_else(|| config.tls_listen_port),
                     &mut server,
                     &config,
                     tls_cert_config,
@@ -366,7 +366,7 @@ impl Cli {
             if !disable_https && !config.disable_https {
                 // setup HTTPS listeners
                 config_https(
-                    https_port,
+                    https_port.unwrap_or_else(|| config.https_listen_port),
                     &mut server,
                     &config,
                     tls_cert_config,
@@ -381,7 +381,7 @@ impl Cli {
             if !disable_quic && !config.disable_quic {
                 // setup QUIC listeners
                 config_quic(
-                    quic_port,
+                    quic_port.unwrap_or_else(|| config.quic_listen_port),
                     &mut server,
                     &config,
                     tls_cert_config,
@@ -455,15 +455,13 @@ impl Cli {
 
 #[cfg(feature = "__tls")]
 fn config_tls(
-    tls_port: Option<u16>,
+    tls_port: u16,
     server: &mut Server<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let tls_listen_port = tls_port.unwrap_or_else(|| config.tls_listen_port);
-
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
         return Ok(());
@@ -479,7 +477,7 @@ fn config_tls(
 
         info!("binding TLS to {addr:?}");
 
-        let tls_listener = build_tcp_listener(*addr, tls_listen_port)
+        let tls_listener = build_tcp_listener(*addr, tls_port)
             .map_err(|err| format!("failed to bind to TLS socket address {addr:?}: {err}"))?;
 
         info!(
@@ -509,14 +507,13 @@ fn config_tls(
 
 #[cfg(feature = "__https")]
 fn config_https(
-    https_port: Option<u16>,
+    https_listen_port: u16,
     server: &mut Server<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let https_listen_port = https_port.unwrap_or_else(|| config.https_listen_port);
     let endpoint_path = config.http_endpoint();
 
     if listen_addrs.is_empty() {
@@ -570,15 +567,13 @@ fn config_https(
 
 #[cfg(feature = "__quic")]
 fn config_quic(
-    quic_port: Option<u16>,
+    quic_port: u16,
     server: &mut Server<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) -> Result<(), String> {
-    let quic_listen_port = quic_port.unwrap_or_else(|| config.quic_listen_port);
-
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
         return Ok(());
@@ -597,7 +592,7 @@ fn config_quic(
 
         info!("Binding QUIC to {addr:?}");
 
-        let quic_listener = build_udp_socket(*addr, quic_listen_port)
+        let quic_listener = build_udp_socket(*addr, quic_port)
             .map_err(|err| format!("failed to bind to QUIC socket address {addr:?}: {err}"))?;
 
         info!(
