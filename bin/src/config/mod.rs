@@ -229,7 +229,7 @@ pub struct ZoneConfig {
 
 impl ZoneConfig {
     #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(&self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, ProtoError> {
+    pub async fn load(self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, ProtoError> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -240,7 +240,7 @@ impl ZoneConfig {
         // load the zone and insert any configured zone handlers in the catalog.
 
         let mut handlers: Vec<Arc<dyn ZoneHandler>> = vec![];
-        match &self.zone_type_config {
+        match self.zone_type_config {
             ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
                 debug!(
                     "loading zone handlers for {zone_name} with stores {:?}",
@@ -317,7 +317,7 @@ impl ZoneConfig {
                         }
                         #[cfg(feature = "resolver")]
                         ExternalStoreConfig::Forward(config) => {
-                            let forwarder = ForwardZoneHandler::builder_tokio(config.clone())
+                            let forwarder = ForwardZoneHandler::builder_tokio(config)
                                 .with_origin(zone_name.clone())
                                 .build()?;
 
@@ -328,7 +328,7 @@ impl ZoneConfig {
                             let recursor = RecursiveZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
-                                config,
+                                &config,
                                 Some(zone_dir),
                                 TokioRuntimeProvider::default(),
                             )
@@ -344,7 +344,7 @@ impl ZoneConfig {
             }
         }
 
-        info!("zone successfully loaded: {}", self.zone()?);
+        info!("zone successfully loaded: {zone_name}");
         Ok(handlers)
     }
 
