@@ -144,6 +144,39 @@ impl Message {
         msg
     }
 
+    /// Strip DNSSEC records per RFC 4035 section 3.2.1
+    ///
+    /// Removes DNSSEC records that don't match the query type from all sections
+    /// when the DNSSEC OK bit is not set in the original query.
+    ///
+    /// Uses the first query in the message to determine the query type.
+    /// If there are no queries, returns the message unchanged.
+    ///
+    /// The query_has_dnssec_ok is a required parameter because the
+    /// dnssec_ok bit in the query might be different from the bit
+    /// in the response. See discussion in
+    /// [#3340](https://github.com/hickory-dns/hickory-dns/issues/3340)
+    pub fn maybe_strip_dnssec_records(mut self, query_has_dnssec_ok: bool) -> Self {
+        if query_has_dnssec_ok {
+            return self;
+        }
+
+        let Some(query_type) = self.queries().first().map(|q| q.query_type()) else {
+            return self; // No query, return unchanged
+        };
+
+        let predicate = |record: &Record| {
+            let record_type = record.record_type();
+            record_type == query_type || !record_type.is_dnssec()
+        };
+
+        self.answers_mut().retain(predicate);
+        self.authorities_mut().retain(predicate);
+        self.additionals_mut().retain(predicate);
+
+        self
+    }
+
     /// Sets the [`Header`]
     pub fn set_header(&mut self, header: Header) -> &mut Self {
         self.header = header;
