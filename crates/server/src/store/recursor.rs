@@ -62,7 +62,10 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             // Once the recursor is built, potentially use the recursor's pool context to spawn a
             // background save task, holding the task handle (if created) so it drops with the zone handler.
             #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
-            opportunistic_encryption_persistence_task: match &config.opportunistic_encryption {
+            opportunistic_encryption_persistence_task: match &config
+                .options
+                .opportunistic_encryption
+            {
                 OpportunisticEncryption::Enabled { config } => {
                     OpportunisticEncryptionStatePersistTask::<P::Timer>::start(
                         config,

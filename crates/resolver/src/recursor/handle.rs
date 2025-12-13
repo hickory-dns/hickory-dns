@@ -17,12 +17,19 @@ use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use super::{
-    RecursorBuilder, RecursorError,
-    error::AuthorityData,
+    DnssecPolicy, NameServerTransportState, RecursorError, RecursorOptions, error::AuthorityData,
     is_subzone,
+};
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::rdata::DNSSECRData;
+use crate::{
+    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
+    TtlConfig,
+    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     proto::{
         DnsHandle,
         access_control::AccessControlSet,
+        access_control::AccessControlSetBuilder,
         op::{DnsRequestOptions, Message, Query},
         rr::{
             RData,
@@ -32,13 +39,6 @@ use super::{
         },
     },
 };
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::rdata::DNSSECRData;
-use crate::{
-    ConnectionProvider, Name, NameServer, NameServerPool, PoolContext, ResponseCache, TlsConfig,
-    TtlConfig,
-    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
-};
 
 #[derive(Clone)]
 pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
@@ -47,8 +47,8 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     response_cache: ResponseCache,
     #[cfg(feature = "metrics")]
     pub(super) metrics: RecursorMetrics,
-    recursion_limit: Option<u8>,
-    ns_recursion_limit: Option<u8>,
+    recursion_limit: u8,
+    ns_recursion_limit: u8,
     name_server_filter: AccessControlSet,
     pool_context: Arc<PoolContext>,
     conn_provider: P,
@@ -60,31 +60,33 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     pub(super) fn new(
         roots: &[IpAddr],
+        dnssec_policy: DnssecPolicy,
+        encrypted_transport_state: Option<NameServerTransportState>,
+        options: RecursorOptions,
         tls: TlsConfig,
-        builder: RecursorBuilder<P>,
+        conn_provider: P,
     ) -> Result<Self, RecursorError> {
         assert!(!roots.is_empty(), "roots must not be empty");
         let servers = roots
             .iter()
             .copied()
-            .map(|ip| name_server_config(ip, &builder.opportunistic_encryption))
+            .map(|ip| name_server_config(ip, &options.opportunistic_encryption))
             .collect::<Vec<_>>();
 
-        let RecursorBuilder {
+        let RecursorOptions {
             ns_cache_size,
             response_cache_size,
             recursion_limit,
             ns_recursion_limit,
-            dnssec_policy,
-            answer_address_filter,
-            name_server_filter,
+            allow_answers,
+            deny_answers,
+            allow_server,
+            deny_server,
             avoid_local_udp_ports,
-            ttl_config,
+            cache_policy,
             case_randomization,
             opportunistic_encryption,
-            encrypted_transport_state,
-            conn_provider,
-        } = builder;
+        } = options;
 
         let avoid_local_udp_ports = Arc::new(avoid_local_udp_ports);
 
@@ -102,16 +104,23 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .max_concurrent_probes()
                 .unwrap_or_default(),
         )
-        .with_transport_state(encrypted_transport_state)
-        .with_answer_filter(answer_address_filter);
+        .with_answer_filter(
+            AccessControlSetBuilder::new("answers")
+                .allow(allow_answers.iter()) // no recommended exceptions
+                .deny(deny_answers.iter()) // no recommend default filters
+                .build(),
+        );
         pool_context.opportunistic_encryption = opportunistic_encryption;
-        let pool_context = Arc::new(pool_context);
+        if let Some(state) = encrypted_transport_state {
+            pool_context = pool_context.with_transport_state(state);
+        }
 
+        let pool_context = Arc::new(pool_context);
         let roots =
             NameServerPool::from_config(servers, pool_context.clone(), conn_provider.clone());
 
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
-        let response_cache = ResponseCache::new(response_cache_size, ttl_config.clone());
+        let response_cache = ResponseCache::new(response_cache_size, cache_policy.clone());
 
         // DnsRequestOptions to use with outbound requests made by the recursor.
         let mut request_options = DnsRequestOptions::default();
@@ -130,12 +139,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             metrics: RecursorMetrics::new(),
             recursion_limit,
             ns_recursion_limit,
-            name_server_filter,
+            name_server_filter: AccessControlSetBuilder::new("name_servers")
+                .allow(allow_server.iter())
+                .deny(deny_server.iter())
+                .build(),
             pool_context,
             conn_provider,
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
-            ttl_config: ttl_config.clone(),
+            ttl_config: cache_policy.clone(),
         })
     }
 
@@ -890,28 +902,35 @@ const MAX_CNAME_LOOKUPS: u8 = 64;
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
+    use hickory_proto::runtime::TokioRuntimeProvider;
     use ipnet::IpNet;
 
-    use crate::recursor::{Recursor, RecursorMode};
+    use crate::recursor::{DnssecPolicy, Recursor, RecursorMode, RecursorOptions};
 
     #[test]
     fn test_nameserver_filter() {
-        let allow_server = [IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()];
-        let deny_server = [
-            IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
-            IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
-            IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
-        ];
-
-        let builder = Recursor::builder()
-            .clear_deny_servers() // We use addresses in the default recommended deny list.
-            .deny_servers(deny_server.iter())
-            .allow_servers(allow_server.iter());
+        let options = RecursorOptions {
+            allow_server: [IpNet::new(IpAddr::from([192, 168, 0, 1]), 32).unwrap()].to_vec(),
+            deny_server: [
+                IpNet::new(IpAddr::from(Ipv4Addr::LOCALHOST), 8).unwrap(),
+                IpNet::new(IpAddr::from([192, 168, 0, 0]), 23).unwrap(),
+                IpNet::new(IpAddr::from([172, 17, 0, 0]), 20).unwrap(),
+            ]
+            .to_vec(),
+            ..RecursorOptions::default()
+        };
 
         #[cfg_attr(not(feature = "__dnssec"), allow(irrefutable_let_patterns))]
         let Recursor {
             mode: RecursorMode::NonValidating { handle },
-        } = builder.build(&[IpAddr::from([192, 0, 2, 1])]).unwrap()
+        } = Recursor::new(
+            &[IpAddr::from([192, 0, 2, 1])],
+            DnssecPolicy::default(),
+            None,
+            options,
+            TokioRuntimeProvider::default(),
+        )
+        .unwrap()
         else {
             panic!("unexpected DNSSEC validation mode");
         };
