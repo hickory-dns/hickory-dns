@@ -623,37 +623,6 @@ impl Default for RecursorOptions {
     }
 }
 
-/// DNSSEC policy configuration
-#[cfg(feature = "serde")]
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields)]
-pub enum DnssecPolicyConfig {
-    /// security unaware; DNSSEC records will not be requested nor processed
-    #[default]
-    SecurityUnaware,
-
-    /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
-    #[cfg(feature = "__dnssec")]
-    ValidationDisabled,
-
-    /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
-    #[cfg(feature = "__dnssec")]
-    ValidateWithStaticKey {
-        /// set to `None` to use built-in trust anchor
-        path: Option<PathBuf>,
-        /// set to control the 'soft' NSEC3 iteration limit. Responses where valid NSEC3 records are
-        /// returned having an iteration count above this limit, but below the hard limit, will
-        /// be considered insecure (answered without the AD bit set.)
-        nsec3_soft_iteration_limit: Option<u16>,
-        /// set to control the 'hard' NSEC3 iteration limit. Responses where valid NSEC3 records are
-        /// returned having an iteration count above this limit will be considered Bogus and will
-        /// result in a SERVFAIL response being returned to the requester.
-        nsec3_hard_iteration_limit: Option<u16>,
-        /// set to control the size of the DNSSEC validation cache.  Set to none to use the default
-        validation_cache_size: Option<usize>,
-    },
-}
-
 #[cfg(feature = "serde")]
 fn default_ns_cache_size() -> usize {
     1_024
@@ -746,6 +715,37 @@ pub struct DnssecConfig {
     /// Validation cache size.  Controls how many DNSSEC validations are cached for future
     /// use.
     pub validation_cache_size: Option<usize>,
+}
+
+/// DNSSEC policy configuration
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub enum DnssecPolicyConfig {
+    /// security unaware; DNSSEC records will not be requested nor processed
+    #[default]
+    SecurityUnaware,
+
+    /// DNSSEC validation is disabled; DNSSEC records will be requested and processed
+    #[cfg(feature = "__dnssec")]
+    ValidationDisabled,
+
+    /// DNSSEC validation is enabled and will use the chosen `trust_anchor` set of keys
+    #[cfg(feature = "__dnssec")]
+    ValidateWithStaticKey {
+        /// set to `None` to use built-in trust anchor
+        path: Option<PathBuf>,
+        /// set to control the 'soft' NSEC3 iteration limit. Responses where valid NSEC3 records are
+        /// returned having an iteration count above this limit, but below the hard limit, will
+        /// be considered insecure (answered without the AD bit set.)
+        nsec3_soft_iteration_limit: Option<u16>,
+        /// set to control the 'hard' NSEC3 iteration limit. Responses where valid NSEC3 records are
+        /// returned having an iteration count above this limit will be considered Bogus and will
+        /// result in a SERVFAIL response being returned to the requester.
+        nsec3_hard_iteration_limit: Option<u16>,
+        /// set to control the size of the DNSSEC validation cache.  Set to none to use the default
+        validation_cache_size: Option<usize>,
+    },
 }
 
 /// Bailiwick/sub zone checking.
