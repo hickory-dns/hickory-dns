@@ -106,12 +106,6 @@ impl Lookup {
         self.valid_until
     }
 
-    #[doc(hidden)]
-    pub fn is_empty(&self) -> bool {
-        // For backwards compatibility, check all sections
-        self.message.all_sections().next().is_none()
-    }
-
     /// Returns all records that were returned during the query.
     ///
     /// Note: This allocates and clones records on each call.
