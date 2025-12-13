@@ -37,7 +37,9 @@ use tracing::{debug, info, warn};
 use crate::dnssec;
 #[cfg(feature = "__tls")]
 use hickory_proto::rustls::default_provider;
-use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
+use hickory_proto::{
+    ProtoError, http::DEFAULT_DNS_QUERY_PATH, rr::Name, serialize::txt::ParseError,
+};
 #[cfg(feature = "recursor")]
 use hickory_resolver::recursor::RecursiveConfig;
 #[cfg(feature = "__dnssec")]
@@ -109,7 +111,7 @@ pub struct Config {
     #[serde(default)]
     pub(crate) disable_prometheus: bool,
     /// Timeout associated to a request before it is closed.
-    #[serde(deserialize_with = "parse_tcp_timeout")]
+    #[serde(deserialize_with = "parse_request_timeout")]
     pub(crate) tcp_request_timeout: Duration,
     /// Whether to respect the SSLKEYLOGFILE environment variable.
     ///
@@ -143,7 +145,8 @@ pub struct Config {
     /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
     #[cfg(any(feature = "__https", feature = "__h3"))]
-    http_endpoint: Option<String>,
+    #[serde(default = "default_http_endpoint")]
+    pub(crate) http_endpoint: String,
     /// Networks denied to access the server
     #[serde(default)]
     pub(crate) deny_networks: Vec<IpNet>,
@@ -201,14 +204,6 @@ impl Config {
                 None
             }
         }
-    }
-
-    /// the HTTP endpoint from where requests are received
-    #[cfg(any(feature = "__https", feature = "__h3"))]
-    pub fn http_endpoint(&self) -> &str {
-        self.http_endpoint
-            .as_deref()
-            .unwrap_or(hickory_proto::http::DEFAULT_DNS_QUERY_PATH)
     }
 
     /// get the networks denied access to this server
@@ -671,10 +666,14 @@ pub enum ConfigError {
     ZoneParse(#[from] ParseError),
 }
 
-fn parse_tcp_timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
+fn parse_request_timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
     Ok(Duration::from_secs(
         Option::<u64>::deserialize(deserializer)?.unwrap_or(5),
     ))
+}
+
+fn default_http_endpoint() -> String {
+    DEFAULT_DNS_QUERY_PATH.to_string()
 }
 
 fn default_port() -> u16 {

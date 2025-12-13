@@ -351,10 +351,11 @@ impl Cli {
                 config_tls(
                     tls_port.unwrap_or_else(|| config.tls_listen_port),
                     &mut server,
-                    &config,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
+                    config.ssl_keylog_enabled,
+                    config.tcp_request_timeout,
                 )?;
             } else {
                 info!("TLS protocol is disabled");
@@ -366,10 +367,12 @@ impl Cli {
                 config_https(
                     https_port.unwrap_or_else(|| config.https_listen_port),
                     &mut server,
-                    &config,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
+                    &config.http_endpoint,
+                    config.ssl_keylog_enabled,
+                    config.tcp_request_timeout,
                 )?;
             } else {
                 info!("HTTPS protocol is disabled");
@@ -381,10 +384,11 @@ impl Cli {
                 config_quic(
                     quic_port.unwrap_or_else(|| config.quic_listen_port),
                     &mut server,
-                    &config,
                     tls_cert_config,
                     &zone_dir,
                     &listen_addrs,
+                    config.ssl_keylog_enabled,
+                    config.tcp_request_timeout,
                 )?;
             } else {
                 info!("QUIC protocol is disabled");
@@ -455,10 +459,11 @@ impl Cli {
 fn config_tls(
     tls_port: u16,
     server: &mut Server<Catalog>,
-    config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
+    ssl_keylog_enabled: bool,
+    request_timeout: Duration,
 ) -> Result<(), String> {
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
@@ -487,7 +492,7 @@ fn config_tls(
 
         let mut tls_config = default_tls_server_config(b"dot", tls_cert)
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if config.ssl_keylog_enabled {
+        if ssl_keylog_enabled {
             warn!("DoT SSL_KEYLOG_FILE support enabled");
             tls_config.key_log = Arc::new(KeyLogFile::new());
         }
@@ -495,7 +500,7 @@ fn config_tls(
         server
             .register_tls_listener_with_tls_config(
                 tls_listener,
-                config.tcp_request_timeout,
+                request_timeout,
                 Arc::new(tls_config),
             )
             .map_err(|err| format!("failed to register TLS listener: {err}"))?;
@@ -507,13 +512,13 @@ fn config_tls(
 fn config_https(
     https_listen_port: u16,
     server: &mut Server<Catalog>,
-    config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
+    http_endpoint: &str,
+    ssl_keylog_enabled: bool,
+    request_timeout: Duration,
 ) -> Result<(), String> {
-    let endpoint_path = config.http_endpoint();
-
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
         return Ok(());
@@ -544,7 +549,7 @@ fn config_https(
 
         let mut tls_config = default_tls_server_config(b"h2", tls_cert)
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if config.ssl_keylog_enabled {
+        if ssl_keylog_enabled {
             warn!("DoH SSL_KEYLOG_FILE support enabled");
             tls_config.key_log = Arc::new(KeyLogFile::new());
         }
@@ -552,10 +557,10 @@ fn config_https(
         server
             .register_https_listener_with_tls_config(
                 https_listener,
-                config.tcp_request_timeout,
+                request_timeout,
                 Arc::new(tls_config),
                 tls_cert_config.endpoint_name.clone(),
-                endpoint_path.into(),
+                http_endpoint.to_owned(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
     }
@@ -567,10 +572,11 @@ fn config_https(
 fn config_quic(
     quic_port: u16,
     server: &mut Server<Catalog>,
-    config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
+    ssl_keylog_enabled: bool,
+    request_timeout: Duration,
 ) -> Result<(), String> {
     if listen_addrs.is_empty() {
         warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
@@ -602,7 +608,7 @@ fn config_quic(
 
         let mut tls_config = default_tls_server_config(b"doq", tls_cert)
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if config.ssl_keylog_enabled {
+        if ssl_keylog_enabled {
             warn!("DoQ SSL_KEYLOG_FILE support enabled");
             tls_config.key_log = Arc::new(KeyLogFile::new());
         }
@@ -610,7 +616,7 @@ fn config_quic(
         server
             .register_quic_listener_and_tls_config(
                 quic_listener,
-                config.tcp_request_timeout,
+                request_timeout,
                 Arc::new(tls_config),
                 tls_cert_config.endpoint_name.clone(),
             )
