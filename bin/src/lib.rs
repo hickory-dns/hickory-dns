@@ -188,12 +188,29 @@ impl Cli {
         let config = Config::read_config(config_path)
             .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
 
-        let directory_config = config.directory().to_path_buf();
-        let zonedir = zonedir.clone();
-        let zone_dir: PathBuf = zonedir
-            .as_ref()
-            .map(PathBuf::from)
-            .unwrap_or(directory_config);
+        #[cfg(feature = "metrics")]
+        let (process_metrics_collector, config_metrics) = {
+            // setup process metrics (cpu, memory, ...) collection
+            let collector = Collector::default();
+            collector.describe(); // add metric descriptions
+
+            let process_metrics_collector = tokio::spawn(async move {
+                loop {
+                    sleep(Duration::from_secs(1)).await;
+                    collector.collect();
+                }
+            });
+
+            // metrics need to be created after the recorder is registered
+            // calling increment() after registration is not sufficient
+            let config_metrics = ConfigMetrics::new(&config);
+            (process_metrics_collector, config_metrics)
+        };
+
+        let zone_dir = match zonedir {
+            Some(dir) => dir,
+            None => config.directory,
+        };
 
         #[cfg(feature = "prometheus-metrics")]
         let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus {
@@ -221,25 +238,6 @@ impl Cli {
             None
         };
 
-        #[cfg(feature = "metrics")]
-        let (process_metrics_collector, config_metrics) = {
-            // setup process metrics (cpu, memory, ...) collection
-            let collector = Collector::default();
-            collector.describe(); // add metric descriptions
-
-            let process_metrics_collector = tokio::spawn(async move {
-                loop {
-                    sleep(Duration::from_secs(1)).await;
-                    collector.collect();
-                }
-            });
-
-            // metrics need to be created after the recorder is registered
-            // calling increment() after registration is not sufficient
-            let config_metrics = ConfigMetrics::new(&config);
-            (process_metrics_collector, config_metrics)
-        };
-
         #[cfg(unix)]
         let mut signal = signal(SignalKind::terminate())
             .map_err(|e| format!("failed to register signal handler: {e}"))?;
@@ -256,7 +254,7 @@ impl Cli {
         }
 
         // configure our server based on the config_path
-        for zone in config.zones() {
+        for zone in &config.zones {
             let zone_name = zone
                 .zone()
                 .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
@@ -659,7 +657,7 @@ impl ConfigMetrics {
         hickory_build_info.set(1);
 
         let hickory_config_info = gauge!("hickory_config_info",
-            "directory" => config.directory().to_string_lossy().to_string(),
+            "directory" => config.directory.to_string_lossy().to_string(),
             "disable_https" => config.disable_https.to_string(),
             "disable_quic" => config.disable_quic.to_string(),
             "disable_tcp" => config.disable_tcp.to_string(),
@@ -667,7 +665,7 @@ impl ConfigMetrics {
             "disable_udp" => config.disable_udp.to_string(),
             "allow_networks" => config.allow_networks.len().to_string(),
             "deny_networks" => config.deny_networks.len().to_string(),
-            "zones" => config.zones().len().to_string()
+            "zones" => config.zones.len().to_string()
         );
         describe_gauge!(
             "hickory_config_info",
