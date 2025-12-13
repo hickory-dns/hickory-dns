@@ -26,9 +26,6 @@ use crate::{
     },
 };
 
-#[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::Proven;
-
 /// Result of a DNS query when querying for any record type supported by the Hickory DNS Proto library.
 ///
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
@@ -114,15 +111,6 @@ impl Lookup {
         LookupIter::new(self.message.all_sections())
     }
 
-    /// Returns a borrowed iterator of the returned data wrapped in a dnssec Proven type
-    ///
-    /// For backwards compatibility, this returns records from all sections
-    /// (ANSWER, AUTHORITY, ADDITIONAL).
-    #[cfg(feature = "__dnssec")]
-    pub fn dnssec_iter(&self) -> DnssecIter<'_> {
-        DnssecIter(DnssecLookupRecordIter::new(self.message.all_sections()))
-    }
-
     /// Returns an iterator over the records returned during the query.
     ///
     /// It may include additional record types beyond the queried type, e.g. CNAME.
@@ -131,16 +119,6 @@ impl Lookup {
     /// (ANSWER, AUTHORITY, ADDITIONAL).
     pub fn record_iter(&self) -> Box<dyn Iterator<Item = &Record> + '_> {
         Box::new(self.message.all_sections())
-    }
-
-    /// Returns a borrowed iterator of the returned records wrapped in a dnssec Proven type
-    ///
-    ///
-    /// For backwards compatibility, this returns records from all sections
-    /// (ANSWER, AUTHORITY, ADDITIONAL).
-    #[cfg(feature = "__dnssec")]
-    pub fn dnssec_record_iter(&self) -> DnssecLookupRecordIter<'_> {
-        DnssecLookupRecordIter::new(self.message.all_sections())
     }
 
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
@@ -261,39 +239,6 @@ impl<'a> Iterator for LookupRecordIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
-    }
-}
-
-/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
-#[cfg(feature = "__dnssec")]
-pub struct DnssecIter<'a>(DnssecLookupRecordIter<'a>);
-
-#[cfg(feature = "__dnssec")]
-impl<'a> Iterator for DnssecIter<'a> {
-    type Item = Proven<&'a RData>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|r| r.map(Record::data))
-    }
-}
-
-/// An iterator over record data with all data wrapped in a Proven type for dnssec validation
-#[cfg(feature = "__dnssec")]
-pub struct DnssecLookupRecordIter<'a>(Box<dyn Iterator<Item = &'a Record> + 'a>);
-
-#[cfg(feature = "__dnssec")]
-impl<'a> DnssecLookupRecordIter<'a> {
-    fn new(iter: impl Iterator<Item = &'a Record> + 'a) -> Self {
-        Self(Box::new(iter))
-    }
-}
-
-#[cfg(feature = "__dnssec")]
-impl<'a> Iterator for DnssecLookupRecordIter<'a> {
-    type Item = Proven<&'a Record>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Proven::from)
     }
 }
 
@@ -489,7 +434,7 @@ mod tests {
             valid_until: Instant::now(),
         };
 
-        let mut lookup = lookup.dnssec_iter();
+        let mut lookup = lookup.message().dnssec_answers();
 
         assert_eq!(
             *lookup.next().unwrap().require(Proof::Secure).unwrap(),
