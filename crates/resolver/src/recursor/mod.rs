@@ -84,7 +84,8 @@ impl<P: ConnectionProvider> Recursor<P> {
         root_dir: Option<&Path>,
         conn_provider: P,
     ) -> Result<Self, RecursorError> {
-        let dnssec_policy = config.dnssec_policy.load().map_err(|e| e.to_string())?;
+        let dnssec_policy =
+            DnssecPolicy::from_config(&config.dnssec_policy).map_err(|e| e.to_string())?;
 
         #[allow(unused_mut, unused_assignments)]
         let mut encrypted_transport_state = None;
@@ -711,33 +712,6 @@ pub enum DnssecPolicyConfig {
 }
 
 #[cfg(feature = "serde")]
-impl DnssecPolicyConfig {
-    pub(crate) fn load(&self) -> Result<DnssecPolicy, ParseError> {
-        Ok(match self {
-            Self::SecurityUnaware => DnssecPolicy::SecurityUnaware,
-            #[cfg(feature = "__dnssec")]
-            Self::ValidationDisabled => DnssecPolicy::ValidationDisabled,
-            #[cfg(feature = "__dnssec")]
-            Self::ValidateWithStaticKey {
-                path,
-                nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit,
-                validation_cache_size,
-            } => DnssecPolicy::ValidateWithStaticKey(DnssecConfig {
-                trust_anchor: path
-                    .as_ref()
-                    .map(|path| TrustAnchors::from_file(path))
-                    .transpose()?
-                    .map(Arc::new),
-                nsec3_soft_iteration_limit: *nsec3_soft_iteration_limit,
-                nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
-                validation_cache_size: *validation_cache_size,
-            }),
-        })
-    }
-}
-
-#[cfg(feature = "serde")]
 fn default_ns_cache_size() -> usize {
     1_024
 }
@@ -783,6 +757,31 @@ pub enum DnssecPolicy {
 }
 
 impl DnssecPolicy {
+    #[cfg(feature = "serde")]
+    fn from_config(config: &DnssecPolicyConfig) -> Result<Self, ParseError> {
+        Ok(match config {
+            DnssecPolicyConfig::SecurityUnaware => Self::SecurityUnaware,
+            #[cfg(feature = "__dnssec")]
+            DnssecPolicyConfig::ValidationDisabled => Self::ValidationDisabled,
+            #[cfg(feature = "__dnssec")]
+            DnssecPolicyConfig::ValidateWithStaticKey {
+                path,
+                nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit,
+                validation_cache_size,
+            } => Self::ValidateWithStaticKey(DnssecConfig {
+                trust_anchor: path
+                    .as_ref()
+                    .map(|path| TrustAnchors::from_file(path))
+                    .transpose()?
+                    .map(Arc::new),
+                nsec3_soft_iteration_limit: *nsec3_soft_iteration_limit,
+                nsec3_hard_iteration_limit: *nsec3_hard_iteration_limit,
+                validation_cache_size: *validation_cache_size,
+            }),
+        })
+    }
+
     pub(crate) fn is_security_aware(&self) -> bool {
         !matches!(self, Self::SecurityUnaware)
     }
