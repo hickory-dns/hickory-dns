@@ -18,10 +18,6 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 
-[lib]
-name = "hickory_integration"
-path = "src/lib.rs"
-
 [features]
 dnssec-aws-lc-rs = [
     "hickory-resolver/dnssec-aws-lc-rs",

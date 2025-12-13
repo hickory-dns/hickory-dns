@@ -72,10 +72,6 @@ wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
 access-control  = ["std", "dep:prefix-trie"]
 
-[lib]
-name = "hickory_proto"
-path = "src/lib.rs"
-
 [dependencies]
 async-trait.workspace = true
 aws-lc-rs = { workspace = true, optional = true }
