@@ -13,15 +13,33 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(all(
+    feature = "toml",
+    feature = "serde",
+    any(feature = "__tls", feature = "__quic")
+))]
+use std::{fs, io};
 
-use hickory_proto::access_control::{AccessControlSet, AccessControlSetBuilder};
 use ipnet::IpNet;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(all(
+    feature = "toml",
+    feature = "serde",
+    any(feature = "__tls", feature = "__quic")
+))]
+use tracing::{debug, info};
 
+#[cfg(all(
+    feature = "toml",
+    feature = "serde",
+    any(feature = "__tls", feature = "__quic")
+))]
+use crate::name_server_pool::NameServerTransportState;
 #[cfg(any(feature = "__https", feature = "__h3"))]
 use crate::net::http::DEFAULT_DNS_QUERY_PATH;
 use crate::net::xfer::Protocol;
+use crate::proto::access_control::{AccessControlSet, AccessControlSetBuilder};
 use crate::proto::rr::Name;
 
 /// Configuration for the upstream nameservers to use for resolution
@@ -728,6 +746,54 @@ pub enum OpportunisticEncryption {
 }
 
 impl OpportunisticEncryption {
+    #[cfg(all(
+        feature = "toml",
+        feature = "serde",
+        any(feature = "__tls", feature = "__quic")
+    ))]
+    pub(super) fn persisted_state(&self) -> Result<Option<NameServerTransportState>, String> {
+        let OpportunisticEncryption::Enabled {
+            config:
+                OpportunisticEncryptionConfig {
+                    persistence: Some(OpportunisticEncryptionPersistence { path, .. }),
+                    ..
+                },
+        } = self
+        else {
+            return Ok(None);
+        };
+
+        let state = match fs::read_to_string(path) {
+            Ok(toml_content) => toml::from_str(&toml_content).map_err(|e| {
+                format!(
+                    "failed to parse opportunistic encryption state TOML file: {file_path}: {e}",
+                    file_path = path.display()
+                )
+            })?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                info!(
+                    state_file = %path.display(),
+                    "no pre-existing opportunistic encryption state TOML file, starting with default state",
+                );
+                NameServerTransportState::default()
+            }
+            Err(e) => {
+                return Err(format!(
+                    "failed to read opportunistic encryption state TOML file: {file_path}: {e}",
+                    file_path = path.display()
+                ));
+            }
+        };
+
+        debug!(
+            path = %path.display(),
+            nameserver_count = state.nameserver_count(),
+            "loaded opportunistic encryption state"
+        );
+
+        Ok(Some(state))
+    }
+
     /// Returns true if opportunistic encryption is enabled.
     pub fn is_enabled(&self) -> bool {
         match self {

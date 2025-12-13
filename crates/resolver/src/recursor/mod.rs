@@ -94,9 +94,7 @@ impl<P: ConnectionProvider> Recursor<P> {
             // Before building the recursor, potentially load some pre-existing opportunistic encrypted
             // nameserver state to configure on the builder.
             encrypted_transport_state =
-                opportunistic_encryption_persistence::configure_opp_enc_state(
-                    &config.options.opportunistic_encryption,
-                )?;
+                config.options.opportunistic_encryption.persisted_state()?;
         }
 
         let path = match root_dir {
@@ -520,61 +518,6 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                 .insert(query.clone(), Ok(message.clone()), request_time);
             Ok(message.maybe_strip_dnssec_records(query_has_dnssec_ok))
         }
-    }
-}
-
-#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
-mod opportunistic_encryption_persistence {
-    use std::io;
-
-    use tracing::{debug, info};
-
-    use super::*;
-    use crate::config::{OpportunisticEncryptionConfig, OpportunisticEncryptionPersistence};
-
-    pub(super) fn configure_opp_enc_state(
-        config: &OpportunisticEncryption,
-    ) -> Result<Option<NameServerTransportState>, String> {
-        let OpportunisticEncryption::Enabled {
-            config:
-                OpportunisticEncryptionConfig {
-                    persistence: Some(OpportunisticEncryptionPersistence { path, .. }),
-                    ..
-                },
-        } = config
-        else {
-            return Ok(None);
-        };
-
-        let state = match fs::read_to_string(path) {
-            Ok(toml_content) => toml::from_str(&toml_content).map_err(|e| {
-                format!(
-                    "failed to parse opportunistic encryption state TOML file: {file_path}: {e}",
-                    file_path = path.display()
-                )
-            })?,
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                info!(
-                    state_file = %path.display(),
-                    "no pre-existing opportunistic encryption state TOML file, starting with default state",
-                );
-                NameServerTransportState::default()
-            }
-            Err(e) => {
-                return Err(format!(
-                    "failed to read opportunistic encryption state TOML file: {file_path}: {e}",
-                    file_path = path.display()
-                ));
-            }
-        };
-
-        debug!(
-            path = %path.display(),
-            nameserver_count = state.nameserver_count(),
-            "loaded opportunistic encryption state"
-        );
-
-        Ok(Some(state))
     }
 }
 
