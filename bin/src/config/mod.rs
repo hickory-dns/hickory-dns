@@ -60,7 +60,7 @@ use hickory_server::{
     zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
 };
 
-#[cfg(all(test, any(feature = "resolver", feature = "recursor")))]
+#[cfg(test)]
 mod tests;
 
 /// Server configuration
