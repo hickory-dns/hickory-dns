@@ -13,7 +13,7 @@ use crate::proto::{
     rr::{Record, RecordSet, RecordType, RrsetRecords},
 };
 #[cfg(feature = "resolver")]
-use crate::resolver::lookup::{Lookup, LookupRecordIter};
+use crate::resolver::lookup::Lookup;
 use crate::zone_handler::LookupOptions;
 
 /// The result of a lookup on a ZoneHandler
@@ -123,7 +123,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
             // TODO: what about the additionals? is IntoIterator a bad idea?
             AuthLookup::Records { answers: r, .. } => AuthLookupIter::Records(r.into_iter()),
             #[cfg(feature = "resolver")]
-            AuthLookup::Resolved(lookup) => AuthLookupIter::Resolved(lookup.record_iter()),
+            AuthLookup::Resolved(lookup) => AuthLookupIter::Response(lookup.answers().iter()),
             AuthLookup::Response(message) => AuthLookupIter::Response(message.answers().iter()),
         }
     }
@@ -137,9 +137,6 @@ pub enum AuthLookupIter<'r> {
     Empty,
     /// An iteration over a set of Records
     Records(LookupRecordsIter<'r>),
-    /// An iteration over resolved records
-    #[cfg(feature = "resolver")]
-    Resolved(LookupRecordIter<'r>),
     /// An iterator over the answer section of a response message
     Response(Iter<'r, Record>),
 }
@@ -151,8 +148,6 @@ impl<'r> Iterator for AuthLookupIter<'r> {
         match self {
             AuthLookupIter::Empty => None,
             AuthLookupIter::Records(i) => i.next(),
-            #[cfg(feature = "resolver")]
-            AuthLookupIter::Resolved(i) => i.next(),
             AuthLookupIter::Response(i) => i.next(),
         }
     }

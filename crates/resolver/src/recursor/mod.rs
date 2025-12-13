@@ -29,7 +29,7 @@ use tracing::warn;
 use crate::proto::runtime::TokioRuntimeProvider;
 #[cfg(feature = "serde")]
 use crate::proto::{
-    rr::{RData, RecordSet},
+    rr::{RData, Record, RecordSet},
     serialize::txt::{ParseError, Parser},
 };
 use crate::{
@@ -38,7 +38,7 @@ use crate::{
     proto::{
         access_control::{AccessControlSet, AccessControlSetBuilder},
         op::{Message, Query},
-        rr::{Name, Record},
+        rr::Name,
     },
 };
 #[cfg(feature = "__dnssec")]
@@ -439,11 +439,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             // if the cached response is a referral, or if any record is indeterminate, fall
             // through and perform DNSSEC validation
             if response.authoritative() && none_indeterminate {
-                return Ok(maybe_strip_dnssec_records(
-                    query_has_dnssec_ok,
-                    response,
-                    query,
-                ));
+                return Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok));
             }
         }
 
@@ -497,11 +493,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             let message = response.into_message();
             self.validated_response_cache
                 .insert(query.clone(), Ok(message.clone()), request_time);
-            Ok(maybe_strip_dnssec_records(
-                query_has_dnssec_ok,
-                message,
-                query,
-            ))
+            Ok(message.maybe_strip_dnssec_records(query_has_dnssec_ok))
         }
     }
 }
@@ -986,28 +978,6 @@ pub struct DnssecConfig {
     /// Validation cache size.  Controls how many DNSSEC validations are cached for future
     /// use.
     pub validation_cache_size: Option<usize>,
-}
-
-// as per section 3.2.1 of RFC4035
-fn maybe_strip_dnssec_records(
-    query_has_dnssec_ok: bool,
-    mut response: Message,
-    query: Query,
-) -> Message {
-    if query_has_dnssec_ok {
-        return response;
-    }
-
-    let predicate = |record: &Record| {
-        let record_type = record.record_type();
-        record_type == query.query_type() || !record_type.is_dnssec()
-    };
-
-    response.answers_mut().retain(predicate);
-    response.authorities_mut().retain(predicate);
-    response.additionals_mut().retain(predicate);
-
-    response
 }
 
 /// Bailiwick/sub zone checking.

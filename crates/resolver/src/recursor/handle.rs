@@ -164,11 +164,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     )
                     .await?;
 
-                return Ok(super::maybe_strip_dnssec_records(
-                    query_has_dnssec_ok,
-                    response,
-                    query,
-                ));
+                return Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok));
             }
         }
 
@@ -252,11 +248,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
         // explicitly requested
-        Ok(super::maybe_strip_dnssec_records(
-            query_has_dnssec_ok,
-            response,
-            query,
-        ))
+        Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok))
     }
 
     pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
