@@ -113,7 +113,11 @@ pub struct Config {
     #[serde(default)]
     pub(crate) disable_prometheus: bool,
     /// Timeout associated to a request before it is closed.
-    tcp_request_timeout: Option<u64>,
+    #[serde(
+        deserialize_with = "parse_request_timeout",
+        default = "default_request_timeout"
+    )]
+    pub(crate) tcp_request_timeout: Duration,
     /// Whether to respect the SSLKEYLOGFILE environment variable.
     ///
     /// This should only be enabled WITH CARE! When enabled, and the SSLKEYLOGFILE environment
@@ -181,14 +185,6 @@ impl Config {
     pub fn prometheus_listen_addr(&self) -> SocketAddr {
         self.prometheus_listen_addr
             .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
-    }
-
-    /// default timeout for all TCP connections before forcibly shutdown
-    pub fn tcp_request_timeout(&self) -> Duration {
-        Duration::from_secs(
-            self.tcp_request_timeout
-                .unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT),
-        )
     }
 
     /// the path for all zone configurations, defaults to `/var/named`
@@ -692,6 +688,14 @@ pub enum ConfigError {
     ZoneParse(#[from] ParseError),
 }
 
+fn parse_request_timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
+    Ok(Duration::from_secs(u64::deserialize(deserializer)?))
+}
+
+fn default_request_timeout() -> Duration {
+    Duration::from_secs(5)
+}
+
 fn default_port() -> u16 {
     53
 }
@@ -707,4 +711,3 @@ fn default_https_port() -> u16 {
 }
 
 const DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
-const DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
