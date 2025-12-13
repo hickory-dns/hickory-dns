@@ -60,14 +60,6 @@ use hickory_server::{
     zone_handler::{AxfrPolicy, ZoneHandler, ZoneType},
 };
 
-static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
-static DEFAULT_PORT: u16 = 53;
-static DEFAULT_TLS_PORT: u16 = 853;
-static DEFAULT_HTTPS_PORT: u16 = 443;
-static DEFAULT_QUIC_PORT: u16 = 853; // https://www.rfc-editor.org/rfc/rfc9250.html#name-reservation-of-a-dedicated-
-static DEFAULT_H3_PORT: u16 = 443;
-static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
-
 /// Server configuration
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -750,6 +742,14 @@ pub enum ConfigError {
     #[error("failed to parse the zone file: {0}")]
     ZoneParse(#[from] ParseError),
 }
+
+static DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
+static DEFAULT_PORT: u16 = 53;
+static DEFAULT_TLS_PORT: u16 = 853;
+static DEFAULT_HTTPS_PORT: u16 = 443;
+static DEFAULT_QUIC_PORT: u16 = 853; // https://www.rfc-editor.org/rfc/rfc9250.html#name-reservation-of-a-dedicated-
+static DEFAULT_H3_PORT: u16 = 443;
+static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
 #[cfg(all(test, any(feature = "resolver", feature = "recursor")))]
 mod tests {
