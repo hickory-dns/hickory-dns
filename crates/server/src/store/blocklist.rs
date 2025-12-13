@@ -82,7 +82,7 @@ impl BlocklistZoneHandler {
     /// Read the ZoneHandler for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
-        config: &BlocklistConfig,
+        config: BlocklistConfig,
         base_dir: Option<&Path>,
     ) -> Result<Self, String> {
         info!("loading blocklist config: {origin}");
@@ -95,7 +95,7 @@ impl BlocklistZoneHandler {
             sinkhole_ipv4: config.sinkhole_ipv4.unwrap_or(Ipv4Addr::UNSPECIFIED),
             sinkhole_ipv6: config.sinkhole_ipv6.unwrap_or(Ipv6Addr::UNSPECIFIED),
             ttl: config.ttl,
-            block_message: config.block_message.clone(),
+            block_message: config.block_message,
             consult_action: config.consult_action,
             log_clients: config.log_clients,
             #[cfg(feature = "metrics")]
@@ -190,7 +190,7 @@ impl BlocklistZoneHandler {
     ///
     ///     let mut blocklist = BlocklistZoneHandler::try_from_config(
     ///         Name::root(),
-    ///         &config,
+    ///         config,
     ///         Some(Path::new("../../tests/test-data/test_configs")),
     ///     ).unwrap();
     ///
@@ -652,7 +652,7 @@ mod test {
             log_clients: true,
         };
 
-        let h = handler(&config);
+        let h = handler(config);
         let v4 = A::new(0, 0, 0, 0);
         let v6 = AAAA::new(0, 0, 0, 0, 0, 0, 0, 0);
 
@@ -698,10 +698,10 @@ mod test {
             log_clients: true,
         };
 
-        let h = handler(&config);
+        let msg = config.block_message.clone();
+        let h = handler(config);
         let v4 = A::new(192, 0, 2, 1);
         let v6 = AAAA::new(0, 0, 0, 0, 0xc0, 0, 2, 1);
-        let msg = config.block_message;
 
         use RecordType::{A as Rec_A, AAAA as Rec_AAAA};
         use TestResult::*;
@@ -733,7 +733,7 @@ mod test {
             log_clients: true,
         };
 
-        let h = handler(&config);
+        let h = handler(config);
         let sinkhole_v4 = A::new(192, 0, 2, 1);
 
         // Test: lookup a record that is in the blocklist, but specify an incorrect block message to
@@ -765,9 +765,9 @@ mod test {
             log_clients: true,
         };
 
-        let h = handler(&config);
+        let msg = config.block_message.clone();
+        let h = handler(config);
         let v4 = A::new(192, 0, 2, 1);
-        let msg = config.block_message;
 
         use TestResult::*;
 
@@ -867,7 +867,7 @@ mod test {
         }
     }
 
-    fn handler(config: &BlocklistConfig) -> Arc<dyn ZoneHandler> {
+    fn handler(config: BlocklistConfig) -> Arc<dyn ZoneHandler> {
         let handler = BlocklistZoneHandler::try_from_config(
             Name::root(),
             config,
