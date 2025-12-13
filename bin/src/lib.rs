@@ -311,18 +311,18 @@ impl Cli {
 
         // configure our server based on the config_path
         let zone_dir = zonedir.unwrap_or(directory);
-        for zone in &zones {
+        for zone in zones {
             let zone_name = zone
                 .zone()
                 .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
+
+            #[cfg(feature = "metrics")]
+            config_metrics.increment_zone_metrics(&zone);
 
             match zone.load(&zone_dir).await {
                 Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
                 Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
             }
-
-            #[cfg(feature = "metrics")]
-            config_metrics.increment_zone_metrics(zone);
         }
 
         let mut listen_addrs = listen_addrs_ipv4
