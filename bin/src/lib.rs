@@ -201,13 +201,6 @@ impl Cli {
         let config = Config::read_config(config_path)
             .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
 
-        let directory_config = config.directory().to_path_buf();
-        let zonedir = zonedir.clone();
-        let zone_dir: PathBuf = zonedir
-            .as_ref()
-            .map(PathBuf::from)
-            .unwrap_or(directory_config);
-
         #[cfg(feature = "prometheus-metrics")]
         let prometheus_server_opt = if !disable_prometheus && !config.disable_prometheus {
             let socket_addr = prometheus_listen_addr.unwrap_or_else(|| {
@@ -268,8 +261,13 @@ impl Cli {
             catalog.set_nsid(Some(payload));
         }
 
+        let zone_dir = match zonedir {
+            Some(dir) => dir,
+            None => config.directory,
+        };
+
         // configure our server based on the config_path
-        for zone in config.zones() {
+        for zone in &config.zones {
             let zone_name = zone
                 .zone()
                 .map_err(|err| format!("failed to read zone name from {config_path:?}: {err}"))?;
@@ -686,7 +684,7 @@ impl ConfigMetrics {
         let disable_quic = false;
 
         let hickory_config_info = gauge!("hickory_config_info",
-            "directory" => config.directory().to_string_lossy().to_string(),
+            "directory" => config.directory.to_string_lossy().to_string(),
             "disable_udp" => config.disable_udp.to_string(),
             "disable_tcp" => config.disable_tcp.to_string(),
             "disable_tls" => disable_tls.to_string(),
@@ -694,7 +692,7 @@ impl ConfigMetrics {
             "disable_quic" => disable_quic.to_string(),
             "allow_networks" => config.allow_networks.len().to_string(),
             "deny_networks" => config.deny_networks.len().to_string(),
-            "zones" => config.zones().len().to_string()
+            "zones" => config.zones.len().to_string()
         );
         describe_gauge!(
             "hickory_config_info",

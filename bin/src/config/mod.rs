@@ -129,7 +129,8 @@ pub struct Config {
     #[serde(default)]
     pub(crate) ssl_keylog_enabled: bool,
     /// Base configuration directory, i.e. root path for zones
-    directory: Option<PathBuf>,
+    #[serde(default = "default_directory")]
+    pub(crate) directory: PathBuf,
     /// User to run the server as.
     ///
     /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
@@ -143,7 +144,7 @@ pub struct Config {
     /// List of configurations for zones
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_with_file")]
-    zones: Vec<ZoneConfig>,
+    pub(crate) zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "__tls")]
     pub(crate) tls_cert: Option<TlsCertConfig>,
@@ -169,18 +170,6 @@ impl Config {
     /// Read a [`Config`] from the given TOML string.
     pub fn from_toml(toml: &str) -> Result<Self, ConfigError> {
         Ok(toml::from_str(toml)?)
-    }
-
-    /// the path for all zone configurations, defaults to `/var/named`
-    pub fn directory(&self) -> &Path {
-        self.directory
-            .as_ref()
-            .map_or_else(|| Path::new(DEFAULT_PATH), Path::new)
-    }
-
-    /// the set of zones which should be loaded
-    pub fn zones(&self) -> &[ZoneConfig] {
-        &self.zones
     }
 }
 
@@ -646,6 +635,10 @@ fn default_http_endpoint() -> String {
     DEFAULT_DNS_QUERY_PATH.to_string()
 }
 
+fn default_directory() -> PathBuf {
+    PathBuf::from("/var/named") // TODO what about windows (do I care? ;)
+}
+
 fn default_port() -> u16 {
     53
 }
@@ -659,5 +652,3 @@ fn default_tls_port() -> u16 {
 fn default_https_port() -> u16 {
     443
 }
-
-const DEFAULT_PATH: &str = "/var/named"; // TODO what about windows (do I care? ;)
