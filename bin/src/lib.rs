@@ -291,8 +291,6 @@ impl Cli {
             return Ok(());
         }
 
-        let tcp_request_timeout = config.tcp_request_timeout();
-
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
         let mut server = Server::with_access(
@@ -339,7 +337,7 @@ impl Cli {
                         .map_err(|err| format!("failed to lookup local address: {err}"))?
                 );
 
-                server.register_listener(tcp_listener, tcp_request_timeout);
+                server.register_listener(tcp_listener, config.tcp_request_timeout);
             }
         } else {
             info!("TCP protocol is disabled");
@@ -497,7 +495,7 @@ fn config_tls(
         server
             .register_tls_listener_with_tls_config(
                 tls_listener,
-                config.tcp_request_timeout(),
+                config.tcp_request_timeout,
                 Arc::new(tls_config),
             )
             .map_err(|err| format!("failed to register TLS listener: {err}"))?;
@@ -554,7 +552,7 @@ fn config_https(
         server
             .register_https_listener_with_tls_config(
                 https_listener,
-                config.tcp_request_timeout(),
+                config.tcp_request_timeout,
                 Arc::new(tls_config),
                 tls_cert_config.endpoint_name.clone(),
                 endpoint_path.into(),
@@ -612,7 +610,7 @@ fn config_quic(
         server
             .register_quic_listener_and_tls_config(
                 quic_listener,
-                config.tcp_request_timeout(),
+                config.tcp_request_timeout,
                 Arc::new(tls_config),
                 tls_cert_config.endpoint_name.clone(),
             )
