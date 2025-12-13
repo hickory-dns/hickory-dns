@@ -101,16 +101,6 @@ impl Lookup {
         self.message.additionals()
     }
 
-    /// Returns an iterator over the records returned during the query.
-    ///
-    /// It may include additional record types beyond the queried type, e.g. CNAME.
-    ///
-    /// For backwards compatibility, this returns records from all sections
-    /// (ANSWER, AUTHORITY, ADDITIONAL).
-    pub fn record_iter(&self) -> Box<dyn Iterator<Item = &Record> + '_> {
-        Box::new(self.message.all_sections())
-    }
-
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
     pub fn valid_until(&self) -> Instant {
         self.valid_until
