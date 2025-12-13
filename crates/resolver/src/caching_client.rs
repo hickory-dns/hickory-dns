@@ -381,6 +381,9 @@ where
                     *message.answers_mut() = preserved_records;
                 }
 
+                // Strip DNSSEC records if DO bit is not set.
+                message = message.maybe_strip_dnssec_records(options.edns_set_dnssec_ok);
+
                 return Ok(Records::Exists { message, min_ttl });
             }
 
