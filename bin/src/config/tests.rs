@@ -28,8 +28,8 @@ fn test_read_config() {
     let config = Config::read_config(&path).unwrap();
 
     assert_eq!(config.listen_port, 53);
-    assert_eq!(config.listen_addrs_ipv4(), Ok(Vec::<Ipv4Addr>::new()));
-    assert_eq!(config.listen_addrs_ipv6(), Ok(Vec::<Ipv6Addr>::new()));
+    assert_eq!(config.listen_addrs_ipv4, Vec::<Ipv4Addr>::new());
+    assert_eq!(config.listen_addrs_ipv6, Vec::<Ipv6Addr>::new());
     assert_eq!(config.tcp_request_timeout, Duration::from_secs(5));
     assert_eq!(config.directory(), Path::new("/var/named"));
 
@@ -85,24 +85,21 @@ fn test_parse_toml() {
     assert_eq!(config.listen_port, 2053);
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\"]").unwrap();
-    assert_eq!(config.listen_addrs_ipv4(), Ok(vec![Ipv4Addr::UNSPECIFIED]));
+    assert_eq!(config.listen_addrs_ipv4, vec![Ipv4Addr::UNSPECIFIED]);
 
     let config = Config::from_toml("listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]").unwrap();
     assert_eq!(
-        config.listen_addrs_ipv4(),
-        Ok(vec![Ipv4Addr::UNSPECIFIED, Ipv4Addr::LOCALHOST])
+        config.listen_addrs_ipv4,
+        vec![Ipv4Addr::UNSPECIFIED, Ipv4Addr::LOCALHOST]
     );
 
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\"]").unwrap();
-    assert_eq!(config.listen_addrs_ipv6(), Ok(vec![Ipv6Addr::UNSPECIFIED]));
+    assert_eq!(config.listen_addrs_ipv6, vec![Ipv6Addr::UNSPECIFIED]);
 
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\", \"::1\"]").unwrap();
     assert_eq!(
-        config.listen_addrs_ipv6(),
-        Ok(vec![
-            Ipv6Addr::UNSPECIFIED,
-            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
-        ])
+        config.listen_addrs_ipv6,
+        vec![Ipv6Addr::UNSPECIFIED, Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
     );
 
     let config = Config::from_toml("tcp_request_timeout = 25").unwrap();
@@ -193,7 +190,7 @@ fn test_parse_tls() {
     let config = Config::from_toml("").unwrap();
 
     assert_eq!(config.tls_listen_port, 853);
-    assert_eq!(config.tls_cert(), None);
+    assert_eq!(config.tls_cert, None);
 
     let config = Config::from_toml(
         "tls_cert = { path = \"path/to/some.pkcs12\", endpoint_name = \"ns.example.com\", private_key = \"foo.pem\" }
@@ -204,7 +201,7 @@ tls_listen_port = 8853
 
     assert_eq!(config.tls_listen_port, 8853);
     assert_eq!(
-        config.tls_cert().unwrap().path,
+        config.tls_cert.unwrap().path,
         Path::new("path/to/some.pkcs12")
     );
 }

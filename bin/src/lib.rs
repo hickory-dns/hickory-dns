@@ -267,17 +267,12 @@ impl Cli {
             config_metrics.increment_zone_metrics(zone);
         }
 
-        let v4addr = config
-            .listen_addrs_ipv4()
-            .map_err(|err| format!("failed to parse IPv4 addresses from {config_path:?}: {err}"))?;
-        let v6addr = config
-            .listen_addrs_ipv6()
-            .map_err(|err| format!("failed to parse IPv6 addresses from {config_path:?}: {err}"))?;
-        let mut listen_addrs: Vec<IpAddr> = v4addr
+        let mut listen_addrs = config
+            .listen_addrs_ipv4
             .into_iter()
             .map(IpAddr::V4)
-            .chain(v6addr.into_iter().map(IpAddr::V6))
-            .collect();
+            .chain(config.listen_addrs_ipv6.into_iter().map(IpAddr::V6))
+            .collect::<Vec<_>>();
 
         let listen_port = port.unwrap_or_else(|| config.listen_port);
 
@@ -293,11 +288,7 @@ impl Cli {
 
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-        let mut server = Server::with_access(
-            catalog,
-            config.deny_networks().iter().copied(),
-            config.allow_networks().iter().copied(),
-        );
+        let mut server = Server::with_access(catalog, config.deny_networks, config.allow_networks);
 
         if !disable_udp && !config.disable_udp {
             // load all udp listeners
@@ -344,7 +335,7 @@ impl Cli {
         }
 
         #[cfg(feature = "__tls")]
-        if let Some(tls_cert_config) = config.tls_cert() {
+        if let Some(tls_cert_config) = &config.tls_cert {
             #[cfg(feature = "__tls")]
             if !disable_tls && !config.disable_tls {
                 // setup TLS listeners
@@ -671,8 +662,8 @@ impl ConfigMetrics {
             "disable_tcp" => config.disable_tcp.to_string(),
             "disable_tls" => config.disable_tls.to_string(),
             "disable_udp" => config.disable_udp.to_string(),
-            "allow_networks" => config.allow_networks().len().to_string(),
-            "deny_networks" => config.deny_networks().len().to_string(),
+            "allow_networks" => config.allow_networks.len().to_string(),
+            "deny_networks" => config.deny_networks.len().to_string(),
             "zones" => config.zones().len().to_string()
         );
         describe_gauge!(
