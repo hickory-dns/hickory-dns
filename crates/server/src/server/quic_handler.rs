@@ -32,25 +32,16 @@ use crate::{
 pub(super) async fn handle_quic(
     socket: net::UdpSocket,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?socket, "registered quic");
-    handle_quic_with_server(
-        QuicServer::with_socket(socket, server_cert_resolver)?,
-        dns_hostname,
-        cx,
-    )
-    .await
+    handle_quic_with_server(QuicServer::with_socket(socket, server_cert_resolver)?, cx).await
 }
 
 pub(super) async fn handle_quic_with_server(
     mut server: QuicServer,
-    dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    let dns_hostname = dns_hostname.map(|n| n.into());
-
     let mut inner_join_set = JoinSet::new();
     loop {
         let shutdown = cx.shutdown.clone();
@@ -80,12 +71,11 @@ pub(super) async fn handle_quic_with_server(
         }
 
         let cx = cx.clone();
-        let dns_hostname = dns_hostname.clone();
         inner_join_set.spawn(async move {
             debug!("starting quic stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...
-            let result = quic_handler(streams, src_addr, dns_hostname, cx).await;
+            let result = quic_handler(streams, src_addr, cx).await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "quic stream processing failed")
@@ -101,7 +91,6 @@ pub(super) async fn handle_quic_with_server(
 pub(crate) async fn quic_handler(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
-    _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     // TODO: we should make this configurable
