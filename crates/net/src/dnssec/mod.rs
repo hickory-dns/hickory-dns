@@ -16,7 +16,7 @@ use core::{
     time::Duration,
 };
 use std::{
-    collections::{HashMap, HashSet, hash_map::DefaultHasher},
+    collections::{HashMap, hash_map::DefaultHasher},
     sync::Arc,
     time::Instant,
 };
@@ -207,19 +207,24 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // group the record sets by name and type
         //  each rrset type needs to validated independently
-        let answers = message.take_answers();
-        let authorities = message.take_authorities();
-        let additionals = message.take_additionals();
+        let mut answer_rrs = RecordSet::from_records(message.take_answers());
+        let mut authority_rrs = RecordSet::from_records(message.take_authorities());
+        let mut additional_rrs = RecordSet::from_records(message.take_additionals());
 
-        let answers = self
-            .verify_rrsets(&query, answers, options, current_time)
+        answer_rrs = self
+            .verify_rrsets(&query, answer_rrs, options, current_time)
             .await;
-        let authorities = self
-            .verify_rrsets(&query, authorities, options, current_time)
+        authority_rrs = self
+            .verify_rrsets(&query, authority_rrs, options, current_time)
             .await;
-        let additionals = self
-            .verify_rrsets(&query, additionals, options, current_time)
+        additional_rrs = self
+            .verify_rrsets(&query, additional_rrs, options, current_time)
             .await;
+
+        // Temporary code to set per-record proofs
+        let answers = rrset_to_record_proof(answer_rrs);
+        let authorities = rrset_to_record_proof(authority_rrs);
+        let additionals = rrset_to_record_proof(additional_rrs);
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
@@ -366,61 +371,30 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_rrsets(
         &self,
         query: &Query,
-        records: Vec<Record>,
+        mut rrsets: Vec<RecordSet>,
         options: DnsRequestOptions,
         current_time: u32,
-    ) -> Vec<Record> {
-        let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
-
-        for rrset in records
-            .iter()
-            .filter(|rr| {
-                rr.record_type() != RecordType::RRSIG &&
-                // if we are at a depth greater than 1, we are only interested in proving evaluation chains
-                //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
-                //   this protects against looping over things like NS records and DNSKEYs in responses.
-                // TODO: is there a cleaner way to prevent cycles in the evaluations?
-                (self.request_depth <= 1 || matches!(
-                    rr.record_type(),
+    ) -> Vec<RecordSet> {
+        for rrset in &mut rrsets {
+            let name = rrset.name();
+            let record_type = rrset.record_type();
+            // if we are at a depth greater than 1, we are only interested in proving evaluation chains
+            //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
+            //   this protects against looping over things like NS records and DNSKEYs in responses.
+            if self.request_depth > 1
+                && !matches!(
+                    rrset.record_type(),
                     RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
-                ))
-            })
-            .map(|rr| (rr.name().clone(), rr.record_type()))
-        {
-            rrset_types.insert(rrset);
-        }
-
-        // there were no records to verify
-        if rrset_types.is_empty() {
-            return records;
-        }
-
-        // Records for return, eventually, all records will be returned in here
-        let mut return_records = Vec::with_capacity(records.len());
-
-        // Removing the RRSIGs from the original records, the rest of the records will be mutable to remove those evaluated
-        //    and the remainder after all evalutions will be returned.
-        let (mut rrsigs, mut records) = records
-            .into_iter()
-            .partition::<Vec<_>, _>(|r| r.record_type().is_rrsig());
-
-        for (name, record_type) in rrset_types {
-            // collect all the rrsets to verify
-            let current_rrset;
-            (current_rrset, records) = records
-                .into_iter()
-                .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name() == &name);
-
-            let current_rrsigs;
-            (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
-                rr.try_borrow::<RRSIG>()
-                    .map(|rr| rr.name() == &name && rr.data().input().type_covered == record_type)
-                    .unwrap_or_default()
-            });
-
-            let mut rrset = RecordSet::new(name.clone(), record_type, 0);
-            rrset.set_records(current_rrset);
-            rrset.set_rrsigs(current_rrsigs);
+                )
+            {
+                debug!(
+                    depth = self.request_depth,
+                    ?name,
+                    ?record_type,
+                    "skipping rrset validation: non-DNSSEC record type present at depth > 1",
+                );
+                continue;
+            }
 
             debug!(
                 %name,
@@ -431,7 +405,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
             let context = RrsetVerificationContext {
                 query,
-                rrset: &rrset,
+                rrset,
                 options,
                 current_time,
             };
@@ -482,57 +456,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     RrsetProof {
                         proof: err.proof,
                         adjusted_ttl: None,
-                        rrsig_index: None,
+                        rrsig: None,
                     }
                 }
             };
 
-            let RrsetProof {
-                proof,
-                adjusted_ttl,
-                rrsig_index: rrsig_idx,
-            } = proof;
-
-            let RecordSetParts {
-                records: current_rrset,
-                rrsigs: current_rrsigs,
-                ..
-            } = rrset.into_parts();
-
-            for mut record in current_rrset {
-                record.set_proof(proof);
-                if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                    record.set_ttl(ttl);
-                }
-
-                return_records.push(record);
-            }
-
-            // only mark the RRSIG used for the proof
-            let mut current_rrsigs = current_rrsigs;
-            if let Some(rrsig_idx) = rrsig_idx {
-                if let Some(rrsig) = current_rrsigs.get_mut(rrsig_idx) {
-                    rrsig.set_proof(proof);
-                    if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                        rrsig.set_ttl(ttl);
-                    }
-                } else {
-                    warn!(
-                        rrsig_idx,
-                        rrsigs_len = current_rrsigs.len(),
-                        "no rrsig at index",
-                    );
-                }
-            }
-
-            // push all the RRSIGs back to the return
-            return_records.extend(current_rrsigs);
+            rrset.set_proof(proof);
         }
 
-        // Add back all the RRSIGs and any records that were not verified
-        return_records.extend(rrsigs);
-        return_records.extend(records);
-        return_records
+        rrsets
     }
 
     /// DNSKEY-specific verification
@@ -545,7 +477,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///
     /// # Return
     ///
-    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and an index of the RRSIG used for
+    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and a copy of the RRSIG used for
     /// validation of the rrset.
     ///
     /// # Panics
@@ -574,8 +506,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             "validating rrset with dnskeys",
         );
 
-        let mut dnskey_proofs =
-            Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records_count());
+        let mut dnskey_proofs = Vec::<(Proof, Option<u32>, Option<Record<RRSIG>>)>::with_capacity(
+            rrset.records_count(),
+        );
         dnskey_proofs.resize(rrset.records_count(), (Proof::Bogus, None, None));
 
         // check if the DNSKEYs are in the root store
@@ -638,7 +571,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // There may have been a key-signing key for the zone,
         //   we need to verify all the other DNSKEYS in the zone against it (i.e. the rrset)
-        for (i, rrsig) in rrset.rrsigs().iter().enumerate() {
+        for rrsig in rrset.rrsigs().iter() {
             // These should all match, but double checking...
             let Some(rrsig) = rrsig.try_borrow::<RRSIG>() else {
                 continue;
@@ -663,7 +596,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 return Ok(RrsetProof {
                     proof: rrset_proof.0,
                     adjusted_ttl: rrset_proof.1,
-                    rrsig_index: Some(i),
+                    rrsig: Some(rrsig.to_owned()),
                 });
             }
         }
@@ -674,7 +607,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             return Ok(RrsetProof {
                 proof: proof.0,
                 adjusted_ttl: proof.1,
-                rrsig_index: proof.2,
+                rrsig: proof.2,
             });
         }
 
@@ -861,8 +794,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///
     /// # Returns
     ///
-    /// On Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
-    ///   the Rrset
+    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and a copy of the RRSIG used for
+    /// validation of the rrset.
     ///
     /// # Panics
     ///
@@ -964,7 +897,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                                         .map(|(proof, adjusted_ttl)| RrsetProof {
                                             proof,
                                             adjusted_ttl,
-                                            rrsig_index: Some(i),
+                                            rrsig: Some(rrsig.to_owned()),
                                         }),
                                 )
                             }
@@ -1352,6 +1285,42 @@ fn verify_rrset_with_dnskey(
                 },
             )
         })
+}
+
+// This is a temporary function to bridge the gap between storing proofs per-Record vs per-RecordSet.  It
+// iterates over a RecordSet and marks individual records with the appropriate proof from the RecordSet,
+// including the RRSIG, if any, that was used to validate the RecordSet.
+fn rrset_to_record_proof(rrsets: Vec<RecordSet>) -> Vec<Record> {
+    let mut return_records = vec![];
+
+    for rr in rrsets {
+        let RecordSetParts {
+            mut records,
+            mut rrsigs,
+            proof,
+            ..
+        } = rr.into_parts();
+        for record in &mut records {
+            record.set_proof(proof.proof);
+            if let Some(adjusted_ttl) = &proof.adjusted_ttl {
+                record.set_ttl(*adjusted_ttl);
+            }
+            return_records.push(record.clone());
+        }
+        for rrsig in &mut rrsigs {
+            if let Some(proven_rrsig) = &proof.rrsig {
+                if *proven_rrsig == rrsig.try_borrow::<RRSIG>().unwrap().to_owned() {
+                    rrsig.set_proof(proof.proof);
+                    if let Some(adjusted_ttl) = &proof.adjusted_ttl {
+                        rrsig.set_ttl(*adjusted_ttl);
+                    }
+                    return_records.push(rrsig.clone());
+                }
+            }
+        }
+    }
+
+    return_records
 }
 
 #[derive(Clone, Copy, Debug)]

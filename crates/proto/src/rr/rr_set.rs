@@ -8,11 +8,12 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use core::{iter::Chain, slice::Iter};
+use std::collections::HashSet;
 
 use tracing::{info, warn};
 
 #[cfg(feature = "__dnssec")]
-use crate::dnssec::Proof;
+use crate::dnssec::{Proof, rdata::RRSIG};
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
 /// Set of resource records associated to a name and type
@@ -56,6 +57,61 @@ impl RecordSet {
             #[cfg(feature = "__dnssec")]
             proof: RrsetProof::default(),
         }
+    }
+
+    /// Create a new Resource Record Set from a Vec of Records for each (Name, RecordType) pair in the Record Vec.  Each
+    /// RecordSet in the Vec will have a copy of all RRs for that Name, RecordType, along with matching RRSIGs, if present.
+    ///
+    /// # Arguments
+    ///
+    /// * `records`: The input records, typically taken from a section of a `Message`.
+    ///
+    /// # Return value
+    ///
+    /// The newly created Vec of RecordSets
+    pub fn from_records(records: Vec<Record>) -> Vec<Self> {
+        let rrs = records
+            .iter()
+            .filter_map(|rr| {
+                if rr.record_type() != RecordType::RRSIG {
+                    Some((rr.name(), rr.record_type()))
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<(&Name, RecordType)>>();
+
+        let mut rrsets = vec![];
+        for (name, record_type) in rrs {
+            let mut rrset = Self::new(name.clone(), record_type, 0);
+            rrset.set_records(
+                records
+                    .iter()
+                    .filter_map(|rr| {
+                        if rr.name() == name && rr.record_type() == record_type {
+                            Some(rr.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            rrset.set_rrsigs(
+                records
+                    .iter()
+                    .filter_map(|rr| {
+                        if rr.name() == name && rr.record_type() == RecordType::RRSIG {
+                            Some(rr.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            rrsets.push(rrset);
+        }
+
+        rrsets
     }
 
     /// Creates a new Resource Record Set.
@@ -150,6 +206,16 @@ impl RecordSet {
     /// * `rrsigs` - `self.rrsigs` will be replaced with this value
     pub fn set_rrsigs(&mut self, rrsigs: Vec<Record>) {
         self.rrsigs = rrsigs;
+    }
+
+    /// Set the DNSSEC proof of the RecordSet
+    ///
+    /// # Arguments
+    ///
+    /// * `proof` - An RrsetProof that represents the proof for this RecordSet
+    #[cfg(feature = "__dnssec")]
+    pub fn set_proof(&mut self, proof: RrsetProof) {
+        self.proof = proof;
     }
 
     /// return the first record of the RecordSet
@@ -580,8 +646,8 @@ pub struct RrsetProof {
     pub proof: Proof,
     /// The DNSSEC adjusted ttl for the RecordSet, if any.
     pub adjusted_ttl: Option<u32>,
-    /// An index to the RRSIG that was used to validate the RecordSet, if any.
-    pub rrsig_index: Option<usize>,
+    /// A copy of the RRSIG that was used to validate the RecordSet proof, if any.
+    pub rrsig: Option<Record<RRSIG>>,
 }
 
 #[cfg(feature = "__dnssec")]
@@ -590,7 +656,7 @@ impl Default for RrsetProof {
         Self {
             proof: Proof::Indeterminate,
             adjusted_ttl: None,
-            rrsig_index: None,
+            rrsig: None,
         }
     }
 }
