@@ -518,11 +518,11 @@ fn config_tls(
     }
 
     for addr in listen_addrs {
-        let tls_cert_path = &tls_cert_config.path;
-        info!("loading cert for DNS over TLS: {tls_cert_path:?}");
-
-        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
-            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        let tls_cert = tls_cert_config.load("TLS", zone_dir).map_err(|err| {
+            format!(
+                "failed to load tls certificate files from {:?}: {err}",
+                tls_cert_config.path
+            )
         })?;
 
         info!("binding TLS to {addr:?}");
@@ -573,14 +573,11 @@ fn config_https(
     }
 
     for addr in listen_addrs {
-        let tls_cert_path = &tls_cert_config.path;
-        if let Some(endpoint_name) = &tls_cert_config.endpoint_name {
-            info!("loading cert for DNS over TLS named {endpoint_name} from {tls_cert_path:?}");
-        } else {
-            info!("loading cert for DNS over TLS from {tls_cert_path:?}");
-        }
-        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
-            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        let tls_cert = tls_cert_config.load("HTTPS", zone_dir).map_err(|err| {
+            format!(
+                "failed to load tls certificate files from {:?}: {err}",
+                &tls_cert_config.path
+            )
         })?;
 
         info!("binding HTTPS to {addr:?}");
@@ -632,14 +629,11 @@ fn config_quic(
     }
 
     for addr in listen_addrs {
-        let tls_cert_path = &tls_cert_config.path;
-        if let Some(endpoint_name) = &tls_cert_config.endpoint_name {
-            info!("loading cert for DNS over QUIC named {endpoint_name} from {tls_cert_path:?}");
-        } else {
-            info!("loading cert for DNS over QUIC from {tls_cert_path:?}",);
-        }
-        let tls_cert = tls_cert_config.load(zone_dir).map_err(|err| {
-            format!("failed to load tls certificate files from {tls_cert_path:?}: {err}")
+        let tls_cert = tls_cert_config.load("QUIC", zone_dir).map_err(|err| {
+            format!(
+                "failed to load tls certificate files from {:?}: {err}",
+                tls_cert_config.path
+            )
         })?;
 
         info!("Binding QUIC to {addr:?}");
