@@ -1,11 +1,5 @@
 #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 use std::sync::Arc;
-#[cfg(any(
-    feature = "__tls",
-    feature = "__https",
-    feature = "__quic",
-    feature = "metrics"
-))]
 use std::time::Duration;
 use std::{
     io::Error,
@@ -327,18 +321,6 @@ impl Cli {
             }
         }
 
-        let mut listen_addrs = listen_addrs_ipv4
-            .into_iter()
-            .map(IpAddr::V4)
-            .chain(listen_addrs_ipv6.into_iter().map(IpAddr::V6))
-            .collect::<Vec<_>>();
-
-        let listen_port = port.unwrap_or(listen_port);
-        if listen_addrs.is_empty() {
-            listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-            listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
-        }
-
         if validate {
             info!("configuration files are validated");
             return Ok(());
@@ -348,108 +330,76 @@ impl Cli {
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
         let mut server = Server::with_access(catalog, deny_networks, allow_networks);
 
-        if !disable_udp {
-            // load all udp listeners
-            for addr in &listen_addrs {
-                info!("binding UDP to {addr:?}");
+        let mut listen_addrs = listen_addrs_ipv4
+            .into_iter()
+            .map(IpAddr::V4)
+            .chain(listen_addrs_ipv6.into_iter().map(IpAddr::V6))
+            .collect::<Vec<_>>();
 
-                let udp_socket = build_udp_socket(*addr, listen_port).map_err(|err| {
-                    format!("failed to bind to UDP socket address {addr:?}: {err}")
-                })?;
-
-                info!(
-                    "listening for UDP on {:?}",
-                    udp_socket
-                        .local_addr()
-                        .map_err(|err| format!("failed to lookup local address: {err}"))?
-                );
-
-                server.register_socket(udp_socket);
-            }
-        } else {
-            info!("UDP protocol is disabled");
+        if listen_addrs.is_empty() {
+            listen_addrs.push(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+            listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
         }
 
-        if !disable_tcp {
-            // load all tcp listeners
-            for addr in &listen_addrs {
-                info!("binding TCP to {addr:?}");
+        let mut setup = ServerSetup {
+            listen_addrs,
+            server: &mut server,
+            tcp_request_timeout,
+            #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+            cert_resolver: tls_cert
+                .as_ref()
+                .map(|config| {
+                    config.load(&zone_dir).map_err(|err| {
+                        format!(
+                            "failed to load TLS certificate from {:?}: {err}",
+                            config.path
+                        )
+                    })
+                })
+                .transpose()?,
+            #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+            ssl_keylog_enabled,
+        };
 
-                let tcp_listener = build_tcp_listener(*addr, listen_port).map_err(|err| {
-                    format!("failed to bind to TCP socket address {addr:?}: {err}")
-                })?;
+        let listen_port = port.unwrap_or(listen_port);
+        match disable_udp {
+            true => info!("UDP protocol is disabled"),
+            false => setup.udp(listen_port)?,
+        }
 
-                info!(
-                    "listening for TCP on {:?}",
-                    tcp_listener
-                        .local_addr()
-                        .map_err(|err| format!("failed to lookup local address: {err}"))?
-                );
+        match disable_tcp {
+            true => info!("TCP protocol is disabled"),
+            false => setup.tcp(listen_port)?,
+        }
 
-                server.register_listener(tcp_listener, tcp_request_timeout);
-            }
-        } else {
-            info!("TCP protocol is disabled");
+        #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+        if setup.cert_resolver.is_none() {
+            info!("TLS certificates are not provided");
+            info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled")
         }
 
         #[cfg(feature = "__tls")]
-        if let Some(config) = &tls_cert {
-            let cert_resolver = config.load(&zone_dir).map_err(|err| {
-                format!(
-                    "failed to load tls certificate files from {:?}: {err}",
-                    config.path
-                )
-            })?;
+        match disable_tls {
+            true => info!("TLS protocol is disabled"),
+            false => setup.tls(tls_port.unwrap_or(tls_listen_port))?,
+        }
 
-            #[cfg(feature = "__tls")]
-            if !disable_tls {
-                // setup TLS listeners
-                config_tls(
-                    tls_port.unwrap_or(tls_listen_port),
-                    &mut server,
-                    &listen_addrs,
-                    cert_resolver.clone(),
-                    ssl_keylog_enabled,
-                    tcp_request_timeout,
-                )?;
-            } else {
-                info!("TLS protocol is disabled");
-            }
+        #[cfg(feature = "__https")]
+        match disable_https {
+            true => info!("HTTPS protocol is disabled"),
+            false => setup.https(
+                https_port.unwrap_or(https_listen_port),
+                &http_endpoint,
+                tls_cert
+                    .as_ref()
+                    .and_then(|config| config.endpoint_name.as_deref()),
+            )?,
+        }
 
-            #[cfg(feature = "__https")]
-            if !disable_https {
-                // setup HTTPS listeners
-                config_https(
-                    https_port.unwrap_or(https_listen_port),
-                    &mut server,
-                    &listen_addrs,
-                    &http_endpoint,
-                    config.endpoint_name.as_deref(),
-                    cert_resolver.clone(),
-                    ssl_keylog_enabled,
-                    tcp_request_timeout,
-                )?;
-            } else {
-                info!("HTTPS protocol is disabled");
-            }
-
-            #[cfg(feature = "__quic")]
-            if !disable_quic {
-                // setup QUIC listeners
-                config_quic(
-                    quic_port.unwrap_or(quic_listen_port),
-                    &mut server,
-                    &listen_addrs,
-                    cert_resolver,
-                    ssl_keylog_enabled,
-                    tcp_request_timeout,
-                )?;
-            } else {
-                info!("QUIC protocol is disabled");
-            }
-        } else {
-            info!("TLS certificates are not provided");
-            info!("TLS related protocols (TLS, HTTPS and QUIC) are disabled")
+        #[cfg(feature = "__quic")]
+        match disable_quic {
+            true => info!("QUIC protocol is disabled"),
+            false => setup.quic(quic_port.unwrap_or(quic_listen_port))?,
         }
 
         // Drop privileges on Unix systems if running as root.
@@ -509,145 +459,193 @@ impl Cli {
     }
 }
 
-#[cfg(feature = "__tls")]
-fn config_tls(
-    tls_port: u16,
-    server: &mut Server<Catalog>,
-    listen_addrs: &[IpAddr],
-    cert_resolver: Arc<dyn ResolvesServerCert>,
+struct ServerSetup<'a> {
+    listen_addrs: Vec<IpAddr>,
+    server: &'a mut Server<Catalog>,
+    tcp_request_timeout: Duration,
+    #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+    cert_resolver: Option<Arc<dyn ResolvesServerCert>>,
+    #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
     ssl_keylog_enabled: bool,
-    request_timeout: Duration,
-) -> Result<(), String> {
-    if listen_addrs.is_empty() {
-        warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
-        return Ok(());
-    }
-
-    for addr in listen_addrs {
-        info!("binding TLS to {addr:?}");
-
-        let tls_listener = build_tcp_listener(*addr, tls_port)
-            .map_err(|err| format!("failed to bind to TLS socket address {addr:?}: {err}"))?;
-
-        info!(
-            "listening for TLS on {:?}",
-            tls_listener
-                .local_addr()
-                .map_err(|err| format!("failed to lookup local address: {err}"))?
-        );
-
-        let mut tls_config = default_tls_server_config(b"dot", cert_resolver.clone())
-            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if ssl_keylog_enabled {
-            warn!("DoT SSL_KEYLOG_FILE support enabled");
-            tls_config.key_log = Arc::new(KeyLogFile::new());
-        }
-
-        server
-            .register_tls_listener_with_tls_config(
-                tls_listener,
-                request_timeout,
-                Arc::new(tls_config),
-            )
-            .map_err(|err| format!("failed to register TLS listener: {err}"))?;
-    }
-    Ok(())
 }
 
-#[expect(clippy::too_many_arguments)]
-#[cfg(feature = "__https")]
-fn config_https(
-    https_listen_port: u16,
-    server: &mut Server<Catalog>,
-    listen_addrs: &[IpAddr],
-    http_endpoint: &str,
-    dns_hostname: Option<&str>,
-    cert_resolver: Arc<dyn ResolvesServerCert>,
-    ssl_keylog_enabled: bool,
-    request_timeout: Duration,
-) -> Result<(), String> {
-    if listen_addrs.is_empty() {
-        warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
-        return Ok(());
-    }
+impl ServerSetup<'_> {
+    fn udp(&mut self, port: u16) -> Result<(), String> {
+        for addr in &self.listen_addrs {
+            info!("binding UDP to {addr:?}");
 
-    for addr in listen_addrs {
-        info!("binding HTTPS to {addr:?}");
+            let udp_socket = build_udp_socket(*addr, port)
+                .map_err(|err| format!("failed to bind to UDP socket address {addr:?}: {err}"))?;
 
-        let https_listener = build_tcp_listener(*addr, https_listen_port)
-            .map_err(|err| format!("failed to bind to HTTPS socket address {addr:?}: {err}"))?;
+            info!(
+                "listening for UDP on {:?}",
+                udp_socket
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
+            );
 
-        info!(
-            "listening for HTTPS on {:?}",
-            https_listener
-                .local_addr()
-                .map_err(|err| format!("failed to lookup local address: {err}"))?
-        );
-
-        let mut tls_config = default_tls_server_config(b"h2", cert_resolver.clone())
-            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if ssl_keylog_enabled {
-            warn!("DoH SSL_KEYLOG_FILE support enabled");
-            tls_config.key_log = Arc::new(KeyLogFile::new());
+            self.server.register_socket(udp_socket);
         }
 
-        server
-            .register_https_listener_with_tls_config(
-                https_listener,
-                request_timeout,
-                Arc::new(tls_config),
-                dns_hostname.map(|s| s.to_owned()),
-                http_endpoint.to_owned(),
-            )
-            .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
+        Ok(())
     }
 
-    Ok(())
-}
+    fn tcp(&mut self, port: u16) -> Result<(), String> {
+        for addr in &self.listen_addrs {
+            info!("binding TCP to {addr:?}");
 
-#[cfg(feature = "__quic")]
-fn config_quic(
-    quic_port: u16,
-    server: &mut Server<Catalog>,
-    listen_addrs: &[IpAddr],
-    cert_resolver: Arc<dyn ResolvesServerCert>,
-    ssl_keylog_enabled: bool,
-    request_timeout: Duration,
-) -> Result<(), String> {
-    if listen_addrs.is_empty() {
-        warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
-        return Ok(());
-    }
+            let tcp_listener = build_tcp_listener(*addr, port)
+                .map_err(|err| format!("failed to bind to TCP socket address {addr:?}: {err}"))?;
 
-    for addr in listen_addrs {
-        info!("Binding QUIC to {addr:?}");
+            info!(
+                "listening for TCP on {:?}",
+                tcp_listener
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
+            );
 
-        let quic_listener = build_udp_socket(*addr, quic_port)
-            .map_err(|err| format!("failed to bind to QUIC socket address {addr:?}: {err}"))?;
-
-        info!(
-            "listening for QUIC on {:?}",
-            quic_listener
-                .local_addr()
-                .map_err(|err| format!("failed to lookup local address: {err}"))?
-        );
-
-        let mut tls_config = default_tls_server_config(b"doq", cert_resolver.clone())
-            .map_err(|err| format!("failed to build default TLS config: {err}"))?;
-        if ssl_keylog_enabled {
-            warn!("DoQ SSL_KEYLOG_FILE support enabled");
-            tls_config.key_log = Arc::new(KeyLogFile::new());
+            self.server
+                .register_listener(tcp_listener, self.tcp_request_timeout);
         }
 
-        server
-            .register_quic_listener_and_tls_config(
-                quic_listener,
-                request_timeout,
-                Arc::new(tls_config),
-            )
-            .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
+        Ok(())
     }
-    Ok(())
+
+    #[cfg(feature = "__tls")]
+    fn tls(&mut self, port: u16) -> Result<(), String> {
+        let Some(cert_resolver) = &self.cert_resolver else {
+            return Ok(());
+        };
+
+        if self.listen_addrs.is_empty() {
+            warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
+            return Ok(());
+        }
+
+        for addr in &self.listen_addrs {
+            info!("binding TLS to {addr:?}");
+
+            let tls_listener = build_tcp_listener(*addr, port)
+                .map_err(|err| format!("failed to bind to TLS socket address {addr:?}: {err}"))?;
+
+            info!(
+                "listening for TLS on {:?}",
+                tls_listener
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
+            );
+
+            let mut tls_config = default_tls_server_config(b"dot", cert_resolver.clone())
+                .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+            if self.ssl_keylog_enabled {
+                warn!("DoT SSL_KEYLOG_FILE support enabled");
+                tls_config.key_log = Arc::new(KeyLogFile::new());
+            }
+
+            self.server
+                .register_tls_listener_with_tls_config(
+                    tls_listener,
+                    self.tcp_request_timeout,
+                    Arc::new(tls_config),
+                )
+                .map_err(|err| format!("failed to register TLS listener: {err}"))?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "__https")]
+    fn https(
+        &mut self,
+        port: u16,
+        http_endpoint: &str,
+        dns_hostname: Option<&str>,
+    ) -> Result<(), String> {
+        let Some(cert_resolver) = &self.cert_resolver else {
+            return Ok(());
+        };
+
+        if self.listen_addrs.is_empty() {
+            warn!(
+                "a tls certificate was specified, but no HTTPS addresses configured to listen on"
+            );
+            return Ok(());
+        }
+
+        for addr in &self.listen_addrs {
+            info!("binding HTTPS to {addr:?}");
+
+            let https_listener = build_tcp_listener(*addr, port)
+                .map_err(|err| format!("failed to bind to HTTPS socket address {addr:?}: {err}"))?;
+
+            info!(
+                "listening for HTTPS on {:?}",
+                https_listener
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
+            );
+
+            let mut tls_config = default_tls_server_config(b"h2", cert_resolver.clone())
+                .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+            if self.ssl_keylog_enabled {
+                warn!("DoH SSL_KEYLOG_FILE support enabled");
+                tls_config.key_log = Arc::new(KeyLogFile::new());
+            }
+
+            self.server
+                .register_https_listener_with_tls_config(
+                    https_listener,
+                    self.tcp_request_timeout,
+                    Arc::new(tls_config),
+                    dns_hostname.map(|s| s.to_owned()),
+                    http_endpoint.to_owned(),
+                )
+                .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "__quic")]
+    fn quic(&mut self, port: u16) -> Result<(), String> {
+        let Some(cert_resolver) = &self.cert_resolver else {
+            return Ok(());
+        };
+
+        if self.listen_addrs.is_empty() {
+            warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
+            return Ok(());
+        }
+
+        for addr in &self.listen_addrs {
+            info!("Binding QUIC to {addr:?}");
+
+            let quic_listener = build_udp_socket(*addr, port)
+                .map_err(|err| format!("failed to bind to QUIC socket address {addr:?}: {err}"))?;
+
+            info!(
+                "listening for QUIC on {:?}",
+                quic_listener
+                    .local_addr()
+                    .map_err(|err| format!("failed to lookup local address: {err}"))?
+            );
+
+            let mut tls_config = default_tls_server_config(b"doq", cert_resolver.clone())
+                .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+            if self.ssl_keylog_enabled {
+                warn!("DoQ SSL_KEYLOG_FILE support enabled");
+                tls_config.key_log = Arc::new(KeyLogFile::new());
+            }
+
+            self.server
+                .register_quic_listener_and_tls_config(
+                    quic_listener,
+                    self.tcp_request_timeout,
+                    Arc::new(tls_config),
+                )
+                .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
+        }
+        Ok(())
+    }
 }
 
 fn banner() {
