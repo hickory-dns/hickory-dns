@@ -20,6 +20,8 @@ use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
 use metrics_process::Collector;
 #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 use rustls::KeyLogFile;
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+use rustls::server::ResolvesServerCert;
 use socket2::{Domain, Socket, Type};
 use tokio::net::{TcpListener, UdpSocket};
 #[cfg(unix)]
@@ -391,16 +393,22 @@ impl Cli {
         }
 
         #[cfg(feature = "__tls")]
-        if let Some(tls_cert_config) = &tls_cert {
+        if let Some(config) = &tls_cert {
+            let cert_resolver = config.load(&zone_dir).map_err(|err| {
+                format!(
+                    "failed to load tls certificate files from {:?}: {err}",
+                    config.path
+                )
+            })?;
+
             #[cfg(feature = "__tls")]
             if !disable_tls {
                 // setup TLS listeners
                 config_tls(
                     tls_port.unwrap_or(tls_listen_port),
                     &mut server,
-                    tls_cert_config,
-                    &zone_dir,
                     &listen_addrs,
+                    cert_resolver.clone(),
                     ssl_keylog_enabled,
                     tcp_request_timeout,
                 )?;
@@ -414,10 +422,10 @@ impl Cli {
                 config_https(
                     https_port.unwrap_or(https_listen_port),
                     &mut server,
-                    tls_cert_config,
-                    &zone_dir,
                     &listen_addrs,
                     &http_endpoint,
+                    config.endpoint_name.as_deref(),
+                    cert_resolver.clone(),
                     ssl_keylog_enabled,
                     tcp_request_timeout,
                 )?;
@@ -431,9 +439,8 @@ impl Cli {
                 config_quic(
                     quic_port.unwrap_or(quic_listen_port),
                     &mut server,
-                    tls_cert_config,
-                    &zone_dir,
                     &listen_addrs,
+                    cert_resolver,
                     ssl_keylog_enabled,
                     tcp_request_timeout,
                 )?;
@@ -506,9 +513,8 @@ impl Cli {
 fn config_tls(
     tls_port: u16,
     server: &mut Server<Catalog>,
-    tls_cert_config: &TlsCertConfig,
-    zone_dir: &Path,
     listen_addrs: &[IpAddr],
+    cert_resolver: Arc<dyn ResolvesServerCert>,
     ssl_keylog_enabled: bool,
     request_timeout: Duration,
 ) -> Result<(), String> {
@@ -518,13 +524,6 @@ fn config_tls(
     }
 
     for addr in listen_addrs {
-        let tls_cert = tls_cert_config.load("TLS", zone_dir).map_err(|err| {
-            format!(
-                "failed to load tls certificate files from {:?}: {err}",
-                tls_cert_config.path
-            )
-        })?;
-
         info!("binding TLS to {addr:?}");
 
         let tls_listener = build_tcp_listener(*addr, tls_port)
@@ -537,7 +536,7 @@ fn config_tls(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let mut tls_config = default_tls_server_config(b"dot", tls_cert)
+        let mut tls_config = default_tls_server_config(b"dot", cert_resolver.clone())
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
         if ssl_keylog_enabled {
             warn!("DoT SSL_KEYLOG_FILE support enabled");
@@ -560,10 +559,10 @@ fn config_tls(
 fn config_https(
     https_listen_port: u16,
     server: &mut Server<Catalog>,
-    tls_cert_config: &TlsCertConfig,
-    zone_dir: &Path,
     listen_addrs: &[IpAddr],
     http_endpoint: &str,
+    dns_hostname: Option<&str>,
+    cert_resolver: Arc<dyn ResolvesServerCert>,
     ssl_keylog_enabled: bool,
     request_timeout: Duration,
 ) -> Result<(), String> {
@@ -573,13 +572,6 @@ fn config_https(
     }
 
     for addr in listen_addrs {
-        let tls_cert = tls_cert_config.load("HTTPS", zone_dir).map_err(|err| {
-            format!(
-                "failed to load tls certificate files from {:?}: {err}",
-                &tls_cert_config.path
-            )
-        })?;
-
         info!("binding HTTPS to {addr:?}");
 
         let https_listener = build_tcp_listener(*addr, https_listen_port)
@@ -592,7 +584,7 @@ fn config_https(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let mut tls_config = default_tls_server_config(b"h2", tls_cert)
+        let mut tls_config = default_tls_server_config(b"h2", cert_resolver.clone())
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
         if ssl_keylog_enabled {
             warn!("DoH SSL_KEYLOG_FILE support enabled");
@@ -604,7 +596,7 @@ fn config_https(
                 https_listener,
                 request_timeout,
                 Arc::new(tls_config),
-                tls_cert_config.endpoint_name.clone(),
+                dns_hostname.map(|s| s.to_owned()),
                 http_endpoint.to_owned(),
             )
             .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
@@ -617,9 +609,8 @@ fn config_https(
 fn config_quic(
     quic_port: u16,
     server: &mut Server<Catalog>,
-    tls_cert_config: &TlsCertConfig,
-    zone_dir: &Path,
     listen_addrs: &[IpAddr],
+    cert_resolver: Arc<dyn ResolvesServerCert>,
     ssl_keylog_enabled: bool,
     request_timeout: Duration,
 ) -> Result<(), String> {
@@ -629,13 +620,6 @@ fn config_quic(
     }
 
     for addr in listen_addrs {
-        let tls_cert = tls_cert_config.load("QUIC", zone_dir).map_err(|err| {
-            format!(
-                "failed to load tls certificate files from {:?}: {err}",
-                tls_cert_config.path
-            )
-        })?;
-
         info!("Binding QUIC to {addr:?}");
 
         let quic_listener = build_udp_socket(*addr, quic_port)
@@ -648,7 +632,7 @@ fn config_quic(
                 .map_err(|err| format!("failed to lookup local address: {err}"))?
         );
 
-        let mut tls_config = default_tls_server_config(b"doq", tls_cert)
+        let mut tls_config = default_tls_server_config(b"doq", cert_resolver.clone())
             .map_err(|err| format!("failed to build default TLS config: {err}"))?;
         if ssl_keylog_enabled {
             warn!("DoQ SSL_KEYLOG_FILE support enabled");
