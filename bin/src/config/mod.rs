@@ -548,7 +548,20 @@ pub struct TlsCertConfig {
 #[cfg(feature = "__tls")]
 impl TlsCertConfig {
     /// Load a Certificate from the path (with rustls)
-    pub fn load(&self, zone_dir: &Path) -> Result<Arc<dyn ResolvesServerCert>, String> {
+    pub fn load(
+        &self,
+        proto: &str,
+        zone_dir: &Path,
+    ) -> Result<Arc<dyn ResolvesServerCert>, String> {
+        if let Some(endpoint_name) = &self.endpoint_name {
+            info!(
+                "loading cert for DNS over {proto} named {endpoint_name} from {:?}",
+                self.path
+            );
+        } else {
+            info!("loading cert for DNS over {proto} from {:?}", self.path);
+        }
+
         if self.path.extension().and_then(OsStr::to_str) != Some("pem") {
             return Err(format!(
                 "unsupported certificate file format (expected `.pem` extension): {}",
