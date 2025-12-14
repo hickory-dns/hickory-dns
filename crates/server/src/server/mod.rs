@@ -281,15 +281,10 @@ impl<T: RequestHandler> Server<T> {
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
-        dns_hostname: Option<String>,
     ) -> io::Result<()> {
         let cx = self.context.clone();
-        self.join_set.spawn(quic_handler::handle_quic(
-            socket,
-            server_cert_resolver,
-            dns_hostname,
-            cx,
-        ));
+        self.join_set
+            .spawn(quic_handler::handle_quic(socket, server_cert_resolver, cx));
         Ok(())
     }
 
@@ -318,13 +313,11 @@ impl<T: RequestHandler> Server<T> {
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
         tls_config: Arc<ServerConfig>,
-        dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
         let cx = self.context.clone();
 
         self.join_set.spawn(quic_handler::handle_quic_with_server(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
-            dns_hostname,
             cx,
         ));
         Ok(())
@@ -1160,7 +1153,6 @@ mod tests {
                         UdpSocket::bind(self.quic_addr).await.unwrap(),
                         Duration::from_secs(1),
                         cert_key,
-                        None,
                     )
                     .unwrap();
             }

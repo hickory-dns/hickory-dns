@@ -660,7 +660,6 @@ fn config_quic(
                 quic_listener,
                 request_timeout,
                 Arc::new(tls_config),
-                tls_cert_config.endpoint_name.clone(),
             )
             .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
     }
