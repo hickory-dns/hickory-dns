@@ -33,9 +33,9 @@ pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::record_type_set::RecordTypeSet;
 pub use self::resource::Record;
-#[cfg(feature = "__dnssec")]
-pub use self::rr_set::RecordsAndRrsigsIter;
 pub use self::rr_set::{RecordSet, RecordSetParts, RrsetRecords};
+#[cfg(feature = "__dnssec")]
+pub use self::rr_set::{RecordsAndRrsigsIter, RrsetProof};
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 pub use serial_number::SerialNumber;

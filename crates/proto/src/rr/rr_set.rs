@@ -8,8 +8,11 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use core::{iter::Chain, slice::Iter};
+
 use tracing::{info, warn};
 
+#[cfg(feature = "__dnssec")]
+use crate::dnssec::Proof;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
 /// Set of resource records associated to a name and type
@@ -22,6 +25,8 @@ pub struct RecordSet {
     records: Vec<Record>,
     rrsigs: Vec<Record>,
     serial: u32, // serial number at which this record was modified
+    #[cfg(feature = "__dnssec")]
+    proof: RrsetProof,
 }
 
 impl RecordSet {
@@ -48,6 +53,8 @@ impl RecordSet {
             records: Vec::new(),
             rrsigs: Vec::new(),
             serial,
+            #[cfg(feature = "__dnssec")]
+            proof: RrsetProof::default(),
         }
     }
 
@@ -73,6 +80,8 @@ impl RecordSet {
             records: Vec::new(),
             rrsigs: Vec::new(),
             serial: 0,
+            #[cfg(feature = "__dnssec")]
+            proof: RrsetProof::default(),
         }
     }
 
@@ -458,6 +467,9 @@ pub struct RecordSetParts {
     pub records: Vec<Record>,
     /// RRSIGs for this record set
     pub rrsigs: Vec<Record>,
+    /// The DNSSEC proof for this record set
+    #[cfg(feature = "__dnssec")]
+    pub proof: RrsetProof,
     /// Serial number at which this record was modified
     pub serial: u32,
 }
@@ -471,6 +483,8 @@ impl From<RecordSet> for RecordSetParts {
             ttl,
             records,
             rrsigs,
+            #[cfg(feature = "__dnssec")]
+            proof,
             serial,
         } = rset;
         Self {
@@ -480,6 +494,8 @@ impl From<RecordSet> for RecordSetParts {
             ttl,
             records,
             rrsigs,
+            #[cfg(feature = "__dnssec")]
+            proof,
             serial,
         }
     }
@@ -494,6 +510,8 @@ impl From<Record> for RecordSet {
             ttl: record.ttl(),
             records: vec![record],
             rrsigs: vec![],
+            #[cfg(feature = "__dnssec")]
+            proof: RrsetProof::default(),
             serial: 0,
         }
     }
@@ -550,6 +568,29 @@ impl<'r> Iterator for RrsetRecords<'r> {
             RrsetRecords::RecordsOnly(i) => i.next(),
             #[cfg(feature = "__dnssec")]
             RrsetRecords::RecordsAndRrsigs(i) => i.next(),
+        }
+    }
+}
+
+/// A DNSSEC Proof for the RecordSet
+#[cfg(feature = "__dnssec")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RrsetProof {
+    /// This is the overall proof -- Secure, Insecure, Bogus, or Indeterminate.
+    pub proof: Proof,
+    /// The DNSSEC adjusted ttl for the RecordSet, if any.
+    pub adjusted_ttl: Option<u32>,
+    /// An index to the RRSIG that was used to validate the RecordSet, if any.
+    pub rrsig_index: Option<usize>,
+}
+
+#[cfg(feature = "__dnssec")]
+impl Default for RrsetProof {
+    fn default() -> Self {
+        Self {
+            proof: Proof::Indeterminate,
+            adjusted_ttl: None,
+            rrsig_index: None,
         }
     }
 }

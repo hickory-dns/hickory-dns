@@ -40,7 +40,7 @@ use crate::{
             DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode,
         },
         rr::{
-            Name, RData, Record, RecordSet, RecordSetParts, RecordType, SerialNumber,
+            Name, RData, Record, RecordSet, RecordSetParts, RecordType, RrsetProof, SerialNumber,
             resource::RecordRef,
         },
     },
@@ -1427,13 +1427,6 @@ impl RrsigValidity {
 
         Self::ValidRrsig
     }
-}
-
-#[derive(Clone)]
-struct RrsetProof {
-    proof: Proof,
-    adjusted_ttl: Option<u32>,
-    rrsig_index: Option<usize>,
 }
 
 #[derive(Clone)]
