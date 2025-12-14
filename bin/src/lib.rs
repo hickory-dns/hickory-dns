@@ -517,11 +517,6 @@ impl ServerSetup<'_> {
             return Ok(());
         };
 
-        if self.listen_addrs.is_empty() {
-            warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
-            return Ok(());
-        }
-
         for addr in &self.listen_addrs {
             info!("binding TLS to {addr:?}");
 
@@ -564,13 +559,6 @@ impl ServerSetup<'_> {
             return Ok(());
         };
 
-        if self.listen_addrs.is_empty() {
-            warn!(
-                "a tls certificate was specified, but no HTTPS addresses configured to listen on"
-            );
-            return Ok(());
-        }
-
         for addr in &self.listen_addrs {
             info!("binding HTTPS to {addr:?}");
 
@@ -610,11 +598,6 @@ impl ServerSetup<'_> {
         let Some(cert_resolver) = &self.cert_resolver else {
             return Ok(());
         };
-
-        if self.listen_addrs.is_empty() {
-            warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
-            return Ok(());
-        }
 
         for addr in &self.listen_addrs {
             info!("Binding QUIC to {addr:?}");
