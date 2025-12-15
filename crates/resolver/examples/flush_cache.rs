@@ -1,4 +1,4 @@
-use hickory_resolver::{Resolver, net::runtime::TokioRuntimeProvider};
+use hickory_resolver::{Resolver, net::runtime::TokioRuntimeProvider, proto::rr::RData};
 
 #[tokio::main]
 async fn main() {
@@ -41,7 +41,7 @@ async fn resolve_list(
     let futures = names
         .iter()
         .map(|name: &&str| {
-            let name: String = name.to_string();
+            let name = name.to_string();
             let resolver = resolver.clone();
             let future = {
                 let name = name.clone();
@@ -60,12 +60,9 @@ async fn resolve_list(
                 lookup
                     .answers()
                     .iter()
-                    .filter_map(|record| {
-                        if let hickory_proto::rr::RData::TXT(txt) = record.data() {
-                            Some(txt.to_string())
-                        } else {
-                            None
-                        }
+                    .filter_map(|record| match record.data() {
+                        RData::TXT(txt) => Some(txt.to_string()),
+                        _ => None,
                     })
                     .collect::<Vec<_>>()
             });
