@@ -128,7 +128,8 @@ impl Lookup {
     /// Add new records to this lookup, without creating a new Lookup
     ///
     /// Records are added to the ANSWERS section while preserving existing section structure
-    pub fn extend_answers(&mut self, other: Vec<Record>) {
+    #[cfg(test)]
+    fn extend_answers(&mut self, other: Vec<Record>) {
         // Add new records to the answers section, preserving existing sections
         self.message.add_answers(other);
     }
