@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use hickory_resolver::{TokioResolver, net::runtime::TokioRuntimeProvider};
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -7,37 +9,13 @@ async fn main() {
 }
 
 async fn tokio_main() {
-    let resolver = {
-        // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
-        #[cfg(any(unix, windows))]
-        {
-            use hickory_resolver::{TokioResolver, net::runtime::TokioRuntimeProvider};
-
-            // use the system resolver configuration
-            Arc::new(
-                TokioResolver::builder(TokioRuntimeProvider::default())
-                    .expect("failed to create resolver")
-                    .build()
-                    .unwrap(),
-            )
-        }
-
-        // For other operating systems, we can use one of the preconfigured definitions
-        #[cfg(not(any(unix, windows)))]
-        {
-            // Directly reference the config types
-            use hickory_resolver::{
-                Resolver,
-                config::{ResolverConfig, ResolverOpts},
-            };
-
-            // Get a new resolver with the google nameservers as the upstream recursive resolvers
-            Arc::new(Resolver::tokio(
-                ResolverConfig::quad9(),
-                ResolverOpts::default(),
-            ))
-        }
-    };
+    // use the system resolver configuration
+    let resolver = Arc::new(
+        TokioResolver::builder(TokioRuntimeProvider::default())
+            .expect("failed to create resolver")
+            .build()
+            .unwrap(),
+    );
 
     // Create some futures representing name lookups.
     let names = ["hickory-dns.org.", "estada.ch.", "wikipedia.org."];
