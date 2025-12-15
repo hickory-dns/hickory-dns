@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use hickory_resolver::{Resolver, net::runtime::TokioRuntimeProvider};
 
 #[tokio::main]
@@ -10,21 +8,19 @@ async fn main() {
 
 async fn tokio_main() {
     // use the system resolver configuration
-    let resolver = Arc::new(
-        Resolver::builder_tokio()
-            .expect("failed to create resolver")
-            .build()
-            .unwrap(),
-    );
+    let resolver = Resolver::builder_tokio()
+        .expect("failed to create resolver")
+        .build()
+        .unwrap();
 
     // Create some futures representing name lookups.
     let names = ["hickory-dns.org.", "estada.ch.", "wikipedia.org."];
 
-    let first_resolve = resolve_list(&names, &*resolver).await;
-    let cached_resolve = resolve_list(&names, &*resolver).await;
+    let first_resolve = resolve_list(&names, &resolver).await;
+    let cached_resolve = resolve_list(&names, &resolver).await;
 
     resolver.clear_cache();
-    let second_resolve = resolve_list(&names, &*resolver).await;
+    let second_resolve = resolve_list(&names, &resolver).await;
 
     println!("first_resolve: {first_resolve:?}");
     println!("cached_resolve: {cached_resolve:?}");
