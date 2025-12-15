@@ -526,7 +526,7 @@ impl MessageSigner for SigSigner {
         // The CLASS field SHOULD be ANY
         sig0.set_dns_class(DNSClass::ANY);
 
-        Ok((MessageSignature::Sig0(sig0), None))
+        Ok((MessageSignature::Sig0(Box::new(sig0)), None))
     }
 }
 

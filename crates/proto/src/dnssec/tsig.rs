@@ -122,10 +122,10 @@ impl ResponseSigner for TSigResponseSigner {
                 .map_err(|e| ProtoError::from(e.to_string()))?,
         );
 
-        Ok(MessageSignature::Tsig(make_tsig_record(
+        Ok(MessageSignature::Tsig(Box::new(make_tsig_record(
             self.signer.signer_name().clone(),
             resp_tsig,
-        )))
+        ))))
     }
 }
 
@@ -139,10 +139,10 @@ impl ResponseSigner for BadSignatureSigner {
     fn sign(self: Box<Self>, _: &[u8]) -> Result<MessageSignature, ProtoError> {
         let mut stub_tsig = TSIG::stub(self.request_id, self.time, &self.signer);
         stub_tsig.set_error(TsigError::BadSig);
-        Ok(MessageSignature::Tsig(make_tsig_record(
+        Ok(MessageSignature::Tsig(Box::new(make_tsig_record(
             self.signer.signer_name().clone(),
             stub_tsig,
-        )))
+        ))))
     }
 }
 
@@ -163,7 +163,7 @@ impl ResponseSigner for UnknownKeySigner {
         // should use in the response since we didn't recognize the key name as one
         // of our configured signers. We choose a stand-in algorithm and reflect the
         // unknown key name in absence of further direction.
-        Ok(MessageSignature::Tsig(make_tsig_record(
+        Ok(MessageSignature::Tsig(Box::new(make_tsig_record(
             self.key_name.clone(),
             TSIG::new(
                 TsigAlgorithm::HmacSha256,
@@ -174,7 +174,7 @@ impl ResponseSigner for UnknownKeySigner {
                 Some(TsigError::BadKey),
                 Vec::new(),
             ),
-        )))
+        ))))
     }
 }
 
@@ -387,7 +387,10 @@ impl MessageSigner for TSigner {
                 Err(ProtoError::from("tsig validation error: outdated response"))
             }
         };
-        Ok((MessageSignature::Tsig(tsig), Some(Box::new(verifier))))
+        Ok((
+            MessageSignature::Tsig(Box::new(tsig)),
+            Some(Box::new(verifier)),
+        ))
     }
 }
 

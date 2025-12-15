@@ -723,23 +723,27 @@ impl Message {
                 #[cfg(feature = "__dnssec")]
                 RData::DNSSEC(DNSSECRData::SIG(_)) => {
                     sig = MessageSignature::Sig0(
-                        record
-                            .map(|data| match data {
-                                RData::DNSSEC(DNSSECRData::SIG(sig)) => Some(sig),
-                                _ => None,
-                            })
-                            .unwrap(), // Safe: see `match` arm above
+                        Box::new(
+                            record
+                                .map(|data| match data {
+                                    RData::DNSSEC(DNSSECRData::SIG(sig)) => Some(sig),
+                                    _ => None,
+                                })
+                                .unwrap(),
+                        ), // Safe: see `match` arm above
                     )
                 }
                 #[cfg(feature = "__dnssec")]
                 RData::DNSSEC(DNSSECRData::TSIG(_)) => {
                     sig = MessageSignature::Tsig(
-                        record
-                            .map(|data| match data {
-                                RData::DNSSEC(DNSSECRData::TSIG(tsig)) => Some(tsig),
-                                _ => None,
-                            })
-                            .unwrap(), // Safe: see `match` arm above
+                        Box::new(
+                            record
+                                .map(|data| match data {
+                                    RData::DNSSEC(DNSSECRData::TSIG(tsig)) => Some(tsig),
+                                    _ => None,
+                                })
+                                .unwrap(),
+                        ), // Safe: see `match` arm above
                     )
                 }
                 RData::Update0(RecordType::OPT) | RData::OPT(_) => {
@@ -1036,9 +1040,13 @@ where
     if include_signature {
         let count = match signature {
             #[cfg(feature = "__dnssec")]
-            MessageSignature::Sig0(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
+            MessageSignature::Sig0(rec) => {
+                count_was_truncated(encoder.emit_all(iter::once(&**rec)))?
+            }
             #[cfg(feature = "__dnssec")]
-            MessageSignature::Tsig(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
+            MessageSignature::Tsig(rec) => {
+                count_was_truncated(encoder.emit_all(iter::once(&**rec)))?
+            }
             MessageSignature::Unsigned => (0, false),
         };
         additional_count.0 += count.0;
@@ -1172,10 +1180,10 @@ pub enum MessageSignature {
     Unsigned,
     /// The message has an RFC 2931 SIG(0) signature [Record].
     #[cfg(feature = "__dnssec")]
-    Sig0(Record<SIG>),
+    Sig0(Box<Record<SIG>>),
     /// The message has an RFC 8945 TSIG signature [Record].
     #[cfg(feature = "__dnssec")]
-    Tsig(Record<TSIG>),
+    Tsig(Box<Record<TSIG>>),
 }
 
 #[cfg(test)]
