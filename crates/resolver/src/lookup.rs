@@ -9,7 +9,6 @@
 
 use std::{
     cmp::min,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -49,20 +48,24 @@ impl Lookup {
     /// Return new instance with given rdata and the maximum TTL.
     pub fn from_rdata(query: Query, rdata: RData) -> Self {
         let record = Record::from_rdata(query.name().clone(), MAX_TTL, rdata);
-        Self::new_with_max_ttl(query, Arc::from([record]))
+        Self::new_with_max_ttl(query, [record])
     }
 
     /// Return new instance with given records and the maximum TTL.
-    pub fn new_with_max_ttl(query: Query, records: Arc<[Record]>) -> Self {
+    pub fn new_with_max_ttl(query: Query, answers: impl IntoIterator<Item = Record>) -> Self {
         let valid_until = Instant::now() + Duration::from_secs(u64::from(MAX_TTL));
-        Self::new_with_deadline(query, records, valid_until)
+        Self::new_with_deadline(query, answers, valid_until)
     }
 
     /// Return a new instance with the given records and deadline.
-    pub fn new_with_deadline(query: Query, records: Arc<[Record]>, valid_until: Instant) -> Self {
+    pub fn new_with_deadline(
+        query: Query,
+        answers: impl IntoIterator<Item = Record>,
+        valid_until: Instant,
+    ) -> Self {
         let mut message = Message::response(0, OpCode::Query);
         message.add_query(query.clone());
-        message.add_answers(records.iter().cloned());
+        message.add_answers(answers);
 
         Self {
             query,
