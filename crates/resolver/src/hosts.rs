@@ -67,46 +67,43 @@ impl Hosts {
         match query.query_type() {
             RecordType::A | RecordType::AAAA => {
                 let val = self.by_name.get(&name)?;
-
-                match query.query_type() {
+                return match query.query_type() {
                     RecordType::A => val.a.clone(),
                     RecordType::AAAA => val.aaaa.clone(),
                     _ => None,
-                }
+                };
             }
-            RecordType::PTR => {
-                let ip = name.parse_arpa_name().ok()?;
+            RecordType::PTR => {}
+            _ => return None,
+        }
 
-                let ip_addr = ip.addr();
-                let records =
-                    self.by_name
+        let ip = name.parse_arpa_name().ok()?;
+        let ip_addr = ip.addr();
+        let records = self
+            .by_name
+            .iter()
+            .filter(|(_, v)| match ip_addr {
+                IpAddr::V4(ip) => match v.a.as_ref() {
+                    Some(lookup) => lookup
+                        .answers()
                         .iter()
-                        .filter(|(_, v)| match ip_addr {
-                            IpAddr::V4(ip) => match v.a.as_ref() {
-                                Some(lookup) => lookup.answers().iter().any(|r| {
-                                    r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
-                                }),
-                                None => false,
-                            },
-                            IpAddr::V6(ip) => match v.aaaa.as_ref() {
-                                Some(lookup) => lookup.answers().iter().any(|r| {
-                                    r.data().ip_addr().map(|it| it == ip).unwrap_or_default()
-                                }),
-                                None => false,
-                            },
-                        })
-                        .map(|(n, _)| {
-                            Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone())))
-                        })
-                        .collect::<Arc<[Record]>>();
+                        .any(|r| r.data().ip_addr().map(|it| it == ip).unwrap_or_default()),
+                    None => false,
+                },
+                IpAddr::V6(ip) => match v.aaaa.as_ref() {
+                    Some(lookup) => lookup
+                        .answers()
+                        .iter()
+                        .any(|r| r.data().ip_addr().map(|it| it == ip).unwrap_or_default()),
+                    None => false,
+                },
+            })
+            .map(|(n, _)| Record::from_rdata(name.clone(), MAX_TTL, RData::PTR(PTR(n.clone()))))
+            .collect::<Arc<[Record]>>();
 
-                if records.is_empty() {
-                    return None;
-                }
-
-                Some(Lookup::new_with_max_ttl(query.clone(), records))
-            }
-            _ => None,
+        match records.is_empty() {
+            false => Some(Lookup::new_with_max_ttl(query.clone(), records)),
+            true => None,
         }
     }
 
