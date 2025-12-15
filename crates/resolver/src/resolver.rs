@@ -692,7 +692,8 @@ where
                     // for that next name and continue looping.
                     self.query = self
                         .client_cache
-                        .lookup(Query::query(name, record_type), options);
+                        .lookup(Query::query(name, record_type), options)
+                        .boxed();
                     // Continue looping with the new query. It will be polled
                     // on the next iteration of the loop.
                     continue;

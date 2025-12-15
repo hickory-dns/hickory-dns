@@ -9,6 +9,7 @@
 
 use std::{
     borrow::Cow,
+    future::Future,
     time::{Duration, Instant},
 };
 
@@ -102,14 +103,14 @@ where
         &self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> BoxFuture<'static, Result<Lookup, NetError>> {
-        Box::pin(Self::inner_lookup(
+    ) -> impl Future<Output = Result<Lookup, NetError>> {
+        Self::inner_lookup(
             query,
             options,
             self.clone(),
             vec![],
             DepthTracker::default(),
-        ))
+        )
     }
 
     async fn inner_lookup(
