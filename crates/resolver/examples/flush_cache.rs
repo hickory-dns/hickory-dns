@@ -79,8 +79,11 @@ async fn resolve_list(
     start_time.elapsed()
 }
 
-#[tokio::test]
-async fn test_flush_cache() {
-    test_support::subscribe();
-    tokio_main().await;
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_flush_cache() {
+        test_support::subscribe();
+        super::tokio_main().await;
+    }
 }
