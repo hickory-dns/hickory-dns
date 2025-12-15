@@ -385,10 +385,9 @@ where
             // We didn't find the answer - need to continue following CNAME chain
             // Only accumulate ANSWER-section records (CNAMEs) for next hop
             // AUTHORITY and ADDITIONAL records stay with their original message and are not carried forward
-            preserved_records.extend(message.all_sections().filter_map(|r| {
+            preserved_records.extend(message.take_all_sections().filter_map(|mut r| {
                 // because this resolved potentially recursively, we want the min TTL from the chain
                 let ttl = cname_ttl.min(r.ttl());
-                let mut r = r.clone();
                 r.set_ttl(ttl);
 
                 // restrict to the RData type requested

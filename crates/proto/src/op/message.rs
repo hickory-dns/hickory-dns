@@ -556,6 +556,16 @@ impl Message {
         mem::take(&mut self.additionals)
     }
 
+    /// Consume the message, returning an iterator over records from all sections
+    pub fn take_all_sections(&mut self) -> impl Iterator<Item = Record> {
+        let (answers, authorities, additionals) = (
+            mem::take(&mut self.answers),
+            mem::take(&mut self.authorities),
+            mem::take(&mut self.additionals),
+        );
+        answers.into_iter().chain(authorities).chain(additionals)
+    }
+
     /// All sections chained
     pub fn all_sections(&self) -> impl Iterator<Item = &Record> {
         self.answers
