@@ -8,6 +8,7 @@
 //! TSIG for secret key authentication of transaction
 #![allow(clippy::use_self)]
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{convert::TryInto, fmt};
 
@@ -721,7 +722,7 @@ pub fn signed_bitmessage_to_buf(
     message: &[u8],
     previous_hash: Option<&[u8]>,
     first_message: bool,
-) -> ProtoResult<(Vec<u8>, Record<TSIG>)> {
+) -> ProtoResult<(Vec<u8>, Box<Record<TSIG>>)> {
     let mut decoder = BinDecoder::new(message);
     let mut header = Header::read(&mut decoder)?;
 
@@ -896,7 +897,9 @@ mod tests {
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
-        message.set_signature(MessageSignature::Tsig(make_tsig_record(key_name, pre_tsig)));
+        message.set_signature(MessageSignature::Tsig(Box::new(make_tsig_record(
+            key_name, pre_tsig,
+        ))));
 
         let message_byte = message.to_bytes().unwrap();
 
@@ -928,7 +931,9 @@ mod tests {
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
-        message.set_signature(MessageSignature::Tsig(make_tsig_record(key_name, pre_tsig)));
+        message.set_signature(MessageSignature::Tsig(Box::new(make_tsig_record(
+            key_name, pre_tsig,
+        ))));
 
         let message_byte = message.to_bytes().unwrap();
         let mut message = Message::from_bytes(&message_byte).unwrap();

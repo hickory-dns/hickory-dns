@@ -492,7 +492,6 @@ where
     }
 }
 
-#[allow(clippy::large_enum_variant)]
 enum Records<F> {
     /// The records exist, stored as a complete DNS Message
     Exists { message: Message, min_ttl: u32 },
