@@ -326,17 +326,17 @@ where
                 }
             }
 
-            // Decide strategy: do we need to filter, or return the message as-is?
-            // - If we have accumulated records from previous CNAME hops → must filter and merge
-            // - If we found the CNAME target in this response → filter out intermediate CNAMEs
-            //   (unless preserve_intermediates)
-            // - Otherwise → return complete message to preserve all sections exactly as DNS server
-            //   sent them
-            let needs_filtering = !preserved_records.is_empty()
-                || (found_cname_target && !client.preserve_intermediates);
-
             // After following all the CNAMES to the last one, try and lookup the final name
             if found_name && (!was_cname || preserved_records.is_empty()) {
+                // Decide strategy: do we need to filter, or return the message as-is?
+                // - If we have accumulated records from previous CNAME hops → must filter and merge
+                // - If we found the CNAME target in this response → filter out intermediate CNAMEs
+                //   (unless preserve_intermediates)
+                // - Otherwise → return complete message to preserve all sections exactly as DNS server
+                //   sent them
+                let needs_filtering = !preserved_records.is_empty()
+                    || (found_cname_target && !client.preserve_intermediates);
+
                 if needs_filtering {
                     // Filter records that belong in ANSWER section only
                     // Don't include records from ADDITIONAL/AUTHORITY here - they're preserved as-is below
