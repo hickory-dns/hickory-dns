@@ -516,7 +516,7 @@ impl Message {
     /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
     #[cfg(feature = "__dnssec")]
     pub fn dnssec_answers(&self) -> DnssecIter<'_> {
-        DnssecIter::new(self.answers.iter())
+        DnssecIter::new(&self.answers)
     }
 
     /// ```text

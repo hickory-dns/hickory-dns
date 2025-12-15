@@ -179,13 +179,10 @@ mod tests {
 
         let mut lookup = lookup.message().dnssec_answers();
 
-        assert_eq!(
-            *lookup.next().unwrap().require(Proof::Secure).unwrap(),
-            *a1.data()
-        );
+        assert_eq!(*lookup.next().unwrap().require(Proof::Secure).unwrap(), a1);
         assert_eq!(
             *lookup.next().unwrap().require(Proof::Insecure).unwrap(),
-            *a2.data()
+            a2
         );
         assert_eq!(lookup.next(), None);
     }
