@@ -37,7 +37,7 @@ pub struct Lookup {
 
 impl Lookup {
     /// Create a new Lookup from a complete DNS Message.
-    pub fn new(query: Query, message: Message, valid_until: Instant) -> Self {
+    pub(crate) fn new(query: Query, message: Message, valid_until: Instant) -> Self {
         Self {
             query,
             message,
@@ -123,6 +123,16 @@ impl Lookup {
         // Choose the sooner deadline of the two lookups
         result.valid_until = min(self.valid_until(), other.valid_until());
         result
+    }
+
+    #[doc(hidden)] // For use in server tests
+    pub fn extend_authorities(&mut self, records: impl IntoIterator<Item = Record>) {
+        self.message.add_authorities(records);
+    }
+
+    #[doc(hidden)] // For use in server tests
+    pub fn extend_additionals(&mut self, records: impl IntoIterator<Item = Record>) {
+        self.message.add_additionals(records);
     }
 
     /// Add new records to this lookup, without creating a new Lookup
