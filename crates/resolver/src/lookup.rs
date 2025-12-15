@@ -25,21 +25,19 @@ use crate::{
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
-    // NOTE: the query field here is technically redundant and should
-    // be removed in the future.
-    // We hold a `Message` already, and each message should have at
-    // least one query. The query is also the key in the `ResponseCache`
-    // where `Lookup` is typically used.
-    query: Query,
     message: Message,
     valid_until: Instant,
 }
 
 impl Lookup {
     /// Create a new Lookup from a complete DNS Message.
-    pub(crate) fn new(query: Query, message: Message, valid_until: Instant) -> Self {
+    pub(crate) fn new(message: Message, valid_until: Instant) -> Self {
+        debug_assert!(
+            !message.queries().is_empty(),
+            "lookup message must have at least one query"
+        );
+
         Self {
-            query,
             message,
             valid_until,
         }
@@ -68,7 +66,6 @@ impl Lookup {
         message.add_answers(answers);
 
         Self {
-            query,
             message,
             valid_until,
         }
@@ -76,7 +73,10 @@ impl Lookup {
 
     /// Returns a reference to the `Query` that was used to produce this result.
     pub fn query(&self) -> &Query {
-        &self.query
+        self.message
+            .queries()
+            .first()
+            .expect("Lookup message always has a query")
     }
 
     /// Returns a reference to the underlying DNS Message.
@@ -179,7 +179,6 @@ mod tests {
         message.add_answers([a1.clone(), a2.clone()]);
 
         let lookup = Lookup {
-            query: Query::default(),
             message,
             valid_until: Instant::now(),
         };
@@ -218,7 +217,6 @@ mod tests {
         )]);
 
         let mut lookup = Lookup {
-            query,
             message,
             valid_until: Instant::now(),
         };
@@ -276,7 +274,6 @@ mod tests {
         )]);
 
         let lookup1 = Lookup {
-            query: query.clone(),
             message: message1,
             valid_until: Instant::now(),
         };
@@ -301,7 +298,6 @@ mod tests {
         )]);
 
         let lookup2 = Lookup {
-            query,
             message: message2,
             valid_until: Instant::now(),
         };
