@@ -1256,36 +1256,26 @@ async fn build_forwarded_response(
 mod tests {
     use super::*;
     use crate::proto::{
-        op::{Message, MessageType, OpCode, Query},
+        op::{MessageType, OpCode, Query},
         rr::{
             Name, RData, Record, RecordType,
             rdata::{A, SOA},
         },
     };
     use crate::resolver::lookup::Lookup;
-    use std::{
-        net::Ipv4Addr,
-        str::FromStr,
-        time::{Duration, Instant},
-    };
+    use std::{net::Ipv4Addr, str::FromStr};
 
     #[tokio::test]
     async fn test_build_forwarded_response_preserves_sections() {
         // Create a DNS message with records in all three sections
         let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
 
-        let mut message = Message::response(1234, OpCode::Query);
-        message.add_query(query.clone());
-
-        // Add answer record
-        message.add_answer(Record::from_rdata(
-            Name::from_str("example.com.").unwrap(),
-            3600,
-            RData::A(A(Ipv4Addr::new(192, 0, 2, 1))),
-        ));
+        // Create a Lookup from the query
+        let mut lookup =
+            Lookup::from_rdata(query.clone(), RData::A(A(Ipv4Addr::new(192, 0, 2, 1))));
 
         // Add authority record (SOA)
-        message.add_authority(Record::from_rdata(
+        lookup.extend_authorities([Record::from_rdata(
             Name::from_str("example.com.").unwrap(),
             3600,
             RData::SOA(SOA::new(
@@ -1297,21 +1287,14 @@ mod tests {
                 604800,
                 86400,
             )),
-        ));
+        )]);
 
         // Add additional record (glue)
-        message.add_additional(Record::from_rdata(
+        lookup.extend_additionals([Record::from_rdata(
             Name::from_str("ns.example.com.").unwrap(),
             3600,
             RData::A(A(Ipv4Addr::new(192, 0, 2, 2))),
-        ));
-
-        // Create a Lookup from the message
-        let lookup = Lookup::new(
-            query.clone(),
-            message,
-            Instant::now() + Duration::from_secs(3600),
-        );
+        )]);
 
         // Wrap it in AuthLookup::Resolved
         let auth_lookup = AuthLookup::Resolved(lookup);
