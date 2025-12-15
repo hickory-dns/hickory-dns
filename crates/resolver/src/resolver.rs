@@ -206,7 +206,7 @@ impl<R: ConnectionProvider> Resolver<R> {
                 finally_ip_addr = Some(record);
             } else {
                 let query = Query::query(name, ip_addr.record_type());
-                let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                let lookup = Lookup::new_with_max_ttl(query, [record]);
                 return Ok(lookup.into());
             }
         }
@@ -216,7 +216,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             (Err(_), Some(ip_addr)) => {
                 // it was a valid IP, return that...
                 let query = Query::query(ip_addr.name().clone(), ip_addr.record_type());
-                let lookup = Lookup::new_with_max_ttl(query, Arc::from([ip_addr.clone()]));
+                let lookup = Lookup::new_with_max_ttl(query, [ip_addr.clone()]);
                 return Ok(lookup.into());
             }
             (Err(err), None) => return Err(err),

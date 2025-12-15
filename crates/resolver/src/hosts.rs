@@ -102,7 +102,10 @@ impl Hosts {
             .collect::<Arc<[Record]>>();
 
         match records.is_empty() {
-            false => Some(Lookup::new_with_max_ttl(query.clone(), records)),
+            false => Some(Lookup::new_with_max_ttl(
+                query.clone(),
+                records.iter().cloned(),
+            )),
             true => None,
         }
     }
@@ -118,11 +121,11 @@ impl Hosts {
             let old_lookup = match record_type {
                 RecordType::A => lookup_type.a.get_or_insert_with(|| {
                     let query = Query::query(name.clone(), record_type);
-                    Lookup::new_with_max_ttl(query, Arc::from([]))
+                    Lookup::new_with_max_ttl(query, [])
                 }),
                 RecordType::AAAA => lookup_type.aaaa.get_or_insert_with(|| {
                     let query = Query::query(name.clone(), record_type);
-                    Lookup::new_with_max_ttl(query, Arc::from([]))
+                    Lookup::new_with_max_ttl(query, [])
                 }),
                 _ => {
                     tracing::warn!("unsupported IP type from Hosts file: {:#?}", record_type);
@@ -196,12 +199,12 @@ impl Hosts {
                 match addr {
                     RData::A(..) => {
                         let query = Query::query(name.clone(), RecordType::A);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                        let lookup = Lookup::new_with_max_ttl(query, [record]);
                         self.insert(name.clone(), RecordType::A, lookup);
                     }
                     RData::AAAA(..) => {
                         let query = Query::query(name.clone(), RecordType::AAAA);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                        let lookup = Lookup::new_with_max_ttl(query, [record]);
                         self.insert(name.clone(), RecordType::AAAA, lookup);
                     }
                     _ => {

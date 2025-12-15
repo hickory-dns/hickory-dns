@@ -313,7 +313,7 @@ impl BlocklistZoneHandler {
 
         Lookup::new_with_deadline(
             Query::query(name.clone(), rtype),
-            records.into(),
+            records,
             Instant::now() + Duration::from_secs(u64::from(self.ttl)),
         )
     }
