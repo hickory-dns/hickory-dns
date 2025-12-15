@@ -225,7 +225,19 @@ where
             Ok(message) => message,
             Err(err) => return Some(Err(err)),
         };
-        Some(Ok(records_to_lookup(query.clone(), message.answers(), now)))
+
+        let valid_until = now
+            + Duration::from_secs(
+                message
+                    .answers()
+                    .iter()
+                    .map(Record::ttl)
+                    .min()
+                    .unwrap_or(MAX_TTL)
+                    .into(),
+            );
+
+        Some(Ok(Lookup::new(query.clone(), message, valid_until)))
     }
 
     /// Handle the case where there is no error returned
@@ -491,18 +503,6 @@ enum Records {
         #[cfg(test)]
         preserved_records: Vec<Record>,
     },
-}
-
-/// Helper function to construct a [`Lookup`] from a list of records.
-fn records_to_lookup(query: Query, records: &[Record], now: Instant) -> Lookup {
-    let ttl = records.iter().map(Record::ttl).min().unwrap_or(MAX_TTL);
-    let valid_until = now + Duration::from_secs(ttl.into());
-
-    let mut message = Message::response(0, OpCode::Query);
-    message.add_query(query.clone());
-    message.add_answers(records.iter().cloned());
-
-    Lookup::new(query, message, valid_until)
 }
 
 // see also the lookup_tests.rs in integration-tests crate
