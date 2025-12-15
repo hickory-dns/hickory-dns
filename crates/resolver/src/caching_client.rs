@@ -236,7 +236,7 @@ where
                     .into(),
             );
 
-        Some(Ok(Lookup::new(query.clone(), message, valid_until)))
+        Some(Ok(Lookup::new(message, valid_until)))
     }
 
     /// Handle the case where there is no error returned
@@ -470,7 +470,7 @@ where
         match result {
             Ok((message, min_ttl)) => {
                 let valid_until = now + Duration::from_secs(min_ttl.into());
-                let lookup = Lookup::new(query.clone(), message.clone(), valid_until);
+                let lookup = Lookup::new(message.clone(), valid_until);
                 self.cache.insert(query, Ok(message), now);
                 Ok(lookup)
             }
@@ -550,6 +550,7 @@ mod tests {
         let cache = ResponseCache::new(1, TtlConfig::default());
         let query = Query::new();
         let mut message = Message::response(0, OpCode::Query);
+        message.add_query(query.clone());
         message.add_answer(Record::from_rdata(
             query.name().clone(),
             u32::MAX,
@@ -1366,11 +1367,7 @@ mod tests {
         };
 
         // Create a Lookup from the final message
-        let lookup = Lookup::new(
-            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
-            lookup_message,
-            Instant::now() + Duration::from_secs(300),
-        );
+        let lookup = Lookup::new(lookup_message, Instant::now() + Duration::from_secs(300));
 
         // Verify ANSWER: Only final A record (CNAME from Response 1 filtered)
         let answers = lookup.answers().iter().collect::<Vec<_>>();
@@ -1546,11 +1543,7 @@ mod tests {
         };
 
         // Create a Lookup from the final message
-        let lookup = Lookup::new(
-            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
-            lookup_message,
-            Instant::now() + Duration::from_secs(300),
-        );
+        let lookup = Lookup::new(lookup_message, Instant::now() + Duration::from_secs(300));
 
         // Verify ANSWER: CNAME from Response 1 + A from Response 2
         let answers = lookup.answers().iter().collect::<Vec<_>>();
