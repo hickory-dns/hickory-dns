@@ -12,7 +12,7 @@
 use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
-use std::slice::Iter;
+use std::slice;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
@@ -43,7 +43,7 @@ impl LookupIp {
     /// Returns an iterator over the response records.
     ///
     /// Only IP records will be returned, either A or AAAA record types.
-    pub fn iter(&self) -> LookupIpIter<Iter<'_, Record>> {
+    pub fn iter(&self) -> LookupIpIter<'_> {
         LookupIpIter(self.0.answers().iter())
     }
 
@@ -78,12 +78,9 @@ impl From<LookupIp> for Lookup {
 }
 
 /// Borrowed view of set of IPs returned from a LookupIp
-pub struct LookupIpIter<I>(I);
+pub struct LookupIpIter<'a>(slice::Iter<'a, Record>);
 
-impl<'i, I> Iterator for LookupIpIter<I>
-where
-    I: Iterator<Item = &'i Record>,
-{
+impl Iterator for LookupIpIter<'_> {
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
