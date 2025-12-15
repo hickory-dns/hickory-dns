@@ -13,7 +13,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures_util::future::BoxFuture;
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -248,7 +247,7 @@ where
         response: DnsResponse,
         mut preserved_records: Vec<Record>,
         depth: DepthTracker,
-    ) -> Result<Records, NetError> {
+    ) -> Result<Records<impl Future<Output = Result<Lookup, NetError>>>, NetError> {
         // TODO: there should be a ResolverOpts config to disable the
         // name validation in this function to more closely match the
         // behaviour of glibc if that's what the user expects.
@@ -494,12 +493,12 @@ where
 }
 
 #[allow(clippy::large_enum_variant)]
-enum Records {
+enum Records<F> {
     /// The records exist, stored as a complete DNS Message
     Exists { message: Message, min_ttl: u32 },
     /// Future lookup for recursive cname records
     CnameChain {
-        next: BoxFuture<'static, Result<Lookup, NetError>>,
+        next: F,
         #[cfg(test)]
         preserved_records: Vec<Record>,
     },
