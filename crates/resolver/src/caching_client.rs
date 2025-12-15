@@ -340,43 +340,37 @@ where
                 if needs_filtering {
                     // Filter records that belong in ANSWER section only
                     // Don't include records from ADDITIONAL/AUTHORITY here - they're preserved as-is below
-                    let records = message
-                        .all_sections()
-                        .filter_map(|r| {
-                            // because this resolved potentially recursively, we want the min TTL from the chain
-                            let ttl = cname_ttl.min(r.ttl());
-                            let mut r = r.clone();
-                            r.set_ttl(ttl);
+                    preserved_records.extend(message.all_sections().filter_map(|r| {
+                        // because this resolved potentially recursively, we want the min TTL from the chain
+                        let ttl = cname_ttl.min(r.ttl());
+                        let mut r = r.clone();
+                        r.set_ttl(ttl);
 
-                            // restrict to the RData type requested
-                            if query.query_class() != r.dns_class() {
-                                return None;
-                            }
+                        // restrict to the RData type requested
+                        if query.query_class() != r.dns_class() {
+                            return None;
+                        }
 
-                            // standard evaluation, it's an any type, or it's the requested type
-                            // and the search_name matches
-                            let query_type = query.query_type();
-                            let record_type = r.record_type();
-                            let type_matches = query_type.is_any() || query_type == record_type;
-                            let name_matches =
-                                search_name.as_ref() == r.name() || query.name() == r.name();
-                            if type_matches && name_matches {
-                                return Some(r);
-                            }
+                        // standard evaluation, it's an any type, or it's the requested type
+                        // and the search_name matches
+                        let query_type = query.query_type();
+                        let record_type = r.record_type();
+                        let type_matches = query_type.is_any() || query_type == record_type;
+                        let name_matches =
+                            search_name.as_ref() == r.name() || query.name() == r.name();
+                        if type_matches && name_matches {
+                            return Some(r);
+                        }
 
-                            // CNAME evaluation, the record is from the CNAME lookup chain.
-                            if client.preserve_intermediates && record_type == RecordType::CNAME {
-                                return Some(r);
-                            }
+                        // CNAME evaluation, the record is from the CNAME lookup chain.
+                        if client.preserve_intermediates && record_type == RecordType::CNAME {
+                            return Some(r);
+                        }
 
-                            // Note: NS glue and SRV target IPs are NOT included here
-                            // They belong in ADDITIONAL section and are preserved below via insert_additionals
-                            None
-                        })
-                        .collect::<Vec<_>>();
-
-                    // adding the newly collected records to the preserved records
-                    preserved_records.extend(records);
+                        // Note: NS glue and SRV target IPs are NOT included here
+                        // They belong in ADDITIONAL section and are preserved below via insert_additionals
+                        None
+                    }));
 
                     // Replace ANSWER section with filtered records, preserve AUTHORITY and ADDITIONAL sections
                     *message.answers_mut() = preserved_records;
@@ -391,32 +385,26 @@ where
             // We didn't find the answer - need to continue following CNAME chain
             // Only accumulate ANSWER-section records (CNAMEs) for next hop
             // AUTHORITY and ADDITIONAL records stay with their original message and are not carried forward
-            let records = message
-                .all_sections()
-                .filter_map(|r| {
-                    // because this resolved potentially recursively, we want the min TTL from the chain
-                    let ttl = cname_ttl.min(r.ttl());
-                    let mut r = r.clone();
-                    r.set_ttl(ttl);
+            preserved_records.extend(message.all_sections().filter_map(|r| {
+                // because this resolved potentially recursively, we want the min TTL from the chain
+                let ttl = cname_ttl.min(r.ttl());
+                let mut r = r.clone();
+                r.set_ttl(ttl);
 
-                    // restrict to the RData type requested
-                    if query.query_class() != r.dns_class() {
-                        return None;
-                    }
+                // restrict to the RData type requested
+                if query.query_class() != r.dns_class() {
+                    return None;
+                }
 
-                    // CNAME evaluation, the record is from the CNAME lookup chain.
-                    if client.preserve_intermediates && r.record_type() == RecordType::CNAME {
-                        return Some(r);
-                    }
+                // CNAME evaluation, the record is from the CNAME lookup chain.
+                if client.preserve_intermediates && r.record_type() == RecordType::CNAME {
+                    return Some(r);
+                }
 
-                    // Note: NS glue and SRV target IPs are NOT accumulated across hops
-                    // They belong in ADDITIONAL section of their original response, not in ANSWER
-                    None
-                })
-                .collect::<Vec<_>>();
-
-            // adding the newly collected records to the preserved records
-            preserved_records.extend(records);
+                // Note: NS glue and SRV target IPs are NOT accumulated across hops
+                // They belong in ADDITIONAL section of their original response, not in ANSWER
+                None
+            }));
 
             (search_name.into_owned(), was_cname, preserved_records)
         };
