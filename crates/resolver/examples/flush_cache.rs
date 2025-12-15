@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hickory_resolver::{TokioResolver, net::runtime::TokioRuntimeProvider};
+use hickory_resolver::{Resolver, net::runtime::TokioRuntimeProvider};
 
 #[tokio::main]
 async fn main() {
@@ -11,7 +11,7 @@ async fn main() {
 async fn tokio_main() {
     // use the system resolver configuration
     let resolver = Arc::new(
-        TokioResolver::builder(TokioRuntimeProvider::default())
+        Resolver::builder_tokio()
             .expect("failed to create resolver")
             .build()
             .unwrap(),
@@ -34,9 +34,9 @@ async fn tokio_main() {
     drop(resolver);
 }
 
-async fn resolve_list<P: hickory_resolver::ConnectionProvider>(
+async fn resolve_list(
     names: &[&str],
-    resolver: &hickory_resolver::Resolver<P>,
+    resolver: &Resolver<TokioRuntimeProvider>,
 ) -> tokio::time::Duration {
     use tokio::time::Instant;
     let start_time = Instant::now();
