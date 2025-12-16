@@ -5,10 +5,14 @@ use core::marker::Send;
 use core::net::SocketAddr;
 use core::pin::Pin;
 use core::time::Duration;
-use std::io;
 #[cfg(feature = "__quic")]
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    future::poll_fn,
+    io,
+    task::{Context, Poll},
+};
 
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
@@ -16,8 +20,6 @@ use futures_io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::task::JoinHandle;
-
-use crate::udp::DnsUdpSocket;
 
 /// Spawn a background task, if it was present
 #[cfg(any(test, feature = "tokio"))]
@@ -278,6 +280,43 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     // even for runtimes that might not (want to) provide QUIC support.
     fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
         None
+    }
+}
+
+/// Trait for DnsUdpSocket
+#[async_trait]
+pub trait DnsUdpSocket
+where
+    Self: Send + Sync + Sized + Unpin,
+{
+    /// Time implementation used for this type
+    type Time: Time;
+
+    /// Poll once Receive data from the socket and returns the number of bytes read and the address from
+    /// where the data came on success.
+    fn poll_recv_from(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<(usize, SocketAddr)>>;
+
+    /// Receive data from the socket and returns the number of bytes read and the address from
+    /// where the data came on success.
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        poll_fn(|cx| self.poll_recv_from(cx, buf)).await
+    }
+
+    /// Poll once to send data to the given address.
+    fn poll_send_to(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+        target: SocketAddr,
+    ) -> Poll<io::Result<usize>>;
+
+    /// Send data to the given address.
+    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
+        poll_fn(|cx| self.poll_send_to(cx, buf, target)).await
     }
 }
 

@@ -23,7 +23,7 @@ mod udp_client_stream;
 mod udp_stream;
 
 pub use self::udp_client_stream::{UdpClientConnect, UdpClientStream, UdpClientStreamBuilder};
-pub use self::udp_stream::{DnsUdpSocket, UdpSocket, UdpStream};
+pub use self::udp_stream::{UdpSocket, UdpStream};
 
 /// Max size for the UDP receive buffer as recommended by
 /// [RFC6891](https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5).
