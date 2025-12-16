@@ -32,7 +32,7 @@ use tokio::runtime;
 use tracing::{Level, info};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-use hickory_dns::Cli;
+use hickory_dns::DnsServer;
 
 /// Main method for running the named server.
 fn main() -> Result<(), String> {
@@ -47,7 +47,7 @@ fn main() -> Result<(), String> {
 }
 
 fn run() -> Result<(), String> {
-    let args = Cli::parse();
+    let args = DnsServer::parse();
 
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     let level = match (args.quiet, args.debug) {

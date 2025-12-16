@@ -50,7 +50,7 @@ use prometheus_server::PrometheusServer;
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
 #[clap(name = "Hickory DNS named server", version, about)]
-pub struct Cli {
+pub struct DnsServer {
     /// Test validation of configuration files
     #[clap(long = "validate")]
     validate: bool,
@@ -161,7 +161,7 @@ pub struct Cli {
     nsid_hostname: bool,
 }
 
-impl Cli {
+impl DnsServer {
     pub async fn run(self) -> Result<(), String> {
         let Self {
             validate,
