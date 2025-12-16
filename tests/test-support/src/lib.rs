@@ -14,8 +14,7 @@ use std::{
 use bytes::Buf;
 use futures_util::{AsyncRead, AsyncWrite};
 use hickory_net::{
-    runtime::{DnsTcpStream, RuntimeProvider, TokioHandle, TokioTime},
-    udp::DnsUdpSocket,
+    runtime::{DnsTcpStream, DnsUdpSocket, RuntimeProvider, TokioHandle, TokioTime},
     xfer::Protocol,
 };
 use hickory_proto::{

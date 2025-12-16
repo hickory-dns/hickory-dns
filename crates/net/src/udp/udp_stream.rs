@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::future::poll_fn;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -23,46 +22,9 @@ use tracing::{debug, trace, warn};
 
 use crate::error::NetError;
 use crate::proto::op::SerialMessage;
-use crate::runtime::{RuntimeProvider, Time};
+use crate::runtime::{DnsUdpSocket, RuntimeProvider};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
-
-/// Trait for DnsUdpSocket
-#[async_trait]
-pub trait DnsUdpSocket
-where
-    Self: Send + Sync + Sized + Unpin,
-{
-    /// Time implementation used for this type
-    type Time: Time;
-
-    /// Poll once Receive data from the socket and returns the number of bytes read and the address from
-    /// where the data came on success.
-    fn poll_recv_from(
-        &self,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<(usize, SocketAddr)>>;
-
-    /// Receive data from the socket and returns the number of bytes read and the address from
-    /// where the data came on success.
-    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        poll_fn(|cx| self.poll_recv_from(cx, buf)).await
-    }
-
-    /// Poll once to send data to the given address.
-    fn poll_send_to(
-        &self,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-        target: SocketAddr,
-    ) -> Poll<io::Result<usize>>;
-
-    /// Send data to the given address.
-    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
-        poll_fn(|cx| self.poll_send_to(cx, buf, target)).await
-    }
-}
 
 /// Trait for UdpSocket
 #[async_trait]

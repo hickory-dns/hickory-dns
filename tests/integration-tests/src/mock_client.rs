@@ -19,8 +19,7 @@ use futures::{
 };
 
 use hickory_net::NetError;
-use hickory_net::runtime::{DnsTcpStream, RuntimeProvider, TokioHandle, TokioTime};
-use hickory_net::udp::DnsUdpSocket;
+use hickory_net::runtime::{DnsTcpStream, DnsUdpSocket, RuntimeProvider, TokioHandle, TokioTime};
 use hickory_net::xfer::DnsHandle;
 use hickory_proto::ProtoError;
 use hickory_proto::op::{DnsRequest, DnsResponse, Message, Query};
