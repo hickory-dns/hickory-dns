@@ -716,11 +716,13 @@ where
 pub(crate) mod testing {
     use std::{net::*, str::FromStr};
 
-    use crate::Resolver;
+    use tokio::runtime::Runtime;
+
     use crate::config::{GOOGLE, LookupIpStrategy, NameServerConfig, ResolverConfig};
     use crate::connection_provider::ConnectionProvider;
-    use crate::net::runtime::Executor;
+    use crate::net::runtime::TokioRuntimeProvider;
     use crate::proto::rr::Name;
+    use crate::resolver::Resolver;
 
     /// Test IP lookup from URLs.
     pub(crate) async fn lookup_test<R: ConnectionProvider>(config: ResolverConfig, handle: R) {
@@ -767,21 +769,20 @@ pub(crate) mod testing {
     }
 
     /// Test IP lookup from IP literals across threads.
-    pub(crate) fn ip_lookup_across_threads_test<E: Executor, R: ConnectionProvider>(handle: R) {
+    pub(crate) fn ip_lookup_across_threads_test(handle: TokioRuntimeProvider) {
         // Test ensuring that running the background task on a separate
         // executor in a separate thread from the futures returned by the
         // Resolver works correctly.
         use std::thread;
-        let resolver =
-            Resolver::<R>::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
-                .build()
-                .unwrap();
+        let resolver = Resolver::builder_with_config(ResolverConfig::udp_and_tcp(&GOOGLE), handle)
+            .build()
+            .unwrap();
 
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
 
-        let test_fn = |resolver: Resolver<R>| {
-            let mut exec = E::new();
+        let test_fn = |resolver: Resolver<TokioRuntimeProvider>| {
+            let exec = Runtime::new().unwrap();
 
             let response = exec
                 .block_on(resolver.lookup_ip("10.1.0.2"))
@@ -1212,7 +1213,6 @@ mod tests {
     use futures_util::stream::once;
     use futures_util::{Stream, future};
     use test_support::subscribe;
-    use tokio::runtime::Runtime;
 
     #[cfg(all(unix, feature = "system-config"))]
     use super::testing::hosts_lookup_test;
@@ -1281,7 +1281,7 @@ mod tests {
     fn test_ip_lookup_across_threads() {
         subscribe();
         let handle = TokioRuntimeProvider::default();
-        ip_lookup_across_threads_test::<Runtime, _>(handle);
+        ip_lookup_across_threads_test(handle);
     }
 
     #[tokio::test]

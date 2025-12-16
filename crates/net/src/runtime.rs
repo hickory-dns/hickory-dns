@@ -348,29 +348,6 @@ pub trait Spawn {
     fn spawn_bg(&mut self, future: impl Future<Output = ()> + Send + 'static);
 }
 
-/// Generic executor.
-// This trait is created to facilitate running the tests defined in the tests mod using different types of
-// executors. It's used in Fuchsia OS, please be mindful when update it.
-pub trait Executor {
-    /// Create the implementor itself.
-    fn new() -> Self;
-
-    /// Spawns a future object to run synchronously or asynchronously depending on the specific
-    /// executor.
-    fn block_on<F: Future>(&mut self, future: F) -> F::Output;
-}
-
-#[cfg(feature = "tokio")]
-impl Executor for Runtime {
-    fn new() -> Self {
-        Self::new().expect("failed to create tokio runtime")
-    }
-
-    fn block_on<F: Future>(&mut self, future: F) -> F::Output {
-        Self::block_on(self, future)
-    }
-}
-
 /// Generic Time for Delay and Timeout.
 // This trait is created to allow to use different types of time systems. It's used in Fuchsia OS, please be mindful when update it.
 #[async_trait]
