@@ -334,9 +334,8 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
                     }
 
                     trace!(port = bind_addr.port(), "binding UDP socket");
-                    Some(Box::pin(
-                        this.provider.bind_udp(bind_addr, this.name_server),
-                    ))
+                    let future = this.provider.bind_udp(bind_addr, this.name_server);
+                    Some(Box::pin(async move { Ok(future.await?) }))
                 }
             }
         }

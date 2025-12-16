@@ -177,7 +177,7 @@ mod tokio_runtime {
             server_addr: SocketAddr,
             bind_addr: Option<SocketAddr>,
             wait_for: Option<Duration>,
-        ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, NetError>>>> {
+        ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, io::Error>>>> {
             Box::pin(async move {
                 let socket = match server_addr {
                     SocketAddr::V4(_) => TcpSocket::new_v4(),
@@ -193,10 +193,13 @@ mod tokio_runtime {
                 let wait_for = wait_for.unwrap_or(CONNECT_TIMEOUT);
                 match timeout(wait_for, future).await {
                     Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
-                    Ok(Err(e)) => Err(NetError::from(e)),
+                    Ok(Err(e)) => Err(e),
                     Err(_) => {
                         debug!(%server_addr, "TCP connect timeout");
-                        Err(NetError::Timeout)
+                        Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "TCP connect timed out",
+                        ))
                     }
                 }
             })
@@ -206,8 +209,8 @@ mod tokio_runtime {
             &self,
             local_addr: SocketAddr,
             _server_addr: SocketAddr,
-        ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, NetError>>>> {
-            Box::pin(async move { Ok(tokio::net::UdpSocket::bind(local_addr).await?) })
+        ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, io::Error>>>> {
+            Box::pin(async move { tokio::net::UdpSocket::bind(local_addr).await })
         }
 
         #[cfg(feature = "__quic")]
@@ -230,9 +233,9 @@ mod tokio_runtime {
             &self,
             local_addr: SocketAddr,
             _server_addr: SocketAddr,
-        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, NetError> {
+        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error> {
             let socket = std::net::UdpSocket::bind(local_addr)?;
-            Ok(quinn::TokioRuntime.wrap_udp_socket(socket)?)
+            quinn::TokioRuntime.wrap_udp_socket(socket)
         }
     }
 }
@@ -263,7 +266,7 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         server_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
         timeout: Option<Duration>,
-    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, NetError>>>>;
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, io::Error>>>>;
 
     /// Create a UDP socket bound to `local_addr`. The returned value should **not** be connected to `server_addr`.
     /// *Notice: the future should be ready once returned at best effort. Otherwise UDP DNS may need much more retries.*
@@ -271,7 +274,7 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
         &self,
         local_addr: SocketAddr,
         server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, NetError>>>>;
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, io::Error>>>>;
 
     /// Yields an object that knows how to bind a QUIC socket.
     //
@@ -295,7 +298,7 @@ pub trait QuicSocketBinder {
         &self,
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
-    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, NetError>;
+    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
 }
 
 /// A type defines the Handle which can spawn future.

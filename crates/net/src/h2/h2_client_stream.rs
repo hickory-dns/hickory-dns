@@ -11,6 +11,7 @@ use core::net::SocketAddr;
 use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
+use std::io;
 use std::sync::Arc;
 
 use bytes::{Buf, Bytes, BytesMut};
@@ -341,7 +342,7 @@ pub struct HttpsClientConnect(
 impl HttpsClientConnect {
     /// Creates a new HttpsStream with existing connection
     pub fn new(
-        tcp: impl Future<Output = Result<impl DnsTcpStream, NetError>> + Send + 'static,
+        tcp: impl Future<Output = Result<impl DnsTcpStream, io::Error>> + Send + 'static,
         mut client_config: Arc<ClientConfig>,
         name_server: SocketAddr,
         server_name: Arc<str>,

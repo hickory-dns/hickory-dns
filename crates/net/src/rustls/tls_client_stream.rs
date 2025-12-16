@@ -9,6 +9,7 @@
 
 use core::future::Future;
 use core::net::SocketAddr;
+use std::io;
 use std::sync::Arc;
 
 use futures_util::future::BoxFuture;
@@ -77,19 +78,15 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
 ///
 /// * `future` - A future producing DnsTcpStream
 /// * `dns_name` - The DNS name associated with a certificate
-pub fn tls_client_connect_with_future<S, F>(
-    future: F,
+pub fn tls_client_connect_with_future<S: DnsTcpStream>(
+    future: impl Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
     socket_addr: SocketAddr,
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
     BoxFuture<'static, Result<TlsClientStream<S>, NetError>>,
     BufDnsStreamHandle,
-)
-where
-    S: DnsTcpStream,
-    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-{
+) {
     let (stream_future, sender) =
         tls_connect_with_future(future, socket_addr, server_name, client_config);
 

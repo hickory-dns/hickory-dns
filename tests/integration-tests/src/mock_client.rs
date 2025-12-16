@@ -109,7 +109,7 @@ impl RuntimeProvider for MockRuntimeProvider {
         _server_addr: SocketAddr,
         _bind_addr: Option<SocketAddr>,
         _wait_for: Option<std::time::Duration>,
-    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, NetError>>>> {
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, io::Error>>>> {
         Box::pin(async { Ok(TcpPlaceholder) })
     }
 
@@ -117,7 +117,7 @@ impl RuntimeProvider for MockRuntimeProvider {
         &self,
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, NetError>>>> {
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, io::Error>>>> {
         Box::pin(async { Ok(UdpPlaceholder) })
     }
 }
