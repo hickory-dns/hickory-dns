@@ -376,7 +376,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         })
     }
 
-    async fn run(self) -> Result<(), NetError> {
+    async fn run(self) {
         let Self {
             ip,
             proto,
@@ -414,7 +414,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                     .transport_state()
                     .await
                     .error_received(ip, proto, &err);
-                return Ok(());
+                return;
             }
         };
 
@@ -457,7 +457,6 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             metrics.probe_budget.set(_prev + 1);
             metrics.record_probe_duration(proto, start.elapsed());
         }
-        Ok(())
     }
 }
 
@@ -2195,10 +2194,7 @@ mod opportunistic_enc_tests {
     struct MockSyncHandle;
 
     impl Spawn for MockSyncHandle {
-        fn spawn_bg(
-            &mut self,
-            future: impl Future<Output = Result<(), NetError>> + Send + 'static,
-        ) {
+        fn spawn_bg(&mut self, future: impl Future<Output = ()> + Send + 'static) {
             // Instead of spawning the future as a background task, poll it synchronously
             // until completion.
             let waker = futures_util::task::noop_waker();
