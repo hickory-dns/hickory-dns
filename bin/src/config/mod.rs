@@ -20,6 +20,7 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "sqlite")]
 use cfg_if::cfg_if;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
@@ -31,7 +32,7 @@ use rustls::{
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use thiserror::Error;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec;
@@ -65,7 +66,7 @@ mod tests;
 /// Server configuration
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct Config {
+pub(crate) struct Config {
     /// The list of IPv4 addresses to listen on
     #[serde(default)]
     pub(crate) listen_addrs_ipv4: Vec<Ipv4Addr>,
@@ -163,12 +164,12 @@ pub struct Config {
 
 impl Config {
     /// read a Config file from the file specified at path.
-    pub fn read_config(path: &Path) -> Result<Self, ConfigError> {
+    pub(crate) fn read_config(path: &Path) -> Result<Self, ConfigError> {
         Self::from_toml(&fs::read_to_string(path)?)
     }
 
     /// Read a [`Config`] from the given TOML string.
-    pub fn from_toml(toml: &str) -> Result<Self, ConfigError> {
+    fn from_toml(toml: &str) -> Result<Self, ConfigError> {
         Ok(toml::from_str(toml)?)
     }
 }
@@ -224,7 +225,7 @@ where
 
 /// Configuration for a zone
 #[derive(Deserialize, Debug)]
-pub struct ZoneConfig {
+pub(crate) struct ZoneConfig {
     /// name of the zone
     pub zone: String, // TODO: make Domain::Name decodable
     /// type of the zone
@@ -233,8 +234,10 @@ pub struct ZoneConfig {
 }
 
 impl ZoneConfig {
-    #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-    pub async fn load(self, zone_dir: &Path) -> Result<Vec<Arc<dyn ZoneHandler>>, ProtoError> {
+    pub(crate) async fn load(
+        self,
+        zone_dir: &Path,
+    ) -> Result<Vec<Arc<dyn ZoneHandler>>, ProtoError> {
         debug!("loading zone with config: {self:#?}");
 
         let zone_name = self
@@ -355,12 +358,12 @@ impl ZoneConfig {
 
     // TODO this is a little ugly for the parse, b/c there is no terminal char
     /// returns the name of the Zone, i.e. the `example.com` of `www.example.com.`
-    pub fn zone(&self) -> Result<Name, ProtoError> {
+    pub(crate) fn zone(&self) -> Result<Name, ProtoError> {
         Name::parse(&self.zone, Some(&Name::new()))
     }
 
     /// the type of the zone
-    pub fn zone_type(&self) -> ZoneType {
+    fn zone_type(&self) -> ZoneType {
         match &self.zone_type_config {
             ZoneTypeConfig::Primary { .. } => ZoneType::Primary,
             ZoneTypeConfig::Secondary { .. } => ZoneType::Secondary,
@@ -375,7 +378,7 @@ const EMPTY_STORES: &str = "empty [[zones.stores]] in config";
 #[serde(tag = "zone_type")]
 #[serde(deny_unknown_fields)]
 /// Enumeration over each zone type's configuration.
-pub enum ZoneTypeConfig {
+pub(crate) enum ZoneTypeConfig {
     Primary(ServerZoneConfig),
     Secondary(ServerZoneConfig),
     External {
@@ -391,7 +394,8 @@ pub enum ZoneTypeConfig {
 }
 
 impl ZoneTypeConfig {
-    pub fn as_server(&self) -> Option<&ServerZoneConfig> {
+    #[cfg(test)]
+    fn as_server(&self) -> Option<&ServerZoneConfig> {
         match self {
             Self::Primary(c) | Self::Secondary(c) => Some(c),
             _ => None,
@@ -401,7 +405,7 @@ impl ZoneTypeConfig {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct ServerZoneConfig {
+pub(crate) struct ServerZoneConfig {
     /// A policy used to determine whether AXFR requests are allowed
     ///
     /// By default, all AXFR requests are rejected
@@ -429,7 +433,8 @@ impl ServerZoneConfig {
     ///
     /// this is only used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
-    pub fn file(&self) -> Option<&Path> {
+    #[cfg(test)]
+    fn file(&self) -> Option<&Path> {
         self.stores.iter().find_map(|store| match store {
             ServerStoreConfig::File(file_config) => Some(&*file_config.zone_path),
             #[cfg(feature = "sqlite")]
@@ -439,12 +444,13 @@ impl ServerZoneConfig {
     }
 
     /// Return a policy that can be used to determine how AXFR requests should be handled.
-    pub fn axfr_policy(&self) -> AxfrPolicy {
+    fn axfr_policy(&self) -> AxfrPolicy {
         self.axfr_policy
     }
 
     /// declare that this zone should be signed, see keys for configuration of the keys for signing
-    pub fn is_dnssec_enabled(&self) -> bool {
+    #[cfg(feature = "sqlite")]
+    fn is_dnssec_enabled(&self) -> bool {
         cfg_if! {
             if #[cfg(feature = "__dnssec")] {
                 !self.keys.is_empty()
@@ -460,7 +466,7 @@ impl ServerZoneConfig {
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
-pub enum ServerStoreConfig {
+pub(crate) enum ServerStoreConfig {
     /// File based configuration
     File(FileConfig),
     /// Sqlite based configuration file
@@ -476,7 +482,7 @@ pub enum ServerStoreConfig {
 #[derive(Deserialize, Debug, Default)]
 #[serde(rename_all = "lowercase", tag = "type")]
 #[non_exhaustive]
-pub enum ExternalStoreConfig {
+pub(crate) enum ExternalStoreConfig {
     /// Blocklist configuration
     #[cfg(feature = "blocklist")]
     Blocklist(BlocklistConfig),
@@ -536,19 +542,20 @@ where
 }
 
 /// Configuration for a TLS certificate
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
-pub struct TlsCertConfig {
-    pub path: PathBuf,
-    pub endpoint_name: Option<String>,
-    pub private_key: PathBuf,
+pub(crate) struct TlsCertConfig {
+    pub(crate) path: PathBuf,
+    pub(crate) endpoint_name: Option<String>,
+    pub(crate) private_key: PathBuf,
 }
 
-#[cfg(feature = "__tls")]
+#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
 impl TlsCertConfig {
     /// Load a Certificate from the path (with rustls)
-    pub fn load(&self, zone_dir: &Path) -> Result<Arc<dyn ResolvesServerCert>, String> {
+    pub(crate) fn load(&self, zone_dir: &Path) -> Result<Arc<dyn ResolvesServerCert>, String> {
         if let Some(endpoint_name) = &self.endpoint_name {
             info!("loading TLS cert for {endpoint_name} from {:?}", self.path);
         } else {
@@ -613,7 +620,7 @@ impl TlsCertConfig {
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum ConfigError {
+pub(crate) enum ConfigError {
     // foreign
     /// An error got returned from IO
     #[error("io error: {0}")]

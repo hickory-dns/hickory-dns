@@ -33,10 +33,11 @@ use hickory_server::server::default_tls_server_config;
 use hickory_server::{server::Server, zone_handler::Catalog};
 
 mod config;
-pub use config::{
-    Config, ConfigError, ExternalStoreConfig, ServerStoreConfig, ServerZoneConfig, TlsCertConfig,
-    ZoneConfig, ZoneTypeConfig,
-};
+use config::Config;
+#[cfg(all(feature = "resolver", feature = "metrics"))]
+use config::ExternalStoreConfig;
+#[cfg(feature = "metrics")]
+use config::{ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
@@ -44,7 +45,7 @@ pub mod dnssec;
 #[cfg(feature = "prometheus-metrics")]
 mod prometheus_server;
 #[cfg(feature = "prometheus-metrics")]
-pub use prometheus_server::PrometheusServer;
+use prometheus_server::PrometheusServer;
 
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]

@@ -12,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
 /// An HTTP server that responds to Prometheus scrape requests.
-pub struct PrometheusServer {
+pub(crate) struct PrometheusServer {
     join_handle: JoinHandle<()>,
     cancellation_token: CancellationToken,
 }
@@ -20,7 +20,7 @@ pub struct PrometheusServer {
 impl PrometheusServer {
     /// Register a metrics recorder, and start an HTTP server with the provided listener to provide
     /// metrics to Prometheus.
-    pub fn new(listener: TcpListener) -> Result<Self, String> {
+    pub(crate) fn new(listener: TcpListener) -> Result<Self, String> {
         // Set up metrics recorder.
         let handle = PrometheusBuilder::new()
             // We set buckets here so that histogram metrics are treated as "true" Prometheus
@@ -72,7 +72,7 @@ impl PrometheusServer {
     }
 
     /// Stop the Prometheus HTTP server.
-    pub async fn stop(self) {
+    pub(crate) async fn stop(self) {
         self.cancellation_token.cancel();
         if let Err(error) = self.join_handle.await {
             error!(%error, "Error from Prometheus server task");
