@@ -31,9 +31,8 @@ use crate::error::NetError;
 use crate::http::{RequestContext, SetHeaders, Version};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
-use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
-use crate::tcp::DnsTcpStream;
+use crate::runtime::{DnsTcpStream, RuntimeProvider};
 use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";

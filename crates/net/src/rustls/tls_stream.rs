@@ -21,9 +21,9 @@ use tokio_rustls::TlsConnector;
 use tracing::debug;
 
 use crate::error::NetError;
-use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::{DnsTcpStream, TcpStream};
+use crate::runtime::{DnsTcpStream, RuntimeProvider};
+use crate::tcp::TcpStream;
 use crate::xfer::{BufDnsStreamHandle, CONNECT_TIMEOUT, StreamReceiver};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls

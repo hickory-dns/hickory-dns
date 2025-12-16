@@ -22,4 +22,4 @@ mod tcp_stream;
 mod tests;
 
 pub use self::tcp_client_stream::TcpClientStream;
-pub use self::tcp_stream::{DnsTcpStream, TcpStream};
+pub use self::tcp_stream::TcpStream;

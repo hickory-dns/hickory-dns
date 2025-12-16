@@ -14,20 +14,14 @@ use core::task::{Context, Poll};
 use core::time::Duration;
 use std::io;
 
-use futures_io::{AsyncRead, AsyncWrite, IoSlice};
+use futures_io::IoSlice;
 use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready};
 use tracing::{debug, trace};
 
 use crate::proto::op::SerialMessage;
-use crate::runtime::Time;
+use crate::runtime::{DnsTcpStream, Time};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
-
-/// Trait for TCP connection
-pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
-    /// Timer type to use with this TCP stream type
-    type Time: Time;
-}
 
 /// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {

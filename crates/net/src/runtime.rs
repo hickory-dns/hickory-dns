@@ -11,12 +11,12 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
+use futures_io::{AsyncRead, AsyncWrite};
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::task::JoinHandle;
 
-use crate::tcp::DnsTcpStream;
 use crate::udp::DnsUdpSocket;
 
 /// Spawn a background task, if it was present
@@ -295,6 +295,12 @@ pub trait QuicSocketBinder {
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
     ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
+}
+
+/// Trait for TCP connection
+pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
+    /// Timer type to use with this TCP stream type
+    type Time: Time;
 }
 
 /// A type defines the Handle which can spawn future.
