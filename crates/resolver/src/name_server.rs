@@ -1286,6 +1286,7 @@ mod opportunistic_enc_tests {
     #[cfg(feature = "metrics")]
     use std::collections::HashMap;
     use std::future::Future;
+    use std::io;
     use std::net::{IpAddr, Ipv4Addr};
     use std::pin::Pin;
     use std::sync::Arc;
@@ -1414,8 +1415,8 @@ mod opportunistic_enc_tests {
         state.error_received(
             ns_ip,
             Protocol::Tls,
-            &NetError::from(std::io::Error::new(
-                std::io::ErrorKind::ConnectionRefused,
+            &NetError::from(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
                 "nameserver refused TLS connection",
             )),
         );
@@ -1587,8 +1588,8 @@ mod opportunistic_enc_tests {
         state.error_received(
             ns_ip,
             Protocol::Tls,
-            &NetError::from(std::io::Error::new(
-                std::io::ErrorKind::ConnectionRefused,
+            &NetError::from(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
                 "nameserver refused TLS connection",
             )),
         );
@@ -1731,8 +1732,8 @@ mod opportunistic_enc_tests {
         cx.transport_state().await.error_received(
             ns_ip,
             Protocol::Tls,
-            &NetError::from(std::io::Error::new(
-                std::io::ErrorKind::ConnectionRefused,
+            &NetError::from(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
                 "connection refused",
             )),
         );
@@ -1930,8 +1931,8 @@ mod opportunistic_enc_tests {
                     ),
                     // Configure a mock provider that always produces an error when new connections are requested.
                     &MockProvider {
-                        new_connection_error: Some(NetError::from(std::io::Error::new(
-                            std::io::ErrorKind::ConnectionRefused,
+                        new_connection_error: Some(NetError::from(io::Error::new(
+                            io::ErrorKind::ConnectionRefused,
                             "connection refused",
                         ))),
                         ..MockProvider::default()
@@ -2172,7 +2173,7 @@ mod opportunistic_enc_tests {
             _server_addr: std::net::SocketAddr,
             _bind_addr: Option<std::net::SocketAddr>,
             _timeout: Option<Duration>,
-        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, NetError>> + Send>> {
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, io::Error>> + Send>> {
             unimplemented!();
         }
 
@@ -2181,7 +2182,7 @@ mod opportunistic_enc_tests {
             &self,
             _local_addr: std::net::SocketAddr,
             _server_addr: std::net::SocketAddr,
-        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, NetError>> + Send>> {
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
             unimplemented!();
         }
     }

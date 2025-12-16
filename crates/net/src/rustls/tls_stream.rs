@@ -9,6 +9,7 @@
 
 use core::future::Future;
 use core::net::SocketAddr;
+use std::io;
 use std::sync::Arc;
 
 use futures_util::future::BoxFuture;
@@ -135,19 +136,15 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
 /// * `bind_addr` - IP and port to connect from
 /// * `dns_name` - The DNS name associated with a certificate
 #[allow(clippy::type_complexity)]
-pub fn tls_connect_with_future<S, F>(
-    future: F,
+pub fn tls_connect_with_future<S: DnsTcpStream>(
+    future: impl Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
     BoxFuture<'static, Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError>>,
     BufDnsStreamHandle,
-)
-where
-    S: DnsTcpStream,
-    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-{
+) {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
     let early_data_enabled = client_config.enable_early_data;
     let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
@@ -186,7 +183,7 @@ async fn connect_tls<P: RuntimeProvider>(
 
 async fn connect_tls_with_future<S: DnsTcpStream>(
     tls_connector: TlsConnector,
-    future: impl Future<Output = Result<S, NetError>> + Send + Unpin,
+    future: impl Future<Output = Result<S, io::Error>> + Send + Unpin,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     outbound_messages: StreamReceiver,

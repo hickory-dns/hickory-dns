@@ -8,12 +8,10 @@ use {
     hickory_resolver::{
         ConnectionProvider, Resolver,
         config::{GOOGLE, ResolverConfig},
-        net::{
-            NetError,
-            runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
-        },
+        net::runtime::{RuntimeProvider, TokioHandle, TokioTime, iocompat::AsyncIoTokioAsStd},
     },
     std::future::Future,
+    std::io,
     std::net::SocketAddr,
     std::pin::Pin,
     std::time::Duration,
@@ -43,7 +41,7 @@ impl RuntimeProvider for PrintProvider {
         server_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
         wait_for: Option<Duration>,
-    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, NetError>>>> {
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, io::Error>>>> {
         Box::pin(async move {
             let socket = match server_addr {
                 SocketAddr::V4(_) => TcpSocket::new_v4(),
@@ -59,8 +57,11 @@ impl RuntimeProvider for PrintProvider {
             let wait_for = wait_for.unwrap_or_else(|| Duration::from_secs(5));
             match timeout(wait_for, future).await {
                 Ok(Ok(socket)) => Ok(AsyncIoTokioAsStd(socket)),
-                Ok(Err(e)) => Err(NetError::from(e)),
-                Err(_) => Err(NetError::Timeout),
+                Ok(Err(e)) => Err(e),
+                Err(_) => Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "TCP connect timed out",
+                )),
             }
         })
     }
@@ -69,11 +70,11 @@ impl RuntimeProvider for PrintProvider {
         &self,
         local_addr: SocketAddr,
         server_addr: SocketAddr,
-    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, NetError>>>> {
+    ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, io::Error>>>> {
         // The server_addr parameter is used only when you need to establish a tunnel or something similar.
         // For example, you try to use a http proxy and encapsulate UDP packets inside a TCP stream.
         println!("Create udp local_addr: {local_addr}, server_addr: {server_addr}");
-        Box::pin(async move { UdpSocket::bind(local_addr).await.map_err(NetError::from) })
+        Box::pin(async move { UdpSocket::bind(local_addr).await })
     }
 }
 
