@@ -16,10 +16,10 @@ use futures_util::future::BoxFuture;
 use rustls::{ClientConfig, pki_types::ServerName};
 
 use crate::error::NetError;
-use crate::runtime::RuntimeProvider;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::runtime::{DnsTcpStream, RuntimeProvider};
 use crate::rustls::tls_stream::{tls_connect_with_bind_addr, tls_connect_with_future};
-use crate::tcp::{DnsTcpStream, TcpClientStream};
+use crate::tcp::TcpClientStream;
 use crate::xfer::BufDnsStreamHandle;
 
 /// Type of TlsClientStream used with Rustls
