@@ -211,7 +211,7 @@ where
     S: DnsRequestSender + 'static + Send + Unpin,
     TE: Time + Unpin,
 {
-    type Output = Result<(), NetError>;
+    type Output = ();
 
     #[allow(clippy::unused_unit)]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -237,9 +237,7 @@ where
                 } // underlying stream is complete.
                 Poll::Ready(None) => {
                     debug!("io_stream is done, shutting down");
-                    // TODO: return shutdown error to anything in the stream?
-
-                    return Poll::Ready(Ok(()));
+                    return Poll::Ready(());
                 }
                 Poll::Ready(Some(Err(error))) => {
                     debug!(
@@ -247,7 +245,7 @@ where
                         "io_stream hit an error, shutting down"
                     );
 
-                    return Poll::Ready(Err(error));
+                    return Poll::Ready(());
                 }
             }
 

@@ -782,7 +782,7 @@ mod opportunistic_encryption_persistence {
             }
         }
 
-        async fn run(self) -> Result<(), NetError> {
+        async fn run(self) {
             let Self {
                 save_interval,
                 path,
