@@ -318,7 +318,7 @@ async fn async_client() {
 
     // Create a query future
     let query = client.query(
-        Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("dns.google.").unwrap(),
         DNSClass::IN,
         RecordType::A,
     );
@@ -326,16 +326,24 @@ async fn async_client() {
     // wait for its response
     let (message_returned, buffer) = query.await.unwrap().into_parts();
 
-    // validate it's what we expected
-    if let RData::A(addr) = message_returned.answers()[0].data() {
-        assert_eq!(*addr, A::new(93, 184, 215, 14));
-    }
+    // extract A records in a stable order we can assert on
+    let assert_a_records_match = |answers: &[Record], expected: &[A]| {
+        let mut a_records = answers
+            .iter()
+            .filter_map(|record| match record.data() {
+                RData::A(addr) => Some(*addr),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        a_records.sort_by_key(|a| u32::from(**a));
+        assert_eq!(a_records, expected);
+    };
+
+    let expected_answers = vec![A::new(8, 8, 4, 4), A::new(8, 8, 8, 8)];
+    assert_a_records_match(message_returned.answers(), &expected_answers);
 
     let message_parsed = Message::from_vec(&buffer)
         .expect("buffer was parsed already by Client so we should be able to do it again");
 
-    // validate it's what we expected
-    if let RData::A(addr) = message_parsed.answers()[0].data() {
-        assert_eq!(*addr, A::new(93, 184, 215, 14));
-    }
+    assert_a_records_match(message_parsed.answers(), &expected_answers);
 }
