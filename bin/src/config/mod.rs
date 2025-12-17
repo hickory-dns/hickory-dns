@@ -336,7 +336,7 @@ impl ZoneConfig {
                             let recursor = RecursiveZoneHandler::try_from_config(
                                 zone_name.clone(),
                                 zone_type,
-                                &config,
+                                *config,
                                 Some(zone_dir),
                                 TokioRuntimeProvider::default(),
                             )

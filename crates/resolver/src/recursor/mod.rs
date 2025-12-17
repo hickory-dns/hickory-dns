@@ -80,7 +80,7 @@ impl<P: ConnectionProvider> Recursor<P> {
     /// Build a new [`Recursor`] from the specified configuration
     #[cfg(feature = "serde")]
     pub fn from_config(
-        config: &RecursiveConfig,
+        config: RecursiveConfig,
         root_dir: Option<&Path>,
         conn_provider: P,
     ) -> Result<Self, RecursorError> {

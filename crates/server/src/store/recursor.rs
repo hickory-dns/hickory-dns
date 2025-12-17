@@ -11,13 +11,10 @@
 
 use std::{io, path::Path, time::Instant};
 
-#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
-use hickory_resolver::config::OpportunisticEncryptionConfig;
-use hickory_resolver::recursor::RecursiveConfig;
 use tracing::{debug, info};
 
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
-use crate::resolver::OpportunisticEncryptionStatePersistTask;
+use crate::resolver::{OpportunisticEncryptionStatePersistTask, config::OpportunisticEncryption};
 #[cfg(feature = "__dnssec")]
 use crate::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use crate::{
@@ -27,7 +24,7 @@ use crate::{
         op::ResponseSigner,
         rr::{LowerName, Name, RecordType},
     },
-    resolver::{config::OpportunisticEncryption, recursor::Recursor},
+    resolver::recursor::{RecursiveConfig, Recursor},
     server::{Request, RequestInfo},
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
@@ -50,11 +47,17 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
     pub async fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,
-        config: &RecursiveConfig,
+        config: RecursiveConfig,
         root_dir: Option<&Path>,
         conn_provider: P,
     ) -> Result<Self, String> {
         info!("loading recursor config: {}", origin);
+
+        #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+        let persistence_config = match &config.options.opportunistic_encryption {
+            OpportunisticEncryption::Enabled { config } => config.persistence.clone(),
+            _ => None,
+        };
 
         let recursor = Recursor::from_config(config, root_dir, conn_provider.clone())
             .map_err(|e| format!("failed to build recursor for zone {origin}: {e}"))?;
@@ -64,19 +67,10 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
             // Once the recursor is built, potentially use the recursor's pool context to spawn a
             // background save task, holding the task handle (if created) so it drops with the zone handler.
             #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
-            opportunistic_encryption_persistence_task: match &config
-                .options
-                .opportunistic_encryption
-            {
-                OpportunisticEncryption::Enabled {
-                    config:
-                        OpportunisticEncryptionConfig {
-                            persistence: Some(config),
-                            ..
-                        },
-                } => {
+            opportunistic_encryption_persistence_task: match persistence_config {
+                Some(config) => {
                     OpportunisticEncryptionStatePersistTask::<P::Timer>::start(
-                        config.clone(),
+                        config,
                         recursor.pool_context(),
                         conn_provider.clone(),
                     )
