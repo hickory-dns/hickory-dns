@@ -105,7 +105,7 @@ impl<P: RuntimeProvider> Client<P> {
     ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), NetError>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsClientStream + 'static + Unpin,
+        S: DnsClientStream,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
         Self::connect(mp).await
