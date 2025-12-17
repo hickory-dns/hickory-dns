@@ -32,10 +32,8 @@ async fn test_get() {
 
     let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default()).build();
-    let (mut client, driver) = Client::<TokioRuntimeProvider>::connect(conn)
-        .await
-        .expect("failed to connect");
+    let sender = UdpClientStream::builder(socket, TokioRuntimeProvider::default()).build();
+    let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(sender);
     tokio::spawn(driver);
 
     let name = Name::from_str("www.example.com.").unwrap();
@@ -81,12 +79,10 @@ async fn test_create() {
 
     let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let conn = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
+    let sender = UdpClientStream::builder(socket, TokioRuntimeProvider::default())
         .with_signer(Some(Arc::new(signer)))
         .build();
-    let (mut client, driver) = Client::<TokioRuntimeProvider>::connect(conn)
-        .await
-        .expect("failed to connect");
+    let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(sender);
     tokio::spawn(driver);
 
     // create a record

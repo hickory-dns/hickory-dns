@@ -246,7 +246,7 @@ async fn setup_client_forwarder(
 
     // Client setup
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
-    let (client, bg) = Client::connect(stream).await.unwrap();
+    let (client, bg) = Client::from_sender(stream);
     spawn(bg);
 
     (client, server)

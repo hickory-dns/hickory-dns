@@ -249,7 +249,7 @@ async fn test_server_www_tls() {
 
 async fn lazy_udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = Client::connect(conn).await.expect("failed to connect");
+    let (client, driver) = Client::from_sender(conn);
     tokio::spawn(driver);
     client
 }

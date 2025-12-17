@@ -1,8 +1,10 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
+#[cfg(feature = "__dnssec")]
+use std::sync::Arc;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::Mutex as StdMutex;
 
 use futures::TryStreamExt;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -25,6 +27,8 @@ use hickory_net::udp::UdpClientStream;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_net::xfer::DnsMultiplexerConnect;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::TrustAnchors;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -69,7 +73,7 @@ impl TestClientConnection {
 
 async fn udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = Client::connect(conn).await.expect("failed to connect");
+    let (client, driver) = Client::from_sender(conn);
     tokio::spawn(driver);
     client
 }
@@ -77,9 +81,8 @@ async fn udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
 #[cfg(feature = "__dnssec")]
 async fn udp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = DnssecClient::connect(conn)
-        .await
-        .expect("failed to connect");
+    let (client, driver) = Client::from_sender(conn);
+    let client = DnssecClient::from_client(client, Arc::new(TrustAnchors::default()));
     tokio::spawn(driver);
     client
 }

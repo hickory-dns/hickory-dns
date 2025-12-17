@@ -275,7 +275,7 @@ mod test {
                 let udp_peer = udp.addr()?;
                 let _handle = tokio::task::spawn(udp.run(base_handler));
                 let conn = UdpClientStream::builder(udp_peer, TokioRuntimeProvider::new()).build();
-                let (client, bg) = Client::connect(conn).await?;
+                let (client, bg) = Client::from_sender(conn);
                 let _handle = tokio::task::spawn(bg);
                 client
             }

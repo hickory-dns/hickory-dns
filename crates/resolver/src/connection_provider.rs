@@ -85,7 +85,8 @@ impl<P: RuntimeProvider> Future for ConnectionFuture<P> {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
             Connecting::Udp(conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
+                let conn = conn.take().expect("only polled once");
+                let (conn, bg) = DnsExchange::from_stream(conn);
                 self.spawner.spawn_bg(bg);
                 conn
             }
@@ -136,17 +137,14 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
     ) -> Result<Self::FutureConn, NetError> {
         let remote_addr = SocketAddr::new(ip, config.port);
         let dns_connect = match (&config.protocol, self.quic_binder()) {
-            (ProtocolConfig::Udp, _) => {
-                let provider_handle = self.clone();
-                let stream = UdpClientStream::builder(remote_addr, provider_handle)
+            (ProtocolConfig::Udp, _) => Connecting::Udp(Some(
+                UdpClientStream::builder(remote_addr, self.clone())
                     .with_timeout(Some(cx.options.timeout))
                     .with_os_port_selection(cx.options.os_port_selection)
                     .avoid_local_ports(cx.options.avoid_local_udp_ports.clone())
                     .with_bind_addr(config.bind_addr)
-                    .build();
-                let exchange = DnsExchange::connect(stream);
-                Connecting::Udp(exchange)
-            }
+                    .build(),
+            )),
             (ProtocolConfig::Tcp, _) => {
                 let (future, handle) = TcpClientStream::new(
                     remote_addr,

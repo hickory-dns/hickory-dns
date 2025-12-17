@@ -51,7 +51,11 @@ impl DnssecClient {
         Self::builder(connect_future).build().await
     }
 
-    fn from_client(client: Client<TokioRuntimeProvider>, trust_anchor: Arc<TrustAnchors>) -> Self {
+    /// Constructs a DNSSEC client with an existing client and the given trust anchors
+    pub fn from_client(
+        client: Client<TokioRuntimeProvider>,
+        trust_anchor: Arc<TrustAnchors>,
+    ) -> Self {
         Self {
             client: DnssecDnsHandle::with_trust_anchor(client, trust_anchor),
         }
