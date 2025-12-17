@@ -61,16 +61,16 @@ async fn test_example_https_toml_startup() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let client_config = Arc::new(client_config);
-
     let provider = TokioRuntimeProvider::new();
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config, provider);
-    let mp = https_builder.build(addr, Arc::from("ns.example.com"), Arc::from("/dns-query"));
-    let client = Client::<TokioRuntimeProvider>::connect(mp);
-
-    // ipv4 should succeed
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let sender = https_builder
+        .build(addr, Arc::from("ns.example.com"), Arc::from("/dns-query"))
+        .await
+        .unwrap();
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     tokio::spawn(bg);
 
+    // ipv4 should succeed
     query_a(&mut client).await;
 
     // a second request should work...

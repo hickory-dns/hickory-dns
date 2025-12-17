@@ -539,11 +539,11 @@ async fn https<P: RuntimeProvider>(
     let config = Arc::new(config);
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
-    let (client, bg) = Client::<P>::connect(https_builder.build(
+    let (client, bg) = Client::<P>::connect(Box::pin(https_builder.build(
         nameserver,
         Arc::from(dns_name),
         Arc::from(http_endpoint),
-    ))
+    )))
     .await?;
 
     let handle = tokio::spawn(bg);

@@ -139,11 +139,11 @@ async fn test_query_https() {
         Arc::new(client_config),
         TokioRuntimeProvider::new(),
     );
-    let client = Client::connect(https_builder.build(
+    let client = Client::connect(Box::pin(https_builder.build(
         CLOUDFLARE_V4_TLS,
         Arc::from("cloudflare-dns.com"),
         Arc::from("/dns-query"),
-    ));
+    )));
     let (mut client, bg) = client.await.expect("client failed to connect");
     tokio::spawn(bg);
 

@@ -22,7 +22,7 @@ use tracing::debug;
 
 use crate::error::NetError;
 #[cfg(all(feature = "__https", feature = "tokio"))]
-use crate::h2::{HttpsClientConnect, HttpsClientStream};
+use crate::h2::HttpsClientStream;
 #[cfg(all(feature = "__h3", feature = "tokio"))]
 use crate::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::op::{DnsRequest, DnsResponse};
@@ -67,7 +67,13 @@ pub enum Connecting<P: RuntimeProvider> {
         >,
     ),
     #[cfg(all(feature = "__https", feature = "tokio"))]
-    Https(DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, P>),
+    Https(
+        DnsExchangeConnect<
+            Pin<Box<dyn Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static>>,
+            HttpsClientStream,
+            P,
+        >,
+    ),
     #[cfg(all(feature = "__quic", feature = "tokio"))]
     Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, P>),
     #[cfg(all(feature = "__h3", feature = "tokio"))]
