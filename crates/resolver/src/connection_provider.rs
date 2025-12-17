@@ -29,7 +29,7 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tracing::warn;
 
 #[cfg(feature = "__https")]
-use crate::net::h2::HttpsClientConnect;
+use crate::net::h2;
 #[cfg(feature = "__h3")]
 use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
@@ -187,14 +187,14 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
-                Connecting::Https(DnsExchange::connect(HttpsClientConnect::new(
+                Connecting::Https(DnsExchange::connect(Box::pin(h2::connect(
                     self.connect_tcp(remote_addr, None, None),
                     Arc::new(cx.tls.clone()),
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
                     None,
-                )))
+                ))))
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { server_name }, Some(binder)) => {

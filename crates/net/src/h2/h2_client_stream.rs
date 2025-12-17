@@ -15,10 +15,7 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::{
-    future::{BoxFuture, FutureExt},
-    stream::Stream,
-};
+use futures_util::{future::BoxFuture, stream::Stream};
 use h2::client::SendRequest;
 use http::header::{self, CONTENT_LENGTH};
 use rustls::ClientConfig;
@@ -321,8 +318,8 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> HttpsClientConnect {
-        HttpsClientConnect::new(
+    ) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
+        connect(
             self.provider.connect_tcp(name_server, self.bind_addr, None),
             self.client_config,
             name_server,
@@ -333,85 +330,70 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     }
 }
 
-/// A future that resolves to an HttpsClientStream
-pub struct HttpsClientConnect(
-    Pin<Box<dyn Future<Output = Result<HttpsClientStream, NetError>> + Send>>,
-);
+/// Creates a new HttpsStream with existing connection
+pub fn connect(
+    tcp: impl Future<Output = Result<impl DnsTcpStream, io::Error>> + Send + 'static,
+    mut client_config: Arc<ClientConfig>,
+    name_server: SocketAddr,
+    server_name: Arc<str>,
+    query_path: Arc<str>,
+    set_headers: Option<Arc<dyn SetHeaders>>,
+) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
+    // ensure the ALPN protocol is set correctly
+    if client_config.alpn_protocols.is_empty() {
+        let mut client_cfg = (*client_config).clone();
+        client_cfg.alpn_protocols = vec![ALPN_H2.to_vec()];
 
-impl HttpsClientConnect {
-    /// Creates a new HttpsStream with existing connection
-    pub fn new(
-        tcp: impl Future<Output = Result<impl DnsTcpStream, io::Error>> + Send + 'static,
-        mut client_config: Arc<ClientConfig>,
-        name_server: SocketAddr,
-        server_name: Arc<str>,
-        query_path: Arc<str>,
-        set_headers: Option<Arc<dyn SetHeaders>>,
-    ) -> Self {
-        // ensure the ALPN protocol is set correctly
-        if client_config.alpn_protocols.is_empty() {
-            let mut client_cfg = (*client_config).clone();
-            client_cfg.alpn_protocols = vec![ALPN_H2.to_vec()];
+        client_config = Arc::new(client_cfg);
+    }
 
-            client_config = Arc::new(client_cfg);
-        }
+    let context = Arc::new(RequestContext {
+        version: Version::Http2,
+        server_name,
+        query_path,
+        set_headers,
+    });
 
-        let context = Arc::new(RequestContext {
-            version: Version::Http2,
-            server_name,
-            query_path,
-            set_headers,
+    async move {
+        let tls_server_name = match ServerName::try_from(&*context.server_name) {
+            Ok(dns_name) => dns_name.to_owned(),
+            Err(err) => {
+                return Err(NetError::from(format!(
+                    "bad server name {:?}: {err}",
+                    context.server_name
+                )));
+            }
+        };
+
+        let tcp = tcp.await?;
+        let future = timeout(
+            CONNECT_TIMEOUT,
+            TlsConnector::from(client_config).connect(tls_server_name, AsyncIoStdAsTokio(tcp)),
+        );
+
+        let tls = match future.await {
+            Ok(Ok(tls)) => tls,
+            Ok(Err(err)) => return Err(NetError::from(err)),
+            Err(_) => return Err(NetError::Timeout),
+        };
+
+        let mut handshake = h2::client::Builder::new();
+        handshake.enable_push(false);
+        let (h2, driver) = handshake.handshake(tls).await?;
+
+        debug!("h2 connection established to: {name_server}");
+        tokio::spawn(async {
+            if let Err(e) = driver.await {
+                warn!("h2 connection failed: {e}");
+            }
         });
 
-        Self(Box::pin(async move {
-            let tls_server_name = match ServerName::try_from(&*context.server_name) {
-                Ok(dns_name) => dns_name.to_owned(),
-                Err(err) => {
-                    return Err(NetError::from(format!(
-                        "bad server name {:?}: {err}",
-                        context.server_name
-                    )));
-                }
-            };
-
-            let tcp = tcp.await?;
-            let future = timeout(
-                CONNECT_TIMEOUT,
-                TlsConnector::from(client_config).connect(tls_server_name, AsyncIoStdAsTokio(tcp)),
-            );
-
-            let tls = match future.await {
-                Ok(Ok(tls)) => tls,
-                Ok(Err(err)) => return Err(NetError::from(err)),
-                Err(_) => return Err(NetError::Timeout),
-            };
-
-            let mut handshake = h2::client::Builder::new();
-            handshake.enable_push(false);
-            let (h2, driver) = handshake.handshake(tls).await?;
-
-            debug!("h2 connection established to: {name_server}");
-            tokio::spawn(async {
-                if let Err(e) = driver.await {
-                    warn!("h2 connection failed: {e}");
-                }
-            });
-
-            Ok(HttpsClientStream {
-                name_server,
-                h2,
-                context,
-                is_shutdown: false,
-            })
-        }))
-    }
-}
-
-impl Future for HttpsClientConnect {
-    type Output = Result<HttpsClientStream, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
+        Ok(HttpsClientStream {
+            name_server,
+            h2,
+            context,
+            is_shutdown: false,
+        })
     }
 }
 
