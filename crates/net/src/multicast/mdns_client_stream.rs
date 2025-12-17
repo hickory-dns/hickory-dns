@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::fmt::{self, Display};
 use core::future::Future;
 use core::net::{Ipv4Addr, SocketAddr};
 use core::pin::Pin;
@@ -76,12 +75,6 @@ impl MdnsClientStream {
         let new_future = MdnsClientConnect(new_future);
 
         (new_future, sender)
-    }
-}
-
-impl Display for MdnsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "mDNS({})", self.mdns_stream.multicast_addr())
     }
 }
 

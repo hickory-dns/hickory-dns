@@ -132,12 +132,6 @@ impl ResponseHandler for TestResponseHandler {
     }
 }
 
-impl fmt::Display for TestClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "TestClientStream")
-    }
-}
-
 impl DnsClientStream for TestClientStream {
     type Time = TokioTime;
 
@@ -211,12 +205,6 @@ impl NeverReturnsClientStream {
         }));
 
         (stream, message_sender)
-    }
-}
-
-impl fmt::Display for NeverReturnsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "NeverReturnsClientStream")
     }
 }
 

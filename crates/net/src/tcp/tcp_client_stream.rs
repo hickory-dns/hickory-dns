@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::fmt::{self, Display};
 use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll, ready};
@@ -64,12 +63,6 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
         Self { tcp_stream }
-    }
-}
-
-impl<S: DnsTcpStream> Display for TcpClientStream<S> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "TCP({})", self.tcp_stream.peer_addr())
     }
 }
 
