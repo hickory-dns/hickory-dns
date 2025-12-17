@@ -32,7 +32,7 @@ impl DnssecClient {
     pub fn builder<F, S>(connect_future: F) -> AsyncSecureClientBuilder<F>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static,
+        S: DnsRequestSender,
     {
         AsyncSecureClientBuilder {
             connect_future,
@@ -84,7 +84,7 @@ pub struct AsyncSecureClientBuilder<F> {
 impl<F, S> AsyncSecureClientBuilder<F>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
+    S: DnsRequestSender,
 {
     /// This variant allows for the trust_anchor to be replaced
     ///

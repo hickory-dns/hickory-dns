@@ -90,10 +90,9 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     /// # Arguments
     ///
     /// * `stream` - the established IO stream for communication
-    pub fn from_stream<S>(stream: S) -> (Self, DnsExchangeBackground<S, P::Timer>)
-    where
-        S: DnsRequestSender + 'static + Send + Unpin,
-    {
+    pub fn from_stream<S: DnsRequestSender>(
+        stream: S,
+    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
         let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let message_sender = BufDnsRequestStreamHandle {
             sender,
@@ -104,14 +103,11 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     }
 
     /// Wraps a stream where a sender and receiver have already been established
-    pub fn from_stream_with_receiver<S>(
+    pub fn from_stream_with_receiver<S: DnsRequestSender>(
         stream: S,
         receiver: mpsc::Receiver<OneshotDnsRequest>,
         sender: BufDnsRequestStreamHandle<P>,
-    ) -> (Self, DnsExchangeBackground<S, P::Timer>)
-    where
-        S: DnsRequestSender + 'static + Send + Unpin,
-    {
+    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
         let background = DnsExchangeBackground {
             io_stream: stream,
             outbound_messages: receiver.peekable(),
@@ -127,7 +123,7 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     pub fn connect<F, S>(connect_future: F) -> DnsExchangeConnect<F, S, P>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static + Send + Unpin,
+        S: DnsRequestSender,
     {
         let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let message_sender = BufDnsRequestStreamHandle {
@@ -142,7 +138,7 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     pub fn error<F, S>(error: impl Into<NetError>) -> DnsExchangeConnect<F, S, P>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static + Send + Unpin,
+        S: DnsRequestSender,
     {
         DnsExchangeConnect(DnsExchangeConnectInner::Error(error.into()))
     }
@@ -188,29 +184,19 @@ impl<P: Unpin> Stream for DnsExchangeSend<P> {
 ///
 /// It must be spawned before any DNS messages are sent.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeBackground<S, TE>
-where
-    S: DnsRequestSender + 'static + Send + Unpin,
-{
+pub struct DnsExchangeBackground<S, TE> {
     io_stream: S,
     outbound_messages: Peekable<mpsc::Receiver<OneshotDnsRequest>>,
     marker: PhantomData<TE>,
 }
 
-impl<S, TE> DnsExchangeBackground<S, TE>
-where
-    S: DnsRequestSender + 'static + Send + Unpin,
-{
+impl<S, TE> DnsExchangeBackground<S, TE> {
     fn pollable_split(&mut self) -> (&mut S, &mut Peekable<mpsc::Receiver<OneshotDnsRequest>>) {
         (&mut self.io_stream, &mut self.outbound_messages)
     }
 }
 
-impl<S, TE> Future for DnsExchangeBackground<S, TE>
-where
-    S: DnsRequestSender + 'static + Send + Unpin,
-    TE: Time + Unpin,
-{
+impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
     type Output = ();
 
     #[allow(clippy::unused_unit)]
@@ -293,13 +279,13 @@ where
 pub struct DnsExchangeConnect<F, S, P>(DnsExchangeConnectInner<F, S, P>)
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
+    S: DnsRequestSender,
     P: RuntimeProvider;
 
 impl<F, S, P> DnsExchangeConnect<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     fn connect(
@@ -318,7 +304,7 @@ where
 impl<F, S, P> Future for DnsExchangeConnect<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
@@ -332,7 +318,7 @@ where
 enum DnsExchangeConnectInner<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send,
-    S: DnsRequestSender + 'static + Send,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     Connecting {
@@ -350,7 +336,7 @@ where
 impl<F, S, P> Future for DnsExchangeConnectInner<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
