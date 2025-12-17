@@ -27,7 +27,7 @@ use crate::h2::HttpsClientStream;
 use crate::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::op::{DnsRequest, DnsResponse};
 #[cfg(all(feature = "__quic", feature = "tokio"))]
-use crate::quic::{QuicClientConnect, QuicClientStream};
+use crate::quic::QuicClientStream;
 use crate::runtime::RuntimeProvider;
 use crate::runtime::Time;
 #[cfg(feature = "__tls")]
@@ -75,7 +75,13 @@ pub enum Connecting<P: RuntimeProvider> {
         >,
     ),
     #[cfg(all(feature = "__quic", feature = "tokio"))]
-    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, P>),
+    Quic(
+        DnsExchangeConnect<
+            Pin<Box<dyn Future<Output = Result<QuicClientStream, NetError>> + Send + 'static>>,
+            QuicClientStream,
+            P,
+        >,
+    ),
     #[cfg(all(feature = "__h3", feature = "tokio"))]
     H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, P>),
 }
