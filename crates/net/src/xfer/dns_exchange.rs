@@ -340,10 +340,6 @@ where
         outbound_messages: Option<mpsc::Receiver<OneshotDnsRequest>>,
         sender: Option<BufDnsRequestStreamHandle<P>>,
     },
-    Connected {
-        exchange: DnsExchange<P>,
-        background: Option<DnsExchangeBackground<S, P::Timer>>,
-    },
     FailAll {
         error: NetError,
         outbound_messages: mpsc::Receiver<OneshotDnsRequest>,
@@ -381,10 +377,7 @@ where
                                 sender.take().expect("cannot poll after complete"),
                             );
 
-                            next = Self::Connected {
-                                exchange,
-                                background: Some(background),
-                            };
+                            return Poll::Ready(Ok((exchange, background)));
                         }
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
@@ -397,15 +390,6 @@ where
                             }
                         }
                     };
-                }
-                Self::Connected {
-                    exchange,
-                    background,
-                } => {
-                    let exchange = exchange.clone();
-                    let background = background.take().expect("cannot poll after complete");
-
-                    return Poll::Ready(Ok((exchange, background)));
                 }
                 Self::FailAll {
                     error,
