@@ -23,7 +23,7 @@ use crate::http::Version;
 
 mod h2_client_stream;
 pub use h2_client_stream::{
-    HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
+    HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder, connect,
 };
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
