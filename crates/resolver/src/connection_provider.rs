@@ -227,7 +227,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
 
-                Connecting::H3(DnsExchange::connect(
+                Connecting::H3(DnsExchange::connect(Box::pin(
                     H3ClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
@@ -237,7 +237,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                             server_name.clone(),
                             path.clone(),
                         ),
-                ))
+                )))
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { .. }, None) => {
