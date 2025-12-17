@@ -9,7 +9,6 @@
 
 use core::{
     borrow::Borrow,
-    fmt::{self, Display},
     marker::Unpin,
     pin::Pin,
     task::{Context, Poll},
@@ -198,8 +197,7 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: NetError) {
-        debug!(%error, stream = %self.stream);
-
+        debug!(%error, addr = %self.stream.name_server_addr());
         for (_, active_request) in self.active_requests.drain() {
             // complete the request, it's failed...
             active_request.complete_with_error(error.clone());
@@ -241,15 +239,6 @@ where
             signer: self.signer.clone(),
             is_shutdown: false,
         }))
-    }
-}
-
-impl<S> Display for DnsMultiplexer<S>
-where
-    S: DnsClientStream + 'static,
-{
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "{}", self.stream)
     }
 }
 
@@ -352,7 +341,7 @@ where
         self.drop_cancelled(cx);
 
         if self.is_shutdown && self.active_requests.is_empty() {
-            debug!("stream is done: {}", self);
+            debug!("stream is done: {}", self.stream.name_server_addr());
             return Poll::Ready(None);
         }
 
@@ -450,12 +439,6 @@ mod test {
                 id: None,
                 receiver: None,
             }))
-        }
-    }
-
-    impl Display for MockClientStream {
-        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-            write!(formatter, "TestClientStream")
         }
     }
 
