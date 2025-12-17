@@ -11,7 +11,7 @@ use core::future::Future;
 use core::marker::PhantomData;
 use core::mem;
 use core::pin::Pin;
-use core::task::{Context, Poll};
+use core::task::{Context, Poll, ready};
 
 use futures_channel::mpsc;
 use futures_util::{
@@ -364,9 +364,8 @@ where
                     outbound_messages,
                     sender,
                 } => {
-                    let connect_future = Pin::new(connect_future);
-                    match connect_future.poll(cx) {
-                        Poll::Ready(Ok(stream)) => {
+                    match ready!(Pin::new(connect_future).poll(cx)) {
+                        Ok(stream) => {
                             //debug!("connection established: {}", stream);
 
                             let (exchange, background) = DnsExchange::from_stream_with_receiver(
@@ -379,8 +378,7 @@ where
 
                             return Poll::Ready(Ok((exchange, background)));
                         }
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(error)) => {
+                        Err(error) => {
                             debug!(%error, "stream errored while connecting");
                             next = Self::FailAll {
                                 error,
@@ -395,10 +393,8 @@ where
                     error,
                     outbound_messages,
                 } => {
-                    while let Some(outbound_message) = match outbound_messages.poll_next_unpin(cx) {
-                        Poll::Ready(opt) => opt,
-                        Poll::Pending => return Poll::Pending,
-                    } {
+                    while let Some(outbound_message) = ready!(outbound_messages.poll_next_unpin(cx))
+                    {
                         // ignoring errors... best effort send...
                         let _ = outbound_message
                             .into_parts()
