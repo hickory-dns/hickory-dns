@@ -24,7 +24,7 @@ use crate::error::NetError;
 #[cfg(all(feature = "__https", feature = "tokio"))]
 use crate::h2::HttpsClientStream;
 #[cfg(all(feature = "__h3", feature = "tokio"))]
-use crate::h3::{H3ClientConnect, H3ClientStream};
+use crate::h3::H3ClientStream;
 use crate::proto::op::{DnsRequest, DnsResponse};
 #[cfg(all(feature = "__quic", feature = "tokio"))]
 use crate::quic::QuicClientStream;
@@ -83,7 +83,13 @@ pub enum Connecting<P: RuntimeProvider> {
         >,
     ),
     #[cfg(all(feature = "__h3", feature = "tokio"))]
-    H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, P>),
+    H3(
+        DnsExchangeConnect<
+            Pin<Box<dyn Future<Output = Result<H3ClientStream, NetError>> + Send + 'static>>,
+            H3ClientStream,
+            P,
+        >,
+    ),
 }
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
