@@ -738,22 +738,18 @@ mod opportunistic_encryption_persistence {
     impl<T: Time> OpportunisticEncryptionStatePersistTask<T> {
         /// Starts the persistence task based on the given configuration.
         pub async fn start<P: RuntimeProvider>(
-            config: &OpportunisticEncryptionConfig,
+            config: OpportunisticEncryptionPersistence,
             pool_context: &Arc<PoolContext>,
             conn_provider: P,
         ) -> Result<Option<P::Handle>, String> {
-            let Some(persistence) = &config.persistence else {
-                return Ok(None);
-            };
-
             info!(
-                path = %persistence.path.display(),
-                save_interval = ?persistence.save_interval,
+                path = %config.path.display(),
+                save_interval = ?config.save_interval,
                 "spawning encrypted transport state persistence task"
             );
 
             let new =
-                OpportunisticEncryptionStatePersistTask::<P::Timer>::new(persistence, pool_context);
+                OpportunisticEncryptionStatePersistTask::<P::Timer>::new(config, pool_context);
 
             // Try to save the state back immediately so we can surface write errors early
             // instead of when the background task runs later on.
@@ -770,13 +766,10 @@ mod opportunistic_encryption_persistence {
             Ok(Some(handle))
         }
 
-        fn new(
-            config: &OpportunisticEncryptionPersistence,
-            pool_context: &Arc<PoolContext>,
-        ) -> Self {
+        fn new(config: OpportunisticEncryptionPersistence, cx: &Arc<PoolContext>) -> Self {
             Self {
-                cx: pool_context.clone(),
-                path: config.path.clone(),
+                cx: cx.clone(),
+                path: config.path,
                 save_interval: config.save_interval,
                 _time: PhantomData,
             }
