@@ -11,6 +11,8 @@
 
 use std::{io, path::Path, time::Instant};
 
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+use hickory_resolver::config::OpportunisticEncryptionConfig;
 use hickory_resolver::recursor::RecursiveConfig;
 use tracing::{debug, info};
 
@@ -66,9 +68,15 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
                 .options
                 .opportunistic_encryption
             {
-                OpportunisticEncryption::Enabled { config } => {
+                OpportunisticEncryption::Enabled {
+                    config:
+                        OpportunisticEncryptionConfig {
+                            persistence: Some(config),
+                            ..
+                        },
+                } => {
                     OpportunisticEncryptionStatePersistTask::<P::Timer>::start(
-                        config,
+                        config.clone(),
                         recursor.pool_context(),
                         conn_provider.clone(),
                     )
