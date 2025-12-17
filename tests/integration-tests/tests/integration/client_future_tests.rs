@@ -62,8 +62,7 @@ async fn test_query_nonet() {
 async fn test_query_udp_ipv4() {
     subscribe();
     let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
-    let client = Client::connect(stream);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -77,8 +76,7 @@ async fn test_query_udp_ipv4() {
 async fn test_query_udp_ipv6() {
     subscribe();
     let stream = UdpClientStream::builder(GOOGLE_V6, TokioRuntimeProvider::new()).build();
-    let client = Client::connect(stream);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -1013,8 +1011,7 @@ async fn test_timeout_query_udp() {
         .with_timeout(Some(std::time::Duration::from_millis(1)))
         .build();
 
-    let client = Client::connect(stream);
-    let (client, bg) = client.await.expect("client failed to connect");
+    let (client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     test_timeout_query(client).await;
