@@ -203,7 +203,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
 
-                Connecting::Quic(DnsExchange::connect(
+                Connecting::Quic(DnsExchange::connect(Box::pin(
                     QuicClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .build_with_future(
@@ -211,7 +211,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                             remote_addr,
                             server_name.clone(),
                         ),
-                ))
+                )))
             }
             #[cfg(feature = "__h3")]
             (
