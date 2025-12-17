@@ -273,8 +273,7 @@ where
         .unwrap();
 
     let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
-    let client = Client::connect(stream);
-    let (client, bg) = client.await.expect("client failed to connect");
+    let (client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     let client = MemoizeClientHandle::new(client);

@@ -132,6 +132,20 @@ impl<P: RuntimeProvider> Client<P> {
         result.map(|(exchange, bg)| (Self { exchange, use_edns }, bg))
     }
 
+    /// Creates a Client from an existing DnsRequestSender
+    pub fn from_sender<S: DnsRequestSender>(
+        sender: S,
+    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
+        let (exchange, bg) = DnsExchange::from_stream(sender);
+        (
+            Self {
+                exchange,
+                use_edns: true,
+            },
+            bg,
+        )
+    }
+
     /// (Re-)enable usage of EDNS for outgoing messages
     pub fn enable_edns(&mut self) {
         self.use_edns = true;

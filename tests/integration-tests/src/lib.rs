@@ -29,7 +29,11 @@ use hickory_net::{
     xfer::{DnsClientStream, Protocol, StreamReceiver},
 };
 #[cfg(feature = "__dnssec")]
-use hickory_net::{client::DnssecClient, runtime::TokioRuntimeProvider, udp::UdpClientStream};
+use hickory_net::{
+    client::{Client, DnssecClient},
+    runtime::TokioRuntimeProvider,
+    udp::UdpClientStream,
+};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::{PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey};
 use hickory_proto::{
@@ -279,11 +283,8 @@ where
     let mut trust_anchor = TrustAnchors::empty();
     trust_anchor.insert(public_key);
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
-    let (client, bg) = DnssecClient::builder(stream)
-        .trust_anchor(trust_anchor)
-        .build()
-        .await
-        .unwrap();
+    let (client, bg) = Client::from_sender(stream);
+    let client = DnssecClient::from_client(client, Arc::new(trust_anchor));
     tokio::spawn(bg);
 
     (client, server)

@@ -189,8 +189,7 @@ async fn test_server_continues_on_bad_data_udp() {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
 
     let stream = UdpClientStream::builder(addr, provider.clone()).build();
-    let client = Client::<TokioRuntimeProvider>::connect(stream);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(stream);
     tokio::spawn(bg);
 
     query_a(&mut client).await;
@@ -206,9 +205,7 @@ async fn test_server_continues_on_bad_data_udp() {
     // just tests that multiple queries work
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
     let stream = UdpClientStream::builder(addr, provider).build();
-    let client = Client::<TokioRuntimeProvider>::connect(stream);
-
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(stream);
     tokio::spawn(bg);
 
     query_a(&mut client).await;

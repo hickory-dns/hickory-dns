@@ -33,7 +33,7 @@ use crate::runtime::Time;
 #[cfg(feature = "__tls")]
 use crate::rustls::TlsClientStream;
 use crate::tcp::TcpClientStream;
-use crate::udp::{UdpClientConnect, UdpClientStream};
+use crate::udp::UdpClientStream;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
     BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsMultiplexer, DnsMultiplexerConnect,
@@ -44,7 +44,7 @@ use crate::xfer::{
 #[allow(missing_docs, clippy::large_enum_variant, clippy::type_complexity)]
 #[non_exhaustive]
 pub enum Connecting<P: RuntimeProvider> {
-    Udp(DnsExchangeConnect<UdpClientConnect<P>, UdpClientStream<P>, P>),
+    Udp(Option<UdpClientStream<P>>),
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<

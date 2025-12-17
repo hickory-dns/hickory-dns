@@ -4,7 +4,6 @@
 extern crate test;
 
 use std::fs::{DirBuilder, File};
-use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -15,7 +14,6 @@ use std::{env, mem, thread};
 use test::Bencher;
 use tokio::runtime::Runtime;
 
-use hickory_net::NetError;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
@@ -50,8 +48,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
         let io_loop = Runtime::new().unwrap();
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
         let stream = UdpClientStream::builder(addr, provider.clone()).build();
-        let client = Client::<TokioRuntimeProvider>::connect(stream);
-        let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
+        let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(stream);
         io_loop.spawn(bg);
 
         let name = Name::from_str("www.example.com.").unwrap();
@@ -103,13 +100,9 @@ fn hickory_process() -> (NamedProcess, u16) {
 }
 
 /// Runs the bench tesk using the specified client
-fn bench<S: DnsRequestSender>(
-    b: &mut Bencher,
-    stream: impl Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-) {
+fn bench<S: DnsRequestSender>(b: &mut Bencher, sender: S) {
     let io_loop = Runtime::new().unwrap();
-    let client = Client::<TokioRuntimeProvider>::connect(stream);
-    let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     io_loop.spawn(bg);
 
     let name = Name::from_str("www.example.com.").unwrap();
@@ -138,8 +131,8 @@ fn hickory_udp_bench(b: &mut Bencher) {
     let (named, server_port) = hickory_process();
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
-    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
-    bench(b, stream);
+    let sender = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
+    bench(b, sender);
 
     // cleaning up the named process
     drop(named);
@@ -151,8 +144,8 @@ fn hickory_udp_bench_prof(b: &mut Bencher) {
     let server_port = 6363;
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
-    let stream = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
-    bench(b, stream);
+    let sender = UdpClientStream::builder(addr, TokioRuntimeProvider::new()).build();
+    bench(b, sender);
 }
 
 #[bench]
@@ -161,7 +154,10 @@ fn hickory_tcp_bench(b: &mut Bencher) {
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let mp = DnsMultiplexer::new(stream, sender, None);
+    let mp = Runtime::new()
+        .unwrap()
+        .block_on(DnsMultiplexer::new(stream, sender, None))
+        .unwrap();
     bench(b, mp);
 
     // cleaning up the named process
@@ -228,7 +224,10 @@ fn bind_tcp_bench(b: &mut Bencher) {
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
     let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let mp = DnsMultiplexer::new(stream, sender, None);
+    let mp = Runtime::new()
+        .unwrap()
+        .block_on(DnsMultiplexer::new(stream, sender, None))
+        .unwrap();
     bench(b, mp);
 
     // cleaning up the named process

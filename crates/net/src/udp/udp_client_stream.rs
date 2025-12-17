@@ -13,9 +13,7 @@ use core::time::Duration;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use futures_util::{
-    FutureExt, Stream, StreamExt, future::Future, pin_mut, stream::FuturesUnordered,
-};
+use futures_util::{FutureExt, Stream, StreamExt, pin_mut, stream::FuturesUnordered};
 use tracing::{debug, trace, warn};
 
 use crate::error::NetError;
@@ -406,10 +404,11 @@ impl<P> UdpClientStreamBuilder<P> {
     /// Construct a new UDP client stream.
     ///
     /// Returns a future that outputs the client stream.
-    pub fn build(self) -> UdpClientConnect<P> {
-        UdpClientConnect {
+    pub fn build(self) -> UdpClientStream<P> {
+        UdpClientStream {
             name_server: self.name_server,
             timeout: self.timeout.unwrap_or(Duration::from_secs(5)),
+            is_shutdown: false,
             signer: self.signer,
             bind_addr: self.bind_addr,
             avoid_local_ports: self.avoid_local_ports.clone(),
@@ -418,39 +417,6 @@ impl<P> UdpClientStreamBuilder<P> {
             max_retries: self.max_retries,
             retry_interval_floor: self.retry_interval_floor,
         }
-    }
-}
-
-/// A future that resolves to an UdpClientStream
-pub struct UdpClientConnect<P> {
-    name_server: SocketAddr,
-    timeout: Duration,
-    signer: Option<Arc<dyn MessageSigner>>,
-    bind_addr: Option<SocketAddr>,
-    avoid_local_ports: Arc<HashSet<u16>>,
-    os_port_selection: bool,
-    provider: P,
-    max_retries: u8,
-    retry_interval_floor: Duration,
-}
-
-impl<P: RuntimeProvider> Future for UdpClientConnect<P> {
-    type Output = Result<UdpClientStream<P>, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // TODO: this doesn't need to be a future?
-        Poll::Ready(Ok(UdpClientStream {
-            name_server: self.name_server,
-            is_shutdown: false,
-            timeout: self.timeout,
-            signer: self.signer.take(),
-            bind_addr: self.bind_addr,
-            avoid_local_ports: self.avoid_local_ports.clone(),
-            os_port_selection: self.os_port_selection,
-            provider: self.provider.clone(),
-            max_retries: self.max_retries,
-            retry_interval_floor: self.retry_interval_floor,
-        }))
     }
 }
 

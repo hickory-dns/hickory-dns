@@ -36,7 +36,7 @@ async fn readme_example() {
 
     let address = SocketAddr::from(([8, 8, 8, 8], 53));
     let conn = UdpClientStream::builder(address, TokioRuntimeProvider::default()).build();
-    let (mut client, bg) = Client::<TokioRuntimeProvider>::connect(conn).await.unwrap();
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(conn);
     tokio::spawn(bg);
 
     // Specify the name, note the final '.' which specifies it's an FQDN
