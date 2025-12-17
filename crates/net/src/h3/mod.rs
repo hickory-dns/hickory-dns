@@ -12,9 +12,7 @@ pub mod h3_server;
 
 use quinn::{TransportConfig, VarInt};
 
-pub use self::h3_client_stream::{
-    H3ClientConnect, H3ClientResponse, H3ClientStream, H3ClientStreamBuilder,
-};
+pub use self::h3_client_stream::{H3ClientStream, H3ClientStreamBuilder};
 
 const ALPN_H3: &[u8] = b"h3";
 
