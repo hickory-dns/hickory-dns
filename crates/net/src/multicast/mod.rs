@@ -13,7 +13,7 @@ mod mdns_client_stream;
 mod mdns_stream;
 
 #[cfg(feature = "tokio")]
-pub use self::mdns_client_stream::{MdnsClientConnect, MdnsClientStream};
+pub use self::mdns_client_stream::MdnsClientStream;
 #[cfg(feature = "tokio")]
 pub use self::mdns_stream::{MDNS_IPV4, MDNS_IPV6, MdnsStream};
 
