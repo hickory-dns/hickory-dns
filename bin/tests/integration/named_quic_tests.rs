@@ -51,16 +51,16 @@ async fn test_example_quic_toml_startup() {
         .with_root_certificates(root_store)
         .with_no_client_auth();
 
-    let client = Client::<TokioRuntimeProvider>::connect(
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(
         QuicClientStream::builder()
             .crypto_config(client_config)
-            .build(addr, Arc::from("ns.example.com")),
+            .build(addr, Arc::from("ns.example.com"))
+            .await
+            .expect("client failed to connect"),
     );
-
-    // ipv4 should succeed
-    let (mut client, bg) = client.await.expect("client failed to connect");
     tokio::spawn(bg);
 
+    // ipv4 should succeed
     query_a(&mut client).await;
 
     // a second request should work...

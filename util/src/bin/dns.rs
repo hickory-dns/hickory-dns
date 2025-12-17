@@ -576,11 +576,11 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::<TokioRuntimeProvider>::connect(
+    let (client, bg) = Client::<TokioRuntimeProvider>::connect(Box::pin(
         QuicClientStream::builder()
             .crypto_config(config)
             .build(nameserver, Arc::from(dns_name)),
-    )
+    ))
     .await?;
 
     let handle = tokio::spawn(bg);
