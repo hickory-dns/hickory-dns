@@ -87,10 +87,7 @@ impl ActiveRequest {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexer<S>
-where
-    S: DnsClientStream + 'static,
-{
+pub struct DnsMultiplexer<S> {
     stream: S,
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
@@ -99,10 +96,7 @@ where
     is_shutdown: bool,
 }
 
-impl<S> DnsMultiplexer<S>
-where
-    S: DnsClientStream + Unpin + 'static,
-{
+impl<S: DnsClientStream> DnsMultiplexer<S> {
     /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -221,7 +215,7 @@ where
 impl<F, S> Future for DnsMultiplexerConnect<F, S>
 where
     F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    S: DnsClientStream + Unpin + 'static,
+    S: DnsClientStream,
 {
     type Output = Result<DnsMultiplexer<S>, NetError>;
 
@@ -242,10 +236,7 @@ where
     }
 }
 
-impl<S> DnsRequestSender for DnsMultiplexer<S>
-where
-    S: DnsClientStream + Unpin + 'static,
-{
+impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -330,10 +321,7 @@ where
     }
 }
 
-impl<S> Stream for DnsMultiplexer<S>
-where
-    S: DnsClientStream + Unpin + 'static,
-{
+impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
     type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
