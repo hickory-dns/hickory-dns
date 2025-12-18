@@ -55,126 +55,6 @@ impl Display for HttpsClientStream {
     }
 }
 
-impl HttpsClientStream {
-    async fn inner_send(
-        h2: SendRequest<Bytes>,
-        message: Bytes,
-        cx: Arc<RequestContext>,
-    ) -> Result<DnsResponse, NetError> {
-        let mut h2 = match h2.ready().await {
-            Ok(h2) => h2,
-            Err(err) => {
-                // TODO: make specific error
-                return Err(NetError::from(format!("h2 send_request error: {err}")));
-            }
-        };
-
-        // build up the http request
-        let request = cx
-            .build(message.remaining())
-            .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
-
-        debug!("request: {:#?}", request);
-
-        // Send the request
-        let (response_future, mut send_stream) = h2
-            .send_request(request, false)
-            .map_err(|err| NetError::from(format!("h2 send_request error: {err}")))?;
-
-        send_stream
-            .send_data(message, true)
-            .map_err(|e| NetError::from(format!("h2 send_data error: {e}")))?;
-
-        let mut response_stream = response_future
-            .await
-            .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
-
-        debug!("got response: {:#?}", response_stream);
-
-        // get the length of packet
-        let content_length = response_stream
-            .headers()
-            .get(CONTENT_LENGTH)
-            .map(|v| v.to_str())
-            .transpose()
-            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
-            .map(usize::from_str)
-            .transpose()
-            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
-
-        // TODO: what is a good max here?
-        // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-        // just a little protection from malicious actors.
-        let mut response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
-
-        while let Some(partial_bytes) = response_stream.body_mut().data().await {
-            let partial_bytes =
-                partial_bytes.map_err(|e| NetError::from(format!("bad http request: {e}")))?;
-
-            debug!("got bytes: {}", partial_bytes.len());
-            response_bytes.extend(partial_bytes);
-
-            // assert the length
-            if let Some(content_length) = content_length {
-                if response_bytes.len() >= content_length {
-                    break;
-                }
-            }
-        }
-
-        // assert the length
-        if let Some(content_length) = content_length {
-            if response_bytes.len() != content_length {
-                // TODO: make explicit error type
-                return Err(NetError::from(format!(
-                    "expected byte length: {}, got: {}",
-                    content_length,
-                    response_bytes.len()
-                )));
-            }
-        }
-
-        // Was it a successful request?
-        if !response_stream.status().is_success() {
-            let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-            // TODO: make explicit error type
-            return Err(NetError::from(format!(
-                "http unsuccessful code: {}, message: {}",
-                response_stream.status(),
-                error_string
-            )));
-        } else {
-            // verify content type
-            {
-                // in the case that the ContentType is not specified, we assume it's the standard DNS format
-                let content_type = response_stream
-                    .headers()
-                    .get(header::CONTENT_TYPE)
-                    .map(|h| {
-                        h.to_str().map_err(|err| {
-                            // TODO: make explicit error type
-                            NetError::from(format!("ContentType header not a string: {err}"))
-                        })
-                    })
-                    .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
-
-                if content_type != crate::http::MIME_APPLICATION_DNS {
-                    return Err(NetError::from(format!(
-                        "ContentType unsupported (must be '{}'): '{}'",
-                        crate::http::MIME_APPLICATION_DNS,
-                        content_type
-                    )));
-                }
-            }
-        };
-
-        // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
-    }
-}
-
 impl DnsRequestSender for HttpsClientStream {
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
@@ -240,7 +120,7 @@ impl DnsRequestSender for HttpsClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(Self::inner_send(
+        Box::pin(send(
             self.h2.clone(),
             Bytes::from(bytes),
             self.context.clone(),
@@ -395,6 +275,124 @@ pub fn connect(
             is_shutdown: false,
         })
     }
+}
+
+async fn send(
+    h2: SendRequest<Bytes>,
+    message: Bytes,
+    cx: Arc<RequestContext>,
+) -> Result<DnsResponse, NetError> {
+    let mut h2 = match h2.ready().await {
+        Ok(h2) => h2,
+        Err(err) => {
+            // TODO: make specific error
+            return Err(NetError::from(format!("h2 send_request error: {err}")));
+        }
+    };
+
+    // build up the http request
+    let request = cx
+        .build(message.remaining())
+        .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
+
+    debug!("request: {:#?}", request);
+
+    // Send the request
+    let (response_future, mut send_stream) = h2
+        .send_request(request, false)
+        .map_err(|err| NetError::from(format!("h2 send_request error: {err}")))?;
+
+    send_stream
+        .send_data(message, true)
+        .map_err(|e| NetError::from(format!("h2 send_data error: {e}")))?;
+
+    let mut response_stream = response_future
+        .await
+        .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
+
+    debug!("got response: {:#?}", response_stream);
+
+    // get the length of packet
+    let content_length = response_stream
+        .headers()
+        .get(CONTENT_LENGTH)
+        .map(|v| v.to_str())
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
+        .map(usize::from_str)
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
+
+    // TODO: what is a good max here?
+    // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
+    // just a little protection from malicious actors.
+    let mut response_bytes =
+        BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
+
+    while let Some(partial_bytes) = response_stream.body_mut().data().await {
+        let partial_bytes =
+            partial_bytes.map_err(|e| NetError::from(format!("bad http request: {e}")))?;
+
+        debug!("got bytes: {}", partial_bytes.len());
+        response_bytes.extend(partial_bytes);
+
+        // assert the length
+        if let Some(content_length) = content_length {
+            if response_bytes.len() >= content_length {
+                break;
+            }
+        }
+    }
+
+    // assert the length
+    if let Some(content_length) = content_length {
+        if response_bytes.len() != content_length {
+            // TODO: make explicit error type
+            return Err(NetError::from(format!(
+                "expected byte length: {}, got: {}",
+                content_length,
+                response_bytes.len()
+            )));
+        }
+    }
+
+    // Was it a successful request?
+    if !response_stream.status().is_success() {
+        let error_string = String::from_utf8_lossy(response_bytes.as_ref());
+
+        // TODO: make explicit error type
+        return Err(NetError::from(format!(
+            "http unsuccessful code: {}, message: {}",
+            response_stream.status(),
+            error_string
+        )));
+    } else {
+        // verify content type
+        {
+            // in the case that the ContentType is not specified, we assume it's the standard DNS format
+            let content_type = response_stream
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .map(|h| {
+                    h.to_str().map_err(|err| {
+                        // TODO: make explicit error type
+                        NetError::from(format!("ContentType header not a string: {err}"))
+                    })
+                })
+                .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
+
+            if content_type != crate::http::MIME_APPLICATION_DNS {
+                return Err(NetError::from(format!(
+                    "ContentType unsupported (must be '{}'): '{}'",
+                    crate::http::MIME_APPLICATION_DNS,
+                    content_type
+                )));
+            }
+        }
+    };
+
+    // and finally convert the bytes into a DNS message
+    DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
 }
 
 /// A future that resolves to
