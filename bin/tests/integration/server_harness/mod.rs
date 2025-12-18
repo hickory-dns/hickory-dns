@@ -19,15 +19,18 @@ use tracing::{info, warn};
 
 use hickory_net::{NetError, client::ClientHandle, xfer::Protocol};
 #[cfg(feature = "__dnssec")]
-use hickory_net::{client::Client, runtime::TokioRuntimeProvider};
+use hickory_net::{client::Client, runtime::TokioRuntimeProvider, xfer::DnsHandle};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::Algorithm;
+use hickory_proto::{
+    dnssec::Algorithm,
+    op::{DnsRequest, Edns},
+};
 use hickory_proto::{
     op::{DnsResponse, ResponseCode},
     rr::{DNSClass, Name, RData, RecordType, rdata::A},
 };
-
-mod mut_message_client;
+#[cfg(feature = "__dnssec")]
+use hickory_server::zone_handler::LookupOptions;
 
 #[derive(Debug, Default)]
 struct SocketPort {
@@ -80,9 +83,6 @@ impl From<Protocol> for ServerProtocol {
     }
 }
 
-#[cfg(feature = "__dnssec")]
-use self::mut_message_client::MutMessageHandle;
-
 fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
     output.clear();
     read.read_line(output).expect("could not read stdio");
@@ -94,7 +94,6 @@ fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
 }
 
 /// Spins up a Server and handles shutting it down after running the test
-#[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
     F: FnOnce(SocketPorts) -> R + UnwindSafe,
@@ -277,7 +276,6 @@ pub fn query_message<C: ClientHandle>(
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and zone handlers to validate deeper functionality
-#[allow(dead_code)]
 pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
     let response = query_message(io_loop, client, name, RecordType::A).unwrap();
@@ -292,7 +290,6 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and zone handlers to validate deeper functionality
-#[allow(dead_code)]
 pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
     let response = query_message(io_loop, client, name, RecordType::A).unwrap();
@@ -302,7 +299,6 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and zone handlers to validate deeper functionality
-#[allow(dead_code)]
 #[cfg(feature = "__dnssec")]
 pub fn query_all_dnssec(
     io_loop: &mut Runtime,
@@ -341,4 +337,41 @@ pub fn query_all_dnssec(
         .filter(|rrsig| rrsig.input().algorithm == algorithm)
         .find(|rrsig| rrsig.input().type_covered == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
+}
+
+#[cfg(feature = "__dnssec")]
+#[derive(Clone)]
+pub struct MutMessageHandle<C: ClientHandle + Unpin> {
+    client: C,
+    pub lookup_options: LookupOptions,
+}
+
+#[cfg(feature = "__dnssec")]
+impl<C: ClientHandle + Unpin> MutMessageHandle<C> {
+    pub fn new(client: C) -> Self {
+        Self {
+            client,
+            #[cfg(feature = "__dnssec")]
+            lookup_options: LookupOptions::default(),
+        }
+    }
+}
+
+#[cfg(feature = "__dnssec")]
+impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
+    type Response = <C as DnsHandle>::Response;
+    type Runtime = C::Runtime;
+
+    fn is_verifying_dnssec(&self) -> bool {
+        true
+    }
+
+    fn send(&self, mut request: DnsRequest) -> Self::Response {
+        // mutable block
+        let edns = request.extensions_mut().get_or_insert_with(Edns::new);
+        edns.set_dnssec_ok(true);
+
+        println!("sending message");
+        self.client.send(request)
+    }
 }
