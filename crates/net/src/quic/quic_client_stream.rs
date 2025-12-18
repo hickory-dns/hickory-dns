@@ -26,7 +26,7 @@ use crate::{
     proto::op::{DnsRequest, DnsResponse},
     quic::quic_stream::{DoqErrorCode, QuicStream},
     runtime::{RuntimeProvider, Spawn},
-    rustls::client_config,
+    tls::client_config,
     udp::UdpSocket,
     xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream},
 };

@@ -123,7 +123,7 @@ async fn test_query_tcp_ipv6() {
 async fn test_query_https() {
     use hickory_integration::CLOUDFLARE_V4_TLS;
     use hickory_net::h2::HttpsClientStream;
-    use hickory_net::rustls::default_provider;
+    use hickory_net::tls::default_provider;
     use rustls::{ClientConfig, RootCertStore};
 
     const ALPN_H2: &[u8] = b"h2";
