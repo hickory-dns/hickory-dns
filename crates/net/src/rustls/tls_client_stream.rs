@@ -14,14 +14,17 @@ use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use rustls::{ClientConfig, pki_types::ServerName};
+use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
+use tracing::debug;
 
-use super::tls_stream::connect_tls_stream;
 use crate::error::NetError;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
-use crate::tcp::TcpClientStream;
-use crate::xfer::{BufDnsStreamHandle, DnsExchange, DnsMultiplexer};
+use crate::tcp::{TcpClientStream, TcpStream};
+use crate::xfer::{
+    BufDnsStreamHandle, CONNECT_TIMEOUT, DnsExchange, DnsMultiplexer, StreamReceiver,
+};
 
 /// Type of TlsClientStream used with Rustls
 pub type TlsClientStream<S> =
@@ -150,3 +153,30 @@ fn tls_client_connect_with_future<S: DnsTcpStream>(
         message_sender,
     )
 }
+
+pub(super) async fn connect_tls_stream<S: DnsTcpStream>(
+    tls_connector: TlsConnector,
+    stream: S,
+    name_server: SocketAddr,
+    server_name: ServerName<'static>,
+    outbound_messages: StreamReceiver,
+) -> Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError> {
+    let stream = AsyncIoStdAsTokio(stream);
+    let s = match timeout(CONNECT_TIMEOUT, tls_connector.connect(server_name, stream)).await {
+        Ok(Ok(s)) => s,
+        Ok(Err(e)) => return Err(NetError::from(e)),
+        Err(_) => {
+            debug!(%name_server, "TLS connect timeout");
+            return Err(NetError::Timeout);
+        }
+    };
+
+    Ok(TcpStream::from_stream_with_receiver(
+        AsyncIoTokioAsStd(s),
+        name_server,
+        outbound_messages,
+    ))
+}
+
+/// Predefined type for abstracting the TlsClientStream with TokioTls
+pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;

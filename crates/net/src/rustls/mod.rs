@@ -7,7 +7,7 @@
 
 //! TLS protocol related components for DNS over TLS
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 #[cfg(not(feature = "rustls-platform-verifier"))]
 use rustls::RootCertStore;
@@ -18,12 +18,24 @@ use rustls::{
 #[cfg(feature = "rustls-platform-verifier")]
 use rustls_platform_verifier::BuilderVerifierExt;
 
+use crate::{runtime::DnsTcpStream, tcp::TcpStream, xfer::BufDnsStreamHandle};
+
 pub mod tls_client_stream;
 pub use tls_client_stream::{
     TlsClientStream, tls_client_connect, tls_client_connect_with_bind_addr, tls_exchange,
 };
-pub mod tls_stream;
-pub use tls_stream::{TlsStream, tls_from_stream};
+
+/// Initializes a TlsStream with an existing tokio_tls::TlsStream.
+///
+/// This is intended for use with a TlsListener and Incoming connections
+pub fn tls_from_stream<S: DnsTcpStream>(
+    stream: S,
+    peer_addr: SocketAddr,
+) -> (TlsStream<S>, BufDnsStreamHandle) {
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
+    let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
+    (stream, message_sender)
+}
 
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> Result<ClientConfig, rustls::Error> {
@@ -56,3 +68,6 @@ pub fn default_provider() -> CryptoProvider {
 pub fn default_provider() -> CryptoProvider {
     crypto::ring::default_provider()
 }
+
+/// Predefined type for abstracting the base I/O TlsStream with TokioTls
+pub type TlsStream<S> = TcpStream<S>;
