@@ -54,7 +54,7 @@ fn tls_handshake_timeout(protocol: &str) -> Result<(), Error> {
 
             assert!(!output.status.success());
             println!("stdout:\n {}", output.stdout);
-            assert!(output.stdout.contains("timed out"));
+            assert!(output.stdout.contains("timed out") || output.stdout.contains("timeout"));
 
             return Ok(());
         } else {

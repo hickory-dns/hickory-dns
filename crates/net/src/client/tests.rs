@@ -301,17 +301,14 @@ async fn async_client() {
 
     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
     let addr = SocketAddr::from(([8, 8, 8, 8], 53));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
 
     // Create a new client, the bg is a background future which handles
     //   the multiplexing of the DNS requests to the server.
     //   the client is a handle to an unbounded queue for sending requests via the
     //   background. The background must be scheduled to run before the client can
     //   send any dns requests
-    let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
-
-    // await the connection to be established
-    let (mut client, bg) = client.await.expect("connection failed");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await.unwrap(), sender, None);
 
     // make sure to run the background task
     tokio::spawn(bg);

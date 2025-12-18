@@ -685,9 +685,8 @@ async fn create_local_client(
     let dns_port = socket_ports.get_v4(ServerProtocol::Dns(Protocol::Tcp));
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, dns_port.expect("no dns tcp port")));
 
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(stream, sender, signer);
-    let (client, bg) = client.await.expect("connection failed");
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let (client, bg) = Client::new(future.await.expect("connection failed"), sender, signer);
     tokio::spawn(bg);
     client
 }

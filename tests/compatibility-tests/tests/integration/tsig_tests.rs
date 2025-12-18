@@ -102,11 +102,9 @@ async fn test_tsig_zone_transfer() {
 
     let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let (stream, sender) =
+    let (future, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
-    let multiplexer = DnsMultiplexer::new(stream, sender, Some(signer()))
-        .await
-        .unwrap();
+    let multiplexer = DnsMultiplexer::new(future.await.unwrap(), sender, Some(signer()));
 
     let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
     tokio::spawn(driver);

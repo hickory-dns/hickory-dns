@@ -25,24 +25,22 @@ use test_support::subscribe;
 async fn test_example_toml_startup() {
     subscribe();
     let provider = TokioRuntimeProvider::new();
-
     let server = TestServer::start("example.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     query_a(&mut client).await;
 
     // just tests that multiple queries work
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     query_a(&mut client).await;
@@ -54,21 +52,19 @@ async fn test_ipv4_only_toml_startup() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("ipv4_only.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv4 should succeed
     query_a(&mut client).await;
 
     let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-
-    assert!(client.await.is_err());
+    let (future, _) = TcpClientStream::new(addr, None, None, provider.clone());
+    assert!(future.await.is_err());
     //let (client, bg) = client.await.expect("client failed to connect");
     //tokio::spawn(bg);
 
@@ -112,20 +108,21 @@ async fn test_ipv4_and_ipv6_toml_startup() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("ipv4_and_ipv6.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
+
     // ipv4 should succeed
     query_a(&mut client).await;
 
     let tcp_port = server.ports.get_v6(Protocol::Tcp);
     let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv6 should succeed
@@ -138,10 +135,11 @@ async fn test_nodata_where_name_exists() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
+
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     let msg = client
@@ -162,10 +160,11 @@ async fn test_nxdomain_where_no_name_exists() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
+
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     let msg = client
@@ -186,8 +185,8 @@ async fn test_server_continues_on_bad_data_udp() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example.toml");
     let udp_port = server.ports.get_v4(Protocol::Udp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
 
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, udp_port.expect("no udp_port")));
     let stream = UdpClientStream::builder(addr, provider.clone()).build();
     let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(stream);
     tokio::spawn(bg);
@@ -217,11 +216,12 @@ async fn test_server_continues_on_bad_data_tcp() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     query_a(&mut client).await;
@@ -235,9 +235,9 @@ async fn test_server_continues_on_bad_data_tcp() {
 
     // just tests that multiple queries work
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     query_a(&mut client).await;
@@ -250,14 +250,14 @@ async fn test_forward() {
 
     subscribe();
     let provider = TokioRuntimeProvider::new();
-
     let server = TestServer::start("example_forwarder.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     let response = query_message(
@@ -277,10 +277,10 @@ async fn test_forward() {
 
     // just tests that multiple queries work
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     let response = query_message(
@@ -305,20 +305,21 @@ async fn test_allow_networks_toml_startup() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example_allow_networks.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
     // ipv4 should succeed
     query_a(&mut client).await;
 
     let tcp_port = server.ports.get_v6(Protocol::Tcp);
     let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv6 should succeed
@@ -331,20 +332,21 @@ async fn test_deny_networks_toml_startup() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example_deny_networks.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
     // ipv4 should be refused
     query_a_refused(&mut client).await;
 
     let tcp_port = server.ports.get_v6(Protocol::Tcp);
     let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv6 should be refused
@@ -357,20 +359,21 @@ async fn test_deny_allow_networks_toml_startup() {
     let provider = TokioRuntimeProvider::new();
     let server = TestServer::start("example_deny_allow_networks.toml");
     let tcp_port = server.ports.get_v4(Protocol::Tcp);
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
 
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
     // ipv4 should succeed
     query_a(&mut client).await;
 
     let tcp_port = server.ports.get_v6(Protocol::Tcp);
     let addr = SocketAddr::from((Ipv6Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider.clone());
-    let client = Client::<TokioRuntimeProvider>::new(Box::new(stream), sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv6 should be refused

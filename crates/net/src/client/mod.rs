@@ -79,12 +79,12 @@ impl<P: RuntimeProvider> Client<P> {
     ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub async fn new<S: DnsClientStream + 'static + Unpin>(
-        stream: impl Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
+    pub fn new<S: DnsClientStream>(
+        stream: S,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), NetError> {
-        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
+    ) -> (Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>) {
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
     /// Spawns a new Client Stream.
@@ -97,18 +97,18 @@ impl<P: RuntimeProvider> Client<P> {
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///   wait for a response before canceling the request.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub async fn with_timeout<F, S>(
-        stream: F,
+    pub fn with_timeout<S: DnsClientStream>(
+        stream: S,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Result<(Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>), NetError>
-    where
-        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsClientStream,
-    {
-        let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        Self::connect(mp).await
+    ) -> (Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>) {
+        Self::from_sender(DnsMultiplexer::with_timeout(
+            stream,
+            stream_handle,
+            timeout_duration,
+            signer,
+        ))
     }
 
     /// Returns a future, which itself wraps a future which is awaiting connection.

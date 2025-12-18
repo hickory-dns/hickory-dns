@@ -49,9 +49,9 @@ async fn test_query_nonet() {
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (mut client, bg) = Client::new(stream, sender, None);
     tokio::spawn(bg);
 
     test_query(&mut client).await;
@@ -88,9 +88,12 @@ async fn test_query_udp_ipv6() {
 #[tokio::test]
 async fn test_query_tcp_ipv4() {
     subscribe();
-    let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
+    let (mut client, bg) = Client::new(
+        future.await.expect("client failed to connect"),
+        sender,
+        None,
+    );
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -102,9 +105,12 @@ async fn test_query_tcp_ipv4() {
 #[ignore]
 async fn test_query_tcp_ipv6() {
     subscribe();
-    let (stream, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
+    let (mut client, bg) = Client::new(
+        future.await.expect("client failed to connect"),
+        sender,
+        None,
+    );
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -228,9 +234,9 @@ async fn test_notify() {
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     let name = Name::from_str("ping.example.com.").unwrap();
@@ -291,12 +297,11 @@ async fn create_sig0_ready_client() -> (
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let signer = Arc::new(signer);
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::new(stream, sender, Some(signer))
-        .await
-        .expect("failed to get new Client");
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (client, bg) = Client::new(stream, sender, Some(signer));
 
-    (client, origin.into())
+    ((client, bg), origin.into())
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -994,9 +999,10 @@ async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
 #[tokio::test]
 async fn test_timeout_query_nonet() {
     subscribe();
-    let (stream, sender) = NeverReturnsClientStream::new();
-    let client = Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
-    let (client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = NeverReturnsClientStream::new();
+    let stream = future.await.expect("client failed to connect");
+    let (client, bg) =
+        Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     tokio::spawn(bg);
 
     test_timeout_query(client).await;
@@ -1019,18 +1025,12 @@ async fn test_timeout_query_udp() {
 async fn test_timeout_query_tcp() {
     subscribe();
 
-    let (stream, sender) = TcpClientStream::new(
+    let (future, _) = TcpClientStream::new(
         TEST3_V4,
         None,
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::new(),
     );
-    let client = Client::<TokioRuntimeProvider>::with_timeout(
-        Box::new(stream),
-        sender,
-        std::time::Duration::from_millis(1),
-        None,
-    );
 
-    assert!(client.await.is_err());
+    assert!(future.await.is_err());
 }
