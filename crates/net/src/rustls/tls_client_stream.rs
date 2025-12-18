@@ -16,7 +16,7 @@ use futures_util::future::BoxFuture;
 use rustls::{ClientConfig, pki_types::ServerName};
 use tokio_rustls::TlsConnector;
 
-use super::tls_stream::{connect_tls_stream, tls_connect_with_bind_addr};
+use super::tls_stream::connect_tls_stream;
 use crate::error::NetError;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -90,12 +90,27 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
     BoxFuture<'static, Result<TlsClientStream<P::Tcp>, NetError>>,
     BufDnsStreamHandle,
 ) {
-    let (stream_future, sender) =
-        tls_connect_with_bind_addr(name_server, bind_addr, server_name, client_config, provider);
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+    let early_data_enabled = client_config.enable_early_data;
+    let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
 
-    let new_future = Box::pin(async { Ok(TcpClientStream::from_stream(stream_future.await?)) });
+    // This set of futures collapses the next tcp socket into a stream which can be used for
+    //  sending and receiving tcp packets.
+    let stream = async move {
+        let tcp = provider.connect_tcp(name_server, bind_addr, None).await?;
+        connect_tls_stream(
+            tls_connector,
+            tcp,
+            name_server,
+            server_name,
+            outbound_messages,
+        )
+        .await
+    };
 
-    (new_future, sender)
+    let new_future = Box::pin(async { Ok(TcpClientStream::from_stream(stream.await?)) });
+
+    (new_future, message_sender)
 }
 
 /// Creates a new TlsStream to the specified name_server connecting from a specific address.
