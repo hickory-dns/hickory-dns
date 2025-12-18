@@ -86,46 +86,7 @@ pub(super) fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     (stream, message_sender)
 }
 
-/// Creates a new TlsStream to the specified name_server connecting from a specific address.
-///
-/// # Arguments
-///
-/// * `name_server` - IP and Port for the remote DNS resolver
-/// * `bind_addr` - IP and port to connect from
-/// * `dns_name` - The DNS name associated with a certificate
-#[allow(clippy::type_complexity)]
-pub(super) fn tls_connect_with_future<S: DnsTcpStream>(
-    stream: S,
-    name_server: SocketAddr,
-    server_name: ServerName<'static>,
-    client_config: Arc<ClientConfig>,
-) -> (
-    impl Future<Output = Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError>>
-    + Send
-    + 'static,
-    BufDnsStreamHandle,
-) {
-    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-    let early_data_enabled = client_config.enable_early_data;
-    let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
-
-    // This set of futures collapses the next tcp socket into a stream which can be used for
-    //  sending and receiving tcp packets.
-    let stream = async move {
-        connect_tls_stream(
-            tls_connector,
-            stream,
-            name_server,
-            server_name,
-            outbound_messages,
-        )
-        .await
-    };
-
-    (stream, message_sender)
-}
-
-async fn connect_tls_stream<S: DnsTcpStream>(
+pub(super) async fn connect_tls_stream<S: DnsTcpStream>(
     tls_connector: TlsConnector,
     stream: S,
     name_server: SocketAddr,
