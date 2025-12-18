@@ -235,11 +235,9 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::new(stream, sender, None);
-
-    let (client, bg) = client.await.expect("failed to create new client");
-
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (client, bg) = Client::new(stream, sender, None);
     tokio::spawn(bg);
     let client = MemoizeClientHandle::new(client);
     let secure_client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
@@ -307,9 +305,12 @@ where
         })
         .unwrap();
 
-    let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(Box::new(stream), sender, None);
-    let (client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
+    let (client, bg) = Client::new(
+        future.await.expect("client failed to connect"),
+        sender,
+        None,
+    );
     tokio::spawn(bg);
 
     let client = MemoizeClientHandle::new(client);

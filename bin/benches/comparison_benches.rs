@@ -152,12 +152,11 @@ fn hickory_udp_bench_prof(b: &mut Bencher) {
 fn hickory_tcp_bench(b: &mut Bencher) {
     let (named, server_port) = hickory_process();
 
+    let io_loop = Runtime::new().unwrap();
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let mp = Runtime::new()
-        .unwrap()
-        .block_on(DnsMultiplexer::new(stream, sender, None))
-        .unwrap();
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let stream = io_loop.block_on(future).expect("failed to connect");
+    let mp = DnsMultiplexer::new(stream, sender, None);
     bench(b, mp);
 
     // cleaning up the named process
@@ -222,12 +221,11 @@ fn bind_udp_bench(b: &mut Bencher) {
 fn bind_tcp_bench(b: &mut Bencher) {
     let (named, server_port) = bind_process();
 
+    let io_loop = Runtime::new().unwrap();
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
-    let mp = Runtime::new()
-        .unwrap()
-        .block_on(DnsMultiplexer::new(stream, sender, None))
-        .unwrap();
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
+    let stream = io_loop.block_on(future).expect("failed to connect");
+    let mp = DnsMultiplexer::new(stream, sender, None);
     bench(b, mp);
 
     // cleaning up the named process
