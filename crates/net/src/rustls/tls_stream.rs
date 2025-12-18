@@ -12,7 +12,6 @@ use core::net::SocketAddr;
 use std::io;
 use std::sync::Arc;
 
-use futures_util::future::BoxFuture;
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -80,10 +79,9 @@ pub fn tls_connect<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    BoxFuture<
-        'static,
-        Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, NetError>,
-    >,
+    impl Future<Output = Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, NetError>>
+    + Send
+    + 'static,
     BufDnsStreamHandle,
 ) {
     tls_connect_with_bind_addr(name_server, None, server_name, client_config, provider)
@@ -104,10 +102,9 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
     client_config: Arc<ClientConfig>,
     provider: P,
 ) -> (
-    BoxFuture<
-        'static,
-        Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, NetError>,
-    >,
+    impl Future<Output = Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, NetError>>
+    + Send
+    + 'static,
     BufDnsStreamHandle,
 ) {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -116,14 +113,17 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream = Box::pin(connect_tls(
-        tls_connector,
-        name_server,
-        bind_addr,
-        server_name,
-        outbound_messages,
-        provider,
-    ));
+    let stream = async move {
+        let tcp = provider.connect_tcp(name_server, bind_addr, None).await?;
+        connect_tls_stream(
+            tls_connector,
+            tcp,
+            name_server,
+            server_name,
+            outbound_messages,
+        )
+        .await
+    };
 
     (stream, message_sender)
 }
@@ -165,25 +165,6 @@ pub fn tls_connect_with_future<S: DnsTcpStream>(
     };
 
     (stream, message_sender)
-}
-
-async fn connect_tls<P: RuntimeProvider>(
-    tls_connector: TlsConnector,
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-    server_name: ServerName<'static>,
-    outbound_messages: StreamReceiver,
-    provider: P,
-) -> Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, NetError> {
-    let tcp = provider.connect_tcp(name_server, bind_addr, None).await?;
-    connect_tls_stream(
-        tls_connector,
-        tcp,
-        name_server,
-        server_name,
-        outbound_messages,
-    )
-    .await
 }
 
 async fn connect_tls_stream<S: DnsTcpStream>(
