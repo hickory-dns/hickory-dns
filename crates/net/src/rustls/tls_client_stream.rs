@@ -9,7 +9,6 @@
 
 use core::future::Future;
 use core::net::SocketAddr;
-use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,7 +17,7 @@ use rustls::{ClientConfig, pki_types::ServerName};
 
 use crate::error::NetError;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::runtime::{RuntimeProvider, Spawn, DnsTcpStream};
+use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
 use crate::rustls::tls_stream::{tls_connect_with_bind_addr, tls_connect_with_future};
 use crate::tcp::TcpClientStream;
 use crate::xfer::{BufDnsStreamHandle, DnsExchange, DnsMultiplexer};
@@ -38,8 +37,9 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     config.enable_sni = false;
 
+    let stream = provider.connect_tcp(remote_addr, None, None).await?;
     let (future, sender) = tls_client_connect_with_future(
-        provider.connect_tcp(remote_addr, None, None),
+        stream,
         remote_addr,
         server_name.to_owned(),
         Arc::new(config),
@@ -104,18 +104,17 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
 /// * `future` - A future producing DnsTcpStream
 /// * `dns_name` - The DNS name associated with a certificate
 pub fn tls_client_connect_with_future<S: DnsTcpStream>(
-    future: impl Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
+    stream: S,
     socket_addr: SocketAddr,
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
-    BoxFuture<'static, Result<TlsClientStream<S>, NetError>>,
+    impl Future<Output = Result<TlsClientStream<S>, NetError>> + Send + 'static,
     BufDnsStreamHandle,
 ) {
-    let (stream_future, sender) =
-        tls_connect_with_future(future, socket_addr, server_name, client_config);
-
-    let new_future = Box::pin(async { Ok(TcpClientStream::from_stream(stream_future.await?)) });
-
-    (new_future, sender)
+    let (future, sender) = tls_connect_with_future(stream, socket_addr, server_name, client_config);
+    (
+        async move { Ok(TcpClientStream::from_stream(future.await?)) },
+        sender,
+    )
 }
