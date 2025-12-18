@@ -106,8 +106,7 @@ where
         mut self,
     ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), NetError> {
         let trust_anchor = Arc::new(self.trust_anchor.take().unwrap_or_default());
-        let result = Client::connect(self.connect_future).await;
-
-        result.map(|(client, bg)| (DnssecClient::from_client(client, trust_anchor), bg))
+        let (client, bg) = Client::from_sender(self.connect_future.await?);
+        Ok((DnssecClient::from_client(client, trust_anchor), bg))
     }
 }

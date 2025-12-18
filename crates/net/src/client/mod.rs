@@ -111,27 +111,6 @@ impl<P: RuntimeProvider> Client<P> {
         ))
     }
 
-    /// Returns a future, which itself wraps a future which is awaiting connection.
-    ///
-    /// The connect_future should be lazy.
-    ///
-    /// # Returns
-    ///
-    /// This returns a tuple of Self a handle to send dns messages and an optional background.
-    ///  The background task must be run on an executor before handle is used, if it is Some.
-    ///  If it is None, then another thread has already run the background.
-    pub async fn connect<F, S>(
-        connect_future: F,
-    ) -> Result<(Self, DnsExchangeBackground<S, P::Timer>), NetError>
-    where
-        S: DnsRequestSender,
-        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    {
-        let result = DnsExchange::connect(connect_future).await;
-        let use_edns = true;
-        result.map(|(exchange, bg)| (Self { exchange, use_edns }, bg))
-    }
-
     /// Creates a Client from an existing DnsRequestSender
     pub fn from_sender<S: DnsRequestSender>(
         sender: S,
