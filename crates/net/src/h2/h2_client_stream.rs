@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::fmt::{self, Display};
 use core::future::Future;
 use core::net::SocketAddr;
 use core::pin::Pin;
@@ -38,21 +37,9 @@ const ALPN_H2: &[u8] = b"h2";
 #[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
-    // Corresponds to the dns-name of the HTTPS server
-    name_server: SocketAddr,
     context: Arc<RequestContext>,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
-}
-
-impl Display for HttpsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            formatter,
-            "HTTPS({},{})",
-            self.name_server, self.context.server_name
-        )
-    }
 }
 
 impl DnsRequestSender for HttpsClientStream {
@@ -269,7 +256,6 @@ pub fn connect(
         });
 
         Ok(HttpsClientStream {
-            name_server,
             h2,
             context,
             is_shutdown: false,
