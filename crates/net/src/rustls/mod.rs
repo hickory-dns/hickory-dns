@@ -22,7 +22,7 @@ pub mod tls_client_stream;
 pub mod tls_stream;
 
 pub use self::tls_client_stream::{
-    TlsClientStream, tls_client_connect, tls_client_connect_with_bind_addr,
+    TlsClientStream, tls_client_connect, tls_client_connect_with_bind_addr, tls_exchange,
 };
 pub use self::tls_stream::{TlsStream, tls_connect, tls_connect_with_bind_addr, tls_from_stream};
 

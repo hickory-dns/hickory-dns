@@ -11,20 +11,45 @@ use core::future::Future;
 use core::net::SocketAddr;
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use rustls::{ClientConfig, pki_types::ServerName};
 
 use crate::error::NetError;
 use crate::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::runtime::{DnsTcpStream, RuntimeProvider};
+use crate::runtime::{RuntimeProvider, Spawn, DnsTcpStream};
 use crate::rustls::tls_stream::{tls_connect_with_bind_addr, tls_connect_with_future};
 use crate::tcp::TcpClientStream;
-use crate::xfer::BufDnsStreamHandle;
+use crate::xfer::{BufDnsStreamHandle, DnsExchange, DnsMultiplexer};
 
 /// Type of TlsClientStream used with Rustls
 pub type TlsClientStream<S> =
     TcpClientStream<AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>>>;
+
+/// Create a new [`DnsExchange`] wrapped around a multiplexed [`TlsClientStream`]
+pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
+    remote_addr: SocketAddr,
+    server_name: ServerName<'static>,
+    mut config: ClientConfig,
+    timeout: Duration,
+    provider: P,
+) -> Result<DnsExchange<P>, NetError> {
+    // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
+    config.enable_sni = false;
+
+    let (stream, sender) = tls_client_connect_with_future(
+        provider.connect_tcp(remote_addr, None, None),
+        remote_addr,
+        server_name.to_owned(),
+        Arc::new(config),
+    );
+
+    let multiplexer = DnsMultiplexer::with_timeout(stream, sender, timeout, None).await?;
+    let (exchange, bg) = DnsExchange::<P>::from_stream(multiplexer);
+    provider.create_handle().spawn_bg(bg);
+    Ok(exchange)
+}
 
 /// Creates a new TlsStream to the specified name_server
 ///

@@ -15,82 +15,20 @@ use core::task::{Context, Poll, ready};
 
 use futures_channel::mpsc;
 use futures_util::{
-    future::{BoxFuture, FutureExt},
+    future::FutureExt,
     stream::{Peekable, Stream, StreamExt},
 };
 use tracing::debug;
 
 use crate::error::NetError;
-#[cfg(all(feature = "__https", feature = "tokio"))]
-use crate::h2::HttpsClientStream;
-#[cfg(all(feature = "__h3", feature = "tokio"))]
-use crate::h3::H3ClientStream;
 use crate::proto::op::{DnsRequest, DnsResponse};
-#[cfg(all(feature = "__quic", feature = "tokio"))]
-use crate::quic::QuicClientStream;
 use crate::runtime::RuntimeProvider;
 use crate::runtime::Time;
-#[cfg(feature = "__tls")]
-use crate::rustls::TlsClientStream;
-use crate::tcp::TcpClientStream;
-use crate::udp::UdpClientStream;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
-    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsMultiplexer, DnsMultiplexerConnect,
-    DnsRequestSender, DnsResponseReceiver, OneshotDnsRequest,
+    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequestSender, DnsResponseReceiver,
+    OneshotDnsRequest,
 };
-
-/// The variants of all supported connections for a `DnsExchange`.
-#[allow(missing_docs, clippy::large_enum_variant, clippy::type_complexity)]
-#[non_exhaustive]
-pub enum Connecting<P: RuntimeProvider> {
-    Udp(Option<UdpClientStream<P>>),
-    Tcp(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TcpClientStream<P::Tcp>, NetError>>,
-                TcpClientStream<<P as RuntimeProvider>::Tcp>,
-            >,
-            DnsMultiplexer<TcpClientStream<<P as RuntimeProvider>::Tcp>>,
-            P,
-        >,
-    ),
-    #[cfg(feature = "__tls")]
-    Tls(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TlsClientStream<<P as RuntimeProvider>::Tcp>, NetError>>,
-                TlsClientStream<<P as RuntimeProvider>::Tcp>,
-            >,
-            DnsMultiplexer<TlsClientStream<<P as RuntimeProvider>::Tcp>>,
-            P,
-        >,
-    ),
-    #[cfg(all(feature = "__https", feature = "tokio"))]
-    Https(
-        DnsExchangeConnect<
-            Pin<Box<dyn Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static>>,
-            HttpsClientStream,
-            P,
-        >,
-    ),
-    #[cfg(all(feature = "__quic", feature = "tokio"))]
-    Quic(
-        DnsExchangeConnect<
-            Pin<Box<dyn Future<Output = Result<QuicClientStream, NetError>> + Send + 'static>>,
-            QuicClientStream,
-            P,
-        >,
-    ),
-    #[cfg(all(feature = "__h3", feature = "tokio"))]
-    H3(
-        DnsExchangeConnect<
-            Pin<Box<dyn Future<Output = Result<H3ClientStream, NetError>> + Send + 'static>>,
-            H3ClientStream,
-            P,
-        >,
-    ),
-}
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///

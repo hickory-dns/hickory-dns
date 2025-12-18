@@ -27,9 +27,10 @@ use crate::http::{RequestContext, SetHeaders, Version};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
+use crate::runtime::{RuntimeProvider, Spawn};
 use crate::rustls::client_config;
 use crate::udp::UdpSocket;
-use crate::xfer::{DnsRequestSender, DnsResponseStream};
+use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream};
 
 use super::ALPN_H3;
 
@@ -335,6 +336,23 @@ impl H3ClientStreamBuilder {
         path: Arc<str>,
     ) -> impl Future<Output = Result<H3ClientStream, NetError>> + Send + 'static {
         self.connect(name_server, server_name, path)
+    }
+
+    /// Creates a new [`DnsExchange`] wrapping the [`H3ClientStream`] from this builder
+    pub async fn exchange<P: RuntimeProvider>(
+        self,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        path: Arc<str>,
+        provider: P,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let stream = self
+            .connect_with_future(socket, name_server, server_name, path)
+            .await?;
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        provider.create_handle().spawn_bg(bg);
+        Ok(exchange)
     }
 
     /// Creates a new H3Stream with existing connection
