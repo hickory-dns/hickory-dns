@@ -390,7 +390,7 @@ async fn test_nsec_query_type() {
 async fn test_nsec3_nxdomain() {
     subscribe();
 
-    let name = Name::from_labels(vec!["a", "b", "c", "example", "com"]).unwrap();
+    let name = Name::from_labels(vec!["a", "b", "c", "iana", "org"]).unwrap();
 
     let mut client = tcp_dnssec_client(GOOGLE_V4).await;
     let response = client
