@@ -11,7 +11,6 @@
 use std::{env, fs::File, io::*, net::*, sync::Arc};
 
 use rustls::{ClientConfig, RootCertStore, pki_types::CertificateDer};
-use tokio::runtime::Runtime;
 
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
@@ -21,8 +20,8 @@ use hickory_net::rustls::default_provider;
 use hickory_net::xfer::Protocol;
 use test_support::subscribe;
 
-#[test]
-fn test_example_quic_toml_startup() {
+#[tokio::test]
+async fn test_example_quic_toml_startup() {
     subscribe();
 
     let server = TestServer::start("dns_over_quic.toml");
@@ -38,7 +37,6 @@ fn test_example_quic_toml_startup() {
     .read_to_end(&mut cert_der)
     .expect("failed to read cert");
 
-    let mut io_loop = Runtime::new().unwrap();
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, quic_port.expect("no quic_port")));
     std::thread::sleep(std::time::Duration::from_secs(1));
 
@@ -60,11 +58,11 @@ fn test_example_quic_toml_startup() {
     );
 
     // ipv4 should succeed
-    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
-    hickory_net::runtime::spawn_bg(&io_loop, bg);
+    let (mut client, bg) = client.await.expect("client failed to connect");
+    tokio::spawn(bg);
 
-    query_a(&mut io_loop, &mut client);
+    query_a(&mut client).await;
 
     // a second request should work...
-    query_a(&mut io_loop, &mut client);
+    query_a(&mut client).await;
 }
