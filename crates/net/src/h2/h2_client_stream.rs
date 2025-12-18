@@ -42,6 +42,21 @@ pub struct HttpsClientStream {
     is_shutdown: bool,
 }
 
+impl HttpsClientStream {
+    /// Constructs a new HttpsClientStreamBuilder with the associated ClientConfig
+    pub fn builder<P: RuntimeProvider>(
+        client_config: Arc<ClientConfig>,
+        provider: P,
+    ) -> HttpsClientStreamBuilder<P> {
+        HttpsClientStreamBuilder {
+            provider,
+            client_config,
+            bind_addr: None,
+            set_headers: None,
+        }
+    }
+}
+
 impl DnsRequestSender for HttpsClientStream {
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
@@ -153,16 +168,6 @@ pub struct HttpsClientStreamBuilder<P> {
 }
 
 impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
-    /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: Arc<ClientConfig>, provider: P) -> Self {
-        Self {
-            provider,
-            client_config,
-            bind_addr: None,
-            set_headers: None,
-        }
-    }
-
     /// Sets the address to connect from.
     pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
         self.bind_addr = Some(bind_addr);
@@ -427,8 +432,7 @@ mod tests {
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let provider = TokioRuntimeProvider::new();
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
         let connect = https_builder.build(google, Arc::from("dns.google"), Arc::from("/dns-query"));
 
         let mut https = connect.await.expect("https connect failed");
@@ -496,8 +500,7 @@ mod tests {
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let provider = TokioRuntimeProvider::new();
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
         let connect = https_builder.build(
             google,
             Arc::from(google.ip().to_string()),
@@ -568,8 +571,7 @@ mod tests {
 
         let client_config = client_config_h2();
         let provider = TokioRuntimeProvider::new();
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
         let connect = https_builder.build(
             cloudflare,
             Arc::from("cloudflare-dns.com"),
