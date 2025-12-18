@@ -21,7 +21,7 @@ use test_support::subscribe;
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
 use hickory_net::runtime::TokioRuntimeProvider;
-use hickory_net::rustls::{default_provider, tls_client_connect};
+use hickory_net::tls::{default_provider, tls_client_connect};
 use hickory_net::xfer::Protocol;
 
 #[tokio::test]

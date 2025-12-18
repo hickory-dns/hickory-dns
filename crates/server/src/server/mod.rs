@@ -32,7 +32,7 @@ use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicServer;
 #[cfg(feature = "__tls")]
-use crate::net::rustls::{default_provider, tls_from_stream};
+use crate::net::tls::{default_provider, tls_from_stream};
 use crate::{
     access::AccessControl,
     net::{
