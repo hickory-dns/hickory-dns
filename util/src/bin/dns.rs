@@ -537,15 +537,12 @@ async fn https<P: RuntimeProvider>(
     config.alpn_protocols.push(alpn);
     let config = Arc::new(config);
 
-    let https_builder = HttpsClientStream::builder(config, provider);
-    let (client, bg) = Client::<P>::connect(Box::pin(https_builder.build(
-        nameserver,
-        Arc::from(dns_name),
-        Arc::from(http_endpoint),
-    )))
-    .await?;
-
+    let sender = HttpsClientStream::builder(config, provider)
+        .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
+        .await?;
+    let (client, bg) = Client::<P>::from_sender(sender);
     let handle = tokio::spawn(bg);
+
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
@@ -575,14 +572,13 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::<TokioRuntimeProvider>::connect(Box::pin(
-        QuicClientStream::builder()
-            .crypto_config(config)
-            .build(nameserver, Arc::from(dns_name)),
-    ))
-    .await?;
-
+    let sender = QuicClientStream::builder()
+        .crypto_config(config)
+        .build(nameserver, Arc::from(dns_name))
+        .await?;
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     let handle = tokio::spawn(bg);
+
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
@@ -615,16 +611,13 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::<TokioRuntimeProvider>::connect(Box::pin(
-        H3ClientStream::builder().crypto_config(config).build(
-            nameserver,
-            Arc::from(dns_name),
-            Arc::from(http_endpoint),
-        ),
-    ))
-    .await?;
-
+    let sender = H3ClientStream::builder()
+        .crypto_config(config)
+        .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
+        .await?;
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     let handle = tokio::spawn(bg);
+
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
