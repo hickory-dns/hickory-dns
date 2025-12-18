@@ -9,8 +9,9 @@ use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll, ready};
 use core::time::Duration;
+use std::future::Future;
 
-use futures_util::{StreamExt, future::BoxFuture, stream::Stream};
+use futures_util::{StreamExt, stream::Stream};
 use tracing::warn;
 
 use crate::error::NetError;
@@ -60,19 +61,19 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
         timeout: Option<Duration>,
         provider: P,
     ) -> (
-        BoxFuture<'static, Result<Self, NetError>>,
+        impl Future<Output = Result<Self, NetError>> + Send + 'static,
         BufDnsStreamHandle,
     ) {
         let (sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
         (
-            Box::pin(async move {
+            async move {
                 let tcp = provider.connect_tcp(peer_addr, bind_addr, timeout).await?;
                 Ok(Self::from_stream(TcpStream::from_stream_with_receiver(
                     tcp,
                     peer_addr,
                     outbound_messages,
                 )))
-            }),
+            },
             sender,
         )
     }
