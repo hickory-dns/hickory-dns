@@ -25,9 +25,10 @@ use crate::{
     error::NetError,
     proto::op::{DnsRequest, DnsResponse},
     quic::quic_stream::{DoqErrorCode, QuicStream},
+    runtime::{RuntimeProvider, Spawn},
     rustls::client_config,
     udp::UdpSocket,
-    xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream},
+    xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream},
 };
 
 use super::{quic_config, quic_stream};
@@ -225,6 +226,22 @@ impl QuicClientStreamBuilder {
         server_name: Arc<str>,
     ) -> impl Future<Output = Result<QuicClientStream, NetError>> + Send + 'static {
         self.connect(name_server, server_name)
+    }
+
+    /// Creates a new [`DnsExchange`] wrapping the [`QuicClientStream`] from this builder
+    pub async fn exchange<P: RuntimeProvider>(
+        self,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        provider: P,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let stream = self
+            .connect_with_future(socket, name_server, server_name)
+            .await?;
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        provider.create_handle().spawn_bg(bg);
+        Ok(exchange)
     }
 
     /// Create a QuicStream with existing connection

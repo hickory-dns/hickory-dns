@@ -13,10 +13,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
 #[cfg(any(feature = "__tls", feature = "__https"))]
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
-use futures_util::future::FutureExt;
-use futures_util::ready;
+#[cfg(feature = "__https")]
+use hickory_net::h2::HttpsClientStream;
 #[cfg(feature = "__tls")]
 use rustls::DigitallySignedStruct;
 #[cfg(feature = "__tls")]
@@ -28,25 +27,21 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 #[cfg(not(feature = "__tls"))]
 use tracing::warn;
 
-#[cfg(feature = "__https")]
-use crate::net::h2;
 #[cfg(feature = "__h3")]
 use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::net::rustls::{
-    client_config, default_provider, tls_client_stream::tls_client_connect_with_future,
-};
+use crate::net::rustls::{client_config, default_provider, tls_exchange};
 use crate::{
     config::{ConnectionConfig, ProtocolConfig},
     name_server_pool::PoolContext,
     net::{
         NetError,
-        runtime::{RuntimeProvider, Spawn},
+        runtime::RuntimeProvider,
         tcp::TcpClientStream,
         udp::UdpClientStream,
-        xfer::{Connecting, DnsExchange, DnsHandle, DnsMultiplexer},
+        xfer::{DnsExchange, DnsHandle},
     },
 };
 
@@ -72,61 +67,9 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     fn runtime_provider(&self) -> &Self::RuntimeProvider;
 }
 
-/// Resolves to a new Connection
-#[must_use = "futures do nothing unless polled"]
-pub struct ConnectionFuture<P: RuntimeProvider> {
-    pub(crate) connect: Connecting<P>,
-    pub(crate) spawner: P::Handle,
-}
-
-impl<P: RuntimeProvider> Future for ConnectionFuture<P> {
-    type Output = Result<DnsExchange<P>, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(Ok(match &mut self.connect {
-            Connecting::Udp(conn) => {
-                let conn = conn.take().expect("only polled once");
-                let (conn, bg) = DnsExchange::from_stream(conn);
-                self.spawner.spawn_bg(bg);
-                conn
-            }
-            Connecting::Tcp(conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                conn
-            }
-            #[cfg(feature = "__tls")]
-            Connecting::Tls(conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                conn
-            }
-            #[cfg(feature = "__https")]
-            Connecting::Https(conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                conn
-            }
-            #[cfg(feature = "__quic")]
-            Connecting::Quic(conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                conn
-            }
-            #[cfg(feature = "__h3")]
-            Connecting::H3(conn) => {
-                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                self.spawner.spawn_bg(bg);
-                conn
-            }
-            _ => unreachable!("unsupported connection type in Connecting"),
-        }))
-    }
-}
-
 impl<P: RuntimeProvider> ConnectionProvider for P {
     type Conn = DnsExchange<P>;
-    type FutureConn = ConnectionFuture<P>;
+    type FutureConn = Pin<Box<dyn Future<Output = Result<Self::Conn, NetError>> + Send + 'static>>;
     type RuntimeProvider = P;
 
     fn new_connection(
@@ -136,66 +79,57 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
         cx: &PoolContext,
     ) -> Result<Self::FutureConn, NetError> {
         let remote_addr = SocketAddr::new(ip, config.port);
-        let dns_connect = match (&config.protocol, self.quic_binder()) {
-            (ProtocolConfig::Udp, _) => Connecting::Udp(Some(
-                UdpClientStream::builder(remote_addr, self.clone())
-                    .with_timeout(Some(cx.options.timeout))
-                    .with_os_port_selection(cx.options.os_port_selection)
-                    .avoid_local_ports(cx.options.avoid_local_udp_ports.clone())
-                    .with_bind_addr(config.bind_addr)
-                    .build(),
-            )),
-            (ProtocolConfig::Tcp, _) => {
-                let (future, handle) = TcpClientStream::new(
-                    remote_addr,
+        match (&config.protocol, self.quic_binder()) {
+            (ProtocolConfig::Udp, _) => {
+                let (timeout, os_port_selection, avoid_local_udp_ports, bind_addr, provider) = (
+                    cx.options.timeout,
+                    cx.options.os_port_selection,
+                    cx.options.avoid_local_udp_ports.clone(),
                     config.bind_addr,
-                    Some(cx.options.timeout),
                     self.clone(),
                 );
 
-                // TODO: need config for Signer...
-                let dns_conn =
-                    DnsMultiplexer::with_timeout(future, handle, cx.options.timeout, None);
-                let exchange = DnsExchange::connect(dns_conn);
-                Connecting::Tcp(exchange)
+                Ok(Box::pin(async move {
+                    Ok(UdpClientStream::builder(remote_addr, provider)
+                        .with_timeout(Some(timeout))
+                        .with_os_port_selection(os_port_selection)
+                        .avoid_local_ports(avoid_local_udp_ports)
+                        .with_bind_addr(bind_addr)
+                        .exchange())
+                }))
             }
+            (ProtocolConfig::Tcp, _) => Ok(Box::pin(TcpClientStream::exchange(
+                remote_addr,
+                config.bind_addr,
+                cx.options.timeout,
+                self.clone(),
+            ))),
             #[cfg(feature = "__tls")]
             (ProtocolConfig::Tls { server_name }, _) => {
-                let timeout = cx.options.timeout;
-                let tcp_future = self.connect_tcp(remote_addr, None, None);
-
                 let Ok(server_name) = ServerName::try_from(&**server_name) else {
                     return Err(NetError::from(format!(
                         "invalid server name: {server_name}"
                     )));
                 };
 
-                let mut tls_config = cx.tls.clone();
-                // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
-                tls_config.enable_sni = false;
-
-                let (stream, handle) = tls_client_connect_with_future(
-                    tcp_future,
+                let server_name = server_name.to_owned();
+                Ok(Box::pin(tls_exchange(
                     remote_addr,
-                    server_name.to_owned(),
-                    Arc::new(tls_config),
-                );
-
-                Connecting::Tls(DnsExchange::connect(DnsMultiplexer::with_timeout(
-                    stream, handle, timeout, None,
+                    server_name,
+                    cx.tls.clone(),
+                    cx.options.timeout,
+                    self.clone(),
                 )))
             }
             #[cfg(feature = "__https")]
-            (ProtocolConfig::Https { server_name, path }, _) => {
-                Connecting::Https(DnsExchange::connect(Box::pin(h2::connect(
-                    self.connect_tcp(remote_addr, None, None),
-                    Arc::new(cx.tls.clone()),
+            (ProtocolConfig::Https { server_name, path }, _) => Ok(Box::pin(
+                HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone()).exchange(
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
-                    None,
-                ))))
-            }
+                ),
+            )),
+
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { server_name }, Some(binder)) => {
                 let bind_addr = config.bind_addr.unwrap_or(match remote_addr {
@@ -203,15 +137,16 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
 
-                Connecting::Quic(DnsExchange::connect(Box::pin(
+                Ok(Box::pin(
                     QuicClientStream::builder()
                         .crypto_config(cx.tls.clone())
-                        .build_with_future(
+                        .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
                             server_name.clone(),
+                            self.clone(),
                         ),
-                )))
+                ))
             }
             #[cfg(feature = "__h3")]
             (
@@ -227,32 +162,28 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                 });
 
-                Connecting::H3(DnsExchange::connect(Box::pin(
+                Ok(Box::pin(
                     H3ClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
-                        .build_with_future(
+                        .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
                             server_name.clone(),
                             path.clone(),
+                            self.clone(),
                         ),
-                )))
+                ))
             }
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { .. }, None) => {
-                return Err(NetError::from("runtime provider does not support QUIC"));
+                Err(NetError::from("runtime provider does not support QUIC"))
             }
             #[cfg(feature = "__h3")]
             (ProtocolConfig::H3 { .. }, None) => {
-                return Err(NetError::from("runtime provider does not support QUIC"));
+                Err(NetError::from("runtime provider does not support QUIC"))
             }
-        };
-
-        Ok(ConnectionFuture::<P> {
-            connect: dns_connect,
-            spawner: self.create_handle(),
-        })
+        }
     }
 
     fn runtime_provider(&self) -> &Self::RuntimeProvider {

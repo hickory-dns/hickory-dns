@@ -13,16 +13,16 @@ use core::time::Duration;
 use futures_util::{StreamExt, future::BoxFuture, stream::Stream};
 use tracing::warn;
 
-use crate::BufDnsStreamHandle;
 use crate::error::NetError;
 use crate::proto::op::SerialMessage;
 #[cfg(feature = "tokio")]
 use crate::runtime::TokioTime;
 #[cfg(feature = "tokio")]
 use crate::runtime::iocompat::AsyncIoTokioAsStd;
-use crate::runtime::{DnsTcpStream, RuntimeProvider};
+use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
 use crate::tcp::TcpStream;
-use crate::xfer::DnsClientStream;
+use crate::xfer::{DnsClientStream, DnsExchange};
+use crate::{BufDnsStreamHandle, DnsMultiplexer};
 
 /// Tcp client stream
 ///
@@ -36,6 +36,23 @@ where
 }
 
 impl<S: DnsTcpStream> TcpClientStream<S> {
+    /// Create a new [`DnsExchange`] wrapped around a multiplexed [`TcpClientStream`]
+    pub async fn exchange<P: RuntimeProvider<Tcp = S>>(
+        remote_addr: SocketAddr,
+        bind_addr: Option<SocketAddr>,
+        timeout: Duration,
+        provider: P,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let mut handle = provider.create_handle();
+        let (future, sender) = Self::new(remote_addr, bind_addr, Some(timeout), provider);
+
+        // TODO: need config for Signer...
+        let multiplexer = DnsMultiplexer::with_timeout(future, sender, timeout, None).await?;
+        let (exchange, bg) = DnsExchange::from_stream(multiplexer);
+        handle.spawn_bg(bg);
+        Ok(exchange)
+    }
+
     /// Create a new TcpClientStream
     pub fn new<P: RuntimeProvider<Tcp = S>>(
         peer_addr: SocketAddr,

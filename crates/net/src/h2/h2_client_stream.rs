@@ -28,8 +28,8 @@ use crate::http::{RequestContext, SetHeaders, Version};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
-use crate::runtime::{DnsTcpStream, RuntimeProvider};
-use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream};
+use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
+use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -176,6 +176,20 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     /// Set the [`SetHeaders`] trait object used to inject dynamic headers into the DoH request
     pub fn set_headers(&mut self, headers: Arc<dyn SetHeaders>) {
         self.set_headers.replace(headers);
+    }
+
+    /// Creates a new [`DnsExchange`] wrapping the [`HttpsClientStream`] from this builder
+    pub async fn exchange(
+        self,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        path: Arc<str>,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let mut handle = self.provider.create_handle();
+        let stream = self.build(name_server, server_name, path).await?;
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        handle.spawn_bg(bg);
+        Ok(exchange)
     }
 
     /// Creates a new HttpsStream to the specified name_server

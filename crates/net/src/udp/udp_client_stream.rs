@@ -20,10 +20,10 @@ use crate::error::NetError;
 use crate::proto::op::{
     DEFAULT_RETRY_FLOOR, DnsRequest, DnsResponse, Message, MessageSigner, SerialMessage,
 };
-use crate::runtime::{DnsUdpSocket, RuntimeProvider, Time};
+use crate::runtime::{DnsUdpSocket, RuntimeProvider, Spawn, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::udp::udp_stream::NextRandomUdpSocket;
-use crate::xfer::{DnsRequestSender, DnsResponseStream};
+use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream};
 
 /// A UDP client stream of DNS binary packets.
 ///
@@ -345,7 +345,7 @@ pub struct UdpClientStreamBuilder<P> {
     retry_interval_floor: Duration,
 }
 
-impl<P> UdpClientStreamBuilder<P> {
+impl<P: RuntimeProvider> UdpClientStreamBuilder<P> {
     /// Sets the connection timeout.
     pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
         self.timeout = timeout;
@@ -399,6 +399,15 @@ impl<P> UdpClientStreamBuilder<P> {
     pub fn with_retry_interval_floor(mut self, floor: u64) -> Self {
         self.retry_interval_floor = Duration::from_millis(floor);
         self
+    }
+
+    /// Wrap a [`DnsExchange`] around the built [`UdpClientStream`]
+    pub fn exchange(self) -> DnsExchange<P> {
+        let mut handle = self.provider.create_handle();
+        let stream = self.build();
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        handle.spawn_bg(bg);
+        exchange
     }
 
     /// Construct a new UDP client stream.
