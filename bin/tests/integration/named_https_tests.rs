@@ -19,7 +19,7 @@ use rustls::{ClientConfig, RootCertStore};
 
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
-use hickory_net::h2::HttpsClientStreamBuilder;
+use hickory_net::h2::HttpsClientStream;
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::rustls::default_provider;
 use hickory_net::xfer::Protocol;
@@ -62,8 +62,7 @@ async fn test_example_https_toml_startup() {
 
     let client_config = Arc::new(client_config);
     let provider = TokioRuntimeProvider::new();
-    let https_builder = HttpsClientStreamBuilder::with_client_config(client_config, provider);
-    let sender = https_builder
+    let sender = HttpsClientStream::builder(client_config, provider)
         .build(addr, Arc::from("ns.example.com"), Arc::from("/dns-query"))
         .await
         .unwrap();
