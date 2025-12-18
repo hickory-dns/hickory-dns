@@ -142,7 +142,9 @@ pub fn tls_connect_with_future<S: DnsTcpStream>(
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
 ) -> (
-    BoxFuture<'static, Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError>>,
+    impl Future<Output = Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError>>
+    + Send
+    + 'static,
     BufDnsStreamHandle,
 ) {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -151,13 +153,16 @@ pub fn tls_connect_with_future<S: DnsTcpStream>(
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream = Box::pin(connect_tls_with_future(
-        tls_connector,
-        future,
-        name_server,
-        server_name,
-        outbound_messages,
-    ));
+    let stream = async move {
+        connect_tls_stream(
+            tls_connector,
+            future.await?,
+            name_server,
+            server_name,
+            outbound_messages,
+        )
+        .await
+    };
 
     (stream, message_sender)
 }
@@ -170,8 +175,8 @@ async fn connect_tls<P: RuntimeProvider>(
     outbound_messages: StreamReceiver,
     provider: P,
 ) -> Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<P::Tcp>>>, NetError> {
-    let tcp = provider.connect_tcp(name_server, bind_addr, None);
-    connect_tls_with_future(
+    let tcp = provider.connect_tcp(name_server, bind_addr, None).await?;
+    connect_tls_stream(
         tls_connector,
         tcp,
         name_server,
@@ -181,14 +186,14 @@ async fn connect_tls<P: RuntimeProvider>(
     .await
 }
 
-async fn connect_tls_with_future<S: DnsTcpStream>(
+async fn connect_tls_stream<S: DnsTcpStream>(
     tls_connector: TlsConnector,
-    future: impl Future<Output = Result<S, io::Error>> + Send + Unpin,
+    stream: S,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     outbound_messages: StreamReceiver,
 ) -> Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError> {
-    let stream = AsyncIoStdAsTokio(future.await?);
+    let stream = AsyncIoStdAsTokio(stream);
     let s = match timeout(CONNECT_TIMEOUT, tls_connector.connect(server_name, stream)).await {
         Ok(Ok(s)) => s,
         Ok(Err(e)) => return Err(NetError::from(e)),
