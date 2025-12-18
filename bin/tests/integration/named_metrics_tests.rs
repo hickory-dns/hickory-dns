@@ -20,7 +20,7 @@ use prometheus_parse::{Scrape, Value};
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use tokio::{runtime::Runtime, time::sleep};
 
-use crate::server_harness::{ServerProtocol, SocketPorts, named_test_harness};
+use crate::server_harness::{ServerProtocol, SocketPorts, TestServer};
 #[cfg(feature = "blocklist")]
 use hickory_net::NetError;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -52,364 +52,362 @@ use test_support::subscribe;
 fn test_prometheus_endpoint_startup() {
     subscribe();
 
-    named_test_harness("example_forwarder.toml", |socket_ports| {
-        let io_loop = Runtime::new().unwrap();
-        let metrics = &io_loop.block_on(fetch_parse_check_metrics(&socket_ports));
+    let server = TestServer::start("example_forwarder.toml");
+    let io_loop = Runtime::new().unwrap();
+    let metrics = &io_loop.block_on(fetch_parse_check_metrics(&server.ports));
 
-        // check process metrics
-        verify_metric(metrics, "process_cpu_seconds_total", &[], None);
-        verify_metric(metrics, "process_max_fds", &[], None);
-        verify_metric(metrics, "process_open_fds", &[], None);
-        verify_metric(metrics, "process_resident_memory_bytes", &[], None);
-        verify_metric(metrics, "process_start_time_seconds", &[], None);
-        verify_metric(metrics, "process_virtual_memory_bytes", &[], None);
+    // check process metrics
+    verify_metric(metrics, "process_cpu_seconds_total", &[], None);
+    verify_metric(metrics, "process_max_fds", &[], None);
+    verify_metric(metrics, "process_open_fds", &[], None);
+    verify_metric(metrics, "process_resident_memory_bytes", &[], None);
+    verify_metric(metrics, "process_start_time_seconds", &[], None);
+    verify_metric(metrics, "process_virtual_memory_bytes", &[], None);
 
-        #[cfg(not(windows))]
-        {
-            verify_metric(metrics, "process_virtual_memory_max_bytes", &[], None);
-            verify_metric(metrics, "process_threads", &[], None);
-        }
+    #[cfg(not(windows))]
+    {
+        verify_metric(metrics, "process_virtual_memory_max_bytes", &[], None);
+        verify_metric(metrics, "process_threads", &[], None);
+    }
 
-        // check config metrics
-        let info = [("version", hickory_server::version())];
-        let config_info = [
-            ("directory", "/var/named"),
-            ("disable_https", "false"),
-            ("disable_quic", "false"),
-            ("disable_tcp", "false"),
-            ("disable_tls", "false"),
-            ("disable_udp", "false"),
-            ("allow_networks", "0"), // move to separate counter hickory_config_allow_networks_total ?
-            ("deny_networks", "0"), // move to separate counter hickory_config_deny_networks_total ?
-            ("zones", "6"),         // redundant ?
-        ];
-        verify_metric(metrics, "hickory_build_info", &info, Some(1f64));
-        verify_metric(metrics, "hickory_config_info", &config_info, Some(1f64));
+    // check config metrics
+    let info = [("version", hickory_server::version())];
+    let config_info = [
+        ("directory", "/var/named"),
+        ("disable_https", "false"),
+        ("disable_quic", "false"),
+        ("disable_tcp", "false"),
+        ("disable_tls", "false"),
+        ("disable_udp", "false"),
+        ("allow_networks", "0"), // move to separate counter hickory_config_allow_networks_total ?
+        ("deny_networks", "0"),  // move to separate counter hickory_config_deny_networks_total ?
+        ("zones", "6"),          // redundant ?
+    ];
+    verify_metric(metrics, "hickory_build_info", &info, Some(1f64));
+    verify_metric(metrics, "hickory_config_info", &config_info, Some(1f64));
 
-        let store_forwarder = [("store", "forwarder")];
-        verify_metric(metrics, "hickory_zones_total", &store_forwarder, Some(1f64));
+    let store_forwarder = [("store", "forwarder")];
+    verify_metric(metrics, "hickory_zones_total", &store_forwarder, Some(1f64));
 
-        let store_file_primary = [("store", "file"), ("role", "primary")];
-        let store_file_secondary = [("store", "file"), ("role", "secondary")];
+    let store_file_primary = [("store", "file"), ("role", "primary")];
+    let store_file_secondary = [("store", "file"), ("role", "secondary")];
+    verify_metric(
+        metrics,
+        "hickory_zones_total",
+        &store_file_primary,
+        Some(4f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zones_total",
+        &store_file_secondary,
+        Some(1f64),
+    );
+
+    #[cfg(feature = "sqlite")]
+    {
+        let store_sqlite_primary = [("store", "sqlite"), ("role", "primary")];
+        let store_sqlite_secondary = [("store", "sqlite"), ("role", "secondary")];
         verify_metric(
             metrics,
             "hickory_zones_total",
-            &store_file_primary,
-            Some(4f64),
+            &store_sqlite_primary,
+            Some(0f64),
         );
         verify_metric(
             metrics,
             "hickory_zones_total",
-            &store_file_secondary,
-            Some(1f64),
+            &store_sqlite_secondary,
+            Some(0f64),
         );
+    }
 
-        #[cfg(feature = "sqlite")]
-        {
-            let store_sqlite_primary = [("store", "sqlite"), ("role", "primary")];
-            let store_sqlite_secondary = [("store", "sqlite"), ("role", "secondary")];
-            verify_metric(
-                metrics,
-                "hickory_zones_total",
-                &store_sqlite_primary,
-                Some(0f64),
-            );
-            verify_metric(
-                metrics,
-                "hickory_zones_total",
-                &store_sqlite_secondary,
-                Some(0f64),
-            );
-        }
+    // check store metrics
+    // forwarder store only has QueryStoreMetrics
+    // sqlite store not initialized within example_forwarder.toml
+    let store_file = [("store", "file")];
+    verify_metric(
+        metrics,
+        "hickory_zone_records_total",
+        &store_file,
+        Some(14f64),
+    );
 
-        // check store metrics
-        // forwarder store only has QueryStoreMetrics
-        // sqlite store not initialized within example_forwarder.toml
-        let store_file = [("store", "file")];
+    // check zone lookup metrics
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
+        Some(0f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+        Some(0f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
+        Some(0f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &EXTERNAL_FORWARDED_FORWARDER_FAILED,
+        Some(0f64),
+    );
+
+    // sqlite store is not configured within example_forwarder.toml
+    // therefore StoreMetrics for sqlite are not initialized
+
+    // currently this feature returns is NotImpl, only functional with sqlite && dnssec feature
+    // empty metrics available for file store as they are part of PersistentStoreMetrics
+    // migrate to Option within PersistentStoreMetrics ?
+    #[cfg(feature = "__dnssec")]
+    {
+        let store_file_added = [("store", "file"), ("operation", "added")];
+        let store_file_deleted = [("store", "file"), ("operation", "deleted")];
+        let store_file_updated = [("store", "file"), ("operation", "updated")];
+
         verify_metric(
             metrics,
-            "hickory_zone_records_total",
-            &store_file,
-            Some(14f64),
-        );
-
-        // check zone lookup metrics
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
+            "hickory_zone_records_modified_total",
+            &store_file_added,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_lookups_total",
-            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+            "hickory_zone_records_modified_total",
+            &store_file_deleted,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_lookups_total",
-            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
+            "hickory_zone_records_modified_total",
+            &store_file_updated,
             Some(0f64),
         );
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
-            Some(0f64),
-        );
-
-        // sqlite store is not configured within example_forwarder.toml
-        // therefore StoreMetrics for sqlite are not initialized
-
-        // currently this feature returns is NotImpl, only functional with sqlite && dnssec feature
-        // empty metrics available for file store as they are part of PersistentStoreMetrics
-        // migrate to Option within PersistentStoreMetrics ?
-        #[cfg(feature = "__dnssec")]
-        {
-            let store_file_added = [("store", "file"), ("operation", "added")];
-            let store_file_deleted = [("store", "file"), ("operation", "deleted")];
-            let store_file_updated = [("store", "file"), ("operation", "updated")];
-
-            verify_metric(
-                metrics,
-                "hickory_zone_records_modified_total",
-                &store_file_added,
-                Some(0f64),
-            );
-            verify_metric(
-                metrics,
-                "hickory_zone_records_modified_total",
-                &store_file_deleted,
-                Some(0f64),
-            );
-            verify_metric(
-                metrics,
-                "hickory_zone_records_modified_total",
-                &store_file_updated,
-                Some(0f64),
-            );
-        }
-    })
+    }
 }
 
 #[test]
 fn test_request_response() {
     subscribe();
 
-    named_test_harness("example_forwarder.toml", |socket_ports| {
-        let io_loop = Runtime::new().unwrap();
-        let metrics = &io_loop.block_on(async {
-            let mut client = create_local_client(&socket_ports, None).await;
-            let response = client
-                .query(
-                    Name::from_str("localhost.").unwrap(),
-                    DNSClass::IN,
-                    RecordType::A,
-                )
-                .await
-                .unwrap();
+    let server = TestServer::start("example_forwarder.toml");
+    let io_loop = Runtime::new().unwrap();
+    let metrics = &io_loop.block_on(async {
+        let mut client = create_local_client(&server.ports, None).await;
+        let response = client
+            .query(
+                Name::from_str("localhost.").unwrap(),
+                DNSClass::IN,
+                RecordType::A,
+            )
+            .await
+            .unwrap();
 
-            if let RData::A(addr) = response.answers()[0].data() {
-                assert_eq!(*addr, A::new(127, 0, 0, 1));
-            };
+        if let RData::A(addr) = response.answers()[0].data() {
+            assert_eq!(*addr, A::new(127, 0, 0, 1));
+        };
 
-            let response = client
-                .query(
-                    Name::from_str("1.0.0.127.in-addr.arpa").unwrap(),
-                    DNSClass::IN,
-                    RecordType::PTR,
-                )
-                .await
-                .unwrap();
+        let response = client
+            .query(
+                Name::from_str("1.0.0.127.in-addr.arpa").unwrap(),
+                DNSClass::IN,
+                RecordType::PTR,
+            )
+            .await
+            .unwrap();
 
-            if let RData::PTR(ptr) = response.answers()[0].data() {
-                assert_eq!(*ptr, PTR("localhost.".parse().unwrap()));
-            };
+        if let RData::PTR(ptr) = response.answers()[0].data() {
+            assert_eq!(*ptr, PTR("localhost.".parse().unwrap()));
+        };
 
-            fetch_parse_check_metrics(&socket_ports).await
-        });
+        fetch_parse_check_metrics(&server.ports).await
+    });
 
-        // check request
-        let request_operations = ["notify", "query", "status", "unknown", "update"];
-        request_operations.iter().for_each(|op| {
-            let value = if *op == "query" { 2f64 } else { 0f64 };
-            let op = [("operation", *op)];
+    // check request
+    let request_operations = ["notify", "query", "status", "unknown", "update"];
+    request_operations.iter().for_each(|op| {
+        let value = if *op == "query" { 2f64 } else { 0f64 };
+        let op = [("operation", *op)];
+        verify_metric(
+            metrics,
+            "hickory_request_operations_total",
+            &op,
+            Some(value),
+        )
+    });
+
+    let flags = ["aa", "ad", "cd", "ra", "rd", "tc"];
+    flags.iter().for_each(|flag| {
+        let value = if *flag == "rd" { 2f64 } else { 0f64 };
+        let flag = [("flag", *flag)];
+        verify_metric(metrics, "hickory_request_flags_total", &flag, Some(value))
+    });
+
+    let protocols = ["tcp", "udp"];
+    protocols.iter().for_each(|proto| {
+        let value = if *proto == "tcp" { 2f64 } else { 0f64 };
+        let proto = [("protocol", *proto)];
+        verify_metric(
+            metrics,
+            "hickory_request_protocols_total",
+            &proto,
+            Some(value),
+        )
+    });
+
+    // check response
+    let response_codes = vec![
+        "bad_alg",
+        "bad_cookie",
+        "bad_key",
+        "bad_mode",
+        "bad_name",
+        "bad_sig",
+        "bad_time",
+        "bad_trunc",
+        "bad_vers",
+        "form_error",
+        "no_error",
+        "not_auth",
+        "not_imp",
+        "not_zone",
+        "nx_domain",
+        "nx_rrset",
+        "refused",
+        "serv_fail",
+        "unknown",
+        "yx_domain",
+        "yx_rrset",
+    ];
+    response_codes.iter().for_each(|code| {
+        let value = if *code == "no_error" { 2f64 } else { 0f64 };
+        let code = [("code", *code)];
+        verify_metric(metrics, "hickory_response_codes_total", &code, Some(value))
+    });
+
+    flags.iter().for_each(|flag| {
+        let value = if ["aa", "rd"].contains(flag) {
+            2f64
+        } else {
+            0f64
+        };
+        let flag = [("flag", *flag)];
+        verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
+    });
+
+    // check zone lookup metrics
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
+        Some(1f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &[
+            ("type", "authoritative"),
+            ("role", "secondary"),
+            ("zone_handler", "file"),
+            ("success", "true"),
+        ],
+        Some(1f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+        Some(0f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
+        Some(0f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_lookups_total",
+        &EXTERNAL_FORWARDED_FORWARDER_FAILED,
+        Some(0f64),
+    );
+
+    let record_types = [
+        "a",
+        "aaaa",
+        "aname",
+        "any",
+        "axfr",
+        "caa",
+        "cdnskey",
+        "cds",
+        "cert",
+        "cname",
+        "csync",
+        "dnskey",
+        "ds",
+        "hinfo",
+        "https",
+        "ixfr",
+        "key",
+        "mx",
+        "naptr",
+        "ns",
+        "nsec",
+        "nsec3",
+        "nsec3param",
+        "null",
+        "openpgpkey",
+        "opt",
+        "ptr",
+        "rrsig",
+        "sig",
+        "soa",
+        "srv",
+        "sshfp",
+        "svcb",
+        "tlsa",
+        "tsig",
+        "txt",
+        "unknown",
+        "zero",
+    ];
+    record_types.iter().for_each(|r#type| {
+        let value = if ["a", "ptr"].contains(r#type) {
+            1f64
+        } else {
+            0f64
+        };
+        let r#type = [("type", *r#type)];
+        for direction in ["request", "response"] {
             verify_metric(
                 metrics,
-                "hickory_request_operations_total",
-                &op,
+                format!("hickory_{direction}_record_types_total").as_str(),
+                &r#type,
                 Some(value),
             )
-        });
+        }
+    });
 
-        let flags = ["aa", "ad", "cd", "ra", "rd", "tc"];
-        flags.iter().for_each(|flag| {
-            let value = if *flag == "rd" { 2f64 } else { 0f64 };
-            let flag = [("flag", *flag)];
-            verify_metric(metrics, "hickory_request_flags_total", &flag, Some(value))
-        });
-
-        let protocols = ["tcp", "udp"];
-        protocols.iter().for_each(|proto| {
-            let value = if *proto == "tcp" { 2f64 } else { 0f64 };
-            let proto = [("protocol", *proto)];
+    let dns_classes = ["in", "ch", "hs", "none", "any", "unknown"];
+    dns_classes.iter().for_each(|class| {
+        let value = if *class == "in" { 2f64 } else { 0f64 };
+        let class = [("class", *class)];
+        for direction in ["request", "response"] {
             verify_metric(
                 metrics,
-                "hickory_request_protocols_total",
-                &proto,
+                format!("hickory_{direction}_dns_classes_total").as_str(),
+                &class,
                 Some(value),
             )
-        });
-
-        // check response
-        let response_codes = vec![
-            "bad_alg",
-            "bad_cookie",
-            "bad_key",
-            "bad_mode",
-            "bad_name",
-            "bad_sig",
-            "bad_time",
-            "bad_trunc",
-            "bad_vers",
-            "form_error",
-            "no_error",
-            "not_auth",
-            "not_imp",
-            "not_zone",
-            "nx_domain",
-            "nx_rrset",
-            "refused",
-            "serv_fail",
-            "unknown",
-            "yx_domain",
-            "yx_rrset",
-        ];
-        response_codes.iter().for_each(|code| {
-            let value = if *code == "no_error" { 2f64 } else { 0f64 };
-            let code = [("code", *code)];
-            verify_metric(metrics, "hickory_response_codes_total", &code, Some(value))
-        });
-
-        flags.iter().for_each(|flag| {
-            let value = if ["aa", "rd"].contains(flag) {
-                2f64
-            } else {
-                0f64
-            };
-            let flag = [("flag", *flag)];
-            verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
-        });
-
-        // check zone lookup metrics
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
-            Some(1f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &[
-                ("type", "authoritative"),
-                ("role", "secondary"),
-                ("zone_handler", "file"),
-                ("success", "true"),
-            ],
-            Some(1f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &AUTHORITATIVE_PRIMARY_FILE_FAILED,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zone_lookups_total",
-            &EXTERNAL_FORWARDED_FORWARDER_FAILED,
-            Some(0f64),
-        );
-
-        let record_types = [
-            "a",
-            "aaaa",
-            "aname",
-            "any",
-            "axfr",
-            "caa",
-            "cdnskey",
-            "cds",
-            "cert",
-            "cname",
-            "csync",
-            "dnskey",
-            "ds",
-            "hinfo",
-            "https",
-            "ixfr",
-            "key",
-            "mx",
-            "naptr",
-            "ns",
-            "nsec",
-            "nsec3",
-            "nsec3param",
-            "null",
-            "openpgpkey",
-            "opt",
-            "ptr",
-            "rrsig",
-            "sig",
-            "soa",
-            "srv",
-            "sshfp",
-            "svcb",
-            "tlsa",
-            "tsig",
-            "txt",
-            "unknown",
-            "zero",
-        ];
-        record_types.iter().for_each(|r#type| {
-            let value = if ["a", "ptr"].contains(r#type) {
-                1f64
-            } else {
-                0f64
-            };
-            let r#type = [("type", *r#type)];
-            for direction in ["request", "response"] {
-                verify_metric(
-                    metrics,
-                    format!("hickory_{direction}_record_types_total").as_str(),
-                    &r#type,
-                    Some(value),
-                )
-            }
-        });
-
-        let dns_classes = ["in", "ch", "hs", "none", "any", "unknown"];
-        dns_classes.iter().for_each(|class| {
-            let value = if *class == "in" { 2f64 } else { 0f64 };
-            let class = [("class", *class)];
-            for direction in ["request", "response"] {
-                verify_metric(
-                    metrics,
-                    format!("hickory_{direction}_dns_classes_total").as_str(),
-                    &class,
-                    Some(value),
-                )
-            }
-        });
-    })
+        }
+    });
 }
 
 #[test]
@@ -417,51 +415,50 @@ fn test_request_response() {
 fn test_blocklist_metrics() {
     subscribe();
 
-    named_test_harness("chained_blocklist.toml", |socket_ports| {
-        let io_loop = Runtime::new().unwrap();
-        let metrics = &io_loop.block_on(async {
-            let mut client = create_local_client(&socket_ports, None).await;
-            let response = retry_client_lookup(
-                &mut client,
-                Name::from_str("example.com.").unwrap(),
-                DNSClass::IN,
-                RecordType::A,
-            )
-            .await
-            .unwrap();
+    let server = TestServer::start("chained_blocklist.toml");
+    let io_loop = Runtime::new().unwrap();
+    let metrics = &io_loop.block_on(async {
+        let mut client = create_local_client(&server.ports, None).await;
+        let response = retry_client_lookup(
+            &mut client,
+            Name::from_str("example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::A,
+        )
+        .await
+        .unwrap();
 
-            let RData::A(addr) = response.answers()[0].data() else {
-                panic!("expected A record response");
-            };
-            assert_eq!(*addr, A::new(192, 0, 2, 1));
+        let RData::A(addr) = response.answers()[0].data() else {
+            panic!("expected A record response");
+        };
+        assert_eq!(*addr, A::new(192, 0, 2, 1));
 
-            // com. should be in the cache already and isn't on the test blocklists.
-            let response = retry_client_lookup(
-                &mut client,
-                Name::from_str("com.").unwrap(),
-                DNSClass::IN,
-                RecordType::NS,
-            )
-            .await
-            .unwrap();
+        // com. should be in the cache already and isn't on the test blocklists.
+        let response = retry_client_lookup(
+            &mut client,
+            Name::from_str("com.").unwrap(),
+            DNSClass::IN,
+            RecordType::NS,
+        )
+        .await
+        .unwrap();
 
-            let RData::NS(_addr) = response.answers()[0].data() else {
-                panic!("expected NS record response");
-            };
+        let RData::NS(_addr) = response.answers()[0].data() else {
+            panic!("expected NS record response");
+        };
 
-            fetch_parse_check_metrics(&socket_ports).await
-        });
-
-        verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
-        verify_metric(
-            metrics,
-            "hickory_blocklist_blocked_queries_total",
-            &[],
-            Some(1.0),
-        );
-        verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
-        verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
+        fetch_parse_check_metrics(&server.ports).await
     });
+
+    verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
+    verify_metric(
+        metrics,
+        "hickory_blocklist_blocked_queries_total",
+        &[],
+        Some(1.0),
+    );
+    verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
+    verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
 }
 
 #[test]
@@ -469,50 +466,49 @@ fn test_blocklist_metrics() {
 fn test_consulting_blocklist_metrics() {
     subscribe();
 
-    named_test_harness("consulting_blocklist.toml", |socket_ports| {
-        let io_loop = Runtime::new().unwrap();
-        let metrics = &io_loop.block_on(async {
-            let mut client = create_local_client(&socket_ports, None).await;
-            let response = retry_client_lookup(
-                &mut client,
-                Name::from_str("example.com.").unwrap(),
-                DNSClass::IN,
-                RecordType::A,
-            )
-            .await
-            .unwrap();
+    let server = TestServer::start("consulting_blocklist.toml");
+    let io_loop = Runtime::new().unwrap();
+    let metrics = &io_loop.block_on(async {
+        let mut client = create_local_client(&server.ports, None).await;
+        let response = retry_client_lookup(
+            &mut client,
+            Name::from_str("example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::A,
+        )
+        .await
+        .unwrap();
 
-            let RData::A(addr) = response.answers()[0].data() else {
-                panic!("expected A record response");
-            };
-            assert!(*addr != A::new(192, 0, 2, 1));
+        let RData::A(addr) = response.answers()[0].data() else {
+            panic!("expected A record response");
+        };
+        assert!(*addr != A::new(192, 0, 2, 1));
 
-            let response = retry_client_lookup(
-                &mut client,
-                Name::from_str("com.").unwrap(),
-                DNSClass::IN,
-                RecordType::NS,
-            )
-            .await
-            .unwrap();
+        let response = retry_client_lookup(
+            &mut client,
+            Name::from_str("com.").unwrap(),
+            DNSClass::IN,
+            RecordType::NS,
+        )
+        .await
+        .unwrap();
 
-            let RData::NS(_addr) = response.answers()[0].data() else {
-                panic!("expected NS record response");
-            };
+        let RData::NS(_addr) = response.answers()[0].data() else {
+            panic!("expected NS record response");
+        };
 
-            fetch_parse_check_metrics(&socket_ports).await
-        });
+        fetch_parse_check_metrics(&server.ports).await
+    });
 
-        verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
-        verify_metric(
-            metrics,
-            "hickory_blocklist_logged_queries_total",
-            &[],
-            Some(1.0),
-        );
-        verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
-        verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
-    })
+    verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
+    verify_metric(
+        metrics,
+        "hickory_blocklist_logged_queries_total",
+        &[],
+        Some(1.0),
+    );
+    verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
+    verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
 }
 
 #[test]
@@ -520,90 +516,88 @@ fn test_consulting_blocklist_metrics() {
 fn test_updates() {
     subscribe();
 
-    named_test_harness("dnssec_with_update_2.toml", |socket_ports| {
-        let io_loop = Runtime::new().unwrap();
-        let metrics = &io_loop.block_on(async {
-            let rsa_key =
-                include_bytes!("../../../tests/test-data/test_configs/dnssec/rsa_2048.pk8");
-            let verify_algo = Algorithm::RSASHA256;
-            let verify_key =
-                RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), verify_algo)
-                    .unwrap();
-            let mut trust_anchor = TrustAnchors::empty();
-            trust_anchor.insert(&verify_key.to_public_key().unwrap());
-
-            let origin: Name = Name::parse("example.com.", None).unwrap();
-
-            let update_algo = Algorithm::RSASHA512;
-            let update_key =
-                RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), update_algo)
-                    .unwrap();
-            let signer = SigSigner::dnssec(
-                DNSKEY::from_key(&update_key.to_public_key().unwrap()),
-                Box::new(update_key),
-                origin.clone(),
-                time::Duration::weeks(1).try_into().unwrap(),
-            );
-
-            let client = create_local_client(&socket_ports, Some(Arc::new(signer))).await;
-            let mut client = DnssecDnsHandle::with_trust_anchor(client, Arc::new(trust_anchor));
-
-            let rrset_create = Record::from_rdata(
-                Name::from_str("zzz.example.com").unwrap(),
-                3600,
-                RData::A(A::from(Ipv4Addr::LOCALHOST)),
-            );
-            client.create(rrset_create, origin.clone()).await.unwrap();
-
-            let record_update = Record::from_rdata(
-                Name::from_str("zzz.example.com").unwrap(),
-                1800,
-                RData::A(A::from(Ipv4Addr::LOCALHOST)),
-            );
-            client
-                .append(record_update, origin.clone(), true)
-                .await
+    let server = TestServer::start("dnssec_with_update_2.toml");
+    let io_loop = Runtime::new().unwrap();
+    let metrics = &io_loop.block_on(async {
+        let rsa_key = include_bytes!("../../../tests/test-data/test_configs/dnssec/rsa_2048.pk8");
+        let verify_algo = Algorithm::RSASHA256;
+        let verify_key =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), verify_algo)
                 .unwrap();
+        let mut trust_anchor = TrustAnchors::empty();
+        trust_anchor.insert(&verify_key.to_public_key().unwrap());
 
-            let rrset_delete = Record::from_rdata(
-                Name::from_str("zzz.example.com").unwrap(),
-                3600,
-                RData::A(A::from(Ipv4Addr::LOCALHOST)),
-            );
-            client
-                .delete_rrset(rrset_delete, origin.clone())
-                .await
+        let origin: Name = Name::parse("example.com.", None).unwrap();
+
+        let update_algo = Algorithm::RSASHA512;
+        let update_key =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), update_algo)
                 .unwrap();
+        let signer = SigSigner::dnssec(
+            DNSKEY::from_key(&update_key.to_public_key().unwrap()),
+            Box::new(update_key),
+            origin.clone(),
+            time::Duration::weeks(1).try_into().unwrap(),
+        );
 
-            fetch_parse_check_metrics(&socket_ports).await
-        });
+        let client = create_local_client(&server.ports, Some(Arc::new(signer))).await;
+        let mut client = DnssecDnsHandle::with_trust_anchor(client, Arc::new(trust_anchor));
 
-        verify_metric(
-            metrics,
-            "hickory_request_operations_total",
-            &[("operation", "update")],
-            Some(3f64),
+        let rrset_create = Record::from_rdata(
+            Name::from_str("zzz.example.com").unwrap(),
+            3600,
+            RData::A(A::from(Ipv4Addr::LOCALHOST)),
         );
-        // check updates lookups
-        verify_metric(
-            metrics,
-            "hickory_zone_records_modified_total",
-            &[("store", "sqlite"), ("operation", "added")],
-            Some(1f64),
+        client.create(rrset_create, origin.clone()).await.unwrap();
+
+        let record_update = Record::from_rdata(
+            Name::from_str("zzz.example.com").unwrap(),
+            1800,
+            RData::A(A::from(Ipv4Addr::LOCALHOST)),
         );
-        verify_metric(
-            metrics,
-            "hickory_zone_records_modified_total",
-            &[("store", "sqlite"), ("operation", "deleted")],
-            Some(1f64),
+        client
+            .append(record_update, origin.clone(), true)
+            .await
+            .unwrap();
+
+        let rrset_delete = Record::from_rdata(
+            Name::from_str("zzz.example.com").unwrap(),
+            3600,
+            RData::A(A::from(Ipv4Addr::LOCALHOST)),
         );
-        verify_metric(
-            metrics,
-            "hickory_zone_records_modified_total",
-            &[("store", "sqlite"), ("operation", "updated")],
-            Some(1f64),
-        );
+        client
+            .delete_rrset(rrset_delete, origin.clone())
+            .await
+            .unwrap();
+
+        fetch_parse_check_metrics(&server.ports).await
     });
+
+    verify_metric(
+        metrics,
+        "hickory_request_operations_total",
+        &[("operation", "update")],
+        Some(3f64),
+    );
+    // check updates lookups
+    verify_metric(
+        metrics,
+        "hickory_zone_records_modified_total",
+        &[("store", "sqlite"), ("operation", "added")],
+        Some(1f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_records_modified_total",
+        &[("store", "sqlite"), ("operation", "deleted")],
+        Some(1f64),
+    );
+    verify_metric(
+        metrics,
+        "hickory_zone_records_modified_total",
+        &[("store", "sqlite"), ("operation", "updated")],
+        Some(1f64),
+    );
 
     // Clean up database.
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
@@ -620,67 +614,63 @@ fn test_opp_enc_metrics() {
 
     // Note: we use 'example_recursor_opportunistic_enc_2' here to have a distinct state file
     // path to not conflict with the `named_rfc_9539_tests.rs` smoke test.
-    named_test_harness(
-        "example_recursor_opportunistic_enc_2.toml",
-        |socket_ports| {
-            let io_loop = Runtime::new().unwrap();
-            let metrics = &io_loop.block_on(async {
-                let mut client = create_local_client(&socket_ports, None).await;
-                let response = retry_client_lookup(
-                    &mut client,
-                    Name::from_str("example.com.").unwrap(),
-                    DNSClass::IN,
-                    RecordType::A,
-                )
-                .await
-                .unwrap();
+    let server = TestServer::start("example_recursor_opportunistic_enc_2.toml");
+    let io_loop = Runtime::new().unwrap();
+    let metrics = &io_loop.block_on(async {
+        let mut client = create_local_client(&server.ports, None).await;
+        let response = retry_client_lookup(
+            &mut client,
+            Name::from_str("example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::A,
+        )
+        .await
+        .unwrap();
 
-                let RData::A(addr) = response.answers()[0].data() else {
-                    panic!("expected A record response");
-                };
-                assert!(*addr != A::new(192, 0, 2, 1));
+        let RData::A(addr) = response.answers()[0].data() else {
+            panic!("expected A record response");
+        };
+        assert!(*addr != A::new(192, 0, 2, 1));
 
-                fetch_parse_check_metrics(&socket_ports).await
-            });
+        fetch_parse_check_metrics(&server.ports).await
+    });
 
-            let tls_protocol = [("protocol", "tls")];
-            // Note: we use `None` as the expected value for the following metrics because the probes
-            // are attempted as background tasks, and we can't reliably predict their state as an
-            // external observer. We only care that the metrics are present.
-            verify_metric(
-                metrics,
-                "hickory_resolver_probe_attempts_total",
-                &tls_protocol,
-                None,
-            );
-            verify_metric(
-                metrics,
-                "hickory_resolver_probe_errors_total",
-                &tls_protocol,
-                None,
-            );
-            verify_metric(
-                metrics,
-                "hickory_resolver_probe_timeouts_total",
-                &tls_protocol,
-                None,
-            );
-            verify_metric(
-                metrics,
-                "hickory_resolver_probe_successes_total",
-                &tls_protocol,
-                None,
-            );
-            verify_metric(
-                metrics,
-                "hickory_resolver_probe_duration_seconds",
-                &tls_protocol,
-                None,
-            );
-            // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
-            verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
-        },
+    let tls_protocol = [("protocol", "tls")];
+    // Note: we use `None` as the expected value for the following metrics because the probes
+    // are attempted as background tasks, and we can't reliably predict their state as an
+    // external observer. We only care that the metrics are present.
+    verify_metric(
+        metrics,
+        "hickory_resolver_probe_attempts_total",
+        &tls_protocol,
+        None,
     );
+    verify_metric(
+        metrics,
+        "hickory_resolver_probe_errors_total",
+        &tls_protocol,
+        None,
+    );
+    verify_metric(
+        metrics,
+        "hickory_resolver_probe_timeouts_total",
+        &tls_protocol,
+        None,
+    );
+    verify_metric(
+        metrics,
+        "hickory_resolver_probe_successes_total",
+        &tls_protocol,
+        None,
+    );
+    verify_metric(
+        metrics,
+        "hickory_resolver_probe_duration_seconds",
+        &tls_protocol,
+        None,
+    );
+    // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
+    verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
 
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
 }
