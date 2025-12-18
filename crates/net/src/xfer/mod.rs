@@ -30,9 +30,7 @@ use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
 use crate::runtime::{RuntimeProvider, Time};
 
 mod dns_exchange;
-pub use dns_exchange::{
-    Connecting, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
-};
+pub use dns_exchange::{DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend};
 
 pub mod dns_handle;
 pub use dns_handle::{DnsHandle, DnsStreamHandle};
