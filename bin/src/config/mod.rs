@@ -39,7 +39,7 @@ use crate::dnssec;
 #[cfg(feature = "__https")]
 use hickory_net::http::DEFAULT_DNS_QUERY_PATH;
 #[cfg(feature = "__tls")]
-use hickory_net::rustls::default_provider;
+use hickory_net::tls::default_provider;
 use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
 #[cfg(feature = "recursor")]
 use hickory_resolver::recursor::RecursiveConfig;

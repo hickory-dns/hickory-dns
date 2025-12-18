@@ -423,7 +423,7 @@ mod tests {
     use crate::proto::op::{DnsRequestOptions, Edns, Message, Query};
     use crate::proto::rr::{Name, RData, RecordType};
     use crate::runtime::TokioRuntimeProvider;
-    use crate::rustls::client_config;
+    use crate::tls::client_config;
     use crate::xfer::FirstAnswer;
 
     #[tokio::test]

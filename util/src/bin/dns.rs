@@ -28,9 +28,9 @@ use hickory_net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use hickory_net::quic::QuicClientStream;
 #[cfg(any(feature = "__tls", feature = "__https"))]
-use hickory_net::rustls::client_config;
+use hickory_net::tls::client_config;
 #[cfg(feature = "__tls")]
-use hickory_net::rustls::tls_client_connect;
+use hickory_net::tls::tls_client_connect;
 use hickory_net::{
     NetError,
     client::{Client, ClientHandle},

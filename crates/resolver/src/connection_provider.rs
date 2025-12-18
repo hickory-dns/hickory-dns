@@ -32,7 +32,7 @@ use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::net::rustls::{client_config, default_provider, tls_exchange};
+use crate::net::tls::{client_config, default_provider, tls_exchange};
 use crate::{
     config::{ConnectionConfig, ProtocolConfig},
     name_server_pool::PoolContext,
@@ -323,7 +323,7 @@ mod tests {
     use crate::config::ServerOrderingStrategy;
     use crate::net::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
-    use crate::net::rustls::client_config;
+    use crate::net::tls::client_config;
 
     #[cfg(feature = "__h3")]
     #[tokio::test]

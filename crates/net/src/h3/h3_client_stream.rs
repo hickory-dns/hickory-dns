@@ -28,7 +28,7 @@ use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
 use crate::runtime::{RuntimeProvider, Spawn};
-use crate::rustls::client_config;
+use crate::tls::client_config;
 use crate::udp::UdpSocket;
 use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream};
 
