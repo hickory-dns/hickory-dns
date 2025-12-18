@@ -141,14 +141,15 @@ async fn test_query_https() {
         .with_no_client_auth();
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
-    let https_builder =
-        HttpsClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new());
-    let client = Client::connect(Box::pin(https_builder.build(
-        CLOUDFLARE_V4_TLS,
-        Arc::from("cloudflare-dns.com"),
-        Arc::from("/dns-query"),
-    )));
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let sender = HttpsClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new())
+        .build(
+            CLOUDFLARE_V4_TLS,
+            Arc::from("cloudflare-dns.com"),
+            Arc::from("/dns-query"),
+        )
+        .await
+        .expect("client failed to connect");
+    let (mut client, bg) = Client::from_sender(sender);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
