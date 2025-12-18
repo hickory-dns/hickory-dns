@@ -103,7 +103,7 @@ pub fn tls_client_connect_with_bind_addr<P: RuntimeProvider>(
 ///
 /// * `future` - A future producing DnsTcpStream
 /// * `dns_name` - The DNS name associated with a certificate
-pub fn tls_client_connect_with_future<S: DnsTcpStream>(
+fn tls_client_connect_with_future<S: DnsTcpStream>(
     stream: S,
     socket_addr: SocketAddr,
     server_name: ServerName<'static>,
