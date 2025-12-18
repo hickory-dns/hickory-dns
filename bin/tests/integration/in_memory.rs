@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use test_support::subscribe;
-use tokio::runtime::Runtime;
 
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::CNAME};
@@ -12,11 +11,9 @@ use hickory_server::{
     zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType},
 };
 
-#[test]
-fn test_cname_loop() {
+#[tokio::test]
+async fn test_cname_loop() {
     subscribe();
-
-    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let mut auth = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
@@ -70,13 +67,14 @@ fn test_cname_loop() {
         0,
     );
 
-    let lookup = runtime
-        .block_on(auth.lookup(
+    let lookup = auth
+        .lookup(
             &Name::from_str("foo.example.com.").unwrap().into(),
             RecordType::A,
             None,
             LookupOptions::default(),
-        ))
+        )
+        .await
         .unwrap();
 
     let records = lookup.iter().collect::<Vec<_>>();
@@ -93,13 +91,14 @@ fn test_cname_loop() {
         "Should be no additional records."
     );
 
-    let lookup = runtime
-        .block_on(auth.lookup(
+    let lookup = auth
+        .lookup(
             &Name::from_str("bar.example.com.").unwrap().into(),
             RecordType::A,
             None,
             LookupOptions::default(),
-        ))
+        )
+        .await
         .unwrap();
 
     let records = lookup.iter().collect::<Vec<_>>();
@@ -123,13 +122,14 @@ fn test_cname_loop() {
         &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
-    let lookup = runtime
-        .block_on(auth.lookup(
+    let lookup = auth
+        .lookup(
             &Name::from_str("baz.example.com.").unwrap().into(),
             RecordType::A,
             None,
             LookupOptions::default(),
-        ))
+        )
+        .await
         .unwrap();
 
     let records = lookup.iter().collect::<Vec<_>>();

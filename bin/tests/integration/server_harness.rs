@@ -11,7 +11,6 @@ use std::{
 };
 
 use regex::Regex;
-use tokio::runtime::Runtime;
 use tracing::{info, warn};
 
 use hickory_net::{NetError, client::ClientHandle, xfer::Protocol};
@@ -218,21 +217,20 @@ impl Drop for TestServer {
     }
 }
 
-pub fn query_message<C: ClientHandle>(
-    io_loop: &mut Runtime,
+pub async fn query_message<C: ClientHandle>(
     client: &mut C,
     name: Name,
     record_type: RecordType,
 ) -> Result<DnsResponse, NetError> {
     println!("sending request: {name} for: {record_type}");
-    io_loop.block_on(client.query(name, DNSClass::IN, record_type))
+    client.query(name, DNSClass::IN, record_type).await
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and zone handlers to validate deeper functionality
-pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
+pub async fn query_a<C: ClientHandle>(client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
-    let response = query_message(io_loop, client, name, RecordType::A).unwrap();
+    let response = query_message(client, name, RecordType::A).await.unwrap();
     let record = &response.answers()[0];
 
     if let RData::A(address) = record.data() {
@@ -244,9 +242,9 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and zone handlers to validate deeper functionality
-pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
+pub async fn query_a_refused<C: ClientHandle>(client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
-    let response = query_message(io_loop, client, name, RecordType::A).unwrap();
+    let response = query_message(client, name, RecordType::A).await.unwrap();
 
     assert_eq!(response.response_code(), ResponseCode::Refused);
 }
@@ -254,11 +252,7 @@ pub fn query_a_refused<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and zone handlers to validate deeper functionality
 #[cfg(feature = "__dnssec")]
-pub fn query_all_dnssec(
-    io_loop: &mut Runtime,
-    client: Client<TokioRuntimeProvider>,
-    algorithm: Algorithm,
-) {
+pub async fn query_all_dnssec(client: Client<TokioRuntimeProvider>, algorithm: Algorithm) {
     use hickory_proto::{
         dnssec::{
             PublicKey,
@@ -271,7 +265,9 @@ pub fn query_all_dnssec(
     let mut client = MutMessageHandle::new(client);
     client.lookup_options.dnssec_ok = true;
 
-    let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY).unwrap();
+    let response = query_message(&mut client, name.clone(), RecordType::DNSKEY)
+        .await
+        .unwrap();
 
     let dnskey = response
         .answers()
@@ -281,7 +277,9 @@ pub fn query_all_dnssec(
         .find(|d| d.public_key().algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
-    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY).unwrap();
+    let response = query_message(&mut client, name, RecordType::DNSKEY)
+        .await
+        .unwrap();
 
     let rrsig = response
         .answers()

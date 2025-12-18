@@ -18,7 +18,7 @@ use std::{
 use prometheus_parse::{Scrape, Value};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use rustls_pki_types::PrivatePkcs8KeyDer;
-use tokio::{runtime::Runtime, time::sleep};
+use tokio::time::sleep;
 
 use crate::server_harness::{ServerProtocol, SocketPorts, TestServer};
 #[cfg(feature = "blocklist")]
@@ -48,13 +48,12 @@ use hickory_proto::{
 };
 use test_support::subscribe;
 
-#[test]
-fn test_prometheus_endpoint_startup() {
+#[tokio::test]
+async fn test_prometheus_endpoint_startup() {
     subscribe();
 
     let server = TestServer::start("example_forwarder.toml");
-    let io_loop = Runtime::new().unwrap();
-    let metrics = &io_loop.block_on(fetch_parse_check_metrics(&server.ports));
+    let metrics = &fetch_parse_check_metrics(&server.ports).await;
 
     // check process metrics
     verify_metric(metrics, "process_cpu_seconds_total", &[], None);
@@ -192,13 +191,12 @@ fn test_prometheus_endpoint_startup() {
     }
 }
 
-#[test]
-fn test_request_response() {
+#[tokio::test]
+async fn test_request_response() {
     subscribe();
 
     let server = TestServer::start("example_forwarder.toml");
-    let io_loop = Runtime::new().unwrap();
-    let metrics = &io_loop.block_on(async {
+    let metrics = {
         let mut client = create_local_client(&server.ports, None).await;
         let response = client
             .query(
@@ -226,8 +224,8 @@ fn test_request_response() {
             assert_eq!(*ptr, PTR("localhost.".parse().unwrap()));
         };
 
-        fetch_parse_check_metrics(&server.ports).await
-    });
+        &fetch_parse_check_metrics(&server.ports).await
+    };
 
     // check request
     let request_operations = ["notify", "query", "status", "unknown", "update"];
@@ -410,14 +408,13 @@ fn test_request_response() {
     });
 }
 
-#[test]
+#[tokio::test]
 #[cfg(all(feature = "blocklist", feature = "metrics"))]
-fn test_blocklist_metrics() {
+async fn test_blocklist_metrics() {
     subscribe();
 
     let server = TestServer::start("chained_blocklist.toml");
-    let io_loop = Runtime::new().unwrap();
-    let metrics = &io_loop.block_on(async {
+    let metrics = {
         let mut client = create_local_client(&server.ports, None).await;
         let response = retry_client_lookup(
             &mut client,
@@ -447,8 +444,8 @@ fn test_blocklist_metrics() {
             panic!("expected NS record response");
         };
 
-        fetch_parse_check_metrics(&server.ports).await
-    });
+        &fetch_parse_check_metrics(&server.ports).await
+    };
 
     verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
     verify_metric(
@@ -461,14 +458,13 @@ fn test_blocklist_metrics() {
     verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
 }
 
-#[test]
+#[tokio::test]
 #[cfg(all(feature = "blocklist", feature = "metrics"))]
-fn test_consulting_blocklist_metrics() {
+async fn test_consulting_blocklist_metrics() {
     subscribe();
 
     let server = TestServer::start("consulting_blocklist.toml");
-    let io_loop = Runtime::new().unwrap();
-    let metrics = &io_loop.block_on(async {
+    let metrics = {
         let mut client = create_local_client(&server.ports, None).await;
         let response = retry_client_lookup(
             &mut client,
@@ -497,8 +493,8 @@ fn test_consulting_blocklist_metrics() {
             panic!("expected NS record response");
         };
 
-        fetch_parse_check_metrics(&server.ports).await
-    });
+        &fetch_parse_check_metrics(&server.ports).await
+    };
 
     verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
     verify_metric(
@@ -511,14 +507,13 @@ fn test_consulting_blocklist_metrics() {
     verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
 }
 
-#[test]
+#[tokio::test]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-fn test_updates() {
+async fn test_updates() {
     subscribe();
 
     let server = TestServer::start("dnssec_with_update_2.toml");
-    let io_loop = Runtime::new().unwrap();
-    let metrics = &io_loop.block_on(async {
+    let metrics = {
         let rsa_key = include_bytes!("../../../tests/test-data/test_configs/dnssec/rsa_2048.pk8");
         let verify_algo = Algorithm::RSASHA256;
         let verify_key =
@@ -570,8 +565,8 @@ fn test_updates() {
             .await
             .unwrap();
 
-        fetch_parse_check_metrics(&server.ports).await
-    });
+        &fetch_parse_check_metrics(&server.ports).await
+    };
 
     verify_metric(
         metrics,
@@ -607,16 +602,15 @@ fn test_updates() {
     fs::remove_file(&database).expect("failed to cleanup after test");
 }
 
-#[test]
+#[tokio::test]
 #[cfg(all(feature = "__tls", feature = "recursor", feature = "metrics"))]
-fn test_opp_enc_metrics() {
+async fn test_opp_enc_metrics() {
     subscribe();
 
     // Note: we use 'example_recursor_opportunistic_enc_2' here to have a distinct state file
     // path to not conflict with the `named_rfc_9539_tests.rs` smoke test.
     let server = TestServer::start("example_recursor_opportunistic_enc_2.toml");
-    let io_loop = Runtime::new().unwrap();
-    let metrics = &io_loop.block_on(async {
+    let metrics = &{
         let mut client = create_local_client(&server.ports, None).await;
         let response = retry_client_lookup(
             &mut client,
@@ -633,7 +627,7 @@ fn test_opp_enc_metrics() {
         assert!(*addr != A::new(192, 0, 2, 1));
 
         fetch_parse_check_metrics(&server.ports).await
-    });
+    };
 
     let tls_protocol = [("protocol", "tls")];
     // Note: we use `None` as the expected value for the following metrics because the probes
