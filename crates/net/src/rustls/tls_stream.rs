@@ -9,7 +9,6 @@
 
 use core::future::Future;
 use core::net::SocketAddr;
-use std::io;
 use std::sync::Arc;
 
 use rustls::ClientConfig;
@@ -137,7 +136,7 @@ pub fn tls_connect_with_bind_addr<P: RuntimeProvider>(
 /// * `dns_name` - The DNS name associated with a certificate
 #[allow(clippy::type_complexity)]
 pub fn tls_connect_with_future<S: DnsTcpStream>(
-    future: impl Future<Output = Result<S, io::Error>> + Send + Unpin + 'static,
+    stream: S,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     client_config: Arc<ClientConfig>,
@@ -156,7 +155,7 @@ pub fn tls_connect_with_future<S: DnsTcpStream>(
     let stream = async move {
         connect_tls_stream(
             tls_connector,
-            future.await?,
+            stream,
             name_server,
             server_name,
             outbound_messages,
