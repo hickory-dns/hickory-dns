@@ -19,12 +19,11 @@ use rustls::{
 use rustls_platform_verifier::BuilderVerifierExt;
 
 pub mod tls_client_stream;
-pub mod tls_stream;
-
-pub use self::tls_client_stream::{
+pub use tls_client_stream::{
     TlsClientStream, tls_client_connect, tls_client_connect_with_bind_addr, tls_exchange,
 };
-pub use self::tls_stream::{TlsStream, tls_connect, tls_connect_with_bind_addr, tls_from_stream};
+pub mod tls_stream;
+pub use tls_stream::{TlsStream, tls_from_stream};
 
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> Result<ClientConfig, rustls::Error> {
