@@ -105,15 +105,11 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
     ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<F>(
-        stream: F,
+    pub fn new(
+        stream: S,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> DnsMultiplexerConnect<F, S>
-    where
-        F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    {
+    ) -> Self {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
@@ -127,20 +123,19 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///   wait for a response before canceling the request.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn with_timeout<F>(
-        stream: F,
+    pub fn with_timeout(
+        stream: S,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> DnsMultiplexerConnect<F, S>
-    where
-        F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    {
-        DnsMultiplexerConnect {
+    ) -> Self {
+        Self {
             stream,
-            stream_handle: Some(stream_handle),
             timeout_duration,
+            stream_handle,
+            active_requests: HashMap::default(),
             signer,
+            is_shutdown: false,
         }
     }
 
@@ -472,12 +467,10 @@ mod test {
         mock_response: Vec<Message>,
     ) -> DnsMultiplexer<MockClientStream> {
         let addr = SocketAddr::from(([127, 0, 0, 1], 1234));
-        let mock_response = MockClientStream::new(mock_response, addr);
+        let mock_response = MockClientStream::new(mock_response, addr).await.unwrap();
         let (handler, receiver) = BufDnsStreamHandle::new(addr);
         let mut multiplexer =
-            DnsMultiplexer::with_timeout(mock_response, handler, Duration::from_millis(100), None)
-                .await
-                .unwrap();
+            DnsMultiplexer::with_timeout(mock_response, handler, Duration::from_millis(100), None);
 
         multiplexer.stream.receiver = Some(receiver); // so it can get the correct request id
 

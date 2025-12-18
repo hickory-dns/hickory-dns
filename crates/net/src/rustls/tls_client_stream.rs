@@ -38,14 +38,14 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     config.enable_sni = false;
 
-    let (stream, sender) = tls_client_connect_with_future(
+    let (future, sender) = tls_client_connect_with_future(
         provider.connect_tcp(remote_addr, None, None),
         remote_addr,
         server_name.to_owned(),
         Arc::new(config),
     );
 
-    let multiplexer = DnsMultiplexer::with_timeout(stream, sender, timeout, None).await?;
+    let multiplexer = DnsMultiplexer::with_timeout(future.await?, sender, timeout, None);
     let (exchange, bg) = DnsExchange::<P>::from_stream(multiplexer);
     provider.create_handle().spawn_bg(bg);
     Ok(exchange)
