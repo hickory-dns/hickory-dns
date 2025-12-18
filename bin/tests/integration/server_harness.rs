@@ -3,13 +3,10 @@
 use std::{
     collections::HashMap,
     env,
-    io::{BufRead, BufReader, Write, stdout},
+    io::{BufRead, BufReader},
     net::SocketAddr,
-    panic::{UnwindSafe, catch_unwind},
-    process::{Command, Stdio},
+    process::{Child, ChildStdout, Command, Stdio},
     str::FromStr,
-    sync::*,
-    thread,
     time::*,
 };
 
@@ -93,16 +90,21 @@ fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
     }
 }
 
-/// Spins up a Server and handles shutting it down after running the test
-pub fn named_test_harness<F, R>(toml: &str, test: F)
-where
-    F: FnOnce(SocketPorts) -> R + UnwindSafe,
-{
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    println!("using server src path: {server_path}");
+pub struct TestServer {
+    pub ports: SocketPorts,
+    child: Child,
+    stdout: BufReader<ChildStdout>,
+}
 
-    let mut command = Command::new(env!("CARGO_BIN_EXE_hickory-dns"));
-    command
+impl TestServer {
+    /// Spins up a Server and handles shutting it down after running the test
+    #[allow(dead_code)]
+    pub fn start(toml: &str) -> Self {
+        let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
+        println!("using server src path: {server_path}");
+
+        let mut command = Command::new(env!("CARGO_BIN_EXE_hickory-dns"));
+        command
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
@@ -116,152 +118,104 @@ where
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
         .arg(format!("--port={}", 0));
-    #[cfg(feature = "__tls")]
-    command.arg(format!("--tls-port={}", 0));
-    #[cfg(feature = "__https")]
-    command.arg(format!("--https-port={}", 0));
-    #[cfg(feature = "__quic")]
-    command.arg(format!("--quic-port={}", 0));
-    #[cfg(feature = "prometheus-metrics")]
-    command.arg(format!("--prometheus-listen-address=127.0.0.1:{}", 0));
+        #[cfg(feature = "__tls")]
+        command.arg(format!("--tls-port={}", 0));
+        #[cfg(feature = "__https")]
+        command.arg(format!("--https-port={}", 0));
+        #[cfg(feature = "__quic")]
+        command.arg(format!("--quic-port={}", 0));
+        #[cfg(feature = "prometheus-metrics")]
+        command.arg(format!("--prometheus-listen-address=127.0.0.1:{}", 0));
 
-    println!("named cli options: {command:#?}");
+        println!("named cli options: {command:#?}");
 
-    let mut named = command.spawn().expect("failed to start named");
+        let mut named = command.spawn().expect("failed to start named");
 
-    println!("server starting");
+        println!("server starting");
 
-    let mut named_out = BufReader::new(named.stdout.take().expect("no stdout"));
+        let mut stdout = BufReader::new(named.stdout.take().expect("no stdout"));
 
-    // forced thread killer
-    let named = Arc::new(Mutex::new(named));
-    let named_killer = Arc::clone(&named);
-    let succeeded = Arc::new(atomic::AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    let killer_join = thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone;
+        // These will be collected from the server startup output
+        let mut ports = SocketPorts::default();
 
-            let kill_named = || {
-                info!("killing named");
+        let mut output = String::new();
+        let mut found = false;
+        let wait_for_start_until = Instant::now() + Duration::from_secs(60);
 
-                let mut named = named_killer.lock().unwrap();
-                if let Err(error) = named.kill() {
-                    warn!(?error, "warning: failed to kill named");
-                    return;
-                }
-                if let Err(error) = named.wait() {
-                    warn!(?error, "warning: failed to wait for named");
-                }
-            };
+        // Search strings for the ports used during testing
+        let addr_regex = Regex::new(
+            r"listening for (UDP|TCP|TLS|HTTPS|QUIC|Prometheus metrics) on ((?:(?:0\.0\.0\.0)|(?:127\.0\.0\.1)|(?:\[::\])):\d+)",
+        )
+        .unwrap();
 
-            for _ in 0..30 {
-                thread::sleep(Duration::from_secs(1));
-                if succeeded.load(atomic::Ordering::Relaxed) {
-                    kill_named();
-                    return;
-                }
-            }
-
-            kill_named();
-
-            println!("Thread Killer has been awoken, killing process");
-            std::process::exit(-1);
-        })
-        .expect("could not start thread killer");
-
-    // These will be collected from the server startup'
-    let mut socket_ports = SocketPorts::default();
-
-    // we should get the correct output before 1000 lines...
-    let mut output = String::new();
-    let mut found = false;
-    let wait_for_start_until = Instant::now() + Duration::from_secs(60);
-
-    // Search strings for the ports used during testing
-    let addr_regex = Regex::new(
-        r"listening for (UDP|TCP|TLS|HTTPS|QUIC|Prometheus metrics) on ((?:(?:0\.0\.0\.0)|(?:127\.0\.0\.1)|(?:\[::\])):\d+)",
-    )
-    .unwrap();
-
-    while Instant::now() < wait_for_start_until {
-        {
-            if let Some(ret_code) = named
-                .lock()
-                .unwrap()
-                .try_wait()
-                .expect("failed to check status of named")
-            {
+        while Instant::now() < wait_for_start_until {
+            if let Some(ret_code) = named.try_wait().expect("failed to check status of named") {
                 panic!("named has already exited with code: {ret_code}");
             }
+
+            collect_and_print(&mut stdout, &mut output);
+
+            if let Some(addr) = addr_regex.captures(&output) {
+                let proto = addr.get(1).expect("missing protocol").as_str();
+                let socket_addr = addr.get(2).expect("missing socket addr").as_str();
+
+                let socket_addr =
+                    SocketAddr::from_str(socket_addr).expect("could not parse socket_addr");
+
+                match proto {
+                    "UDP" => ports.put(Protocol::Udp, socket_addr),
+                    "TCP" => ports.put(Protocol::Tcp, socket_addr),
+                    #[cfg(feature = "__tls")]
+                    "TLS" => ports.put(Protocol::Tls, socket_addr),
+                    #[cfg(feature = "__https")]
+                    "HTTPS" => ports.put(Protocol::Https, socket_addr),
+                    #[cfg(feature = "__quic")]
+                    "QUIC" => ports.put(Protocol::Quic, socket_addr),
+                    #[cfg(feature = "metrics")]
+                    "Prometheus metrics" => {
+                        ports.put(ServerProtocol::PrometheusMetrics, socket_addr)
+                    }
+                    _ => panic!("unsupported protocol: {proto}"),
+                }
+            } else if output.contains("awaiting connections...") {
+                found = true;
+                break;
+            }
         }
 
-        collect_and_print(&mut named_out, &mut output);
+        assert!(found);
+        println!("Test server started. ports: {ports:?}");
 
-        if let Some(addr) = addr_regex.captures(&output) {
-            let proto = addr.get(1).expect("missing protocol").as_str();
-            let socket_addr = addr.get(2).expect("missing socket addr").as_str();
-
-            let socket_addr =
-                SocketAddr::from_str(socket_addr).expect("could not parse socket_addr");
-
-            match proto {
-                "UDP" => socket_ports.put(Protocol::Udp, socket_addr),
-                "TCP" => socket_ports.put(Protocol::Tcp, socket_addr),
-                #[cfg(feature = "__tls")]
-                "TLS" => socket_ports.put(Protocol::Tls, socket_addr),
-                #[cfg(feature = "__https")]
-                "HTTPS" => socket_ports.put(Protocol::Https, socket_addr),
-                #[cfg(feature = "__quic")]
-                "QUIC" => socket_ports.put(Protocol::Quic, socket_addr),
-                #[cfg(feature = "metrics")]
-                "Prometheus metrics" => {
-                    socket_ports.put(ServerProtocol::PrometheusMetrics, socket_addr)
-                }
-                _ => panic!("unsupported protocol: {proto}"),
-            }
-        } else if output.contains("awaiting connections...") {
-            found = true;
-            break;
+        Self {
+            ports,
+            child: named,
+            stdout,
         }
     }
+}
 
-    stdout().flush().unwrap();
-    assert!(found);
-    println!("Test server started. ports: {socket_ports:?}",);
+impl Drop for TestServer {
+    fn drop(&mut self) {
+        match self.child.kill() {
+            Ok(()) => info!("killed test server"),
+            Err(err) => warn!("could not kill test server: {err}"),
+        }
 
-    // spawn a thread to capture stdout
-    let succeeded_clone = succeeded.clone();
-    thread::Builder::new()
-        .name("named stdout".into())
-        .spawn(move || {
-            let succeeded = succeeded_clone;
-            while !succeeded.load(atomic::Ordering::Relaxed) {
-                collect_and_print(&mut named_out, &mut output);
-
-                if let Some(_ret_code) = named
-                    .lock()
-                    .unwrap()
-                    .try_wait()
-                    .expect("failed to check status of named")
-                {
-                    // uncomment for debugging:
-                    // println!("named exited with code: {}", _ret_code);
+        let mut line = String::new();
+        loop {
+            match self.stdout.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {
+                    print!("SRV: {line}");
+                    line.clear();
+                }
+                Err(err) => {
+                    warn!("could not read remaining stdout: {err}");
+                    break;
                 }
             }
-        })
-        .expect("no thread available");
-
-    println!("running test...");
-
-    let result = catch_unwind(move || test(socket_ports));
-
-    println!("test completed");
-    succeeded.store(true, atomic::Ordering::Relaxed);
-    killer_join.join().expect("join failed");
-
-    assert!(result.is_ok(), "test failed");
+        }
+    }
 }
 
 pub fn query_message<C: ClientHandle>(

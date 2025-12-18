@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use tokio::runtime::Runtime;
 
-use crate::server_harness::{named_test_harness, query_a, query_all_dnssec};
+use crate::server_harness::{TestServer, query_a, query_all_dnssec};
 use futures_util::TryStreamExt;
 use hickory_dns::dnssec::key_from_file;
 use hickory_net::DnsHandle;
@@ -61,25 +61,24 @@ fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
     let server_path = Path::new(&server_path);
     let provider = TokioRuntimeProvider::new();
 
-    named_test_harness(config_toml, |socket_ports| {
-        let mut io_loop = Runtime::new().unwrap();
-        let tcp_port = socket_ports.get_v4(Protocol::Tcp);
+    let server = TestServer::start(config_toml);
+    let mut io_loop = Runtime::new().unwrap();
+    let tcp_port = server.ports.get_v4(Protocol::Tcp);
 
-        // verify all records are present
-        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
-        let (client, bg) = io_loop.block_on(client);
-        hickory_net::runtime::spawn_bg(&io_loop, bg);
-        query_all_dnssec(&mut io_loop, client, algorithm);
+    // verify all records are present
+    let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
+    let (client, bg) = io_loop.block_on(client);
+    hickory_net::runtime::spawn_bg(&io_loop, bg);
+    query_all_dnssec(&mut io_loop, client, algorithm);
 
-        // test that request with Dnssec client is successful, i.e. validates chain
-        let trust_anchor = trust_anchor(&server_path.join(key_path), algorithm);
-        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider);
-        let (client, bg) = io_loop.block_on(client);
-        hickory_net::runtime::spawn_bg(&io_loop, bg);
-        let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
+    // test that request with Dnssec client is successful, i.e. validates chain
+    let trust_anchor = trust_anchor(&server_path.join(key_path), algorithm);
+    let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider);
+    let (client, bg) = io_loop.block_on(client);
+    hickory_net::runtime::spawn_bg(&io_loop, bg);
+    let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
-        query_a(&mut io_loop, &mut client);
-    });
+    query_a(&mut io_loop, &mut client);
 }
 
 #[test]
@@ -190,78 +189,77 @@ fn test_dnssec_restart_with_update_journal() {
 fn test_rrsig_ttl() {
     subscribe();
     let provider = TokioRuntimeProvider::new();
-    named_test_harness(confg_toml(), |socket_ports| {
-        let io_loop = Runtime::new().unwrap();
-        let tcp_port = socket_ports.get_v4(Protocol::Tcp);
+    let server = TestServer::start(confg_toml());
+    let io_loop = Runtime::new().unwrap();
+    let tcp_port = server.ports.get_v4(Protocol::Tcp);
 
-        let mut options = DnsRequestOptions::default();
-        options.use_edns = true;
-        options.edns_set_dnssec_ok = true;
+    let mut options = DnsRequestOptions::default();
+    options.use_edns = true;
+    options.edns_set_dnssec_ok = true;
 
-        {
-            let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
-            let (client, bg) = io_loop.block_on(client);
-            hickory_net::runtime::spawn_bg(&io_loop, bg);
+    {
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
+        let (client, bg) = io_loop.block_on(client);
+        hickory_net::runtime::spawn_bg(&io_loop, bg);
 
-            // query www.example.com. expected ttl is 86400.
-            let query = Query::query("www.example.com.".parse().unwrap(), RecordType::A);
-            let response = io_loop
-                .block_on(client.lookup(query, options).try_next())
-                .unwrap()
-                .expect("Expected an answer");
+        // query www.example.com. expected ttl is 86400.
+        let query = Query::query("www.example.com.".parse().unwrap(), RecordType::A);
+        let response = io_loop
+            .block_on(client.lookup(query, options).try_next())
+            .unwrap()
+            .expect("Expected an answer");
 
-            // check the ttl of all answers, of which at least one must be of type A and one
-            // of type RRSIG
-            let expected_ttl = 86400;
-            for answer in response.answers() {
-                println!("{answer}");
-                assert_eq!(answer.ttl(), expected_ttl);
-            }
-            assert!(
-                response
-                    .answers()
-                    .iter()
-                    .any(|answer| answer.record_type() == RecordType::A)
-            );
-            assert!(
-                response
-                    .answers()
-                    .iter()
-                    .any(|answer| answer.record_type() == RecordType::RRSIG)
-            );
+        // check the ttl of all answers, of which at least one must be of type A and one
+        // of type RRSIG
+        let expected_ttl = 86400;
+        for answer in response.answers() {
+            println!("{answer}");
+            assert_eq!(answer.ttl(), expected_ttl);
         }
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|answer| answer.record_type() == RecordType::A)
+        );
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|answer| answer.record_type() == RecordType::RRSIG)
+        );
+    }
 
-        {
-            let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
-            let (client, bg) = io_loop.block_on(client);
-            hickory_net::runtime::spawn_bg(&io_loop, bg);
+    {
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"), provider.clone());
+        let (client, bg) = io_loop.block_on(client);
+        hickory_net::runtime::spawn_bg(&io_loop, bg);
 
-            // query shortlived.example.com. expected ttl is 900.
-            let query = Query::query("shortlived.example.com.".parse().unwrap(), RecordType::A);
-            let response = io_loop
-                .block_on(client.lookup(query, options).try_next())
-                .unwrap()
-                .expect("Expected an answer");
+        // query shortlived.example.com. expected ttl is 900.
+        let query = Query::query("shortlived.example.com.".parse().unwrap(), RecordType::A);
+        let response = io_loop
+            .block_on(client.lookup(query, options).try_next())
+            .unwrap()
+            .expect("Expected an answer");
 
-            // check the ttl of all answers, of which at least one must be of type A and one
-            // of type RRSIG
-            let expected_ttl = 900;
-            for answer in response.answers() {
-                println!("{answer}");
-                assert_eq!(answer.ttl(), expected_ttl);
-            }
-            assert!(
-                response
-                    .answers()
-                    .iter()
-                    .any(|answer| answer.record_type() == RecordType::A)
-            );
-            assert!(
-                response
-                    .answers()
-                    .iter()
-                    .any(|answer| answer.record_type() == RecordType::RRSIG)
-            );
+        // check the ttl of all answers, of which at least one must be of type A and one
+        // of type RRSIG
+        let expected_ttl = 900;
+        for answer in response.answers() {
+            println!("{answer}");
+            assert_eq!(answer.ttl(), expected_ttl);
         }
-    });
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|answer| answer.record_type() == RecordType::A)
+        );
+        assert!(
+            response
+                .answers()
+                .iter()
+                .any(|answer| answer.record_type() == RecordType::RRSIG)
+        );
+    }
 }
