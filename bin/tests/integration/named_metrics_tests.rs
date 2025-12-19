@@ -613,19 +613,22 @@ async fn test_opp_enc_metrics() {
     let server = TestServer::start("example_recursor_opportunistic_enc_2.toml");
     let metrics = &{
         let mut client = create_local_client(&server.ports, None).await;
-        let response = retry_client_lookup(
-            &mut client,
-            Name::from_str("example.com.").unwrap(),
-            DNSClass::IN,
-            RecordType::A,
-        )
-        .await
-        .unwrap();
 
+        // Note: this query is handled by a zone file, and not exercising the recursor.
+        // We make the query principally to have a mechanism to wait until the server
+        // finishes initialization.
+        let response = client
+            .query(
+                Name::from_str("localhost.").unwrap(),
+                DNSClass::IN,
+                RecordType::A,
+            )
+            .await
+            .unwrap();
         let RData::A(addr) = response.answers()[0].data() else {
             panic!("expected A record response");
         };
-        assert!(*addr != A::new(192, 0, 2, 1));
+        assert_eq!(*addr, A::new(127, 0, 0, 1));
 
         fetch_parse_check_metrics(&server.ports).await
     };
