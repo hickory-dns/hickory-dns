@@ -2317,6 +2317,8 @@ dependencies = [
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",
+ "metrics",
+ "metrics-util",
  "tokio",
  "tracing",
  "tracing-subscriber",

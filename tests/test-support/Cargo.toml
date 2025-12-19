@@ -17,6 +17,8 @@ futures-util = { workspace = true, default-features = false, features = ["std", 
 hickory-proto.workspace = true
 hickory-net.workspace = true
 hickory-resolver = { workspace = true, features = ["tokio"] }
+metrics.workspace = true
+metrics-util = { workspace = true, features = ["debugging"] }
 tokio = { workspace = true, features = ["net"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }

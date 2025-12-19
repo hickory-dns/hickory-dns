@@ -25,6 +25,8 @@ use hickory_proto::{
     },
     serialize::binary::BinDecodable,
 };
+use metrics::{IntoLabels, Key, KeyName, SharedString, Unit};
+use metrics_util::{CompositeKey, MetricKind, debugging::DebugValue};
 use tracing::{error, info};
 
 /// Registers a global default tracing subscriber when called for the first time. This is intended
@@ -561,5 +563,67 @@ impl MockQueryCache {
 
     fn new() -> Self {
         Self(Arc::new(Mutex::new(HashMap::new())))
+    }
+}
+
+#[expect(clippy::mutable_key_type)]
+pub fn assert_histogram_sample_count_eq(
+    map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
+    name: impl Into<KeyName>,
+    labels: impl IntoLabels,
+    expected_sample_count: u64,
+) {
+    let (unit_opt, desc, value) = map
+        .get(&CompositeKey::new(
+            MetricKind::Histogram,
+            Key::from_parts(name, labels),
+        ))
+        .unwrap();
+    assert_eq!(unit_opt, &Some(Unit::Seconds));
+    assert!(desc.is_some());
+    if let DebugValue::Histogram(samples) = value {
+        assert_eq!(samples.len(), expected_sample_count as usize);
+    } else {
+        panic!("expected histogram value, got {value:?}");
+    }
+}
+
+#[expect(clippy::mutable_key_type)]
+pub fn assert_counter_eq(
+    map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
+    name: impl Into<KeyName>,
+    labels: impl IntoLabels,
+    expected: u64,
+) {
+    let (unit_opt, desc, value) = map
+        .get(&CompositeKey::new(
+            MetricKind::Counter,
+            Key::from_parts(name, labels),
+        ))
+        .unwrap();
+    assert_eq!(unit_opt, &Some(Unit::Count));
+    assert!(desc.is_some());
+    assert_eq!(value, &DebugValue::Counter(expected));
+}
+
+#[expect(clippy::mutable_key_type)]
+pub fn assert_gauge_eq(
+    map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
+    name: impl Into<KeyName>,
+    labels: impl IntoLabels,
+    expected: u8,
+) {
+    let (unit_opt, desc, value) = map
+        .get(&CompositeKey::new(
+            MetricKind::Gauge,
+            Key::from_parts(name, labels),
+        ))
+        .unwrap();
+    assert_eq!(unit_opt, &Some(Unit::Count));
+    assert!(desc.is_some());
+    if let DebugValue::Gauge(gauge_val) = value {
+        assert_eq!(gauge_val.into_inner(), expected as f64);
+    } else {
+        panic!("expected gauge value {expected}, got {value:?}")
     }
 }
