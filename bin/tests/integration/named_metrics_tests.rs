@@ -5,10 +5,14 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(any(
+    all(feature = "__dnssec", feature = "sqlite"),
+    all(feature = "__tls", feature = "recursor", feature = "metrics")
+))]
+use std::fs;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use std::{env, path::Path};
 use std::{
-    fs,
     net::{Ipv4Addr, SocketAddr},
     str::FromStr,
     sync::Arc,
