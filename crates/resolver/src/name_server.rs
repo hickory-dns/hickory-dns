@@ -1282,8 +1282,6 @@ mod tests {
 
 #[cfg(all(test, feature = "__tls"))]
 mod opportunistic_enc_tests {
-    #[cfg(feature = "metrics")]
-    use std::collections::HashMap;
     use std::future::Future;
     use std::io;
     use std::net::{IpAddr, Ipv4Addr};
@@ -1295,13 +1293,13 @@ mod opportunistic_enc_tests {
     use futures_util::stream::once;
     use futures_util::{Stream, future};
     #[cfg(feature = "metrics")]
-    use metrics::{Key, KeyName, Label, SharedString, Unit, with_local_recorder};
+    use metrics::{Label, with_local_recorder};
     #[cfg(feature = "metrics")]
-    use metrics_util::debugging::{DebugValue, DebuggingRecorder};
-    #[cfg(feature = "metrics")]
-    use metrics_util::{CompositeKey, MetricKind};
+    use metrics_util::debugging::DebuggingRecorder;
     use parking_lot::Mutex as SyncMutex;
     use test_support::subscribe;
+    #[cfg(feature = "metrics")]
+    use test_support::{assert_counter_eq, assert_gauge_eq, assert_histogram_sample_count_eq};
     use tokio::net::UdpSocket;
 
     use crate::config::{
@@ -1855,16 +1853,39 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // We should have registered 1 TLS protocol probe attempt.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 1);
+        let protocol = vec![Label::new("protocol", "tls")];
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_attempts_total",
+            protocol.clone(),
+            1,
+        );
+        // And seen 1 probe duration observation.
+        assert_histogram_sample_count_eq(
+            &map,
+            "hickory_resolver_probe_duration_seconds",
+            protocol.clone(),
+            1,
+        );
 
         // We should have registered 1 TLS protocol probe success.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 1);
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_successes_total",
+            protocol.clone(),
+            1,
+        );
 
         // We should have registered 0 TLS protocol probe errors.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 0);
+        assert_counter_eq(&map, "hickory_resolver_probe_errors_total", protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_tls_budget_gauge_eq(&map, initial_budget);
+        assert_gauge_eq(
+            &map,
+            "hickory_resolver_probe_budget_total",
+            vec![],
+            initial_budget,
+        );
     }
 
     #[cfg(feature = "metrics")]
@@ -1900,10 +1921,23 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // The budget metric should confirm that there's no budget.
-        assert_tls_budget_gauge_eq(&map, 0);
+        assert_gauge_eq(&map, "hickory_resolver_probe_budget_total", vec![], 0);
 
         // We should not have registered a probe attempt.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 0);
+        let protocol = vec![Label::new("protocol", "tls")];
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_attempts_total",
+            protocol.clone(),
+            0,
+        );
+        // Or seen a probe duration observation.
+        assert_histogram_sample_count_eq(
+            &map,
+            "hickory_resolver_probe_duration_seconds",
+            protocol,
+            0,
+        );
     }
 
     #[cfg(feature = "metrics")]
@@ -1945,17 +1979,40 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // We should have registered 1 TLS protocol probe attempt.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 1);
+        let protocol = vec![Label::new("protocol", "tls")];
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_attempts_total",
+            protocol.clone(),
+            1,
+        );
+        // And seen 1 probe duration observation.
+        assert_histogram_sample_count_eq(
+            &map,
+            "hickory_resolver_probe_duration_seconds",
+            protocol.clone(),
+            1,
+        );
 
         // We should have registered 1 TLS protocol probe error.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 1);
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_errors_total",
+            protocol.clone(),
+            1,
+        );
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
+        assert_counter_eq(&map, "hickory_resolver_probe_successes_total", protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_tls_budget_gauge_eq(&map, initial_budget);
+        assert_gauge_eq(
+            &map,
+            "hickory_resolver_probe_budget_total",
+            vec![],
+            initial_budget,
+        );
     }
 
     #[cfg(feature = "metrics")]
@@ -1994,20 +2051,48 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // We should have registered 1 TLS protocol probe attempt.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_attempts_total", 1);
+        let protocol = vec![Label::new("protocol", "tls")];
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_attempts_total",
+            protocol.clone(),
+            1,
+        );
+        // And seen 1 probe duration observation.
+        assert_histogram_sample_count_eq(
+            &map,
+            "hickory_resolver_probe_duration_seconds",
+            protocol.clone(),
+            1,
+        );
 
         // We should have registered 1 TLS protocol probe timeout.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_timeouts_total", 1);
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_timeouts_total",
+            protocol.clone(),
+            1,
+        );
 
         // We shouldn't have registered a more general probe error.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_errors_total", 0);
+        assert_counter_eq(
+            &map,
+            "hickory_resolver_probe_errors_total",
+            protocol.clone(),
+            0,
+        );
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        assert_tls_counter_eq(&map, "hickory_resolver_probe_successes_total", 0);
+        assert_counter_eq(&map, "hickory_resolver_probe_successes_total", protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_tls_budget_gauge_eq(&map, initial_budget);
+        assert_gauge_eq(
+            &map,
+            "hickory_resolver_probe_budget_total",
+            vec![],
+            initial_budget,
+        );
     }
 
     /// Construct a nameserver appropriate for opportunistic encryption and assert connected_mut_client
@@ -2031,47 +2116,6 @@ mod opportunistic_enc_tests {
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await
             .map(|_| ())
-    }
-
-    /// asserts that the `map` contains a counter metric with the specified `name` reporting
-    /// the `expected `value.
-    ///
-    /// A protocol=tls label is automatically applied by the helper.
-    #[cfg(feature = "metrics")]
-    #[allow(clippy::mutable_key_type)]
-    fn assert_tls_counter_eq(
-        map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
-        name: impl Into<KeyName>,
-        expected: u64,
-    ) {
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_parts(name, vec![Label::new("protocol", "tls")]),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert_eq!(value, &DebugValue::Counter(expected));
-    }
-
-    #[cfg(feature = "metrics")]
-    #[allow(clippy::mutable_key_type)]
-    fn assert_tls_budget_gauge_eq(
-        map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
-        expected: u8,
-    ) {
-        let (unit_opt, _, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Gauge,
-                Key::from("hickory_resolver_probe_budget_total"),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        if let DebugValue::Gauge(gauge_val) = value {
-            assert_eq!(gauge_val.into_inner(), expected as f64);
-        } else {
-            panic!("expected gauge value {expected}, got {value:?}")
-        }
     }
 
     /// `MockProvider` is a `ConnectionProvider` that uses a synchronous runtime provider.

@@ -778,11 +778,9 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
 
 #[cfg(feature = "metrics")]
 mod metrics {
-    use ::metrics::{Key, Unit, with_local_recorder};
-    use metrics_util::{
-        CompositeKey, MetricKind,
-        debugging::{DebugValue, DebuggingRecorder},
-    };
+    use ::metrics::with_local_recorder;
+    use metrics_util::debugging::DebuggingRecorder;
+    use test_support::assert_counter_eq;
     use tokio::runtime::Builder;
 
     use super::*;
@@ -847,35 +845,9 @@ mod metrics {
         // False positive, see the documentation for metrics::Key.
         let map = snapshotter.snapshot().into_hashmap();
 
-        let (unit_opt, description_opt, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_name("hickory_recursor_outgoing_queries_total"),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert!(description_opt.is_some());
-        assert_eq!(value, &DebugValue::Counter(3));
-
-        let (unit_opt, description_opt, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_name("hickory_recursor_cache_hit_total"),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert!(description_opt.is_some());
-        assert_eq!(value, &DebugValue::Counter(2));
-
-        let (unit_opt, description_opt, value) = map
-            .get(&CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_name("hickory_recursor_cache_miss_total"),
-            ))
-            .unwrap();
-        assert_eq!(unit_opt, &Some(Unit::Count));
-        assert!(description_opt.is_some());
-        assert_eq!(value, &DebugValue::Counter(1));
+        assert_counter_eq(&map, "hickory_recursor_outgoing_queries_total", vec![], 3);
+        assert_counter_eq(&map, "hickory_recursor_cache_hit_total", vec![], 2);
+        assert_counter_eq(&map, "hickory_recursor_cache_miss_total", vec![], 1);
     }
 
     const A_RR_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
