@@ -94,7 +94,6 @@ data-encoding = { version = "2.2.0", default-features = false }
 hex = "0.4"
 hostname = "0.4"
 idna = { version = "1.0.3", default-features = false, features = ["alloc", "compiled_data"] }
-ipconfig = "0.3.0"
 ipnet = { version = "2.3.0", default-features = false }
 jni = "0.21.1"
 js-sys = "0.3.44"
@@ -118,6 +117,8 @@ tinyvec = "1.1.1"
 toml = "0.9"
 url = { version = "2.5.4", default-features = false }
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
+windows-registry = "0.6.1"
+windows-sys = "0.61"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
