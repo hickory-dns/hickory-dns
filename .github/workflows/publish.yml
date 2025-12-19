@@ -22,12 +22,9 @@ jobs:
 
     - uses: extractions/setup-just@v3
 
-    - name: install cargo-binstall
-      uses: cargo-bins/cargo-binstall@v1.12.6
-    - name: install cargo-workspaces
-      run: cargo binstall cargo-workspaces -y --version ${{ env.CARGO_WS_VERSION }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-workspaces@${{ env.CARGO_WS_VERSION }}
 
     - name: just publish
       env:
