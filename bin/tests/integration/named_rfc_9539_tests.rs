@@ -1,3 +1,5 @@
+#![cfg(any(feature = "__tls", feature = "__quic"))]
+
 use std::fs;
 
 use test_support::subscribe;
