@@ -595,6 +595,7 @@ async fn test_updates() {
     );
 
     // Clean up database.
+    drop(server);
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
     let database =
