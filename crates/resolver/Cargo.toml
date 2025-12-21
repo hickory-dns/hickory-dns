@@ -47,7 +47,7 @@ __dnssec = []
 recursor = ["dep:async-recursion", "dep:lru-cache", "hickory-proto/text-parsing"]
 
 serde = ["dep:serde", "hickory-proto/serde"]
-system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
+system-config = ["dep:windows-sys", "dep:windows-registry", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
 
 toml = ["dep:toml"]
 
@@ -86,7 +86,8 @@ hickory-proto = { workspace = true, features = ["access-control"] }
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
-ipconfig = { workspace = true, optional = true }
+windows-sys = { workspace = true, optional = true, features = ["Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis"] }
+windows-registry = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = { workspace = true, optional = true }
