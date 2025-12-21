@@ -667,6 +667,7 @@ async fn test_opp_enc_metrics() {
     // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
     verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
 
+    drop(server);
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
 }
 
