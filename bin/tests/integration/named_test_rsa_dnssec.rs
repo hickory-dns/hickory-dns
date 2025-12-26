@@ -44,10 +44,8 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     DnsExchangeBackground<DnsMultiplexer<TcpClientStream<P::Tcp>>, P::Timer>,
 ) {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
-    let (stream, sender) = TcpClientStream::new(addr, None, None, provider);
-    Client::<P>::new(stream, sender, None)
-        .await
-        .expect("new Client failed")
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider);
+    Client::<P>::new(future.await.expect("new Client failed"), sender, None)
 }
 
 async fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {

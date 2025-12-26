@@ -390,7 +390,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
 
     // Client setup
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
-    let (client, bg) = Client::connect(stream).await.unwrap();
+    let (client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     (client, server)

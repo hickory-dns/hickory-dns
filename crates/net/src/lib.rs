@@ -24,9 +24,9 @@ pub mod multicast;
 #[cfg(all(feature = "__quic", feature = "tokio"))]
 pub mod quic;
 pub mod runtime;
-#[cfg(feature = "__tls")]
-pub mod rustls;
 pub mod tcp;
+#[cfg(feature = "__tls")]
+pub mod tls;
 pub mod udp;
 pub mod xfer;
 

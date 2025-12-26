@@ -5,7 +5,6 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::fmt::{self, Display};
 use core::future::Future;
 use core::net::SocketAddr;
 use core::pin::Pin;
@@ -15,10 +14,7 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::{
-    future::{BoxFuture, FutureExt},
-    stream::Stream,
-};
+use futures_util::{future::BoxFuture, stream::Stream};
 use h2::client::SendRequest;
 use http::header::{self, CONTENT_LENGTH};
 use rustls::ClientConfig;
@@ -32,8 +28,8 @@ use crate::http::{RequestContext, SetHeaders, Version};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
-use crate::runtime::{DnsTcpStream, RuntimeProvider};
-use crate::xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream};
+use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
+use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -41,140 +37,23 @@ const ALPN_H2: &[u8] = b"h2";
 #[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
-    // Corresponds to the dns-name of the HTTPS server
-    name_server: SocketAddr,
     context: Arc<RequestContext>,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
 }
 
-impl Display for HttpsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            formatter,
-            "HTTPS({},{})",
-            self.name_server, self.context.server_name
-        )
-    }
-}
-
 impl HttpsClientStream {
-    async fn inner_send(
-        h2: SendRequest<Bytes>,
-        message: Bytes,
-        cx: Arc<RequestContext>,
-    ) -> Result<DnsResponse, NetError> {
-        let mut h2 = match h2.ready().await {
-            Ok(h2) => h2,
-            Err(err) => {
-                // TODO: make specific error
-                return Err(NetError::from(format!("h2 send_request error: {err}")));
-            }
-        };
-
-        // build up the http request
-        let request = cx
-            .build(message.remaining())
-            .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
-
-        debug!("request: {:#?}", request);
-
-        // Send the request
-        let (response_future, mut send_stream) = h2
-            .send_request(request, false)
-            .map_err(|err| NetError::from(format!("h2 send_request error: {err}")))?;
-
-        send_stream
-            .send_data(message, true)
-            .map_err(|e| NetError::from(format!("h2 send_data error: {e}")))?;
-
-        let mut response_stream = response_future
-            .await
-            .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
-
-        debug!("got response: {:#?}", response_stream);
-
-        // get the length of packet
-        let content_length = response_stream
-            .headers()
-            .get(CONTENT_LENGTH)
-            .map(|v| v.to_str())
-            .transpose()
-            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
-            .map(usize::from_str)
-            .transpose()
-            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
-
-        // TODO: what is a good max here?
-        // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-        // just a little protection from malicious actors.
-        let mut response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
-
-        while let Some(partial_bytes) = response_stream.body_mut().data().await {
-            let partial_bytes =
-                partial_bytes.map_err(|e| NetError::from(format!("bad http request: {e}")))?;
-
-            debug!("got bytes: {}", partial_bytes.len());
-            response_bytes.extend(partial_bytes);
-
-            // assert the length
-            if let Some(content_length) = content_length {
-                if response_bytes.len() >= content_length {
-                    break;
-                }
-            }
+    /// Constructs a new TlsStreamBuilder with the associated ClientConfig
+    pub fn builder<P: RuntimeProvider>(
+        client_config: Arc<ClientConfig>,
+        provider: P,
+    ) -> HttpsClientStreamBuilder<P> {
+        HttpsClientStreamBuilder {
+            provider,
+            client_config,
+            bind_addr: None,
+            set_headers: None,
         }
-
-        // assert the length
-        if let Some(content_length) = content_length {
-            if response_bytes.len() != content_length {
-                // TODO: make explicit error type
-                return Err(NetError::from(format!(
-                    "expected byte length: {}, got: {}",
-                    content_length,
-                    response_bytes.len()
-                )));
-            }
-        }
-
-        // Was it a successful request?
-        if !response_stream.status().is_success() {
-            let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-            // TODO: make explicit error type
-            return Err(NetError::from(format!(
-                "http unsuccessful code: {}, message: {}",
-                response_stream.status(),
-                error_string
-            )));
-        } else {
-            // verify content type
-            {
-                // in the case that the ContentType is not specified, we assume it's the standard DNS format
-                let content_type = response_stream
-                    .headers()
-                    .get(header::CONTENT_TYPE)
-                    .map(|h| {
-                        h.to_str().map_err(|err| {
-                            // TODO: make explicit error type
-                            NetError::from(format!("ContentType header not a string: {err}"))
-                        })
-                    })
-                    .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
-
-                if content_type != crate::http::MIME_APPLICATION_DNS {
-                    return Err(NetError::from(format!(
-                        "ContentType unsupported (must be '{}'): '{}'",
-                        crate::http::MIME_APPLICATION_DNS,
-                        content_type
-                    )));
-                }
-            }
-        };
-
-        // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
     }
 }
 
@@ -243,7 +122,7 @@ impl DnsRequestSender for HttpsClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(Self::inner_send(
+        Box::pin(send(
             self.h2.clone(),
             Bytes::from(bytes),
             self.context.clone(),
@@ -289,16 +168,6 @@ pub struct HttpsClientStreamBuilder<P> {
 }
 
 impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
-    /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: Arc<ClientConfig>, provider: P) -> Self {
-        Self {
-            provider,
-            client_config,
-            bind_addr: None,
-            set_headers: None,
-        }
-    }
-
     /// Sets the address to connect from.
     pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
         self.bind_addr = Some(bind_addr);
@@ -307,6 +176,20 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     /// Set the [`SetHeaders`] trait object used to inject dynamic headers into the DoH request
     pub fn set_headers(&mut self, headers: Arc<dyn SetHeaders>) {
         self.set_headers.replace(headers);
+    }
+
+    /// Creates a new [`DnsExchange`] wrapping the [`HttpsClientStream`] from this builder
+    pub async fn exchange(
+        self,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        path: Arc<str>,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let mut handle = self.provider.create_handle();
+        let stream = self.build(name_server, server_name, path).await?;
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        handle.spawn_bg(bg);
+        Ok(exchange)
     }
 
     /// Creates a new HttpsStream to the specified name_server
@@ -321,8 +204,8 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> HttpsClientConnect {
-        HttpsClientConnect::new(
+    ) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
+        connect(
             self.provider.connect_tcp(name_server, self.bind_addr, None),
             self.client_config,
             name_server,
@@ -333,86 +216,188 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     }
 }
 
-/// A future that resolves to an HttpsClientStream
-pub struct HttpsClientConnect(
-    Pin<Box<dyn Future<Output = Result<HttpsClientStream, NetError>> + Send>>,
-);
+/// Creates a new HttpsStream with existing connection
+pub fn connect(
+    tcp: impl Future<Output = Result<impl DnsTcpStream, io::Error>> + Send + 'static,
+    mut client_config: Arc<ClientConfig>,
+    name_server: SocketAddr,
+    server_name: Arc<str>,
+    query_path: Arc<str>,
+    set_headers: Option<Arc<dyn SetHeaders>>,
+) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
+    // ensure the ALPN protocol is set correctly
+    if client_config.alpn_protocols.is_empty() {
+        let mut client_cfg = (*client_config).clone();
+        client_cfg.alpn_protocols = vec![ALPN_H2.to_vec()];
 
-impl HttpsClientConnect {
-    /// Creates a new HttpsStream with existing connection
-    pub fn new(
-        tcp: impl Future<Output = Result<impl DnsTcpStream, io::Error>> + Send + 'static,
-        mut client_config: Arc<ClientConfig>,
-        name_server: SocketAddr,
-        server_name: Arc<str>,
-        query_path: Arc<str>,
-        set_headers: Option<Arc<dyn SetHeaders>>,
-    ) -> Self {
-        // ensure the ALPN protocol is set correctly
-        if client_config.alpn_protocols.is_empty() {
-            let mut client_cfg = (*client_config).clone();
-            client_cfg.alpn_protocols = vec![ALPN_H2.to_vec()];
+        client_config = Arc::new(client_cfg);
+    }
 
-            client_config = Arc::new(client_cfg);
-        }
+    let context = Arc::new(RequestContext {
+        version: Version::Http2,
+        server_name,
+        query_path,
+        set_headers,
+    });
 
-        let context = Arc::new(RequestContext {
-            version: Version::Http2,
-            server_name,
-            query_path,
-            set_headers,
+    async move {
+        let tls_server_name = match ServerName::try_from(&*context.server_name) {
+            Ok(dns_name) => dns_name.to_owned(),
+            Err(err) => {
+                return Err(NetError::from(format!(
+                    "bad server name {:?}: {err}",
+                    context.server_name
+                )));
+            }
+        };
+
+        let tcp = tcp.await?;
+        let future = timeout(
+            CONNECT_TIMEOUT,
+            TlsConnector::from(client_config).connect(tls_server_name, AsyncIoStdAsTokio(tcp)),
+        );
+
+        let tls = match future.await {
+            Ok(Ok(tls)) => tls,
+            Ok(Err(err)) => return Err(NetError::from(err)),
+            Err(_) => return Err(NetError::Timeout),
+        };
+
+        let mut handshake = h2::client::Builder::new();
+        handshake.enable_push(false);
+        let (h2, driver) = handshake.handshake(tls).await?;
+
+        debug!("h2 connection established to: {name_server}");
+        tokio::spawn(async {
+            if let Err(e) = driver.await {
+                warn!("h2 connection failed: {e}");
+            }
         });
 
-        Self(Box::pin(async move {
-            let tls_server_name = match ServerName::try_from(&*context.server_name) {
-                Ok(dns_name) => dns_name.to_owned(),
-                Err(err) => {
-                    return Err(NetError::from(format!(
-                        "bad server name {:?}: {err}",
-                        context.server_name
-                    )));
-                }
-            };
-
-            let tcp = tcp.await?;
-            let future = timeout(
-                CONNECT_TIMEOUT,
-                TlsConnector::from(client_config).connect(tls_server_name, AsyncIoStdAsTokio(tcp)),
-            );
-
-            let tls = match future.await {
-                Ok(Ok(tls)) => tls,
-                Ok(Err(err)) => return Err(NetError::from(err)),
-                Err(_) => return Err(NetError::Timeout),
-            };
-
-            let mut handshake = h2::client::Builder::new();
-            handshake.enable_push(false);
-            let (h2, driver) = handshake.handshake(tls).await?;
-
-            debug!("h2 connection established to: {name_server}");
-            tokio::spawn(async {
-                if let Err(e) = driver.await {
-                    warn!("h2 connection failed: {e}");
-                }
-            });
-
-            Ok(HttpsClientStream {
-                name_server,
-                h2,
-                context,
-                is_shutdown: false,
-            })
-        }))
+        Ok(HttpsClientStream {
+            h2,
+            context,
+            is_shutdown: false,
+        })
     }
 }
 
-impl Future for HttpsClientConnect {
-    type Output = Result<HttpsClientStream, NetError>;
+async fn send(
+    h2: SendRequest<Bytes>,
+    message: Bytes,
+    cx: Arc<RequestContext>,
+) -> Result<DnsResponse, NetError> {
+    let mut h2 = match h2.ready().await {
+        Ok(h2) => h2,
+        Err(err) => {
+            // TODO: make specific error
+            return Err(NetError::from(format!("h2 send_request error: {err}")));
+        }
+    };
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
+    // build up the http request
+    let request = cx
+        .build(message.remaining())
+        .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
+
+    debug!("request: {:#?}", request);
+
+    // Send the request
+    let (response_future, mut send_stream) = h2
+        .send_request(request, false)
+        .map_err(|err| NetError::from(format!("h2 send_request error: {err}")))?;
+
+    send_stream
+        .send_data(message, true)
+        .map_err(|e| NetError::from(format!("h2 send_data error: {e}")))?;
+
+    let mut response_stream = response_future
+        .await
+        .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
+
+    debug!("got response: {:#?}", response_stream);
+
+    // get the length of packet
+    let content_length = response_stream
+        .headers()
+        .get(CONTENT_LENGTH)
+        .map(|v| v.to_str())
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
+        .map(usize::from_str)
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
+
+    // TODO: what is a good max here?
+    // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
+    // just a little protection from malicious actors.
+    let mut response_bytes =
+        BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
+
+    while let Some(partial_bytes) = response_stream.body_mut().data().await {
+        let partial_bytes =
+            partial_bytes.map_err(|e| NetError::from(format!("bad http request: {e}")))?;
+
+        debug!("got bytes: {}", partial_bytes.len());
+        response_bytes.extend(partial_bytes);
+
+        // assert the length
+        if let Some(content_length) = content_length {
+            if response_bytes.len() >= content_length {
+                break;
+            }
+        }
     }
+
+    // assert the length
+    if let Some(content_length) = content_length {
+        if response_bytes.len() != content_length {
+            // TODO: make explicit error type
+            return Err(NetError::from(format!(
+                "expected byte length: {}, got: {}",
+                content_length,
+                response_bytes.len()
+            )));
+        }
+    }
+
+    // Was it a successful request?
+    if !response_stream.status().is_success() {
+        let error_string = String::from_utf8_lossy(response_bytes.as_ref());
+
+        // TODO: make explicit error type
+        return Err(NetError::from(format!(
+            "http unsuccessful code: {}, message: {}",
+            response_stream.status(),
+            error_string
+        )));
+    } else {
+        // verify content type
+        {
+            // in the case that the ContentType is not specified, we assume it's the standard DNS format
+            let content_type = response_stream
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .map(|h| {
+                    h.to_str().map_err(|err| {
+                        // TODO: make explicit error type
+                        NetError::from(format!("ContentType header not a string: {err}"))
+                    })
+                })
+                .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
+
+            if content_type != crate::http::MIME_APPLICATION_DNS {
+                return Err(NetError::from(format!(
+                    "ContentType unsupported (must be '{}'): '{}'",
+                    crate::http::MIME_APPLICATION_DNS,
+                    content_type
+                )));
+            }
+        }
+    };
+
+    // and finally convert the bytes into a DNS message
+    DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
 }
 
 /// A future that resolves to
@@ -438,7 +423,7 @@ mod tests {
     use crate::proto::op::{DnsRequestOptions, Edns, Message, Query};
     use crate::proto::rr::{Name, RData, RecordType};
     use crate::runtime::TokioRuntimeProvider;
-    use crate::rustls::client_config;
+    use crate::tls::client_config;
     use crate::xfer::FirstAnswer;
 
     #[tokio::test]
@@ -461,8 +446,7 @@ mod tests {
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let provider = TokioRuntimeProvider::new();
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
         let connect = https_builder.build(google, Arc::from("dns.google"), Arc::from("/dns-query"));
 
         let mut https = connect.await.expect("https connect failed");
@@ -530,8 +514,7 @@ mod tests {
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let provider = TokioRuntimeProvider::new();
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
         let connect = https_builder.build(
             google,
             Arc::from(google.ip().to_string()),
@@ -602,8 +585,7 @@ mod tests {
 
         let client_config = client_config_h2();
         let provider = TokioRuntimeProvider::new();
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(client_config), provider);
+        let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
         let connect = https_builder.build(
             cloudflare,
             Arc::from("cloudflare-dns.com"),

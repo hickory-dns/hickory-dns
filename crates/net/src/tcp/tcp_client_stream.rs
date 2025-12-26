@@ -5,25 +5,25 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::fmt::{self, Display};
 use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll, ready};
 use core::time::Duration;
+use std::future::Future;
 
-use futures_util::{StreamExt, future::BoxFuture, stream::Stream};
+use futures_util::{StreamExt, stream::Stream};
 use tracing::warn;
 
-use crate::BufDnsStreamHandle;
 use crate::error::NetError;
 use crate::proto::op::SerialMessage;
 #[cfg(feature = "tokio")]
 use crate::runtime::TokioTime;
 #[cfg(feature = "tokio")]
 use crate::runtime::iocompat::AsyncIoTokioAsStd;
-use crate::runtime::{DnsTcpStream, RuntimeProvider};
+use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
 use crate::tcp::TcpStream;
-use crate::xfer::DnsClientStream;
+use crate::xfer::{DnsClientStream, DnsExchange};
+use crate::{BufDnsStreamHandle, DnsMultiplexer};
 
 /// Tcp client stream
 ///
@@ -37,6 +37,23 @@ where
 }
 
 impl<S: DnsTcpStream> TcpClientStream<S> {
+    /// Create a new [`DnsExchange`] wrapped around a multiplexed [`TcpClientStream`]
+    pub async fn exchange<P: RuntimeProvider<Tcp = S>>(
+        remote_addr: SocketAddr,
+        bind_addr: Option<SocketAddr>,
+        timeout: Duration,
+        provider: P,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let mut handle = provider.create_handle();
+        let (future, sender) = Self::new(remote_addr, bind_addr, Some(timeout), provider);
+
+        // TODO: need config for Signer...
+        let multiplexer = DnsMultiplexer::with_timeout(future.await?, sender, timeout, None);
+        let (exchange, bg) = DnsExchange::from_stream(multiplexer);
+        handle.spawn_bg(bg);
+        Ok(exchange)
+    }
+
     /// Create a new TcpClientStream
     pub fn new<P: RuntimeProvider<Tcp = S>>(
         peer_addr: SocketAddr,
@@ -44,19 +61,19 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
         timeout: Option<Duration>,
         provider: P,
     ) -> (
-        BoxFuture<'static, Result<Self, NetError>>,
+        impl Future<Output = Result<Self, NetError>> + Send + 'static,
         BufDnsStreamHandle,
     ) {
         let (sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
         (
-            Box::pin(async move {
+            async move {
                 let tcp = provider.connect_tcp(peer_addr, bind_addr, timeout).await?;
                 Ok(Self::from_stream(TcpStream::from_stream_with_receiver(
                     tcp,
                     peer_addr,
                     outbound_messages,
                 )))
-            }),
+            },
             sender,
         )
     }
@@ -64,12 +81,6 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
         Self { tcp_stream }
-    }
-}
-
-impl<S: DnsTcpStream> Display for TcpClientStream<S> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "TCP({})", self.tcp_stream.peer_addr())
     }
 }
 

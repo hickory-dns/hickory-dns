@@ -32,7 +32,7 @@ impl DnssecClient {
     pub fn builder<F, S>(connect_future: F) -> AsyncSecureClientBuilder<F>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static,
+        S: DnsRequestSender,
     {
         AsyncSecureClientBuilder {
             connect_future,
@@ -51,7 +51,11 @@ impl DnssecClient {
         Self::builder(connect_future).build().await
     }
 
-    fn from_client(client: Client<TokioRuntimeProvider>, trust_anchor: Arc<TrustAnchors>) -> Self {
+    /// Constructs a DNSSEC client with an existing client and the given trust anchors
+    pub fn from_client(
+        client: Client<TokioRuntimeProvider>,
+        trust_anchor: Arc<TrustAnchors>,
+    ) -> Self {
         Self {
             client: DnssecDnsHandle::with_trust_anchor(client, trust_anchor),
         }
@@ -84,7 +88,7 @@ pub struct AsyncSecureClientBuilder<F> {
 impl<F, S> AsyncSecureClientBuilder<F>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
+    S: DnsRequestSender,
 {
     /// This variant allows for the trust_anchor to be replaced
     ///
@@ -102,8 +106,7 @@ where
         mut self,
     ) -> Result<(DnssecClient, DnsExchangeBackground<S, TokioTime>), NetError> {
         let trust_anchor = Arc::new(self.trust_anchor.take().unwrap_or_default());
-        let result = Client::connect(self.connect_future).await;
-
-        result.map(|(client, bg)| (DnssecClient::from_client(client, trust_anchor), bg))
+        let (client, bg) = Client::from_sender(self.connect_future.await?);
+        Ok((DnssecClient::from_client(client, trust_anchor), bg))
     }
 }

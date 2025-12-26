@@ -30,9 +30,7 @@ use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
 use crate::runtime::{RuntimeProvider, Time};
 
 mod dns_exchange;
-pub use dns_exchange::{
-    Connecting, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
-};
+pub use dns_exchange::{DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend};
 
 pub mod dns_handle;
 pub use dns_handle::{DnsHandle, DnsStreamHandle};
@@ -150,7 +148,9 @@ fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
 }
 
 /// A non-multiplexed stream of Serialized DNS messages
-pub trait DnsClientStream: Stream<Item = Result<SerialMessage, NetError>> + Display + Send {
+pub trait DnsClientStream:
+    Stream<Item = Result<SerialMessage, NetError>> + Unpin + Send + 'static
+{
     /// Time implementation for this impl
     type Time: Time;
 

@@ -38,13 +38,12 @@ async fn test_zone_transfer() {
 
     let (_process, port) = NamedProcess::start();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let (stream, sender) =
+    let (future, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
+    let stream = future.await.expect("failed to connect");
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
 
-    let (mut client, driver) = Client::<TokioRuntimeProvider>::connect(multiplexer)
-        .await
-        .expect("failed to connect");
+    let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
     tokio::spawn(driver);
 
     let name = Name::from_str("example.net.").unwrap();

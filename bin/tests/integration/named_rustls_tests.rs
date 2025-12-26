@@ -21,7 +21,7 @@ use test_support::subscribe;
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
 use hickory_net::runtime::TokioRuntimeProvider;
-use hickory_net::rustls::{default_provider, tls_client_connect};
+use hickory_net::tls::{default_provider, tls_client_connect};
 use hickory_net::xfer::Protocol;
 
 #[tokio::test]
@@ -54,32 +54,29 @@ async fn test_example_tls_toml_startup() {
         .with_no_client_auth();
 
     let config = Arc::new(config);
-
     let provider = TokioRuntimeProvider::new();
-    let (stream, sender) = tls_client_connect(
+    let (future, sender) = tls_client_connect(
         addr,
         ServerName::try_from("ns.example.com").unwrap(),
         config.clone(),
         provider.clone(),
     );
-    let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
-
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let stream = future.await.expect("client failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv4 should succeed
     query_a(&mut client).await;
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tls_port.expect("no tls_port")));
-    let (stream, sender) = tls_client_connect(
+    let (future, sender) = tls_client_connect(
         addr,
         ServerName::try_from("ns.example.com").unwrap(),
         config,
         provider,
     );
-    let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
-
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let stream = future.await.expect("client failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     // ipv6 should succeed

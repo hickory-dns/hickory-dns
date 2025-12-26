@@ -224,12 +224,10 @@ mod test {
         let tcp_peer = tcp.addr()?;
         let _handle = tokio::task::spawn(tcp.run(base_handler));
 
-        let (stream, sender) =
+        let (future, sender) =
             TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
 
-        let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
-        let (mut client, bg) = client.await?;
-
+        let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender, None);
         let _handle = tokio::task::spawn(bg);
 
         let query = client.query(
@@ -263,10 +261,9 @@ mod test {
                 let tcp = super::TcpServer::new(socket).await?;
                 let tcp_peer = tcp.addr()?;
                 let _handle = tokio::task::spawn(tcp.run(base_handler));
-                let (stream, sender) =
+                let (future, sender) =
                     TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
-                let (client, bg) =
-                    Client::<TokioRuntimeProvider>::new(stream, sender, None).await?;
+                let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender, None);
                 let _handle = tokio::task::spawn(bg);
                 client
             }
@@ -275,7 +272,7 @@ mod test {
                 let udp_peer = udp.addr()?;
                 let _handle = tokio::task::spawn(udp.run(base_handler));
                 let conn = UdpClientStream::builder(udp_peer, TokioRuntimeProvider::new()).build();
-                let (client, bg) = Client::connect(conn).await?;
+                let (client, bg) = Client::from_sender(conn);
                 let _handle = tokio::task::spawn(bg);
                 client
             }

@@ -28,7 +28,7 @@ use crate::{
         rr::{Name, RecordType},
     },
     quic::QuicClientStreamBuilder,
-    rustls::default_provider,
+    tls::default_provider,
     xfer::DnsRequestSender,
 };
 

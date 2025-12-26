@@ -49,9 +49,9 @@ async fn test_query_nonet() {
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (mut client, bg) = Client::new(stream, sender, None);
     tokio::spawn(bg);
 
     test_query(&mut client).await;
@@ -62,8 +62,7 @@ async fn test_query_nonet() {
 async fn test_query_udp_ipv4() {
     subscribe();
     let stream = UdpClientStream::builder(GOOGLE_V4, TokioRuntimeProvider::new()).build();
-    let client = Client::connect(stream);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -77,8 +76,7 @@ async fn test_query_udp_ipv4() {
 async fn test_query_udp_ipv6() {
     subscribe();
     let stream = UdpClientStream::builder(GOOGLE_V6, TokioRuntimeProvider::new()).build();
-    let client = Client::connect(stream);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (mut client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -90,9 +88,12 @@ async fn test_query_udp_ipv6() {
 #[tokio::test]
 async fn test_query_tcp_ipv4() {
     subscribe();
-    let (stream, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
+    let (mut client, bg) = Client::new(
+        future.await.expect("client failed to connect"),
+        sender,
+        None,
+    );
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -104,9 +105,12 @@ async fn test_query_tcp_ipv4() {
 #[ignore]
 async fn test_query_tcp_ipv6() {
     subscribe();
-    let (stream, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
-    let client = Client::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
+    let (mut client, bg) = Client::new(
+        future.await.expect("client failed to connect"),
+        sender,
+        None,
+    );
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -118,8 +122,8 @@ async fn test_query_tcp_ipv6() {
 #[cfg(feature = "__https")]
 async fn test_query_https() {
     use hickory_integration::CLOUDFLARE_V4_TLS;
-    use hickory_net::h2::HttpsClientStreamBuilder;
-    use hickory_net::rustls::default_provider;
+    use hickory_net::h2::HttpsClientStream;
+    use hickory_net::tls::default_provider;
     use rustls::{ClientConfig, RootCertStore};
 
     const ALPN_H2: &[u8] = b"h2";
@@ -137,16 +141,15 @@ async fn test_query_https() {
         .with_no_client_auth();
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(
-        Arc::new(client_config),
-        TokioRuntimeProvider::new(),
-    );
-    let client = Client::connect(https_builder.build(
-        CLOUDFLARE_V4_TLS,
-        Arc::from("cloudflare-dns.com"),
-        Arc::from("/dns-query"),
-    ));
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let sender = HttpsClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new())
+        .build(
+            CLOUDFLARE_V4_TLS,
+            Arc::from("cloudflare-dns.com"),
+            Arc::from("/dns-query"),
+        )
+        .await
+        .expect("client failed to connect");
+    let (mut client, bg) = Client::from_sender(sender);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -232,9 +235,9 @@ async fn test_notify() {
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::<TokioRuntimeProvider>::new(stream, sender, None);
-    let (mut client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
     tokio::spawn(bg);
 
     let name = Name::from_str("ping.example.com.").unwrap();
@@ -295,12 +298,11 @@ async fn create_sig0_ready_client() -> (
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
     let signer = Arc::new(signer);
-    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = Client::new(stream, sender, Some(signer))
-        .await
-        .expect("failed to get new Client");
+    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
+    let stream = future.await.expect("failed to connect");
+    let (client, bg) = Client::new(stream, sender, Some(signer));
 
-    (client, origin.into())
+    ((client, bg), origin.into())
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -998,9 +1000,10 @@ async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
 #[tokio::test]
 async fn test_timeout_query_nonet() {
     subscribe();
-    let (stream, sender) = NeverReturnsClientStream::new();
-    let client = Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
-    let (client, bg) = client.await.expect("client failed to connect");
+    let (future, sender) = NeverReturnsClientStream::new();
+    let stream = future.await.expect("client failed to connect");
+    let (client, bg) =
+        Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     tokio::spawn(bg);
 
     test_timeout_query(client).await;
@@ -1013,8 +1016,7 @@ async fn test_timeout_query_udp() {
         .with_timeout(Some(std::time::Duration::from_millis(1)))
         .build();
 
-    let client = Client::connect(stream);
-    let (client, bg) = client.await.expect("client failed to connect");
+    let (client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
 
     test_timeout_query(client).await;
@@ -1024,18 +1026,12 @@ async fn test_timeout_query_udp() {
 async fn test_timeout_query_tcp() {
     subscribe();
 
-    let (stream, sender) = TcpClientStream::new(
+    let (future, _) = TcpClientStream::new(
         TEST3_V4,
         None,
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::new(),
     );
-    let client = Client::<TokioRuntimeProvider>::with_timeout(
-        Box::new(stream),
-        sender,
-        std::time::Duration::from_millis(1),
-        None,
-    );
 
-    assert!(client.await.is_err());
+    assert!(future.await.is_err());
 }

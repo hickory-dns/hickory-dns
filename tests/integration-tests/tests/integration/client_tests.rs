@@ -1,12 +1,12 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
+#[cfg(feature = "__dnssec")]
+use std::sync::Arc;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::Mutex as StdMutex;
 
 use futures::TryStreamExt;
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use futures::future::BoxFuture;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
@@ -22,9 +22,9 @@ use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
 use hickory_net::udp::UdpClientStream;
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_net::xfer::DnsMultiplexerConnect;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::dnssec::TrustAnchors;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::rdata::{DNSSECRData, KEY};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -55,21 +55,19 @@ impl TestClientConnection {
         }
     }
 
-    fn to_multiplexer(
+    async fn to_multiplexer(
         &self,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> DnsMultiplexerConnect<
-        BoxFuture<'static, Result<TestClientStream, NetError>>,
-        TestClientStream,
-    > {
-        let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
-        DnsMultiplexer::new(Box::pin(client_stream), handle, signer)
+    ) -> DnsMultiplexer<TestClientStream> {
+        let (future, handle) = TestClientStream::new(self.catalog.clone());
+        let client_stream = future.await.expect("failed to connect");
+        DnsMultiplexer::new(client_stream, handle, signer)
     }
 }
 
 async fn udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = Client::connect(conn).await.expect("failed to connect");
+    let (client, driver) = Client::from_sender(conn);
     tokio::spawn(driver);
     client
 }
@@ -77,30 +75,28 @@ async fn udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
 #[cfg(feature = "__dnssec")]
 async fn udp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = DnssecClient::connect(conn)
-        .await
-        .expect("failed to connect");
+    let (client, driver) = Client::from_sender(conn);
+    let client = DnssecClient::from_client(client, Arc::new(TrustAnchors::default()));
     tokio::spawn(driver);
     client
 }
 
 async fn tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let stream = future.await.expect("failed to connect");
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    let (client, driver) = Client::connect(multiplexer)
-        .await
-        .expect("failed to connect");
+    let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client
 }
 
 #[cfg(feature = "__dnssec")]
 async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let stream = future.await.expect("failed to connect");
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    let (client, driver) = DnssecClient::connect(multiplexer)
-        .await
-        .expect("failed to connect");
+    let (client, driver) = Client::from_sender(multiplexer);
+    let client = DnssecClient::from_client(client, Arc::new(TrustAnchors::default()));
     tokio::spawn(driver);
     client
 }
@@ -277,16 +273,20 @@ async fn test_timeout_query_udp() {
 #[tokio::test]
 async fn test_timeout_query_tcp() {
     subscribe();
-    let (stream, sender) = TcpClientStream::new(
+    let (future, sender) = TcpClientStream::new(
         TEST3_V4,
         None,
         Some(std::time::Duration::from_millis(1)),
         TokioRuntimeProvider::default(),
     );
 
-    let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    match Client::<TokioRuntimeProvider>::connect(multiplexer).await {
+    match future.await {
         Err(NetError::Timeout) => {}
+        Ok(stream) => {
+            let multiplexer = DnsMultiplexer::new(stream, sender, None);
+            let _ = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
+            panic!("expected timeout")
+        }
         _ => panic!("expected timeout"),
     }
 }
@@ -444,10 +444,10 @@ async fn create_sig0_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
     handler.upsert_mut(auth_key, 0);
 
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
-    let multiplexer = TestClientConnection::new(catalog).to_multiplexer(Some(Arc::new(signer)));
-    let (client, driver) = Client::connect(multiplexer)
-        .await
-        .expect("failed to connect");
+    let multiplexer = TestClientConnection::new(catalog)
+        .to_multiplexer(Some(Arc::new(signer)))
+        .await;
+    let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
 
     (client, origin.into())

@@ -14,10 +14,7 @@ use core::task::{Context, Poll};
 use std::sync::Arc;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use futures_util::{
-    future::{BoxFuture, FutureExt},
-    stream::Stream,
-};
+use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
@@ -30,9 +27,10 @@ use crate::http::{RequestContext, SetHeaders, Version};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
-use crate::rustls::client_config;
+use crate::runtime::{RuntimeProvider, Spawn};
+use crate::tls::client_config;
 use crate::udp::UdpSocket;
-use crate::xfer::{DnsRequestSender, DnsResponseStream};
+use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream};
 
 use super::ALPN_H3;
 
@@ -336,8 +334,25 @@ impl H3ClientStreamBuilder {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> H3ClientConnect {
-        H3ClientConnect(Box::pin(self.connect(name_server, server_name, path)) as _)
+    ) -> impl Future<Output = Result<H3ClientStream, NetError>> + Send + 'static {
+        self.connect(name_server, server_name, path)
+    }
+
+    /// Creates a new [`DnsExchange`] wrapping the [`H3ClientStream`] from this builder
+    pub async fn exchange<P: RuntimeProvider>(
+        self,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        path: Arc<str>,
+        provider: P,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let stream = self
+            .connect_with_future(socket, name_server, server_name, path)
+            .await?;
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        provider.create_handle().spawn_bg(bg);
+        Ok(exchange)
     }
 
     /// Creates a new H3Stream with existing connection
@@ -347,10 +362,8 @@ impl H3ClientStreamBuilder {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> H3ClientConnect {
-        H3ClientConnect(
-            Box::pin(self.connect_with_future(socket, name_server, server_name, path)) as _,
-        )
+    ) -> impl Future<Output = Result<H3ClientStream, NetError>> + Send + 'static {
+        self.connect_with_future(socket, name_server, server_name, path)
     }
 
     async fn connect_with_future(
@@ -451,28 +464,6 @@ impl H3ClientStreamBuilder {
             shutdown_tx,
             is_shutdown: false,
         })
-    }
-}
-
-/// A future that resolves to an H3ClientStream
-pub struct H3ClientConnect(BoxFuture<'static, Result<H3ClientStream, NetError>>);
-
-impl Future for H3ClientConnect {
-    type Output = Result<H3ClientStream, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
-    }
-}
-
-/// A future that resolves to
-pub struct H3ClientResponse(BoxFuture<'static, Result<DnsResponse, ProtoError>>);
-
-impl Future for H3ClientResponse {
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
 }
 

@@ -15,7 +15,7 @@ use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
 
-use crate::{error::NetError, rustls::default_provider, udp::UdpSocket};
+use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
 
 use super::{
     quic_config,

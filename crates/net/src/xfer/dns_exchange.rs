@@ -11,68 +11,24 @@ use core::future::Future;
 use core::marker::PhantomData;
 use core::mem;
 use core::pin::Pin;
-use core::task::{Context, Poll};
+use core::task::{Context, Poll, ready};
 
 use futures_channel::mpsc;
 use futures_util::{
-    future::{BoxFuture, FutureExt},
+    future::FutureExt,
     stream::{Peekable, Stream, StreamExt},
 };
 use tracing::debug;
 
 use crate::error::NetError;
-#[cfg(all(feature = "__https", feature = "tokio"))]
-use crate::h2::{HttpsClientConnect, HttpsClientStream};
-#[cfg(all(feature = "__h3", feature = "tokio"))]
-use crate::h3::{H3ClientConnect, H3ClientStream};
 use crate::proto::op::{DnsRequest, DnsResponse};
-#[cfg(all(feature = "__quic", feature = "tokio"))]
-use crate::quic::{QuicClientConnect, QuicClientStream};
 use crate::runtime::RuntimeProvider;
 use crate::runtime::Time;
-#[cfg(feature = "__tls")]
-use crate::rustls::TlsClientStream;
-use crate::tcp::TcpClientStream;
-use crate::udp::{UdpClientConnect, UdpClientStream};
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
-    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsMultiplexer, DnsMultiplexerConnect,
-    DnsRequestSender, DnsResponseReceiver, OneshotDnsRequest,
+    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequestSender, DnsResponseReceiver,
+    OneshotDnsRequest,
 };
-
-/// The variants of all supported connections for a `DnsExchange`.
-#[allow(missing_docs, clippy::large_enum_variant, clippy::type_complexity)]
-#[non_exhaustive]
-pub enum Connecting<P: RuntimeProvider> {
-    Udp(DnsExchangeConnect<UdpClientConnect<P>, UdpClientStream<P>, P>),
-    Tcp(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TcpClientStream<P::Tcp>, NetError>>,
-                TcpClientStream<<P as RuntimeProvider>::Tcp>,
-            >,
-            DnsMultiplexer<TcpClientStream<<P as RuntimeProvider>::Tcp>>,
-            P,
-        >,
-    ),
-    #[cfg(feature = "__tls")]
-    Tls(
-        DnsExchangeConnect<
-            DnsMultiplexerConnect<
-                BoxFuture<'static, Result<TlsClientStream<<P as RuntimeProvider>::Tcp>, NetError>>,
-                TlsClientStream<<P as RuntimeProvider>::Tcp>,
-            >,
-            DnsMultiplexer<TlsClientStream<<P as RuntimeProvider>::Tcp>>,
-            P,
-        >,
-    ),
-    #[cfg(all(feature = "__https", feature = "tokio"))]
-    Https(DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, P>),
-    #[cfg(all(feature = "__quic", feature = "tokio"))]
-    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, P>),
-    #[cfg(all(feature = "__h3", feature = "tokio"))]
-    H3(DnsExchangeConnect<H3ClientConnect, H3ClientStream, P>),
-}
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
@@ -90,10 +46,9 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     /// # Arguments
     ///
     /// * `stream` - the established IO stream for communication
-    pub fn from_stream<S>(stream: S) -> (Self, DnsExchangeBackground<S, P::Timer>)
-    where
-        S: DnsRequestSender + 'static + Send + Unpin,
-    {
+    pub fn from_stream<S: DnsRequestSender>(
+        stream: S,
+    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
         let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let message_sender = BufDnsRequestStreamHandle {
             sender,
@@ -104,14 +59,11 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     }
 
     /// Wraps a stream where a sender and receiver have already been established
-    pub fn from_stream_with_receiver<S>(
+    pub fn from_stream_with_receiver<S: DnsRequestSender>(
         stream: S,
         receiver: mpsc::Receiver<OneshotDnsRequest>,
         sender: BufDnsRequestStreamHandle<P>,
-    ) -> (Self, DnsExchangeBackground<S, P::Timer>)
-    where
-        S: DnsRequestSender + 'static + Send + Unpin,
-    {
+    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
         let background = DnsExchangeBackground {
             io_stream: stream,
             outbound_messages: receiver.peekable(),
@@ -127,7 +79,7 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     pub fn connect<F, S>(connect_future: F) -> DnsExchangeConnect<F, S, P>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static + Send + Unpin,
+        S: DnsRequestSender,
     {
         let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let message_sender = BufDnsRequestStreamHandle {
@@ -142,7 +94,7 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     pub fn error<F, S>(error: impl Into<NetError>) -> DnsExchangeConnect<F, S, P>
     where
         F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static + Send + Unpin,
+        S: DnsRequestSender,
     {
         DnsExchangeConnect(DnsExchangeConnectInner::Error(error.into()))
     }
@@ -188,29 +140,19 @@ impl<P: Unpin> Stream for DnsExchangeSend<P> {
 ///
 /// It must be spawned before any DNS messages are sent.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeBackground<S, TE>
-where
-    S: DnsRequestSender + 'static + Send + Unpin,
-{
+pub struct DnsExchangeBackground<S, TE> {
     io_stream: S,
     outbound_messages: Peekable<mpsc::Receiver<OneshotDnsRequest>>,
     marker: PhantomData<TE>,
 }
 
-impl<S, TE> DnsExchangeBackground<S, TE>
-where
-    S: DnsRequestSender + 'static + Send + Unpin,
-{
+impl<S, TE> DnsExchangeBackground<S, TE> {
     fn pollable_split(&mut self) -> (&mut S, &mut Peekable<mpsc::Receiver<OneshotDnsRequest>>) {
         (&mut self.io_stream, &mut self.outbound_messages)
     }
 }
 
-impl<S, TE> Future for DnsExchangeBackground<S, TE>
-where
-    S: DnsRequestSender + 'static + Send + Unpin,
-    TE: Time + Unpin,
-{
+impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
     type Output = ();
 
     #[allow(clippy::unused_unit)]
@@ -293,13 +235,13 @@ where
 pub struct DnsExchangeConnect<F, S, P>(DnsExchangeConnectInner<F, S, P>)
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
+    S: DnsRequestSender,
     P: RuntimeProvider;
 
 impl<F, S, P> DnsExchangeConnect<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     fn connect(
@@ -318,7 +260,7 @@ where
 impl<F, S, P> Future for DnsExchangeConnect<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
@@ -332,17 +274,13 @@ where
 enum DnsExchangeConnectInner<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send,
-    S: DnsRequestSender + 'static + Send,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     Connecting {
         connect_future: F,
         outbound_messages: Option<mpsc::Receiver<OneshotDnsRequest>>,
         sender: Option<BufDnsRequestStreamHandle<P>>,
-    },
-    Connected {
-        exchange: DnsExchange<P>,
-        background: Option<DnsExchangeBackground<S, P::Timer>>,
     },
     FailAll {
         error: NetError,
@@ -354,7 +292,7 @@ where
 impl<F, S, P> Future for DnsExchangeConnectInner<F, S, P>
 where
     F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender,
     P: RuntimeProvider,
 {
     type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
@@ -368,9 +306,8 @@ where
                     outbound_messages,
                     sender,
                 } => {
-                    let connect_future = Pin::new(connect_future);
-                    match connect_future.poll(cx) {
-                        Poll::Ready(Ok(stream)) => {
+                    match ready!(Pin::new(connect_future).poll(cx)) {
+                        Ok(stream) => {
                             //debug!("connection established: {}", stream);
 
                             let (exchange, background) = DnsExchange::from_stream_with_receiver(
@@ -381,13 +318,9 @@ where
                                 sender.take().expect("cannot poll after complete"),
                             );
 
-                            next = Self::Connected {
-                                exchange,
-                                background: Some(background),
-                            };
+                            return Poll::Ready(Ok((exchange, background)));
                         }
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(error)) => {
+                        Err(error) => {
                             debug!(%error, "stream errored while connecting");
                             next = Self::FailAll {
                                 error,
@@ -398,23 +331,12 @@ where
                         }
                     };
                 }
-                Self::Connected {
-                    exchange,
-                    background,
-                } => {
-                    let exchange = exchange.clone();
-                    let background = background.take().expect("cannot poll after complete");
-
-                    return Poll::Ready(Ok((exchange, background)));
-                }
                 Self::FailAll {
                     error,
                     outbound_messages,
                 } => {
-                    while let Some(outbound_message) = match outbound_messages.poll_next_unpin(cx) {
-                        Poll::Ready(opt) => opt,
-                        Poll::Pending => return Poll::Pending,
-                    } {
+                    while let Some(outbound_message) = ready!(outbound_messages.poll_next_unpin(cx))
+                    {
                         // ignoring errors... best effort send...
                         let _ = outbound_message
                             .into_parts()
