@@ -204,121 +204,123 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // use the same current time value for all rrsig + rrset pairs.
         let current_time = <H::Runtime as RuntimeProvider>::Timer::current_time() as u32;
+        let response_code = message.response_code();
+        let soa_name_owned = message
+            .authorities()
+            .iter()
+            .find(|r| r.record_type() == RecordType::SOA)
+            .map(|r| r.name().clone());
+        let soa_ref = soa_name_owned.as_ref();
 
         // group the record sets by name and type
-        //  each rrset type needs to validated independently
+        let authorities = message.take_authorities();
+        let (mut nsecs, rest) = authorities.into_iter().partition::<Vec<Record>, _>(|rr| {
+            rr.record_type() == RecordType::NSEC || rr.record_type() == RecordType::NSEC3
+        });
+
+        let (nsec_rrsigs, authorities) = rest.into_iter().partition::<Vec<Record>, _>(|rr| {
+            rr.record_type() == RecordType::RRSIG
+                && nsecs.iter().any(|nsecs| nsecs.name() == rr.name())
+        });
+
+        nsecs.extend(nsec_rrsigs);
+
+        let mut nsec_rrs = RecordSet::from_records(nsecs);
         let mut answer_rrs = RecordSet::from_records(message.take_answers());
-        let mut authority_rrs = RecordSet::from_records(message.take_authorities());
+        let mut authority_rrs = RecordSet::from_records(authorities);
         let mut additional_rrs = RecordSet::from_records(message.take_additionals());
 
-        answer_rrs = self
-            .verify_rrsets(&query, answer_rrs, options, current_time)
-            .await;
-        authority_rrs = self
-            .verify_rrsets(&query, authority_rrs, options, current_time)
-            .await;
-        additional_rrs = self
-            .verify_rrsets(&query, additional_rrs, options, current_time)
-            .await;
+        let mut context = RrsetVerificationContext {
+            query: &query,
+            rrset: None,
+            options,
+            current_time,
+            nsecs: None,
+            soa_name: soa_ref,
+            response_code,
+        };
+
+        // Verify NSEC/NSEC3 records first so we can validate any wildcard expanded answers in the answers section.
+        nsec_rrs = self.verify_rrsets(nsec_rrs, &context).await;
+        context.nsecs = Some(&nsec_rrs);
+
+        answer_rrs = self.verify_rrsets(answer_rrs, &context).await;
+        authority_rrs = self.verify_rrsets(authority_rrs, &context).await;
+        additional_rrs = self.verify_rrsets(additional_rrs, &context).await;
+
+        // Extract NSEC/NSEC3 records from nsec_rrs before converting to records
+        let mut nsec3s = Vec::new();
+        let mut nsecs = Vec::new();
+        for rrset in &nsec_rrs {
+            if rrset.proof().proof.is_secure() {
+                for record in rrset.records(false) {
+                    match record.data() {
+                        RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => {
+                            nsec3s.push((record.name(), nsec3));
+                        }
+                        RData::DNSSEC(DNSSECRData::NSEC(nsec)) => {
+                            nsecs.push((record.name(), nsec));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
 
         // Temporary code to set per-record proofs
-        let answers = rrset_to_record_proof(answer_rrs);
-        let authorities = rrset_to_record_proof(authority_rrs);
-        let additionals = rrset_to_record_proof(additional_rrs);
-
-        // If we have any wildcard records, they must be validated with covering
-        // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|rr| match rr.data() {
-            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
-                rrsig.input().num_labels < rr.name().num_labels()
-            }
-            _ => false,
-        });
+        let answers = rrset_to_record_proof(answer_rrs.clone());
+        let mut authority_rrs_clone = authority_rrs.clone();
+        authority_rrs_clone.extend(nsec_rrs.clone());
+        let authorities = rrset_to_record_proof(authority_rrs_clone);
+        let additionals = rrset_to_record_proof(additional_rrs.clone());
 
         message.insert_answers(answers);
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
 
-        if !message.authorities().is_empty()
-            && message
-                .authorities()
-                .iter()
-                .all(|x| x.proof() == Proof::Insecure)
-        {
-            return Ok(message);
-        }
-
-        let nsec3s = message
-            .authorities()
-            .iter()
-            .filter_map(|rr| {
-                if message
-                    .authorities()
-                    .iter()
-                    .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
-                {
-                    match rr.data() {
-                        RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => Some((rr.name(), nsec3)),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let nsecs = message
-            .authorities()
-            .iter()
-            .filter_map(|rr| {
-                if message
-                    .authorities()
-                    .iter()
-                    .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
-                {
-                    match rr.data() {
-                        RData::DNSSEC(DNSSECRData::NSEC(nsec)) => Some((rr.name(), nsec)),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
         // Both NSEC and NSEC3 records cannot coexist during
         // transition periods, as per RFC 5515 10.4.3 and
         // 10.5.2
-        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty(), must_validate_nsec) {
-            (true, false, _) => verify_nsec3(
+        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
+            (true, false) => verify_nsec3(
                 &query,
-                find_soa_name(&message),
+                soa_ref,
                 message.response_code(),
-                message.answers(),
+                &answer_rrs,
                 &nsec3s,
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
             ),
-            (false, true, _) => verify_nsec(
+            (false, true) => verify_nsec1(
                 &query,
-                find_soa_name(&message),
+                soa_ref,
                 message.response_code(),
-                message.answers(),
-                nsecs.as_slice(),
+                &answer_rrs,
+                &nsecs,
             ),
-            (true, true, _) => {
+            (true, true) => {
                 warn!(
                     "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{message:?}"
                 );
                 Proof::Bogus
             }
-            (false, false, true) => {
-                warn!("response contains wildcard RRSIGs, but no NSEC/NSEC3s are present.");
-                Proof::Bogus
-            }
-            (false, false, false) => {
-                // Return Ok if there were no NSEC/NSEC3 records and no wildcard RRSIGs.
+            (false, false) => {
+                // Return Ok if there were no NSEC/NSEC3 records and all records are secure
                 if !message.answers().is_empty() {
+                    if answer_rrs
+                        .iter()
+                        .any(|rrset| !rrset.proof().proof.is_secure())
+                    {
+                        debug!(
+                            "returning Nsec error: answer rrsets are bogus (no NSEC/NSEC3 records)"
+                        );
+                        return Err(NetError::from(DnsError::Nsec {
+                            query: Box::new(query.clone()),
+                            response: Box::new(message),
+                            proof: Proof::Bogus,
+                        }));
+                    }
+
                     return Ok(message);
                 }
 
@@ -363,6 +365,19 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             }));
         }
 
+        // Check if any answer rrsets are bogus (e.g., due to failed wildcard expansion validation)
+        if answer_rrs
+            .iter()
+            .any(|rrset| !rrset.proof().proof.is_secure())
+        {
+            debug!("returning Nsec error: answer rrsets are bogus");
+            return Err(NetError::from(DnsError::Nsec {
+                query: Box::new(query.clone()),
+                response: Box::new(message),
+                proof: Proof::Bogus,
+            }));
+        }
+
         Ok(message)
     }
 
@@ -370,10 +385,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// attached.
     async fn verify_rrsets(
         &self,
-        query: &Query,
         mut rrsets: Vec<RecordSet>,
-        options: DnsRequestOptions,
-        current_time: u32,
+        context: &RrsetVerificationContext<'_>,
     ) -> Vec<RecordSet> {
         for rrset in &mut rrsets {
             let name = rrset.name();
@@ -403,15 +416,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 "verifying rrset",
             );
 
-            let context = RrsetVerificationContext {
-                query,
-                rrset,
-                options,
-                current_time,
+            // Create inner context for individual rrset validation
+            let rrset_context = RrsetVerificationContext {
+                query: context.query,
+                rrset: Some(rrset),
+                options: context.options,
+                current_time: context.current_time,
+                nsecs: context.nsecs,
+                soa_name: context.soa_name,
+                response_code: context.response_code,
             };
-            let key = context.key();
-
-            let proof = match self.validation_cache.get(&key, &context) {
+            let key = rrset_context.key();
+            let proof = match self.validation_cache.get(&key, &rrset_context) {
                 Some(cached) => cached,
                 None => {
                     // Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
@@ -420,22 +436,41 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     //  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
                     //  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
                     //  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-                    let proof = match context.rrset.record_type() {
-                        RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
-                        _ => self.verify_default_rrset(&context).await,
-                    };
+                    match rrset_context.rrset {
+                        Some(rrset_ref) => {
+                            let proof = match rrset_ref.record_type() {
+                                RecordType::DNSKEY => {
+                                    self.verify_dnskey_rrset(&rrset_context).await
+                                }
+                                _ => self.verify_default_rrset(&rrset_context).await,
+                            };
 
-                    match &proof {
-                        // These could be transient errors that should be retried.
-                        Err(e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
-                            debug!("not caching DNSSEC validation with ProofErrorKind::Net")
+                            match &proof {
+                                // These could be transient errors that should be retried.
+                                Err(e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
+                                    debug!("not caching DNSSEC validation with ProofErrorKind::Net")
+                                }
+                                _ => {
+                                    self.validation_cache.insert(
+                                        proof.clone(),
+                                        key,
+                                        &rrset_context,
+                                    );
+                                }
+                            }
+
+                            proof
                         }
-                        _ => {
-                            self.validation_cache.insert(proof.clone(), key, &context);
+                        None => {
+                            debug!(
+                                "skipping validation: rrset is required but not present in context"
+                            );
+                            Err(ProofError::new(
+                                Proof::Bogus,
+                                ProofErrorKind::Msg("rrset is required for validation".to_string()),
+                            ))
                         }
                     }
-
-                    proof
                 }
             };
 
@@ -462,6 +497,145 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             };
 
             rrset.set_proof(proof);
+        }
+
+        // Check if we have any wildcard-expanded positive answers that need NSEC/NSEC3 validation
+        // RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
+        // Extract records from rrsets to check for wildcard expansion
+        // Only include records from rrsets that have Secure proof
+        let section_records: Vec<Record> = rrsets
+            .iter()
+            .filter_map(|rrset| {
+                if rrset.proof().proof.is_secure() {
+                    Some(rrset.records(true).cloned())
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect();
+        let has_wildcard_expansion = section_records.iter().any(|rr| match rr.data() {
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                rrsig.input().num_labels < rr.name().num_labels()
+            }
+            _ => false,
+        });
+
+        if has_wildcard_expansion {
+            // Extract validated NSEC/NSEC3 records from the nsecs parameter
+            if let Some(nsec_rrsets) = context.nsecs {
+                // Convert RecordSets to Records to extract NSEC/NSEC3 data
+                let nsec_records: Vec<Record> = nsec_rrsets
+                    .iter()
+                    .filter_map(|rrset| {
+                        // Only use NSEC/NSEC3 records that have been validated as Secure
+                        if rrset.proof().proof.is_secure() {
+                            Some(rrset.records(false).cloned())
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten()
+                    .collect();
+
+                let nsec3s: Vec<_> = nsec_records
+                    .iter()
+                    .filter_map(|rr| {
+                        if rr.record_type() == RecordType::NSEC3 {
+                            match rr.data() {
+                                RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => {
+                                    Some((rr.name(), nsec3))
+                                }
+                                _ => None,
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                let nsecs_vec: Vec<_> = nsec_records
+                    .iter()
+                    .filter_map(|rr| {
+                        if rr.record_type() == RecordType::NSEC {
+                            match rr.data() {
+                                RData::DNSSEC(DNSSECRData::NSEC(nsec)) => Some((rr.name(), nsec)),
+                                _ => None,
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                // Validate wildcard expansion with NSEC/NSEC3 records
+                // Filter rrsets to only include Secure ones
+                let secure_answer_rrsets: Vec<RecordSet> = rrsets
+                    .iter()
+                    .filter_map(|rrset| {
+                        if rrset.proof().proof.is_secure() {
+                            Some(rrset.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                let nsec_proof = match (!nsec3s.is_empty(), !nsecs_vec.is_empty()) {
+                    (true, false) => verify_nsec3(
+                        context.query,
+                        context.soa_name,
+                        context.response_code,
+                        &secure_answer_rrsets,
+                        &nsec3s,
+                        self.nsec3_soft_iteration_limit,
+                        self.nsec3_hard_iteration_limit,
+                    ),
+                    (false, true) => verify_nsec1(
+                        context.query,
+                        context.soa_name,
+                        context.response_code,
+                        &secure_answer_rrsets,
+                        &nsecs_vec,
+                    ),
+                    (true, true) => {
+                        warn!(
+                            "response contains both NSEC and NSEC3 records\nQuery:\n{:?}",
+                            context.query
+                        );
+                        Proof::Bogus
+                    }
+                    (false, false) => {
+                        warn!(
+                            "response contains wildcard RRSIGs, but no validated NSEC/NSEC3s are present."
+                        );
+                        Proof::Bogus
+                    }
+                };
+
+                if !nsec_proof.is_secure() {
+                    // Mark all rrsets as bogus if NSEC validation failed
+                    for rrset in &mut rrsets {
+                        rrset.set_proof(RrsetProof {
+                            proof: nsec_proof,
+                            adjusted_ttl: None,
+                            rrsig: None,
+                        });
+                    }
+                }
+            } else {
+                warn!(
+                    "response contains wildcard RRSIGs, but no NSEC/NSEC3 records were provided."
+                );
+                // Mark all rrsets as bogus
+                for rrset in &mut rrsets {
+                    rrset.set_proof(RrsetProof {
+                        proof: Proof::Bogus,
+                        adjusted_ttl: None,
+                        rrsig: None,
+                    });
+                }
+            }
         }
 
         rrsets
@@ -494,6 +668,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             options,
             ..
         } = context;
+
+        let Some(rrset) = rrset else {
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::Msg("rrset is required for DNSKEY validation".to_string()),
+            ));
+        };
 
         // Ensure that this method is not misused
         if RecordType::DNSKEY != rrset.record_type() {
@@ -810,7 +991,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             rrset,
             current_time,
             options,
+            ..
         } = context;
+
+        let Some(rrset) = rrset else {
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::Msg("rrset is required for default validation".to_string()),
+            ));
+        };
 
         // Ensure that this method is not misused
         if RecordType::DNSKEY == rrset.record_type() {
@@ -1076,21 +1265,6 @@ fn verify_rrsig_with_keys(
     } else {
         None
     }
-}
-
-/// Find the SOA record, if present, in the response and return its name.
-///
-/// Note that a SOA record may not be present in all responses that must be NSEC/NSEC3 validated.
-/// See RFC 4035 B.4 - Referral to Signed Zone, B.5 Referral to Unsigned Zone, B.6 - Wildcard
-/// Expansion, RFC 5155 B.3 - Referral to an Opt-Out Unsigned Zone, and B.4 - Wildcard Expansion.
-fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
-    for record in verified_message.authorities() {
-        if record.record_type() == RecordType::SOA {
-            return Some(record.name());
-        }
-    }
-
-    None
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
@@ -1422,17 +1596,22 @@ impl ValidationCache {
     ) -> Option<Result<RrsetProof, ProofError>> {
         let (ttl, cached) = self.inner.lock().get_mut(key)?.clone();
 
+        let Some(rrset) = context.rrset else {
+            debug!("cannot get ValidationCache entry without Rrset in context");
+            return None;
+        };
+
         if Instant::now() < ttl {
             debug!(
-                name = ?context.rrset.name(),
-                record_type = ?context.rrset.record_type(),
+                name = ?rrset.name(),
+                record_type = ?rrset.record_type(),
                 "returning cached DNSSEC validation",
             );
             Some(cached)
         } else {
             debug!(
-                name = ?context.rrset.name(),
-                record_type = ?context.rrset.record_type(),
+                name = ?rrset.name(),
+                record_type = ?rrset.record_type(),
                 "cached DNSSEC validation expired"
             );
             None
@@ -1445,9 +1624,14 @@ impl ValidationCache {
         key: ValidationCacheKey,
         cx: &RrsetVerificationContext<'_>,
     ) {
+        let Some(rrset) = cx.rrset else {
+            debug!("cannot insert proof without Rrset in verification context");
+            return;
+        };
+
         debug!(
-            name = ?cx.rrset.name(),
-            record_type = ?cx.rrset.record_type(),
+            name = ?rrset.name(),
+            record_type = ?rrset.record_type(),
             "inserting DNSSEC validation cache entry",
         );
 
@@ -1460,10 +1644,10 @@ impl ValidationCache {
             (min, max) = positive_bounds.into_inner();
         }
 
-        let Some(record) = cx.rrset.record() else {
+        let Some(record) = rrset.record() else {
             debug!(
-                name = ?cx.rrset.name(),
-                record_type = ?cx.rrset.record_type(),
+                name = ?rrset.name(),
+                record_type = ?rrset.record_type(),
                 "unable to insert cache entry - no record in rrset",
             );
             return;
@@ -1481,9 +1665,12 @@ impl ValidationCache {
 
 struct RrsetVerificationContext<'a> {
     query: &'a Query,
-    rrset: &'a RecordSet,
+    rrset: Option<&'a RecordSet>,
     options: DnsRequestOptions,
     current_time: u32,
+    nsecs: Option<&'a Vec<RecordSet>>,
+    soa_name: Option<&'a Name>,
+    response_code: ResponseCode,
 }
 
 impl<'a> RrsetVerificationContext<'a> {
@@ -1495,14 +1682,17 @@ impl<'a> RrsetVerificationContext<'a> {
         self.query.name().hash(&mut hasher);
         self.query.query_class().hash(&mut hasher);
         self.query.query_type().hash(&mut hasher);
-        self.rrset.name().hash(&mut hasher);
-        self.rrset.dns_class().hash(&mut hasher);
-        self.rrset.record_type().hash(&mut hasher);
 
-        for rec in self.rrset.records(true) {
-            rec.name().hash(&mut hasher);
-            rec.dns_class().hash(&mut hasher);
-            rec.data().hash(&mut hasher);
+        if let Some(rrset) = self.rrset {
+            rrset.name().hash(&mut hasher);
+            rrset.dns_class().hash(&mut hasher);
+            rrset.record_type().hash(&mut hasher);
+
+            for rec in rrset.records(true) {
+                rec.name().hash(&mut hasher);
+                rec.dns_class().hash(&mut hasher);
+                rec.data().hash(&mut hasher);
+            }
         }
 
         ValidationCacheKey(hasher.finish())
@@ -1564,11 +1754,11 @@ struct ValidationCacheKey(u64);
 ///  corresponding RRSIG RR, a validator MUST ignore the settings of the
 ///  NSEC and RRSIG bits in an NSEC RR.
 /// ```
-fn verify_nsec(
+fn verify_nsec1(
     query: &Query,
     soa_name: Option<&Name>,
     response_code: ResponseCode,
-    answers: &[Record],
+    answer_rrsets: &[RecordSet],
     nsecs: &[(&Name, &NSEC)],
 ) -> Proof {
     // TODO: consider converting this to Result, and giving explicit reason for the failure
@@ -1579,6 +1769,30 @@ fn verify_nsec(
     if response_code != ResponseCode::NXDomain && response_code != ResponseCode::NoError {
         return nsec1_yield(Proof::Bogus, "unsupported response code");
     }
+
+    // Extract records from RecordSets, only including records from Secure rrsets
+    // Set proofs on individual records based on RecordSet proof for defensive checking
+    let answers: Vec<Record> = answer_rrsets
+        .iter()
+        .filter_map(|rrset| {
+            let proof = rrset.proof().proof;
+            if proof.is_secure() {
+                Some(
+                    rrset
+                        .records(true)
+                        .map(|r| {
+                            let mut record = r.clone();
+                            record.set_proof(proof);
+                            record
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect();
 
     // The SOA name, if present, must be an ancestor of the query name.  If a SOA is present,
     // we'll use that as the starting value for next_closest_encloser, otherwise, fall back to
@@ -1834,7 +2048,7 @@ const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
 
 #[cfg(test)]
 mod test {
-    use super::{no_closer_matches, verify_nsec};
+    use super::{no_closer_matches, verify_nsec1};
     use crate::{
         dnssec::Proof,
         proto::{
@@ -1845,9 +2059,9 @@ mod test {
             },
             op::{Query, ResponseCode},
             rr::{
-                Name, RData, Record,
+                Name, RData, Record, RecordSet,
                 RecordType::{A, AAAA, DNSKEY, MX, NS, NSEC, RRSIG, SOA, TXT},
-                SerialNumber, rdata,
+                RrsetProof, SerialNumber, rdata,
             },
         },
     };
@@ -1945,7 +2159,7 @@ mod test {
 
         // Based on RFC 4035 B.2 - Name Error
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
@@ -1972,7 +2186,7 @@ mod test {
 
         // Single NSEC that proves the record does not exist, and no covering wildcard exists.
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
@@ -1993,7 +2207,7 @@ mod test {
     fn nsec_invalid_name_error() -> Result<(), ProtoError> {
         subscribe();
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
@@ -2021,7 +2235,7 @@ mod test {
 
         // Test without proving wildcard non-existence.
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
@@ -2039,7 +2253,7 @@ mod test {
 
         // Invalid SOA
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example2.")?),
                 ResponseCode::NXDomain,
@@ -2074,7 +2288,7 @@ mod test {
 
         // Based on RFC 4035 B.3 - No Data Error
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2093,7 +2307,7 @@ mod test {
 
         // Record type at the SOA does not exist.
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2119,7 +2333,7 @@ mod test {
         subscribe();
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2136,7 +2350,7 @@ mod test {
         );
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2154,7 +2368,7 @@ mod test {
         );
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2197,22 +2411,28 @@ mod test {
         );
         rrsig_record.set_proof(Proof::Secure);
 
-        let answers = [
-            Record::from_rdata(
-                Name::from_ascii("a.z.w.example.")?,
-                3600,
-                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
-            ),
-            rrsig_record,
-        ];
+        let mx_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+        );
+        let mut answer_rrsets = RecordSet::from_records(vec![mx_record, rrsig_record]);
+        // Set proof on the RecordSet
+        if let Some(rrset) = answer_rrsets.first_mut() {
+            rrset.set_proof(RrsetProof {
+                proof: Proof::Secure,
+                adjusted_ttl: None,
+                rrsig: None,
+            });
+        }
 
         // Based on RFC 4035 B.6 - Wildcard Expansion
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[
                     // This NSEC encloses the query name and proves that no closer wildcard match
                     // exists in the zone.
@@ -2227,11 +2447,11 @@ mod test {
 
         // This response could not have been synthesized from the query name (z.example can't be expanded from *.w.example
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("z.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[
                     // This NSEC encloses the query name and proves that z.example. does not exist.
                     (
@@ -2278,21 +2498,28 @@ mod test {
         );
         rrsig_record.set_proof(Proof::Secure);
 
-        let answers = [
-            Record::from_rdata(
-                Name::from_ascii("a.z.w.example.")?,
-                3600,
-                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
-            ),
-            rrsig_record,
-        ];
+        let mx_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+        );
+        let mut answer_rrsets = RecordSet::from_records(vec![mx_record, rrsig_record]);
+        // Set proof on the RecordSet
+        if let Some(rrset) = answer_rrsets.first_mut() {
+            let proof = RrsetProof {
+                proof: Proof::Secure,
+                adjusted_ttl: None,
+                rrsig: None,
+            };
+            rrset.set_proof(proof);
+        }
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[
                     // This NSEC does not prove the non-existence of *.z.w.example.
                     (
@@ -2305,11 +2532,11 @@ mod test {
         );
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[],
             ),
             Proof::Bogus
@@ -2324,7 +2551,7 @@ mod test {
 
         // Based on RFC 4035 B.7 - Wildcard No Data Error
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2347,7 +2574,7 @@ mod test {
         );
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("zzzzzz.hickory-dns.testing.")?, TXT),
                 Some(&Name::from_ascii("hickory-dns.testing.")?),
                 ResponseCode::NoError,
@@ -2383,7 +2610,7 @@ mod test {
         subscribe();
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2405,7 +2632,7 @@ mod test {
         );
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
@@ -2427,7 +2654,7 @@ mod test {
         );
 
         assert_eq!(
-            verify_nsec(
+            verify_nsec1(
                 &Query::query(Name::from_ascii("r.hickory-dns.testing.")?, TXT),
                 Some(&Name::from_ascii("hickory-dns.testing.")?),
                 ResponseCode::NoError,

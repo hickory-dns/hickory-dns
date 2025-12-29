@@ -170,6 +170,12 @@ impl RecordSet {
         self.dns_class
     }
 
+    /// Return the DNSSEC proof of the RecordSet
+    #[cfg(feature = "__dnssec")]
+    pub fn proof(&self) -> &RrsetProof {
+        &self.proof
+    }
+
     /// Sets the TTL, in seconds, to the specified value
     ///
     /// This will traverse every record and associate with it the specified ttl
