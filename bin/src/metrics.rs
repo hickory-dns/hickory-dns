@@ -26,10 +26,9 @@ pub(super) struct ConfigMetrics {
 
 impl ConfigMetrics {
     pub(super) fn new(config: &Config) -> Self {
-        let hickory_build_info =
-            gauge!("hickory_build_info", "version" => env!("CARGO_PKG_VERSION"));
+        let hickory_build_info = gauge!(BUILD_INFO, "version" => env!("CARGO_PKG_VERSION"));
         describe_gauge!(
-            "hickory_build_info",
+            BUILD_INFO,
             Unit::Count,
             "A metric with a constant '1' labeled by the version from which Hickory DNS was built."
         );
@@ -48,7 +47,7 @@ impl ConfigMetrics {
         #[cfg(not(feature = "__quic"))]
         let disable_quic = false;
 
-        let hickory_config_info = gauge!("hickory_config_info",
+        let hickory_config_info = gauge!(CONFIG_INFO,
             "directory" => config.directory.to_string_lossy().to_string(),
             "disable_udp" => config.disable_udp.to_string(),
             "disable_tcp" => config.disable_tcp.to_string(),
@@ -60,32 +59,26 @@ impl ConfigMetrics {
             "zones" => config.zones.len().to_string()
         );
         describe_gauge!(
-            "hickory_config_info",
+            CONFIG_INFO,
             Unit::Count,
             "Hickory DNS configuration metadata."
         );
         hickory_config_info.set(1);
 
-        let zones_total_name = "hickory_zones_total";
-        let zones_file_primary = counter!(zones_total_name, "store" => "file", "role" => "primary");
-        let zones_file_secondary =
-            counter!(zones_total_name, "store" => "file", "role" => "secondary");
+        let zones_file_primary = counter!(ZONES_TOTAL, "store" => "file", "role" => "primary");
+        let zones_file_secondary = counter!(ZONES_TOTAL, "store" => "file", "role" => "secondary");
 
-        describe_counter!(
-            zones_total_name,
-            Unit::Count,
-            "Number of DNS zones in stores."
-        );
+        describe_counter!(ZONES_TOTAL, Unit::Count, "Number of DNS zones in stores.");
 
         #[cfg(feature = "resolver")]
-        let zones_forwarder = counter!(zones_total_name, "store" => "forwarder");
+        let zones_forwarder = counter!(ZONES_TOTAL, "store" => "forwarder");
 
         #[cfg(feature = "sqlite")]
         let (zones_sqlite_primary, zones_sqlite_secondary) = {
             let zones_primary_sqlite =
-                counter!(zones_total_name, "store" => "sqlite", "role" => "primary");
+                counter!(ZONES_TOTAL, "store" => "sqlite", "role" => "primary");
             let zones_secondary_sqlite =
-                counter!(zones_total_name, "store" => "sqlite", "role" => "secondary");
+                counter!(ZONES_TOTAL, "store" => "sqlite", "role" => "secondary");
             (zones_primary_sqlite, zones_secondary_sqlite)
         };
 
@@ -138,3 +131,12 @@ impl ConfigMetrics {
         }
     }
 }
+
+/// A metric with a constant '1' labeled by the version from which Hickory DNS was built.
+pub const BUILD_INFO: &str = "hickory_build_info";
+
+/// Hickory DNS configuration metadata.
+pub const CONFIG_INFO: &str = "hickory_config_info";
+
+/// Number of DNS zones in stores.
+pub const ZONES_TOTAL: &str = "hickory_zones_total";
