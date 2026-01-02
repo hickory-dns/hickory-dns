@@ -20,9 +20,10 @@ use std::{
 
 use futures_util::lock::Mutex as AsyncMutex;
 #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-use metrics::{Counter, Histogram, counter, describe_counter, describe_histogram, histogram};
-#[cfg(feature = "metrics")]
-use metrics::{Gauge, Unit, describe_gauge, gauge};
+use metrics::{
+    Counter, Gauge, Histogram, Unit, counter, describe_counter, describe_gauge, describe_histogram,
+    gauge, histogram,
+};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
@@ -54,7 +55,7 @@ pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
     /// Metrics related to opportunistic encryption probes.
-    #[cfg(feature = "metrics")]
+    #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     opportunistic_probe_metrics: ProbeMetrics,
     server_srtt: DecayingSrtt,
     connection_provider: P,
@@ -85,7 +86,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             config,
             connections: AsyncMutex::new(connections),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             opportunistic_probe_metrics: ProbeMetrics::default(),
             connection_provider,
         }
@@ -312,7 +313,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         probe_config: &ConnectionConfig,
     ) -> Result<(), NetError> {
         let mut budget = cx.opportunistic_probe_budget.load(Ordering::Relaxed);
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         self.opportunistic_probe_metrics.probe_budget.set(budget);
         loop {
             if budget == 0 {
@@ -334,7 +335,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             probe_config,
             self,
             cx,
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             self.opportunistic_probe_metrics.clone(),
         )?;
         self.connection_provider
@@ -351,7 +352,7 @@ struct ProbeRequest<P: ConnectionProvider> {
     proto: Protocol,
     connecting: P::FutureConn,
     context: Arc<PoolContext>,
-    #[cfg(feature = "metrics")]
+    #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     metrics: ProbeMetrics,
     provider: PhantomData<P>,
 }
@@ -361,7 +362,8 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         config: &ConnectionConfig,
         ns: &NameServer<P>,
         cx: &Arc<PoolContext>,
-        #[cfg(feature = "metrics")] metrics: ProbeMetrics,
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
+        metrics: ProbeMetrics,
     ) -> Result<Self, NetError> {
         Ok(Self {
             ip: ns.config.ip,
@@ -370,7 +372,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                 .connection_provider
                 .new_connection(ns.config.ip, config, cx)?,
             context: cx.clone(),
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             metrics,
             provider: PhantomData,
         })
@@ -382,19 +384,19 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             proto,
             connecting,
             context,
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             metrics,
             provider: _,
         } = self;
 
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         let start = Instant::now();
 
         context
             .transport_state()
             .await
             .initiate_connection(ip, proto);
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         metrics.increment_attempts(proto);
 
         let conn = match connecting.await {
@@ -404,7 +406,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                 let _prev = context
                     .opportunistic_probe_budget
                     .fetch_add(1, Ordering::Relaxed);
-                #[cfg(feature = "metrics")]
+                #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
                 {
                     metrics.increment_errors(proto, &err);
                     metrics.probe_budget.set(_prev + 1);
@@ -434,13 +436,13 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         {
             Ok(_) => {
                 debug!(?proto, "probe query succeeded");
-                #[cfg(feature = "metrics")]
+                #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
                 metrics.increment_successes(proto);
                 context.transport_state().await.response_received(ip, proto);
             }
             Err(err) => {
                 debug!(?proto, ?err, "probe query failed");
-                #[cfg(feature = "metrics")]
+                #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
                 metrics.increment_errors(proto, &err);
                 context
                     .transport_state()
@@ -452,7 +454,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         let _prev = context
             .opportunistic_probe_budget
             .fetch_add(1, Ordering::Relaxed);
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         {
             metrics.probe_budget.set(_prev + 1);
             metrics.record_probe_duration(proto, start.elapsed());
@@ -460,7 +462,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
     }
 }
 
-#[cfg(feature = "metrics")]
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 #[derive(Clone)]
 struct ProbeMetrics {
     #[cfg(feature = "__tls")]
@@ -470,7 +472,7 @@ struct ProbeMetrics {
     probe_budget: Gauge,
 }
 
-#[cfg(feature = "metrics")]
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 impl ProbeMetrics {
     fn increment_attempts(&self, proto: Protocol) {
         match proto {
@@ -516,10 +518,6 @@ impl ProbeMetrics {
         }
     }
 
-    #[cfg_attr(
-        not(any(feature = "__tls", feature = "__quic")),
-        allow(unused_variables)
-    )]
     fn record_probe_duration(&self, proto: Protocol, duration: Duration) {
         match proto {
             #[cfg(feature = "__tls")]
@@ -533,7 +531,7 @@ impl ProbeMetrics {
     }
 }
 
-#[cfg(feature = "metrics")]
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 impl Default for ProbeMetrics {
     fn default() -> Self {
         describe_gauge!(
