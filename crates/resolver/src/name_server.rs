@@ -19,16 +19,13 @@ use std::{
 };
 
 use futures_util::lock::Mutex as AsyncMutex;
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-use metrics::{
-    Counter, Gauge, Histogram, Unit, counter, describe_counter, describe_gauge, describe_histogram,
-    gauge, histogram,
-};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
+use crate::metrics::opportunistic_encryption::ProbeMetrics;
 use crate::{
     config::{
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
@@ -458,157 +455,6 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         {
             metrics.probe_budget.set(_prev + 1);
             metrics.record_probe_duration(proto, start.elapsed());
-        }
-    }
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-#[derive(Clone)]
-struct ProbeMetrics {
-    #[cfg(feature = "__tls")]
-    tls_probe_metrics: ProbeProtocolMetrics,
-    #[cfg(feature = "__quic")]
-    quic_probe_metrics: ProbeProtocolMetrics,
-    probe_budget: Gauge,
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-impl ProbeMetrics {
-    fn increment_attempts(&self, proto: Protocol) {
-        match proto {
-            #[cfg(feature = "__tls")]
-            Protocol::Tls => self.tls_probe_metrics.probe_attempts.increment(1),
-            #[cfg(feature = "__quic")]
-            Protocol::Quic => self.quic_probe_metrics.probe_attempts.increment(1),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-
-    fn increment_errors(&self, proto: Protocol, err: &NetError) {
-        match (&err, proto) {
-            #[cfg(feature = "__tls")]
-            (NetError::Timeout, Protocol::Tls) => {
-                self.tls_probe_metrics.probe_timeouts.increment(1)
-            }
-            #[cfg(feature = "__tls")]
-            (_, Protocol::Tls) => self.tls_probe_metrics.probe_errors.increment(1),
-            #[cfg(feature = "__quic")]
-            (NetError::Timeout, Protocol::Quic) => {
-                self.quic_probe_metrics.probe_timeouts.increment(1)
-            }
-            #[cfg(feature = "__quic")]
-            (_, Protocol::Quic) => self.quic_probe_metrics.probe_errors.increment(1),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-
-    fn increment_successes(&self, proto: Protocol) {
-        match proto {
-            #[cfg(feature = "__tls")]
-            Protocol::Tls => self.tls_probe_metrics.probe_successes.increment(1),
-            #[cfg(feature = "__quic")]
-            Protocol::Quic => self.quic_probe_metrics.probe_successes.increment(1),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-
-    fn record_probe_duration(&self, proto: Protocol, duration: Duration) {
-        match proto {
-            #[cfg(feature = "__tls")]
-            Protocol::Tls => self.tls_probe_metrics.probe_duration.record(duration),
-            #[cfg(feature = "__quic")]
-            Protocol::Quic => self.tls_probe_metrics.probe_duration.record(duration),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-impl Default for ProbeMetrics {
-    fn default() -> Self {
-        describe_gauge!(
-            "hickory_resolver_probe_budget_total",
-            Unit::Count,
-            "Count of remaining opportunistic encrypted name server probe requests allowed by budget."
-        );
-        let probe_budget = gauge!("hickory_resolver_probe_budget_total");
-
-        Self {
-            #[cfg(feature = "__tls")]
-            tls_probe_metrics: ProbeProtocolMetrics::new(Protocol::Tls),
-            #[cfg(feature = "__quic")]
-            quic_probe_metrics: ProbeProtocolMetrics::new(Protocol::Quic),
-            probe_budget,
-        }
-    }
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-#[derive(Clone)]
-struct ProbeProtocolMetrics {
-    probe_attempts: Counter,
-    probe_errors: Counter,
-    probe_timeouts: Counter,
-    probe_successes: Counter,
-    probe_duration: Histogram,
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-impl ProbeProtocolMetrics {
-    fn new(protocol: Protocol) -> Self {
-        describe_counter!(
-            "hickory_resolver_probe_attempts_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests attempted."
-        );
-        let probe_attempts =
-            counter!("hickory_resolver_probe_attempts_total", "protocol" => protocol.to_string());
-
-        describe_counter!(
-            "hickory_resolver_probe_errors_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests that failed due to an error."
-        );
-        let probe_errors =
-            counter!("hickory_resolver_probe_errors_total", "protocol" => protocol.to_string());
-
-        describe_counter!(
-            "hickory_resolver_probe_timeouts_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests that failed due to a timeout."
-        );
-        let probe_timeouts =
-            counter!("hickory_resolver_probe_timeouts_total", "protocol" => protocol.to_string());
-
-        describe_counter!(
-            "hickory_resolver_probe_successes_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests that succeeded"
-        );
-        let probe_successes =
-            counter!("hickory_resolver_probe_successes_total", "protocol" => protocol.to_string());
-
-        describe_histogram!(
-            "hickory_resolver_probe_duration_seconds",
-            Unit::Seconds,
-            "Duration of opportunistic encryption probe request"
-        );
-        let probe_duration = histogram!("hickory_resolver_probe_duration_seconds", "protocol" => protocol.to_string());
-
-        Self {
-            probe_attempts,
-            probe_errors,
-            probe_timeouts,
-            probe_successes,
-            probe_duration,
         }
     }
 }

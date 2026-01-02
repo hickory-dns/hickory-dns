@@ -25,6 +25,8 @@ use ipnet::IpNet;
 use serde::Deserialize;
 use tracing::warn;
 
+#[cfg(all(feature = "__dnssec", feature = "metrics"))]
+use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "tokio")]
 use crate::net::runtime::TokioRuntimeProvider;
 #[cfg(feature = "serde")]
@@ -60,8 +62,6 @@ pub use error::{AuthorityData, RecursorError};
 
 mod handle;
 use handle::RecursorDnsHandle;
-#[cfg(all(feature = "__dnssec", feature = "metrics"))]
-use handle::RecursorMetrics;
 
 #[cfg(test)]
 mod tests;
