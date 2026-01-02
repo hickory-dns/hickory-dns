@@ -23,7 +23,7 @@ use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "metrics")]
-use crate::store::metrics::PersistentStoreMetrics;
+use crate::metrics::PersistentStoreMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,

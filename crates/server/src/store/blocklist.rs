@@ -19,11 +19,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[cfg(feature = "metrics")]
-use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 use serde::Deserialize;
 use tracing::{info, trace, warn};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::blocklist::BlocklistMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use crate::{
@@ -565,54 +565,6 @@ impl Default for BlocklistConfig {
             block_message: None,
             consult_action: BlocklistConsultAction::default(),
             log_clients: true,
-        }
-    }
-}
-
-#[cfg(feature = "metrics")]
-struct BlocklistMetrics {
-    entries: Gauge,
-    blocked_queries: Counter,
-    logged_queries: Counter,
-    total_hits: Counter,
-    total_queries: Counter,
-}
-
-#[cfg(feature = "metrics")]
-impl BlocklistMetrics {
-    fn new() -> Self {
-        describe_gauge!(
-            "hickory_blocklist_list_entries",
-            Unit::Count,
-            "The total number of entries in all configured blocklists",
-        );
-        describe_counter!(
-            "hickory_blocklist_blocked_queries_total",
-            Unit::Count,
-            "The total number of requests that were blocked by the blocklist zone handler",
-        );
-        describe_counter!(
-            "hickory_blocklist_logged_queries_total",
-            Unit::Count,
-            "The total number of requests that were logged by the blocklist zone handler",
-        );
-        describe_counter!(
-            "hickory_blocklist_list_hits_total",
-            Unit::Count,
-            "The total number of requests that matched a blocklist entry",
-        );
-        describe_counter!(
-            "hickory_blocklist_queries_total",
-            Unit::Count,
-            "The total number of requests the blocklist zone handler has processed",
-        );
-
-        Self {
-            entries: gauge!("hickory_blocklist_list_entries"),
-            blocked_queries: counter!("hickory_blocklist_blocked_queries_total"),
-            logged_queries: counter!("hickory_blocklist_logged_queries_total"),
-            total_hits: counter!("hickory_blocklist_list_hits_total"),
-            total_queries: counter!("hickory_blocklist_queries_total"),
         }
     }
 }
