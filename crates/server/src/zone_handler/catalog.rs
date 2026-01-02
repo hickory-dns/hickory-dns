@@ -13,7 +13,7 @@ use std::{collections::HashMap, iter, sync::Arc};
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
-use crate::zone_handler::metrics::CatalogMetrics;
+use crate::metrics::CatalogMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
