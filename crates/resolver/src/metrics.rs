@@ -9,7 +9,7 @@
 
 /// Metrics for the optional recursive resolver feature
 #[cfg(feature = "recursor")]
-pub(super) mod recursor {
+pub mod recursor {
     use metrics::{Counter, Unit, counter, describe_counter};
 
     #[derive(Clone)]
@@ -21,21 +21,21 @@ pub(super) mod recursor {
 
     impl RecursorMetrics {
         pub(crate) fn new() -> Self {
-            let cache_hit_counter = counter!("hickory_recursor_cache_hit_total");
+            let cache_hit_counter = counter!(CACHE_HIT_TOTAL);
             describe_counter!(
-                "hickory_recursor_cache_hit_total",
+                CACHE_HIT_TOTAL,
                 Unit::Count,
                 "Number of recursive requests answered from the cache."
             );
-            let cache_miss_counter = counter!("hickory_recursor_cache_miss_total");
+            let cache_miss_counter = counter!(CACHE_MISS_TOTAL);
             describe_counter!(
-                "hickory_recursor_cache_miss_total",
+                CACHE_MISS_TOTAL,
                 Unit::Count,
                 "Number of recursive requests that could not be answered from the cache."
             );
-            let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
+            let outgoing_query_counter = counter!(OUTGOING_QUERIES_TOTAL);
             describe_counter!(
-                "hickory_recursor_outgoing_queries_total",
+                OUTGOING_QUERIES_TOTAL,
                 Unit::Count,
                 "Number of outgoing queries made during resolution."
             );
@@ -46,11 +46,20 @@ pub(super) mod recursor {
             }
         }
     }
+
+    /// Number of recursive requests answered from the cache.
+    pub const CACHE_HIT_TOTAL: &str = "hickory_recursor_cache_hit_total";
+
+    /// Number of recursive requests that could not be answered from the cache.
+    pub const CACHE_MISS_TOTAL: &str = "hickory_recursor_cache_miss_total";
+
+    /// Number of outgoing queries made during resolution.
+    pub const OUTGOING_QUERIES_TOTAL: &str = "hickory_recursor_outgoing_queries_total";
 }
 
 /// Metrics for the optional resolver opportunistic encryption feature
 #[cfg(any(feature = "__tls", feature = "__quic"))]
-pub(crate) mod opportunistic_encryption {
+pub mod opportunistic_encryption {
     use std::time::Duration;
 
     use metrics::{
@@ -131,11 +140,11 @@ pub(crate) mod opportunistic_encryption {
     impl Default for ProbeMetrics {
         fn default() -> Self {
             describe_gauge!(
-                "hickory_resolver_probe_budget_total",
+                PROBE_BUDGET_TOTAL,
                 Unit::Count,
                 "Count of remaining opportunistic encrypted name server probe requests allowed by budget."
             );
-            let probe_budget = gauge!("hickory_resolver_probe_budget_total");
+            let probe_budget = gauge!(PROBE_BUDGET_TOTAL);
 
             Self {
                 #[cfg(feature = "__tls")]
@@ -159,40 +168,41 @@ pub(crate) mod opportunistic_encryption {
     impl ProbeProtocolMetrics {
         fn new(protocol: Protocol) -> Self {
             describe_counter!(
-                "hickory_resolver_probe_attempts_total",
+                PROBE_ATTEMPTS_TOTAL,
                 Unit::Count,
                 "Number of opportunistic encrypted name server probe requests attempted."
             );
-            let probe_attempts = counter!("hickory_resolver_probe_attempts_total", "protocol" => protocol.to_string());
+            let probe_attempts = counter!(PROBE_ATTEMPTS_TOTAL, "protocol" => protocol.to_string());
 
             describe_counter!(
-                "hickory_resolver_probe_errors_total",
+                PROBE_ERRORS_TOTAL,
                 Unit::Count,
                 "Number of opportunistic encrypted name server probe requests that failed due to an error."
             );
-            let probe_errors =
-                counter!("hickory_resolver_probe_errors_total", "protocol" => protocol.to_string());
+            let probe_errors = counter!(PROBE_ERRORS_TOTAL, "protocol" => protocol.to_string());
 
             describe_counter!(
-                "hickory_resolver_probe_timeouts_total",
+                PROBE_TIMEOUTS_TOTAL,
                 Unit::Count,
                 "Number of opportunistic encrypted name server probe requests that failed due to a timeout."
             );
-            let probe_timeouts = counter!("hickory_resolver_probe_timeouts_total", "protocol" => protocol.to_string());
+            let probe_timeouts = counter!(PROBE_TIMEOUTS_TOTAL, "protocol" => protocol.to_string());
 
             describe_counter!(
-                "hickory_resolver_probe_successes_total",
+                PROBE_SUCCESSES_TOTAL,
                 Unit::Count,
                 "Number of opportunistic encrypted name server probe requests that succeeded"
             );
-            let probe_successes = counter!("hickory_resolver_probe_successes_total", "protocol" => protocol.to_string());
+            let probe_successes =
+                counter!(PROBE_SUCCESSES_TOTAL, "protocol" => protocol.to_string());
 
             describe_histogram!(
-                "hickory_resolver_probe_duration_seconds",
+                PROBE_DURATION_SECONDS,
                 Unit::Seconds,
                 "Duration of opportunistic encryption probe request"
             );
-            let probe_duration = histogram!("hickory_resolver_probe_duration_seconds", "protocol" => protocol.to_string());
+            let probe_duration =
+                histogram!(PROBE_DURATION_SECONDS, "protocol" => protocol.to_string());
 
             Self {
                 probe_attempts,
@@ -203,4 +213,22 @@ pub(crate) mod opportunistic_encryption {
             }
         }
     }
+
+    /// Count of remaining opportunistic encrypted name server probe requests allowed by budget.
+    pub const PROBE_BUDGET_TOTAL: &str = "hickory_resolver_probe_budget_total";
+
+    /// Number of opportunistic encrypted name server probe requests attempted.
+    pub const PROBE_ATTEMPTS_TOTAL: &str = "hickory_resolver_probe_attempts_total";
+
+    /// Number of opportunistic encrypted name server probe requests that failed due to an error.
+    pub const PROBE_ERRORS_TOTAL: &str = "hickory_resolver_probe_errors_total";
+
+    /// Number of opportunistic encrypted name server probe requests that failed due to a timeout.
+    pub const PROBE_TIMEOUTS_TOTAL: &str = "hickory_resolver_probe_timeouts_total";
+
+    /// Number of opportunistic encrypted name server probe requests that succeeded.
+    pub const PROBE_SUCCESSES_TOTAL: &str = "hickory_resolver_probe_successes_total";
+
+    /// Duration of opportunistic encryption probe request.
+    pub const PROBE_DURATION_SECONDS: &str = "hickory_resolver_probe_duration_seconds";
 }
