@@ -57,6 +57,8 @@ use hickory_resolver::metrics::opportunistic_encryption::{
 };
 use test_support::subscribe;
 
+use hickory_dns::metrics::{BUILD_INFO, CONFIG_INFO, ZONES_TOTAL};
+
 #[tokio::test]
 async fn test_prometheus_endpoint_startup() {
     subscribe();
@@ -91,43 +93,23 @@ async fn test_prometheus_endpoint_startup() {
         ("deny_networks", "0"),  // move to separate counter hickory_config_deny_networks_total ?
         ("zones", "6"),          // redundant ?
     ];
-    verify_metric(metrics, "hickory_build_info", &info, Some(1f64));
-    verify_metric(metrics, "hickory_config_info", &config_info, Some(1f64));
+    verify_metric(metrics, BUILD_INFO, &info, Some(1f64));
+    verify_metric(metrics, CONFIG_INFO, &config_info, Some(1f64));
 
     let store_forwarder = [("store", "forwarder")];
-    verify_metric(metrics, "hickory_zones_total", &store_forwarder, Some(1f64));
+    verify_metric(metrics, ZONES_TOTAL, &store_forwarder, Some(1f64));
 
     let store_file_primary = [("store", "file"), ("role", "primary")];
     let store_file_secondary = [("store", "file"), ("role", "secondary")];
-    verify_metric(
-        metrics,
-        "hickory_zones_total",
-        &store_file_primary,
-        Some(4f64),
-    );
-    verify_metric(
-        metrics,
-        "hickory_zones_total",
-        &store_file_secondary,
-        Some(1f64),
-    );
+    verify_metric(metrics, ZONES_TOTAL, &store_file_primary, Some(4f64));
+    verify_metric(metrics, ZONES_TOTAL, &store_file_secondary, Some(1f64));
 
     #[cfg(feature = "sqlite")]
     {
         let store_sqlite_primary = [("store", "sqlite"), ("role", "primary")];
         let store_sqlite_secondary = [("store", "sqlite"), ("role", "secondary")];
-        verify_metric(
-            metrics,
-            "hickory_zones_total",
-            &store_sqlite_primary,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zones_total",
-            &store_sqlite_secondary,
-            Some(0f64),
-        );
+        verify_metric(metrics, ZONES_TOTAL, &store_sqlite_primary, Some(0f64));
+        verify_metric(metrics, ZONES_TOTAL, &store_sqlite_secondary, Some(0f64));
     }
 
     // check store metrics

@@ -37,7 +37,7 @@ use config::Config;
 pub mod dnssec;
 
 #[cfg(feature = "metrics")]
-mod metrics;
+pub mod metrics;
 #[cfg(feature = "metrics")]
 use crate::metrics::ConfigMetrics;
 
