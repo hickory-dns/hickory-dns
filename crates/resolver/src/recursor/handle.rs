@@ -11,12 +11,12 @@ use std::{
 use async_recursion::async_recursion;
 use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
 use lru_cache::LruCache;
-#[cfg(feature = "metrics")]
-use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use super::{DnssecPolicy, RecursorError, RecursorOptions, error::AuthorityData, is_subzone};
+#[cfg(feature = "metrics")]
+use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::rdata::DNSSECRData;
 use crate::{
@@ -845,43 +845,6 @@ fn name_server_config(
         ))]
         OpportunisticEncryption::Enabled { .. } => NameServerConfig::opportunistic_encryption(ip),
         _ => NameServerConfig::udp_and_tcp(ip),
-    }
-}
-
-#[cfg(feature = "metrics")]
-#[derive(Clone)]
-pub(super) struct RecursorMetrics {
-    pub(super) cache_hit_counter: Counter,
-    pub(super) cache_miss_counter: Counter,
-    pub(super) outgoing_query_counter: Counter,
-}
-
-#[cfg(feature = "metrics")]
-impl RecursorMetrics {
-    fn new() -> Self {
-        let cache_hit_counter = counter!("hickory_recursor_cache_hit_total");
-        describe_counter!(
-            "hickory_recursor_cache_hit_total",
-            Unit::Count,
-            "Number of recursive requests answered from the cache."
-        );
-        let cache_miss_counter = counter!("hickory_recursor_cache_miss_total");
-        describe_counter!(
-            "hickory_recursor_cache_miss_total",
-            Unit::Count,
-            "Number of recursive requests that could not be answered from the cache."
-        );
-        let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
-        describe_counter!(
-            "hickory_recursor_outgoing_queries_total",
-            Unit::Count,
-            "Number of outgoing queries made during resolution."
-        );
-        Self {
-            cache_hit_counter,
-            cache_miss_counter,
-            outgoing_query_counter,
-        }
     }
 }
 
