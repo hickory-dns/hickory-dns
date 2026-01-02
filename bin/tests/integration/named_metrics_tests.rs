@@ -183,6 +183,8 @@ async fn test_prometheus_endpoint_startup() {
             Some(0f64),
         );
     }
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -380,6 +382,8 @@ async fn test_request_response() {
             verify_metric(metrics, metric, &class, Some(value))
         }
     });
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -425,6 +429,8 @@ async fn test_blocklist_metrics() {
     verify_metric(metrics, blocklist::BLOCKED_QUERIES_TOTAL, &[], Some(1.0));
     verify_metric(metrics, blocklist::QUERIES_TOTAL, &[], Some(2.0));
     verify_metric(metrics, blocklist::HITS_TOTAL, &[], Some(1.0));
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -469,6 +475,8 @@ async fn test_consulting_blocklist_metrics() {
     verify_metric(metrics, blocklist::LOGGED_QUERIES_TOTAL, &[], Some(1.0));
     verify_metric(metrics, blocklist::QUERIES_TOTAL, &[], Some(2.0));
     verify_metric(metrics, blocklist::HITS_TOTAL, &[], Some(1.0));
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -558,6 +566,8 @@ async fn test_updates() {
         Some(1f64),
     );
 
+    verify_all_histograms_have_buckets(metrics);
+
     // Clean up database.
     drop(server);
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
@@ -608,6 +618,8 @@ async fn test_opp_enc_metrics() {
     verify_metric(metrics, PROBE_DURATION_SECONDS, &tls_protocol, None);
     // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
     verify_metric(metrics, PROBE_BUDGET_TOTAL, &[], None);
+
+    verify_all_histograms_have_buckets(metrics);
 
     drop(server);
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
@@ -731,6 +743,40 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
             panic!("metric type check not supported")
         }
     })
+}
+
+/// Assert that all `hickory_` histograms are "true" histograms, not summaries.
+///
+/// By default, the `metrics` facade used by Hickory library crates creates
+/// histograms as summaries. In order to get true histograms with discrete
+/// buckets that can be aggregated we need to use `metrics-exporter-prometheus`
+/// functionality from this `bin` crate to configure buckets.
+///
+/// Since it would be easy to forget doing this after adding a new histogram
+/// to a library crate this test exists as a backstop.
+fn verify_all_histograms_have_buckets(metrics: &Scrape) {
+    let summaries = metrics
+        .samples
+        .iter()
+        .filter_map(|sample| {
+            // Skip metrics that aren't our own.
+            if !sample.metric.starts_with("hickory_") {
+                return None;
+            }
+            // Collect up metric names that are reporting Summary values.
+            match &sample.value {
+                Value::Summary(_) => Some(sample.metric.as_str()),
+                _ => None,
+            }
+        })
+        .count();
+
+    // If this assertion is failing you need to update `PrometheusServer::new()` for
+    // your new metric.
+    assert_eq!(
+        summaries, 0,
+        "found {summaries} histogram metrics missing bucket configuration, exported as summaries",
+    )
 }
 
 #[cfg(feature = "blocklist")]
