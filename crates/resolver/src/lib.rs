@@ -205,7 +205,7 @@ pub use resolver::{Resolver, ResolverBuilder};
 mod cache;
 pub use cache::{MAX_TTL, ResponseCache, TtlBounds, TtlConfig};
 #[cfg(feature = "metrics")]
-mod metrics;
+pub mod metrics;
 pub mod system_conf;
 #[cfg(test)]
 mod tests;
