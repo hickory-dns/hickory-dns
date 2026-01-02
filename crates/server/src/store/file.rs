@@ -15,7 +15,7 @@ use std::{
 use serde::Deserialize;
 
 #[cfg(feature = "metrics")]
-use crate::store::metrics::PersistentStoreMetrics;
+use crate::metrics::PersistentStoreMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,

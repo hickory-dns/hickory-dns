@@ -27,6 +27,8 @@ use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::ResponseHandlerMetrics;
 #[cfg(feature = "__h3")]
 use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
@@ -61,10 +63,6 @@ mod request_handler;
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
-#[cfg(feature = "metrics")]
-mod metrics;
-#[cfg(feature = "metrics")]
-use metrics::ResponseHandlerMetrics;
 mod timeout_stream;
 pub use timeout_stream::TimeoutStream;
 
@@ -671,10 +669,10 @@ pub fn default_tls_server_config(
 }
 
 #[derive(Clone)]
-struct ReportingResponseHandler<R: ResponseHandler> {
-    request_header: Header,
+pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
+    pub(super) request_header: Header,
     queries: Vec<LowerQuery>,
-    protocol: Protocol,
+    pub(super) protocol: Protocol,
     src_addr: SocketAddr,
     handler: R,
     #[cfg(feature = "metrics")]
@@ -736,24 +734,6 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         self.metrics.update(self, &response_info);
 
         Ok(response_info)
-    }
-}
-
-#[cfg(feature = "metrics")]
-impl ResponseHandlerMetrics {
-    fn update(
-        &self,
-        response_handler: &ReportingResponseHandler<impl ResponseHandler>,
-        response_info: &ResponseInfo,
-    ) {
-        self.proto.increment(&response_handler.protocol);
-        self.operation
-            .increment(&response_handler.request_header.op_code());
-        self.request_flags
-            .increment(&response_handler.request_header);
-
-        self.response_code.increment(&response_info.response_code());
-        self.response_flags.increment(response_info);
     }
 }
 
