@@ -1151,6 +1151,11 @@ mod opportunistic_enc_tests {
         ProtocolConfig, ResolverOpts,
     };
     use crate::connection_provider::{ConnectionProvider, TlsConfig};
+    #[cfg(feature = "metrics")]
+    use crate::metrics::opportunistic_encryption::{
+        PROBE_ATTEMPTS_TOTAL, PROBE_BUDGET_TOTAL, PROBE_DURATION_SECONDS, PROBE_ERRORS_TOTAL,
+        PROBE_SUCCESSES_TOTAL, PROBE_TIMEOUTS_TOTAL,
+    };
     use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
     use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
@@ -1698,38 +1703,18 @@ mod opportunistic_enc_tests {
 
         // We should have registered 1 TLS protocol probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            1,
-        );
+        assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(
-            &map,
-            "hickory_resolver_probe_duration_seconds",
-            protocol.clone(),
-            1,
-        );
+        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol.clone(), 1);
 
         // We should have registered 1 TLS protocol probe success.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_successes_total",
-            protocol.clone(),
-            1,
-        );
+        assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol.clone(), 1);
 
         // We should have registered 0 TLS protocol probe errors.
-        assert_counter_eq(&map, "hickory_resolver_probe_errors_total", protocol, 0);
+        assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_gauge_eq(
-            &map,
-            "hickory_resolver_probe_budget_total",
-            vec![],
-            initial_budget,
-        );
+        assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
     #[cfg(feature = "metrics")]
@@ -1765,23 +1750,13 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // The budget metric should confirm that there's no budget.
-        assert_gauge_eq(&map, "hickory_resolver_probe_budget_total", vec![], 0);
+        assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], 0);
 
         // We should not have registered a probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            0,
-        );
+        assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 0);
         // Or seen a probe duration observation.
-        assert_histogram_sample_count_eq(
-            &map,
-            "hickory_resolver_probe_duration_seconds",
-            protocol,
-            0,
-        );
+        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol, 0);
     }
 
     #[cfg(feature = "metrics")]
@@ -1824,39 +1799,19 @@ mod opportunistic_enc_tests {
 
         // We should have registered 1 TLS protocol probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            1,
-        );
+        assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(
-            &map,
-            "hickory_resolver_probe_duration_seconds",
-            protocol.clone(),
-            1,
-        );
+        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol.clone(), 1);
 
         // We should have registered 1 TLS protocol probe error.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_errors_total",
-            protocol.clone(),
-            1,
-        );
+        assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol.clone(), 1);
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        assert_counter_eq(&map, "hickory_resolver_probe_successes_total", protocol, 0);
+        assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_gauge_eq(
-            &map,
-            "hickory_resolver_probe_budget_total",
-            vec![],
-            initial_budget,
-        );
+        assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
     #[cfg(feature = "metrics")]
@@ -1896,47 +1851,22 @@ mod opportunistic_enc_tests {
 
         // We should have registered 1 TLS protocol probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            1,
-        );
+        assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(
-            &map,
-            "hickory_resolver_probe_duration_seconds",
-            protocol.clone(),
-            1,
-        );
+        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol.clone(), 1);
 
         // We should have registered 1 TLS protocol probe timeout.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_timeouts_total",
-            protocol.clone(),
-            1,
-        );
+        assert_counter_eq(&map, PROBE_TIMEOUTS_TOTAL, protocol.clone(), 1);
 
         // We shouldn't have registered a more general probe error.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_errors_total",
-            protocol.clone(),
-            0,
-        );
+        assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol.clone(), 0);
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        assert_counter_eq(&map, "hickory_resolver_probe_successes_total", protocol, 0);
+        assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_gauge_eq(
-            &map,
-            "hickory_resolver_probe_budget_total",
-            vec![],
-            initial_budget,
-        );
+        assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
     /// Construct a nameserver appropriate for opportunistic encryption and assert connected_mut_client

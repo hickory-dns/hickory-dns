@@ -784,6 +784,7 @@ mod metrics {
     use tokio::runtime::Builder;
 
     use super::*;
+    use crate::metrics::recursor::{CACHE_HIT_TOTAL, CACHE_MISS_TOTAL, OUTGOING_QUERIES_TOTAL};
 
     #[test]
     fn test_recursor_metrics() {
@@ -845,9 +846,9 @@ mod metrics {
         // False positive, see the documentation for metrics::Key.
         let map = snapshotter.snapshot().into_hashmap();
 
-        assert_counter_eq(&map, "hickory_recursor_outgoing_queries_total", vec![], 3);
-        assert_counter_eq(&map, "hickory_recursor_cache_hit_total", vec![], 2);
-        assert_counter_eq(&map, "hickory_recursor_cache_miss_total", vec![], 1);
+        assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, vec![], 3);
+        assert_counter_eq(&map, CACHE_HIT_TOTAL, vec![], 2);
+        assert_counter_eq(&map, CACHE_MISS_TOTAL, vec![], 1);
     }
 
     const A_RR_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));

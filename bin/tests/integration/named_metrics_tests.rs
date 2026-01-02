@@ -50,6 +50,11 @@ use hickory_proto::{
         rdata::{A, name::PTR},
     },
 };
+#[cfg(all(feature = "__tls", feature = "recursor", feature = "metrics"))]
+use hickory_resolver::metrics::opportunistic_encryption::{
+    PROBE_ATTEMPTS_TOTAL, PROBE_BUDGET_TOTAL, PROBE_DURATION_SECONDS, PROBE_ERRORS_TOTAL,
+    PROBE_SUCCESSES_TOTAL, PROBE_TIMEOUTS_TOTAL,
+};
 use test_support::subscribe;
 
 #[tokio::test]
@@ -641,38 +646,13 @@ async fn test_opp_enc_metrics() {
     // Note: we use `None` as the expected value for the following metrics because the probes
     // are attempted as background tasks, and we can't reliably predict their state as an
     // external observer. We only care that the metrics are present.
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_attempts_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_errors_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_timeouts_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_successes_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_duration_seconds",
-        &tls_protocol,
-        None,
-    );
+    verify_metric(metrics, PROBE_ATTEMPTS_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_ERRORS_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_TIMEOUTS_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_SUCCESSES_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_DURATION_SECONDS, &tls_protocol, None);
     // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
-    verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
+    verify_metric(metrics, PROBE_BUDGET_TOTAL, &[], None);
 
     drop(server);
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
