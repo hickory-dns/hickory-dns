@@ -15,10 +15,7 @@ use core::{
 use std::io;
 use std::sync::Arc;
 
-use futures_util::{
-    future::{BoxFuture, FutureExt},
-    stream::Stream,
-};
+use futures_util::stream::Stream;
 use quinn::{
     ClientConfig, Connection, Endpoint, TransportConfig, VarInt, crypto::rustls::QuicClientConfig,
 };
@@ -26,14 +23,12 @@ use tokio::time::timeout;
 
 use crate::{
     error::NetError,
-    proto::{
-        ProtoError,
-        op::{DnsRequest, DnsResponse},
-    },
+    proto::op::{DnsRequest, DnsResponse},
     quic::quic_stream::{DoqErrorCode, QuicStream},
-    rustls::client_config,
+    runtime::{RuntimeProvider, Spawn},
+    tls::client_config,
     udp::UdpSocket,
-    xfer::{CONNECT_TIMEOUT, DnsRequestSender, DnsResponseStream},
+    xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream},
 };
 
 use super::{quic_config, quic_stream};
@@ -225,8 +220,28 @@ impl QuicClientStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `server_name` - The DNS name associated with a certificate
-    pub fn build(self, name_server: SocketAddr, server_name: Arc<str>) -> QuicClientConnect {
-        QuicClientConnect(Box::pin(self.connect(name_server, server_name)) as _)
+    pub fn build(
+        self,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+    ) -> impl Future<Output = Result<QuicClientStream, NetError>> + Send + 'static {
+        self.connect(name_server, server_name)
+    }
+
+    /// Creates a new [`DnsExchange`] wrapping the [`QuicClientStream`] from this builder
+    pub async fn exchange<P: RuntimeProvider>(
+        self,
+        socket: Arc<dyn quinn::AsyncUdpSocket>,
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        provider: P,
+    ) -> Result<DnsExchange<P>, NetError> {
+        let stream = self
+            .connect_with_future(socket, name_server, server_name)
+            .await?;
+        let (exchange, bg) = DnsExchange::from_stream(stream);
+        provider.create_handle().spawn_bg(bg);
+        Ok(exchange)
     }
 
     /// Create a QuicStream with existing connection
@@ -235,8 +250,8 @@ impl QuicClientStreamBuilder {
         socket: Arc<dyn quinn::AsyncUdpSocket>,
         name_server: SocketAddr,
         server_name: Arc<str>,
-    ) -> QuicClientConnect {
-        QuicClientConnect(Box::pin(self.connect_with_future(socket, name_server, server_name)) as _)
+    ) -> impl Future<Output = Result<QuicClientStream, NetError>> + Send + 'static {
+        self.connect_with_future(socket, name_server, server_name)
     }
 
     async fn connect_with_future(
@@ -363,27 +378,5 @@ impl Default for QuicClientStreamBuilder {
             transport_config: Arc::new(transport_config),
             bind_addr: None,
         }
-    }
-}
-
-/// A future that resolves to an QuicClientStream
-pub struct QuicClientConnect(BoxFuture<'static, Result<QuicClientStream, NetError>>);
-
-impl Future for QuicClientConnect {
-    type Output = Result<QuicClientStream, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
-    }
-}
-
-/// A future that resolves to
-pub struct QuicClientResponse(BoxFuture<'static, Result<DnsResponse, ProtoError>>);
-
-impl Future for QuicClientResponse {
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
 }

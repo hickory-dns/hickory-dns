@@ -22,15 +22,15 @@ use rustls::{
 };
 
 #[cfg(feature = "__https")]
-use hickory_net::h2::HttpsClientStreamBuilder;
+use hickory_net::h2::HttpsClientStream;
 #[cfg(feature = "__h3")]
 use hickory_net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use hickory_net::quic::QuicClientStream;
 #[cfg(any(feature = "__tls", feature = "__https"))]
-use hickory_net::rustls::client_config;
+use hickory_net::tls::client_config;
 #[cfg(feature = "__tls")]
-use hickory_net::rustls::tls_client_connect;
+use hickory_net::tls::tls_client_connect;
 use hickory_net::{
     NetError,
     client::{Client, ClientHandle},
@@ -438,7 +438,7 @@ async fn udp<P: RuntimeProvider>(
 
     println!("; using udp:{nameserver}");
     let stream = UdpClientStream::builder(nameserver, provider).build();
-    let (client, bg) = Client::<P>::connect(stream).await?;
+    let (client, bg) = Client::<P>::from_sender(stream);
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
@@ -453,9 +453,8 @@ async fn tcp<P: RuntimeProvider>(
     let nameserver = opts.nameserver;
 
     println!("; using tcp:{nameserver}");
-    let (stream, sender) = TcpClientStream::new(nameserver, None, None, provider);
-    let client = Client::<P>::new(stream, sender, None);
-    let (client, bg) = client.await?;
+    let (future, sender) = TcpClientStream::new(nameserver, None, None, provider);
+    let (client, bg) = Client::<P>::new(future.await?, sender, None);
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
@@ -495,8 +494,8 @@ async fn tls<P: RuntimeProvider>(
     let config = Arc::new(config);
     let server_name =
         ServerName::try_from(dns_name).expect("failed to parse tls_dns_name as ServerName");
-    let (stream, sender) = tls_client_connect(nameserver, server_name, config, provider);
-    let (client, bg) = Client::<P>::new(stream, sender, None).await?;
+    let (future, sender) = tls_client_connect(nameserver, server_name, config, provider);
+    let (client, bg) = Client::<P>::new(future.await?, sender, None);
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
@@ -538,15 +537,12 @@ async fn https<P: RuntimeProvider>(
     config.alpn_protocols.push(alpn);
     let config = Arc::new(config);
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(config, provider);
-    let (client, bg) = Client::<P>::connect(https_builder.build(
-        nameserver,
-        Arc::from(dns_name),
-        Arc::from(http_endpoint),
-    ))
-    .await?;
-
+    let sender = HttpsClientStream::builder(config, provider)
+        .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
+        .await?;
+    let (client, bg) = Client::<P>::from_sender(sender);
     let handle = tokio::spawn(bg);
+
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
@@ -576,14 +572,13 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::<TokioRuntimeProvider>::connect(
-        QuicClientStream::builder()
-            .crypto_config(config)
-            .build(nameserver, Arc::from(dns_name)),
-    )
-    .await?;
-
+    let sender = QuicClientStream::builder()
+        .crypto_config(config)
+        .build(nameserver, Arc::from(dns_name))
+        .await?;
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     let handle = tokio::spawn(bg);
+
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 
@@ -616,16 +611,13 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     }
     config.alpn_protocols.push(alpn);
 
-    let (client, bg) = Client::<TokioRuntimeProvider>::connect(
-        H3ClientStream::builder().crypto_config(config).build(
-            nameserver,
-            Arc::from(dns_name),
-            Arc::from(http_endpoint),
-        ),
-    )
-    .await?;
-
+    let sender = H3ClientStream::builder()
+        .crypto_config(config)
+        .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
+        .await?;
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     let handle = tokio::spawn(bg);
+
     handle_request(opts.class, opts.command, client).await?;
     drop(handle);
 

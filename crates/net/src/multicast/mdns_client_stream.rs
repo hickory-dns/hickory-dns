@@ -5,16 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use core::fmt::{self, Display};
-use core::future::Future;
 use core::net::{Ipv4Addr, SocketAddr};
 use core::pin::Pin;
 use core::task::{Context, Poll};
+use std::future::Future;
 
-use futures_util::{
-    future::BoxFuture,
-    stream::{Stream, StreamExt, TryStreamExt},
-};
+use futures_util::stream::{Stream, StreamExt, TryStreamExt};
 
 use crate::BufDnsStreamHandle;
 use crate::error::NetError;
@@ -36,7 +32,10 @@ impl MdnsClientStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
-    ) -> (MdnsClientConnect, BufDnsStreamHandle) {
+    ) -> (
+        impl Future<Output = Result<Self, NetError>>,
+        BufDnsStreamHandle,
+    ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
@@ -45,7 +44,10 @@ impl MdnsClientStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
-    ) -> (MdnsClientConnect, BufDnsStreamHandle) {
+    ) -> (
+        impl Future<Output = Result<Self, NetError>>,
+        BufDnsStreamHandle,
+    ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
@@ -64,24 +66,21 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
-    ) -> (MdnsClientConnect, BufDnsStreamHandle) {
+    ) -> (
+        impl Future<Output = Result<Self, NetError>>,
+        BufDnsStreamHandle,
+    ) {
         let (stream_future, sender) =
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
-        let new_future = Box::pin(async {
-            Ok(Self {
-                mdns_stream: stream_future.await?,
-            })
-        });
-        let new_future = MdnsClientConnect(new_future);
-
-        (new_future, sender)
-    }
-}
-
-impl Display for MdnsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "mDNS({})", self.mdns_stream.multicast_addr())
+        (
+            async {
+                Ok(Self {
+                    mdns_stream: stream_future.await?,
+                })
+            },
+            sender,
+        )
     }
 }
 
@@ -107,16 +106,5 @@ impl Stream for MdnsClientStream {
         //     }
         //     None => Poll::Ready(None),
         // }
-    }
-}
-
-/// A future that resolves to an MdnsClientStream
-pub struct MdnsClientConnect(BoxFuture<'static, Result<MdnsClientStream, NetError>>);
-
-impl Future for MdnsClientConnect {
-    type Output = Result<MdnsClientStream, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx)
     }
 }

@@ -9,7 +9,6 @@
 
 use core::{
     borrow::Borrow,
-    fmt::{self, Display},
     marker::Unpin,
     pin::Pin,
     task::{Context, Poll},
@@ -88,10 +87,7 @@ impl ActiveRequest {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexer<S>
-where
-    S: DnsClientStream + 'static,
-{
+pub struct DnsMultiplexer<S> {
     stream: S,
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
@@ -100,10 +96,7 @@ where
     is_shutdown: bool,
 }
 
-impl<S> DnsMultiplexer<S>
-where
-    S: DnsClientStream + Unpin + 'static,
-{
+impl<S: DnsClientStream> DnsMultiplexer<S> {
     /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -112,15 +105,11 @@ where
     ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<F>(
-        stream: F,
+    pub fn new(
+        stream: S,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> DnsMultiplexerConnect<F, S>
-    where
-        F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    {
+    ) -> Self {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
@@ -134,20 +123,19 @@ where
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///   wait for a response before canceling the request.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn with_timeout<F>(
-        stream: F,
+    pub fn with_timeout(
+        stream: S,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<dyn MessageSigner>>,
-    ) -> DnsMultiplexerConnect<F, S>
-    where
-        F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    {
-        DnsMultiplexerConnect {
+    ) -> Self {
+        Self {
             stream,
-            stream_handle: Some(stream_handle),
             timeout_duration,
+            stream_handle,
+            active_requests: HashMap::default(),
             signer,
+            is_shutdown: false,
         }
     }
 
@@ -198,8 +186,7 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: NetError) {
-        debug!(%error, stream = %self.stream);
-
+        debug!(%error, addr = %self.stream.name_server_addr());
         for (_, active_request) in self.active_requests.drain() {
             // complete the request, it's failed...
             active_request.complete_with_error(error.clone());
@@ -223,7 +210,7 @@ where
 impl<F, S> Future for DnsMultiplexerConnect<F, S>
 where
     F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    S: DnsClientStream + Unpin + 'static,
+    S: DnsClientStream,
 {
     type Output = Result<DnsMultiplexer<S>, NetError>;
 
@@ -244,19 +231,7 @@ where
     }
 }
 
-impl<S> Display for DnsMultiplexer<S>
-where
-    S: DnsClientStream + 'static,
-{
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(formatter, "{}", self.stream)
-    }
-}
-
-impl<S> DnsRequestSender for DnsMultiplexer<S>
-where
-    S: DnsClientStream + Unpin + 'static,
-{
+impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -341,10 +316,7 @@ where
     }
 }
 
-impl<S> Stream for DnsMultiplexer<S>
-where
-    S: DnsClientStream + Unpin + 'static,
-{
+impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
     type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -352,7 +324,7 @@ where
         self.drop_cancelled(cx);
 
         if self.is_shutdown && self.active_requests.is_empty() {
-            debug!("stream is done: {}", self);
+            debug!("stream is done: {}", self.stream.name_server_addr());
             return Poll::Ready(None);
         }
 
@@ -453,12 +425,6 @@ mod test {
         }
     }
 
-    impl Display for MockClientStream {
-        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-            write!(formatter, "TestClientStream")
-        }
-    }
-
     impl Stream for MockClientStream {
         type Item = Result<SerialMessage, NetError>;
 
@@ -501,12 +467,10 @@ mod test {
         mock_response: Vec<Message>,
     ) -> DnsMultiplexer<MockClientStream> {
         let addr = SocketAddr::from(([127, 0, 0, 1], 1234));
-        let mock_response = MockClientStream::new(mock_response, addr);
+        let mock_response = MockClientStream::new(mock_response, addr).await.unwrap();
         let (handler, receiver) = BufDnsStreamHandle::new(addr);
         let mut multiplexer =
-            DnsMultiplexer::with_timeout(mock_response, handler, Duration::from_millis(100), None)
-                .await
-                .unwrap();
+            DnsMultiplexer::with_timeout(mock_response, handler, Duration::from_millis(100), None);
 
         multiplexer.stream.receiver = Some(receiver); // so it can get the correct request id
 

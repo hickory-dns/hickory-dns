@@ -25,9 +25,9 @@ use tokio::net::UdpSocket;
 use hickory_integration::example_zone::create_example;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
-#[cfg(feature = "__tls")]
-use hickory_net::rustls::{default_provider, tls_client_connect_with_bind_addr};
 use hickory_net::tcp::TcpClientStream;
+#[cfg(feature = "__tls")]
+use hickory_net::tls::{default_provider, tls_client_connect_with_bind_addr};
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
@@ -249,17 +249,16 @@ async fn test_server_www_tls() {
 
 async fn lazy_udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
-    let (client, driver) = Client::connect(conn).await.expect("failed to connect");
+    let (client, driver) = Client::from_sender(conn);
     tokio::spawn(driver);
     client
 }
 
 async fn lazy_tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
-    let (stream, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
+    let stream = future.await.expect("failed to connect");
     let multiplexer = DnsMultiplexer::new(stream, sender, None);
-    let (client, driver) = Client::connect(multiplexer)
-        .await
-        .expect("failed to connect");
+    let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client
 }
@@ -297,10 +296,9 @@ async fn lazy_tls_client(
         TokioRuntimeProvider::default(),
     );
 
-    let multiplexer = DnsMultiplexer::new(Box::pin(tls_client_stream), handle, None);
-    let (client, driver) = Client::connect(multiplexer)
-        .await
-        .expect("failed to connect");
+    let stream = tls_client_stream.await.expect("failed to connect");
+    let multiplexer = DnsMultiplexer::new(stream, handle, None);
+    let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client
 }
