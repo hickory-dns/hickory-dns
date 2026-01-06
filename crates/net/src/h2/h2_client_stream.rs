@@ -30,8 +30,6 @@ use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
 use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
-const ALPN_H2: &[u8] = b"h2";
-
 /// A DNS client connection for DNS-over-HTTPS
 #[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
@@ -398,6 +396,8 @@ async fn send(
     // and finally convert the bytes into a DNS message
     DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
 }
+
+const ALPN_H2: &[u8] = b"h2";
 
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
 #[cfg(test)]
