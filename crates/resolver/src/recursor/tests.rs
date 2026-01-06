@@ -780,18 +780,18 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
 mod metrics {
     use ::metrics::{Unit, with_local_recorder};
     use metrics_util::debugging::DebuggingRecorder;
-    use test_support::{assert_counter_eq, assert_histogram_sample_count_eq};
+    use test_support::{assert_counter_eq, assert_gauge_eq, assert_histogram_sample_count_eq};
     use tokio::runtime::Builder;
 
     use super::*;
     #[cfg(feature = "__dnssec")]
     use crate::metrics::recursor::{
         BOGUS_ANSWERS_TOTAL, INDETERMINATE_ANSWERS_TOTAL, INSECURE_ANSWERS_TOTAL,
-        SECURE_ANSWERS_TOTAL,
+        SECURE_ANSWERS_TOTAL, VALIDATED_RESPONSE_CACHE_SIZE,
     };
     use crate::metrics::recursor::{
         CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
-        OUTGOING_QUERIES_TOTAL,
+        OUTGOING_QUERIES_TOTAL, RESPONSE_CACHE_SIZE,
     };
     #[cfg(feature = "__dnssec")]
     use crate::recursor::DnssecConfig;
@@ -882,6 +882,8 @@ mod metrics {
                 Unit::Milliseconds,
             );
             assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
+
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
         }
 
         #[cfg(feature = "__dnssec")]
@@ -905,6 +907,10 @@ mod metrics {
             assert_counter_eq(&map, INSECURE_ANSWERS_TOTAL, vec![], 0);
             assert_counter_eq(&map, BOGUS_ANSWERS_TOTAL, vec![], 5);
             assert_counter_eq(&map, INDETERMINATE_ANSWERS_TOTAL, vec![], 0);
+
+            // Both the regular cache and validated cache should have entries.
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, VALIDATED_RESPONSE_CACHE_SIZE, vec![], 1);
         }
     }
 

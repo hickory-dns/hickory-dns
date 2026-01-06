@@ -161,7 +161,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let response = result?;
             if response.authoritative() {
                 #[cfg(feature = "metrics")]
-                self.metrics.cache_hit_counter.increment(1);
+                {
+                    self.metrics.cache_hit_counter.increment(1);
+                    self.metrics
+                        .cache_size
+                        .set(self.response_cache.entry_count() as f64);
+                }
 
                 let response = self
                     .resolve_cnames(
@@ -176,9 +181,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
                 let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
                 #[cfg(feature = "metrics")]
-                self.metrics
-                    .cache_hit_duration
-                    .record(request_time.elapsed());
+                {
+                    self.metrics
+                        .cache_hit_duration
+                        .record(request_time.elapsed());
+                    self.metrics
+                        .cache_size
+                        .set(self.response_cache.entry_count() as f64);
+                }
                 return Ok(result);
             }
         }
@@ -265,9 +275,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // explicitly requested
         let response = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
         #[cfg(feature = "metrics")]
-        self.metrics
-            .cache_miss_duration
-            .record(request_time.elapsed());
+        {
+            self.metrics
+                .cache_miss_duration
+                .record(request_time.elapsed());
+            self.metrics
+                .cache_size
+                .set(self.response_cache.entry_count() as f64);
+        }
         Ok(response)
     }
 
