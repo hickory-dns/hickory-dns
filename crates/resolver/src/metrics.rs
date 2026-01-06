@@ -10,6 +10,8 @@
 /// Metrics for the optional recursive resolver feature
 #[cfg(feature = "recursor")]
 pub mod recursor {
+    #[cfg(feature = "__dnssec")]
+    use hickory_proto::{dnssec::Proof, op::Message};
     use metrics::{
         Counter, Histogram, Unit, counter, describe_counter, describe_histogram, histogram,
     };
@@ -21,6 +23,8 @@ pub mod recursor {
         pub(crate) outgoing_query_counter: Counter,
         pub(crate) cache_hit_duration: Histogram,
         pub(crate) cache_miss_duration: Histogram,
+        #[cfg(feature = "__dnssec")]
+        pub(crate) dnssec_metrics: DnssecRecursorMetrics,
     }
 
     impl RecursorMetrics {
@@ -61,6 +65,75 @@ pub mod recursor {
                 outgoing_query_counter,
                 cache_hit_duration,
                 cache_miss_duration,
+                #[cfg(feature = "__dnssec")]
+                dnssec_metrics: DnssecRecursorMetrics::default(),
+            }
+        }
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[derive(Clone)]
+    pub(crate) struct DnssecRecursorMetrics {
+        pub(crate) secure_answers_counter: Counter,
+        pub(crate) insecure_answers_counter: Counter,
+        pub(crate) bogus_answers_counter: Counter,
+        pub(crate) indeterminate_answers_counter: Counter,
+    }
+
+    #[cfg(feature = "__dnssec")]
+    impl DnssecRecursorMetrics {
+        pub(crate) fn increment_proof_counter(&self, response: &Message) {
+            match response
+                .answers()
+                .iter()
+                .map(|record| record.proof())
+                .min()
+                .unwrap_or(Proof::Indeterminate)
+            {
+                Proof::Secure => self.secure_answers_counter.increment(1),
+                Proof::Insecure => self.insecure_answers_counter.increment(1),
+                Proof::Bogus => self.bogus_answers_counter.increment(1),
+                Proof::Indeterminate => self.indeterminate_answers_counter.increment(1),
+            }
+        }
+    }
+
+    #[cfg(feature = "__dnssec")]
+    impl Default for DnssecRecursorMetrics {
+        fn default() -> Self {
+            let secure_answers_counter = counter!(SECURE_ANSWERS_TOTAL);
+            describe_counter!(
+                SECURE_ANSWERS_TOTAL,
+                Unit::Count,
+                "Number of recursive requests with answers that were DNSSEC validated as secure"
+            );
+
+            let insecure_answers_counter = counter!(INSECURE_ANSWERS_TOTAL);
+            describe_counter!(
+                INSECURE_ANSWERS_TOTAL,
+                Unit::Count,
+                "Number of recursive requests with answers that were DNSSEC validated as insecure"
+            );
+
+            let bogus_answers_counter = counter!(BOGUS_ANSWERS_TOTAL);
+            describe_counter!(
+                BOGUS_ANSWERS_TOTAL,
+                Unit::Count,
+                "Number of recursive requests with answers that were DNSSEC validated as bogus"
+            );
+
+            let indeterminate_answers_counter = counter!(INDETERMINATE_ANSWERS_TOTAL);
+            describe_counter!(
+                INDETERMINATE_ANSWERS_TOTAL,
+                Unit::Count,
+                "Number of recursive requests with answers that were DNSSEC validated as indeterminate"
+            );
+
+            Self {
+                secure_answers_counter,
+                insecure_answers_counter,
+                bogus_answers_counter,
+                indeterminate_answers_counter,
             }
         }
     }
@@ -79,6 +152,23 @@ pub mod recursor {
 
     /// Duration of recursive resolution for queries that are not answered from cache.
     pub const CACHE_MISS_DURATION: &str = "hickory_recursor_cache_miss_duration_seconds";
+
+    /// Number of recursive requests with answers that were DNSSEC validated as secure.
+    #[cfg(feature = "__dnssec")]
+    pub const SECURE_ANSWERS_TOTAL: &str = "hickory_recursor_dnssec_secure_answers_total";
+
+    /// Number of recursive requests with answers that were DNSSEC validated as insecure.
+    #[cfg(feature = "__dnssec")]
+    pub const INSECURE_ANSWERS_TOTAL: &str = "hickory_recursor_dnssec_insecure_answers_total";
+
+    /// Number of recursive requests with answers that were DNSSEC validated as bogus.
+    #[cfg(feature = "__dnssec")]
+    pub const BOGUS_ANSWERS_TOTAL: &str = "hickory_recursor_dnssec_bogus_answers_total";
+
+    /// Number of recursive requests with answers that were DNSSEC validated as indeterminate.
+    #[cfg(feature = "__dnssec")]
+    pub const INDETERMINATE_ANSWERS_TOTAL: &str =
+        "hickory_recursor_dnssec_indeterminate_answers_total";
 }
 
 /// Metrics for the optional resolver opportunistic encryption feature
