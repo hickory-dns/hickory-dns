@@ -46,27 +46,19 @@ impl<P: RuntimeProvider> DnsExchange<P> {
         stream: S,
     ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
         let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
-        let message_sender = BufDnsRequestStreamHandle {
-            sender,
-            _phantom: PhantomData,
-        };
-
-        Self::from_stream_with_receiver(stream, outbound_messages, message_sender)
-    }
-
-    /// Wraps a stream where a sender and receiver have already been established
-    pub fn from_stream_with_receiver<S: DnsRequestSender>(
-        stream: S,
-        receiver: mpsc::Receiver<OneshotDnsRequest>,
-        sender: BufDnsRequestStreamHandle<P>,
-    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
-        let background = DnsExchangeBackground {
-            io_stream: stream,
-            outbound_messages: receiver.peekable(),
-            marker: PhantomData,
-        };
-
-        (Self { sender }, background)
+        (
+            Self {
+                sender: BufDnsRequestStreamHandle {
+                    sender,
+                    _phantom: PhantomData,
+                },
+            },
+            DnsExchangeBackground {
+                io_stream: stream,
+                outbound_messages: outbound_messages.peekable(),
+                marker: PhantomData,
+            },
+        )
     }
 }
 
