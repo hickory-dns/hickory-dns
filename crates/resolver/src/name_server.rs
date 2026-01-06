@@ -1137,7 +1137,7 @@ mod opportunistic_enc_tests {
     use futures_util::stream::once;
     use futures_util::{Stream, future};
     #[cfg(feature = "metrics")]
-    use metrics::{Label, with_local_recorder};
+    use metrics::{Label, Unit, with_local_recorder};
     #[cfg(feature = "metrics")]
     use metrics_util::debugging::DebuggingRecorder;
     use parking_lot::Mutex as SyncMutex;
@@ -1705,7 +1705,13 @@ mod opportunistic_enc_tests {
         let protocol = vec![Label::new("protocol", "tls")];
         assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol.clone(), 1);
+        assert_histogram_sample_count_eq(
+            &map,
+            PROBE_DURATION_SECONDS,
+            protocol.clone(),
+            1,
+            Unit::Seconds,
+        );
 
         // We should have registered 1 TLS protocol probe success.
         assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol.clone(), 1);
@@ -1756,7 +1762,7 @@ mod opportunistic_enc_tests {
         let protocol = vec![Label::new("protocol", "tls")];
         assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 0);
         // Or seen a probe duration observation.
-        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol, 0);
+        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol, 0, Unit::Seconds);
     }
 
     #[cfg(feature = "metrics")]
@@ -1801,7 +1807,13 @@ mod opportunistic_enc_tests {
         let protocol = vec![Label::new("protocol", "tls")];
         assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol.clone(), 1);
+        assert_histogram_sample_count_eq(
+            &map,
+            PROBE_DURATION_SECONDS,
+            protocol.clone(),
+            1,
+            Unit::Seconds,
+        );
 
         // We should have registered 1 TLS protocol probe error.
         assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol.clone(), 1);
@@ -1853,7 +1865,13 @@ mod opportunistic_enc_tests {
         let protocol = vec![Label::new("protocol", "tls")];
         assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(&map, PROBE_DURATION_SECONDS, protocol.clone(), 1);
+        assert_histogram_sample_count_eq(
+            &map,
+            PROBE_DURATION_SECONDS,
+            protocol.clone(),
+            1,
+            Unit::Seconds,
+        );
 
         // We should have registered 1 TLS protocol probe timeout.
         assert_counter_eq(&map, PROBE_TIMEOUTS_TOTAL, protocol.clone(), 1);

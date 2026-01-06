@@ -778,13 +778,16 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
 
 #[cfg(feature = "metrics")]
 mod metrics {
-    use ::metrics::with_local_recorder;
+    use ::metrics::{Unit, with_local_recorder};
     use metrics_util::debugging::DebuggingRecorder;
-    use test_support::assert_counter_eq;
+    use test_support::{assert_counter_eq, assert_histogram_sample_count_eq};
     use tokio::runtime::Builder;
 
     use super::*;
-    use crate::metrics::recursor::{CACHE_HIT_TOTAL, CACHE_MISS_TOTAL, OUTGOING_QUERIES_TOTAL};
+    use crate::metrics::recursor::{
+        CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
+        OUTGOING_QUERIES_TOTAL,
+    };
 
     #[test]
     fn test_recursor_metrics() {
@@ -849,6 +852,9 @@ mod metrics {
         assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, vec![], 3);
         assert_counter_eq(&map, CACHE_HIT_TOTAL, vec![], 2);
         assert_counter_eq(&map, CACHE_MISS_TOTAL, vec![], 1);
+
+        assert_histogram_sample_count_eq(&map, CACHE_HIT_DURATION, vec![], 2, Unit::Milliseconds);
+        assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
     }
 
     const A_RR_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));

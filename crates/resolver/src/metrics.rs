@@ -10,7 +10,9 @@
 /// Metrics for the optional recursive resolver feature
 #[cfg(feature = "recursor")]
 pub mod recursor {
-    use metrics::{Counter, Unit, counter, describe_counter};
+    use metrics::{
+        Counter, Histogram, Unit, counter, describe_counter, describe_histogram, histogram,
+    };
 
     /// Number of recursive requests answered from the cache.
     pub const CACHE_HIT_TOTAL: &str = "hickory_recursor_cache_hit_total";
@@ -21,11 +23,19 @@ pub mod recursor {
     /// Number of outgoing queries made during resolution.
     pub const OUTGOING_QUERIES_TOTAL: &str = "hickory_recursor_outgoing_queries_total";
 
+    /// Duration of recursive resolution for queries that are answered from cache.
+    pub const CACHE_HIT_DURATION: &str = "hickory_recursor_cache_hit_duration_milliseconds";
+
+    /// Duration of recursive resolution for queries that are not answered from cache.
+    pub const CACHE_MISS_DURATION: &str = "hickory_recursor_cache_miss_duration_seconds";
+
     #[derive(Clone)]
     pub(crate) struct RecursorMetrics {
         pub(crate) cache_hit_counter: Counter,
         pub(crate) cache_miss_counter: Counter,
         pub(crate) outgoing_query_counter: Counter,
+        pub(crate) cache_hit_duration: Histogram,
+        pub(crate) cache_miss_duration: Histogram,
     }
 
     impl RecursorMetrics {
@@ -48,10 +58,24 @@ pub mod recursor {
                 Unit::Count,
                 "Number of outgoing queries made during resolution."
             );
+            let cache_hit_duration = histogram!(CACHE_HIT_DURATION);
+            describe_histogram!(
+                CACHE_HIT_DURATION,
+                Unit::Milliseconds,
+                "Duration of recursive resolution for queries that are answered from cache."
+            );
+            let cache_miss_duration = histogram!(CACHE_MISS_DURATION);
+            describe_histogram!(
+                CACHE_MISS_DURATION,
+                Unit::Seconds,
+                "Duration of recursive resolution for queries that are not answered from cache."
+            );
             Self {
                 cache_hit_counter,
                 cache_miss_counter,
                 outgoing_query_counter,
+                cache_hit_duration,
+                cache_miss_duration,
             }
         }
     }

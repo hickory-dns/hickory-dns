@@ -6,10 +6,15 @@ use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::{conn::auto::Builder, graceful::GracefulShutdown},
 };
-use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 use tokio::{net::TcpListener, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
+
+#[cfg(any(feature = "__tls", feature = "__quic"))]
+use hickory_resolver::metrics::opportunistic_encryption::PROBE_DURATION_SECONDS;
+#[cfg(feature = "recursor")]
+use hickory_resolver::metrics::recursor::{CACHE_HIT_DURATION, CACHE_MISS_DURATION};
 
 /// An HTTP server that responds to Prometheus scrape requests.
 pub(crate) struct PrometheusServer {
@@ -22,12 +27,7 @@ impl PrometheusServer {
     /// metrics to Prometheus.
     pub(crate) fn new(listener: TcpListener) -> Result<Self, String> {
         // Set up metrics recorder.
-        let handle = PrometheusBuilder::new()
-            // We set buckets here so that histogram metrics are treated as "true" Prometheus
-            // histograms instead of summaries. The values used are matched to the Go client
-            // defaults.
-            .set_buckets(&[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0])
-            .unwrap(/* safety: bucket values are static and non-empty */)
+        let handle = configure_buckets(PrometheusBuilder::new())
             .install_recorder()
             .map_err(|e| format!("failed to install prometheus endpoint {e}"))?;
 
@@ -108,3 +108,48 @@ impl Service<Request<Incoming>> for PrometheusService {
         }
     }
 }
+
+/// Update the PrometheusBuilder to set histogram bucket sizes.
+///
+/// We set buckets explicitly so that histogram metrics are treated as "true"
+/// Prometheus histograms instead of summaries (the `metrics` crate default).
+///
+/// We do this per-metric because:
+/// a) some metrics need internet latency sized buckets, and others smaller internal
+///    buckets
+/// b) using set_buckets_for_metric() only has effect if the global set_buckets()
+///   builder fn is **not** used.
+fn configure_buckets(mut builder: PrometheusBuilder) -> PrometheusBuilder {
+    for (name, buckets) in HISTOGRAMS {
+        builder = builder.set_buckets_for_metric(Matcher::Full((*name).to_owned()), buckets).unwrap(
+            /* safety: bucket values are static and non-empty */
+        );
+    }
+    builder
+}
+
+/// Histogram metric names and associated bucket sizes.
+const HISTOGRAMS: &[(&str, &[f64])] = &[
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    (PROBE_DURATION_SECONDS, INTERNET_LATENCY_BUCKETS),
+    #[cfg(feature = "recursor")]
+    (CACHE_MISS_DURATION, INTERNET_LATENCY_BUCKETS),
+    #[cfg(feature = "recursor")]
+    (CACHE_HIT_DURATION, INTERNAL_LATENCY_BUCKETS),
+];
+
+/// Histogram buckets for operations that traverse the internet to remote systems.
+///
+/// The values used are matched to the Go client defaults.
+#[cfg(any(feature = "recursor", feature = "__tls", feature = "__quic"))]
+const INTERNET_LATENCY_BUCKETS: &[f64] = &[
+    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+];
+
+/// Histogram buckets for internal operations that don't depend on remote systems.
+///
+/// The values used are a range of buckets between 100μs and 100ms.
+#[cfg(feature = "recursor")]
+const INTERNAL_LATENCY_BUCKETS: &[f64] = &[
+    0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1,
+];
