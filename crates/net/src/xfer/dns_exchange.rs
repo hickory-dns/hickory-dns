@@ -9,15 +9,11 @@
 
 use core::future::Future;
 use core::marker::PhantomData;
-use core::mem;
 use core::pin::Pin;
-use core::task::{Context, Poll, ready};
+use core::task::{Context, Poll};
 
 use futures_channel::mpsc;
-use futures_util::{
-    future::FutureExt,
-    stream::{Peekable, Stream, StreamExt},
-};
+use futures_util::stream::{Peekable, Stream, StreamExt};
 use tracing::debug;
 
 use crate::error::NetError;
@@ -71,32 +67,6 @@ impl<P: RuntimeProvider> DnsExchange<P> {
         };
 
         (Self { sender }, background)
-    }
-
-    /// Returns a future, which itself wraps a future which is awaiting connection.
-    ///
-    /// The connect_future should be lazy.
-    pub fn connect<F, S>(connect_future: F) -> DnsExchangeConnect<F, S, P>
-    where
-        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender,
-    {
-        let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
-        let message_sender = BufDnsRequestStreamHandle {
-            sender,
-            _phantom: PhantomData,
-        };
-
-        DnsExchangeConnect::connect(connect_future, outbound_messages, message_sender)
-    }
-
-    /// Returns a future that returns an error immediately.
-    pub fn error<F, S>(error: impl Into<NetError>) -> DnsExchangeConnect<F, S, P>
-    where
-        F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-        S: DnsRequestSender,
-    {
-        DnsExchangeConnect(DnsExchangeConnectInner::Error(error.into()))
     }
 }
 
@@ -220,144 +190,6 @@ impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
             }
 
             // else we loop to poll on the outbound_messages
-        }
-    }
-}
-
-/// A wrapper for a future DnsExchange connection.
-///
-/// DnsExchangeConnect is cloneable, making it possible to share this if the connection
-///  will be shared across threads.
-///
-/// The future will return a tuple of the DnsExchange (for sending messages) and a background
-///  for running the background tasks. The background is optional as only one thread should run
-///  the background. If returned, it must be spawned before any dns requests will function.
-pub struct DnsExchangeConnect<F, S, P>(DnsExchangeConnectInner<F, S, P>)
-where
-    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender,
-    P: RuntimeProvider;
-
-impl<F, S, P> DnsExchangeConnect<F, S, P>
-where
-    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender,
-    P: RuntimeProvider,
-{
-    fn connect(
-        connect_future: F,
-        outbound_messages: mpsc::Receiver<OneshotDnsRequest>,
-        sender: BufDnsRequestStreamHandle<P>,
-    ) -> Self {
-        Self(DnsExchangeConnectInner::Connecting {
-            connect_future,
-            outbound_messages: Some(outbound_messages),
-            sender: Some(sender),
-        })
-    }
-}
-
-impl<F, S, P> Future for DnsExchangeConnect<F, S, P>
-where
-    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender,
-    P: RuntimeProvider,
-{
-    type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
-    }
-}
-
-#[allow(clippy::large_enum_variant)]
-enum DnsExchangeConnectInner<F, S, P>
-where
-    F: Future<Output = Result<S, NetError>> + 'static + Send,
-    S: DnsRequestSender,
-    P: RuntimeProvider,
-{
-    Connecting {
-        connect_future: F,
-        outbound_messages: Option<mpsc::Receiver<OneshotDnsRequest>>,
-        sender: Option<BufDnsRequestStreamHandle<P>>,
-    },
-    FailAll {
-        error: NetError,
-        outbound_messages: mpsc::Receiver<OneshotDnsRequest>,
-    },
-    Error(NetError),
-}
-
-impl<F, S, P> Future for DnsExchangeConnectInner<F, S, P>
-where
-    F: Future<Output = Result<S, NetError>> + 'static + Send + Unpin,
-    S: DnsRequestSender,
-    P: RuntimeProvider,
-{
-    type Output = Result<(DnsExchange<P>, DnsExchangeBackground<S, P::Timer>), NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        loop {
-            let next;
-            match &mut *self {
-                Self::Connecting {
-                    connect_future,
-                    outbound_messages,
-                    sender,
-                } => {
-                    match ready!(Pin::new(connect_future).poll(cx)) {
-                        Ok(stream) => {
-                            //debug!("connection established: {}", stream);
-
-                            let (exchange, background) = DnsExchange::from_stream_with_receiver(
-                                stream,
-                                outbound_messages
-                                    .take()
-                                    .expect("cannot poll after complete"),
-                                sender.take().expect("cannot poll after complete"),
-                            );
-
-                            return Poll::Ready(Ok((exchange, background)));
-                        }
-                        Err(error) => {
-                            debug!(%error, "stream errored while connecting");
-                            next = Self::FailAll {
-                                error,
-                                outbound_messages: outbound_messages
-                                    .take()
-                                    .expect("cannot poll after complete"),
-                            }
-                        }
-                    };
-                }
-                Self::FailAll {
-                    error,
-                    outbound_messages,
-                } => {
-                    while let Some(outbound_message) = ready!(outbound_messages.poll_next_unpin(cx))
-                    {
-                        // ignoring errors... best effort send...
-                        let _ = outbound_message
-                            .into_parts()
-                            .1
-                            .send_response(error.clone().into());
-                    }
-
-                    return Poll::Ready(Err(mem::replace(
-                        error,
-                        NetError::from("polled after completion"),
-                    )));
-                }
-                Self::Error(error) => {
-                    return Poll::Ready(Err(mem::replace(
-                        error,
-                        NetError::from("polled after completion"),
-                    )));
-                }
-            }
-
-            *self = next;
         }
     }
 }
