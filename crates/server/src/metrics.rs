@@ -128,6 +128,24 @@ pub(super) struct ProtocolMetrics {
     h3: Counter,
 }
 
+impl ProtocolMetrics {
+    pub(super) fn increment(&self, proto: &NetProtocol) {
+        match proto {
+            NetProtocol::Udp => self.udp.increment(1),
+            NetProtocol::Tcp => self.tcp.increment(1),
+            #[cfg(feature = "__tls")]
+            NetProtocol::Tls => self.tls.increment(1),
+            #[cfg(feature = "__https")]
+            NetProtocol::Https => self.https.increment(1),
+            #[cfg(feature = "__quic")]
+            NetProtocol::Quic => self.quic.increment(1),
+            #[cfg(feature = "__h3")]
+            NetProtocol::H3 => self.h3.increment(1),
+            _ => {}
+        }
+    }
+}
+
 impl Default for ProtocolMetrics {
     fn default() -> Self {
         let request_protocols_name = "hickory_request_protocols_total";
@@ -155,24 +173,6 @@ impl Default for ProtocolMetrics {
     }
 }
 
-impl ProtocolMetrics {
-    pub(super) fn increment(&self, proto: &NetProtocol) {
-        match proto {
-            NetProtocol::Udp => self.udp.increment(1),
-            NetProtocol::Tcp => self.tcp.increment(1),
-            #[cfg(feature = "__tls")]
-            NetProtocol::Tls => self.tls.increment(1),
-            #[cfg(feature = "__https")]
-            NetProtocol::Https => self.https.increment(1),
-            #[cfg(feature = "__quic")]
-            NetProtocol::Quic => self.quic.increment(1),
-            #[cfg(feature = "__h3")]
-            NetProtocol::H3 => self.h3.increment(1),
-            _ => {}
-        }
-    }
-}
-
 #[derive(Clone)]
 pub(super) struct OpCodeMetrics {
     query: Counter,
@@ -180,6 +180,18 @@ pub(super) struct OpCodeMetrics {
     notify: Counter,
     update: Counter,
     unknown: Counter,
+}
+
+impl OpCodeMetrics {
+    pub(super) fn increment(&self, op_code: &OpCode) {
+        match op_code {
+            OpCode::Query => self.query.increment(1),
+            OpCode::Status => self.status.increment(1),
+            OpCode::Notify => self.notify.increment(1),
+            OpCode::Update => self.update.increment(1),
+            OpCode::Unknown(_) => self.unknown.increment(1),
+        }
+    }
 }
 
 impl Default for OpCodeMetrics {
@@ -200,18 +212,6 @@ impl Default for OpCodeMetrics {
             notify: counter!(request_operations_name, key => "notify"),
             update: counter!(request_operations_name, key => "update"),
             unknown: counter!(request_operations_name, key => "unknown"),
-        }
-    }
-}
-
-impl OpCodeMetrics {
-    pub(super) fn increment(&self, op_code: &OpCode) {
-        match op_code {
-            OpCode::Query => self.query.increment(1),
-            OpCode::Status => self.status.increment(1),
-            OpCode::Notify => self.notify.increment(1),
-            OpCode::Update => self.update.increment(1),
-            OpCode::Unknown(_) => self.unknown.increment(1),
         }
     }
 }
@@ -239,6 +239,34 @@ pub(super) struct ResponseCodeMetrics {
     bad_trunc: Counter,
     bad_cookie: Counter,
     unknown: Counter,
+}
+
+impl ResponseCodeMetrics {
+    pub(super) fn increment(&self, response_code: &ResponseCode) {
+        match response_code {
+            ResponseCode::NoError => self.no_error.increment(1),
+            ResponseCode::FormErr => self.form_error.increment(1),
+            ResponseCode::ServFail => self.serv_fail.increment(1),
+            ResponseCode::NXDomain => self.nx_domain.increment(1),
+            ResponseCode::NotImp => self.not_imp.increment(1),
+            ResponseCode::Refused => self.refused.increment(1),
+            ResponseCode::YXDomain => self.yx_domain.increment(1),
+            ResponseCode::YXRRSet => self.yx_rrset.increment(1),
+            ResponseCode::NXRRSet => self.nx_rrset.increment(1),
+            ResponseCode::NotAuth => self.not_auth.increment(1),
+            ResponseCode::NotZone => self.not_zone.increment(1),
+            ResponseCode::BADVERS => self.bad_vers.increment(1),
+            ResponseCode::BADSIG => self.bad_sig.increment(1),
+            ResponseCode::BADKEY => self.bad_key.increment(1),
+            ResponseCode::BADTIME => self.bad_time.increment(1),
+            ResponseCode::BADMODE => self.bad_mode.increment(1),
+            ResponseCode::BADNAME => self.bad_name.increment(1),
+            ResponseCode::BADALG => self.bad_alg.increment(1),
+            ResponseCode::BADTRUNC => self.bad_trunc.increment(1),
+            ResponseCode::BADCOOKIE => self.bad_cookie.increment(1),
+            ResponseCode::Unknown(_) => self.unknown.increment(1),
+        }
+    }
 }
 
 impl Default for ResponseCodeMetrics {
@@ -275,34 +303,6 @@ impl Default for ResponseCodeMetrics {
             bad_trunc: counter!(response_codes_name, key => "bad_trunc"),
             bad_cookie: counter!(response_codes_name, key => "bad_cookie"),
             unknown: counter!(response_codes_name, key => "unknown"),
-        }
-    }
-}
-
-impl ResponseCodeMetrics {
-    pub(super) fn increment(&self, response_code: &ResponseCode) {
-        match response_code {
-            ResponseCode::NoError => self.no_error.increment(1),
-            ResponseCode::FormErr => self.form_error.increment(1),
-            ResponseCode::ServFail => self.serv_fail.increment(1),
-            ResponseCode::NXDomain => self.nx_domain.increment(1),
-            ResponseCode::NotImp => self.not_imp.increment(1),
-            ResponseCode::Refused => self.refused.increment(1),
-            ResponseCode::YXDomain => self.yx_domain.increment(1),
-            ResponseCode::YXRRSet => self.yx_rrset.increment(1),
-            ResponseCode::NXRRSet => self.nx_rrset.increment(1),
-            ResponseCode::NotAuth => self.not_auth.increment(1),
-            ResponseCode::NotZone => self.not_zone.increment(1),
-            ResponseCode::BADVERS => self.bad_vers.increment(1),
-            ResponseCode::BADSIG => self.bad_sig.increment(1),
-            ResponseCode::BADKEY => self.bad_key.increment(1),
-            ResponseCode::BADTIME => self.bad_time.increment(1),
-            ResponseCode::BADMODE => self.bad_mode.increment(1),
-            ResponseCode::BADNAME => self.bad_name.increment(1),
-            ResponseCode::BADALG => self.bad_alg.increment(1),
-            ResponseCode::BADTRUNC => self.bad_trunc.increment(1),
-            ResponseCode::BADCOOKIE => self.bad_cookie.increment(1),
-            ResponseCode::Unknown(_) => self.unknown.increment(1),
         }
     }
 }
