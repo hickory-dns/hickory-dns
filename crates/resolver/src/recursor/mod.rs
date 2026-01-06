@@ -462,7 +462,12 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             // if the cached response is a referral, or if any record is indeterminate, fall
             // through and perform DNSSEC validation
             if response.authoritative() && none_indeterminate {
-                return Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok));
+                let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+                #[cfg(feature = "metrics")]
+                self.metrics
+                    .cache_hit_duration
+                    .record(request_time.elapsed());
+                return Ok(result);
             }
         }
 

@@ -174,7 +174,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     )
                     .await?;
 
-                return Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok));
+                let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+                #[cfg(feature = "metrics")]
+                self.metrics
+                    .cache_hit_duration
+                    .record(request_time.elapsed());
+                return Ok(result);
             }
         }
 
@@ -258,7 +263,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
         // explicitly requested
-        Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok))
+        let response = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+        #[cfg(feature = "metrics")]
+        self.metrics
+            .cache_miss_duration
+            .record(request_time.elapsed());
+        Ok(response)
     }
 
     pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
