@@ -22,9 +22,7 @@ use crate::error::NetError;
 use crate::http::Version;
 
 mod h2_client_stream;
-pub use h2_client_stream::{
-    HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder, connect,
-};
+pub use h2_client_stream::{HttpsClientStream, HttpsClientStreamBuilder, connect};
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
 ///

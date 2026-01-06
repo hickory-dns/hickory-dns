@@ -14,7 +14,7 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::{future::BoxFuture, stream::Stream};
+use futures_util::stream::Stream;
 use h2::client::SendRequest;
 use http::header::{self, CONTENT_LENGTH};
 use rustls::ClientConfig;
@@ -25,7 +25,6 @@ use tracing::{debug, warn};
 
 use crate::error::NetError;
 use crate::http::{RequestContext, SetHeaders, Version};
-use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -398,17 +397,6 @@ async fn send(
 
     // and finally convert the bytes into a DNS message
     DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
-}
-
-/// A future that resolves to
-pub struct HttpsClientResponse(BoxFuture<'static, Result<DnsResponse, ProtoError>>);
-
-impl Future for HttpsClientResponse {
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx).map_err(ProtoError::from)
-    }
 }
 
 #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
