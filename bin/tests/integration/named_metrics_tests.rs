@@ -58,6 +58,10 @@ use hickory_resolver::metrics::opportunistic_encryption::{
 use test_support::subscribe;
 
 use hickory_dns::metrics::{BUILD_INFO, CONFIG_INFO, ZONES_TOTAL};
+#[cfg(all(feature = "recursor", feature = "__dnssec", feature = "metrics"))]
+use hickory_resolver::metrics::recursor::{
+    BOGUS_ANSWERS_TOTAL, INDETERMINATE_ANSWERS_TOTAL, INSECURE_ANSWERS_TOTAL, SECURE_ANSWERS_TOTAL,
+};
 #[cfg(feature = "recursor")]
 use hickory_resolver::metrics::recursor::{
     CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
@@ -660,6 +664,46 @@ async fn test_recursor_metrics() {
     // only verify the metrics exist, not what values the buckets contain.
     verify_metric(metrics, CACHE_HIT_DURATION, &[], None);
     verify_metric(metrics, CACHE_MISS_DURATION, &[], None);
+
+    verify_all_histograms_have_buckets(metrics);
+}
+
+#[tokio::test]
+#[cfg(all(feature = "recursor", feature = "__dnssec", feature = "metrics"))]
+async fn test_recursor_dnssec_metrics() {
+    subscribe();
+
+    let server = TestServer::start("example_recursor_dnssec.toml");
+    let metrics = &{
+        let mut client = create_local_client(&server.ports, None).await;
+
+        for _ in 0..2 {
+            let _ = client
+                .query(
+                    Name::from_str("example.com.").unwrap(),
+                    DNSClass::IN,
+                    RecordType::A,
+                )
+                .await;
+        }
+
+        fetch_parse_check_metrics(&server.ports).await
+    };
+
+    verify_metric(metrics, CACHE_MISS_TOTAL, &[], Some(6.0));
+    verify_metric(metrics, CACHE_HIT_TOTAL, &[], Some(2.0));
+    verify_metric(metrics, OUTGOING_QUERIES_TOTAL, &[], Some(8.0));
+
+    // Query processing time is not predictable, so we use `None` here and
+    // only verify the metrics exist, not what values the buckets contain.
+    verify_metric(metrics, CACHE_HIT_DURATION, &[], None);
+    verify_metric(metrics, CACHE_MISS_DURATION, &[], None);
+
+    // When validating DNSSEC, we should also see DNSSEC-specific metrics.
+    verify_metric(metrics, SECURE_ANSWERS_TOTAL, &[], Some(3.0));
+    verify_metric(metrics, INSECURE_ANSWERS_TOTAL, &[], Some(0.0));
+    verify_metric(metrics, BOGUS_ANSWERS_TOTAL, &[], Some(0.0));
+    verify_metric(metrics, INDETERMINATE_ANSWERS_TOTAL, &[], Some(0.0));
 
     verify_all_histograms_have_buckets(metrics);
 }
