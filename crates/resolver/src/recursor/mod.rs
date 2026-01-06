@@ -458,6 +458,9 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                 self.metrics
                     .dnssec_metrics
                     .increment_proof_counter(&response);
+                self.metrics
+                    .validated_cache_size
+                    .set(self.validated_response_cache.entry_count() as f64);
             }
 
             let none_indeterminate = response
@@ -530,6 +533,10 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                 .increment_proof_counter(&message);
             self.validated_response_cache
                 .insert(query.clone(), Ok(message.clone()), request_time);
+            #[cfg(feature = "metrics")]
+            self.metrics
+                .validated_cache_size
+                .set(self.validated_response_cache.entry_count() as f64);
             Ok(message.maybe_strip_dnssec_records(query_has_dnssec_ok))
         }
     }
