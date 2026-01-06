@@ -58,6 +58,11 @@ use hickory_resolver::metrics::opportunistic_encryption::{
 use test_support::subscribe;
 
 use hickory_dns::metrics::{BUILD_INFO, CONFIG_INFO, ZONES_TOTAL};
+#[cfg(feature = "recursor")]
+use hickory_resolver::metrics::recursor::{
+    CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
+    OUTGOING_QUERIES_TOTAL,
+};
 #[cfg(feature = "blocklist")]
 use hickory_server::metrics::blocklist;
 use hickory_server::metrics::{
@@ -623,6 +628,40 @@ async fn test_opp_enc_metrics() {
 
     drop(server);
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
+}
+
+#[tokio::test]
+#[cfg(all(feature = "recursor", feature = "metrics"))]
+async fn test_recursor_metrics() {
+    subscribe();
+
+    let server = TestServer::start("example_recursor.toml");
+    let metrics = &{
+        let mut client = create_local_client(&server.ports, None).await;
+
+        for _ in 0..2 {
+            let _ = client
+                .query(
+                    Name::from_str("example.com.").unwrap(),
+                    DNSClass::IN,
+                    RecordType::A,
+                )
+                .await;
+        }
+
+        fetch_parse_check_metrics(&server.ports).await
+    };
+
+    verify_metric(metrics, CACHE_MISS_TOTAL, &[], Some(1.0));
+    verify_metric(metrics, CACHE_HIT_TOTAL, &[], Some(1.0));
+    verify_metric(metrics, OUTGOING_QUERIES_TOTAL, &[], Some(3.0));
+
+    // Query processing time is not predictable, so we use `None` here and
+    // only verify the metrics exist, not what values the buckets contain.
+    verify_metric(metrics, CACHE_HIT_DURATION, &[], None);
+    verify_metric(metrics, CACHE_MISS_DURATION, &[], None);
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 async fn create_local_client(
