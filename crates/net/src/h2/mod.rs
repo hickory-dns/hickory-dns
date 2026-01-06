@@ -484,7 +484,6 @@ const ALPN_H2: &[u8] = b"h2";
 mod tests {
     use core::net::SocketAddr;
 
-    use futures_executor::block_on;
     use rustls::KeyLogFile;
     use test_support::subscribe;
 
@@ -715,8 +714,8 @@ mod tests {
         config
     }
 
-    #[test]
-    fn test_from_post() {
+    #[tokio::test]
+    async fn test_from_post() {
         subscribe();
         let message = Message::query();
         let msg_bytes = message.to_vec().unwrap();
@@ -732,15 +731,13 @@ mod tests {
         let request = cx.build(len).unwrap();
         let request = request.map(|()| stream);
 
-        let from_post = message_from(
+        let bytes = message_from(
             Some(Arc::from("ns.example.com")),
             "/dns-query".into(),
             request,
-        );
-        let bytes = match block_on(from_post) {
-            Ok(bytes) => bytes,
-            e => panic!("{:#?}", e),
-        };
+        )
+        .await
+        .unwrap();
 
         let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
         assert_eq!(message, msg_from_post);
