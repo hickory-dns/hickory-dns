@@ -453,7 +453,12 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             // Increment metrics on cache hits only. We will check the cache a second time
             // inside resolve(), thus we only track cache misses there.
             #[cfg(feature = "metrics")]
-            self.metrics.cache_hit_counter.increment(1);
+            {
+                self.metrics.cache_hit_counter.increment(1);
+                self.metrics
+                    .dnssec_metrics
+                    .increment_proof_counter(&response);
+            }
 
             let none_indeterminate = response
                 .all_sections()
@@ -519,6 +524,10 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             Err(RecursorError::from(NetError::from(no_records)))
         } else {
             let message = response.into_message();
+            #[cfg(feature = "metrics")]
+            self.metrics
+                .dnssec_metrics
+                .increment_proof_counter(&message);
             self.validated_response_cache
                 .insert(query.clone(), Ok(message.clone()), request_time);
             Ok(message.maybe_strip_dnssec_records(query_has_dnssec_ok))

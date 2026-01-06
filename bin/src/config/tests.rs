@@ -300,7 +300,7 @@ impl Iterator for TableMutator<'_> {
                 }
             }
             if let Some(key) = self.key_iter.next() {
-                if key == "protocol" {
+                if key == "protocol" || key == "dnssec_policy" {
                     // Skip the `protocol` key; apparently `deny_unknown_fields` does not work
                     // on enum variants, so we just skip it here.
                     // https://github.com/serde-rs/serde/issues/2294
