@@ -668,6 +668,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .insert(zone.clone(), nameserver_pool.clone());
         }
 
+        #[cfg(feature = "metrics")]
+        self.metrics
+            .name_server_cache_size
+            .set(self.name_server_cache.lock().len() as f64);
+
         Ok((depth, nameserver_pool))
     }
 
