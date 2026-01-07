@@ -157,6 +157,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         depth: u8,
         cname_limit: Arc<AtomicU8>,
     ) -> Result<Message, RecursorError> {
+        #[cfg(feature = "metrics")]
+        let _guard = self.metrics.new_inflight_query();
+
         if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = result?;
             if response.authoritative() {

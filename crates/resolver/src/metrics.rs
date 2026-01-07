@@ -83,6 +83,11 @@ pub const OUTGOING_QUERIES_TOTAL: &str = "hickory_resolver_outgoing_queries_tota
 /// Metrics for the optional recursive resolver feature
 #[cfg(feature = "recursor")]
 pub mod recursor {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
     #[cfg(feature = "__dnssec")]
     use hickory_proto::{dnssec::Proof, op::Message};
     use metrics::{
@@ -100,6 +105,8 @@ pub mod recursor {
         pub(crate) cache_size: Gauge,
         pub(crate) name_server_cache_size: Gauge,
         pub(crate) connection_cache_size: Gauge,
+        pub(crate) in_flight_queries: Gauge,
+        pub(crate) in_flight_queries_count: Arc<AtomicUsize>,
         #[cfg(feature = "__dnssec")]
         pub(crate) validated_cache_size: Gauge,
         #[cfg(feature = "__dnssec")]
@@ -156,6 +163,12 @@ pub mod recursor {
                 Unit::Count,
                 "Number of entries in the connection cache."
             );
+            let in_flight_queries = gauge!(IN_FLIGHT_QUERIES);
+            describe_gauge!(
+                IN_FLIGHT_QUERIES,
+                Unit::Count,
+                "Number of in-flight recursive queries currently being processed."
+            );
             #[cfg(feature = "__dnssec")]
             let validated_cache_size = gauge!(VALIDATED_RESPONSE_CACHE_SIZE);
             #[cfg(feature = "__dnssec")]
@@ -173,11 +186,23 @@ pub mod recursor {
                 cache_size,
                 name_server_cache_size,
                 connection_cache_size,
+                in_flight_queries,
+                in_flight_queries_count: Arc::new(AtomicUsize::default()),
                 #[cfg(feature = "__dnssec")]
                 validated_cache_size,
                 #[cfg(feature = "__dnssec")]
                 dnssec_metrics: DnssecRecursorMetrics::default(),
             }
+        }
+    }
+
+    impl RecursorMetrics {
+        /// Track that a new in-flight recursive resolver query has started.
+        ///
+        /// The returned RAII guard ensures the overall count of in-flight queries
+        /// is properly maintained once the query completes.
+        pub(crate) fn new_inflight_query(&self) -> InFlightGuard {
+            InFlightGuard::new(&self.in_flight_queries_count, &self.in_flight_queries)
         }
     }
 
@@ -248,6 +273,32 @@ pub mod recursor {
         }
     }
 
+    /// RAII guard that tracks in-flight recursive resolver queries for metrics.
+    ///
+    /// The atomic value is reported via a Gauge.
+    pub(crate) struct InFlightGuard {
+        counter: Arc<AtomicUsize>,
+        gauge: Gauge,
+    }
+
+    impl InFlightGuard {
+        fn new(counter: &Arc<AtomicUsize>, gauge: &Gauge) -> Self {
+            let count = counter.fetch_add(1, Ordering::SeqCst) + 1;
+            gauge.set(count as f64);
+            Self {
+                counter: counter.clone(),
+                gauge: gauge.clone(),
+            }
+        }
+    }
+
+    impl Drop for InFlightGuard {
+        fn drop(&mut self) {
+            let count = self.counter.fetch_sub(1, Ordering::SeqCst) - 1;
+            self.gauge.set(count as f64);
+        }
+    }
+
     /// Number of recursive requests answered from the cache.
     pub const CACHE_HIT_TOTAL: &str = "hickory_recursor_cache_hit_total";
 
@@ -271,6 +322,9 @@ pub mod recursor {
 
     /// Number of entries in the connection cache.
     pub const CONNECTION_CACHE_SIZE: &str = "hickory_recursor_connection_cache_size";
+
+    /// Number of in-flight recursive queries currently being processed.
+    pub const IN_FLIGHT_QUERIES: &str = "hickory_recursor_in_flight_queries";
 
     /// Number of entries in the DNSSEC validated response cache.
     #[cfg(feature = "__dnssec")]
