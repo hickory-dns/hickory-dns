@@ -108,6 +108,9 @@ pub mod recursor {
     /// Number of entries in the response cache.
     pub const RESPONSE_CACHE_SIZE: &str = "hickory_recursor_response_cache_size";
 
+    /// Number of entries in the name server cache.
+    pub const NAME_SERVER_CACHE_SIZE: &str = "hickory_recursor_name_server_cache_size";
+
     /// Number of entries in the DNSSEC validated response cache.
     #[cfg(feature = "__dnssec")]
     pub const VALIDATED_RESPONSE_CACHE_SIZE: &str =
@@ -138,6 +141,7 @@ pub mod recursor {
         pub(crate) cache_hit_duration: Histogram,
         pub(crate) cache_miss_duration: Histogram,
         pub(crate) cache_size: Gauge,
+        pub(crate) name_server_cache_size: Gauge,
         #[cfg(feature = "__dnssec")]
         pub(crate) validated_cache_size: Gauge,
         #[cfg(feature = "__dnssec")]
@@ -182,6 +186,12 @@ pub mod recursor {
                 Unit::Count,
                 "Number of entries in the response cache."
             );
+            let name_server_cache_size = gauge!(NAME_SERVER_CACHE_SIZE);
+            describe_gauge!(
+                NAME_SERVER_CACHE_SIZE,
+                Unit::Count,
+                "Number of entries in the name server cache."
+            );
             #[cfg(feature = "__dnssec")]
             let validated_cache_size = gauge!(VALIDATED_RESPONSE_CACHE_SIZE);
             #[cfg(feature = "__dnssec")]
@@ -197,6 +207,7 @@ pub mod recursor {
                 cache_hit_duration,
                 cache_miss_duration,
                 cache_size,
+                name_server_cache_size,
                 #[cfg(feature = "__dnssec")]
                 validated_cache_size,
                 #[cfg(feature = "__dnssec")]
