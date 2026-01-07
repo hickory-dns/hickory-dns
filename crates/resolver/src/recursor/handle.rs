@@ -669,9 +669,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         #[cfg(feature = "metrics")]
-        self.metrics
-            .name_server_cache_size
-            .set(self.name_server_cache.lock().len() as f64);
+        {
+            self.metrics
+                .name_server_cache_size
+                .set(self.name_server_cache.lock().len() as f64);
+            self.metrics
+                .connection_cache_size
+                .set(self.connection_cache.lock().len() as f64);
+        }
 
         Ok((depth, nameserver_pool))
     }
