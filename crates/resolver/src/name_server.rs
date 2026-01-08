@@ -19,15 +19,15 @@ use std::{
 };
 
 use futures_util::lock::Mutex as AsyncMutex;
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-use metrics::{Counter, Histogram, counter, describe_counter, describe_histogram, histogram};
-#[cfg(feature = "metrics")]
-use metrics::{Gauge, Unit, describe_gauge, gauge};
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::ResolverMetrics;
+#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
+use crate::metrics::opportunistic_encryption::ProbeMetrics;
 use crate::{
     config::{
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
@@ -54,8 +54,11 @@ pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
     /// Metrics related to opportunistic encryption probes.
-    #[cfg(feature = "metrics")]
+    #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     opportunistic_probe_metrics: ProbeMetrics,
+    /// Metrics related to outgoing queries.
+    #[cfg(feature = "metrics")]
+    resolver_metrics: ResolverMetrics,
     server_srtt: DecayingSrtt,
     connection_provider: P,
 }
@@ -85,8 +88,10 @@ impl<P: ConnectionProvider> NameServer<P> {
             config,
             connections: AsyncMutex::new(connections),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             opportunistic_probe_metrics: ProbeMetrics::default(),
+            #[cfg(feature = "metrics")]
+            resolver_metrics: ResolverMetrics::default(),
             connection_provider,
         }
     }
@@ -99,6 +104,8 @@ impl<P: ConnectionProvider> NameServer<P> {
         cx: &Arc<PoolContext>,
     ) -> Result<DnsResponse, NetError> {
         let (handle, meta, protocol) = self.connected_mut_client(policy, cx).await?;
+        #[cfg(feature = "metrics")]
+        self.resolver_metrics.increment_outgoing_query(&protocol);
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -312,7 +319,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         probe_config: &ConnectionConfig,
     ) -> Result<(), NetError> {
         let mut budget = cx.opportunistic_probe_budget.load(Ordering::Relaxed);
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         self.opportunistic_probe_metrics.probe_budget.set(budget);
         loop {
             if budget == 0 {
@@ -334,7 +341,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             probe_config,
             self,
             cx,
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             self.opportunistic_probe_metrics.clone(),
         )?;
         self.connection_provider
@@ -351,7 +358,7 @@ struct ProbeRequest<P: ConnectionProvider> {
     proto: Protocol,
     connecting: P::FutureConn,
     context: Arc<PoolContext>,
-    #[cfg(feature = "metrics")]
+    #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     metrics: ProbeMetrics,
     provider: PhantomData<P>,
 }
@@ -361,7 +368,8 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         config: &ConnectionConfig,
         ns: &NameServer<P>,
         cx: &Arc<PoolContext>,
-        #[cfg(feature = "metrics")] metrics: ProbeMetrics,
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
+        metrics: ProbeMetrics,
     ) -> Result<Self, NetError> {
         Ok(Self {
             ip: ns.config.ip,
@@ -370,7 +378,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                 .connection_provider
                 .new_connection(ns.config.ip, config, cx)?,
             context: cx.clone(),
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             metrics,
             provider: PhantomData,
         })
@@ -382,19 +390,19 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             proto,
             connecting,
             context,
-            #[cfg(feature = "metrics")]
+            #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             metrics,
             provider: _,
         } = self;
 
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         let start = Instant::now();
 
         context
             .transport_state()
             .await
             .initiate_connection(ip, proto);
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         metrics.increment_attempts(proto);
 
         let conn = match connecting.await {
@@ -404,7 +412,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                 let _prev = context
                     .opportunistic_probe_budget
                     .fetch_add(1, Ordering::Relaxed);
-                #[cfg(feature = "metrics")]
+                #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
                 {
                     metrics.increment_errors(proto, &err);
                     metrics.probe_budget.set(_prev + 1);
@@ -434,13 +442,13 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         {
             Ok(_) => {
                 debug!(?proto, "probe query succeeded");
-                #[cfg(feature = "metrics")]
+                #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
                 metrics.increment_successes(proto);
                 context.transport_state().await.response_received(ip, proto);
             }
             Err(err) => {
                 debug!(?proto, ?err, "probe query failed");
-                #[cfg(feature = "metrics")]
+                #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
                 metrics.increment_errors(proto, &err);
                 context
                     .transport_state()
@@ -452,165 +460,10 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
         let _prev = context
             .opportunistic_probe_budget
             .fetch_add(1, Ordering::Relaxed);
-        #[cfg(feature = "metrics")]
+        #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
         {
             metrics.probe_budget.set(_prev + 1);
             metrics.record_probe_duration(proto, start.elapsed());
-        }
-    }
-}
-
-#[cfg(feature = "metrics")]
-#[derive(Clone)]
-struct ProbeMetrics {
-    #[cfg(feature = "__tls")]
-    tls_probe_metrics: ProbeProtocolMetrics,
-    #[cfg(feature = "__quic")]
-    quic_probe_metrics: ProbeProtocolMetrics,
-    probe_budget: Gauge,
-}
-
-#[cfg(feature = "metrics")]
-impl ProbeMetrics {
-    fn increment_attempts(&self, proto: Protocol) {
-        match proto {
-            #[cfg(feature = "__tls")]
-            Protocol::Tls => self.tls_probe_metrics.probe_attempts.increment(1),
-            #[cfg(feature = "__quic")]
-            Protocol::Quic => self.quic_probe_metrics.probe_attempts.increment(1),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-
-    fn increment_errors(&self, proto: Protocol, err: &NetError) {
-        match (&err, proto) {
-            #[cfg(feature = "__tls")]
-            (NetError::Timeout, Protocol::Tls) => {
-                self.tls_probe_metrics.probe_timeouts.increment(1)
-            }
-            #[cfg(feature = "__tls")]
-            (_, Protocol::Tls) => self.tls_probe_metrics.probe_errors.increment(1),
-            #[cfg(feature = "__quic")]
-            (NetError::Timeout, Protocol::Quic) => {
-                self.quic_probe_metrics.probe_timeouts.increment(1)
-            }
-            #[cfg(feature = "__quic")]
-            (_, Protocol::Quic) => self.quic_probe_metrics.probe_errors.increment(1),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-
-    fn increment_successes(&self, proto: Protocol) {
-        match proto {
-            #[cfg(feature = "__tls")]
-            Protocol::Tls => self.tls_probe_metrics.probe_successes.increment(1),
-            #[cfg(feature = "__quic")]
-            Protocol::Quic => self.quic_probe_metrics.probe_successes.increment(1),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-
-    #[cfg_attr(
-        not(any(feature = "__tls", feature = "__quic")),
-        allow(unused_variables)
-    )]
-    fn record_probe_duration(&self, proto: Protocol, duration: Duration) {
-        match proto {
-            #[cfg(feature = "__tls")]
-            Protocol::Tls => self.tls_probe_metrics.probe_duration.record(duration),
-            #[cfg(feature = "__quic")]
-            Protocol::Quic => self.tls_probe_metrics.probe_duration.record(duration),
-            _ => {
-                warn!("probe protocol {proto} not supported for metrics");
-            }
-        }
-    }
-}
-
-#[cfg(feature = "metrics")]
-impl Default for ProbeMetrics {
-    fn default() -> Self {
-        describe_gauge!(
-            "hickory_resolver_probe_budget_total",
-            Unit::Count,
-            "Count of remaining opportunistic encrypted name server probe requests allowed by budget."
-        );
-        let probe_budget = gauge!("hickory_resolver_probe_budget_total");
-
-        Self {
-            #[cfg(feature = "__tls")]
-            tls_probe_metrics: ProbeProtocolMetrics::new(Protocol::Tls),
-            #[cfg(feature = "__quic")]
-            quic_probe_metrics: ProbeProtocolMetrics::new(Protocol::Quic),
-            probe_budget,
-        }
-    }
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-#[derive(Clone)]
-struct ProbeProtocolMetrics {
-    probe_attempts: Counter,
-    probe_errors: Counter,
-    probe_timeouts: Counter,
-    probe_successes: Counter,
-    probe_duration: Histogram,
-}
-
-#[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
-impl ProbeProtocolMetrics {
-    fn new(protocol: Protocol) -> Self {
-        describe_counter!(
-            "hickory_resolver_probe_attempts_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests attempted."
-        );
-        let probe_attempts =
-            counter!("hickory_resolver_probe_attempts_total", "protocol" => protocol.to_string());
-
-        describe_counter!(
-            "hickory_resolver_probe_errors_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests that failed due to an error."
-        );
-        let probe_errors =
-            counter!("hickory_resolver_probe_errors_total", "protocol" => protocol.to_string());
-
-        describe_counter!(
-            "hickory_resolver_probe_timeouts_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests that failed due to a timeout."
-        );
-        let probe_timeouts =
-            counter!("hickory_resolver_probe_timeouts_total", "protocol" => protocol.to_string());
-
-        describe_counter!(
-            "hickory_resolver_probe_successes_total",
-            Unit::Count,
-            "Number of opportunistic encrypted name server probe requests that succeeded"
-        );
-        let probe_successes =
-            counter!("hickory_resolver_probe_successes_total", "protocol" => protocol.to_string());
-
-        describe_histogram!(
-            "hickory_resolver_probe_duration_seconds",
-            Unit::Seconds,
-            "Duration of opportunistic encryption probe request"
-        );
-        let probe_duration = histogram!("hickory_resolver_probe_duration_seconds", "protocol" => protocol.to_string());
-
-        Self {
-            probe_attempts,
-            probe_errors,
-            probe_timeouts,
-            probe_successes,
-            probe_duration,
         }
     }
 }
@@ -998,7 +851,6 @@ mod tests {
     use std::str::FromStr;
     use std::time::Duration;
 
-    use test_support::subscribe;
     use tokio::net::UdpSocket;
     use tokio::spawn;
 
@@ -1012,7 +864,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_name_server() {
-        subscribe();
+        ::test_support::subscribe();
 
         let options = ResolverOpts::default();
         let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
@@ -1041,7 +893,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_failed_name_server() {
-        subscribe();
+        ::test_support::subscribe();
 
         let options = ResolverOpts {
             timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
@@ -1075,7 +927,7 @@ mod tests {
 
     #[tokio::test]
     async fn case_randomization_query_preserved() {
-        subscribe();
+        ::test_support::subscribe();
 
         let provider = TokioRuntimeProvider::default();
         let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -1280,40 +1132,191 @@ mod tests {
     }
 }
 
+#[cfg(all(test, feature = "metrics"))]
+mod resolver_metrics_tests {
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::sync::Arc;
+
+    use metrics::{Label, with_local_recorder};
+    use metrics_util::debugging::DebuggingRecorder;
+
+    use super::test_support::MockProvider;
+    use super::*;
+    use crate::config::{NameServerConfig, ResolverOpts};
+    use crate::connection_provider::TlsConfig;
+    use crate::metrics::OUTGOING_QUERIES_TOTAL;
+    use crate::name_server_pool::PoolContext;
+    use crate::proto::op::{DnsRequest, DnsRequestOptions, Query};
+    use crate::proto::rr::{Name, RecordType};
+
+    #[test]
+    fn test_outgoing_query_protocol_metrics_udp() {
+        ::test_support::subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts::default();
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let name_server = Arc::new(NameServer::new(
+                    [],
+                    config,
+                    &options,
+                    MockProvider::default(),
+                ));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        // We should have registered 1 UDP protocol query.
+        let protocol = vec![Label::new("protocol", "udp")];
+        ::test_support::assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
+    }
+
+    #[test]
+    fn test_outgoing_query_protocol_metrics_tcp() {
+        ::test_support::subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts::default();
+                let config = NameServerConfig::tcp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let name_server = Arc::new(NameServer::new(
+                    [],
+                    config,
+                    &options,
+                    MockProvider::default(),
+                ));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        // We should have registered 1 TCP protocol query.
+        let protocol = vec![Label::new("protocol", "tcp")];
+        ::test_support::assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
+    }
+
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn test_outgoing_query_protocol_metrics_tls() {
+        ::test_support::subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts::default();
+                let config = NameServerConfig::tls(
+                    IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+                    "dns.google".into(),
+                );
+                let name_server = Arc::new(NameServer::new(
+                    [],
+                    config,
+                    &options,
+                    MockProvider::default(),
+                ));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        // We should have registered 1 TLS protocol query.
+        let protocol = vec![Label::new("protocol", "tls")];
+        ::test_support::assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
+    }
+}
+
 #[cfg(all(test, feature = "__tls"))]
 mod opportunistic_enc_tests {
-    use std::future::Future;
     use std::io;
     use std::net::{IpAddr, Ipv4Addr};
-    use std::pin::Pin;
     use std::sync::Arc;
-    use std::task::{Context, Poll};
     use std::time::{Duration, SystemTime};
 
-    use futures_util::stream::once;
-    use futures_util::{Stream, future};
     #[cfg(feature = "metrics")]
-    use metrics::{Label, with_local_recorder};
+    use metrics::{Label, Unit, with_local_recorder};
     #[cfg(feature = "metrics")]
     use metrics_util::debugging::DebuggingRecorder;
-    use parking_lot::Mutex as SyncMutex;
-    use test_support::subscribe;
-    #[cfg(feature = "metrics")]
-    use test_support::{assert_counter_eq, assert_gauge_eq, assert_histogram_sample_count_eq};
-    use tokio::net::UdpSocket;
 
+    use super::ConnectionState;
+    use super::test_support::{MockClientHandle, MockProvider};
     use crate::config::{
-        ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
-        ProtocolConfig, ResolverOpts,
+        NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig, ProtocolConfig,
+        ResolverOpts,
     };
-    use crate::connection_provider::{ConnectionProvider, TlsConfig};
-    use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
+    use crate::connection_provider::TlsConfig;
+    #[cfg(feature = "metrics")]
+    use crate::metrics::opportunistic_encryption::{
+        PROBE_ATTEMPTS_TOTAL, PROBE_BUDGET_TOTAL, PROBE_DURATION_SECONDS, PROBE_ERRORS_TOTAL,
+        PROBE_SUCCESSES_TOTAL, PROBE_TIMEOUTS_TOTAL,
+    };
+    use crate::name_server::{ConnectionPolicy, NameServer};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
-    use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
-    use crate::net::runtime::{RuntimeProvider, Spawn, TokioTime};
+    use crate::net::NetError;
     use crate::net::xfer::Protocol;
-    use crate::net::{DnsHandle, NetError};
-    use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
 
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {
@@ -1656,7 +1659,7 @@ mod opportunistic_enc_tests {
 
     #[tokio::test]
     async fn test_opportunistic_probe() {
-        subscribe();
+        ::test_support::subscribe();
 
         // Enable opportunistic encryption
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1689,7 +1692,7 @@ mod opportunistic_enc_tests {
 
     #[tokio::test]
     async fn test_opportunistic_probe_skip_in_progress() {
-        subscribe();
+        ::test_support::subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1718,7 +1721,7 @@ mod opportunistic_enc_tests {
 
     #[tokio::test]
     async fn test_opportunistic_probe_skip_recent_failure() {
-        subscribe();
+        ::test_support::subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1752,7 +1755,7 @@ mod opportunistic_enc_tests {
 
     #[tokio::test]
     async fn test_opportunistic_probe_stale_failure() {
-        subscribe();
+        ::test_support::subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let mut cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1793,7 +1796,7 @@ mod opportunistic_enc_tests {
 
     #[tokio::test]
     async fn test_opportunistic_probe_skip_no_budget() {
-        subscribe();
+        ::test_support::subscribe();
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1821,7 +1824,7 @@ mod opportunistic_enc_tests {
     #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_success() {
-        subscribe();
+        ::test_support::subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
         let initial_budget = 10;
@@ -1854,44 +1857,30 @@ mod opportunistic_enc_tests {
 
         // We should have registered 1 TLS protocol probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            1,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(
+        ::test_support::assert_histogram_sample_count_eq(
             &map,
-            "hickory_resolver_probe_duration_seconds",
+            PROBE_DURATION_SECONDS,
             protocol.clone(),
             1,
+            Unit::Seconds,
         );
 
         // We should have registered 1 TLS protocol probe success.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_successes_total",
-            protocol.clone(),
-            1,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol.clone(), 1);
 
         // We should have registered 0 TLS protocol probe errors.
-        assert_counter_eq(&map, "hickory_resolver_probe_errors_total", protocol, 0);
+        ::test_support::assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_gauge_eq(
-            &map,
-            "hickory_resolver_probe_budget_total",
-            vec![],
-            initial_budget,
-        );
+        ::test_support::assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
     #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_budget_exhausted() {
-        subscribe();
+        ::test_support::subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
 
@@ -1921,29 +1910,25 @@ mod opportunistic_enc_tests {
         let map = snapshotter.snapshot().into_hashmap();
 
         // The budget metric should confirm that there's no budget.
-        assert_gauge_eq(&map, "hickory_resolver_probe_budget_total", vec![], 0);
+        ::test_support::assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], 0);
 
         // We should not have registered a probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            0,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 0);
         // Or seen a probe duration observation.
-        assert_histogram_sample_count_eq(
+        ::test_support::assert_histogram_sample_count_eq(
             &map,
-            "hickory_resolver_probe_duration_seconds",
+            PROBE_DURATION_SECONDS,
             protocol,
             0,
+            Unit::Seconds,
         );
     }
 
     #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_connection_error() {
-        subscribe();
+        ::test_support::subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
         let initial_budget = 10;
@@ -1980,45 +1965,31 @@ mod opportunistic_enc_tests {
 
         // We should have registered 1 TLS protocol probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            1,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(
+        ::test_support::assert_histogram_sample_count_eq(
             &map,
-            "hickory_resolver_probe_duration_seconds",
+            PROBE_DURATION_SECONDS,
             protocol.clone(),
             1,
+            Unit::Seconds,
         );
 
         // We should have registered 1 TLS protocol probe error.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_errors_total",
-            protocol.clone(),
-            1,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol.clone(), 1);
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        assert_counter_eq(&map, "hickory_resolver_probe_successes_total", protocol, 0);
+        ::test_support::assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_gauge_eq(
-            &map,
-            "hickory_resolver_probe_budget_total",
-            vec![],
-            initial_budget,
-        );
+        ::test_support::assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
     #[cfg(feature = "metrics")]
     #[test]
     fn test_opportunistic_probe_metrics_connection_timeout_error() {
-        subscribe();
+        ::test_support::subscribe();
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
         let initial_budget = 10;
@@ -2052,47 +2023,28 @@ mod opportunistic_enc_tests {
 
         // We should have registered 1 TLS protocol probe attempt.
         let protocol = vec![Label::new("protocol", "tls")];
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_attempts_total",
-            protocol.clone(),
-            1,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_ATTEMPTS_TOTAL, protocol.clone(), 1);
         // And seen 1 probe duration observation.
-        assert_histogram_sample_count_eq(
+        ::test_support::assert_histogram_sample_count_eq(
             &map,
-            "hickory_resolver_probe_duration_seconds",
+            PROBE_DURATION_SECONDS,
             protocol.clone(),
             1,
+            Unit::Seconds,
         );
 
         // We should have registered 1 TLS protocol probe timeout.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_timeouts_total",
-            protocol.clone(),
-            1,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_TIMEOUTS_TOTAL, protocol.clone(), 1);
 
         // We shouldn't have registered a more general probe error.
-        assert_counter_eq(
-            &map,
-            "hickory_resolver_probe_errors_total",
-            protocol.clone(),
-            0,
-        );
+        ::test_support::assert_counter_eq(&map, PROBE_ERRORS_TOTAL, protocol.clone(), 0);
 
         // We shouldn't have registered any TLS protocol probe successes due to the
         // mock new connection error.
-        assert_counter_eq(&map, "hickory_resolver_probe_successes_total", protocol, 0);
+        ::test_support::assert_counter_eq(&map, PROBE_SUCCESSES_TOTAL, protocol, 0);
 
         // The budget should be back to the initial value now that the probe completed.
-        assert_gauge_eq(
-            &map,
-            "hickory_resolver_probe_budget_total",
-            vec![],
-            initial_budget,
-        );
+        ::test_support::assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
     /// Construct a nameserver appropriate for opportunistic encryption and assert connected_mut_client
@@ -2117,6 +2069,31 @@ mod opportunistic_enc_tests {
             .await
             .map(|_| ())
     }
+}
+
+/// Shared test utilities for mocking connection providers and DNS handles
+#[cfg(all(test, any(feature = "metrics", feature = "__tls")))]
+mod test_support {
+    use std::future::Future;
+    use std::io;
+    use std::net::IpAddr;
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::task::{Context, Poll};
+    use std::time::Duration;
+
+    use futures_util::stream::once;
+    use futures_util::{Stream, future};
+    use parking_lot::Mutex as SyncMutex;
+    use tokio::net::UdpSocket;
+
+    use crate::config::{ConnectionConfig, ProtocolConfig};
+    use crate::connection_provider::ConnectionProvider;
+    use crate::name_server_pool::PoolContext;
+    use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::net::runtime::{RuntimeProvider, Spawn, TokioTime};
+    use crate::net::{DnsHandle, NetError};
+    use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
 
     /// `MockProvider` is a `ConnectionProvider` that uses a synchronous runtime provider.
     ///
@@ -2125,14 +2102,15 @@ mod opportunistic_enc_tests {
     /// `ProtoError` can be set to have `new_connection()` return a future that will error
     /// when polled, mocking a connection failure.
     #[derive(Clone)]
-    struct MockProvider {
-        runtime: MockSyncRuntimeProvider,
-        new_connection_calls: Arc<SyncMutex<Vec<(IpAddr, ProtocolConfig)>>>,
-        new_connection_error: Option<NetError>,
+    pub(super) struct MockProvider {
+        pub(super) runtime: MockSyncRuntimeProvider,
+        pub(super) new_connection_calls: Arc<SyncMutex<Vec<(IpAddr, ProtocolConfig)>>>,
+        pub(super) new_connection_error: Option<NetError>,
     }
 
     impl MockProvider {
-        fn new_connection_calls(&self) -> Vec<(IpAddr, ProtocolConfig)> {
+        #[cfg(feature = "__tls")]
+        pub(super) fn new_connection_calls(&self) -> Vec<(IpAddr, ProtocolConfig)> {
             self.new_connection_calls.lock().clone()
         }
     }
@@ -2178,7 +2156,7 @@ mod opportunistic_enc_tests {
     /// It's `send` method always returns a `NoError` response when polled, simulating a
     /// successful DNS request exchange.
     #[derive(Clone, Default)]
-    struct MockClientHandle;
+    pub(super) struct MockClientHandle;
 
     impl DnsHandle for MockClientHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
@@ -2198,7 +2176,7 @@ mod opportunistic_enc_tests {
     ///
     /// Trait methods other than `create_handle` are not implemented.
     #[derive(Clone)]
-    struct MockSyncRuntimeProvider;
+    pub(super) struct MockSyncRuntimeProvider;
 
     impl RuntimeProvider for MockSyncRuntimeProvider {
         type Handle = MockSyncHandle;
@@ -2235,7 +2213,7 @@ mod opportunistic_enc_tests {
     /// Provided futures will be polled until completion, allowing tests to avoid needing to
     /// coordinate with background tasks to determine their completion state.
     #[derive(Clone)]
-    struct MockSyncHandle;
+    pub(super) struct MockSyncHandle;
 
     impl Spawn for MockSyncHandle {
         fn spawn_bg(&mut self, future: impl Future<Output = ()> + Send + 'static) {

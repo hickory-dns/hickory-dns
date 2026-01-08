@@ -778,12 +778,25 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
 
 #[cfg(feature = "metrics")]
 mod metrics {
-    use ::metrics::with_local_recorder;
+    use ::metrics::{Unit, with_local_recorder};
     use metrics_util::debugging::DebuggingRecorder;
-    use test_support::assert_counter_eq;
+    use test_support::{assert_counter_eq, assert_gauge_eq, assert_histogram_sample_count_eq};
     use tokio::runtime::Builder;
 
     use super::*;
+    #[cfg(feature = "__dnssec")]
+    use crate::metrics::recursor::{
+        BOGUS_ANSWERS_TOTAL, INDETERMINATE_ANSWERS_TOTAL, INSECURE_ANSWERS_TOTAL,
+        SECURE_ANSWERS_TOTAL, VALIDATED_RESPONSE_CACHE_SIZE,
+    };
+    use crate::metrics::recursor::{
+        CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
+        CONNECTION_CACHE_SIZE, IN_FLIGHT_QUERIES, NAME_SERVER_CACHE_SIZE, OUTGOING_QUERIES_TOTAL,
+        RESPONSE_CACHE_SIZE,
+    };
+    #[cfg(feature = "__dnssec")]
+    use crate::recursor::DnssecConfig;
+    use crate::recursor::DnssecPolicy;
 
     #[test]
     fn test_recursor_metrics() {
@@ -816,8 +829,16 @@ mod metrics {
             ]);
 
             let provider = MockProvider::new(handler);
-            let recursor = Recursor::with_options(
+
+            #[cfg(not(feature = "__dnssec"))]
+            let policy = DnssecPolicy::SecurityUnaware;
+            #[cfg(feature = "__dnssec")]
+            let policy = DnssecPolicy::ValidateWithStaticKey(DnssecConfig::default());
+
+            let recursor = Recursor::new(
                 &[ROOT_IP],
+                policy,
+                None,
                 RecursorOptions {
                     deny_server: Vec::new(),
                     ..RecursorOptions::default()
@@ -845,9 +866,59 @@ mod metrics {
         // False positive, see the documentation for metrics::Key.
         let map = snapshotter.snapshot().into_hashmap();
 
-        assert_counter_eq(&map, "hickory_recursor_outgoing_queries_total", vec![], 3);
-        assert_counter_eq(&map, "hickory_recursor_cache_hit_total", vec![], 2);
-        assert_counter_eq(&map, "hickory_recursor_cache_miss_total", vec![], 1);
+        // The expected counts of queries/cache hits/misses/etc differ
+        // depending on whether we were validating DNSSEC, which requires
+        // additional queries.
+
+        #[cfg(not(feature = "__dnssec"))]
+        {
+            assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, vec![], 3);
+            assert_counter_eq(&map, CACHE_HIT_TOTAL, vec![], 2);
+            assert_counter_eq(&map, CACHE_MISS_TOTAL, vec![], 1);
+            assert_histogram_sample_count_eq(
+                &map,
+                CACHE_HIT_DURATION,
+                vec![],
+                2,
+                Unit::Milliseconds,
+            );
+            assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
+
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, NAME_SERVER_CACHE_SIZE, vec![], 2);
+            assert_gauge_eq(&map, CONNECTION_CACHE_SIZE, vec![], 2);
+            assert_gauge_eq(&map, IN_FLIGHT_QUERIES, vec![], 0);
+        }
+
+        #[cfg(feature = "__dnssec")]
+        {
+            assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, vec![], 4);
+            assert_counter_eq(&map, CACHE_HIT_TOTAL, vec![], 5);
+            assert_counter_eq(&map, CACHE_MISS_TOTAL, vec![], 2);
+            assert_histogram_sample_count_eq(
+                &map,
+                CACHE_HIT_DURATION,
+                vec![],
+                3,
+                Unit::Milliseconds,
+            );
+            assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
+
+            // When validating DNSSEC, we should also see DNSSEC-specific metrics.
+            // The state of the mock data means all answers should have been considered
+            // bogus.
+            assert_counter_eq(&map, SECURE_ANSWERS_TOTAL, vec![], 0);
+            assert_counter_eq(&map, INSECURE_ANSWERS_TOTAL, vec![], 0);
+            assert_counter_eq(&map, BOGUS_ANSWERS_TOTAL, vec![], 5);
+            assert_counter_eq(&map, INDETERMINATE_ANSWERS_TOTAL, vec![], 0);
+
+            // Both the regular cache and validated cache should have entries.
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, VALIDATED_RESPONSE_CACHE_SIZE, vec![], 1);
+            assert_gauge_eq(&map, NAME_SERVER_CACHE_SIZE, vec![], 2);
+            assert_gauge_eq(&map, CONNECTION_CACHE_SIZE, vec![], 2);
+            assert_gauge_eq(&map, IN_FLIGHT_QUERIES, vec![], 0);
+        }
     }
 
     const A_RR_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));

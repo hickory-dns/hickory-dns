@@ -50,7 +50,31 @@ use hickory_proto::{
         rdata::{A, name::PTR},
     },
 };
+#[cfg(all(feature = "__tls", feature = "recursor", feature = "metrics"))]
+use hickory_resolver::metrics::opportunistic_encryption::{
+    PROBE_ATTEMPTS_TOTAL, PROBE_BUDGET_TOTAL, PROBE_DURATION_SECONDS, PROBE_ERRORS_TOTAL,
+    PROBE_SUCCESSES_TOTAL, PROBE_TIMEOUTS_TOTAL,
+};
 use test_support::subscribe;
+
+use hickory_dns::metrics::{BUILD_INFO, CONFIG_INFO, ZONES_TOTAL};
+#[cfg(all(feature = "recursor", feature = "__dnssec", feature = "metrics"))]
+use hickory_resolver::metrics::recursor::{
+    BOGUS_ANSWERS_TOTAL, INDETERMINATE_ANSWERS_TOTAL, INSECURE_ANSWERS_TOTAL, SECURE_ANSWERS_TOTAL,
+};
+#[cfg(feature = "recursor")]
+use hickory_resolver::metrics::recursor::{
+    CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
+    OUTGOING_QUERIES_TOTAL,
+};
+#[cfg(feature = "blocklist")]
+use hickory_server::metrics::blocklist;
+use hickory_server::metrics::{
+    REQUEST_DNS_CLASSES_TOTAL, REQUEST_FLAGS_TOTAL, REQUEST_OPERATIONS_TOTAL,
+    REQUEST_PROTOCOLS_TOTAL, REQUEST_RECORD_TYPES_TOTAL, RESPONSE_CODES_TOTAL,
+    RESPONSE_DNS_CLASSES_TOTAL, RESPONSE_FLAGS_TOTAL, RESPONSE_RECORD_TYPES_TOTAL,
+    ZONE_LOOKUPS_TOTAL, ZONE_RECORDS_MODIFIED_TOTAL, ZONE_RECORDS_TOTAL,
+};
 
 #[tokio::test]
 async fn test_prometheus_endpoint_startup() {
@@ -86,78 +110,53 @@ async fn test_prometheus_endpoint_startup() {
         ("deny_networks", "0"),  // move to separate counter hickory_config_deny_networks_total ?
         ("zones", "6"),          // redundant ?
     ];
-    verify_metric(metrics, "hickory_build_info", &info, Some(1f64));
-    verify_metric(metrics, "hickory_config_info", &config_info, Some(1f64));
+    verify_metric(metrics, BUILD_INFO, &info, Some(1f64));
+    verify_metric(metrics, CONFIG_INFO, &config_info, Some(1f64));
 
     let store_forwarder = [("store", "forwarder")];
-    verify_metric(metrics, "hickory_zones_total", &store_forwarder, Some(1f64));
+    verify_metric(metrics, ZONES_TOTAL, &store_forwarder, Some(1f64));
 
     let store_file_primary = [("store", "file"), ("role", "primary")];
     let store_file_secondary = [("store", "file"), ("role", "secondary")];
-    verify_metric(
-        metrics,
-        "hickory_zones_total",
-        &store_file_primary,
-        Some(4f64),
-    );
-    verify_metric(
-        metrics,
-        "hickory_zones_total",
-        &store_file_secondary,
-        Some(1f64),
-    );
+    verify_metric(metrics, ZONES_TOTAL, &store_file_primary, Some(4f64));
+    verify_metric(metrics, ZONES_TOTAL, &store_file_secondary, Some(1f64));
 
     #[cfg(feature = "sqlite")]
     {
         let store_sqlite_primary = [("store", "sqlite"), ("role", "primary")];
         let store_sqlite_secondary = [("store", "sqlite"), ("role", "secondary")];
-        verify_metric(
-            metrics,
-            "hickory_zones_total",
-            &store_sqlite_primary,
-            Some(0f64),
-        );
-        verify_metric(
-            metrics,
-            "hickory_zones_total",
-            &store_sqlite_secondary,
-            Some(0f64),
-        );
+        verify_metric(metrics, ZONES_TOTAL, &store_sqlite_primary, Some(0f64));
+        verify_metric(metrics, ZONES_TOTAL, &store_sqlite_secondary, Some(0f64));
     }
 
     // check store metrics
     // forwarder store only has QueryStoreMetrics
     // sqlite store not initialized within example_forwarder.toml
     let store_file = [("store", "file")];
-    verify_metric(
-        metrics,
-        "hickory_zone_records_total",
-        &store_file,
-        Some(14f64),
-    );
+    verify_metric(metrics, ZONE_RECORDS_TOTAL, &store_file, Some(14f64));
 
     // check zone lookup metrics
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
         Some(0f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &AUTHORITATIVE_PRIMARY_FILE_FAILED,
         Some(0f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
         Some(0f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &EXTERNAL_FORWARDED_FORWARDER_FAILED,
         Some(0f64),
     );
@@ -176,23 +175,25 @@ async fn test_prometheus_endpoint_startup() {
 
         verify_metric(
             metrics,
-            "hickory_zone_records_modified_total",
+            ZONE_RECORDS_MODIFIED_TOTAL,
             &store_file_added,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_records_modified_total",
+            ZONE_RECORDS_MODIFIED_TOTAL,
             &store_file_deleted,
             Some(0f64),
         );
         verify_metric(
             metrics,
-            "hickory_zone_records_modified_total",
+            ZONE_RECORDS_MODIFIED_TOTAL,
             &store_file_updated,
             Some(0f64),
         );
     }
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -236,31 +237,21 @@ async fn test_request_response() {
     request_operations.iter().for_each(|op| {
         let value = if *op == "query" { 2f64 } else { 0f64 };
         let op = [("operation", *op)];
-        verify_metric(
-            metrics,
-            "hickory_request_operations_total",
-            &op,
-            Some(value),
-        )
+        verify_metric(metrics, REQUEST_OPERATIONS_TOTAL, &op, Some(value))
     });
 
     let flags = ["aa", "ad", "cd", "ra", "rd", "tc"];
     flags.iter().for_each(|flag| {
         let value = if *flag == "rd" { 2f64 } else { 0f64 };
         let flag = [("flag", *flag)];
-        verify_metric(metrics, "hickory_request_flags_total", &flag, Some(value))
+        verify_metric(metrics, REQUEST_FLAGS_TOTAL, &flag, Some(value))
     });
 
     let protocols = ["tcp", "udp"];
     protocols.iter().for_each(|proto| {
         let value = if *proto == "tcp" { 2f64 } else { 0f64 };
         let proto = [("protocol", *proto)];
-        verify_metric(
-            metrics,
-            "hickory_request_protocols_total",
-            &proto,
-            Some(value),
-        )
+        verify_metric(metrics, REQUEST_PROTOCOLS_TOTAL, &proto, Some(value))
     });
 
     // check response
@@ -290,7 +281,7 @@ async fn test_request_response() {
     response_codes.iter().for_each(|code| {
         let value = if *code == "no_error" { 2f64 } else { 0f64 };
         let code = [("code", *code)];
-        verify_metric(metrics, "hickory_response_codes_total", &code, Some(value))
+        verify_metric(metrics, RESPONSE_CODES_TOTAL, &code, Some(value))
     });
 
     flags.iter().for_each(|flag| {
@@ -300,19 +291,19 @@ async fn test_request_response() {
             0f64
         };
         let flag = [("flag", *flag)];
-        verify_metric(metrics, "hickory_response_flags_total", &flag, Some(value))
+        verify_metric(metrics, RESPONSE_FLAGS_TOTAL, &flag, Some(value))
     });
 
     // check zone lookup metrics
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
         Some(1f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &[
             ("type", "authoritative"),
             ("role", "secondary"),
@@ -323,19 +314,19 @@ async fn test_request_response() {
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &AUTHORITATIVE_PRIMARY_FILE_FAILED,
         Some(0f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &EXTERNAL_FORWARDED_FORWARDER_SUCCESS,
         Some(0f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_lookups_total",
+        ZONE_LOOKUPS_TOTAL,
         &EXTERNAL_FORWARDED_FORWARDER_FAILED,
         Some(0f64),
     );
@@ -387,13 +378,8 @@ async fn test_request_response() {
             0f64
         };
         let r#type = [("type", *r#type)];
-        for direction in ["request", "response"] {
-            verify_metric(
-                metrics,
-                format!("hickory_{direction}_record_types_total").as_str(),
-                &r#type,
-                Some(value),
-            )
+        for metric in [REQUEST_RECORD_TYPES_TOTAL, RESPONSE_RECORD_TYPES_TOTAL] {
+            verify_metric(metrics, metric, &r#type, Some(value))
         }
     });
 
@@ -401,15 +387,12 @@ async fn test_request_response() {
     dns_classes.iter().for_each(|class| {
         let value = if *class == "in" { 2f64 } else { 0f64 };
         let class = [("class", *class)];
-        for direction in ["request", "response"] {
-            verify_metric(
-                metrics,
-                format!("hickory_{direction}_dns_classes_total").as_str(),
-                &class,
-                Some(value),
-            )
+        for metric in [REQUEST_DNS_CLASSES_TOTAL, RESPONSE_DNS_CLASSES_TOTAL] {
+            verify_metric(metrics, metric, &class, Some(value))
         }
     });
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -451,15 +434,12 @@ async fn test_blocklist_metrics() {
         &fetch_parse_check_metrics(&server.ports).await
     };
 
-    verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
-    verify_metric(
-        metrics,
-        "hickory_blocklist_blocked_queries_total",
-        &[],
-        Some(1.0),
-    );
-    verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
-    verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
+    verify_metric(metrics, blocklist::ENTRIES_TOTAL, &[], Some(6.0));
+    verify_metric(metrics, blocklist::BLOCKED_QUERIES_TOTAL, &[], Some(1.0));
+    verify_metric(metrics, blocklist::QUERIES_TOTAL, &[], Some(2.0));
+    verify_metric(metrics, blocklist::HITS_TOTAL, &[], Some(1.0));
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -500,15 +480,12 @@ async fn test_consulting_blocklist_metrics() {
         &fetch_parse_check_metrics(&server.ports).await
     };
 
-    verify_metric(metrics, "hickory_blocklist_list_entries", &[], Some(6.0));
-    verify_metric(
-        metrics,
-        "hickory_blocklist_logged_queries_total",
-        &[],
-        Some(1.0),
-    );
-    verify_metric(metrics, "hickory_blocklist_queries_total", &[], Some(2.0));
-    verify_metric(metrics, "hickory_blocklist_list_hits_total", &[], Some(1.0));
+    verify_metric(metrics, blocklist::ENTRIES_TOTAL, &[], Some(6.0));
+    verify_metric(metrics, blocklist::LOGGED_QUERIES_TOTAL, &[], Some(1.0));
+    verify_metric(metrics, blocklist::QUERIES_TOTAL, &[], Some(2.0));
+    verify_metric(metrics, blocklist::HITS_TOTAL, &[], Some(1.0));
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 #[tokio::test]
@@ -574,29 +551,31 @@ async fn test_updates() {
 
     verify_metric(
         metrics,
-        "hickory_request_operations_total",
+        REQUEST_OPERATIONS_TOTAL,
         &[("operation", "update")],
         Some(3f64),
     );
     // check updates lookups
     verify_metric(
         metrics,
-        "hickory_zone_records_modified_total",
+        ZONE_RECORDS_MODIFIED_TOTAL,
         &[("store", "sqlite"), ("operation", "added")],
         Some(1f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_records_modified_total",
+        ZONE_RECORDS_MODIFIED_TOTAL,
         &[("store", "sqlite"), ("operation", "deleted")],
         Some(1f64),
     );
     verify_metric(
         metrics,
-        "hickory_zone_records_modified_total",
+        ZONE_RECORDS_MODIFIED_TOTAL,
         &[("store", "sqlite"), ("operation", "updated")],
         Some(1f64),
     );
+
+    verify_all_histograms_have_buckets(metrics);
 
     // Clean up database.
     drop(server);
@@ -641,41 +620,92 @@ async fn test_opp_enc_metrics() {
     // Note: we use `None` as the expected value for the following metrics because the probes
     // are attempted as background tasks, and we can't reliably predict their state as an
     // external observer. We only care that the metrics are present.
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_attempts_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_errors_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_timeouts_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_successes_total",
-        &tls_protocol,
-        None,
-    );
-    verify_metric(
-        metrics,
-        "hickory_resolver_probe_duration_seconds",
-        &tls_protocol,
-        None,
-    );
+    verify_metric(metrics, PROBE_ATTEMPTS_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_ERRORS_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_TIMEOUTS_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_SUCCESSES_TOTAL, &tls_protocol, None);
+    verify_metric(metrics, PROBE_DURATION_SECONDS, &tls_protocol, None);
     // Note: unlike the other metrics, the budget is unlabelled and shared by all protocols.
-    verify_metric(metrics, "hickory_resolver_probe_budget_total", &[], None);
+    verify_metric(metrics, PROBE_BUDGET_TOTAL, &[], None);
+
+    verify_all_histograms_have_buckets(metrics);
 
     drop(server);
     fs::remove_file("metrics_opp_enc_state.toml").expect("failed to cleanup after test");
+}
+
+#[tokio::test]
+#[cfg(all(feature = "recursor", feature = "metrics"))]
+async fn test_recursor_metrics() {
+    subscribe();
+
+    let server = TestServer::start("example_recursor.toml");
+    let metrics = &{
+        let mut client = create_local_client(&server.ports, None).await;
+
+        for _ in 0..2 {
+            let _ = client
+                .query(
+                    Name::from_str("example.com.").unwrap(),
+                    DNSClass::IN,
+                    RecordType::A,
+                )
+                .await;
+        }
+
+        fetch_parse_check_metrics(&server.ports).await
+    };
+
+    verify_metric(metrics, CACHE_MISS_TOTAL, &[], Some(1.0));
+    verify_metric(metrics, CACHE_HIT_TOTAL, &[], Some(1.0));
+    verify_metric(metrics, OUTGOING_QUERIES_TOTAL, &[], Some(3.0));
+
+    // Query processing time is not predictable, so we use `None` here and
+    // only verify the metrics exist, not what values the buckets contain.
+    verify_metric(metrics, CACHE_HIT_DURATION, &[], None);
+    verify_metric(metrics, CACHE_MISS_DURATION, &[], None);
+
+    verify_all_histograms_have_buckets(metrics);
+}
+
+#[tokio::test]
+#[cfg(all(feature = "recursor", feature = "__dnssec", feature = "metrics"))]
+async fn test_recursor_dnssec_metrics() {
+    subscribe();
+
+    let server = TestServer::start("example_recursor_dnssec.toml");
+    let metrics = &{
+        let mut client = create_local_client(&server.ports, None).await;
+
+        for _ in 0..2 {
+            let _ = client
+                .query(
+                    Name::from_str("example.com.").unwrap(),
+                    DNSClass::IN,
+                    RecordType::A,
+                )
+                .await;
+        }
+
+        fetch_parse_check_metrics(&server.ports).await
+    };
+
+    verify_metric(metrics, CACHE_MISS_TOTAL, &[], Some(6.0));
+    verify_metric(metrics, CACHE_HIT_TOTAL, &[], Some(2.0));
+    verify_metric(metrics, OUTGOING_QUERIES_TOTAL, &[], Some(8.0));
+
+    // Query processing time is not predictable, so we use `None` here and
+    // only verify the metrics exist, not what values the buckets contain.
+    verify_metric(metrics, CACHE_HIT_DURATION, &[], None);
+    verify_metric(metrics, CACHE_MISS_DURATION, &[], None);
+
+    // When validating DNSSEC, we should also see DNSSEC-specific metrics.
+    verify_metric(metrics, SECURE_ANSWERS_TOTAL, &[], Some(3.0));
+    verify_metric(metrics, INSECURE_ANSWERS_TOTAL, &[], Some(0.0));
+    verify_metric(metrics, BOGUS_ANSWERS_TOTAL, &[], Some(0.0));
+    verify_metric(metrics, INDETERMINATE_ANSWERS_TOTAL, &[], Some(0.0));
+
+    verify_all_histograms_have_buckets(metrics);
 }
 
 async fn create_local_client(
@@ -796,6 +826,41 @@ fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: O
             panic!("metric type check not supported")
         }
     })
+}
+
+/// Assert that all `hickory_` histograms are "true" histograms, not summaries.
+///
+/// By default, the `metrics` facade used by Hickory library crates creates
+/// histograms as summaries. In order to get true histograms with discrete
+/// buckets that can be aggregated we need to use `metrics-exporter-prometheus`
+/// functionality from this `bin` crate to configure buckets.
+///
+/// Since it would be easy to forget doing this after adding a new histogram
+/// to a library crate this test exists as a backstop.
+fn verify_all_histograms_have_buckets(metrics: &Scrape) {
+    let summaries = metrics
+        .samples
+        .iter()
+        .filter_map(|sample| {
+            // Skip metrics that aren't our own.
+            if !sample.metric.starts_with("hickory_") {
+                return None;
+            }
+            // Collect up metric names that are reporting Summary values.
+            match &sample.value {
+                Value::Summary(_) => Some(sample.metric.as_str()),
+                _ => None,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // If this assertion is failing you need to update `PrometheusServer::new()` for
+    // your new metric.
+    assert!(
+        summaries.is_empty(),
+        "histogram metrics missing bucket configuration, exported as summaries: {:?}",
+        summaries
+    )
 }
 
 #[cfg(feature = "blocklist")]

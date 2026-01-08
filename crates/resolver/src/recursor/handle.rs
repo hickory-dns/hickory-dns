@@ -11,12 +11,12 @@ use std::{
 use async_recursion::async_recursion;
 use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
 use lru_cache::LruCache;
-#[cfg(feature = "metrics")]
-use metrics::{Counter, Unit, counter, describe_counter};
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use super::{DnssecPolicy, RecursorError, RecursorOptions, error::AuthorityData, is_subzone};
+#[cfg(feature = "metrics")]
+use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::rdata::DNSSECRData;
 use crate::{
@@ -157,11 +157,19 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         depth: u8,
         cname_limit: Arc<AtomicU8>,
     ) -> Result<Message, RecursorError> {
+        #[cfg(feature = "metrics")]
+        let _guard = self.metrics.new_inflight_query();
+
         if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = result?;
             if response.authoritative() {
                 #[cfg(feature = "metrics")]
-                self.metrics.cache_hit_counter.increment(1);
+                {
+                    self.metrics.cache_hit_counter.increment(1);
+                    self.metrics
+                        .cache_size
+                        .set(self.response_cache.entry_count() as f64);
+                }
 
                 let response = self
                     .resolve_cnames(
@@ -174,7 +182,17 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     )
                     .await?;
 
-                return Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok));
+                let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+                #[cfg(feature = "metrics")]
+                {
+                    self.metrics
+                        .cache_hit_duration
+                        .record(request_time.elapsed());
+                    self.metrics
+                        .cache_size
+                        .set(self.response_cache.entry_count() as f64);
+                }
+                return Ok(result);
             }
         }
 
@@ -258,7 +276,17 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
         // explicitly requested
-        Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok))
+        let response = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+        #[cfg(feature = "metrics")]
+        {
+            self.metrics
+                .cache_miss_duration
+                .record(request_time.elapsed());
+            self.metrics
+                .cache_size
+                .set(self.response_cache.entry_count() as f64);
+        }
+        Ok(response)
     }
 
     pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
@@ -643,6 +671,16 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .insert(zone.clone(), nameserver_pool.clone());
         }
 
+        #[cfg(feature = "metrics")]
+        {
+            self.metrics
+                .name_server_cache_size
+                .set(self.name_server_cache.lock().len() as f64);
+            self.metrics
+                .connection_cache_size
+                .set(self.connection_cache.lock().len() as f64);
+        }
+
         Ok((depth, nameserver_pool))
     }
 
@@ -845,43 +883,6 @@ fn name_server_config(
         ))]
         OpportunisticEncryption::Enabled { .. } => NameServerConfig::opportunistic_encryption(ip),
         _ => NameServerConfig::udp_and_tcp(ip),
-    }
-}
-
-#[cfg(feature = "metrics")]
-#[derive(Clone)]
-pub(super) struct RecursorMetrics {
-    pub(super) cache_hit_counter: Counter,
-    pub(super) cache_miss_counter: Counter,
-    pub(super) outgoing_query_counter: Counter,
-}
-
-#[cfg(feature = "metrics")]
-impl RecursorMetrics {
-    fn new() -> Self {
-        let cache_hit_counter = counter!("hickory_recursor_cache_hit_total");
-        describe_counter!(
-            "hickory_recursor_cache_hit_total",
-            Unit::Count,
-            "Number of recursive requests answered from the cache."
-        );
-        let cache_miss_counter = counter!("hickory_recursor_cache_miss_total");
-        describe_counter!(
-            "hickory_recursor_cache_miss_total",
-            Unit::Count,
-            "Number of recursive requests that could not be answered from the cache."
-        );
-        let outgoing_query_counter = counter!("hickory_recursor_outgoing_queries_total");
-        describe_counter!(
-            "hickory_recursor_outgoing_queries_total",
-            Unit::Count,
-            "Number of outgoing queries made during resolution."
-        );
-        Self {
-            cache_hit_counter,
-            cache_miss_counter,
-            outgoing_query_counter,
-        }
     }
 }
 

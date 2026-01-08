@@ -25,6 +25,8 @@ use ipnet::IpNet;
 use serde::Deserialize;
 use tracing::warn;
 
+#[cfg(all(feature = "__dnssec", feature = "metrics"))]
+use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "tokio")]
 use crate::net::runtime::TokioRuntimeProvider;
 #[cfg(feature = "serde")]
@@ -60,8 +62,6 @@ pub use error::{AuthorityData, RecursorError};
 
 mod handle;
 use handle::RecursorDnsHandle;
-#[cfg(all(feature = "__dnssec", feature = "metrics"))]
-use handle::RecursorMetrics;
 
 #[cfg(test)]
 mod tests;
@@ -453,7 +453,15 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             // Increment metrics on cache hits only. We will check the cache a second time
             // inside resolve(), thus we only track cache misses there.
             #[cfg(feature = "metrics")]
-            self.metrics.cache_hit_counter.increment(1);
+            {
+                self.metrics.cache_hit_counter.increment(1);
+                self.metrics
+                    .dnssec_metrics
+                    .increment_proof_counter(&response);
+                self.metrics
+                    .validated_cache_size
+                    .set(self.validated_response_cache.entry_count() as f64);
+            }
 
             let none_indeterminate = response
                 .all_sections()
@@ -462,7 +470,12 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             // if the cached response is a referral, or if any record is indeterminate, fall
             // through and perform DNSSEC validation
             if response.authoritative() && none_indeterminate {
-                return Ok(response.maybe_strip_dnssec_records(query_has_dnssec_ok));
+                let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+                #[cfg(feature = "metrics")]
+                self.metrics
+                    .cache_hit_duration
+                    .record(request_time.elapsed());
+                return Ok(result);
             }
         }
 
@@ -514,8 +527,16 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             Err(RecursorError::from(NetError::from(no_records)))
         } else {
             let message = response.into_message();
+            #[cfg(feature = "metrics")]
+            self.metrics
+                .dnssec_metrics
+                .increment_proof_counter(&message);
             self.validated_response_cache
                 .insert(query.clone(), Ok(message.clone()), request_time);
+            #[cfg(feature = "metrics")]
+            self.metrics
+                .validated_cache_size
+                .set(self.validated_response_cache.entry_count() as f64);
             Ok(message.maybe_strip_dnssec_records(query_has_dnssec_ok))
         }
     }

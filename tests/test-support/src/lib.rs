@@ -572,6 +572,7 @@ pub fn assert_histogram_sample_count_eq(
     name: impl Into<KeyName>,
     labels: impl IntoLabels,
     expected_sample_count: u64,
+    expected_unit: Unit,
 ) {
     let (unit_opt, desc, value) = map
         .get(&CompositeKey::new(
@@ -579,7 +580,7 @@ pub fn assert_histogram_sample_count_eq(
             Key::from_parts(name, labels),
         ))
         .unwrap();
-    assert_eq!(unit_opt, &Some(Unit::Seconds));
+    assert_eq!(unit_opt, &Some(expected_unit));
     assert!(desc.is_some());
     if let DebugValue::Histogram(samples) = value {
         assert_eq!(samples.len(), expected_sample_count as usize);
