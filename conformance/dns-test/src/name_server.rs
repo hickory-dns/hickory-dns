@@ -747,6 +747,7 @@ fn admin_ns(ns_count: usize, zone: &FQDN) -> FQDN {
     FQDN(format!("admin{ns_count}.{}", expand_zone(zone))).unwrap()
 }
 
+#[allow(clippy::unimplemented)]
 fn expand_zone(zone: &FQDN) -> String {
     if zone == &FQDN::ROOT {
         FQDN::TEST_DOMAIN.as_str().to_string()
