@@ -5,6 +5,13 @@ tls local-tls {
 };
 {% endif %}
 
+{% if tsig_key %}
+key "{{ tsig_key.name }}" {
+  algorithm {{ tsig_key.algorithm }};
+  secret "{{ tsig_key.secret_key }}";
+};
+{% endif %}
+
 options {
     directory "/var/cache/bind";
     pid-file "/tmp/named.pid";
@@ -23,11 +30,19 @@ options {
 zone "{{ fqdn }}" IN {
      type primary;
      file "/etc/zones/main.zone";
+     {% if tsig_key %}
+     allow-update { any; key "{{ tsig_key.name }}"; };
+     allow-transfer { any; key "{{ tsig_key.name }}"; };
+     {% endif %}
 };
 
 {% for zone in additional_zones -%}
 zone "{{ zone }}" IN {
     type primary;
     file "/etc/zones/{{ zone }}zone";
+    {% if tsig_key %}
+    allow-update { any; key "{{ tsig_key.name }}"; };
+    allow-transfer { any; key "{{ tsig_key.name }}"; };
+    {% endif %}
 };
 {% endfor -%}

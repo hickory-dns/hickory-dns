@@ -28,6 +28,7 @@ mod resolver;
 mod trust_anchor;
 pub mod tshark;
 pub mod zone_file;
+pub mod tsig;
 
 pub type Error = Box<dyn std::error::Error>;
 

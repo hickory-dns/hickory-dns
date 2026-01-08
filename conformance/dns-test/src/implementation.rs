@@ -10,6 +10,7 @@ use url::Url;
 
 use crate::zone_file::ZoneFile;
 use crate::{Error, FQDN};
+use crate::tsig::TsigKey;
 
 #[derive(Clone)]
 pub(crate) enum Config<'a> {
@@ -19,6 +20,8 @@ pub(crate) enum Config<'a> {
         additional_zones: HashMap<FQDN, ZoneFile>,
         /// Optional DNS over TLS (DoT) configuration.
         dot: Option<TlsServerConfig>,
+        /// Optional TSIG configuration.
+        tsig_key: Option<&'a TsigKey>,
     },
     Resolver {
         use_dnssec: bool,
@@ -201,6 +204,7 @@ impl Implementation {
                 use_dnssec,
                 additional_zones,
                 dot,
+                tsig_key,
             } => match self {
                 Self::Bind => {
                     minijinja::render!(
@@ -208,6 +212,7 @@ impl Implementation {
                         fqdn => origin.as_str(),
                         additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
                         dot => dot,
+                        tsig_key => tsig_key.map(TsigKey::template)
                     )
                 }
 
