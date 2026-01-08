@@ -70,7 +70,7 @@ implemented.
 
 ## `resolve` command line tool
 
-A simple `resove` command-line utility that uses `hickory-resolver` can be installed
+A simple `resolve` command-line utility that uses `hickory-resolver` can be installed
 to test the crate functionality:
 
 ```shell
