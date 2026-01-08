@@ -28,7 +28,7 @@ impl TsigKey {
     }
 
     pub(crate) fn template(&self) -> TsigKeyTemplate {
-        TsigKeyTemplate{
+        TsigKeyTemplate {
             name: self.name.to_owned(),
             algorithm: self.algorithm.to_string(),
             secret_key: self.encoded_secret_key(),

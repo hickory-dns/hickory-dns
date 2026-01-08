@@ -7,10 +7,10 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role, TlsServerConfig};
 use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
+use crate::tsig::TsigKey;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{DEFAULT_TTL, Error, FQDN, Implementation, Pki, TrustAnchor};
-use crate::tsig::TsigKey;
 
 pub struct Graph {
     pub nameservers: Vec<NameServer<Running>>,

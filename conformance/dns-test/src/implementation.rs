@@ -8,9 +8,9 @@ use std::str::FromStr;
 use serde::Serialize;
 use url::Url;
 
+use crate::tsig::TsigKey;
 use crate::zone_file::ZoneFile;
 use crate::{Error, FQDN};
-use crate::tsig::TsigKey;
 
 #[derive(Clone)]
 pub(crate) enum Config<'a> {
