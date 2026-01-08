@@ -376,7 +376,27 @@ impl MessageSigner for TSigner {
         let verifier = move |dns_response: &[u8]| {
             let (last_sig, rt, range) = self2
                 .verify_message_byte(dns_response, Some(signature.as_ref()), remote_time == 0)
-                .map_err(|err| ProtoError::from(err.to_string()))?;
+                .map_err(|err| {
+                    // Include response details in the error for better diagnostics
+                    let extra = Message::from_vec(dns_response)
+                        .ok()
+                        .map(|msg| {
+                            let mut info = format!(", response code: {}", msg.response_code());
+                            if let MessageSignature::Tsig(tsig_rr) = msg.signature() {
+                                let tsig = tsig_rr.data();
+                                if let Some(tsig_err) = tsig.error() {
+                                    use core::fmt::Write;
+                                    let _ = write!(info, ", TSIG error: {tsig_err:?}");
+                                }
+                                if tsig.mac().is_empty() {
+                                    info.push_str(" (unsigned)");
+                                }
+                            }
+                            info
+                        })
+                        .unwrap_or_default();
+                    ProtoError::from(format!("TSIG verification failed: {err}{extra}"))
+                })?;
             if rt >= remote_time && range.contains(&current_time)
             // this assumes a no-latency answer
             {
