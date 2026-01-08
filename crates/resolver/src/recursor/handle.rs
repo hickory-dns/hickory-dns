@@ -792,22 +792,13 @@ mod for_dnssec {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
 
-                let future =
-                    this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
-                let response = match future.await {
-                    Ok(response) => response,
-                    Err(e) => return Err(NetError::from(e)),
-                };
-
-                // `DnssecDnsHandle` will only look at the answer section of the message so
-                // we can put "stubs" in the other fields
-                let mut msg = Message::query();
-
-                msg.add_answers(response.answers().iter().cloned());
-                msg.add_authorities(response.authorities().iter().cloned());
-                msg.add_additionals(response.additionals().iter().cloned());
-
-                DnsResponse::from_message(msg).map_err(NetError::from)
+                match this
+                    .resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)))
+                    .await
+                {
+                    Ok(response) => DnsResponse::from_message(response).map_err(NetError::from),
+                    Err(e) => Err(NetError::from(e)),
+                }
             })
             .boxed()
         }

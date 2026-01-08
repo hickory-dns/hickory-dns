@@ -102,19 +102,43 @@ use crate::proto::{
         rdata::{DNSSECRData, NSEC3},
     },
     op::{Query, ResponseCode},
-    rr::{Name, RData, Record, RecordType, domain::Label},
+    rr::{Name, RData, Record, RecordSet, RecordType, domain::Label},
 };
 
 pub(super) fn verify_nsec3(
     query: &Query,
     soa: Option<&Name>,
     response_code: ResponseCode,
-    answers: &[Record],
+    answer_rrsets: &[RecordSet],
     nsec3s: &[(&Name, &NSEC3)],
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty()); // checked in the caller
+
+    // Extract records from RecordSets, only including records from Secure rrsets
+    // Set proofs on individual records based on RecordSet proof for defensive checking
+    let answers: Vec<Record> = answer_rrsets
+        .iter()
+        .filter_map(|rrset| {
+            let proof = rrset.proof().proof;
+            if proof.is_secure() {
+                Some(
+                    rrset
+                        .records(true)
+                        .map(|r| {
+                            let mut record = r.clone();
+                            record.set_proof(proof);
+                            record
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect();
 
     // For every NSEC3 record that in text form looks like:
     // <base32-hash>.soa.name NSEC3 <data>
@@ -708,11 +732,11 @@ mod tests {
     use crate::proto::{
         ProtoError,
         dnssec::{
-            Algorithm,
+            Algorithm, Proof,
             rdata::{DNSSECRData, RRSIG as rdataRRSIG, SigInput},
         },
         rr::{
-            RData, SerialNumber, rdata,
+            RData, Record, RecordSet, RrsetProof, SerialNumber, rdata,
             record_type::RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
         },
     };
@@ -1096,14 +1120,21 @@ mod tests {
             RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
         );
 
-        let answers = [
-            Record::from_rdata(
-                Name::from_ascii("a.z.w.example.")?,
-                3600,
-                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
-            ),
-            rrsig_record,
-        ];
+        let mx_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+        );
+        let mut answer_rrsets = RecordSet::from_records(vec![mx_record, rrsig_record]);
+        // Set proof on the RecordSet
+        if let Some(rrset) = answer_rrsets.first_mut() {
+            let proof = RrsetProof {
+                proof: Proof::Secure,
+                adjusted_ttl: None,
+                rrsig: None,
+            };
+            rrset.set_proof(proof);
+        }
 
         // Based on RFC 5155 B.4 - Wildcard Expansion
         assert_eq!(
@@ -1111,7 +1142,7 @@ mod tests {
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[
                     // Covers the next-closer name
                     Nsec3Pair::new(
@@ -1133,7 +1164,7 @@ mod tests {
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[
                     // Fails to cover the next-closer name
                     Nsec3Pair::new(
@@ -1154,7 +1185,7 @@ mod tests {
                 &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
-                &answers,
+                &answer_rrsets,
                 &[
                     // Matches the next-closer name.
                     Nsec3Pair::new(
