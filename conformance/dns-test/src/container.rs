@@ -393,7 +393,7 @@ impl Container {
                 Implementation::EdeDotCom if role == Role::Resolver => {
                     panic!("EdeDotCom unsupported as resolver")
                 }
-                Implementation::Bind | Implementation::EdeDotCom => "running",
+                Implementation::Bind | Implementation::EdeDotCom => "all zones loaded",
                 Implementation::Hickory { .. } => "server starting up, awaiting connections...",
                 Implementation::Pdns if role == Role::Resolver => "Enabled multiplexer",
                 Implementation::Pdns => panic!("Pdns unsupported as name server"),
