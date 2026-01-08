@@ -8,6 +8,8 @@ use std::str::FromStr;
 use serde::Serialize;
 use url::Url;
 
+use crate::name_server::AdditionalZoneConfig;
+use crate::tsig::TsigKey;
 use crate::zone_file::ZoneFile;
 use crate::{Error, FQDN};
 
@@ -16,9 +18,11 @@ pub(crate) enum Config<'a> {
     NameServer {
         origin: &'a FQDN,
         use_dnssec: bool,
-        additional_zones: HashMap<FQDN, ZoneFile>,
+        additional_zones: HashMap<FQDN, (ZoneFile, AdditionalZoneConfig)>,
         /// Optional DNS over TLS (DoT) configuration.
         dot: Option<TlsServerConfig>,
+        /// Optional TSIG configuration.
+        tsig_key: Option<&'a TsigKey>,
     },
     Resolver {
         use_dnssec: bool,
@@ -201,13 +205,18 @@ impl Implementation {
                 use_dnssec,
                 additional_zones,
                 dot,
+                tsig_key,
             } => match self {
                 Self::Bind => {
                     minijinja::render!(
                         include_str!("templates/named.name-server.conf.jinja"),
                         fqdn => origin.as_str(),
-                        additional_zones => additional_zones.keys().map(|x| x.as_str()).collect::<Vec<&str>>(),
+                        additional_zones => additional_zones
+                            .iter()
+                            .map(|(name, (_, config))| (name.as_str(), config))
+                            .collect::<Vec<_>>(),
                         dot => dot,
+                        tsig_key => tsig_key,
                     )
                 }
 

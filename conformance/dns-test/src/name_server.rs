@@ -1,12 +1,14 @@
 use core::sync::atomic::{self, AtomicUsize};
-use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, rc::Rc};
+use std::{collections::HashMap, fmt, net::Ipv4Addr, path::PathBuf, rc::Rc};
 
 use rcgen::CertifiedKey;
+use serde::Serialize;
 
 use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role, TlsServerConfig};
 use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
+use crate::tsig::TsigKey;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{DEFAULT_TTL, Error, FQDN, Implementation, Pki, TrustAnchor};
@@ -220,6 +222,7 @@ impl NameServerBuilder {
             zone_file,
             additional_zones: HashMap::new(),
             pki,
+            tsig_key: None,
         })
     }
 
@@ -241,8 +244,9 @@ pub struct NameServer<State> {
     implementation: Implementation,
     state: State,
     zone_file: ZoneFile,
-    additional_zones: HashMap<FQDN, ZoneFile>,
+    additional_zones: HashMap<FQDN, (ZoneFile, AdditionalZoneConfig)>,
     pki: Option<Rc<Pki>>,
+    tsig_key: Option<TsigKey>,
 }
 
 impl<State> NameServer<State> {
@@ -333,9 +337,25 @@ impl NameServer<Stopped> {
         Ok(())
     }
 
-    /// Adds an additional zone to the nameserver
+    /// Adds additional zone data to the nameserver
     pub fn add_zone(&mut self, name: FQDN, zone: ZoneFile) {
-        self.additional_zones.insert(name, zone);
+        self.add_zone_with_config(name, zone, AdditionalZoneConfig::default());
+    }
+
+    /// Adds additional zone data to the nameserver, along with extra configuration
+    pub fn add_zone_with_config(
+        &mut self,
+        name: FQDN,
+        zone: ZoneFile,
+        config: AdditionalZoneConfig,
+    ) {
+        self.additional_zones.insert(name, (zone, config));
+    }
+
+    /// Configure TSIG authentication with the given key
+    pub fn tsig_key(&mut self, tsig_key: TsigKey) -> &mut Self {
+        self.tsig_key = Some(tsig_key);
+        self
     }
 
     /// Freezes and signs the name server's zone file
@@ -347,6 +367,7 @@ impl NameServer<Stopped> {
             additional_zones,
             state: _,
             pki,
+            tsig_key,
         } = self;
 
         let signer = Signer::new(&container, settings)?;
@@ -360,6 +381,7 @@ impl NameServer<Stopped> {
             state,
             additional_zones,
             pki,
+            tsig_key,
         })
     }
 
@@ -376,6 +398,7 @@ impl NameServer<Stopped> {
             additional_zones,
             state: _,
             pki,
+            tsig_key,
         } = self;
 
         let signer = Signer::new(&container, settings)?;
@@ -388,6 +411,7 @@ impl NameServer<Stopped> {
             state,
             additional_zones,
             pki,
+            tsig_key,
         })
     }
 
@@ -401,6 +425,7 @@ impl NameServer<Stopped> {
             additional_zones,
             state: _,
             pki,
+            tsig_key,
         } = self;
 
         let config = Config::NameServer {
@@ -408,6 +433,7 @@ impl NameServer<Stopped> {
             use_dnssec: false,
             additional_zones: additional_zones.clone(),
             dot: dot_config,
+            tsig_key: tsig_key.as_ref(),
         };
 
         if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
@@ -431,7 +457,7 @@ impl NameServer<Stopped> {
         container.status_ok(&["mkdir", "-p", ZONES_DIR])?;
         container.cp(&zone_file_path(), &zone_file.to_string())?;
 
-        for (key, zone_file) in &additional_zones {
+        for (key, (zone_file, _)) in &additional_zones {
             container.cp(&format!("{ZONES_DIR}/{key}zone"), &zone_file.to_string())?;
         }
 
@@ -448,7 +474,57 @@ impl NameServer<Stopped> {
                 trust_anchor: None,
             },
             pki,
+            tsig_key,
         })
+    }
+}
+
+/// Configuration for additional zones separate from zone data
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct AdditionalZoneConfig {
+    #[serde(serialize_with = "serialize_zone_acl_option")]
+    pub allow_update: Option<ZoneAcl>,
+    #[serde(serialize_with = "serialize_zone_acl_option")]
+    pub allow_transfer: Option<ZoneAcl>,
+}
+
+impl AdditionalZoneConfig {
+    pub fn allow_update(mut self, acl: ZoneAcl) -> Self {
+        self.allow_update = Some(acl);
+        self
+    }
+
+    pub fn allow_transfer(mut self, acl: ZoneAcl) -> Self {
+        self.allow_transfer = Some(acl);
+        self
+    }
+}
+
+/// Access control policy for zone operations
+#[derive(Debug, Clone)]
+pub enum ZoneAcl {
+    /// Allow any client
+    Any,
+    /// Require authentication from a specific TSIG key identified by its name
+    TsigKey(String),
+}
+
+impl fmt::Display for ZoneAcl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Any => write!(f, "any;"),
+            Self::TsigKey(name) => write!(f, "key \"{}\";", name),
+        }
+    }
+}
+
+fn serialize_zone_acl_option<S>(acl: &Option<ZoneAcl>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match acl {
+        Some(zone_acl) => serializer.serialize_some(&zone_acl.to_string()),
+        None => serializer.serialize_none(),
     }
 }
 
@@ -486,6 +562,7 @@ impl NameServer<Signed> {
             additional_zones,
             state,
             pki,
+            tsig_key,
         } = self;
 
         let config = Config::NameServer {
@@ -493,6 +570,7 @@ impl NameServer<Signed> {
             use_dnssec: state.use_dnssec,
             additional_zones: additional_zones.clone(),
             dot: dot_config,
+            tsig_key: tsig_key.as_ref(),
         };
 
         if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
@@ -553,6 +631,7 @@ impl NameServer<Signed> {
                 trust_anchor: Some(state.trust_anchor()),
             },
             pki,
+            tsig_key,
         })
     }
 
