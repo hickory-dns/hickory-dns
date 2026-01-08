@@ -29,21 +29,6 @@ use hickory_proto::op::{MessageSigner, ResponseCode};
 use hickory_proto::rr::{Name, RData, Record, rdata::A};
 use test_support::subscribe;
 
-fn signer() -> Arc<dyn MessageSigner> {
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    let pem_path = format!("{server_path}/tests/compatibility-tests/tests/conf/tsig.raw");
-    println!("loading key from: {pem_path}");
-    let mut key_file = File::open(pem_path).expect("could not find key file");
-
-    let mut key = Vec::new();
-    key_file
-        .read_to_end(&mut key)
-        .expect("error reading key file");
-
-    let key_name = Name::from_ascii("tsig-key.").unwrap();
-    Arc::new(TSigner::new(key, TsigAlgorithm::HmacSha512, key_name, 60).unwrap())
-}
-
 #[tokio::test]
 async fn test_create() {
     subscribe();
@@ -120,4 +105,19 @@ async fn test_tsig_zone_transfer() {
         result.iter().map(|r| r.answers().len()).sum::<usize>(),
         2000 + 3
     );
+}
+
+fn signer() -> Arc<dyn MessageSigner> {
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
+    let pem_path = format!("{server_path}/tests/compatibility-tests/tests/conf/tsig.raw");
+    println!("loading key from: {pem_path}");
+    let mut key_file = File::open(pem_path).expect("could not find key file");
+
+    let mut key = Vec::new();
+    key_file
+        .read_to_end(&mut key)
+        .expect("error reading key file");
+
+    let key_name = Name::from_ascii("tsig-key.").unwrap();
+    Arc::new(TSigner::new(key, TsigAlgorithm::HmacSha512, key_name, 60).unwrap())
 }
