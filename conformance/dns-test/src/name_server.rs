@@ -7,6 +7,7 @@ use crate::container::{Child, Container, Network};
 use crate::implementation::{Config, Role, TlsServerConfig};
 use crate::record::{self, DS, Record, SOA, SoaSettings};
 use crate::tshark::Tshark;
+use crate::tsig::TsigKey;
 use crate::zone_file::{self, Root, SigningKeys, ZoneFile};
 use crate::zone_file::{SignSettings, Signer};
 use crate::{DEFAULT_TTL, Error, FQDN, Implementation, Pki, TrustAnchor};
@@ -220,6 +221,7 @@ impl NameServerBuilder {
             zone_file,
             additional_zones: HashMap::new(),
             pki,
+            tsig_key: None,
         })
     }
 
@@ -243,6 +245,7 @@ pub struct NameServer<State> {
     zone_file: ZoneFile,
     additional_zones: HashMap<FQDN, ZoneFile>,
     pki: Option<Rc<Pki>>,
+    tsig_key: Option<TsigKey>,
 }
 
 impl<State> NameServer<State> {
@@ -338,6 +341,12 @@ impl NameServer<Stopped> {
         self.additional_zones.insert(name, zone);
     }
 
+    /// Configure TSIG authentication with the given key
+    pub fn tsig_key(&mut self, tsig_key: &TsigKey) -> &mut Self {
+        self.tsig_key = Some(tsig_key.clone());
+        self
+    }
+
     /// Freezes and signs the name server's zone file
     pub fn sign(self, settings: SignSettings) -> Result<NameServer<Signed>, Error> {
         let Self {
@@ -347,6 +356,7 @@ impl NameServer<Stopped> {
             additional_zones,
             state: _,
             pki,
+            tsig_key,
         } = self;
 
         let signer = Signer::new(&container, settings)?;
@@ -360,6 +370,7 @@ impl NameServer<Stopped> {
             state,
             additional_zones,
             pki,
+            tsig_key,
         })
     }
 
@@ -376,6 +387,7 @@ impl NameServer<Stopped> {
             additional_zones,
             state: _,
             pki,
+            tsig_key,
         } = self;
 
         let signer = Signer::new(&container, settings)?;
@@ -388,6 +400,7 @@ impl NameServer<Stopped> {
             state,
             additional_zones,
             pki,
+            tsig_key,
         })
     }
 
@@ -401,6 +414,7 @@ impl NameServer<Stopped> {
             additional_zones,
             state: _,
             pki,
+            tsig_key,
         } = self;
 
         let config = Config::NameServer {
@@ -408,6 +422,7 @@ impl NameServer<Stopped> {
             use_dnssec: false,
             additional_zones: additional_zones.clone(),
             dot: dot_config,
+            tsig_key: tsig_key.as_ref(),
         };
 
         if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
@@ -448,6 +463,7 @@ impl NameServer<Stopped> {
                 trust_anchor: None,
             },
             pki,
+            tsig_key,
         })
     }
 }
@@ -486,6 +502,7 @@ impl NameServer<Signed> {
             additional_zones,
             state,
             pki,
+            tsig_key,
         } = self;
 
         let config = Config::NameServer {
@@ -493,6 +510,7 @@ impl NameServer<Signed> {
             use_dnssec: state.use_dnssec,
             additional_zones: additional_zones.clone(),
             dot: dot_config,
+            tsig_key: tsig_key.as_ref(),
         };
 
         if let Some(conf_file_path) = implementation.conf_file_path(config.role()) {
@@ -553,6 +571,7 @@ impl NameServer<Signed> {
                 trust_anchor: Some(state.trust_anchor()),
             },
             pki,
+            tsig_key,
         })
     }
 
@@ -728,6 +747,7 @@ fn admin_ns(ns_count: usize, zone: &FQDN) -> FQDN {
     FQDN(format!("admin{ns_count}.{}", expand_zone(zone))).unwrap()
 }
 
+#[allow(clippy::unimplemented)]
 fn expand_zone(zone: &FQDN) -> String {
     if zone == &FQDN::ROOT {
         FQDN::TEST_DOMAIN.as_str().to_string()

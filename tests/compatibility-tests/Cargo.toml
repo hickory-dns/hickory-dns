@@ -28,6 +28,7 @@ data-encoding = { workspace = true, features = ["alloc"] }
 rand = { workspace = true, features = ["std", "thread_rng"] }
 
 [dev-dependencies]
+dns-test = { path = "../../conformance/dns-test" }
 futures.workspace = true
 hickory-net = { workspace = true, features = ["dnssec-ring", "tokio"] }
 hickory-proto = { workspace = true, features = ["dnssec-ring"] }
