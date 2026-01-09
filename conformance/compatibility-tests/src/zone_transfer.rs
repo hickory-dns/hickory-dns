@@ -13,7 +13,7 @@ use std::str::FromStr;
 use futures::TryStreamExt;
 use time::Duration;
 
-use hickory_compatibility::NamedProcess;
+use crate::NamedProcess;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;

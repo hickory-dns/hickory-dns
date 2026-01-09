@@ -25,41 +25,41 @@ default feature='' ignore='': (check feature ignore) (build feature ignore) (tes
 all-features: (default "--all-features")
 
 # Check, build, and test all crates with no-default-features
-no-default-features: (default "--no-default-features" "--ignore=\\{hickory-compatibility\\}")
+no-default-features: (default "--no-default-features")
 
 # Check, build, and test all crates with no-default-features, but with std features enabled
-std: (default "--no-default-features" "--ignore=\\{hickory-compatibility,hickory-proto\\}")
+std: (default "--no-default-features" "--ignore=\\{hickory-proto\\}")
     cargo {{MSRV}} test --locked --package hickory-proto --no-default-features --features="std"
 
 # Check, build, and test all crates with tls-aws-lc-rs enabled
-tls-aws-lc-rs: (default "--features=tls-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-compatibility,test-support\\}")
+tls-aws-lc-rs: (default "--features=tls-aws-lc-rs" "--ignore=\\{hickory-proto,test-support\\}")
 
 # Check, build, and test all crates with https-aws-lc-rs enabled
-https-aws-lc-rs: (default "--features=https-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-compatibility,test-support\\}")
+https-aws-lc-rs: (default "--features=https-aws-lc-rs" "--ignore=\\{hickory-proto,test-support\\}")
 
 # Check, build, and test all crates with quic-aws-lc-rs enabled
-quic-aws-lc-rs: (default "--features=quic-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-compatibility,test-support\\}")
+quic-aws-lc-rs: (default "--features=quic-aws-lc-rs" "--ignore=\\{hickory-proto,test-support\\}")
 
 # Check, build, and test all crates with h3-aws-lc-rs enabled
-h3-aws-lc-rs: (default "--features=h3-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-dns,hickory-compatibility,hickory-client,test-support\\}")
+h3-aws-lc-rs: (default "--features=h3-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support\\}")
 
 # Check, build, and test all crates with tls-ring enabled
-tls-ring: (default "--features=tls-ring" "--ignore=\\{hickory-proto,hickory-compatibility,test-support\\}")
+tls-ring: (default "--features=tls-ring" "--ignore=\\{hickory-proto,test-support\\}")
 
 # Check, build, and test all crates with https-ring enabled
-https-ring: (default "--features=https-ring" "--ignore=\\{hickory-proto,hickory-compatibility,test-support\\}")
+https-ring: (default "--features=https-ring" "--ignore=\\{hickory-proto,test-support\\}")
 
 # Check, build, and test all crates with quic-ring enabled
-quic-ring: (default "--features=quic-ring" "--ignore=\\{hickory-proto,hickory-compatibility,test-support\\}")
+quic-ring: (default "--features=quic-ring" "--ignore=\\{hickory-proto,test-support\\}")
 
 # Check, build, and test all crates with h3-ring enabled
-h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-proto,hickory-dns,hickory-compatibility,hickory-client,test-support\\}")
+h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support\\}")
 
 # Check, build, and test all crates with dnssec-aws-lc-rs enabled
-dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{hickory-compatibility,test-support\\}")
+dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{test-support\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
-dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{hickory-compatibility,test-support\\}")
+dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{test-support\\}")
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
@@ -83,8 +83,8 @@ test-docs:
 # This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 [unix]
 compatibility: init-bind9
-    RUST_LOG=debug cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=none;
-    RUST_LOG=debug cargo test --manifest-path tests/compatibility-tests/Cargo.toml --locked --all-targets --no-default-features --features=bind;
+    RUST_LOG=debug cargo t --manifest-path conformance/Cargo.toml -p compatibility-tests --locked --all-targets --no-default-features --features=none;
+    RUST_LOG=debug cargo t --manifest-path conformance/Cargo.toml -p compatibility-tests --locked --all-targets --no-default-features --features=bind;
 
 # Build all bench marking tools, i.e. check that they work, but don't run
 build-bench:
