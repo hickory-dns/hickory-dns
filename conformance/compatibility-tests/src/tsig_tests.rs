@@ -17,7 +17,7 @@ use std::sync::Arc;
 use futures::TryStreamExt;
 use time::Duration;
 
-use hickory_compatibility::NamedProcess;
+use crate::NamedProcess;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
@@ -109,7 +109,7 @@ async fn test_tsig_zone_transfer() {
 
 fn signer() -> Arc<dyn MessageSigner> {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    let pem_path = format!("{server_path}/tests/compatibility-tests/tests/conf/tsig.raw");
+    let pem_path = format!("{server_path}/conformance/compatibility-tests/src/conf/tsig.raw");
     println!("loading key from: {pem_path}");
     let mut key_file = File::open(pem_path).expect("could not find key file");
 

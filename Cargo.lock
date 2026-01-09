@@ -700,21 +700,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hickory-compatibility"
-version = "0.26.0-alpha.1"
-dependencies = [
- "data-encoding",
- "futures",
- "hickory-net",
- "hickory-proto",
- "rand",
- "rustls-pki-types",
- "test-support",
- "time",
- "tokio",
-]
-
-[[package]]
 name = "hickory-dns"
 version = "0.26.0-alpha.1"
 dependencies = [

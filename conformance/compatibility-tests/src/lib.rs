@@ -12,7 +12,7 @@ use std::env;
 use std::fs;
 use std::fs::DirBuilder;
 #[cfg(feature = "bind")]
-use std::io::{BufRead, BufReader, Write, stdout};
+use std::io::{stdout, BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::Child;
 #[cfg(feature = "bind")]
@@ -23,6 +23,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use data_encoding::BASE32;
+
+mod sig0_tests;
+mod tsig_tests;
+mod zone_transfer;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -63,7 +67,7 @@ impl NamedProcess {
             .stderr(Stdio::piped())
             // from the root target directory...
             .arg("-c")
-            .arg("../../tests/compatibility-tests/tests/conf/bind-example.conf")
+            .arg("../../conformance/compatibility-tests/src/conf/bind-example.conf")
             //.arg("-d").arg("0") // uncomment for debugging information
             .arg("-D")
             .arg("Hickory DNS compatibility")

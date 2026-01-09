@@ -7,7 +7,6 @@ members = [
     "crates/server",
     "bin",
     "util",
-    "tests/compatibility-tests",
     "tests/integration-tests",
     "tests/test-support",
 ]
