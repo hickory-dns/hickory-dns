@@ -12,7 +12,7 @@ use std::env;
 use std::fs;
 use std::fs::DirBuilder;
 #[cfg(feature = "bind")]
-use std::io::{stdout, BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Write, stdout};
 use std::path::Path;
 use std::process::Child;
 #[cfg(feature = "bind")]
