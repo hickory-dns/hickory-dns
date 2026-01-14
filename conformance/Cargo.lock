@@ -314,13 +314,10 @@ dependencies = [
 name = "compatibility-tests"
 version = "0.1.0"
 dependencies = [
- "data-encoding",
  "dns-test",
  "futures",
  "hickory-net",
  "hickory-proto",
- "rand",
- "rustls-pki-types",
  "test-support",
  "time",
  "tokio",
