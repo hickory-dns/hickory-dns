@@ -1126,43 +1126,34 @@ mod tests {
 
 #[cfg(all(test, feature = "__tls"))]
 mod opportunistic_enc_tests {
-    use std::future::Future;
     use std::io;
     use std::net::{IpAddr, Ipv4Addr};
-    use std::pin::Pin;
     use std::sync::Arc;
-    use std::task::{Context, Poll};
     use std::time::{Duration, SystemTime};
 
-    use futures_util::stream::once;
-    use futures_util::{Stream, future};
     #[cfg(feature = "metrics")]
     use metrics::{Label, Unit, with_local_recorder};
     #[cfg(feature = "metrics")]
     use metrics_util::debugging::DebuggingRecorder;
-    use parking_lot::Mutex as SyncMutex;
+    use mock_provider::{MockClientHandle, MockProvider};
     use test_support::subscribe;
     #[cfg(feature = "metrics")]
     use test_support::{assert_counter_eq, assert_gauge_eq, assert_histogram_sample_count_eq};
-    use tokio::net::UdpSocket;
 
     use crate::config::{
-        ConnectionConfig, NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig,
-        ProtocolConfig, ResolverOpts,
+        NameServerConfig, OpportunisticEncryption, OpportunisticEncryptionConfig, ProtocolConfig,
+        ResolverOpts,
     };
-    use crate::connection_provider::{ConnectionProvider, TlsConfig};
+    use crate::connection_provider::TlsConfig;
     #[cfg(feature = "metrics")]
     use crate::metrics::opportunistic_encryption::{
         PROBE_ATTEMPTS_TOTAL, PROBE_BUDGET_TOTAL, PROBE_DURATION_SECONDS, PROBE_ERRORS_TOTAL,
         PROBE_SUCCESSES_TOTAL, PROBE_TIMEOUTS_TOTAL,
     };
-    use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer};
+    use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer, mock_provider};
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
-    use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
-    use crate::net::runtime::{RuntimeProvider, Spawn, TokioTime};
+    use crate::net::NetError;
     use crate::net::xfer::Protocol;
-    use crate::net::{DnsHandle, NetError};
-    use crate::proto::op::{DnsRequest, DnsResponse, Message, ResponseCode};
 
     #[tokio::test]
     async fn test_select_connection_opportunistic_enc_disabled() {
@@ -1909,6 +1900,24 @@ mod opportunistic_enc_tests {
             .await
             .map(|_| ())
     }
+}
+
+#[cfg(all(test, feature = "__tls"))]
+mod mock_provider {
+    use std::future::Future;
+    use std::io;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    use futures_util::stream::once;
+    use futures_util::{Stream, future};
+    use tokio::net::UdpSocket;
+
+    use super::*;
+    use crate::config::ProtocolConfig;
+    use crate::net::runtime::TokioTime;
+    use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
+    use crate::proto::op::Message;
 
     /// `MockProvider` is a `ConnectionProvider` that uses a synchronous runtime provider.
     ///
@@ -1917,14 +1926,14 @@ mod opportunistic_enc_tests {
     /// `ProtoError` can be set to have `new_connection()` return a future that will error
     /// when polled, mocking a connection failure.
     #[derive(Clone)]
-    struct MockProvider {
-        runtime: MockSyncRuntimeProvider,
-        new_connection_calls: Arc<SyncMutex<Vec<(IpAddr, ProtocolConfig)>>>,
-        new_connection_error: Option<NetError>,
+    pub(super) struct MockProvider {
+        pub(super) runtime: MockSyncRuntimeProvider,
+        pub(super) new_connection_calls: Arc<SyncMutex<Vec<(IpAddr, ProtocolConfig)>>>,
+        pub(super) new_connection_error: Option<NetError>,
     }
 
     impl MockProvider {
-        fn new_connection_calls(&self) -> Vec<(IpAddr, ProtocolConfig)> {
+        pub(super) fn new_connection_calls(&self) -> Vec<(IpAddr, ProtocolConfig)> {
             self.new_connection_calls.lock().clone()
         }
     }
@@ -1970,7 +1979,7 @@ mod opportunistic_enc_tests {
     /// It's `send` method always returns a `NoError` response when polled, simulating a
     /// successful DNS request exchange.
     #[derive(Clone, Default)]
-    struct MockClientHandle;
+    pub(super) struct MockClientHandle;
 
     impl DnsHandle for MockClientHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
@@ -1990,7 +1999,7 @@ mod opportunistic_enc_tests {
     ///
     /// Trait methods other than `create_handle` are not implemented.
     #[derive(Clone)]
-    struct MockSyncRuntimeProvider;
+    pub(super) struct MockSyncRuntimeProvider;
 
     impl RuntimeProvider for MockSyncRuntimeProvider {
         type Handle = MockSyncHandle;
@@ -2027,7 +2036,7 @@ mod opportunistic_enc_tests {
     /// Provided futures will be polled until completion, allowing tests to avoid needing to
     /// coordinate with background tasks to determine their completion state.
     #[derive(Clone)]
-    struct MockSyncHandle;
+    pub(super) struct MockSyncHandle;
 
     impl Spawn for MockSyncHandle {
         fn spawn_bg(&mut self, future: impl Future<Output = ()> + Send + 'static) {
