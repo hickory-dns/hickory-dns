@@ -7,6 +7,79 @@
 
 //! Metrics related to resolver and recursive resolver operations
 
+use hickory_net::xfer::Protocol;
+use metrics::{Counter, Unit, counter, describe_counter};
+
+#[derive(Clone, Default)]
+pub(crate) struct ResolverMetrics {
+    outgoing_queries: ProtocolMetrics,
+}
+
+impl ResolverMetrics {
+    pub(crate) fn increment_outgoing_query(&self, proto: &Protocol) {
+        self.outgoing_queries.increment(proto);
+    }
+}
+
+#[derive(Clone)]
+struct ProtocolMetrics {
+    udp: Counter,
+    tcp: Counter,
+    #[cfg(feature = "__tls")]
+    tls: Counter,
+    #[cfg(feature = "__https")]
+    https: Counter,
+    #[cfg(feature = "__quic")]
+    quic: Counter,
+    #[cfg(feature = "__h3")]
+    h3: Counter,
+}
+
+impl ProtocolMetrics {
+    fn increment(&self, proto: &Protocol) {
+        match proto {
+            Protocol::Udp => self.udp.increment(1),
+            Protocol::Tcp => self.tcp.increment(1),
+            #[cfg(feature = "__tls")]
+            Protocol::Tls => self.tls.increment(1),
+            #[cfg(feature = "__https")]
+            Protocol::Https => self.https.increment(1),
+            #[cfg(feature = "__quic")]
+            Protocol::Quic => self.quic.increment(1),
+            #[cfg(feature = "__h3")]
+            Protocol::H3 => self.h3.increment(1),
+            _ => {}
+        }
+    }
+}
+
+impl Default for ProtocolMetrics {
+    fn default() -> Self {
+        describe_counter!(
+            OUTGOING_QUERIES_TOTAL,
+            Unit::Count,
+            "Number of outgoing resolver queries by transport protocol"
+        );
+
+        let key = "protocol";
+        Self {
+            udp: counter!(OUTGOING_QUERIES_TOTAL, key => "udp"),
+            tcp: counter!(OUTGOING_QUERIES_TOTAL, key => "tcp"),
+            #[cfg(feature = "__tls")]
+            tls: counter!(OUTGOING_QUERIES_TOTAL, key => "tls"),
+            #[cfg(feature = "__https")]
+            https: counter!(OUTGOING_QUERIES_TOTAL, key => "https"),
+            #[cfg(feature = "__quic")]
+            quic: counter!(OUTGOING_QUERIES_TOTAL, key => "quic"),
+            #[cfg(feature = "__h3")]
+            h3: counter!(OUTGOING_QUERIES_TOTAL, key => "http3"),
+        }
+    }
+}
+
+/// Number of outgoing resolver queries by transport protocol.
+pub const OUTGOING_QUERIES_TOTAL: &str = "hickory_resolver_outgoing_queries_total";
+
 /// Metrics for the optional recursive resolver feature
 #[cfg(feature = "recursor")]
 pub mod recursor {

@@ -24,6 +24,8 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::ResolverMetrics;
 #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 use crate::metrics::opportunistic_encryption::ProbeMetrics;
 use crate::{
@@ -54,6 +56,9 @@ pub struct NameServer<P: ConnectionProvider> {
     /// Metrics related to opportunistic encryption probes.
     #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     opportunistic_probe_metrics: ProbeMetrics,
+    /// Metrics related to outgoing queries.
+    #[cfg(feature = "metrics")]
+    resolver_metrics: ResolverMetrics,
     server_srtt: DecayingSrtt,
     connection_provider: P,
 }
@@ -85,6 +90,8 @@ impl<P: ConnectionProvider> NameServer<P> {
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
             #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             opportunistic_probe_metrics: ProbeMetrics::default(),
+            #[cfg(feature = "metrics")]
+            resolver_metrics: ResolverMetrics::default(),
             connection_provider,
         }
     }
@@ -97,6 +104,8 @@ impl<P: ConnectionProvider> NameServer<P> {
         cx: &Arc<PoolContext>,
     ) -> Result<DnsResponse, NetError> {
         let (handle, meta, protocol) = self.connected_mut_client(policy, cx).await?;
+        #[cfg(feature = "metrics")]
+        self.resolver_metrics.increment_outgoing_query(&protocol);
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -1902,7 +1911,161 @@ mod opportunistic_enc_tests {
     }
 }
 
-#[cfg(all(test, feature = "__tls"))]
+#[cfg(all(test, feature = "metrics"))]
+mod resolver_metrics_tests {
+    use std::net::{IpAddr, Ipv4Addr};
+
+    use metrics::{Label, with_local_recorder};
+    use metrics_util::debugging::DebuggingRecorder;
+    use mock_provider::MockProvider;
+    use test_support::assert_counter_eq;
+    use test_support::subscribe;
+
+    use super::*;
+    use crate::connection_provider::TlsConfig;
+    use crate::metrics::OUTGOING_QUERIES_TOTAL;
+
+    #[test]
+    fn test_outgoing_query_protocol_metrics_udp() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts::default();
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let name_server = Arc::new(NameServer::new(
+                    [],
+                    config,
+                    &options,
+                    MockProvider::default(),
+                ));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        // We should have registered 1 UDP protocol query.
+        let protocol = vec![Label::new("protocol", "udp")];
+        assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
+    }
+
+    #[test]
+    fn test_outgoing_query_protocol_metrics_tcp() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts::default();
+                let config = NameServerConfig::tcp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let name_server = Arc::new(NameServer::new(
+                    [],
+                    config,
+                    &options,
+                    MockProvider::default(),
+                ));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        // We should have registered 1 TCP protocol query.
+        let protocol = vec![Label::new("protocol", "tcp")];
+        assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
+    }
+
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn test_outgoing_query_protocol_metrics_tls() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts::default();
+                let config = NameServerConfig::tls(
+                    IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+                    "dns.google".into(),
+                );
+                let name_server = Arc::new(NameServer::new(
+                    [],
+                    config,
+                    &options,
+                    MockProvider::default(),
+                ));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        // We should have registered 1 TLS protocol query.
+        let protocol = vec![Label::new("protocol", "tls")];
+        assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
+    }
+}
+
+#[cfg(all(test, any(feature = "metrics", feature = "__tls")))]
 mod mock_provider {
     use std::future::Future;
     use std::io;
