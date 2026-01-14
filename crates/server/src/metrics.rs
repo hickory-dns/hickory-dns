@@ -105,7 +105,6 @@ struct ZoneLookupMetrics {
 
 impl ZoneLookupMetrics {
     pub(crate) fn new(zone_handler: &'static str, zone_type: ZoneType) -> Self {
-        let zone_lookups_name = "hickory_zone_lookups_total";
         let type_key = "type";
         let role_key = "role";
         let zone_handler_key = "zone_handler";
@@ -114,20 +113,20 @@ impl ZoneLookupMetrics {
         // tags are statically derived from the ZoneHandler ZoneType which is a 1:1 relationship
         let new = match zone_type {
             ZoneType::Primary => Self {
-                success: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "true"),
-                failed: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "false"),
+                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "true"),
+                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "false"),
             },
             ZoneType::Secondary => Self {
-                success: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "true"),
-                failed: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "false"),
+                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "true"),
+                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "false"),
             },
             ZoneType::External => Self {
-                success: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "true"),
-                failed: counter!(zone_lookups_name, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "false"),
+                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "true"),
+                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "false"),
             },
         };
 
-        describe_counter!(zone_lookups_name, Unit::Count, "Number of zone lookups.");
+        describe_counter!(ZONE_LOOKUPS_TOTAL, Unit::Count, "Number of zone lookups.");
         new
     }
 }
@@ -157,24 +156,27 @@ struct DNSClassMetrics {
 
 impl DNSClassMetrics {
     fn new(direction: Direction) -> Self {
-        let dns_class_name = format!("hickory_{direction}_dns_classes_total");
+        let dns_class_name = match direction {
+            Direction::Request => REQUEST_DNS_CLASSES_TOTAL,
+            Direction::Response => RESPONSE_DNS_CLASSES_TOTAL,
+        };
         let key = "class";
         Self {
             r#in: {
-                let new = counter!(dns_class_name.clone(), key => "in");
+                let new = counter!(dns_class_name, key => "in");
                 let description = match direction {
                     Direction::Request => "Number of requests by DNS class.",
                     Direction::Response => {
                         "Total number of resource records in responses by DNS class."
                     }
                 };
-                describe_counter!(dns_class_name.clone(), Unit::Count, description);
+                describe_counter!(dns_class_name, Unit::Count, description);
                 new
             },
-            ch: counter!(dns_class_name.clone(), key => "ch"),
-            hs: counter!(dns_class_name.clone(), key => "hs"),
-            none: counter!(dns_class_name.clone(), key => "none"),
-            any: counter!(dns_class_name.clone(), key => "any"),
+            ch: counter!(dns_class_name, key => "ch"),
+            hs: counter!(dns_class_name, key => "hs"),
+            none: counter!(dns_class_name, key => "none"),
+            any: counter!(dns_class_name, key => "any"),
             unknown: counter!(dns_class_name, key => "unknown"),
         }
     }
@@ -237,58 +239,61 @@ struct RecordTypeMetrics {
 
 impl RecordTypeMetrics {
     fn new(direction: Direction) -> Self {
-        let record_type_name = format!("hickory_{direction}_record_types_total");
+        let record_type_name = match direction {
+            Direction::Request => REQUEST_RECORD_TYPES_TOTAL,
+            Direction::Response => RESPONSE_RECORD_TYPES_TOTAL,
+        };
         let key = "type";
 
         Self {
             a: {
-                let new = counter!(record_type_name.clone(), key => "a");
+                let new = counter!(record_type_name, key => "a");
                 let description = match direction {
                     Direction::Request => "Number of requests by query type.",
                     Direction::Response => {
                         "Total number of resource records in responses by record type."
                     }
                 };
-                describe_counter!(record_type_name.clone(), Unit::Count, description);
+                describe_counter!(record_type_name, Unit::Count, description);
                 new
             },
-            aaaa: counter!(record_type_name.clone(), key => "aaaa"),
-            aname: counter!(record_type_name.clone(), key => "aname"),
-            any: counter!(record_type_name.clone(), key => "any"),
-            axfr: counter!(record_type_name.clone(), key => "axfr"),
-            caa: counter!(record_type_name.clone(), key => "caa"),
-            cds: counter!(record_type_name.clone(), key => "cds"),
-            cdnskey: counter!(record_type_name.clone(), key => "cdnskey"),
-            cert: counter!(record_type_name.clone(), key => "cert"),
-            cname: counter!(record_type_name.clone(), key => "cname"),
-            csync: counter!(record_type_name.clone(), key => "csync"),
-            dnskey: counter!(record_type_name.clone(), key => "dnskey"),
-            ds: counter!(record_type_name.clone(), key => "ds"),
-            hinfo: counter!(record_type_name.clone(), key => "hinfo"),
-            https: counter!(record_type_name.clone(), key => "https"),
-            ixfr: counter!(record_type_name.clone(), key => "ixfr"),
-            key: counter!(record_type_name.clone(), key => "key"),
-            mx: counter!(record_type_name.clone(), key => "mx"),
-            naptr: counter!(record_type_name.clone(), key => "naptr"),
-            ns: counter!(record_type_name.clone(), key => "ns"),
-            nsec: counter!(record_type_name.clone(), key => "nsec"),
-            nsec3: counter!(record_type_name.clone(), key => "nsec3"),
-            nsec3param: counter!(record_type_name.clone(), key => "nsec3param"),
-            null: counter!(record_type_name.clone(), key => "null"),
-            openpgpkey: counter!(record_type_name.clone(), key => "openpgpkey"),
-            opt: counter!(record_type_name.clone(), key => "opt"),
-            ptr: counter!(record_type_name.clone(), key => "ptr"),
-            rrsig: counter!(record_type_name.clone(), key => "rrsig"),
-            sig: counter!(record_type_name.clone(), key => "sig"),
-            smimea: counter!(record_type_name.clone(), key => "smimea"),
-            soa: counter!(record_type_name.clone(), key => "soa"),
-            srv: counter!(record_type_name.clone(), key => "srv"),
-            sshfp: counter!(record_type_name.clone(), key => "sshfp"),
-            svcb: counter!(record_type_name.clone(), key => "svcb"),
-            tlsa: counter!(record_type_name.clone(), key => "tlsa"),
-            tsig: counter!(record_type_name.clone(), key => "tsig"),
-            txt: counter!(record_type_name.clone(), key => "txt"),
-            unknown: counter!(record_type_name.clone(), key => "unknown"),
+            aaaa: counter!(record_type_name, key => "aaaa"),
+            aname: counter!(record_type_name, key => "aname"),
+            any: counter!(record_type_name, key => "any"),
+            axfr: counter!(record_type_name, key => "axfr"),
+            caa: counter!(record_type_name, key => "caa"),
+            cds: counter!(record_type_name, key => "cds"),
+            cdnskey: counter!(record_type_name, key => "cdnskey"),
+            cert: counter!(record_type_name, key => "cert"),
+            cname: counter!(record_type_name, key => "cname"),
+            csync: counter!(record_type_name, key => "csync"),
+            dnskey: counter!(record_type_name, key => "dnskey"),
+            ds: counter!(record_type_name, key => "ds"),
+            hinfo: counter!(record_type_name, key => "hinfo"),
+            https: counter!(record_type_name, key => "https"),
+            ixfr: counter!(record_type_name, key => "ixfr"),
+            key: counter!(record_type_name, key => "key"),
+            mx: counter!(record_type_name, key => "mx"),
+            naptr: counter!(record_type_name, key => "naptr"),
+            ns: counter!(record_type_name, key => "ns"),
+            nsec: counter!(record_type_name, key => "nsec"),
+            nsec3: counter!(record_type_name, key => "nsec3"),
+            nsec3param: counter!(record_type_name, key => "nsec3param"),
+            null: counter!(record_type_name, key => "null"),
+            openpgpkey: counter!(record_type_name, key => "openpgpkey"),
+            opt: counter!(record_type_name, key => "opt"),
+            ptr: counter!(record_type_name, key => "ptr"),
+            rrsig: counter!(record_type_name, key => "rrsig"),
+            sig: counter!(record_type_name, key => "sig"),
+            smimea: counter!(record_type_name, key => "smimea"),
+            soa: counter!(record_type_name, key => "soa"),
+            srv: counter!(record_type_name, key => "srv"),
+            sshfp: counter!(record_type_name, key => "sshfp"),
+            svcb: counter!(record_type_name, key => "svcb"),
+            tlsa: counter!(record_type_name, key => "tlsa"),
+            tsig: counter!(record_type_name, key => "tsig"),
+            txt: counter!(record_type_name, key => "txt"),
+            unknown: counter!(record_type_name, key => "unknown"),
             zero: counter!(record_type_name, key => "zero"),
         }
     }
@@ -410,27 +415,26 @@ impl ProtocolMetrics {
 
 impl Default for ProtocolMetrics {
     fn default() -> Self {
-        let request_protocols_name = "hickory_request_protocols_total";
         let key = "protocol";
         Self {
             udp: {
-                let new = counter!(request_protocols_name, key => "udp");
+                let new = counter!(REQUEST_PROTOCOLS_TOTAL, key => "udp");
                 describe_counter!(
-                    request_protocols_name,
+                    REQUEST_PROTOCOLS_TOTAL,
                     Unit::Count,
                     "Number of requests by transport protocol."
                 );
                 new
             },
-            tcp: counter!(request_protocols_name, key => "tcp"),
+            tcp: counter!(REQUEST_PROTOCOLS_TOTAL, key => "tcp"),
             #[cfg(feature = "__tls")]
-            tls: counter!(request_protocols_name, key => "tls"),
+            tls: counter!(REQUEST_PROTOCOLS_TOTAL, key => "tls"),
             #[cfg(feature = "__https")]
-            https: counter!(request_protocols_name, key => "https"),
+            https: counter!(REQUEST_PROTOCOLS_TOTAL, key => "https"),
             #[cfg(feature = "__quic")]
-            quic: counter!(request_protocols_name, key => "quic"),
+            quic: counter!(REQUEST_PROTOCOLS_TOTAL, key => "quic"),
             #[cfg(feature = "__h3")]
-            h3: counter!(request_protocols_name, key => "http3"),
+            h3: counter!(REQUEST_PROTOCOLS_TOTAL, key => "http3"),
         }
     }
 }
@@ -458,22 +462,21 @@ impl OpCodeMetrics {
 
 impl Default for OpCodeMetrics {
     fn default() -> Self {
-        let request_operations_name = "hickory_request_operations_total";
         let key = "operation";
         Self {
             query: {
-                let new = counter!(request_operations_name, key => "query");
+                let new = counter!(REQUEST_OPERATIONS_TOTAL, key => "query");
                 describe_counter!(
-                    request_operations_name,
+                    REQUEST_OPERATIONS_TOTAL,
                     Unit::Count,
                     "Number of requests by opcode."
                 );
                 new
             },
-            status: counter!(request_operations_name, key => "status"),
-            notify: counter!(request_operations_name, key => "notify"),
-            update: counter!(request_operations_name, key => "update"),
-            unknown: counter!(request_operations_name, key => "unknown"),
+            status: counter!(REQUEST_OPERATIONS_TOTAL, key => "status"),
+            notify: counter!(REQUEST_OPERATIONS_TOTAL, key => "notify"),
+            update: counter!(REQUEST_OPERATIONS_TOTAL, key => "update"),
+            unknown: counter!(REQUEST_OPERATIONS_TOTAL, key => "unknown"),
         }
     }
 }
@@ -490,22 +493,25 @@ pub(super) struct FlagMetrics {
 
 impl FlagMetrics {
     fn new(direction: Direction) -> Self {
-        let flags_name = format!("hickory_{direction}_flags_total");
+        let flags_name = match direction {
+            Direction::Request => REQUEST_FLAGS_TOTAL,
+            Direction::Response => RESPONSE_FLAGS_TOTAL,
+        };
         let key = "flag";
         Self {
             authoritative: {
-                let new = counter!(flags_name.clone(), key => "aa");
+                let new = counter!(flags_name, key => "aa");
                 describe_counter!(
-                    flags_name.clone(),
+                    flags_name,
                     Unit::Count,
                     format!("Number of {direction}s by header flags.")
                 );
                 new
             },
-            authentic_data: counter!(flags_name.clone(), key => "ad"),
-            checking_disabled: counter!(flags_name.clone(), key => "cd"),
-            recursion_available: counter!(flags_name.clone(), key => "ra"),
-            recursion_desired: counter!(flags_name.clone(), key => "rd"),
+            authentic_data: counter!(flags_name, key => "ad"),
+            checking_disabled: counter!(flags_name, key => "cd"),
+            recursion_available: counter!(flags_name, key => "ra"),
+            recursion_desired: counter!(flags_name, key => "rd"),
             truncation: counter!(flags_name, key => "tc"),
         }
     }
@@ -589,38 +595,37 @@ impl ResponseCodeMetrics {
 
 impl Default for ResponseCodeMetrics {
     fn default() -> Self {
-        let response_codes_name = "hickory_response_codes_total";
         let key = "code";
         Self {
             no_error: {
-                let new = counter!(response_codes_name, key => "no_error");
+                let new = counter!(RESPONSE_CODES_TOTAL, key => "no_error");
                 describe_counter!(
-                    response_codes_name,
+                    RESPONSE_CODES_TOTAL,
                     Unit::Count,
                     "Number of responses by response code."
                 );
                 new
             },
-            form_error: counter!(response_codes_name, key => "form_error"),
-            serv_fail: counter!(response_codes_name, key => "serv_fail"),
-            nx_domain: counter!(response_codes_name, key => "nx_domain"),
-            not_imp: counter!(response_codes_name, key => "not_imp"),
-            refused: counter!(response_codes_name, key => "refused"),
-            yx_domain: counter!(response_codes_name, key => "yx_domain"),
-            yx_rrset: counter!(response_codes_name, key => "yx_rrset"),
-            nx_rrset: counter!(response_codes_name, key => "nx_rrset"),
-            not_auth: counter!(response_codes_name, key => "not_auth"),
-            not_zone: counter!(response_codes_name, key => "not_zone"),
-            bad_vers: counter!(response_codes_name, key => "bad_vers"),
-            bad_sig: counter!(response_codes_name, key => "bad_sig"),
-            bad_key: counter!(response_codes_name, key => "bad_key"),
-            bad_time: counter!(response_codes_name, key => "bad_time"),
-            bad_mode: counter!(response_codes_name, key => "bad_mode"),
-            bad_name: counter!(response_codes_name, key => "bad_name"),
-            bad_alg: counter!(response_codes_name, key => "bad_alg"),
-            bad_trunc: counter!(response_codes_name, key => "bad_trunc"),
-            bad_cookie: counter!(response_codes_name, key => "bad_cookie"),
-            unknown: counter!(response_codes_name, key => "unknown"),
+            form_error: counter!(RESPONSE_CODES_TOTAL, key => "form_error"),
+            serv_fail: counter!(RESPONSE_CODES_TOTAL, key => "serv_fail"),
+            nx_domain: counter!(RESPONSE_CODES_TOTAL, key => "nx_domain"),
+            not_imp: counter!(RESPONSE_CODES_TOTAL, key => "not_imp"),
+            refused: counter!(RESPONSE_CODES_TOTAL, key => "refused"),
+            yx_domain: counter!(RESPONSE_CODES_TOTAL, key => "yx_domain"),
+            yx_rrset: counter!(RESPONSE_CODES_TOTAL, key => "yx_rrset"),
+            nx_rrset: counter!(RESPONSE_CODES_TOTAL, key => "nx_rrset"),
+            not_auth: counter!(RESPONSE_CODES_TOTAL, key => "not_auth"),
+            not_zone: counter!(RESPONSE_CODES_TOTAL, key => "not_zone"),
+            bad_vers: counter!(RESPONSE_CODES_TOTAL, key => "bad_vers"),
+            bad_sig: counter!(RESPONSE_CODES_TOTAL, key => "bad_sig"),
+            bad_key: counter!(RESPONSE_CODES_TOTAL, key => "bad_key"),
+            bad_time: counter!(RESPONSE_CODES_TOTAL, key => "bad_time"),
+            bad_mode: counter!(RESPONSE_CODES_TOTAL, key => "bad_mode"),
+            bad_name: counter!(RESPONSE_CODES_TOTAL, key => "bad_name"),
+            bad_alg: counter!(RESPONSE_CODES_TOTAL, key => "bad_alg"),
+            bad_trunc: counter!(RESPONSE_CODES_TOTAL, key => "bad_trunc"),
+            bad_cookie: counter!(RESPONSE_CODES_TOTAL, key => "bad_cookie"),
+            unknown: counter!(RESPONSE_CODES_TOTAL, key => "unknown"),
         }
     }
 }
@@ -639,27 +644,24 @@ impl PersistentStoreMetrics {
     pub(super) fn new(store: &'static str) -> Self {
         let store_key = "store";
 
-        let zone_records_name = "hickory_zone_records_total";
-        let zone_records = gauge!(zone_records_name, store_key => store);
+        let zone_records = gauge!(ZONE_RECORDS_TOTAL, store_key => store);
         describe_gauge!(
-            zone_records_name,
+            ZONE_RECORDS_TOTAL,
             Unit::Count,
             "Number of resource records in zone stores."
         );
 
         #[cfg(all(feature = "sqlite", feature = "__dnssec"))]
         let (zone_records_added, zone_records_deleted, zone_records_updated) = {
-            let zone_records_modified_name = "hickory_zone_records_modified_total";
-
             let operation_key = "operation";
 
             let records_added =
-                counter!(zone_records_modified_name, store_key => store, operation_key => "added");
-            let records_deleted = counter!(zone_records_modified_name, store_key => store, operation_key => "deleted");
-            let records_updated = counter!(zone_records_modified_name, store_key => store, operation_key => "updated");
+                counter!(ZONE_RECORDS_MODIFIED_TOTAL, store_key => store, operation_key => "added");
+            let records_deleted = counter!(ZONE_RECORDS_MODIFIED_TOTAL, store_key => store, operation_key => "deleted");
+            let records_updated = counter!(ZONE_RECORDS_MODIFIED_TOTAL, store_key => store, operation_key => "updated");
 
             describe_counter!(
-                zone_records_modified_name,
+                ZONE_RECORDS_MODIFIED_TOTAL,
                 Unit::Count,
                 "Number of modifications to resource records in zone stores."
             );
@@ -712,8 +714,42 @@ impl fmt::Display for Direction {
     }
 }
 
+/// Number of requests by header flags.
+pub const REQUEST_FLAGS_TOTAL: &str = "hickory_request_flags_total";
+/// Number of responses by header flags.
+pub const RESPONSE_FLAGS_TOTAL: &str = "hickory_response_flags_total";
+/// Number of requests by opcode.
+pub const REQUEST_OPERATIONS_TOTAL: &str = "hickory_request_operations_total";
+
+/// Number of responses by response code.
+pub const RESPONSE_CODES_TOTAL: &str = "hickory_response_codes_total";
+
+/// Number of zone lookups.
+pub const ZONE_LOOKUPS_TOTAL: &str = "hickory_zone_lookups_total";
+
+/// Number of requests by DNS class.
+pub const REQUEST_DNS_CLASSES_TOTAL: &str = "hickory_request_dns_classes_total";
+
+/// Total number of resource records in responses by DNS class.
+pub const RESPONSE_DNS_CLASSES_TOTAL: &str = "hickory_response_dns_classes_total";
+
+/// Number of requests by query type.
+pub const REQUEST_RECORD_TYPES_TOTAL: &str = "hickory_request_record_types_total";
+/// Total number of resource records in responses by record type.
+pub const RESPONSE_RECORD_TYPES_TOTAL: &str = "hickory_response_record_types_total";
+
+/// Number of resource records in zone stores.
+pub const ZONE_RECORDS_TOTAL: &str = "hickory_zone_records_total";
+
+/// Number of modifications to resource records in zone stores.
+pub const ZONE_RECORDS_MODIFIED_TOTAL: &str = "hickory_zone_records_modified_total";
+
+/// Number of requests by transport protocol.
+pub const REQUEST_PROTOCOLS_TOTAL: &str = "hickory_request_protocols_total";
+
+/// Metrics related to the optional blocklist feature
 #[cfg(feature = "blocklist")]
-pub(crate) mod blocklist {
+pub mod blocklist {
     use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 
     pub(crate) struct BlocklistMetrics {
@@ -727,38 +763,58 @@ pub(crate) mod blocklist {
     impl BlocklistMetrics {
         pub(crate) fn new() -> Self {
             describe_gauge!(
-                "hickory_blocklist_list_entries",
+                ENTRIES,
                 Unit::Count,
                 "The total number of entries in all configured blocklists",
             );
             describe_counter!(
-                "hickory_blocklist_blocked_queries_total",
+                BLOCKED_QUERIES_TOTAL,
                 Unit::Count,
                 "The total number of requests that were blocked by the blocklist zone handler",
             );
             describe_counter!(
-                "hickory_blocklist_logged_queries_total",
+                LOGGED_QUERIES_TOTAL,
                 Unit::Count,
                 "The total number of requests that were logged by the blocklist zone handler",
             );
             describe_counter!(
-                "hickory_blocklist_list_hits_total",
+                HITS_TOTAL,
                 Unit::Count,
                 "The total number of requests that matched a blocklist entry",
             );
             describe_counter!(
-                "hickory_blocklist_queries_total",
+                QUERIES_TOTAL,
                 Unit::Count,
                 "The total number of requests the blocklist zone handler has processed",
             );
 
             Self {
-                entries: gauge!("hickory_blocklist_list_entries"),
-                blocked_queries: counter!("hickory_blocklist_blocked_queries_total"),
-                logged_queries: counter!("hickory_blocklist_logged_queries_total"),
-                total_hits: counter!("hickory_blocklist_list_hits_total"),
-                total_queries: counter!("hickory_blocklist_queries_total"),
+                entries: gauge!(ENTRIES),
+                blocked_queries: counter!(BLOCKED_QUERIES_TOTAL),
+                logged_queries: counter!(LOGGED_QUERIES_TOTAL),
+                total_hits: counter!(HITS_TOTAL),
+                total_queries: counter!(QUERIES_TOTAL),
             }
         }
     }
+
+    /// The total number of entries in all configured blocklists
+    #[cfg(feature = "blocklist")]
+    pub const ENTRIES: &str = "hickory_blocklist_list_entries";
+
+    /// The total number of requests that were blocked by the blocklist zone handler
+    #[cfg(feature = "blocklist")]
+    pub const BLOCKED_QUERIES_TOTAL: &str = "hickory_blocklist_blocked_queries_total";
+
+    /// The total number of requests that were logged by the blocklist zone handler
+    #[cfg(feature = "blocklist")]
+    pub const LOGGED_QUERIES_TOTAL: &str = "hickory_blocklist_logged_queries_total";
+
+    /// The total number of requests that matched a blocklist entry
+    #[cfg(feature = "blocklist")]
+    pub const HITS_TOTAL: &str = "hickory_blocklist_list_hits_total";
+
+    /// The total number of requests the blocklist zone handler has processed
+    #[cfg(feature = "blocklist")]
+    pub const QUERIES_TOTAL: &str = "hickory_blocklist_queries_total";
 }
