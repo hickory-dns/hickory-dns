@@ -421,7 +421,7 @@ async fn test_blocklist_metrics() {
         &fetch_parse_check_metrics(&server.ports).await
     };
 
-    verify_metric(metrics, blocklist::ENTRIES, &[], Some(6.0));
+    verify_metric(metrics, blocklist::ENTRIES_TOTAL, &[], Some(6.0));
     verify_metric(metrics, blocklist::BLOCKED_QUERIES_TOTAL, &[], Some(1.0));
     verify_metric(metrics, blocklist::QUERIES_TOTAL, &[], Some(2.0));
     verify_metric(metrics, blocklist::HITS_TOTAL, &[], Some(1.0));
@@ -465,7 +465,7 @@ async fn test_consulting_blocklist_metrics() {
         &fetch_parse_check_metrics(&server.ports).await
     };
 
-    verify_metric(metrics, blocklist::ENTRIES, &[], Some(6.0));
+    verify_metric(metrics, blocklist::ENTRIES_TOTAL, &[], Some(6.0));
     verify_metric(metrics, blocklist::LOGGED_QUERIES_TOTAL, &[], Some(1.0));
     verify_metric(metrics, blocklist::QUERIES_TOTAL, &[], Some(2.0));
     verify_metric(metrics, blocklist::HITS_TOTAL, &[], Some(1.0));

@@ -763,7 +763,7 @@ pub mod blocklist {
     impl BlocklistMetrics {
         pub(crate) fn new() -> Self {
             describe_gauge!(
-                ENTRIES,
+                ENTRIES_TOTAL,
                 Unit::Count,
                 "The total number of entries in all configured blocklists",
             );
@@ -789,7 +789,7 @@ pub mod blocklist {
             );
 
             Self {
-                entries: gauge!(ENTRIES),
+                entries: gauge!(ENTRIES_TOTAL),
                 blocked_queries: counter!(BLOCKED_QUERIES_TOTAL),
                 logged_queries: counter!(LOGGED_QUERIES_TOTAL),
                 total_hits: counter!(HITS_TOTAL),
@@ -800,7 +800,7 @@ pub mod blocklist {
 
     /// The total number of entries in all configured blocklists
     #[cfg(feature = "blocklist")]
-    pub const ENTRIES: &str = "hickory_blocklist_list_entries";
+    pub const ENTRIES_TOTAL: &str = "hickory_blocklist_list_entries_total";
 
     /// The total number of requests that were blocked by the blocklist zone handler
     #[cfg(feature = "blocklist")]
