@@ -80,11 +80,9 @@ doc feature='':
 test-docs:
     RUSTDOCFLAGS="-Dwarnings" cargo ws exec cargo doc --locked --all-features --no-deps --document-private-items
 
-# This tests compatibility with BIND9, TODO: support other feature sets besides openssl for tests
 [unix]
-compatibility: init-bind9
-    RUST_LOG=debug cargo t --manifest-path conformance/Cargo.toml -p compatibility-tests --locked --all-targets --no-default-features --features=none;
-    RUST_LOG=debug cargo t --manifest-path conformance/Cargo.toml -p compatibility-tests --locked --all-targets --no-default-features --features=bind;
+compatibility: 
+    RUST_LOG=debug cargo t --manifest-path conformance/Cargo.toml -p compatibility-tests --locked --all-targets
 
 # Build all bench marking tools, i.e. check that they work, but don't run
 build-bench:
@@ -299,51 +297,6 @@ init-openssl:
 [linux]
 init-openssl:
     openssl version
-
-[private]
-[macos]
-init-bind9-deps: init-openssl
-    pip install ply
-    brew install wget libuv userspace-rcu openssl
-
-[private]
-[linux]
-init-bind9-deps:
-    if apt-get --version ; then sudo apt-get install -y python3-ply libuv1-dev liburcu-dev libssl-dev libcap-dev ; fi
-
-# Install BIND9, needed for compatibility tests
-[unix]
-init-bind9:
-    #!/usr/bin/env bash
-    set -euxo pipefail
-
-    if {{TDNS_BIND_PATH}}/sbin/named -v ; then exit 0 ; fi
-
-    just init-bind9-deps
-
-    ## This must run after OpenSSL installation
-    if openssl version ; then WITH_OPENSSL="--with-openssl=$(dirname $(dirname $(which openssl)))" ; fi
-
-    mkdir -p {{TARGET_DIR}}
-
-    echo "----> downloading bind"
-    rm -rf {{TARGET_DIR}}/bind-{{BIND_VER}}
-    wget -O {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz https://downloads.isc.org/isc/bind9/{{BIND_VER}}/bind-{{BIND_VER}}.tar.xz
-
-    ls -la {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz
-    tar -xJf {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz -C {{TARGET_DIR}}
-
-    echo "----> compiling bind"
-    cd {{TARGET_DIR}}/bind-{{BIND_VER}}
-
-    ./configure --prefix {{TDNS_BIND_PATH}} ${WITH_OPENSSL}
-    make install
-    cd -
-
-    {{TDNS_BIND_PATH}}/sbin/named -v
-
-    rm {{TARGET_DIR}}/bind-{{BIND_VER}}.tar.xz
-    rm -rf {{TARGET_DIR}}/bind-{{BIND_VER}}
 
 # Check for the cargo-workspaces command, install if it does not exist
 init-cargo-workspaces:
