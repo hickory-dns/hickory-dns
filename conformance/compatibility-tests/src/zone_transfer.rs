@@ -5,6 +5,8 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![cfg(test)]
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
@@ -24,17 +26,6 @@ use dns_test::{
     record::{A as TestA, Record as DnsTestRecord, SOA, SoaSettings},
     zone_file::ZoneFile,
 };
-
-macro_rules! assert_serial {
-    ( $record:expr, $serial:expr  ) => {{
-        let rdata = $record.data();
-        if let RData::SOA(soa) = rdata {
-            assert_eq!(soa.serial(), $serial);
-        } else {
-            panic!("record was not a SOA");
-        }
-    }};
-}
 
 #[tokio::test]
 async fn test_zone_transfer() {
@@ -144,9 +135,16 @@ async fn test_zone_transfer() {
     let result = &result[0];
     assert_eq!(result.answers().len(), 3 + 2);
 
-    assert_serial!(result.answers()[0], 20210102);
-    assert_serial!(result.answers()[1], 20210101);
-    assert_serial!(result.answers()[2], 20210102);
+    assert_serial(&result.answers()[0], 20210102);
+    assert_serial(&result.answers()[1], 20210101);
+    assert_serial(&result.answers()[2], 20210102);
     assert_eq!(result.answers()[3].record_type(), RecordType::A);
-    assert_serial!(result.answers()[4], 20210102);
+    assert_serial(&result.answers()[4], 20210102);
+}
+
+fn assert_serial(r: &Record, expected: u32) {
+    let RData::SOA(soa) = r.data() else {
+        panic!("expected SOA record, got: {:?}", r.data())
+    };
+    assert_eq!(soa.serial(), expected);
 }
