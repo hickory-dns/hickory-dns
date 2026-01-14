@@ -11,13 +11,10 @@ none = []
 bind = []
 
 [dependencies]
-data-encoding = { version = "2.2.0", default-features = false, features = ["alloc"] }
 dns-test = { path = "../dns-test" }
 futures = { version = "0.3.5", default-features = false }
 hickory-net = { path = "../../crates/net", features = ["dnssec-ring", "tokio"] }
 hickory-proto = { path = "../../crates/proto", features = ["dnssec-ring"] }
-rand = { version = "0.9", default-features = false, features = ["std", "thread_rng"] }
-rustls-pki-types = "1.10"
 test-support.path = "../../tests/test-support"
 time = "0.3"
 tokio = "1.21"
