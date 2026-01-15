@@ -894,13 +894,14 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
 
         // update the serial...
         if updated && auto_signing_and_increment {
-            if self.is_dnssec_enabled {
+            let new_serial = if self.is_dnssec_enabled {
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "__dnssec")] {
                         self.secure_zone().await.map_err(|error| {
                             error!(%error, "failure securing zone");
                             ResponseCode::ServFail
-                        })?
+                        })?;
+                        self.in_memory.serial().await
                     } else {
                         error!("failure securing zone, dnssec feature not enabled");
                         return Err(ResponseCode::ServFail)
@@ -909,7 +910,34 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             } else {
                 // the secure_zone() function increments the SOA during it's operation, if we're not
                 //  dnssec, then we need to do it here...
-                self.in_memory.increment_soa_serial().await;
+                self.in_memory.increment_soa_serial().await
+            };
+
+            // Persist the post-update SOA record (including the incremented serial) so journal
+            // replay reconstructs the monotonic SOA serial across restarts.
+            //
+            // Note: `recover_with_journal()` replays with `auto_signing_and_increment = false`,
+            // so without journaling the updated SOA record, the in-memory serial bump would be
+            // lost after restart even though the updated RRsets are recovered.
+            let Some(soa_record) = self
+                .in_memory
+                .records()
+                .await
+                .get(&RrKey::new(self.origin().clone(), RecordType::SOA))
+                .and_then(|rrset| rrset.records_without_rrsigs().next().cloned())
+            else {
+                error!(origin = %self.origin(), "SOA record missing after serial increment");
+                return Err(ResponseCode::ServFail);
+            };
+
+            let journal_guard = self.journal.lock().await;
+            let Some(journal) = journal_guard.as_ref() else {
+                return Ok(updated);
+            };
+
+            if let Err(error) = journal.insert_record(new_serial, &soa_record) {
+                error!("could not persist updated SOA record: {error}");
+                return Err(ResponseCode::ServFail);
             }
         }
 
@@ -1281,7 +1309,19 @@ pub(crate) fn default_fudge() -> u16 {
 #[cfg(test)]
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
-    use crate::store::sqlite::SqliteZoneHandler;
+    use std::env::temp_dir;
+    use std::fs::remove_file;
+    use std::net::Ipv4Addr;
+    use std::path::Path;
+    use std::process;
+    use std::str::FromStr;
+    use std::time::SystemTime;
+
+    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::proto::rr::{DNSClass, Name, RData, Record};
+    use crate::store::in_memory::{InMemoryZoneHandler, zone_from_path};
+    use crate::store::sqlite::{Journal, SqliteZoneHandler};
+    use crate::zone_handler::{AxfrPolicy, ZoneType};
 
     #[test]
     fn test_is_send_sync() {
@@ -1290,5 +1330,85 @@ mod tests {
         }
 
         assert!(send_sync::<SqliteZoneHandler>());
+    }
+
+    #[tokio::test]
+    async fn test_soa_serial_is_monotonic_across_journal_recovery() {
+        let origin = Name::from_str("example.com.").unwrap();
+        let zone_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/test-data/test_configs/example.com.zone");
+
+        let in_memory: InMemoryZoneHandler<TokioRuntimeProvider> = InMemoryZoneHandler::new(
+            origin.clone(),
+            zone_from_path(&zone_path, origin.clone()).unwrap(),
+            ZoneType::Primary,
+            AxfrPolicy::AllowAll,
+            #[cfg(feature = "__dnssec")]
+            None,
+        )
+        .unwrap();
+
+        // Use a file-backed journal so we can simulate a restart by reopening it.
+        let journal_path = temp_dir().join(format!(
+            "hickory-sqlite-journal-serial-test-{}-{}.sqlite",
+            process::id(),
+            SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        // Create a handler with journaling enabled and persist the initial zone snapshot.
+        let mut handler = SqliteZoneHandler::new(
+            in_memory,
+            AxfrPolicy::AllowAll,
+            true,  // allow_update
+            false, // dnssec disabled
+        );
+        handler
+            .set_journal(Journal::from_file(&journal_path).unwrap())
+            .await;
+        handler.persist_to_journal().await.unwrap();
+
+        let s1 = handler.serial().await;
+
+        // Apply a dynamic update that modifies zone contents; this must increment SOA.
+        let update_record = Record::from_rdata(
+            Name::from_str("serialtest.example.com.").unwrap(),
+            0,
+            RData::A(Ipv4Addr::new(192, 0, 2, 55).into()),
+        )
+        .set_dns_class(DNSClass::IN)
+        .clone();
+
+        assert!(
+            handler
+                .update_records(&[update_record], true)
+                .await
+                .unwrap()
+        );
+        let s2 = handler.serial().await;
+        assert_eq!(s2, s1 + 1);
+
+        // "Restart": recover into a new handler from the same journal.
+        let in_memory_recovered: InMemoryZoneHandler<TokioRuntimeProvider> =
+            InMemoryZoneHandler::empty(
+                origin.clone(),
+                ZoneType::Primary,
+                AxfrPolicy::AllowAll,
+                #[cfg(feature = "__dnssec")]
+                None,
+            );
+        let mut recovered =
+            SqliteZoneHandler::new(in_memory_recovered, AxfrPolicy::AllowAll, true, false);
+        recovered
+            .recover_with_journal(&Journal::from_file(&journal_path).unwrap())
+            .await
+            .unwrap();
+
+        let s3 = recovered.serial().await;
+        assert_eq!(s3, s2);
+
+        let _ = remove_file(&journal_path);
     }
 }
