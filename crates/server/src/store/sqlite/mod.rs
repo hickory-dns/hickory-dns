@@ -919,12 +919,10 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             // Note: `recover_with_journal()` replays with `auto_signing_and_increment = false`,
             // so without journaling the updated SOA record, the in-memory serial bump would be
             // lost after restart even though the updated RRsets are recovered.
-            let Some(soa_record) = self
-                .in_memory
-                .records()
-                .await
+            let records = self.in_memory.records().await;
+            let Some(soa_record) = records
                 .get(&RrKey::new(self.origin().clone(), RecordType::SOA))
-                .and_then(|rrset| rrset.records_without_rrsigs().next().cloned())
+                .and_then(|rrset| rrset.records_without_rrsigs().next())
             else {
                 error!(origin = %self.origin(), "SOA record missing after serial increment");
                 return Err(ResponseCode::ServFail);
@@ -935,7 +933,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                 return Ok(updated);
             };
 
-            if let Err(error) = journal.insert_record(new_serial, &soa_record) {
+            if let Err(error) = journal.insert_record(new_serial, soa_record) {
                 error!("could not persist updated SOA record: {error}");
                 return Err(ResponseCode::ServFail);
             }
