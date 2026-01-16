@@ -13,35 +13,13 @@ use super::rdata::sig::SigInput;
 use crate::{
     error::{ProtoError, ProtoResult},
     rr::{DNSClass, Name, Record},
-    serialize::binary::{BinEncodable, BinEncoder, EncodeMode, NameEncoding},
+    serialize::binary::{BinEncodable, BinEncoder, NameEncoding},
 };
 
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);
 
 impl TBS {
-    /// Returns the to-be-signed serialization of the given message.
-    pub fn from_message(message: &impl BinEncodable, input: &SigInput) -> ProtoResult<Self> {
-        // TODO: should perform the serialization and sign block by block to reduce the max memory
-        //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
-        //  more important
-        let mut buf = Vec::with_capacity(512);
-        let mut buf2 = Vec::with_capacity(512);
-        let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-
-        input.emit(&mut encoder)?;
-
-        // need a separate encoder here, as the encoding references absolute positions
-        // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
-        // are wrong and the signature won't match.
-        let mut encoder2 = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
-        message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
-
-        buf.append(&mut buf2);
-
-        Ok(Self(buf))
-    }
-
     /// Returns the to-be-signed serialization of the given record set using the information
     /// provided from the SIG record.
     ///

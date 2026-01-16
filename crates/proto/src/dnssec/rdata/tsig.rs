@@ -27,8 +27,8 @@ use crate::{
         record_data::RData, record_type::RecordType,
     },
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode, NameEncoding,
-        RDataEncoding, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding, RDataEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -704,7 +704,7 @@ pub fn message_tbs<M: BinEncodable>(
     key_name: &Name,
 ) -> ProtoResult<Vec<u8>> {
     let mut buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
+    let mut encoder = BinEncoder::new(&mut buf);
     message.emit(&mut encoder)?;
     pre_tsig.emit_tsig_for_mac(&mut encoder, key_name)?;
     Ok(buf)

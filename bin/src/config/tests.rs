@@ -112,7 +112,6 @@ fn test_parse_toml() {
 #[cfg(feature = "__dnssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use crate::dnssec::KeyPurpose;
     use hickory_proto::dnssec::Algorithm;
     use hickory_proto::rr::Name;
 
@@ -131,14 +130,12 @@ key_path = \"/path/to/my_ed25519.pem\"
 algorithm = \"ED25519\"
 \
          signer_name = \"ns.example.com.\"
-purpose = \"ZoneUpdateAuth\"
 
 [[zones.keys]]
 key_path = \"/path/to/my_rsa.pem\"
 algorithm = \
          \"RSASHA256\"
 signer_name = \"ns.example.com.\"
-purpose = \"ZoneSigning\"
 ",
     )
     .unwrap();
@@ -157,10 +154,6 @@ purpose = \"ZoneSigning\"
             .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert_eq!(
-        KeyPurpose::ZoneUpdateAuth,
-        server_zone(&config, 0).keys[0].purpose
-    );
 
     assert_eq!(
         server_zone(&config, 0).keys[1].key_path,
@@ -176,10 +169,6 @@ purpose = \"ZoneSigning\"
             .unwrap()
             .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
-    );
-    assert_eq!(
-        KeyPurpose::ZoneSigning,
-        server_zone(&config, 0).keys[1].purpose,
     );
 }
 

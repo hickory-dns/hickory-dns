@@ -9,21 +9,15 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::time::Duration;
 
-use tracing::debug;
-
 use super::{DnsSecResult, SigningKey};
 use crate::{
-    dnssec::{
-        TBS,
-        rdata::{DNSKEY, KEY, SIG, SigInput},
-    },
+    dnssec::{TBS, rdata::DNSKEY},
     error::{ProtoError, ProtoResult},
-    op::{Message, MessageSignature, MessageSigner, MessageVerifier},
-    rr::{DNSClass, Name, RData, Record, RecordType, SerialNumber},
+    rr::{Name, RData},
     serialize::binary::{BinEncodable, BinEncoder},
 };
 
-/// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
+/// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing DNSSEC RRSIG records. The format is based on the SIG record type.
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
 ///
@@ -234,7 +228,7 @@ pub struct SigSigner {
 }
 
 impl SigSigner {
-    /// Version of Signer for verifying RRSIGs and SIG0 records.
+    /// Version of Signer for verifying RRSIGs.
     ///
     /// # Arguments
     ///
@@ -255,45 +249,6 @@ impl SigSigner {
             key,
             signer_name,
             sig_duration,
-        }
-    }
-
-    /// Version of Signer for verifying RRSIGs and SIG0 records.
-    ///
-    /// # Arguments
-    ///
-    /// * `key_rdata` - the KEY and public key material
-    /// * `key` - the private key for signing, unless validating, where just the public key is necessary
-    /// * `signer_name` - name in the zone to which this DNSKEY is bound
-    /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn sig0(key_rdata: KEY, key: Box<dyn SigningKey>, signer_name: Name) -> Self {
-        Self {
-            key_rdata: key_rdata.into(),
-            key,
-            signer_name,
-            sig_duration: Duration::ZERO,
-            is_zone_signing_key: false,
-        }
-    }
-
-    /// Version of Signer for signing RRSIGs and SIG0 records.
-    #[deprecated(note = "use SIG0 or DNSSEC constructors")]
-    pub fn new(
-        key: Box<dyn SigningKey>,
-        signer_name: Name,
-        sig_duration: Duration,
-        is_zone_signing_key: bool,
-        _: bool,
-    ) -> Self {
-        let pub_key = key.to_public_key().expect("key is not a private key");
-        let dnskey = DNSKEY::from_key(&pub_key);
-
-        Self {
-            key_rdata: dnskey.into(),
-            key,
-            signer_name,
-            sig_duration,
-            is_zone_signing_key,
         }
     }
 
@@ -397,66 +352,6 @@ impl SigSigner {
         Ok(DNSKEY::calculate_key_tag_internal(&bytes))
     }
 
-    /// Signs the given message, returning the signature bytes.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - the message to sign
-    ///
-    /// [rfc2535](https://tools.ietf.org/html/rfc2535#section-4.1.8.1), Domain Name System Security Extensions, 1999
-    ///
-    /// ```text
-    /// 4.1.8.1 Calculating Transaction and Request SIGs
-    ///
-    ///  A response message from a security aware server may optionally
-    ///  contain a special SIG at the end of the additional information
-    ///  section to authenticate the transaction.
-    ///
-    ///  This SIG has a "type covered" field of zero, which is not a valid RR
-    ///  type.  It is calculated by using a "data" (see Section 4.1.8) of the
-    ///  entire preceding DNS reply message, including DNS header but not the
-    ///  IP header and before the reply RR counts have been adjusted for the
-    ///  inclusion of any transaction SIG, concatenated with the entire DNS
-    ///  query message that produced this response, including the query's DNS
-    ///  header and any request SIGs but not its IP header.  That is
-    ///
-    ///  data = full response (less transaction SIG) | full query
-    ///
-    ///  Verification of the transaction SIG (which is signed by the server
-    ///  host key, not the zone key) by the requesting resolver shows that the
-    ///  query and response were not tampered with in transit, that the
-    ///  response corresponds to the intended query, and that the response
-    ///  comes from the queried server.
-    ///
-    ///  A DNS request may be optionally signed by including one or more SIGs
-    ///  at the end of the query. Such SIGs are identified by having a "type
-    ///  covered" field of zero. They sign the preceding DNS request message
-    ///  including DNS header but not including the IP header or any request
-    ///  SIGs at the end and before the request RR counts have been adjusted
-    ///  for the inclusions of any request SIG(s).
-    ///
-    ///  WARNING: Request SIGs are unnecessary for any currently defined
-    ///  request other than update [RFC 2136, 2137] and will cause some old
-    ///  DNS servers to give an error return or ignore a query.  However, such
-    ///  SIGs may in the future be needed for other requests.
-    ///
-    ///  Except where needed to authenticate an update or similar privileged
-    ///  request, servers are not required to check request SIGs.
-    /// ```
-    ///  ---
-    ///
-    /// NOTE: In classic RFC style, this is unclear, it implies that each SIG record is not included in
-    ///  the Additional record count, but this makes it more difficult to process and calculate more
-    ///  than one SIG0 record. Annoyingly, it means that the Header is signed with different material
-    ///  (i.e. additional record count - #SIG0 records), so the exact header sent is NOT the header
-    ///  being verified.
-    ///
-    ///  ---
-    pub fn sign_message(&self, message: &Message, input: &SigInput) -> ProtoResult<Vec<u8>> {
-        let tbs = TBS::from_message(message, input)?;
-        self.sign(&tbs)
-    }
-
     /// Extracts a public KEY from this Signer
     pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
         // TODO: this interface should allow for setting if this is a secure entry point vs. ZSK
@@ -479,144 +374,24 @@ impl SigSigner {
     }
 }
 
-impl MessageSigner for SigSigner {
-    fn sign_message(
-        &self,
-        message: &Message,
-        current_time: u64,
-    ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)> {
-        debug!("signing message: {message:?}");
-        let key_tag: u16 = self.calculate_key_tag()?;
-
-        // this is based on RFCs 2535, 2931 and 3007
-
-        // The owner name SHOULD be root (a single zero octet).
-        let name = Name::root();
-        // The TTL fields SHOULD be zero
-        let ttl = 0;
-
-        let num_labels = name.num_labels();
-
-        // Truncate the current time to 32 bits. Note that signature inception and expiration times
-        // use serial number arithmetic.
-        let current_time = current_time as u32;
-        let expiration_time = current_time.wrapping_add(5 * 60); // +5 minutes in seconds
-        let input = SigInput {
-            type_covered: RecordType::ZERO,
-            algorithm: self.key.algorithm(),
-            num_labels,
-            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            original_ttl: 0,
-            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            sig_expiration: SerialNumber(expiration_time),
-            // current time, this should be UTC
-            // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            sig_inception: SerialNumber(current_time),
-            key_tag,
-            // can probably get rid of this clone if the ownership is correct
-            signer_name: self.signer_name().clone(),
-        };
-
-        let sig = self.sign_message(message, &input)?;
-
-        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
-        //  meaningless.' - 2931
-        let mut sig0 = Record::from_rdata(name, ttl, SIG { input, sig });
-
-        // The CLASS field SHOULD be ANY
-        sig0.set_dns_class(DNSClass::ANY);
-
-        Ok((MessageSignature::Sig0(Box::new(sig0)), None))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
-
-    #[cfg(feature = "std")]
-    use std::println;
 
     use rustls_pki_types::PrivatePkcs8KeyDer;
 
     use super::*;
     use crate::dnssec::{
-        Algorithm, PublicKey, SigningKey, TBS, Verifier, crypto::RsaSigningKey, rdata::KEY,
+        Algorithm, PublicKey, SigningKey, TBS, crypto::RsaSigningKey, rdata::SigInput,
     };
-    use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
-    use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+    use crate::rr::{DNSClass, Name, RData, Record, RecordType, SerialNumber};
 
     fn assert_send_and_sync<T: Send + Sync>() {}
 
     #[test]
     fn test_send_and_sync() {
         assert_send_and_sync::<SigSigner>();
-    }
-
-    fn input(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SigInput {
-        SigInput {
-            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            type_covered: RecordType::ZERO,
-            algorithm: signer.key().algorithm(),
-            num_labels: 0,
-            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            original_ttl: 0,
-            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            sig_expiration: SerialNumber(expiration_time),
-            // current time, this should be UTC
-            // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            sig_inception: SerialNumber(inception_time),
-            signer_name: signer.signer_name().clone(),
-            key_tag: signer.calculate_key_tag().unwrap(),
-        }
-    }
-
-    #[test]
-    fn test_sign_and_verify_message_sig0() {
-        let origin = Name::parse("example.com.", None).unwrap();
-        let mut question = Message::query();
-        let mut query = Query::new();
-        query.set_name(origin);
-        question.add_query(query);
-
-        let key =
-            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
-                .unwrap();
-        let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key(&pub_key);
-        let signer = SigSigner::sig0(sig0key.clone(), Box::new(key), Name::root());
-
-        let input = input(&signer, 0, 300);
-        let sig = signer.sign_message(&question, &input).unwrap();
-        #[cfg(feature = "std")]
-        println!("sig: {sig:?}");
-
-        assert!(!sig.is_empty());
-
-        assert!(sig0key.verify_message(&question, &sig, &input).is_ok());
-
-        // now test that the sig0 record works correctly.
-        assert_eq!(question.signature(), &MessageSignature::Unsigned);
-        question.finalize(&signer, 0).expect("should have signed");
-        assert!(matches!(question.signature(), MessageSignature::Sig0(_)));
-
-        let sig = signer.sign_message(&question, &input);
-        #[cfg(feature = "std")]
-        println!("sig after sign: {sig:?}");
-
-        let MessageSignature::Sig0(sig) = question.signature() else {
-            panic!(
-                "expected sig0 signature after sign, not {:?}",
-                question.signature()
-            );
-        };
-
-        assert!(
-            sig0key
-                .verify_message(&question, sig.data().sig(), &input)
-                .is_ok()
-        );
     }
 
     #[test]

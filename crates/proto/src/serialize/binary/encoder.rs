@@ -102,7 +102,6 @@ pub struct BinEncoder<'a> {
     buffer: private::MaximalBuf<'a>,
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
-    mode: EncodeMode,
     /// Whether the encoder should use the DNSSEC canonical form for RDATA.
     canonical_form: bool,
     /// How names should be encoded.
@@ -112,16 +111,7 @@ pub struct BinEncoder<'a> {
 impl<'a> BinEncoder<'a> {
     /// Create a new encoder with the Vec to fill
     pub fn new(buf: &'a mut Vec<u8>) -> Self {
-        Self::with_offset(buf, 0, EncodeMode::Normal)
-    }
-
-    /// Specify the mode for encoding
-    ///
-    /// # Arguments
-    ///
-    /// * `mode` - In Signing mode, canonical forms of all data are encoded, otherwise format matches the source form
-    pub fn with_mode(buf: &'a mut Vec<u8>, mode: EncodeMode) -> Self {
-        Self::with_offset(buf, 0, mode)
+        Self::with_offset(buf, 0)
     }
 
     /// Begins the encoder at the given offset
@@ -133,7 +123,7 @@ impl<'a> BinEncoder<'a> {
     /// # Arguments
     ///
     /// * `offset` - index at which to start writing into the buffer
-    pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
+    pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32) -> Self {
         if buf.capacity() < 512 {
             let reserve = 512 - buf.capacity();
             buf.reserve(reserve);
@@ -144,7 +134,6 @@ impl<'a> BinEncoder<'a> {
             // TODO: add max_size to signature
             buffer: private::MaximalBuf::new(u16::MAX, buf),
             name_pointers: Vec::new(),
-            mode,
             canonical_form: false,
             name_encoding: NameEncoding::Compressed,
         }
@@ -183,11 +172,6 @@ impl<'a> BinEncoder<'a> {
     /// sets the current offset to the new offset
     pub fn set_offset(&mut self, offset: usize) {
         self.offset = offset;
-    }
-
-    /// Returns the current Encoding mode
-    pub fn mode(&self) -> EncodeMode {
-        self.mode
     }
 
     /// If set to true, then records will be written into the buffer in DNSSEC canonical form
@@ -586,16 +570,6 @@ impl Rollback {
         encoder.set_offset(offset);
         encoder.name_pointers.truncate(pointers);
     }
-}
-
-/// In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records
-///  should not be included in the additional count and not in the encoded data when in Verify
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum EncodeMode {
-    /// In signing mode records are written in canonical form
-    Signing,
-    /// Write records in standard format
-    Normal,
 }
 
 #[cfg(test)]

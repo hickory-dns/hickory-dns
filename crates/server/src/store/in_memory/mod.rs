@@ -29,7 +29,7 @@ use crate::{
     net::runtime::Time,
     proto::dnssec::{
         DnsSecResult, SigSigner,
-        rdata::{DNSKEY, DNSSECRData, key::KEY},
+        rdata::{DNSKEY, DNSSECRData},
     },
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
 };
@@ -228,41 +228,6 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     /// Non-async version of upsert when behind a mutable reference.
     pub fn upsert_mut(&mut self, record: Record, serial: u32) -> bool {
         self.inner.get_mut().upsert(record, serial, self.class)
-    }
-
-    /// Add a (Sig0) key that is authorized to perform updates against this zone
-    #[cfg(feature = "__dnssec")]
-    fn inner_add_update_auth_key(
-        inner: &mut InnerInMemory,
-
-        name: Name,
-        key: KEY,
-        origin: &LowerName,
-        dns_class: DNSClass,
-    ) -> DnsSecResult<()> {
-        let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
-        // TODO: what TTL?
-        let record = Record::from_rdata(name, 86400, rdata);
-
-        let serial = inner.serial(origin);
-        if inner.upsert(record, serial, dns_class) {
-            Ok(())
-        } else {
-            Err("failed to add auth key".into())
-        }
-    }
-
-    /// Non-async method of add_update_auth_key when behind a mutable reference
-    #[cfg(feature = "__dnssec")]
-    pub fn add_update_auth_key_mut(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        let Self {
-            origin,
-            inner,
-            class,
-            ..
-        } = self;
-
-        Self::inner_add_update_auth_key(inner.get_mut(), name, key, origin, *class)
     }
 
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
@@ -700,13 +665,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler<P> {
-    /// Add a (Sig0) key that is authorized to perform updates against this zone
-    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
-        let mut inner = self.inner.write().await;
-
-        Self::inner_add_update_auth_key(&mut inner, name, key, self.origin(), self.class)
-    }
-
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
     /// # Arguments

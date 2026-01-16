@@ -124,12 +124,3 @@ axfr_policy = "Deny"
 # password = ""
 ## specify the algorithm
 # algorithm = "RSASHA256"
-## This key is used to sign a zone
-# purpose = ZoneSigning
-#
-# [[zones.keys]]
-# key_path = "/path/to/my_ed25519.pk8"
-# algorithm = "ED25519"
-## This key is used to authorize zone updates
-## for keys that are not zone signing, the pem need only include the pubic_key
-# purpose = ZoneUpdateAuth
