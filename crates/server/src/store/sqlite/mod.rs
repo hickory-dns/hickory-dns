@@ -994,6 +994,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         let cx = TSigResponseContext::new(req_id, now);
 
         debug!("authorizing with: {tsig:?}");
+        // RFC 8945 Section 5.5: "To prevent cross-algorithm attacks, there SHOULD only be
+        // one algorithm associated with any given key name." We rely on this and only check
+        // the key name when filtering TSIG keys.
         let Some(tsigner) = self
             .tsig_signers
             .iter()
