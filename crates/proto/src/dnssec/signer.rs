@@ -541,9 +541,7 @@ mod tests {
 
     use super::*;
     use crate::dnssec::{
-        Algorithm, PublicKey, SigningKey, TBS, Verifier,
-        crypto::RsaSigningKey,
-        rdata::{KEY, key::KeyUsage},
+        Algorithm, PublicKey, SigningKey, TBS, Verifier, crypto::RsaSigningKey, rdata::KEY,
     };
     use crate::op::{Message, MessageSignature, Query};
     use crate::rr::rdata::{CNAME, NS};
@@ -628,8 +626,13 @@ mod tests {
             RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
                 .unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
-        let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
+        let dnskey = DNSKEY::from_key(&pub_key);
+        let signer = SigSigner::dnssec(
+            dnskey,
+            Box::new(key),
+            Name::root(),
+            Duration::from_secs(300),
+        );
 
         let origin = Name::parse("example.com.", None).unwrap();
         let input = SigInput {
@@ -674,11 +677,16 @@ mod tests {
             RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
                 .unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key_with_usage(&pub_key, KeyUsage::Zone);
-        let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
+        let dnskey = DNSKEY::from_key(&pub_key);
+        let signer = SigSigner::dnssec(
+            dnskey,
+            Box::new(key),
+            Name::root(),
+            Duration::from_secs(300),
+        );
         let key_tag = signer.calculate_key_tag().unwrap();
 
-        assert_eq!(key_tag, 3256);
+        assert_eq!(key_tag, 3257);
     }
 
     #[test]
@@ -687,8 +695,13 @@ mod tests {
             RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(RSA_KEY), Algorithm::RSASHA256)
                 .unwrap();
         let pub_key = key.to_public_key().unwrap();
-        let sig0key = KEY::new_sig0key(&pub_key);
-        let signer = SigSigner::sig0(sig0key, Box::new(key), Name::root());
+        let dnskey = DNSKEY::from_key(&pub_key);
+        let signer = SigSigner::dnssec(
+            dnskey,
+            Box::new(key),
+            Name::root(),
+            Duration::from_secs(300),
+        );
 
         let origin = Name::parse("example.com.", None).unwrap();
         let input = SigInput {

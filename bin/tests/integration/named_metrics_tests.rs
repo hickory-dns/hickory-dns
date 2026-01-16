@@ -37,7 +37,7 @@ use hickory_net::{
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::dnssec::{
-    Algorithm, SigSigner, SigningKey, TrustAnchors, crypto::RsaSigningKey, rdata::DNSKEY,
+    Algorithm, SigningKey, TSigner, TrustAnchors, crypto::RsaSigningKey, rdata::tsig::TsigAlgorithm,
 };
 #[cfg(feature = "blocklist")]
 use hickory_proto::op::DnsResponse;
@@ -505,16 +505,14 @@ async fn test_updates() {
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
 
-        let update_algo = Algorithm::RSASHA512;
-        let update_key =
-            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), update_algo)
-                .unwrap();
-        let signer = SigSigner::dnssec(
-            DNSKEY::from_key(&update_key.to_public_key().unwrap()),
-            Box::new(update_key),
-            origin.clone(),
-            time::Duration::weeks(1).try_into().unwrap(),
-        );
+        let secret_key = b"test_secret_key_for_metrics_tests".to_vec();
+        let signer = TSigner::new(
+            secret_key,
+            TsigAlgorithm::HmacSha256,
+            Name::from_str("update.example.com.").unwrap(),
+            300,
+        )
+        .unwrap();
 
         let client = create_local_client(&server.ports, Some(Arc::new(signer))).await;
         let mut client = DnssecDnsHandle::with_trust_anchor(client, Arc::new(trust_anchor));
