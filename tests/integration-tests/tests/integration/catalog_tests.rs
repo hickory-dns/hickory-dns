@@ -1033,7 +1033,7 @@ async fn test_empty_chain_axfr() {
 mod dnssec {
     use super::*;
     use hickory_proto::dnssec::{
-        Nsec3HashAlgorithm, SigSigner, SigningKey,
+        DnssecSigner, Nsec3HashAlgorithm, SigningKey,
         crypto::Ed25519SigningKey,
         rdata::{DNSKEY, DNSSECRData},
     };
@@ -1058,7 +1058,7 @@ mod dnssec {
         .unwrap();
 
         records
-            .add_zone_signing_key_mut(SigSigner::dnssec(
+            .add_zone_signing_key_mut(DnssecSigner::new(
                 DNSKEY::from_key(&key.to_public_key().expect("convert to public key")),
                 Box::new(key),
                 origin.clone(),

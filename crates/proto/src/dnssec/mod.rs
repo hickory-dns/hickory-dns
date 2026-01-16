@@ -40,7 +40,7 @@ use rdata::tsig::TsigAlgorithm;
 mod rsa_public_key;
 
 mod signer;
-pub use signer::SigSigner;
+pub use signer::DnssecSigner;
 
 mod supported_algorithm;
 pub use supported_algorithm::SupportedAlgorithms;

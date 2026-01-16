@@ -21,7 +21,7 @@ use crate::{
     proto::{
         ProtoError,
         dnssec::{
-            DnsSecResult, Nsec3HashAlgorithm, SigSigner,
+            DnsSecResult, DnssecSigner, Nsec3HashAlgorithm,
             rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
         },
     },
@@ -45,7 +45,7 @@ pub(super) struct InnerInMemory {
     //   may not support dynamic updates to register the new key... Hickory DNS will provide support
     //   for this, in some form, perhaps alternate root zones...
     #[cfg(feature = "__dnssec")]
-    pub(super) secure_keys: Vec<SigSigner>,
+    pub(super) secure_keys: Vec<DnssecSigner>,
 }
 
 impl InnerInMemory {
@@ -714,7 +714,7 @@ impl InnerInMemory {
     #[cfg(feature = "__dnssec")]
     pub(super) fn sign_rrset(
         rr_set: &mut RecordSet,
-        secure_keys: &[SigSigner],
+        secure_keys: &[DnssecSigner],
         zone_class: DNSClass,
         inception: OffsetDateTime,
     ) -> DnsSecResult<()> {

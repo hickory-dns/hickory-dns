@@ -13,13 +13,14 @@ use super::{DnsSecResult, SigningKey};
 use crate::{
     dnssec::{TBS, rdata::DNSKEY},
     error::{ProtoError, ProtoResult},
-    rr::{Name, RData},
+    rr::Name,
     serialize::binary::{BinEncodable, BinEncoder},
 };
 
-/// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing DNSSEC RRSIG records. The format is based on the SIG record type.
+/// A DNSSEC signer that bundles a DNSKEY with its corresponding private key for signing operations.
 ///
-/// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
+/// This type is used to create RRSIG records for zone signing. It holds the public key material
+/// (DNSKEY), the private signing key, and metadata needed for signature creation.
 ///
 /// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
 ///
@@ -218,34 +219,30 @@ use crate::{
 ///    Note that the response received by the resolver should include all
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
-pub struct SigSigner {
-    // TODO: this should really be a trait and generic struct over KEY and DNSKEY
-    key_rdata: RData,
+pub struct DnssecSigner {
+    dnskey: DNSKEY,
     key: Box<dyn SigningKey>,
     signer_name: Name,
     sig_duration: Duration,
-    is_zone_signing_key: bool,
 }
 
-impl SigSigner {
-    /// Version of Signer for verifying RRSIGs.
+impl DnssecSigner {
+    /// Creates a new DNSSEC signer for creating RRSIGs.
     ///
     /// # Arguments
     ///
-    /// * `key_rdata` - the DNSKEY and public key material
-    /// * `key` - the private key for signing, unless validating, where just the public key is necessary
+    /// * `dnskey` - the DNSKEY containing the public key material
+    /// * `key` - the private key for signing
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
-    /// * `sig_duration` - time period for which this key is valid, 0 when verifying
-    /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn dnssec(
-        key_rdata: DNSKEY,
+    /// * `sig_duration` - time period for which signatures created by this key are valid
+    pub fn new(
+        dnskey: DNSKEY,
         key: Box<dyn SigningKey>,
         signer_name: Name,
         sig_duration: Duration,
     ) -> Self {
         Self {
-            is_zone_signing_key: key_rdata.zone_key(),
-            key_rdata: key_rdata.into(),
+            dnskey,
             key,
             signer_name,
             sig_duration,
@@ -262,9 +259,9 @@ impl SigSigner {
         self.sig_duration
     }
 
-    /// A hint to the DNSKey associated with this Signer can be used to sign/validate records in the zone
+    /// Returns whether this DNSKEY has the zone key flag set
     pub fn is_zone_signing_key(&self) -> bool {
-        self.is_zone_signing_key
+        self.dnskey.zone_key()
     }
 
     /// Signs a hash.
@@ -347,16 +344,19 @@ impl SigSigner {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
             let mut e = BinEncoder::new(&mut bytes);
-            self.key_rdata.emit(&mut e)?;
+            self.dnskey.emit(&mut e)?;
         }
         Ok(DNSKEY::calculate_key_tag_internal(&bytes))
     }
 
-    /// Extracts a public KEY from this Signer
-    pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
-        // TODO: this interface should allow for setting if this is a secure entry point vs. ZSK
-        let pub_key = self.key.to_public_key()?;
-        Ok(DNSKEY::new(self.is_zone_signing_key, true, false, pub_key))
+    /// Returns a reference to the DNSKEY for this signer
+    pub fn dnskey(&self) -> &DNSKEY {
+        &self.dnskey
+    }
+
+    /// Returns a clone of the DNSKEY for this signer
+    pub fn to_dnskey(&self) -> DNSKEY {
+        self.dnskey.clone()
     }
 
     /// Test that this key is capable of signing and verifying data
@@ -391,7 +391,7 @@ mod tests {
 
     #[test]
     fn test_send_and_sync() {
-        assert_send_and_sync::<SigSigner>();
+        assert_send_and_sync::<DnssecSigner>();
     }
 
     #[test]
@@ -402,7 +402,7 @@ mod tests {
                 .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let dnskey = DNSKEY::from_key(&pub_key);
-        let signer = SigSigner::dnssec(
+        let signer = DnssecSigner::new(
             dnskey,
             Box::new(key),
             Name::root(),
@@ -453,7 +453,7 @@ mod tests {
                 .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let dnskey = DNSKEY::from_key(&pub_key);
-        let signer = SigSigner::dnssec(
+        let signer = DnssecSigner::new(
             dnskey,
             Box::new(key),
             Name::root(),
@@ -471,7 +471,7 @@ mod tests {
                 .unwrap();
         let pub_key = key.to_public_key().unwrap();
         let dnskey = DNSKEY::from_key(&pub_key);
-        let signer = SigSigner::dnssec(
+        let signer = DnssecSigner::new(
             dnskey,
             Box::new(key),
             Name::root(),

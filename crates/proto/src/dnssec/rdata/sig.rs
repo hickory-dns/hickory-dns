@@ -15,7 +15,7 @@ use time::OffsetDateTime;
 
 use super::DNSSECRData;
 use crate::{
-    dnssec::{Algorithm, SigSigner},
+    dnssec::{Algorithm, DnssecSigner},
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordSet, RecordType, SerialNumber},
     serialize::binary::{
@@ -407,7 +407,7 @@ impl SigInput {
         rr_set: &RecordSet,
         expiration: OffsetDateTime,
         inception: OffsetDateTime,
-        signer: &SigSigner,
+        signer: &DnssecSigner,
     ) -> Result<Self, ProtoError> {
         Ok(Self {
             type_covered: rr_set.record_type(),

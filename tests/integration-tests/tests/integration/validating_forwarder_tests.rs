@@ -20,7 +20,8 @@ use hickory_net::{
 };
 use hickory_proto::{
     dnssec::{
-        PublicKeyBuf, SigSigner, SigningKey, TrustAnchors, crypto::Ed25519SigningKey, rdata::DNSKEY,
+        DnssecSigner, PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey,
+        rdata::DNSKEY,
     },
     op::{DnsResponse, ResponseCode},
     rr::{
@@ -197,7 +198,7 @@ async fn setup_authoritative_server(
     }
     if signed {
         handler
-            .add_zone_signing_key_mut(SigSigner::dnssec(
+            .add_zone_signing_key_mut(DnssecSigner::new(
                 DNSKEY::from_key(&key.to_public_key().unwrap()),
                 Box::new(key),
                 Name::root(),

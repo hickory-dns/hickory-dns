@@ -29,7 +29,7 @@ use crate::{
     dnssec::NxProofKind,
     proto::{
         dnssec::{
-            DnsSecResult, SigSigner, TSigResponseContext, TSigner,
+            DnsSecResult, DnssecSigner, TSigResponseContext, TSigner,
             rdata::{
                 TSIG,
                 tsig::{TsigAlgorithm, TsigError},
@@ -1182,7 +1182,7 @@ impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteZoneHandler<P
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
+    async fn add_zone_signing_key(&self, signer: DnssecSigner) -> DnsSecResult<()> {
         self.in_memory.add_zone_signing_key(signer).await
     }
 

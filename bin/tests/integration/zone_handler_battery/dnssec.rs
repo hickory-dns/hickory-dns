@@ -389,7 +389,7 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
         let signer = key_config
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
-        keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
+        keys.push(signer.to_dnskey());
         block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
         block_on(handler.secure_zone()).expect("failed to sign zone");
     }
@@ -405,7 +405,7 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
         let signer = key_config
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
-        keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
+        keys.push(signer.to_dnskey());
         block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
         block_on(handler.secure_zone()).expect("failed to sign zone");
     }
@@ -421,7 +421,7 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
         let signer = key_config
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
-        keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
+        keys.push(signer.to_dnskey());
         block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
         block_on(handler.secure_zone()).expect("failed to sign zone");
     }
@@ -438,7 +438,7 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
         let signer = key_config
             .try_into_signer(signer_name)
             .expect("failed to read key_config");
-        keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
+        keys.push(signer.to_dnskey());
         block_on(handler.add_zone_signing_key(signer)).expect("failed to add signer to zone");
         block_on(handler.secure_zone()).expect("failed to sign zone");
     }
