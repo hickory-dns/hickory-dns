@@ -194,7 +194,9 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
 
         #[cfg(feature = "__dnssec")]
         for config in &config.tsig_keys {
-            handler.tsig_signers.push(config.to_signer(&zone_name)?);
+            handler
+                .tsig_signers
+                .push(config.to_signer(&zone_name, root_dir)?);
         }
 
         Ok(handler)
@@ -1285,13 +1287,10 @@ pub struct TsigKeyConfig {
 
 #[cfg(feature = "__dnssec")]
 impl TsigKeyConfig {
-    fn to_signer(&self, zone_name: &Name) -> Result<TSigner, String> {
-        let key_data = fs::read(&self.key_file).map_err(|e| {
-            format!(
-                "error reading TSIG key file: {}: {e}",
-                self.key_file.display()
-            )
-        })?;
+    fn to_signer(&self, zone_name: &Name, root_dir: Option<&Path>) -> Result<TSigner, String> {
+        let key_file = rooted(&self.key_file, root_dir);
+        let key_data = fs::read(&key_file)
+            .map_err(|e| format!("error reading TSIG key file: {}: {e}", key_file.display()))?;
         let signer_name = Name::from_str(&self.name).unwrap_or_else(|_| zone_name.clone());
 
         TSigner::new(key_data, self.algorithm.clone(), signer_name, self.fudge)

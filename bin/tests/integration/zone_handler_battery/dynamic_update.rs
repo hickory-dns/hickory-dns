@@ -3,22 +3,18 @@
 
 use std::{
     net::{Ipv4Addr, SocketAddr},
-    path::PathBuf,
     str::FromStr,
 };
 
 use futures_executor::block_on;
 
-use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
 use hickory_net::{
     runtime::{Time, TokioTime},
     xfer::Protocol,
 };
 use hickory_proto::{
-    dnssec::{
-        Algorithm, SigSigner,
-        rdata::{KEY, key::KeyUsage},
-    },
+    dnssec::TSigner,
+    dnssec::rdata::tsig::TsigAlgorithm,
     op::{Header, Message, MessageType, OpCode, Query, ResponseCode, update_message},
     rr::{
         DNSClass, Name, RData, Record, RecordSet, RecordType,
@@ -28,17 +24,19 @@ use hickory_proto::{
 };
 use hickory_server::{
     server::Request,
-    zone_handler::{DnssecZoneHandler, LookupError, LookupOptions, MessageRequest, ZoneHandler},
+    store::sqlite::SqliteZoneHandler,
+    zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
 };
 
 const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
 
 fn update_zone_handler(
     mut message: Message,
-    key: &SigSigner,
+    key: &TSigner,
     handler: &mut impl ZoneHandler,
 ) -> Result<bool, ResponseCode> {
-    message.finalize(key, 1).expect("failed to sign message");
+    let now = TokioTime::current_time();
+    message.finalize(key, now).expect("failed to sign message");
     let bytes = message.to_bytes().unwrap();
     let request = Request::from_bytes(
         bytes,
@@ -47,16 +45,13 @@ fn update_zone_handler(
     )
     .unwrap();
 
-    block_on(handler.update(&request, TokioTime::current_time())).0
+    block_on(handler.update(&request, now)).0
 }
 
-pub fn test_create(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_create(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("create.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(127, 0, 0, 10)));
         let message = update_message::create(
@@ -97,13 +92,10 @@ pub fn test_create(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_create_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_create_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("create-multi.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
         // create a record
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
@@ -142,13 +134,10 @@ pub fn test_create_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_append(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_append(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("append.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // append a record
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
@@ -230,13 +219,10 @@ pub fn test_append(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_append_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_append_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("append-multi.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // append a record
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
@@ -307,13 +293,10 @@ pub fn test_append_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("compare-and-swap.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // create a record
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
@@ -379,13 +362,10 @@ pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[SigSigner]) 
     }
 }
 
-pub fn test_compare_and_swap_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_compare_and_swap_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // create a record
         let mut current = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
@@ -462,13 +442,10 @@ pub fn test_compare_and_swap_multi(mut handler: impl ZoneHandler, keys: &[SigSig
     }
 }
 
-pub fn test_delete_by_rdata(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_by_rdata(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("test-delete-by-rdata.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // append a record
         let record1 = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
@@ -523,13 +500,10 @@ pub fn test_delete_by_rdata(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_delete_by_rdata_multi(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_by_rdata_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("test-delete-by-rdata-multi.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // append a record
         let mut rrset = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
@@ -603,13 +577,10 @@ pub fn test_delete_by_rdata_multi(mut handler: impl ZoneHandler, keys: &[SigSign
     }
 }
 
-pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // append a record
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
@@ -664,13 +635,10 @@ pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
+pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[TSigner]) {
     let name = Name::from_str("compare-and-swap-multi.example.com.").unwrap();
     for key in keys {
-        let name = Name::from_str(key.key().algorithm().as_str())
-            .unwrap()
-            .append_name(&name)
-            .unwrap();
+        let name = key.algorithm().to_name().append_name(&name).unwrap();
 
         // append a record
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
@@ -731,52 +699,32 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[SigSigner]) {
     }
 }
 
-pub fn add_auth<A: DnssecZoneHandler>(handler: &mut A) -> Vec<SigSigner> {
-    let update_name = Name::from_str("update")
-        .unwrap()
-        .append_domain(&handler.origin().to_owned().into())
-        .unwrap();
-
-    let mut keys = Vec::<SigSigner>::new();
+pub fn add_auth(handler: &mut SqliteZoneHandler) -> Vec<TSigner> {
+    let mut keys = Vec::<TSigner>::new();
 
     #[cfg(feature = "__dnssec")]
     {
-        let keys_algorithms = [
-            (
-                "../tests/test-data/test_configs/dnssec/rsa_2048.pk8",
-                Algorithm::RSASHA512,
-            ),
-            (
-                "../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8",
-                Algorithm::ECDSAP256SHA256,
-            ),
-            (
-                "../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8",
-                Algorithm::ECDSAP384SHA384,
-            ),
+        let tsig_algorithms = [
+            TsigAlgorithm::HmacSha256,
+            TsigAlgorithm::HmacSha384,
+            TsigAlgorithm::HmacSha512,
         ];
 
-        for (key, algo) in keys_algorithms {
-            let key_config = KeyConfig {
-                key_path: PathBuf::from(key),
-                algorithm: algo,
-                signer_name: Some(update_name.to_string()),
-                purpose: KeyPurpose::ZoneSigning,
-            };
+        for algo in tsig_algorithms {
+            let secret_key = b"test_secret_key_for_dynamic_update".to_vec();
 
-            let signer = key_config
-                .try_into_signer(update_name.clone())
-                .expect("failed to read key_config");
-            let public_key = signer
-                .key()
-                .to_public_key()
-                .expect("failed to get public key");
+            let key_name = Name::from_str(&format!("update-{}", algo.to_name().to_lowercase()))
+                .unwrap()
+                .append_domain(&handler.origin().to_owned().into())
+                .unwrap();
 
-            let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
-            block_on(handler.add_update_auth_key(update_name.clone(), key))
-                .expect("failed to add signer to zone");
+            let signer =
+                TSigner::new(secret_key, algo, key_name, 300).expect("failed to create TSigner");
+
             keys.push(signer);
         }
+
+        handler.set_tsig_signers(keys.clone());
     }
 
     keys

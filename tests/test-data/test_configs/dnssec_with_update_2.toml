@@ -48,15 +48,14 @@ zone_path = "example.com.zone"
 journal_path = "example.com_dnssec_update_2.jrnl"
 allow_update = true
 
+[[zones.stores.tsig_keys]]
+name = "update.example.com."
+key_file = "dnssec/tsig_update.key"
+algorithm = "hmac-sha256"
+
 [[zones.keys]]
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 ## specify the algorithm
 algorithm = "RSASHA256"
 ## this key should be used to sign the zone
 purpose = "ZoneSigning"
-
-[[zones.keys]]
-key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
-algorithm = "RSASHA512"
-## this key is authorized for dynamic update access to the zone via SIG0
-purpose = "ZoneUpdateAuth"

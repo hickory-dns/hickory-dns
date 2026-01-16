@@ -27,7 +27,7 @@ use hickory_net::{
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::{
-    dnssec::{Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSSECRData},
+    dnssec::{TSigner, rdata::tsig::TsigAlgorithm},
     rr::{RData, Record, rdata::A},
 };
 use hickory_proto::{
@@ -37,9 +37,9 @@ use hickory_proto::{
         rdata::opt::{EdnsCode, EdnsOption},
     },
 };
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_server::zone_handler::AxfrPolicy;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use hickory_server::{store::sqlite::SqliteZoneHandler, zone_handler::AxfrPolicy};
 
 #[tokio::test]
 async fn test_query_nonet() {
@@ -257,19 +257,15 @@ async fn test_notify() {
 // update tests
 //
 
-/// create a client with a sig0 section
+/// create a client with a TSIG signer
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-async fn create_sig0_ready_client() -> (
+async fn create_tsig_ready_client() -> (
     (
         Client<TokioRuntimeProvider>,
         DnsExchangeBackground<DnsMultiplexer<TestClientStream>, TokioTime>,
     ),
     Name,
 ) {
-    use hickory_proto::dnssec::rdata::KEY;
-    use hickory_server::store::sqlite::SqliteZoneHandler;
-    use rustls_pki_types::PrivatePkcs8KeyDer;
-
     let handler = create_example();
     let mut handler =
         SqliteZoneHandler::<TokioRuntimeProvider>::new(handler, AxfrPolicy::Deny, true, false);
@@ -277,27 +273,23 @@ async fn create_sig0_ready_client() -> (
 
     let trusted_name = Name::from_str("trusted.example.com.").unwrap();
 
-    const KEY: &[u8] = include_bytes!("../rsa-2048.pk8");
-    let key =
-        RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
-    let pub_key = key.to_public_key().unwrap();
-    let sig0_key = KEY::new_sig0key(&pub_key);
-
-    let signer = SigSigner::sig0(sig0_key.clone(), Box::new(key), trusted_name.clone());
-
-    // insert the KEY for the trusted.example.com
-    let auth_key = Record::from_rdata(
-        trusted_name,
-        Duration::minutes(5).whole_seconds() as u32,
-        RData::DNSSEC(DNSSECRData::KEY(sig0_key)),
+    let secret_key = b"test_secret_key_for_client_future_tests".to_vec();
+    let signer = Arc::new(
+        TSigner::new(
+            secret_key,
+            TsigAlgorithm::HmacSha256,
+            trusted_name.clone(),
+            300,
+        )
+        .unwrap(),
     );
-    handler.upsert_mut(auth_key, 0);
+
+    handler.set_tsig_signers(vec![(*signer).clone()]);
 
     // setup the catalog
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
 
-    let signer = Arc::new(signer);
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
     let (client, bg) = Client::new(stream, sender, Some(signer));
@@ -309,7 +301,7 @@ async fn create_sig0_ready_client() -> (
 #[tokio::test]
 async fn test_create() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // create a record
@@ -356,7 +348,7 @@ async fn test_create() {
 #[tokio::test]
 async fn test_create_multi() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // create a record
@@ -413,7 +405,7 @@ async fn test_create_multi() {
 #[tokio::test]
 async fn test_append() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // append a record
@@ -498,7 +490,7 @@ async fn test_append() {
 #[tokio::test]
 async fn test_append_multi() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // append a record
@@ -590,7 +582,7 @@ async fn test_append_multi() {
 #[tokio::test]
 async fn test_compare_and_swap() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // create a record
@@ -651,7 +643,7 @@ async fn test_compare_and_swap() {
 #[tokio::test]
 async fn test_compare_and_swap_multi() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // create a record
@@ -722,7 +714,7 @@ async fn test_compare_and_swap_multi() {
 #[tokio::test]
 async fn test_delete_by_rdata() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // append a record
@@ -778,7 +770,7 @@ async fn test_delete_by_rdata() {
 #[tokio::test]
 async fn test_delete_by_rdata_multi() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // append a record
@@ -860,7 +852,7 @@ async fn test_delete_by_rdata_multi() {
 #[tokio::test]
 async fn test_delete_rrset() {
     subscribe();
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // append a record
@@ -917,7 +909,7 @@ async fn test_delete_all() {
 
     subscribe();
 
-    let ((mut client, bg), origin) = create_sig0_ready_client().await;
+    let ((mut client, bg), origin) = create_tsig_ready_client().await;
     tokio::spawn(bg);
 
     // append a record
