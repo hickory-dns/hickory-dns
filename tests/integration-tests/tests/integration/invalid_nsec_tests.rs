@@ -13,7 +13,7 @@ use hickory_integration::{
 use hickory_net::{DnsError, NetError, client::ClientHandle};
 use hickory_proto::{
     dnssec::{
-        Algorithm, DigestType, Proof, SigSigner, SigningKey,
+        Algorithm, DigestType, DnssecSigner, Proof, SigningKey,
         crypto::Ed25519SigningKey,
         rdata::{DNSKEY, DNSSECRData, DS, NSEC},
     },
@@ -514,7 +514,7 @@ fn example_zone_handler(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZoneH
 
     // Add DNSKEY and sign zone
     handler
-        .add_zone_signing_key_mut(SigSigner::dnssec(
+        .add_zone_signing_key_mut(DnssecSigner::new(
             DNSKEY::from_key(&key.to_public_key().unwrap()),
             key,
             origin.clone(),

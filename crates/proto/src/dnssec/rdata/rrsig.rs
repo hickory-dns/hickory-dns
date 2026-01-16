@@ -17,7 +17,7 @@ use time::OffsetDateTime;
 use super::{DNSSECRData, SIG, sig::SigInput};
 use crate::{
     ProtoError,
-    dnssec::{SigSigner, TBS},
+    dnssec::{DnssecSigner, TBS},
     error::ProtoResult,
     rr::{DNSClass, RData, Record, RecordData, RecordDataDecodable, RecordSet, RecordType},
     serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
@@ -34,7 +34,7 @@ impl RRSIG {
         rr_set: &RecordSet,
         zone_class: DNSClass,
         inception: OffsetDateTime,
-        signer: &SigSigner,
+        signer: &DnssecSigner,
     ) -> Result<Self, ProtoError> {
         let expiration = inception + signer.sig_duration();
         let input = SigInput::from_rrset(rr_set, expiration, inception, signer)?;

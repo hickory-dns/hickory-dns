@@ -19,7 +19,7 @@ use crate::metrics::PersistentStoreMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
-    proto::dnssec::{DnsSecResult, SigSigner},
+    proto::dnssec::{DnsSecResult, DnssecSigner},
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
 };
 use crate::{
@@ -241,7 +241,7 @@ impl ZoneHandler for FileZoneHandler {
 #[async_trait::async_trait]
 impl DnssecZoneHandler for FileZoneHandler {
     /// Add Signer
-    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
+    async fn add_zone_signing_key(&self, signer: DnssecSigner) -> DnsSecResult<()> {
         self.in_memory.add_zone_signing_key(signer).await
     }
 

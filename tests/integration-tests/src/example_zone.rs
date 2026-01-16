@@ -185,7 +185,7 @@ pub fn create_example() -> InMemoryZoneHandler {
 #[cfg(feature = "__dnssec")]
 pub fn create_secure_example() -> InMemoryZoneHandler {
     use hickory_proto::dnssec::{
-        Algorithm, SigSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
+        Algorithm, DnssecSigner, SigningKey, crypto::RsaSigningKey, rdata::DNSKEY,
     };
     use hickory_server::zone_handler::ZoneHandler;
     use rustls_pki_types::PrivatePkcs8KeyDer;
@@ -196,7 +196,7 @@ pub fn create_secure_example() -> InMemoryZoneHandler {
     const KEY: &[u8] = include_bytes!("../tests/rsa-2048.pk8");
     let key =
         RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256).unwrap();
-    let signer = SigSigner::dnssec(
+    let signer = DnssecSigner::new(
         DNSKEY::from_key(&key.to_public_key().unwrap()),
         Box::new(key),
         handler.origin().clone().into(),

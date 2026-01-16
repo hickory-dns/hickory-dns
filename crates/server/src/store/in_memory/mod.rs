@@ -28,7 +28,7 @@ use crate::{
     dnssec::NxProofKind,
     net::runtime::Time,
     proto::dnssec::{
-        DnsSecResult, SigSigner,
+        DnsSecResult, DnssecSigner,
         rdata::{DNSKEY, DNSSECRData},
     },
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
@@ -170,7 +170,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 
     /// Retrieve the Signer, which contains the private keys, for this zone
     #[cfg(all(feature = "__dnssec", feature = "testing"))]
-    pub async fn secure_keys(&self) -> impl Deref<Target = [SigSigner]> + '_ {
+    pub async fn secure_keys(&self) -> impl Deref<Target = [DnssecSigner]> + '_ {
         RwLockWriteGuard::map(self.inner.write().await, |i| i.secure_keys.as_mut_slice())
     }
 
@@ -240,7 +240,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     #[cfg(feature = "__dnssec")]
     fn inner_add_zone_signing_key(
         inner: &mut InnerInMemory,
-        signer: SigSigner,
+        signer: DnssecSigner,
         origin: &LowerName,
         dns_class: DNSClass,
     ) -> DnsSecResult<()> {
@@ -262,7 +262,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 
     /// Non-async method of add_zone_signing_key when behind a mutable reference
     #[cfg(feature = "__dnssec")]
-    pub fn add_zone_signing_key_mut(&mut self, signer: SigSigner) -> DnsSecResult<()> {
+    pub fn add_zone_signing_key_mut(&mut self, signer: DnssecSigner) -> DnsSecResult<()> {
         let Self {
             origin,
             inner,
@@ -670,7 +670,7 @@ impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
+    async fn add_zone_signing_key(&self, signer: DnssecSigner) -> DnsSecResult<()> {
         let mut inner = self.inner.write().await;
 
         Self::inner_add_zone_signing_key(&mut inner, signer, self.origin(), self.class)

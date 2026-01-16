@@ -18,7 +18,7 @@ use tracing::info;
 use hickory_proto::rr::domain::Name;
 use hickory_proto::{
     ProtoError,
-    dnssec::{Algorithm, SigSigner, SigningKey, rdata::DNSKEY},
+    dnssec::{Algorithm, DnssecSigner, SigningKey, rdata::DNSKEY},
     rr::domain::IntoName,
 };
 use hickory_server::zone_handler::DnssecZoneHandler;
@@ -80,7 +80,7 @@ impl KeyConfig {
     /// keys are listed in pairs of key_name and algorithm, the search path is the
     /// same directory has the zone $file:
     ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
-    pub fn try_into_signer(&self, signer_name: impl IntoName) -> Result<SigSigner, String> {
+    pub fn try_into_signer(&self, signer_name: impl IntoName) -> Result<DnssecSigner, String> {
         let name = match self.signer_name() {
             Ok(Some(name)) => name,
             Ok(None) => signer_name
@@ -98,7 +98,7 @@ impl KeyConfig {
             .to_public_key()
             .map_err(|e| format!("error getting public key: {e}"))?;
 
-        let signer = SigSigner::dnssec(
+        let signer = DnssecSigner::new(
             DNSKEY::from_key(&pub_key),
             key,
             name,
