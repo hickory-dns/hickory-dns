@@ -9,15 +9,10 @@
 
 use alloc::sync::Arc;
 
-use super::{
-    Algorithm, PublicKey,
-    rdata::{RRSIG, SigInput},
-    tbs::TBS,
-};
+use super::{Algorithm, PublicKey, rdata::RRSIG, tbs::TBS};
 use crate::{
     error::ProtoResult,
     rr::{DNSClass, Name, Record},
-    serialize::binary::BinEncodable,
 };
 
 /// Types which are able to verify DNS based signatures
@@ -42,26 +37,6 @@ pub trait Verifier {
     /// false if the `key`.
     fn verify(&self, hash: &[u8], signature: &[u8]) -> ProtoResult<()> {
         self.key()?.verify(hash, signature)
-    }
-
-    /// Verifies a message with the against the given signature, i.e. SIG0
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - the message to verify
-    /// * `signature` - the signature to use for validation
-    ///
-    /// # Return value
-    ///
-    /// `true` if the message could be validated against the signature, `false` otherwise
-    fn verify_message<M: BinEncodable>(
-        &self,
-        message: &M,
-        signature: &[u8],
-        input: &SigInput,
-    ) -> ProtoResult<()> {
-        let tbs = TBS::from_message(message, input)?;
-        self.verify(tbs.as_ref(), signature)
     }
 
     /// Verifies an RRSig with the associated key, e.g. DNSKEY

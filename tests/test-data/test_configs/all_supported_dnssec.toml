@@ -41,28 +41,22 @@ file = "example.com.zone"
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 ## specify the algorithm
 algorithm = "RSASHA256"
-## this key should be used to sign the zone
-purpose = "ZoneSigning"
 
 [[zones.keys]]
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 algorithm = "RSASHA512"
-purpose = "ZoneSigning"
 
 [[zones.keys]]
 # Requires --features=ring
 key_path = "../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8"
 algorithm = "ECDSAP256SHA256"
-purpose = "ZoneSigning"
 
 [[zones.keys]]
 # Requires --features=ring
 key_path = "../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8"
 algorithm = "ECDSAP384SHA384"
-purpose = "ZoneSigning"
 
 [[zones.keys]]
 # Requires --features=ring
 key_path = "../tests/test-data/test_configs/dnssec/ed25519.pk8"
 algorithm = "ED25519"
-purpose = "ZoneSigning"

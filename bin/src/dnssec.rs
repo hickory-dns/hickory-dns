@@ -18,7 +18,7 @@ use tracing::info;
 use hickory_proto::rr::domain::Name;
 use hickory_proto::{
     ProtoError,
-    dnssec::{Algorithm, SigSigner, SigningKey, rdata::DNSKEY, rdata::KEY, rdata::key::KeyUsage},
+    dnssec::{Algorithm, SigSigner, SigningKey, rdata::DNSKEY},
     rr::domain::IntoName,
 };
 use hickory_server::zone_handler::DnssecZoneHandler;
@@ -55,7 +55,6 @@ pub struct KeyConfig {
     pub algorithm: Algorithm,
     /// the name to use when signing records, e.g. ns.example.com
     pub signer_name: Option<String>,
-    pub purpose: KeyPurpose,
 }
 
 impl KeyConfig {
@@ -119,61 +118,18 @@ impl KeyConfig {
         handler: &mut impl DnssecZoneHandler,
         zone_name: Name,
     ) -> Result<(), String> {
-        info!(
-            "adding key to zone: {:?}, purpose: {:?}",
-            self.key_path, self.purpose,
-        );
+        info!("adding key to zone: {:?}", self.key_path,);
 
-        match self.purpose {
-            KeyPurpose::ZoneSigning => {
-                let zone_signer = self
-                    .try_into_signer(zone_name)
-                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
-                handler
-                    .add_zone_signing_key(zone_signer)
-                    .await
-                    .map_err(|err| {
-                        format!("failed to add zone signing key to zone handler: {err}")
-                    })?;
-            }
-
-            KeyPurpose::ZoneUpdateAuth => {
-                let update_auth_signer = self
-                    .try_into_signer(zone_name.clone())
-                    .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
-                let public_key = update_auth_signer
-                    .key()
-                    .to_public_key()
-                    .map_err(|err| format!("failed to get public key: {err}"))?;
-                let key = KEY::new_sig0key_with_usage(&public_key, KeyUsage::Host);
-                handler
-                    .add_update_auth_key(zone_name, key)
-                    .await
-                    .map_err(|err| {
-                        format!("failed to add update auth key to zone handler: {err}")
-                    })?;
-            }
-        }
+        let zone_signer = self
+            .try_into_signer(zone_name)
+            .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path, e))?;
+        handler
+            .add_zone_signing_key(zone_signer)
+            .await
+            .map_err(|err| format!("failed to add zone signing key to zone handler: {err}"))?;
 
         Ok(())
     }
-}
-
-/// What a key will be used for
-#[derive(Clone, Copy, Deserialize, PartialEq, Eq, Debug)]
-pub enum KeyPurpose {
-    /// This key is used to sign a zone
-    ///
-    /// The public key for this must be trusted by a resolver to work. The key must have a private
-    /// portion associated with it. It will be registered as a DNSKEY in the zone.
-    ZoneSigning,
-
-    /// This key is used for dynamic updates in the zone
-    ///
-    /// This is at least a public_key, and can be used for SIG0 dynamic updates
-    ///
-    /// it will be registered as a KEY record in the zone
-    ZoneUpdateAuth,
 }
 
 pub fn key_from_file(path: &Path, algorithm: Algorithm) -> Result<Box<dyn SigningKey>, String> {

@@ -29,10 +29,9 @@ use crate::{
     dnssec::NxProofKind,
     proto::{
         dnssec::{
-            DnsSecResult, SigSigner, TSigResponseContext, TSigner, Verifier,
+            DnsSecResult, SigSigner, TSigResponseContext, TSigner,
             rdata::{
-                DNSSECRData, SIG, TSIG,
-                key::KEY,
+                TSIG,
                 tsig::{TsigAlgorithm, TsigError},
             },
         },
@@ -56,8 +55,6 @@ use crate::{
         ZoneTransfer, ZoneType,
     },
 };
-#[cfg(feature = "__dnssec")]
-use LookupControlFlow::Continue;
 
 pub mod persistence;
 pub use persistence::{Journal, PersistenceError};
@@ -558,9 +555,6 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         }
 
         match request.signature() {
-            MessageSignature::Sig0(sig0) => {
-                (self.authorized_sig0(sig0.data(), request).await, None)
-            }
             MessageSignature::Tsig(tsig) => {
                 let (resp, signer) = self.authorized_tsig(tsig, request, now).await;
                 (resp, Some(signer))
@@ -583,9 +577,6 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             // Allow only if a valid signature is present.
             #[cfg(feature = "__dnssec")]
             AxfrPolicy::AllowSigned => match _request.signature() {
-                MessageSignature::Sig0(sig0) => {
-                    (self.authorized_sig0(sig0.data(), _request).await, None)
-                }
                 MessageSignature::Tsig(tsig) => {
                     let (resp, signer) = self.authorized_tsig(tsig, _request, _now).await;
                     (resp, Some(signer))
@@ -946,46 +937,6 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     }
 
     #[cfg(feature = "__dnssec")]
-    async fn authorized_sig0(&self, sig0: &SIG, request: &Request) -> Result<(), ResponseCode> {
-        debug!("authorizing with: {sig0:?}");
-
-        let name = LowerName::from(&sig0.input().signer_name);
-
-        let Continue(Ok(keys)) = self
-            .lookup(&name, RecordType::KEY, None, LookupOptions::default())
-            .await
-        else {
-            warn!("no sig0 key name matched: id {}", request.id());
-            return Err(ResponseCode::Refused);
-        };
-
-        debug!("found keys {keys:?}");
-        let verified = keys.iter().any(|rr_set| {
-            let RData::DNSSEC(DNSSECRData::KEY(key)) = rr_set.data() else {
-                return false;
-            };
-
-            match key.verify_message(&request.message, sig0.sig(), sig0.input()) {
-                Ok(_) => {
-                    info!("verified sig: {sig0:?} with key: {key:?}");
-                    true
-                }
-                Err(_) => {
-                    debug!("did not verify sig: {sig0:?} with key: {key:?}");
-                    false
-                }
-            }
-        });
-        match verified {
-            true => Ok(()),
-            false => {
-                warn!("invalid sig0 signature: id {}", request.id());
-                Err(ResponseCode::Refused)
-            }
-        }
-    }
-
-    #[cfg(feature = "__dnssec")]
     async fn authorized_tsig(
         &self,
         tsig: &Record<TSIG>,
@@ -1226,10 +1177,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteZoneHandler<P> {
-    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
-        self.in_memory.add_update_auth_key(name, key).await
-    }
-
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
     /// # Arguments

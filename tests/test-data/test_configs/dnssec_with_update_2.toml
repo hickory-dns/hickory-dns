@@ -57,5 +57,3 @@ algorithm = "hmac-sha256"
 key_path = "../tests/test-data/test_configs/dnssec/rsa_2048.pk8"
 ## specify the algorithm
 algorithm = "RSASHA256"
-## this key should be used to sign the zone
-purpose = "ZoneSigning"

@@ -31,7 +31,7 @@ use crate::op::{
     DnsResponse, Message, MessageSignature, MessageSigner, MessageVerifier, ResponseSigner,
 };
 use crate::rr::Name;
-use crate::serialize::binary::{BinEncoder, EncodeMode};
+use crate::serialize::binary::BinEncoder;
 
 /// Context for a TSIG response, used to construct a TSIG response signer
 pub struct TSigResponseContext {
@@ -343,7 +343,7 @@ impl TSigner {
         let mut tbs_buf = Vec::with_capacity(
             previous_mac.len() + size_of::<u16>() + encoded_response.len() + 128,
         );
-        let mut encoder = BinEncoder::with_mode(&mut tbs_buf, EncodeMode::Normal);
+        let mut encoder = BinEncoder::new(&mut tbs_buf);
 
         debug_assert!(previous_mac.len() <= u16::MAX as usize); // Shouldn't happen for supported algorithms.
         encoder.emit_u16(previous_mac.len() as u16)?;

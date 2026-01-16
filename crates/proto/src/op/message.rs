@@ -17,7 +17,7 @@ use tracing::{debug, warn};
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{
     DnssecIter,
-    rdata::{DNSSECRData, SIG, TSIG},
+    rdata::{DNSSECRData, TSIG},
 };
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
@@ -25,7 +25,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
     rr::{RData, Record, RecordType},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
 
 /// The basic request and response data structure, used for all DNS protocols.
@@ -397,10 +397,8 @@ impl Message {
     /// `RecordType::TSIG` will panic.
     #[cfg(feature = "__dnssec")]
     pub fn set_signature(&mut self, sig: MessageSignature) -> &mut Self {
-        match &sig {
-            MessageSignature::Tsig(rec) => assert_eq!(RecordType::TSIG, rec.record_type()),
-            MessageSignature::Sig0(rec) => assert_eq!(RecordType::SIG, rec.record_type()),
-            _ => {}
+        if let MessageSignature::Tsig(rec) = &sig {
+            assert_eq!(RecordType::TSIG, rec.record_type());
         }
         self.signature = sig;
         self
@@ -722,29 +720,21 @@ impl Message {
             match record.data() {
                 #[cfg(feature = "__dnssec")]
                 RData::DNSSEC(DNSSECRData::SIG(_)) => {
-                    sig = MessageSignature::Sig0(
-                        Box::new(
-                            record
-                                .map(|data| match data {
-                                    RData::DNSSEC(DNSSECRData::SIG(sig)) => Some(sig),
-                                    _ => None,
-                                })
-                                .unwrap(),
-                        ), // Safe: see `match` arm above
-                    )
+                    warn!(
+                        "message was SIG(0) signed, but support for SIG(0) message authentication was removed from hickory-dns"
+                    );
+                    records.push(record);
                 }
                 #[cfg(feature = "__dnssec")]
                 RData::DNSSEC(DNSSECRData::TSIG(_)) => {
-                    sig = MessageSignature::Tsig(
-                        Box::new(
-                            record
+                    sig = MessageSignature::Tsig(Box::new(
+                        record
                                 .map(|data| match data {
                                     RData::DNSSEC(DNSSECRData::TSIG(tsig)) => Some(tsig),
                                     _ => None,
                                 })
-                                .unwrap(),
-                        ), // Safe: see `match` arm above
-                    )
+                                .unwrap(/* match arm ensures correct type */),
+                    ))
                 }
                 RData::Update0(RecordType::OPT) | RData::OPT(_) => {
                     if edns.is_some() {
@@ -1009,7 +999,6 @@ where
     N: EmitAndCount,
     D: EmitAndCount,
 {
-    let include_signature = encoder.mode() != EncodeMode::Signing;
     let place = encoder.place::<Header>()?;
 
     let query_count = queries.emit(encoder)?;
@@ -1035,23 +1024,15 @@ where
     }
 
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
-    //  then the SIG0 or TSIG record should not be encoded and the edns record (if it exists) is
+    //  then the TSIG record should not be encoded and the edns record (if it exists) is
     //  already part of the additionals section.
-    if include_signature {
-        let count = match signature {
-            #[cfg(feature = "__dnssec")]
-            MessageSignature::Sig0(rec) => {
-                count_was_truncated(encoder.emit_all(iter::once(&**rec)))?
-            }
-            #[cfg(feature = "__dnssec")]
-            MessageSignature::Tsig(rec) => {
-                count_was_truncated(encoder.emit_all(iter::once(&**rec)))?
-            }
-            MessageSignature::Unsigned => (0, false),
-        };
-        additional_count.0 += count.0;
-        additional_count.1 |= count.1;
-    }
+    let count = match signature {
+        #[cfg(feature = "__dnssec")]
+        MessageSignature::Tsig(rec) => count_was_truncated(encoder.emit_all(iter::once(&**rec)))?,
+        MessageSignature::Unsigned => (0, false),
+    };
+    additional_count.0 += count.0;
+    additional_count.1 |= count.1;
 
     let counts = HeaderCounts {
         query_count,
@@ -1178,9 +1159,6 @@ pub enum MessageSignature {
     /// The message is not signed, or the dnssec crate feature is not enabled.
     #[default]
     Unsigned,
-    /// The message has an RFC 2931 SIG(0) signature [Record].
-    #[cfg(feature = "__dnssec")]
-    Sig0(Box<Record<SIG>>),
     /// The message has an RFC 8945 TSIG signature [Record].
     #[cfg(feature = "__dnssec")]
     Tsig(Box<Record<TSIG>>),
@@ -1191,10 +1169,6 @@ mod tests {
     use super::*;
 
     #[cfg(feature = "__dnssec")]
-    use crate::dnssec::Algorithm;
-    #[cfg(feature = "__dnssec")]
-    use crate::dnssec::rdata::sig::SigInput;
-    #[cfg(feature = "__dnssec")]
     use crate::dnssec::rdata::tsig::{TSIG, TsigAlgorithm};
     use crate::rr::rdata::A;
     #[cfg(feature = "std")]
@@ -1202,8 +1176,6 @@ mod tests {
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
     use crate::rr::{Name, RData};
-    #[cfg(feature = "__dnssec")]
-    use crate::rr::{RecordType, SerialNumber};
     #[cfg(feature = "std")]
     use crate::std::net::IpAddr;
     #[cfg(feature = "std")]
@@ -1454,29 +1426,6 @@ mod tests {
         assert!(matches!(signature, MessageSignature::Tsig(_)));
     }
 
-    #[cfg(feature = "__dnssec")]
-    #[test]
-    fn test_read_records_sig0() {
-        let records = vec![
-            Record::from_rdata(
-                Name::from_labels(vec!["example", "com"]).unwrap(),
-                300,
-                RData::A(A::new(127, 0, 0, 1)),
-            ),
-            Record::from_rdata(
-                Name::from_labels(vec!["sig", "example", "com"]).unwrap(),
-                0,
-                fake_sig0(),
-            ),
-        ];
-        let result = encode_and_read_records(records, true);
-        assert!(result.is_ok());
-        let (output_records, edns, signature) = result.unwrap();
-        assert_eq!(output_records.len(), 1); // Only the A record, SIG0 becomes signature
-        assert!(edns.is_none());
-        assert!(matches!(signature, MessageSignature::Sig0(_)));
-    }
-
     #[cfg(all(feature = "std", feature = "__dnssec"))]
     #[test]
     fn test_read_records_edns_tsig() {
@@ -1632,31 +1581,6 @@ mod tests {
 
     #[cfg(all(feature = "std", feature = "__dnssec"))]
     #[test]
-    fn test_read_records_sig0_not_additional() {
-        let err = encode_and_read_records(
-            vec![
-                Record::from_rdata(
-                    Name::from_labels(vec!["example", "com"]).unwrap(),
-                    300,
-                    RData::A(A::new(127, 0, 0, 1)),
-                ),
-                Record::from_rdata(
-                    Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
-                    0,
-                    fake_sig0(),
-                ),
-            ],
-            false,
-        )
-        .unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("record type SIG only allowed in additional section")
-        );
-    }
-
-    #[cfg(all(feature = "std", feature = "__dnssec"))]
-    #[test]
     fn test_read_records_tsig_not_last() {
         let a_record = Record::from_rdata(
             Name::from_labels(vec!["example", "com"]).unwrap(),
@@ -1697,34 +1621,6 @@ mod tests {
                     fake_tsig(),
                 ),
                 a_record.clone(),
-            ],
-            true,
-        )
-        .unwrap_err()
-        .to_string();
-        assert!(error.contains("TSIG or SIG(0) record must be final"));
-    }
-
-    #[cfg(all(feature = "std", feature = "__dnssec"))]
-    #[test]
-    fn test_read_records_both_sig0_tsig() {
-        let error = encode_and_read_records(
-            vec![
-                Record::from_rdata(
-                    Name::from_labels(vec!["example", "com"]).unwrap(),
-                    300,
-                    RData::A(A::new(127, 0, 0, 1)),
-                ),
-                Record::from_rdata(
-                    Name::from_labels(vec!["sig0", "example", "com"]).unwrap(),
-                    0,
-                    fake_sig0(),
-                ),
-                Record::from_rdata(
-                    Name::from_labels(vec!["tsig", "example", "com"]).unwrap(),
-                    0,
-                    fake_tsig(),
-                ),
             ],
             true,
         )
@@ -1804,22 +1700,5 @@ mod tests {
             None,
             vec![],
         )))
-    }
-
-    #[cfg(feature = "__dnssec")]
-    fn fake_sig0() -> RData {
-        RData::DNSSEC(DNSSECRData::SIG(SIG {
-            input: SigInput {
-                type_covered: RecordType::A,
-                algorithm: Algorithm::RSASHA256,
-                num_labels: 0,
-                original_ttl: 0,
-                sig_expiration: SerialNumber(0),
-                sig_inception: SerialNumber(0),
-                key_tag: 0,
-                signer_name: Name::root(),
-            },
-            sig: Vec::new(),
-        }))
     }
 }

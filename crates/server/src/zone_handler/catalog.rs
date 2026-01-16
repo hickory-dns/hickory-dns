@@ -31,7 +31,7 @@ use crate::{
             LowerName, RecordSet, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
-        serialize::binary::{BinEncoder, EncodeMode},
+        serialize::binary::BinEncoder,
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
     zone_handler::{
@@ -330,8 +330,7 @@ impl Catalog {
 
                 if let Some(signer) = signer {
                     let mut tbs_response_buf = Vec::with_capacity(512);
-                    let mut encoder =
-                        BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
+                    let mut encoder = BinEncoder::new(&mut tbs_response_buf);
                     let mut response_header =
                         Header::new(update.id(), MessageType::Response, OpCode::Update);
                     response_header.set_response_code(response_code);
@@ -568,7 +567,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
-            let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
+            let mut encoder = BinEncoder::new(&mut tbs_response_buf);
             let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
                 .build(
                     *response_message.header(),
@@ -684,7 +683,7 @@ async fn zone_transfer(
 
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
-            let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
+            let mut encoder = BinEncoder::new(&mut tbs_response_buf);
             let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
                 .build(
                     response_header,

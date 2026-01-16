@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 
 pub use self::decoder::{BinDecoder, DecodeError};
 pub use self::encoder::{
-    BinEncoder, EncodeMode, EncodedSize, ModalEncoder, NameEncoding, Place, RDataEncoding,
+    BinEncoder, EncodedSize, ModalEncoder, NameEncoding, Place, RDataEncoding,
 };
 pub use self::restrict::{Restrict, RestrictedMath, Verified};
 

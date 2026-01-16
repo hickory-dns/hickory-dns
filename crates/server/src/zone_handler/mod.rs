@@ -20,8 +20,6 @@ use crate::proto::ProtoError;
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::crypto::Digest;
 #[cfg(feature = "__dnssec")]
-use crate::proto::dnssec::rdata::KEY;
-#[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnsSecResult, Nsec3HashAlgorithm, SigSigner};
 use crate::proto::op::{Edns, ResponseCode, ResponseSigner};
 #[cfg(feature = "__dnssec")]
@@ -210,9 +208,6 @@ pub trait ZoneHandler: Send + Sync {
 #[cfg(feature = "__dnssec")]
 #[async_trait::async_trait]
 pub trait DnssecZoneHandler: ZoneHandler {
-    /// Add a (Sig0) key that is authorized to perform updates against this zone
-    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()>;
-
     /// Add Signer
     async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()>;
 

@@ -24,7 +24,7 @@ use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
+use hickory_proto::serialize::binary::{BinEncodable, BinEncoder};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
@@ -1020,7 +1020,7 @@ async fn test_update_tsig_valid() {
 
     // Serialize the unsigned response to get the TBS bytes to sign with the signer.
     let mut tbs_response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
+    let mut encoder = BinEncoder::new(&mut tbs_response_buf);
     let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NoError);
     let tbs_response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns))
@@ -1033,7 +1033,7 @@ async fn test_update_tsig_valid() {
 
     // Serialize the now-signed response.
     let mut response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::with_mode(&mut response_buf, EncodeMode::Normal);
+    let mut encoder = BinEncoder::new(&mut response_buf);
     response.destructive_emit(&mut encoder).unwrap();
 
     // We should be able to verify the signature and confirm the signing time is within the
@@ -1229,7 +1229,7 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // Serialize the unsigned response to get the TBS bytes to sign with the signer.
     let mut tbs_response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::with_mode(&mut tbs_response_buf, EncodeMode::Normal);
+    let mut encoder = BinEncoder::new(&mut tbs_response_buf);
     let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NotAuth);
     let tbs_response =
@@ -1246,7 +1246,7 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // Serialize the now-signed response.
     let mut response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::with_mode(&mut response_buf, EncodeMode::Normal);
+    let mut encoder = BinEncoder::new(&mut response_buf);
     response.destructive_emit(&mut encoder).unwrap();
 
     // We should be able to verify the signature and confirm the signing time is within the

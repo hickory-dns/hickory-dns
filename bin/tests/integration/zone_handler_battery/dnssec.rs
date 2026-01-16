@@ -371,7 +371,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
 }
 
 pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
-    use hickory_dns::dnssec::{KeyConfig, KeyPurpose};
+    use hickory_dns::dnssec::KeyConfig;
     let signer_name = Name::from(handler.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();
@@ -384,7 +384,6 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/rsa_2048.pk8"),
             algorithm: Algorithm::RSASHA512,
             signer_name: Some(signer_name.to_string()),
-            purpose: KeyPurpose::ZoneSigning,
         };
 
         let signer = key_config
@@ -401,7 +400,6 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8"),
             algorithm: Algorithm::ECDSAP256SHA256,
             signer_name: Some(signer_name.clone().to_string()),
-            purpose: KeyPurpose::ZoneSigning,
         };
 
         let signer = key_config
@@ -418,7 +416,6 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8"),
             algorithm: Algorithm::ECDSAP384SHA384,
             signer_name: Some(signer_name.clone().to_string()),
-            purpose: KeyPurpose::ZoneSigning,
         };
 
         let signer = key_config
@@ -436,7 +433,6 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
             key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),
             algorithm: Algorithm::ED25519,
             signer_name: Some(signer_name.to_string()),
-            purpose: KeyPurpose::ZoneSigning,
         };
 
         let signer = key_config
