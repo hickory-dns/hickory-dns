@@ -892,54 +892,55 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             }
         }
 
-        // update the serial...
-        if updated && auto_signing_and_increment {
-            let new_serial = if self.is_dnssec_enabled {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "__dnssec")] {
-                        self.secure_zone().await.map_err(|error| {
-                            error!(%error, "failure securing zone");
-                            ResponseCode::ServFail
-                        })?;
-                        self.in_memory.serial().await
-                    } else {
-                        error!("failure securing zone, dnssec feature not enabled");
-                        return Err(ResponseCode::ServFail)
-                    }
-                }
-            } else {
-                // the secure_zone() function increments the SOA during it's operation, if we're not
-                //  dnssec, then we need to do it here...
-                self.in_memory.increment_soa_serial().await
-            };
-
-            // Persist the post-update SOA record (including the incremented serial) so journal
-            // replay reconstructs the monotonic SOA serial across restarts.
-            //
-            // Note: `recover_with_journal()` replays with `auto_signing_and_increment = false`,
-            // so without journaling the updated SOA record, the in-memory serial bump would be
-            // lost after restart even though the updated RRsets are recovered.
-            let records = self.in_memory.records().await;
-            let Some(soa_record) = records
-                .get(&RrKey::new(self.origin().clone(), RecordType::SOA))
-                .and_then(|rrset| rrset.records_without_rrsigs().next())
-            else {
-                error!(origin = %self.origin(), "SOA record missing after serial increment");
-                return Err(ResponseCode::ServFail);
-            };
-
-            let journal_guard = self.journal.lock().await;
-            let Some(journal) = journal_guard.as_ref() else {
-                return Ok(updated);
-            };
-
-            if let Err(error) = journal.insert_record(new_serial, soa_record) {
-                error!("could not persist updated SOA record: {error}");
-                return Err(ResponseCode::ServFail);
-            }
+        if !(updated && auto_signing_and_increment) {
+            return Ok(false);
         }
 
-        Ok(updated)
+        let new_serial = if self.is_dnssec_enabled {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "__dnssec")] {
+                    self.secure_zone().await.map_err(|error| {
+                        error!(%error, "failure securing zone");
+                        ResponseCode::ServFail
+                    })?;
+                    self.in_memory.serial().await
+                } else {
+                    error!("failure securing zone, dnssec feature not enabled");
+                    return Err(ResponseCode::ServFail)
+                }
+            }
+        } else {
+            // the secure_zone() function increments the SOA during it's operation, if we're not
+            //  dnssec, then we need to do it here...
+            self.in_memory.increment_soa_serial().await
+        };
+
+        // Persist the post-update SOA record (including the incremented serial) so journal
+        // replay reconstructs the monotonic SOA serial across restarts.
+        //
+        // Note: `recover_with_journal()` replays with `auto_signing_and_increment = false`,
+        // so without journaling the updated SOA record, the in-memory serial bump would be
+        // lost after restart even though the updated RRsets are recovered.
+        let records = self.in_memory.records().await;
+        let Some(soa_record) = records
+            .get(&RrKey::new(self.origin().clone(), RecordType::SOA))
+            .and_then(|rrset| rrset.records_without_rrsigs().next())
+        else {
+            error!(origin = %self.origin(), "SOA record missing after serial increment");
+            return Err(ResponseCode::ServFail);
+        };
+
+        let journal_guard = self.journal.lock().await;
+        let Some(journal) = journal_guard.as_ref() else {
+            return Ok(updated);
+        };
+
+        if let Err(error) = journal.insert_record(new_serial, soa_record) {
+            error!("could not persist updated SOA record: {error}");
+            return Err(ResponseCode::ServFail);
+        }
+
+        Ok(true)
     }
 
     #[cfg(feature = "__dnssec")]
