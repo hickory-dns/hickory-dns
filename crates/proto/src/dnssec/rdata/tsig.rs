@@ -597,20 +597,6 @@ impl TsigAlgorithm {
         hmac::verify(&key, message, tag).map_err(|_| DnsSecError::HmacInvalid)
     }
 
-    /// Return length in bytes of the algorithms output
-    pub fn output_len(&self) -> Result<usize, DnsSecError> {
-        use TsigAlgorithm::*;
-
-        let len = match self {
-            HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len(),
-            HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len(),
-            HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len(),
-            _ => return Err(DnsSecError::TsigUnsupportedMacAlgorithm(self.clone())),
-        };
-
-        Ok(len)
-    }
-
     /// Return `true` if cryptographic operations needed for using this algorithm are supported,
     /// `false` otherwise
     ///
@@ -623,6 +609,20 @@ impl TsigAlgorithm {
     pub fn supported(&self) -> bool {
         use TsigAlgorithm::*;
         matches!(self, HmacSha256 | HmacSha384 | HmacSha512)
+    }
+
+    /// Return length in bytes of the algorithms output
+    pub(crate) fn output_len(&self) -> Result<usize, DnsSecError> {
+        use TsigAlgorithm::*;
+
+        let len = match self {
+            HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len(),
+            HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len(),
+            HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len(),
+            _ => return Err(DnsSecError::TsigUnsupportedMacAlgorithm(self.clone())),
+        };
+
+        Ok(len)
     }
 }
 
