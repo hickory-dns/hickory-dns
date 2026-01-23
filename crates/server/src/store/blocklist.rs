@@ -391,7 +391,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         Option<Box<dyn ResponseSigner>>,
     ) {
         match self.consult_action {
-            BlocklistConsultAction::Disabled => return (last_result, None),
+            BlocklistConsultAction::Disabled => (last_result, None),
             BlocklistConsultAction::Log => {
                 #[cfg(feature = "metrics")]
                 self.metrics.total_queries.increment(1);
