@@ -561,7 +561,7 @@ pub enum AxfrPolicy {
     Deny,
     /// Allow all AXFR requests, regardless of whether they are signed.
     AllowAll,
-    /// Allow all AXFR requests that have a valid SIG(0) or TSIG signature.
+    /// Allow all AXFR requests that have a valid TSIG signature.
     #[cfg(feature = "__dnssec")]
     AllowSigned,
 }
