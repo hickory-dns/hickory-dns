@@ -671,14 +671,10 @@ impl Message {
     /// This returns a tuple of first standard Records, then a possibly associated Edns, and then
     /// finally a `MessageSignature` if applicable.
     ///
-    /// `MessageSignature::Tsig` and `MessageSignature::Sig0` records are only valid when
-    /// found in the additional data section. Further, they must always be the last record
-    /// in that section, and are mutually exclusive. It is not possible to have multiple TSIG
-    /// or SIG(0) records.
+    /// A `MessageSignature::Tsig` records is only valid when found in the additional data section.
+    /// Further, it must always be the last record in that section It is not possible to have
+    /// multiple TSIG records.
     ///
-    /// RFC 2931 §3.1 says:
-    ///  "Note: requests and responses can either have a single TSIG or one SIG(0) but not both a
-    ///   TSIG and a SIG(0)."
     /// RFC 8945 §5.1 says:
     ///  "This TSIG record MUST be the only TSIG RR in the message and MUST be the last record in
     ///   the additional data section."
@@ -1150,8 +1146,7 @@ impl fmt::Display for Message {
 
 /// Indicates how a [Message] is signed.
 ///
-/// Per RFC, the choice of RFC 2931 SIG(0), or RFC 8945 TSIG is mutually exclusive:
-/// only one or the other may be used. See [`Message::read_records()`] for more
+/// It may be unsigned, or use RFC 8945 TSIG. See [`Message::read_records()`] for more
 /// information.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
