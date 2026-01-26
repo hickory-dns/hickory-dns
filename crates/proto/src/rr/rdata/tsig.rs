@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{DnsSecError, ring_like::hmac};
 #[cfg(feature = "__dnssec")]
-use crate::op::{Header, Message, MessageSignature, Query};
+use crate::op::{Header, Message, Query};
 #[cfg(feature = "__dnssec")]
 use crate::rr::tsig::TSigner;
 use crate::{
@@ -756,19 +756,18 @@ pub fn signed_bitmessage_to_buf(
     // Advance past answer and authority records together.
     let answer_authority_count = header.answer_count() as usize + header.authority_count() as usize;
     let (_, _, sig) = Message::read_records(&mut decoder, answer_authority_count, false)?;
-    debug_assert_eq!(sig, MessageSignature::Unsigned);
+    debug_assert!(sig.is_none());
 
     // Advance past additional records, up to the final TSIG record.
     let additional_count = header.additional_count() as usize;
     let (_, _, sig) = Message::read_records(&mut decoder, additional_count, true)?;
-    debug_assert_eq!(sig, MessageSignature::Unsigned);
-
+    debug_assert!(sig.is_none());
     // Note the position of the decoder ahead of the final additional data TSIG record.
     let end_data = message.len() - decoder.len();
 
     // Read the TSIG signature record.
     let (_, _, sig) = Message::read_records(&mut decoder, 1, true)?;
-    let MessageSignature::Tsig(tsig_rr) = sig else {
+    let Some(tsig_rr) = sig else {
         return Err(ProtoError::from("TSIG signature record not found"));
     };
 
@@ -826,8 +825,6 @@ mod tests {
     use std::println;
 
     use super::*;
-    #[cfg(feature = "__dnssec")]
-    use crate::op::MessageSignature;
     #[cfg(feature = "__dnssec")]
     use crate::rr::Record;
 
@@ -907,9 +904,7 @@ mod tests {
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
-        message.set_signature(MessageSignature::Tsig(Box::new(make_tsig_record(
-            key_name, pre_tsig,
-        ))));
+        message.set_signature(Box::new(make_tsig_record(key_name, pre_tsig)));
 
         let message_byte = message.to_bytes().unwrap();
 
@@ -942,9 +937,7 @@ mod tests {
 
         let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
 
-        message.set_signature(MessageSignature::Tsig(Box::new(make_tsig_record(
-            key_name, pre_tsig,
-        ))));
+        message.set_signature(Box::new(make_tsig_record(key_name, pre_tsig)));
 
         let message_byte = message.to_bytes().unwrap();
         let mut message = Message::from_bytes(&message_byte).unwrap();

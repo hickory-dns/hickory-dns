@@ -13,7 +13,7 @@ use rusqlite::*;
 use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
-use hickory_proto::op::{Edns, LowerQuery, Message, MessageSignature, MessageSigner};
+use hickory_proto::op::{Edns, LowerQuery, Message, MessageSigner};
 use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::TSigner;
@@ -986,10 +986,7 @@ async fn test_update_tsig_valid() {
         .sign_message(&message, now)
         .unwrap();
     // Save the MAC of the request so we can verify the response.
-    let MessageSignature::Tsig(tsig_rr) = sig.clone() else {
-        panic!("unexpected message signature type");
-    };
-    let request_mac = tsig_rr.data().mac();
+    let request_mac = sig.data().mac().to_vec();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1039,7 +1036,7 @@ async fn test_update_tsig_valid() {
     // We should be able to verify the signature and confirm the signing time is within the
     // validity range based on the fudge factor.
     let (_, _, range) = signer
-        .verify_message_byte(&response_buf, Some(request_mac), true)
+        .verify_message_byte(&response_buf, Some(&request_mac), true)
         .unwrap();
     assert!(range.contains(&now));
 
@@ -1108,9 +1105,7 @@ async fn test_update_tsig_invalid_unknown_signer() {
     // unsigned TSIG RR with the expected TSIG error RCODE.
     let resp_signer = resp_signer.expect("missing expected response signer");
     // We don't need to pass in a response here - it's not used for this error case.
-    let Ok(MessageSignature::Tsig(tsig_rr)) = resp_signer.sign(&[]) else {
-        panic!("unexpected result from resp_signer");
-    };
+    let tsig_rr = resp_signer.sign(&[]).unwrap();
     let tsig_rr = tsig_rr.data();
 
     // The TSIG RR should be unsigned.
@@ -1165,9 +1160,7 @@ async fn test_update_tsig_invalid_sig() {
     // unsigned TSIG RR with the expected TSIG error RCODE.
     let resp_signer = resp_signer.expect("missing expected response signer");
     // We don't need to pass in a response here - it's not used for this error case.
-    let Ok(MessageSignature::Tsig(tsig_rr)) = resp_signer.sign(&[]) else {
-        panic!("unexpected result from resp_signer");
-    };
+    let tsig_rr = resp_signer.sign(&[]).unwrap();
     let tsig_rr = tsig_rr.data();
 
     // The TSIG RR should be unsigned.
@@ -1200,10 +1193,7 @@ async fn test_update_tsig_invalid_stale_sig() {
         .sign_message(&message, too_stale)
         .unwrap();
     // Save the MAC of the request so we can verify the response.
-    let MessageSignature::Tsig(tsig_rr) = sig.clone() else {
-        panic!("unexpected message signature type");
-    };
-    let request_mac = tsig_rr.data().mac();
+    let request_mac = sig.data().mac().to_vec();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1238,10 +1228,7 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // Update the response with the produced signature.
     let resp_sig = resp_signer.sign(&tbs_response_buf).unwrap();
-    let MessageSignature::Tsig(rr) = resp_sig.clone() else {
-        panic!("unexpected response message signature type");
-    };
-    let tsig_rr = rr.data();
+    let error = *resp_sig.data().error();
     response.set_signature(resp_sig);
 
     // Serialize the now-signed response.
@@ -1252,13 +1239,13 @@ async fn test_update_tsig_invalid_stale_sig() {
     // We should be able to verify the signature and confirm the signing time is within the
     // validity range based on the fudge factor.
     let (_, _, range) = signer
-        .verify_message_byte(&response_buf, Some(request_mac), true)
+        .verify_message_byte(&response_buf, Some(&request_mac), true)
         .unwrap();
     assert!(range.contains(&now));
 
     // The TSIG RR should indicate the correct TSIG error RCODE based on our
     // request TSIG being expired.
-    assert_eq!(tsig_rr.error(), &Some(TsigError::BadTime))
+    assert_eq!(error, Some(TsigError::BadTime))
 }
 
 #[cfg(feature = "__dnssec")]
