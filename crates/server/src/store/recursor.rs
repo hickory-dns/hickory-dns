@@ -11,8 +11,6 @@
 
 use std::{io, path::Path, time::Instant};
 
-use tracing::{debug, info};
-
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
 use crate::resolver::{OpportunisticEncryptionStatePersistTask, config::OpportunisticEncryption};
 #[cfg(feature = "__dnssec")]
@@ -21,7 +19,6 @@ use crate::{
     net::runtime::RuntimeProvider,
     proto::{
         op::Query,
-        op::ResponseSigner,
         rr::{LowerName, Name, RecordType},
     },
     resolver::recursor::{RecursiveConfig, Recursor},
@@ -31,6 +28,8 @@ use crate::{
         ZoneType,
     },
 };
+use hickory_proto::rr::TSigResponseContext;
+use tracing::{debug, info};
 
 /// A zone handler that performs recursive resolutions.
 ///
@@ -139,10 +138,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
             Err(e) => return (LookupControlFlow::Break(Err(e)), None),

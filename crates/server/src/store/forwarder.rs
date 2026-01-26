@@ -20,10 +20,7 @@ use tracing::{debug, info};
 use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
     net::runtime::TokioRuntimeProvider,
-    proto::{
-        op::ResponseSigner,
-        rr::{LowerName, Name, RecordType},
-    },
+    proto::rr::{LowerName, Name, RecordType, TSigResponseContext},
     resolver::{
         ConnectionProvider, Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
@@ -263,10 +260,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
             Err(e) => return (LookupControlFlow::Break(Err(e)), None),

@@ -40,9 +40,9 @@ pub use self::rr_set::{RecordSet, RecordSetParts, RrsetRecords};
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 pub use serial_number::SerialNumber;
-pub use tsig::TSigner;
 #[cfg(feature = "__dnssec")]
-pub use tsig::{TSigResponseContext, TSigVerifier};
+pub use tsig::TSigVerifier;
+pub use tsig::{TSigResponseContext, TSigner};
 
 /// RecordData that is stored in a DNS Record.
 ///
