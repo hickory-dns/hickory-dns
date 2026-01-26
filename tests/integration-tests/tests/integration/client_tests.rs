@@ -400,8 +400,8 @@ async fn test_nsec3_nxdomain() {
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_tsig_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
-    use hickory_proto::dnssec::TSigner;
-    use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
+    use hickory_proto::rr::TSigner;
+    use hickory_proto::rr::rdata::tsig::TsigAlgorithm;
     use hickory_server::store::sqlite::SqliteZoneHandler;
 
     let handler = create_example();

@@ -13,14 +13,14 @@ use rusqlite::*;
 use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::TSigner;
-#[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::rdata::tsig::{TsigAlgorithm, TsigError};
-#[cfg(feature = "__dnssec")]
 use hickory_proto::op::{Edns, LowerQuery, Message, MessageSignature, MessageSigner};
 use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
+use hickory_proto::rr::TSigner;
+#[cfg(feature = "__dnssec")]
 use hickory_proto::rr::rdata::opt::{EdnsOption, NSIDPayload};
+#[cfg(feature = "__dnssec")]
+use hickory_proto::rr::rdata::tsig::{TsigAlgorithm, TsigError};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
 #[cfg(feature = "__dnssec")]

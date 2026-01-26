@@ -19,6 +19,7 @@ pub mod resource;
 mod rr_key;
 mod rr_set;
 pub mod serial_number;
+mod tsig;
 
 use core::fmt::{Debug, Display};
 
@@ -39,6 +40,9 @@ pub use self::rr_set::{RecordSet, RecordSetParts, RrsetRecords};
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 pub use serial_number::SerialNumber;
+#[cfg(feature = "__dnssec")]
+pub use tsig::TSigResponseContext;
+pub use tsig::TSigner;
 
 /// RecordData that is stored in a DNS Record.
 ///

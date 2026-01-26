@@ -20,10 +20,8 @@ use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::DnsMultiplexer;
-use hickory_proto::dnssec::TSigner;
-use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_proto::op::ResponseCode;
-use hickory_proto::rr::{Name, RData, Record, rdata::A};
+use hickory_proto::rr::{TSigner, Name, RData, Record, rdata::{A, tsig::TsigAlgorithm}};
 use test_support::subscribe;
 
 use dns_test::{

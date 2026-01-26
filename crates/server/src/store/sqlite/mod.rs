@@ -25,16 +25,15 @@ use tracing::{debug, error, info, warn};
 #[cfg(feature = "metrics")]
 use crate::metrics::PersistentStoreMetrics;
 #[cfg(feature = "__dnssec")]
+use crate::proto::rr::{
+    TSigResponseContext, TSigner,
+    rdata::tsig::{TSIG, TsigAlgorithm, TsigError},
+};
+#[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
     proto::{
-        dnssec::{
-            DnsSecResult, DnssecSigner, TSigResponseContext, TSigner,
-            rdata::{
-                TSIG,
-                tsig::{TsigAlgorithm, TsigError},
-            },
-        },
+        dnssec::{DnsSecResult, DnssecSigner},
         op::MessageSignature,
     },
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},

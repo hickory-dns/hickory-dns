@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::dnssec::crypto::Digest;
 use crate::error::ProtoError;
-use crate::rr::{Name, RData, Record};
+use crate::rr::{Name, RData, Record, rdata::tsig::TsigAlgorithm};
 use crate::serialize::binary::{BinEncodable, BinEncoder, DecodeError, NameEncoding};
 
 mod algorithm;
@@ -35,7 +35,6 @@ mod public_key;
 pub use public_key::{PublicKey, PublicKeyBuf};
 
 pub mod rdata;
-use rdata::tsig::TsigAlgorithm;
 
 mod rsa_public_key;
 
@@ -50,9 +49,6 @@ pub use tbs::TBS;
 
 mod trust_anchor;
 pub use trust_anchor::TrustAnchors;
-
-mod tsig;
-pub use tsig::{TSigResponseContext, TSigner};
 
 mod verifier;
 pub use verifier::Verifier;

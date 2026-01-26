@@ -15,12 +15,11 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 #[cfg(feature = "__dnssec")]
-use crate::dnssec::{
-    DnssecIter,
-    rdata::{DNSSECRData, TSIG},
-};
+use crate::dnssec::{DnssecIter, rdata::DNSSECRData};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
+#[cfg(feature = "__dnssec")]
+use crate::rr::rdata::TSIG;
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
@@ -722,11 +721,11 @@ impl Message {
                     records.push(record);
                 }
                 #[cfg(feature = "__dnssec")]
-                RData::DNSSEC(DNSSECRData::TSIG(_)) => {
+                RData::TSIG(_) => {
                     sig = MessageSignature::Tsig(Box::new(
                         record
                                 .map(|data| match data {
-                                    RData::DNSSEC(DNSSECRData::TSIG(tsig)) => Some(tsig),
+                                    RData::TSIG(tsig) => Some(tsig),
                                     _ => None,
                                 })
                                 .unwrap(/* match arm ensures correct type */),
@@ -1163,13 +1162,13 @@ pub enum MessageSignature {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "__dnssec")]
-    use crate::dnssec::rdata::tsig::{TSIG, TsigAlgorithm};
     use crate::rr::rdata::A;
     #[cfg(feature = "std")]
     use crate::rr::rdata::OPT;
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
+    #[cfg(feature = "__dnssec")]
+    use crate::rr::rdata::{TSIG, tsig::TsigAlgorithm};
     use crate::rr::{Name, RData};
     #[cfg(feature = "std")]
     use crate::std::net::IpAddr;
@@ -1686,7 +1685,7 @@ mod tests {
 
     #[cfg(feature = "__dnssec")]
     fn fake_tsig() -> RData {
-        RData::DNSSEC(DNSSECRData::TSIG(TSIG::new(
+        RData::TSIG(TSIG::new(
             TsigAlgorithm::HmacSha256,
             0,
             0,
@@ -1694,6 +1693,6 @@ mod tests {
             0,
             None,
             vec![],
-        )))
+        ))
     }
 }
