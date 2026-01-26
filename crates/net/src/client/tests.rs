@@ -308,7 +308,7 @@ async fn async_client() {
     //   the client is a handle to an unbounded queue for sending requests via the
     //   background. The background must be scheduled to run before the client can
     //   send any dns requests
-    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await.unwrap(), sender, None);
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await.unwrap(), sender);
 
     // make sure to run the background task
     tokio::spawn(bg);
