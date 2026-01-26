@@ -103,12 +103,9 @@ impl<P: RuntimeProvider> Client<P> {
         timeout_duration: Duration,
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> (Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>) {
-        Self::from_sender(DnsMultiplexer::with_timeout(
-            stream,
-            stream_handle,
-            timeout_duration,
-            signer,
-        ))
+        Self::from_sender(
+            DnsMultiplexer::new(stream, stream_handle, signer).with_timeout(timeout_duration),
+        )
     }
 
     /// Creates a Client from an existing DnsRequestSender

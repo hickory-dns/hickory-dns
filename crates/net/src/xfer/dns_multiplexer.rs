@@ -110,33 +110,20 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<dyn MessageSigner>>,
     ) -> Self {
-        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
-    }
-
-    /// Spawns a new DnsMultiplexer Stream.
-    ///
-    /// # Arguments
-    ///
-    /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
-    ///   (see TcpClientStream or UdpClientStream)
-    /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
-    ///   wait for a response before canceling the request.
-    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn with_timeout(
-        stream: S,
-        stream_handle: BufDnsStreamHandle,
-        timeout_duration: Duration,
-        signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Self {
         Self {
             stream,
-            timeout_duration,
+            timeout_duration: Duration::from_secs(5),
             stream_handle,
             active_requests: HashMap::default(),
             signer,
             is_shutdown: false,
         }
+    }
+
+    /// Change the default timeout of the DnsMultiplexer stream.
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout_duration = timeout;
+        self
     }
 
     /// loop over active_requests and remove cancelled requests
@@ -469,8 +456,8 @@ mod test {
         let addr = SocketAddr::from(([127, 0, 0, 1], 1234));
         let mock_response = MockClientStream::new(mock_response, addr).await.unwrap();
         let (handler, receiver) = BufDnsStreamHandle::new(addr);
-        let mut multiplexer =
-            DnsMultiplexer::with_timeout(mock_response, handler, Duration::from_millis(100), None);
+        let mut multiplexer = DnsMultiplexer::new(mock_response, handler, None)
+            .with_timeout(Duration::from_millis(100));
 
         multiplexer.stream.receiver = Some(receiver); // so it can get the correct request id
 

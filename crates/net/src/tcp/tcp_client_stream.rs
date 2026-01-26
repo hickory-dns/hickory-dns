@@ -48,7 +48,7 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
         let (future, sender) = Self::new(remote_addr, bind_addr, Some(timeout), provider);
 
         // TODO: need config for Signer...
-        let multiplexer = DnsMultiplexer::with_timeout(future.await?, sender, timeout, None);
+        let multiplexer = DnsMultiplexer::new(future.await?, sender, None).with_timeout(timeout);
         let (exchange, bg) = DnsExchange::from_stream(multiplexer);
         handle.spawn_bg(bg);
         Ok(exchange)
