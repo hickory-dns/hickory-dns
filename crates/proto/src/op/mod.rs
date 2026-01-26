@@ -36,8 +36,8 @@ pub use lower_query::LowerQuery;
 
 mod message;
 pub use message::{
-    EmitAndCount, Message, MessageParts, MessageSignature, MessageSigner, MessageVerifier,
-    ResponseSigner, emit_message_parts,
+    EmitAndCount, Message, MessageParts, MessageSigner, MessageVerifier, ResponseSigner,
+    emit_message_parts,
 };
 
 mod op_code;

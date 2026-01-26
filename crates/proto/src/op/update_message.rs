@@ -15,8 +15,8 @@ use crate::{
     rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
 };
 use crate::{
-    op::{Message, MessageSignature, Query},
-    rr::Record,
+    op::{Message, Query},
+    rr::{Record, rdata::TSIG},
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -68,7 +68,7 @@ pub trait UpdateMessage: Debug {
     /// Return the message's signature (if any)
     ///
     /// This is used to authenticate update messages.
-    fn signature(&self) -> &MessageSignature;
+    fn signature(&self) -> Option<&Record<TSIG>>;
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -126,7 +126,7 @@ impl UpdateMessage for Message {
         self.additionals()
     }
 
-    fn signature(&self) -> &MessageSignature {
+    fn signature(&self) -> Option<&Record<TSIG>> {
         self.signature()
     }
 }

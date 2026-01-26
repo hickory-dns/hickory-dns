@@ -18,12 +18,10 @@ use tracing::{debug, warn};
 use crate::dnssec::{DnssecIter, rdata::DNSSECRData};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
-#[cfg(feature = "__dnssec")]
-use crate::rr::rdata::TSIG;
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
-    rr::{RData, Record, RecordType},
+    rr::{RData, Record, RecordType, rdata::TSIG},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
 
@@ -77,7 +75,7 @@ pub struct Message {
     answers: Vec<Record>,
     authorities: Vec<Record>,
     additionals: Vec<Record>,
-    signature: MessageSignature,
+    signature: Option<Box<Record<TSIG>>>,
     edns: Option<Edns>,
 }
 
@@ -114,7 +112,7 @@ impl Message {
             answers: Vec::new(),
             authorities: Vec::new(),
             additionals: Vec::new(),
-            signature: MessageSignature::default(),
+            signature: None,
             edns: None,
         }
     }
@@ -384,22 +382,13 @@ impl Message {
         self
     }
 
-    /// Set the signature record for the message.
+    /// Set the TSIG signature record for the message.
     ///
     /// This must be used only after all records have been associated. Generally this will be
     /// handled by the client and not need to be used directly
-    ///
-    /// # Panics
-    ///
-    /// If the `MessageSignature` specifies a `Record` and the record type is not correct. For
-    /// example, providing a `MessageSignature::Tsig` variant with a `Record` with a type other than
-    /// `RecordType::TSIG` will panic.
     #[cfg(feature = "__dnssec")]
-    pub fn set_signature(&mut self, sig: MessageSignature) -> &mut Self {
-        if let MessageSignature::Tsig(rec) = &sig {
-            assert_eq!(RecordType::TSIG, rec.record_type());
-        }
-        self.signature = sig;
+    pub fn set_signature(&mut self, sig: Box<Record<TSIG>>) -> &mut Self {
+        self.signature = Some(sig);
         self
     }
 
@@ -627,13 +616,13 @@ impl Message {
     /// # Return value
     ///
     /// the signature over the message, if any
-    pub fn signature(&self) -> &MessageSignature {
-        &self.signature
+    pub fn signature(&self) -> Option<&Record<TSIG>> {
+        self.signature.as_deref()
     }
 
     /// Remove signatures from the Message
-    pub fn take_signature(&mut self) -> MessageSignature {
-        mem::take(&mut self.signature)
+    pub fn take_signature(&mut self) -> Option<Box<Record<TSIG>>> {
+        self.signature.take()
     }
 
     // TODO: only necessary in tests, should it be removed?
@@ -668,30 +657,31 @@ impl Message {
     /// # Returns
     ///
     /// This returns a tuple of first standard Records, then a possibly associated Edns, and then
-    /// finally a `MessageSignature` if applicable.
+    /// finally a `Record<TSIG>` if applicable.
     ///
-    /// A `MessageSignature::Tsig` records is only valid when found in the additional data section.
-    /// Further, it must always be the last record in that section It is not possible to have
+    /// A `Record<TSIG>` record is only valid when found in the additional data section.
+    /// Further, it must always be the last record in that section. It is not possible to have
     /// multiple TSIG records.
     ///
     /// RFC 8945 §5.1 says:
     ///  "This TSIG record MUST be the only TSIG RR in the message and MUST be the last record in
     ///   the additional data section."
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
+    #[expect(clippy::type_complexity)]
     pub fn read_records(
         decoder: &mut BinDecoder<'_>,
         count: usize,
         is_additional: bool,
-    ) -> ProtoResult<(Vec<Record>, Option<Edns>, MessageSignature)> {
+    ) -> ProtoResult<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>)> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
-        let mut sig = MessageSignature::default();
+        let mut sig = None;
 
         for _ in 0..count {
             let record = Record::read(decoder)?;
 
             // There must be no additional records after a TSIG/SIG(0) record.
-            if sig != MessageSignature::Unsigned {
+            if sig.is_some() {
                 return Err("TSIG or SIG(0) record must be final resource record".into());
             }
 
@@ -722,13 +712,13 @@ impl Message {
                 }
                 #[cfg(feature = "__dnssec")]
                 RData::TSIG(_) => {
-                    sig = MessageSignature::Tsig(Box::new(
+                    sig = Some(Box::new(
                         record
-                                .map(|data| match data {
-                                    RData::TSIG(tsig) => Some(tsig),
-                                    _ => None,
-                                })
-                                .unwrap(/* match arm ensures correct type */),
+                            .map(|data| match data {
+                                RData::TSIG(tsig) => Some(tsig),
+                                _ => None,
+                            })
+                            .unwrap(/* match arm ensures correct type */),
                     ))
                 }
                 RData::Update0(RecordType::OPT) | RData::OPT(_) => {
@@ -845,7 +835,7 @@ pub struct MessageParts {
     /// message additional records
     pub additionals: Vec<Record>,
     /// message signature
-    pub signature: MessageSignature,
+    pub signature: Option<Box<Record<TSIG>>>,
     /// optional edns records
     pub edns: Option<Edns>,
 }
@@ -914,9 +904,9 @@ fn update_header_counts(
 /// Alias for a function verifying if a message is properly signed
 pub type MessageVerifier = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsResponse> + Send>;
 
-/// A trait for adding a final `MessageSignature` to a Message before it is sent.
+/// A trait for adding a final `TSIG` to a Message before it is sent.
 pub trait MessageSigner: Send + Sync + 'static {
-    /// Finalize the provided `Message`, computing a `MessageSignature`, and optionally
+    /// Finalize the provided `Message`, computing a `TSIG` record, and optionally
     /// providing a `MessageVerifier` for response messages.
     ///
     /// # Arguments
@@ -926,13 +916,13 @@ pub trait MessageSigner: Send + Sync + 'static {
     ///
     /// # Return
     ///
-    /// A `MessageSignature` to append to the end of the additional data, and optionally
+    /// A `TSIG` to append to the end of the additional data, and optionally
     /// a `MessageVerifier` to use to verify responses provoked by the message.
     fn sign_message(
         &self,
         message: &Message,
         current_time: u64,
-    ) -> ProtoResult<(MessageSignature, Option<MessageVerifier>)>;
+    ) -> ProtoResult<(Box<Record<TSIG>>, Option<MessageVerifier>)>;
 
     /// Return whether the message requires a signature before being sent.
     /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
@@ -945,10 +935,10 @@ pub trait MessageSigner: Send + Sync + 'static {
     }
 }
 
-/// A trait for producing a `MessageSignature` for responses
+/// A trait for producing a `TSIG` record for responses
 pub trait ResponseSigner: Send + Sync {
-    /// sign produces a `MessageSignature` for the provided encoded, unsigned, response message.
-    fn sign(self: Box<Self>, response: &[u8]) -> Result<MessageSignature, ProtoError>;
+    /// sign produces a `TSIG` for the provided encoded, unsigned, response message.
+    fn sign(self: Box<Self>, response: &[u8]) -> Result<Box<Record<TSIG>>, ProtoError>;
 }
 
 /// Returns the count written and a boolean if it was truncated
@@ -985,7 +975,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     authorities: &mut N,
     additionals: &mut D,
     edns: Option<&Edns>,
-    signature: &MessageSignature,
+    signature: Option<&Record<TSIG>>,
     encoder: &mut BinEncoder<'_>,
 ) -> ProtoResult<Header>
 where
@@ -1022,9 +1012,8 @@ where
     //  then the TSIG record should not be encoded and the edns record (if it exists) is
     //  already part of the additionals section.
     let count = match signature {
-        #[cfg(feature = "__dnssec")]
-        MessageSignature::Tsig(rec) => count_was_truncated(encoder.emit_all(iter::once(&**rec)))?,
-        MessageSignature::Unsigned => (0, false),
+        Some(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
+        None => (0, false),
     };
     additional_count.0 += count.0;
     additional_count.1 |= count.1;
@@ -1052,7 +1041,7 @@ impl BinEncodable for Message {
             &mut self.authorities.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
-            &self.signature,
+            self.signature.as_deref(),
             encoder,
         )?;
 
@@ -1141,21 +1130,6 @@ impl fmt::Display for Message {
 
         Ok(())
     }
-}
-
-/// Indicates how a [Message] is signed.
-///
-/// It may be unsigned, or use RFC 8945 TSIG. See [`Message::read_records()`] for more
-/// information.
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub enum MessageSignature {
-    /// The message is not signed, or the dnssec crate feature is not enabled.
-    #[default]
-    Unsigned,
-    /// The message has an RFC 8945 TSIG signature [Record].
-    #[cfg(feature = "__dnssec")]
-    Tsig(Box<Record<TSIG>>),
 }
 
 #[cfg(test)]
@@ -1370,7 +1344,7 @@ mod tests {
         let (output_records, edns, signature) = result.unwrap();
         assert_eq!(output_records.len(), records.len());
         assert!(edns.is_none());
-        assert_eq!(signature, MessageSignature::Unsigned);
+        assert!(signature.is_none());
     }
 
     #[cfg(feature = "std")]
@@ -1395,7 +1369,7 @@ mod tests {
         let (output_records, edns, signature) = result.unwrap();
         assert_eq!(output_records.len(), 1); // Only the A record, OPT becomes EDNS
         assert!(edns.is_some());
-        assert_eq!(signature, MessageSignature::Unsigned);
+        assert!(signature.is_none());
     }
 
     #[cfg(feature = "__dnssec")]
@@ -1417,7 +1391,7 @@ mod tests {
         let (output_records, edns, signature) = result.unwrap();
         assert_eq!(output_records.len(), 1); // Only the A record, TSIG becomes signature
         assert!(edns.is_none());
-        assert!(matches!(signature, MessageSignature::Tsig(_)));
+        assert!(signature.is_some());
     }
 
     #[cfg(all(feature = "std", feature = "__dnssec"))]
@@ -1449,7 +1423,7 @@ mod tests {
         let (output_records, edns, signature) = result.unwrap();
         assert_eq!(output_records.len(), 1); // Only the A record
         assert!(edns.is_some());
-        assert!(matches!(signature, MessageSignature::Tsig(_)));
+        assert!(signature.is_some());
     }
 
     #[cfg(feature = "std")]
@@ -1673,10 +1647,11 @@ mod tests {
         assert!(error.contains("TSIG or SIG(0) record must be final"));
     }
 
+    #[expect(clippy::type_complexity)]
     fn encode_and_read_records(
         records: Vec<Record>,
         is_additional: bool,
-    ) -> ProtoResult<(Vec<Record>, Option<Edns>, MessageSignature)> {
+    ) -> ProtoResult<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>)> {
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
         encoder.emit_all(records.iter())?;
