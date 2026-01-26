@@ -7,8 +7,6 @@
 
 //! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
-#[cfg(feature = "__dnssec")]
-use core::borrow::Borrow;
 use core::{
     marker::Unpin,
     pin::Pin,
@@ -16,8 +14,6 @@ use core::{
     time::Duration,
 };
 use std::collections::{HashMap, hash_map::Entry};
-#[cfg(feature = "__dnssec")]
-use std::sync::Arc;
 
 use futures_channel::mpsc;
 use futures_util::{
@@ -35,7 +31,7 @@ use super::{
 };
 use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
 #[cfg(feature = "__dnssec")]
-use crate::proto::op::{MessageSigner, MessageVerifier};
+use crate::proto::{op::MessageVerifier, rr::TSigner};
 use crate::{DnsStreamHandle, error::NetError, runtime::Time};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -99,7 +95,7 @@ pub struct DnsMultiplexer<S> {
     stream_handle: BufDnsStreamHandle,
     active_requests: HashMap<u16, ActiveRequest>,
     #[cfg(feature = "__dnssec")]
-    signer: Option<Arc<dyn MessageSigner>>,
+    signer: Option<TSigner>,
     is_shutdown: bool,
 }
 
@@ -131,7 +127,7 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
 
     /// Specify an optional signer to TSIG authenticate requests.
     #[cfg(feature = "__dnssec")]
-    pub fn with_signer(mut self, signer: Arc<dyn MessageSigner>) -> Self {
+    pub fn with_signer(mut self, signer: TSigner) -> Self {
         self.signer = Some(signer);
         self
     }
@@ -202,7 +198,7 @@ where
     stream_handle: Option<BufDnsStreamHandle>,
     timeout_duration: Duration,
     #[cfg(feature = "__dnssec")]
-    signer: Option<Arc<dyn MessageSigner>>,
+    signer: Option<TSigner>,
 }
 
 impl<F, S> Future for DnsMultiplexerConnect<F, S>
@@ -253,7 +249,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         #[cfg(feature = "__dnssec")]
         if let Some(signer) = &self.signer {
             if signer.should_sign_message(&request) {
-                match request.finalize(signer.borrow(), S::Time::current_time()) {
+                match request.finalize(signer, S::Time::current_time()) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);

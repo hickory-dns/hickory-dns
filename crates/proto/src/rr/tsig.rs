@@ -36,10 +36,11 @@ use super::rdata::tsig::{
 #[cfg(feature = "__dnssec")]
 use crate::error::{ProtoError, ProtoResult};
 #[cfg(feature = "__dnssec")]
-use crate::op::{DnsResponse, Message, MessageSigner, MessageVerifier, ResponseSigner};
-use crate::rr::Name;
+use crate::op::{DnsResponse, MessageVerifier, ResponseSigner};
+use crate::op::{Message, OpCode};
 #[cfg(feature = "__dnssec")]
 use crate::rr::Record;
+use crate::rr::{Name, RecordType};
 #[cfg(feature = "__dnssec")]
 use crate::serialize::binary::BinEncoder;
 
@@ -265,16 +266,19 @@ impl TSigner {
         self.0.algorithm.mac_data(&self.0.key, tbs)
     }
 
-    /// Compute authentication tag for a message
-    #[cfg(feature = "__dnssec")]
-    pub fn sign_message(&self, message: &Message, pre_tsig: &TSIG) -> Result<Vec<u8>, DnsSecError> {
-        self.sign(&message_tbs(message, pre_tsig, &self.0.signer_name)?)
-    }
-
     /// Verify hmac in constant time to prevent timing attacks
     #[cfg(feature = "__dnssec")]
     pub fn verify(&self, tbv: &[u8], tag: &[u8]) -> Result<(), DnsSecError> {
         self.0.algorithm.verify_mac(&self.0.key, tbv, tag)
+    }
+
+    /// Returns true if the `TSigner` should sign the given `Message`
+    pub fn should_sign_message(&self, message: &Message) -> bool {
+        [OpCode::Update, OpCode::Notify].contains(&message.op_code())
+            || message
+                .queries()
+                .iter()
+                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
     }
 
     /// Verify the message is correctly signed
@@ -377,11 +381,10 @@ impl TSigner {
 
         Ok(tbs_buf)
     }
-}
 
-#[cfg(feature = "__dnssec")]
-impl MessageSigner for TSigner {
-    fn sign_message(
+    /// Sign a `Message`
+    #[cfg(feature = "__dnssec")]
+    pub fn sign_message(
         &self,
         message: &Message,
         current_time: u64,
@@ -390,12 +393,13 @@ impl MessageSigner for TSigner {
 
         let pre_tsig = TSIG::stub(message.id(), current_time, self);
         let mut signature = self
-            .sign_message(message, &pre_tsig)
+            .sign(&message_tbs(message, &pre_tsig, &self.0.signer_name)?)
             .map_err(|err| ProtoError::from(err.to_string()))?;
         let tsig = make_tsig_record(
             self.0.signer_name.clone(),
             pre_tsig.set_mac(signature.clone()),
         );
+
         let self2 = self.clone();
         let mut remote_time = 0;
         let verifier = move |dns_response: &[u8]| {
@@ -412,6 +416,7 @@ impl MessageSigner for TSigner {
                 Err(ProtoError::from("tsig validation error: outdated response"))
             }
         };
+
         Ok((Box::new(tsig), Some(Box::new(verifier))))
     }
 }

@@ -12,12 +12,16 @@ use core::{iter, mem, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
+#[cfg(feature = "__dnssec")]
+use tracing::debug;
+use tracing::warn;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{DnssecIter, rdata::DNSSECRData};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
+#[cfg(feature = "__dnssec")]
+use crate::rr::TSigner;
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
@@ -759,20 +763,16 @@ impl Message {
     /// Finalize the message prior to sending.
     ///
     /// Subsequent to calling this, the Message should not change.
+    #[cfg(feature = "__dnssec")]
     pub fn finalize(
         &mut self,
-        finalizer: &dyn MessageSigner,
+        finalizer: &TSigner,
         inception_time: u64,
     ) -> ProtoResult<Option<MessageVerifier>> {
         debug!("finalizing message: {:?}", self);
 
-        #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
         let (signature, verifier) = finalizer.sign_message(self, inception_time)?;
-
-        #[cfg(feature = "__dnssec")]
-        {
-            self.set_signature(signature);
-        }
+        self.set_signature(signature);
 
         Ok(verifier)
     }
@@ -903,37 +903,6 @@ fn update_header_counts(
 
 /// Alias for a function verifying if a message is properly signed
 pub type MessageVerifier = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsResponse> + Send>;
-
-/// A trait for adding a final `TSIG` to a Message before it is sent.
-pub trait MessageSigner: Send + Sync + 'static {
-    /// Finalize the provided `Message`, computing a `TSIG` record, and optionally
-    /// providing a `MessageVerifier` for response messages.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - the message to finalize
-    /// * `current_time` - the current system time.
-    ///
-    /// # Return
-    ///
-    /// A `TSIG` to append to the end of the additional data, and optionally
-    /// a `MessageVerifier` to use to verify responses provoked by the message.
-    fn sign_message(
-        &self,
-        message: &Message,
-        current_time: u64,
-    ) -> ProtoResult<(Box<Record<TSIG>>, Option<MessageVerifier>)>;
-
-    /// Return whether the message requires a signature before being sent.
-    /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
-    fn should_sign_message(&self, message: &Message) -> bool {
-        [OpCode::Update, OpCode::Notify].contains(&message.op_code())
-            || message
-                .queries()
-                .iter()
-                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
-    }
-}
 
 /// A trait for producing a `TSIG` record for responses
 pub trait ResponseSigner: Send + Sync {

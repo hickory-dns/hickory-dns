@@ -17,9 +17,9 @@ use futures_util::{FutureExt, Stream, StreamExt, pin_mut, stream::FuturesUnorder
 use tracing::{debug, trace, warn};
 
 use crate::error::NetError;
-#[cfg(feature = "__dnssec")]
-use crate::proto::op::MessageSigner;
 use crate::proto::op::{DEFAULT_RETRY_FLOOR, DnsRequest, DnsResponse, Message, SerialMessage};
+#[cfg(feature = "__dnssec")]
+use crate::proto::rr::TSigner;
 use crate::runtime::{DnsUdpSocket, RuntimeProvider, Spawn, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::udp::udp_stream::NextRandomUdpSocket;
@@ -36,7 +36,7 @@ pub struct UdpClientStream<P> {
     timeout: Duration,
     is_shutdown: bool,
     #[cfg(feature = "__dnssec")]
-    signer: Option<Arc<dyn MessageSigner>>,
+    signer: Option<TSigner>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
@@ -124,7 +124,7 @@ struct UdpRequest<P> {
     request: DnsRequest,
     provider: P,
     #[cfg(feature = "__dnssec")]
-    signer: Option<Arc<dyn MessageSigner>>,
+    signer: Option<TSigner>,
     #[cfg(feature = "__dnssec")]
     now: u64,
     bind_addr: Option<SocketAddr>,
@@ -166,7 +166,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         let mut verifier = None;
         #[cfg(feature = "__dnssec")]
         if let Some(signer) = &self.signer {
-            match request.finalize(&**signer, self.now) {
+            match request.finalize(signer, self.now) {
                 Ok(answer_verifier) => verifier = answer_verifier,
                 Err(e) => {
                     debug!("could not sign message: {}", e);
@@ -346,7 +346,7 @@ pub struct UdpClientStreamBuilder<P> {
     name_server: SocketAddr,
     timeout: Option<Duration>,
     #[cfg(feature = "__dnssec")]
-    signer: Option<Arc<dyn MessageSigner>>,
+    signer: Option<TSigner>,
     bind_addr: Option<SocketAddr>,
     avoid_local_ports: Arc<HashSet<u16>>,
     os_port_selection: bool,
@@ -364,7 +364,7 @@ impl<P: RuntimeProvider> UdpClientStreamBuilder<P> {
 
     /// Sets the message finalizer to be applied to queries.
     #[cfg(feature = "__dnssec")]
-    pub fn with_signer(self, signer: Option<Arc<dyn MessageSigner>>) -> Self {
+    pub fn with_signer(self, signer: Option<TSigner>) -> Self {
         Self {
             name_server: self.name_server,
             timeout: self.timeout,
