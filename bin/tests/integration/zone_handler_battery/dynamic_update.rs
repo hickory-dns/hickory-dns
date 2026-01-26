@@ -13,12 +13,10 @@ use hickory_net::{
     xfer::Protocol,
 };
 use hickory_proto::{
-    dnssec::TSigner,
-    dnssec::rdata::tsig::TsigAlgorithm,
     op::{Header, Message, MessageType, OpCode, Query, ResponseCode, update_message},
     rr::{
-        DNSClass, Name, RData, Record, RecordSet, RecordType,
-        rdata::{A as A4, AAAA},
+        DNSClass, Name, RData, Record, RecordSet, RecordType, TSigner,
+        rdata::{A as A4, AAAA, tsig::TsigAlgorithm},
     },
     serialize::binary::BinEncodable,
 };

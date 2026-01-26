@@ -8,6 +8,7 @@
 //! TSIG for secret key authentication of transaction
 #![allow(clippy::use_self)]
 
+#[cfg(feature = "__dnssec")]
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{convert::TryInto, fmt};
@@ -15,13 +16,14 @@ use core::{convert::TryInto, fmt};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::DNSSECRData;
-use crate::dnssec::tsig::TSigner;
-use crate::op::MessageSignature;
+#[cfg(feature = "__dnssec")]
+use crate::dnssec::{DnsSecError, ring_like::hmac};
+#[cfg(feature = "__dnssec")]
+use crate::op::{Header, Message, MessageSignature, Query};
+#[cfg(feature = "__dnssec")]
+use crate::rr::tsig::TSigner;
 use crate::{
-    dnssec::{DnsSecError, ring_like::hmac},
     error::{ProtoError, ProtoResult},
-    op::{Header, Message, Query},
     rr::{
         Name, Record, RecordData, RecordDataDecodable, dns_class::DNSClass, rdata::sshfp,
         record_data::RData, record_type::RecordType,
@@ -157,6 +159,7 @@ pub struct TSIG {
 }
 
 impl TSIG {
+    #[cfg(feature = "__dnssec")]
     pub(crate) fn stub(oid: u16, time: u64, signer: &TSigner) -> Self {
         TSIG::new(
             signer.algorithm().clone(),
@@ -428,7 +431,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
 impl RecordData for TSIG {
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
-            RData::DNSSEC(DNSSECRData::TSIG(csync)) => Some(csync),
+            RData::TSIG(csync) => Some(csync),
             _ => None,
         }
     }
@@ -438,7 +441,7 @@ impl RecordData for TSIG {
     }
 
     fn into_rdata(self) -> RData {
-        RData::DNSSEC(DNSSECRData::TSIG(self))
+        RData::TSIG(self)
     }
 }
 
@@ -565,6 +568,7 @@ impl TsigAlgorithm {
     ///
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
+    #[cfg(feature = "__dnssec")]
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> Result<Vec<u8>, DnsSecError> {
         use TsigAlgorithm::*;
 
@@ -584,6 +588,7 @@ impl TsigAlgorithm {
     /// Verifies the hmac tag against the given key and this algorithm.
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
+    #[cfg(feature = "__dnssec")]
     pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> Result<(), DnsSecError> {
         use TsigAlgorithm::*;
 
@@ -612,6 +617,7 @@ impl TsigAlgorithm {
     }
 
     /// Return length in bytes of the algorithms output
+    #[cfg(feature = "__dnssec")]
     pub(crate) fn output_len(&self) -> Result<usize, DnsSecError> {
         use TsigAlgorithm::*;
 
@@ -718,6 +724,7 @@ pub fn message_tbs<M: BinEncodable>(
 ///   of response. Should be None for query
 /// * `message` - the byte-message to authenticate, with included TSIG
 /// * `first_message` - whether to emit the tsig pseudo-record for a first message
+#[cfg(feature = "__dnssec")]
 pub fn signed_bitmessage_to_buf(
     message: &[u8],
     previous_hash: Option<&[u8]>,
@@ -819,7 +826,9 @@ mod tests {
     use std::println;
 
     use super::*;
+    #[cfg(feature = "__dnssec")]
     use crate::op::MessageSignature;
+    #[cfg(feature = "__dnssec")]
     use crate::rr::Record;
 
     fn test_encode_decode(rdata: TSIG) {
@@ -877,6 +886,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "__dnssec")]
     fn test_sign_encode() {
         let mut message = Message::query();
         message.add_answer(Record::stub());
@@ -911,6 +921,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "__dnssec")]
     fn test_sign_encode_id_changed() {
         let mut message = Message::query();
         message.set_id(123).add_answer(Record::stub());

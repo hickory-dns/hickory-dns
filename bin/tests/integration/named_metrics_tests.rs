@@ -37,13 +37,13 @@ use hickory_net::{
     xfer::Protocol,
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::dnssec::{
-    Algorithm, SigningKey, TSigner, TrustAnchors, crypto::RsaSigningKey, rdata::tsig::TsigAlgorithm,
-};
+use hickory_proto::dnssec::{Algorithm, SigningKey, TrustAnchors, crypto::RsaSigningKey};
 #[cfg(feature = "blocklist")]
 use hickory_proto::op::DnsResponse;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::Record;
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use hickory_proto::rr::{TSigner, rdata::tsig::TsigAlgorithm};
 use hickory_proto::{
     op::MessageSigner,
     rr::{
