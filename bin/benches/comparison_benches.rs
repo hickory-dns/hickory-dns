@@ -156,7 +156,7 @@ fn hickory_tcp_bench(b: &mut Bencher) {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
     let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let stream = io_loop.block_on(future).expect("failed to connect");
-    let mp = DnsMultiplexer::new(stream, sender, None);
+    let mp = DnsMultiplexer::new(stream, sender);
     bench(b, mp);
 
     // cleaning up the named process
@@ -225,7 +225,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, server_port));
     let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::new());
     let stream = io_loop.block_on(future).expect("failed to connect");
-    let mp = DnsMultiplexer::new(stream, sender, None);
+    let mp = DnsMultiplexer::new(stream, sender);
     bench(b, mp);
 
     // cleaning up the named process

@@ -34,7 +34,7 @@ async fn test_lookup() {
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let dns_conn = DnsMultiplexer::new(stream, sender, None);
+    let dns_conn = DnsMultiplexer::new(stream, sender);
     let (client, bg) = DnsExchange::<TokioRuntimeProvider>::from_stream(dns_conn);
     tokio::spawn(bg);
 
@@ -61,7 +61,7 @@ async fn test_lookup_hosts() {
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let dns_conn = DnsMultiplexer::new(stream, sender, None);
+    let dns_conn = DnsMultiplexer::new(stream, sender);
     let (client, bg) = DnsExchange::<TokioRuntimeProvider>::from_stream(dns_conn);
     tokio::spawn(bg);
 
@@ -118,7 +118,7 @@ async fn test_lookup_ipv4_like() {
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let dns_conn = DnsMultiplexer::new(stream, sender, None);
+    let dns_conn = DnsMultiplexer::new(stream, sender);
     let (client, bg) = DnsExchange::<TokioRuntimeProvider>::from_stream(dns_conn);
     tokio::spawn(bg);
 
@@ -147,7 +147,7 @@ async fn test_lookup_ipv4_like_fall_through() {
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let dns_conn = DnsMultiplexer::new(stream, sender, None);
+    let dns_conn = DnsMultiplexer::new(stream, sender);
     let (client, bg) = DnsExchange::<TokioRuntimeProvider>::from_stream(dns_conn);
     tokio::spawn(bg);
 

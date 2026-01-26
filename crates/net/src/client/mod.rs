@@ -22,7 +22,6 @@ use core::{
     task::{Context, Poll},
     time::Duration,
 };
-use std::sync::Arc;
 
 use futures_util::{
     ready,
@@ -35,8 +34,8 @@ use crate::{
     proto::{
         ProtoError,
         op::{
-            DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageSigner, OpCode,
-            Query, update_message,
+            DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query,
+            update_message,
         },
         rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
     },
@@ -78,13 +77,11 @@ impl<P: RuntimeProvider> Client<P> {
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new<S: DnsClientStream>(
         stream: S,
         stream_handle: BufDnsStreamHandle,
-        signer: Option<Arc<dyn MessageSigner>>,
     ) -> (Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>) {
-        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5))
     }
 
     /// Spawns a new Client Stream.
@@ -96,16 +93,12 @@ impl<P: RuntimeProvider> Client<P> {
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///   wait for a response before canceling the request.
-    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout<S: DnsClientStream>(
         stream: S,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
-        signer: Option<Arc<dyn MessageSigner>>,
     ) -> (Self, DnsExchangeBackground<DnsMultiplexer<S>, P::Timer>) {
-        Self::from_sender(
-            DnsMultiplexer::new(stream, stream_handle, signer).with_timeout(timeout_duration),
-        )
+        Self::from_sender(DnsMultiplexer::new(stream, stream_handle).with_timeout(timeout_duration))
     }
 
     /// Creates a Client from an existing DnsRequestSender

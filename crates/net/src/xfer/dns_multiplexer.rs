@@ -7,14 +7,16 @@
 
 //! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
+#[cfg(feature = "__dnssec")]
+use core::borrow::Borrow;
 use core::{
-    borrow::Borrow,
     marker::Unpin,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
 use std::collections::{HashMap, hash_map::Entry};
+#[cfg(feature = "__dnssec")]
 use std::sync::Arc;
 
 use futures_channel::mpsc;
@@ -31,7 +33,9 @@ use super::{
     BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequestSender, DnsResponseStream,
     ignore_send,
 };
-use crate::proto::op::{DnsRequest, DnsResponse, MessageSigner, MessageVerifier, SerialMessage};
+use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
+#[cfg(feature = "__dnssec")]
+use crate::proto::op::{MessageSigner, MessageVerifier};
 use crate::{DnsStreamHandle, error::NetError, runtime::Time};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -41,6 +45,7 @@ struct ActiveRequest {
     completion: mpsc::Sender<Result<DnsResponse, NetError>>,
     request_id: u16,
     timeout: BoxFuture<'static, ()>,
+    #[cfg(feature = "__dnssec")]
     verifier: Option<MessageVerifier>,
 }
 
@@ -49,13 +54,14 @@ impl ActiveRequest {
         completion: mpsc::Sender<Result<DnsResponse, NetError>>,
         request_id: u16,
         timeout: BoxFuture<'static, ()>,
-        verifier: Option<MessageVerifier>,
+        #[cfg(feature = "__dnssec")] verifier: Option<MessageVerifier>,
     ) -> Self {
         Self {
             completion,
             request_id,
             // request,
             timeout,
+            #[cfg(feature = "__dnssec")]
             verifier,
         }
     }
@@ -92,6 +98,7 @@ pub struct DnsMultiplexer<S> {
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
     active_requests: HashMap<u16, ActiveRequest>,
+    #[cfg(feature = "__dnssec")]
     signer: Option<Arc<dyn MessageSigner>>,
     is_shutdown: bool,
 }
@@ -104,18 +111,14 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///   (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn new(
-        stream: S,
-        stream_handle: BufDnsStreamHandle,
-        signer: Option<Arc<dyn MessageSigner>>,
-    ) -> Self {
+    pub fn new(stream: S, stream_handle: BufDnsStreamHandle) -> Self {
         Self {
             stream,
             timeout_duration: Duration::from_secs(5),
             stream_handle,
             active_requests: HashMap::default(),
-            signer,
+            #[cfg(feature = "__dnssec")]
+            signer: None,
             is_shutdown: false,
         }
     }
@@ -123,6 +126,13 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
     /// Change the default timeout of the DnsMultiplexer stream.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout_duration = timeout;
+        self
+    }
+
+    /// Specify an optional signer to TSIG authenticate requests.
+    #[cfg(feature = "__dnssec")]
+    pub fn with_signer(mut self, signer: Arc<dyn MessageSigner>) -> Self {
+        self.signer = Some(signer);
         self
     }
 
@@ -191,6 +201,7 @@ where
     stream: F,
     stream_handle: Option<BufDnsStreamHandle>,
     timeout_duration: Duration,
+    #[cfg(feature = "__dnssec")]
     signer: Option<Arc<dyn MessageSigner>>,
 }
 
@@ -212,6 +223,7 @@ where
                 .take()
                 .expect("must not poll after complete"),
             active_requests: HashMap::new(),
+            #[cfg(feature = "__dnssec")]
             signer: self.signer.clone(),
             is_shutdown: false,
         }))
@@ -236,12 +248,12 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         let (mut request, _) = request.into_parts();
         request.set_id(query_id);
 
-        let now = S::Time::current_time();
-
+        #[cfg(feature = "__dnssec")]
         let mut verifier = None;
+        #[cfg(feature = "__dnssec")]
         if let Some(signer) = &self.signer {
             if signer.should_sign_message(&request) {
-                match request.finalize(signer.borrow(), now) {
+                match request.finalize(signer.borrow(), S::Time::current_time()) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
@@ -257,7 +269,13 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         let (complete, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         // send the message
-        let active_request = ActiveRequest::new(complete, request.id(), timeout, verifier);
+        let active_request = ActiveRequest::new(
+            complete,
+            request.id(),
+            timeout,
+            #[cfg(feature = "__dnssec")]
+            verifier,
+        );
 
         match request.to_vec() {
             Ok(buffer) => {
@@ -330,6 +348,7 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
                             Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
+                                #[cfg(feature = "__dnssec")]
                                 if let Some(verifier) = &mut active_request.verifier {
                                     ignore_send(active_request.completion.try_send(
                                         verifier(response.as_buffer()).map_err(NetError::from),
@@ -337,6 +356,8 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
                                 } else {
                                     ignore_send(active_request.completion.try_send(Ok(response)));
                                 }
+                                #[cfg(not(feature = "__dnssec"))]
+                                ignore_send(active_request.completion.try_send(Ok(response)));
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", response.id()),
                         },
@@ -456,8 +477,8 @@ mod test {
         let addr = SocketAddr::from(([127, 0, 0, 1], 1234));
         let mock_response = MockClientStream::new(mock_response, addr).await.unwrap();
         let (handler, receiver) = BufDnsStreamHandle::new(addr);
-        let mut multiplexer = DnsMultiplexer::new(mock_response, handler, None)
-            .with_timeout(Duration::from_millis(100));
+        let mut multiplexer =
+            DnsMultiplexer::new(mock_response, handler).with_timeout(Duration::from_millis(100));
 
         multiplexer.stream.receiver = Some(receiver); // so it can get the correct request id
 
