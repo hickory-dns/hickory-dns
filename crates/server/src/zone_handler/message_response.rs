@@ -8,8 +8,8 @@
 use crate::{
     proto::{
         ProtoError,
-        op::{Edns, Header, MessageSignature, ResponseCode, emit_message_parts},
-        rr::Record,
+        op::{Edns, Header, ResponseCode, emit_message_parts},
+        rr::{Record, rdata::TSIG},
         serialize::binary::BinEncoder,
     },
     server::ResponseInfo,
@@ -34,7 +34,7 @@ where
     authorities: Authorities,
     soa: Soa,
     additionals: Additionals,
-    signature: MessageSignature,
+    signature: Option<Box<Record<TSIG>>>,
     edns: Option<&'q Edns>,
 }
 
@@ -67,8 +67,8 @@ where
     }
 
     /// Set the message signature
-    pub fn set_signature(&mut self, signature: MessageSignature) {
-        self.signature = signature;
+    pub fn set_signature(&mut self, signature: Box<Record<TSIG>>) {
+        self.signature = Some(signature);
     }
 
     /// Consumes self, and emits to the encoder.
@@ -86,7 +86,7 @@ where
             &mut authorities,
             &mut self.additionals,
             self.edns,
-            &self.signature,
+            self.signature.as_deref(),
             encoder,
         )
         .map(Into::into)
@@ -96,7 +96,7 @@ where
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q> {
     queries: &'q Queries,
-    signature: MessageSignature,
+    signature: Option<Box<Record<TSIG>>>,
     edns: Option<&'q Edns>,
 }
 
@@ -110,7 +110,7 @@ impl<'q> MessageResponseBuilder<'q> {
     pub fn new(queries: &'q Queries, edns: Option<&'q Edns>) -> Self {
         MessageResponseBuilder {
             queries,
-            signature: MessageSignature::default(),
+            signature: None,
             edns,
         }
     }
@@ -270,7 +270,7 @@ mod tests {
                 authorities: iter::once(&answer),
                 soa: iter::once(&answer),
                 additionals: iter::once(&answer),
-                signature: MessageSignature::default(),
+                signature: None,
                 edns: None,
             };
 
@@ -308,7 +308,7 @@ mod tests {
                 authorities: iter::repeat(&answer),
                 soa: iter::repeat(&answer),
                 additionals: iter::repeat(&answer),
-                signature: MessageSignature::default(),
+                signature: None,
                 edns: None,
             };
 

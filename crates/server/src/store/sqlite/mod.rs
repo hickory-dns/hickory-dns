@@ -32,10 +32,7 @@ use crate::proto::rr::{
 #[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
-    proto::{
-        dnssec::{DnsSecResult, DnssecSigner},
-        op::MessageSignature,
-    },
+    proto::dnssec::{DnsSecResult, DnssecSigner},
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
 };
 use crate::{
@@ -554,11 +551,11 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         }
 
         match request.signature() {
-            MessageSignature::Tsig(tsig) => {
+            Some(tsig) => {
                 let (resp, signer) = self.authorized_tsig(tsig, request, now).await;
                 (resp, Some(signer))
             }
-            MessageSignature::Unsigned => (Err(ResponseCode::Refused), None),
+            None => (Err(ResponseCode::Refused), None),
         }
     }
 
@@ -576,11 +573,11 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             // Allow only if a valid signature is present.
             #[cfg(feature = "__dnssec")]
             AxfrPolicy::AllowSigned => match _request.signature() {
-                MessageSignature::Tsig(tsig) => {
+                Some(tsig) => {
                     let (resp, signer) = self.authorized_tsig(tsig, _request, _now).await;
                     (resp, Some(signer))
                 }
-                MessageSignature::Unsigned => {
+                None => {
                     warn!("AXFR request was not signed");
                     (Err(ResponseCode::Refused), None)
                 }
