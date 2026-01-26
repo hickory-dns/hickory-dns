@@ -17,13 +17,6 @@ use std::{
 };
 
 #[cfg(feature = "__dnssec")]
-use time::OffsetDateTime;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-#[cfg(feature = "__dnssec")]
-use tracing::warn;
-use tracing::{debug, info};
-
-#[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
     net::runtime::Time,
@@ -36,7 +29,7 @@ use crate::{
 use crate::{
     net::runtime::{RuntimeProvider, TokioRuntimeProvider},
     proto::{
-        op::{ResponseCode, ResponseSigner},
+        op::ResponseCode,
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
         serialize::txt::Parser,
     },
@@ -46,6 +39,13 @@ use crate::{
         LookupRecords, ZoneHandler, ZoneTransfer, ZoneType,
     },
 };
+use hickory_proto::rr::TSigResponseContext;
+#[cfg(feature = "__dnssec")]
+use time::OffsetDateTime;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+#[cfg(feature = "__dnssec")]
+use tracing::warn;
+use tracing::{debug, info};
 
 mod inner;
 use inner::InnerInMemory;
@@ -467,10 +467,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
             Err(e) => return (LookupControlFlow::Break(Err(e)), None),
@@ -519,7 +516,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         _now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
+        Option<TSigResponseContext>,
     )> {
         let request_info = match request.request_info() {
             Ok(info) => info,

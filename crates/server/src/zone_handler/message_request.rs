@@ -9,10 +9,10 @@ use crate::{
     proto::{
         ProtoError,
         op::{
-            Edns, EmitAndCount, Header, LowerQuery, Message, MessageSignature, MessageType, OpCode,
-            ResponseCode, emit_message_parts,
+            Edns, EmitAndCount, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode,
+            emit_message_parts,
         },
-        rr::Record,
+        rr::{Record, rdata::TSIG},
         serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding},
     },
     zone_handler::LookupError,
@@ -26,7 +26,7 @@ pub struct MessageRequest {
     answers: Vec<Record>,
     authorities: Vec<Record>,
     additionals: Vec<Record>,
-    signature: MessageSignature,
+    signature: Option<Box<Record<TSIG>>>,
     edns: Option<Edns>,
 }
 
@@ -42,7 +42,7 @@ impl MessageRequest {
             answers: Vec::new(),
             authorities: Vec::new(),
             additionals: Vec::new(),
-            signature: MessageSignature::Unsigned,
+            signature: None,
             edns: None,
         }
     }
@@ -170,8 +170,8 @@ impl MessageRequest {
     }
 
     /// The message signature for signed messages
-    pub fn signature(&self) -> &MessageSignature {
-        &self.signature
+    pub fn signature(&self) -> Option<&Record<TSIG>> {
+        self.signature.as_deref()
     }
 
     /// # Return value
@@ -370,7 +370,7 @@ impl BinEncodable for MessageRequest {
             &mut self.authorities.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
-            &self.signature,
+            self.signature.as_deref(),
             encoder,
         )?;
 
@@ -396,7 +396,7 @@ pub trait UpdateRequest {
     fn additionals(&self) -> &[Record];
 
     /// Signature for verifying the Message
-    fn signature(&self) -> &MessageSignature;
+    fn signature(&self) -> Option<&Record<TSIG>>;
 }
 
 impl UpdateRequest for MessageRequest {
@@ -421,7 +421,7 @@ impl UpdateRequest for MessageRequest {
         self.additionals()
     }
 
-    fn signature(&self) -> &MessageSignature {
+    fn signature(&self) -> Option<&Record<TSIG>> {
         self.signature()
     }
 }

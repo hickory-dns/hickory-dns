@@ -257,7 +257,7 @@ async fn lazy_udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
 async fn lazy_tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let stream = future.await.expect("failed to connect");
-    let multiplexer = DnsMultiplexer::new(stream, sender, None);
+    let multiplexer = DnsMultiplexer::new(stream, sender);
     let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client
@@ -297,7 +297,7 @@ async fn lazy_tls_client(
     );
 
     let stream = tls_client_stream.await.expect("failed to connect");
-    let multiplexer = DnsMultiplexer::new(stream, handle, None);
+    let multiplexer = DnsMultiplexer::new(stream, handle);
     let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client

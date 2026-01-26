@@ -62,7 +62,7 @@ async fn test_example_tls_toml_startup() {
         provider.clone(),
     );
     let stream = future.await.expect("client failed to connect");
-    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender);
     tokio::spawn(bg);
 
     // ipv4 should succeed
@@ -76,7 +76,7 @@ async fn test_example_tls_toml_startup() {
         provider,
     );
     let stream = future.await.expect("client failed to connect");
-    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender);
     tokio::spawn(bg);
 
     // ipv6 should succeed

@@ -25,15 +25,13 @@ use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::TrustAnchors;
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::op::MessageSigner;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use hickory_proto::rr::{Record, TSigner};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;
@@ -51,13 +49,10 @@ impl TestClientConnection {
         }
     }
 
-    async fn to_multiplexer(
-        &self,
-        signer: Option<Arc<dyn MessageSigner>>,
-    ) -> DnsMultiplexer<TestClientStream> {
+    async fn to_multiplexer(&self, signer: TSigner) -> DnsMultiplexer<TestClientStream> {
         let (future, handle) = TestClientStream::new(self.catalog.clone());
         let client_stream = future.await.expect("failed to connect");
-        DnsMultiplexer::new(client_stream, handle, signer)
+        DnsMultiplexer::new(client_stream, handle).with_signer(signer)
     }
 }
 
@@ -80,7 +75,7 @@ async fn udp_dnssec_client(addr: SocketAddr) -> DnssecClient {
 async fn tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let stream = future.await.expect("failed to connect");
-    let multiplexer = DnsMultiplexer::new(stream, sender, None);
+    let multiplexer = DnsMultiplexer::new(stream, sender);
     let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client
@@ -90,7 +85,7 @@ async fn tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
 async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     let (future, sender) = TcpClientStream::new(addr, None, None, TokioRuntimeProvider::default());
     let stream = future.await.expect("failed to connect");
-    let multiplexer = DnsMultiplexer::new(stream, sender, None);
+    let multiplexer = DnsMultiplexer::new(stream, sender);
     let (client, driver) = Client::from_sender(multiplexer);
     let client = DnssecClient::from_client(client, Arc::new(TrustAnchors::default()));
     tokio::spawn(driver);
@@ -279,8 +274,8 @@ async fn test_timeout_query_tcp() {
     match future.await {
         Err(NetError::Timeout) => {}
         Ok(stream) => {
-            let multiplexer = DnsMultiplexer::new(stream, sender, None);
-            let _ = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
+            let _ =
+                Client::<TokioRuntimeProvider>::from_sender(DnsMultiplexer::new(stream, sender));
             panic!("expected timeout")
         }
         _ => panic!("expected timeout"),
@@ -400,8 +395,8 @@ async fn test_nsec3_nxdomain() {
 #[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_tsig_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
-    use hickory_proto::dnssec::TSigner;
-    use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
+    use hickory_proto::rr::TSigner;
+    use hickory_proto::rr::rdata::tsig::TsigAlgorithm;
     use hickory_server::store::sqlite::SqliteZoneHandler;
 
     let handler = create_example();
@@ -411,21 +406,19 @@ async fn create_tsig_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
     let origin = handler.origin().clone();
 
     let secret_key = b"test_secret_key_for_client_tests".to_vec();
-    let signer = Arc::new(
-        TSigner::new(
-            secret_key,
-            TsigAlgorithm::HmacSha256,
-            Name::from_str("trusted.example.com.").unwrap(),
-            300,
-        )
-        .unwrap(),
-    );
+    let signer = TSigner::new(
+        secret_key,
+        TsigAlgorithm::HmacSha256,
+        Name::from_str("trusted.example.com.").unwrap(),
+        300,
+    )
+    .unwrap();
 
-    handler.set_tsig_signers(vec![(*signer).clone()]);
+    handler.set_tsig_signers(vec![signer.clone()]);
 
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
     let multiplexer = TestClientConnection::new(catalog)
-        .to_multiplexer(Some(signer))
+        .to_multiplexer(signer)
         .await;
     let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);

@@ -13,17 +13,11 @@ use std::io;
 #[cfg(feature = "__dnssec")]
 use std::sync::Arc;
 
-use serde::Deserialize;
-use tracing::{debug, info};
-
 #[cfg(feature = "__dnssec")]
 use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
     net::runtime::TokioRuntimeProvider,
-    proto::{
-        op::ResponseSigner,
-        rr::{LowerName, Name, RecordType},
-    },
+    proto::rr::{LowerName, Name, RecordType},
     resolver::{
         ConnectionProvider, Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
@@ -34,6 +28,9 @@ use crate::{
         ZoneType,
     },
 };
+use hickory_proto::rr::TSigResponseContext;
+use serde::Deserialize;
+use tracing::{debug, info};
 
 /// A builder to construct a [`ForwardZoneHandler`].
 ///
@@ -263,10 +260,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
             Err(e) => return (LookupControlFlow::Break(Err(e)), None),

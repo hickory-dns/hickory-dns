@@ -10,7 +10,6 @@
 use std::net::Ipv4Addr;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
-use std::sync::Arc;
 
 use futures::TryStreamExt;
 use time::Duration;
@@ -20,10 +19,11 @@ use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::DnsMultiplexer;
-use hickory_proto::dnssec::TSigner;
-use hickory_proto::dnssec::rdata::tsig::TsigAlgorithm;
 use hickory_proto::op::ResponseCode;
-use hickory_proto::rr::{Name, RData, Record, rdata::A};
+use hickory_proto::rr::{
+    Name, RData, Record, TSigner,
+    rdata::{A, tsig::TsigAlgorithm},
+};
 use test_support::subscribe;
 
 use dns_test::{
@@ -146,7 +146,7 @@ async fn test_tsig_zone_transfer() {
     let socket = SocketAddr::new(IpAddr::V4(ns.ipv4_addr()), 53);
     let (future, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
-    let multiplexer = DnsMultiplexer::new(future.await.unwrap(), sender, Some(signer));
+    let multiplexer = DnsMultiplexer::new(future.await.unwrap(), sender).with_signer(signer);
 
     let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
     tokio::spawn(driver);
@@ -169,25 +169,23 @@ async fn test_tsig_zone_transfer() {
     );
 }
 
-fn tsig_key_and_signer() -> (TsigKey, Arc<TSigner>) {
+fn tsig_key_and_signer() -> (TsigKey, TSigner) {
     let tsig_key = TsigKey {
         name: "TsigTestCreateKey.".to_owned(),
         algorithm: TestTsigAlgorithm::HmacSha256,
         secret_key: TsigSecretKey(b"!! t0p $3cr3t !!".to_vec()),
     };
-    let signer = Arc::new(
-        TSigner::new(
-            tsig_key.secret_key.0.clone(),
-            match tsig_key.algorithm {
-                TestTsigAlgorithm::HmacSha256 => TsigAlgorithm::HmacSha256,
-                TestTsigAlgorithm::HmacSha384 => TsigAlgorithm::HmacSha384,
-                TestTsigAlgorithm::HmacSha512 => TsigAlgorithm::HmacSha512,
-            },
-            Name::from_str(&tsig_key.name).unwrap(),
-            60,
-        )
-        .unwrap(),
-    );
+    let signer = TSigner::new(
+        tsig_key.secret_key.0.clone(),
+        match tsig_key.algorithm {
+            TestTsigAlgorithm::HmacSha256 => TsigAlgorithm::HmacSha256,
+            TestTsigAlgorithm::HmacSha384 => TsigAlgorithm::HmacSha384,
+            TestTsigAlgorithm::HmacSha512 => TsigAlgorithm::HmacSha512,
+        },
+        Name::from_str(&tsig_key.name).unwrap(),
+        60,
+    )
+    .unwrap();
     (tsig_key, signer)
 }
 

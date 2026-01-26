@@ -20,6 +20,7 @@ use crate::{
     proto::{
         dnssec::{DnssecSummary, rdata::DNSSECRData},
         rr::RData,
+        serialize::binary::BinEncoder,
     },
     zone_handler::Nsec3QueryInfo,
 };
@@ -31,7 +32,6 @@ use crate::{
             LowerName, RecordSet, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
-        serialize::binary::BinEncoder,
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
     zone_handler::{
@@ -306,6 +306,7 @@ impl Catalog {
         if let Some(handlers) = self.find(request_info.query.name()) {
             #[allow(clippy::never_loop)]
             for handler in handlers {
+                #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
                 let (response_code, signer) = match handler.zone_type() {
                     ZoneType::Secondary => {
                         error!("secondary forwarding for update not yet implemented");
@@ -326,8 +327,10 @@ impl Catalog {
                 let mut response_header =
                     Header::new(update.id(), MessageType::Response, OpCode::Update);
                 response_header.set_response_code(response_code);
+                #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
                 let mut response = response.build_no_records(response_header);
 
+                #[cfg(feature = "__dnssec")]
                 if let Some(signer) = signer {
                     let mut tbs_response_buf = Vec::with_capacity(512);
                     let mut encoder = BinEncoder::new(&mut tbs_response_buf);
@@ -495,6 +498,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
         // Wait so we can determine if we need to fire a request to the next zone handler in a
         // chained configuration if the current zone handler declines to answer.
+        #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
         let (mut result, mut signer) = handler.search(request, lookup_options).await;
         #[cfg(feature = "metrics")]
         metrics.update_zone_lookup(handler.as_ref(), &result);
@@ -524,6 +528,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                         result,
                     )
                     .await;
+                #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
                 if let Some(new_signer) = new_signer {
                     signer = Some(new_signer);
                 }
@@ -556,6 +561,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         )
         .await;
 
+        #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response =
             MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
                 *response_message.header(),
@@ -565,6 +571,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                 response_message.additionals().iter(),
             );
 
+        #[cfg(feature = "__dnssec")]
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
@@ -640,6 +647,7 @@ async fn zone_transfer(
             request_id = request.id(),
             "performing zone transfer"
         );
+        #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
         let Some((result, signer)) = handler.zone_transfer(request, lookup_options, now).await
         else {
             continue;
@@ -670,6 +678,7 @@ async fn zone_transfer(
         };
 
         // TODO(issue #351): Send more than one message in response as needed.
+        #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response =
             MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
                 response_header,
@@ -681,6 +690,7 @@ async fn zone_transfer(
                 iter::empty(),
             );
 
+        #[cfg(feature = "__dnssec")]
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);

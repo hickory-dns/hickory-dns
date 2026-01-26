@@ -227,7 +227,7 @@ mod test {
         let (future, sender) =
             TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
 
-        let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender, None);
+        let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
         let _handle = tokio::task::spawn(bg);
 
         let query = client.query(
@@ -263,7 +263,7 @@ mod test {
                 let _handle = tokio::task::spawn(tcp.run(base_handler));
                 let (future, sender) =
                     TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
-                let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender, None);
+                let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
                 let _handle = tokio::task::spawn(bg);
                 client
             }
