@@ -25,15 +25,13 @@ use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::dnssec::TrustAnchors;
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::op::MessageSigner;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
-#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
-use hickory_proto::rr::Record;
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use hickory_proto::rr::{Record, TSigner};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneHandler};
 use test_support::subscribe;
@@ -51,10 +49,7 @@ impl TestClientConnection {
         }
     }
 
-    async fn to_multiplexer(
-        &self,
-        signer: Arc<dyn MessageSigner>,
-    ) -> DnsMultiplexer<TestClientStream> {
+    async fn to_multiplexer(&self, signer: TSigner) -> DnsMultiplexer<TestClientStream> {
         let (future, handle) = TestClientStream::new(self.catalog.clone());
         let client_stream = future.await.expect("failed to connect");
         DnsMultiplexer::new(client_stream, handle).with_signer(signer)
@@ -411,17 +406,15 @@ async fn create_tsig_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeP
     let origin = handler.origin().clone();
 
     let secret_key = b"test_secret_key_for_client_tests".to_vec();
-    let signer = Arc::new(
-        TSigner::new(
-            secret_key,
-            TsigAlgorithm::HmacSha256,
-            Name::from_str("trusted.example.com.").unwrap(),
-            300,
-        )
-        .unwrap(),
-    );
+    let signer = TSigner::new(
+        secret_key,
+        TsigAlgorithm::HmacSha256,
+        Name::from_str("trusted.example.com.").unwrap(),
+        300,
+    )
+    .unwrap();
 
-    handler.set_tsig_signers(vec![(*signer).clone()]);
+    handler.set_tsig_signers(vec![signer.clone()]);
 
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
     let multiplexer = TestClientConnection::new(catalog)
