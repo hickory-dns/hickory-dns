@@ -56,7 +56,7 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
         Arc::new(config),
     );
 
-    let multiplexer = DnsMultiplexer::with_timeout(future.await?, sender, timeout, None);
+    let multiplexer = DnsMultiplexer::new(future.await?, sender, None).with_timeout(timeout);
     let (exchange, bg) = DnsExchange::<P>::from_stream(multiplexer);
     provider.create_handle().spawn_bg(bg);
     Ok(exchange)
