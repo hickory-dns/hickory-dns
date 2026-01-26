@@ -901,12 +901,6 @@ fn update_header_counts(
     header
 }
 
-/// A trait for producing a `TSIG` record for responses
-pub trait ResponseSigner: Send + Sync {
-    /// sign produces a `TSIG` for the provided encoded, unsigned, response message.
-    fn sign(self: Box<Self>, response: &[u8]) -> Result<Box<Record<TSIG>>, ProtoError>;
-}
-
 /// Returns the count written and a boolean if it was truncated
 fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
     match result {

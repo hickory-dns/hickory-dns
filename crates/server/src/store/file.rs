@@ -12,8 +12,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::Deserialize;
-
 #[cfg(feature = "metrics")]
 use crate::metrics::PersistentStoreMetrics;
 #[cfg(feature = "__dnssec")]
@@ -23,10 +21,7 @@ use crate::{
     zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
 };
 use crate::{
-    proto::{
-        op::ResponseSigner,
-        rr::{LowerName, Name, RecordType},
-    },
+    proto::rr::{LowerName, Name, RecordType},
     server::{Request, RequestInfo},
     store::in_memory::{InMemoryZoneHandler, zone_from_path},
     zone_handler::{
@@ -34,6 +29,8 @@ use crate::{
         ZoneTransfer, ZoneType,
     },
 };
+use hickory_proto::rr::TSigResponseContext;
+use serde::Deserialize;
 
 /// FileZoneHandler is responsible for storing the resource records for a particular zone.
 ///
@@ -180,10 +177,7 @@ impl ZoneHandler for FileZoneHandler {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         self.in_memory.search(request, lookup_options).await
     }
 
@@ -194,7 +188,7 @@ impl ZoneHandler for FileZoneHandler {
         now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
+        Option<TSigResponseContext>,
     )> {
         self.in_memory
             .zone_transfer(request, lookup_options, now)
