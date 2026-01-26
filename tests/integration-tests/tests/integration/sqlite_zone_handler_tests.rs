@@ -13,7 +13,7 @@ use rusqlite::*;
 use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
-use hickory_proto::op::{Edns, LowerQuery, Message, MessageSigner};
+use hickory_proto::op::{Edns, LowerQuery, Message};
 use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::TSigner;
@@ -982,9 +982,7 @@ async fn test_update_tsig_valid() {
         .duration_since(UNIX_EPOCH)
         .map(|t| t.as_secs())
         .unwrap();
-    let (sig, _) = (&signer as &dyn MessageSigner)
-        .sign_message(&message, now)
-        .unwrap();
+    let (sig, _) = signer.sign_message(&message, now).unwrap();
     // Save the MAC of the request so we can verify the response.
     let request_mac = sig.data().mac().to_vec();
     message.set_signature(sig);
@@ -1085,9 +1083,7 @@ async fn test_update_tsig_invalid_unknown_signer() {
         .duration_since(UNIX_EPOCH)
         .map(|t| t.as_secs())
         .unwrap();
-    let (sig, _) = (&bad_signer as &dyn MessageSigner)
-        .sign_message(&message, now)
-        .unwrap();
+    let (sig, _) = bad_signer.sign_message(&message, now).unwrap();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1140,9 +1136,7 @@ async fn test_update_tsig_invalid_sig() {
         .duration_since(UNIX_EPOCH)
         .map(|t| t.as_secs())
         .unwrap();
-    let (sig, _) = (&bad_signer as &dyn MessageSigner)
-        .sign_message(&message, now)
-        .unwrap();
+    let (sig, _) = bad_signer.sign_message(&message, now).unwrap();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1189,9 +1183,7 @@ async fn test_update_tsig_invalid_stale_sig() {
         .map(|t| t.as_secs())
         .unwrap();
     let too_stale = now - (signer.fudge() as u64) - 1;
-    let (sig, _) = (&signer as &dyn MessageSigner)
-        .sign_message(&message, too_stale)
-        .unwrap();
+    let (sig, _) = signer.sign_message(&message, too_stale).unwrap();
     // Save the MAC of the request so we can verify the response.
     let request_mac = sig.data().mac().to_vec();
     message.set_signature(sig);
@@ -1665,9 +1657,7 @@ async fn test_axfr_allow_tsig_signed() {
         .map(|t| t.as_secs())
         .unwrap();
 
-    let (sig, _) = (&signer as &dyn MessageSigner)
-        .sign_message(&message, now)
-        .unwrap();
+    let (sig, _) = signer.sign_message(&message, now).unwrap();
     message.set_signature(sig);
 
     // Round-trip the Message bytes into a MessageRequest.

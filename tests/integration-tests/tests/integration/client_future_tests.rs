@@ -263,17 +263,15 @@ async fn create_tsig_ready_client() -> (
     let trusted_name = Name::from_str("trusted.example.com.").unwrap();
 
     let secret_key = b"test_secret_key_for_client_future_tests".to_vec();
-    let signer = Arc::new(
-        TSigner::new(
-            secret_key,
-            TsigAlgorithm::HmacSha256,
-            trusted_name.clone(),
-            300,
-        )
-        .unwrap(),
-    );
+    let signer = TSigner::new(
+        secret_key,
+        TsigAlgorithm::HmacSha256,
+        trusted_name.clone(),
+        300,
+    )
+    .unwrap();
 
-    handler.set_tsig_signers(vec![(*signer).clone()]);
+    handler.set_tsig_signers(vec![(signer).clone()]);
 
     // setup the catalog
     let mut catalog = Catalog::new();
