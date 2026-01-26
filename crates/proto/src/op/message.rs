@@ -21,10 +21,10 @@ use crate::dnssec::{DnssecIter, rdata::DNSSECRData};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::random;
 #[cfg(feature = "__dnssec")]
-use crate::rr::TSigner;
+use crate::rr::{TSigVerifier, TSigner};
 use crate::{
     error::{ProtoError, ProtoResult},
-    op::{DnsResponse, Edns, Header, MessageType, OpCode, Query, ResponseCode},
+    op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
     rr::{RData, Record, RecordType, rdata::TSIG},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
 };
@@ -768,7 +768,7 @@ impl Message {
         &mut self,
         finalizer: &TSigner,
         inception_time: u64,
-    ) -> ProtoResult<Option<MessageVerifier>> {
+    ) -> ProtoResult<Option<TSigVerifier>> {
         debug!("finalizing message: {:?}", self);
 
         let (signature, verifier) = finalizer.sign_message(self, inception_time)?;
@@ -900,9 +900,6 @@ fn update_header_counts(
 
     header
 }
-
-/// Alias for a function verifying if a message is properly signed
-pub type MessageVerifier = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsResponse> + Send>;
 
 /// A trait for producing a `TSIG` record for responses
 pub trait ResponseSigner: Send + Sync {

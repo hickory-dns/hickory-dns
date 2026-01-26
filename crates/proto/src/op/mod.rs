@@ -35,9 +35,7 @@ mod lower_query;
 pub use lower_query::LowerQuery;
 
 mod message;
-pub use message::{
-    EmitAndCount, Message, MessageParts, MessageVerifier, ResponseSigner, emit_message_parts,
-};
+pub use message::{EmitAndCount, Message, MessageParts, ResponseSigner, emit_message_parts};
 
 mod op_code;
 pub use op_code::OpCode;

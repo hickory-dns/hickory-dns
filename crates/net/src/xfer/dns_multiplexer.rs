@@ -31,7 +31,7 @@ use super::{
 };
 use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
 #[cfg(feature = "__dnssec")]
-use crate::proto::{op::MessageVerifier, rr::TSigner};
+use crate::proto::rr::{TSigVerifier, TSigner};
 use crate::{DnsStreamHandle, error::NetError, runtime::Time};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -42,7 +42,7 @@ struct ActiveRequest {
     request_id: u16,
     timeout: BoxFuture<'static, ()>,
     #[cfg(feature = "__dnssec")]
-    verifier: Option<MessageVerifier>,
+    verifier: Option<TSigVerifier>,
 }
 
 impl ActiveRequest {
@@ -50,7 +50,7 @@ impl ActiveRequest {
         completion: mpsc::Sender<Result<DnsResponse, NetError>>,
         request_id: u16,
         timeout: BoxFuture<'static, ()>,
-        #[cfg(feature = "__dnssec")] verifier: Option<MessageVerifier>,
+        #[cfg(feature = "__dnssec")] verifier: Option<TSigVerifier>,
     ) -> Self {
         Self {
             completion,
@@ -346,9 +346,13 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
                                 let active_request = request_entry.get_mut();
                                 #[cfg(feature = "__dnssec")]
                                 if let Some(verifier) = &mut active_request.verifier {
-                                    ignore_send(active_request.completion.try_send(
-                                        verifier(response.as_buffer()).map_err(NetError::from),
-                                    ));
+                                    ignore_send(
+                                        active_request.completion.try_send(
+                                            verifier
+                                                .verify(response.as_buffer())
+                                                .map_err(NetError::from),
+                                        ),
+                                    );
                                 } else {
                                     ignore_send(active_request.completion.try_send(Ok(response)));
                                 }

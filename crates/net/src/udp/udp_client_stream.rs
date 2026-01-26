@@ -330,7 +330,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             debug!("received message id: {}", response.id());
             #[cfg(feature = "__dnssec")]
             if let Some(mut verifier) = verifier {
-                return Ok(verifier(response_bytes)?);
+                return Ok(verifier.verify(response_bytes)?);
             }
             return Ok(response);
         }
