@@ -81,7 +81,7 @@ async fn test_zone_transfer() {
     let (future, sender) =
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
     let stream = future.await.expect("failed to connect");
-    let multiplexer = DnsMultiplexer::new(stream, sender, None);
+    let multiplexer = DnsMultiplexer::new(stream, sender);
 
     let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
     tokio::spawn(driver);

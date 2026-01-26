@@ -51,7 +51,7 @@ async fn test_query_nonet() {
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let (mut client, bg) = Client::new(stream, sender, None);
+    let (mut client, bg) = Client::new(stream, sender);
     tokio::spawn(bg);
 
     test_query(&mut client).await;
@@ -89,11 +89,7 @@ async fn test_query_udp_ipv6() {
 async fn test_query_tcp_ipv4() {
     subscribe();
     let (future, sender) = TcpClientStream::new(GOOGLE_V4, None, None, TokioRuntimeProvider::new());
-    let (mut client, bg) = Client::new(
-        future.await.expect("client failed to connect"),
-        sender,
-        None,
-    );
+    let (mut client, bg) = Client::new(future.await.expect("client failed to connect"), sender);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -106,11 +102,7 @@ async fn test_query_tcp_ipv4() {
 async fn test_query_tcp_ipv6() {
     subscribe();
     let (future, sender) = TcpClientStream::new(GOOGLE_V6, None, None, TokioRuntimeProvider::new());
-    let (mut client, bg) = Client::new(
-        future.await.expect("client failed to connect"),
-        sender,
-        None,
-    );
+    let (mut client, bg) = Client::new(future.await.expect("client failed to connect"), sender);
     tokio::spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -237,7 +229,7 @@ async fn test_notify() {
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender, None);
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender);
     tokio::spawn(bg);
 
     let name = Name::from_str("ping.example.com.").unwrap();
@@ -292,8 +284,7 @@ async fn create_tsig_ready_client() -> (
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
-    let (client, bg) = Client::new(stream, sender, Some(signer));
-
+    let (client, bg) = Client::from_sender(DnsMultiplexer::new(stream, sender).with_signer(signer));
     ((client, bg), origin.into())
 }
 
@@ -994,8 +985,7 @@ async fn test_timeout_query_nonet() {
     subscribe();
     let (future, sender) = NeverReturnsClientStream::new();
     let stream = future.await.expect("client failed to connect");
-    let (client, bg) =
-        Client::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
+    let (client, bg) = Client::with_timeout(stream, sender, std::time::Duration::from_millis(1));
     tokio::spawn(bg);
 
     test_timeout_query(client).await;

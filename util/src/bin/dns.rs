@@ -454,7 +454,7 @@ async fn tcp<P: RuntimeProvider>(
 
     println!("; using tcp:{nameserver}");
     let (future, sender) = TcpClientStream::new(nameserver, None, None, provider);
-    let (client, bg) = Client::<P>::new(future.await?, sender, None);
+    let (client, bg) = Client::<P>::new(future.await?, sender);
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
@@ -495,7 +495,7 @@ async fn tls<P: RuntimeProvider>(
     let server_name =
         ServerName::try_from(dns_name).expect("failed to parse tls_dns_name as ServerName");
     let (future, sender) = tls_client_connect(nameserver, server_name, config, provider);
-    let (client, bg) = Client::<P>::new(future.await?, sender, None);
+    let (client, bg) = Client::<P>::new(future.await?, sender);
 
     let handle = tokio::spawn(bg);
     handle_request(opts.class, opts.command, client).await?;
