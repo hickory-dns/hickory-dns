@@ -28,9 +28,9 @@ use crate::metrics::blocklist::BlocklistMetrics;
 use crate::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use crate::{
     proto::{
-        op::{Query, ResponseSigner},
+        op::Query,
         rr::{
-            LowerName, Name, RData, Record, RecordType,
+            LowerName, Name, RData, Record, RecordType, TSigResponseContext,
             rdata::{A, AAAA, TXT},
         },
     },
@@ -386,10 +386,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         request_info: Option<&RequestInfo<'_>>,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         match self.consult_action {
             BlocklistConsultAction::Disabled => (last_result, None),
             BlocklistConsultAction::Log => {
@@ -432,10 +429,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         let request_info = match request.request_info() {
             Ok(info) => info,
             Err(e) => return (LookupControlFlow::Break(Err(e)), None),
@@ -459,7 +453,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         _now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
+        Option<TSigResponseContext>,
     )> {
         None
     }

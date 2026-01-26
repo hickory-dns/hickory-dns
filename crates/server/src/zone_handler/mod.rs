@@ -9,10 +9,6 @@
 
 use std::{fmt, io, sync::Arc};
 
-use cfg_if::cfg_if;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::NxProofKind;
 use crate::net::{DnsError, NetError, NoRecords};
@@ -21,13 +17,17 @@ use crate::proto::ProtoError;
 use crate::proto::dnssec::crypto::Digest;
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::{DnsSecResult, DnssecSigner, Nsec3HashAlgorithm};
-use crate::proto::op::{Edns, ResponseCode, ResponseSigner};
+use crate::proto::op::{Edns, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use crate::proto::rr::Name;
 use crate::proto::rr::{LowerName, Record, RecordSet, RecordType, RrsetRecords, rdata::SOA};
 #[cfg(feature = "recursor")]
 use crate::resolver::recursor::RecursorError;
 use crate::server::{Request, RequestInfo};
+use cfg_if::cfg_if;
+use hickory_proto::rr::TSigResponseContext;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 mod auth_lookup;
 mod catalog;
@@ -61,7 +61,7 @@ pub trait ZoneHandler: Send + Sync {
         &self,
         _update: &Request,
         _now: u64,
-    ) -> (Result<bool, ResponseCode>, Option<Box<dyn ResponseSigner>>) {
+    ) -> (Result<bool, ResponseCode>, Option<TSigResponseContext>) {
         (Err(ResponseCode::NotImp), None)
     }
 
@@ -129,10 +129,7 @@ pub trait ZoneHandler: Send + Sync {
         _request_info: Option<&RequestInfo<'_>>,
         _lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    ) {
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
         (last_result, None)
     }
 
@@ -153,10 +150,7 @@ pub trait ZoneHandler: Send + Sync {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (
-        LookupControlFlow<AuthLookup>,
-        Option<Box<dyn ResponseSigner>>,
-    );
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>);
 
     /// Return the NSEC records based on the given name
     ///
@@ -190,7 +184,7 @@ pub trait ZoneHandler: Send + Sync {
         _now: u64,
     ) -> Option<(
         Result<ZoneTransfer, LookupError>,
-        Option<Box<dyn ResponseSigner>>,
+        Option<TSigResponseContext>,
     )> {
         Some((Err(LookupError::from(ResponseCode::NotImp)), None))
     }
