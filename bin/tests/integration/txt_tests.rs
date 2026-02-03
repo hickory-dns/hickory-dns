@@ -17,12 +17,13 @@ async fn test_zone() {
     subscribe();
 
     const ZONE: &str = r#"
+$TTL 60
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
                             600    ; RETRY
                             3600000; EXPIRE
-                            60)    ; MINIMUM
+                            60)    ; Negative response caching TTL
 
         NS      a.isi.edu.
         NS      venera
@@ -109,7 +110,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let soa_record = lookup.iter().next().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.record_type());
     assert_eq!(&Name::from_str("isi.edu.").unwrap(), soa_record.name()); // i.e. the origin or domain
-    assert_eq!(3_600_000, soa_record.ttl());
+    assert_eq!(60, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
     if let RData::SOA(soa) = soa_record.data() {
         // this should all be lowercased
@@ -539,12 +540,13 @@ fn test_bad_cname_at_soa() {
     subscribe();
 
     const ZONE: &str = r"
+$TTL 60
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
                             600    ; RETRY
                             3600000; EXPIRE
-                            60)    ; MINIMUM
+                            60)    ; Negative response caching TTL
 
         CNAME   a
 a       A       127.0.0.1
@@ -576,12 +578,13 @@ fn test_bad_cname_at_a() {
     subscribe();
 
     const ZONE: &str = r"
+$TTL 60
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
                             600    ; RETRY
                             3600000; EXPIRE
-                            60)    ; MINIMUM
+                            60)    ; Negative response caching TTL
 
 a       CNAME   b
 a       A       127.0.0.1
@@ -614,12 +617,13 @@ fn test_aname_at_soa() {
     subscribe();
 
     const ZONE: &str = r"
+$TTL 60
 @   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
                             7200   ; REFRESH
                             600    ; RETRY
                             3600000; EXPIRE
-                            60)    ; MINIMUM
+                            60)    ; Negative response caching TTL
 
         ANAME   a
 a       A       127.0.0.1

@@ -1,10 +1,11 @@
 ; replace the hickory-dns.org with your own name
+$TTL 24h
 @   IN          SOA     hickory-dns.org. root.hickory-dns.org. (
                                 199609203 ; Serial
                                 8h        ; Refresh
                                 120m      ; Retry
                                 7d        ; Expire
-                                24h)      ; Minimum TTL
+                                24h)      ; Negative response caching TTL
 
                 NS      bbb
 
