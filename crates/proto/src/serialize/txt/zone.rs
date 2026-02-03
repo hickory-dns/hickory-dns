@@ -193,7 +193,7 @@ impl<'a> Parser<'a> {
                     }
                     State::Ttl => match t {
                         Token::CharData(data) => {
-                            cx.ttl = Some(Self::parse_time(&data)?);
+                            cx.ttl.default = Some(Self::parse_time(&data)?);
                             State::StartLine
                         }
                         _ => return Err(ParseError::UnexpectedToken(t)),
@@ -266,7 +266,7 @@ impl<'a> Parser<'a> {
                                 // if it's a number it's a ttl
                                 let result: ParseResult<u32> = Self::parse_time(&data);
                                 if let Ok(ttl) = result {
-                                    cx.ttl = Some(ttl);
+                                    cx.ttl.this = Some(ttl);
                                     State::TtlClassType // hm, should this go to just ClassType?
                                 } else {
                                     // if can parse DNSClass, then class
@@ -418,13 +418,37 @@ impl<'a> Parser<'a> {
     }
 }
 
+#[derive(Default)]
+struct Ttl {
+    default: Option<u32>,
+    last: Option<u32>,
+    this: Option<u32>,
+}
+
+impl Ttl {
+    fn take(&mut self) -> Option<u32> {
+        if let Some(ttl) = self.this.take() {
+            self.last.replace(ttl);
+            return Some(ttl);
+        }
+        if let Some(ttl) = self.default {
+            return Some(ttl);
+        }
+        if let Some(ttl) = self.last {
+            return Some(ttl);
+        }
+
+        None
+    }
+}
+
 struct Context {
     origin: Option<Name>,
     records: BTreeMap<RrKey, RecordSet>,
     class: DNSClass,
     current_name: Option<Name>,
     rtype: Option<RecordType>,
-    ttl: Option<u32>,
+    ttl: Ttl,
 }
 
 impl Context {
@@ -435,7 +459,7 @@ impl Context {
             class: DNSClass::IN,
             current_name: None,
             rtype: None,
-            ttl: None,
+            ttl: Ttl::default(),
         }
     }
 
@@ -461,33 +485,16 @@ impl Context {
             .clone()
             .ok_or_else(|| ParseError::from("record name not specified"))?;
 
-        // slightly annoying, need to grab the TTL, then move rdata into the record,
-        //  then check the Type again and have custom add logic.
-        let set_ttl = match (rtype, self.ttl, &rdata) {
-            // TTL for the SOA is set internally...
-            // expire is for the SOA, minimum is default for records
-            (RecordType::SOA, _, RData::SOA(soa)) => {
-                // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                let set_ttl = soa.expire() as u32; // the spec seems a little inaccurate with u32 and i32
-                if self.ttl.is_none() {
-                    self.ttl = Some(soa.minimum());
-                } // TODO: should this only set it if it's not set?
-                set_ttl
-            }
-            (RecordType::SOA, _, _) => {
-                return ParseResult::Err(ParseError::from(format!(
-                    "invalid RData here, expected SOA: {rdata:?}"
-                )));
-            }
-            (_, Some(ttl), _) => ttl,
-            (_, None, _) => return Err(ParseError::from("record ttl not specified")),
-        };
+        let ttl = self
+            .ttl
+            .take()
+            .ok_or_else(|| ParseError::from("record ttl not specified"))?;
 
         // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
 
         // move the rdata into record...
         name.set_fqdn(true);
-        let mut record = Record::from_rdata(name, set_ttl, rdata);
+        let mut record = Record::from_rdata(name, ttl, rdata);
         record.set_dns_class(self.class);
 
         // add to the map
