@@ -655,7 +655,12 @@ impl ClientSubnet {
 
     fn addr_len(&self) -> u16 {
         let source_prefix = self.source_prefix as u16;
-        source_prefix / 8 + if source_prefix % 8 > 0 { 1 } else { 0 }
+        source_prefix / 8
+            + if !source_prefix.is_multiple_of(8) {
+                1
+            } else {
+                0
+            }
     }
 }
 
