@@ -19,7 +19,7 @@ use std::time::Instant;
 
 use futures_util::{
     FutureExt,
-    future::{self, BoxFuture, Either},
+    future::{self, BoxFuture},
 };
 use tracing::debug;
 
@@ -210,6 +210,7 @@ impl<C: DnsHandle> LookupContext<C> {
             LookupIpStrategy::Ipv4Only => self.ipv4_only(name).await,
             LookupIpStrategy::Ipv6Only => self.ipv6_only(name).await,
             LookupIpStrategy::Ipv4AndIpv6 => self.ipv4_and_ipv6(name).await,
+            LookupIpStrategy::Ipv6AndIpv4 => self.ipv6_and_ipv4(name).await,
             LookupIpStrategy::Ipv6thenIpv4 => self.ipv6_then_ipv4(name).await,
             LookupIpStrategy::Ipv4thenIpv6 => self.ipv4_then_ipv6(name).await,
         }
@@ -227,41 +228,49 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     // TODO: this really needs to have a stream interface
-    /// queries only for A and AAAA in parallel
+    /// queries only for A and AAAA in parallel, ordering A before AAAA
     async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, NetError> {
-        let sel_res = future::select(
-            self.hosts_lookup(Query::query(name.clone(), RecordType::A))
-                .boxed(),
-            self.hosts_lookup(Query::query(name, RecordType::AAAA))
-                .boxed(),
+        self.multi_lookup(
+            Query::query(name.clone(), RecordType::A),
+            Query::query(name, RecordType::AAAA),
+        )
+        .await
+    }
+
+    // TODO: this really needs to have a stream interface
+    /// queries for A and AAAA in parallel, ordering AAAA before A
+    async fn ipv6_and_ipv4(&self, name: Name) -> Result<Lookup, NetError> {
+        self.multi_lookup(
+            Query::query(name.clone(), RecordType::AAAA),
+            Query::query(name, RecordType::A),
+        )
+        .await
+    }
+
+    /// makes two queries in parallel, ordering the result
+    async fn multi_lookup(
+        &self,
+        first_query: Query,
+        second_query: Query,
+    ) -> Result<Lookup, NetError> {
+        let joined_res = future::join(
+            self.hosts_lookup(first_query).boxed(),
+            self.hosts_lookup(second_query).boxed(),
         )
         .await;
 
-        let (ips, remaining_query) = match sel_res {
-            Either::Left(ips_and_remaining) => ips_and_remaining,
-            Either::Right(ips_and_remaining) => ips_and_remaining,
-        };
-
-        let next_ips = remaining_query.await;
-
-        match (ips, next_ips) {
-            (Ok(ips), Ok(next_ips)) => {
+        match joined_res {
+            (Ok(first), Ok(second)) => {
                 // TODO: create a LookupIp enum with the ability to chain these together
-                let ips = ips.append(next_ips);
+                let ips = first.append(second);
                 Ok(ips)
             }
             (Ok(ips), Err(e)) | (Err(e), Ok(ips)) => {
-                debug!(
-                    "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
-                    e
-                );
+                debug!("one of ipv4 or ipv6 lookup failed: {}", e);
                 Ok(ips)
             }
             (Err(e1), Err(e2)) => {
-                debug!(
-                    "both of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy e1: {}, e2: {}",
-                    e1, e2
-                );
+                debug!("both of ipv4 or ipv6 lookup failed e1: {}, e2: {}", e1, e2);
                 Err(e1)
             }
         }
