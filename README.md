@@ -190,6 +190,9 @@ Success for query name: www.example.com. type: A class: IN
         www.example.com. 21063 IN A 93.184.215.14
 ```
 
+## Usage with Docker
+A Docker image with a pre-compiled version of `hickory-dns` is availalbe at https://github.com/hickory-dns/docker.
+
 ## FAQ
 
 - **Why are you building another DNS server?**
