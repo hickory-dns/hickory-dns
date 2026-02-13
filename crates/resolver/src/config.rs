@@ -683,6 +683,8 @@ pub enum LookupIpStrategy {
     /// Query for A and AAAA in parallel, ordering A before AAAA
     #[default]
     Ipv4AndIpv6,
+    /// Query for AAAA and A in parallel, ordering AAAA before A
+    Ipv6AndIpv4,
     /// Query for Ipv6 if that fails, query for Ipv4
     Ipv6thenIpv4,
     /// Query for Ipv4 if that fails, query for Ipv6 (default)
