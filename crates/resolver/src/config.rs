@@ -680,7 +680,7 @@ pub enum LookupIpStrategy {
     Ipv4Only,
     /// Only query for AAAA (Ipv6) records
     Ipv6Only,
-    /// Query for A and AAAA in parallel
+    /// Query for A and AAAA in parallel, ordering A before AAAA
     #[default]
     Ipv4AndIpv6,
     /// Query for Ipv6 if that fails, query for Ipv4

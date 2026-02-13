@@ -19,7 +19,7 @@ use std::time::Instant;
 
 use futures_util::{
     FutureExt,
-    future::{self, BoxFuture, Either},
+    future::{self, BoxFuture},
 };
 use tracing::debug;
 
@@ -227,41 +227,37 @@ impl<C: DnsHandle> LookupContext<C> {
     }
 
     // TODO: this really needs to have a stream interface
-    /// queries only for A and AAAA in parallel
+    /// queries for A and AAAA in parallel, ordering A before AAAA
     async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, NetError> {
-        let sel_res = future::select(
-            self.hosts_lookup(Query::query(name.clone(), RecordType::A))
-                .boxed(),
-            self.hosts_lookup(Query::query(name, RecordType::AAAA))
-                .boxed(),
+        self.multi_lookup(name, RecordType::A, RecordType::AAAA)
+            .await
+    }
+
+    /// makes queries for both RecordTypes in parallel, ordering the result
+    async fn multi_lookup(
+        &self,
+        name: Name,
+        first_type: RecordType,
+        second_type: RecordType,
+    ) -> Result<Lookup, NetError> {
+        let joined_res = future::join(
+            self.hosts_lookup(Query::query(name.clone(), first_type)),
+            self.hosts_lookup(Query::query(name, second_type)),
         )
         .await;
 
-        let (ips, remaining_query) = match sel_res {
-            Either::Left(ips_and_remaining) => ips_and_remaining,
-            Either::Right(ips_and_remaining) => ips_and_remaining,
-        };
-
-        let next_ips = remaining_query.await;
-
-        match (ips, next_ips) {
-            (Ok(ips), Ok(next_ips)) => {
+        match joined_res {
+            (Ok(first), Ok(second)) => {
                 // TODO: create a LookupIp enum with the ability to chain these together
-                let ips = ips.append(next_ips);
+                let ips = first.append(second);
                 Ok(ips)
             }
             (Ok(ips), Err(e)) | (Err(e), Ok(ips)) => {
-                debug!(
-                    "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
-                    e
-                );
+                debug!("one of ipv4 or ipv6 lookup failed: {e}");
                 Ok(ips)
             }
             (Err(e1), Err(e2)) => {
-                debug!(
-                    "both of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy e1: {}, e2: {}",
-                    e1, e2
-                );
+                debug!("both of ipv4 or ipv6 lookup failed e1: {e1}, e2: {e2}");
                 Err(e1)
             }
         }
@@ -442,7 +438,7 @@ pub(crate) mod tests {
             hosts: Arc::new(Hosts::default()),
         };
 
-        // ipv6 is consistently queried first (even though the select has it second)
+        // ipv6 is consistently queried first (even though the join has it second)
         // both succeed
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
