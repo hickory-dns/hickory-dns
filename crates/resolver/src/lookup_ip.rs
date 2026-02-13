@@ -295,19 +295,9 @@ impl<C: DnsHandle> LookupContext<C> {
             .await;
 
         match res {
-            Ok(ips) => {
-                if ips.answers().is_empty() {
-                    // no ips returns, NXDomain or Otherwise, doesn't matter
-                    self.hosts_lookup(Query::query(name.clone(), second_type))
-                        .await
-                } else {
-                    Ok(ips)
-                }
-            }
-            Err(_) => {
-                self.hosts_lookup(Query::query(name.clone(), second_type))
-                    .await
-            }
+            Ok(ips) if !ips.answers().is_empty() => Ok(ips),
+            // no ips returned, NXDomain or Otherwise, doesn't matter
+            _ => self.hosts_lookup(Query::query(name, second_type)).await,
         }
     }
 
