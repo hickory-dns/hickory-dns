@@ -210,6 +210,7 @@ impl<C: DnsHandle> LookupContext<C> {
             LookupIpStrategy::Ipv4Only => self.ipv4_only(name).await,
             LookupIpStrategy::Ipv6Only => self.ipv6_only(name).await,
             LookupIpStrategy::Ipv4AndIpv6 => self.ipv4_and_ipv6(name).await,
+            LookupIpStrategy::Ipv6AndIpv4 => self.ipv6_and_ipv4(name).await,
             LookupIpStrategy::Ipv6thenIpv4 => self.ipv6_then_ipv4(name).await,
             LookupIpStrategy::Ipv4thenIpv6 => self.ipv4_then_ipv6(name).await,
         }
@@ -230,6 +231,13 @@ impl<C: DnsHandle> LookupContext<C> {
     /// queries for A and AAAA in parallel, ordering A before AAAA
     async fn ipv4_and_ipv6(&self, name: Name) -> Result<Lookup, NetError> {
         self.multi_lookup(name, RecordType::A, RecordType::AAAA)
+            .await
+    }
+
+    // TODO: this really needs to have a stream interface
+    /// queries for AAAA and A in parallel, ordering AAAA before A
+    async fn ipv6_and_ipv4(&self, name: Name) -> Result<Lookup, NetError> {
+        self.multi_lookup(name, RecordType::AAAA, RecordType::A)
             .await
     }
 
@@ -493,6 +501,80 @@ pub(crate) mod tests {
         cx.client = CachingClient::new(0, mock(vec![v6_message(), error()]), false);
         assert_eq!(
             block_on(cx.ipv4_and_ipv6(Name::root()))
+                .unwrap()
+                .answers()
+                .iter()
+                .map(|r| r.data().ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
+            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+        );
+    }
+
+    #[test]
+    fn test_ipv6_and_ipv4_strategy() {
+        subscribe();
+
+        let mut cx = LookupContext {
+            client: CachingClient::new(0, mock(vec![v4_message(), v6_message()]), false),
+            options: DnsRequestOptions::default(),
+            hosts: Arc::new(Hosts::default()),
+        };
+
+        // ipv4 is consistently queried first (even though the join has it second)
+        // both succeed
+        assert_eq!(
+            block_on(cx.ipv6_and_ipv4(Name::root()))
+                .unwrap()
+                .answers()
+                .iter()
+                .map(|r| r.data().ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
+            vec![
+                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+            ]
+        );
+
+        // only ipv4 available
+        cx.client = CachingClient::new(0, mock(vec![v4_message(), empty()]), false);
+        assert_eq!(
+            block_on(cx.ipv6_and_ipv4(Name::root()))
+                .unwrap()
+                .answers()
+                .iter()
+                .map(|r| r.data().ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
+            vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
+        );
+
+        // v6 errors, v4 succeeds
+        cx.client = CachingClient::new(0, mock(vec![v4_message(), error()]), false);
+        assert_eq!(
+            block_on(cx.ipv6_and_ipv4(Name::root()))
+                .unwrap()
+                .answers()
+                .iter()
+                .map(|r| r.data().ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
+            vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
+        );
+
+        // only ipv6 available
+        cx.client = CachingClient::new(0, mock(vec![empty(), v6_message()]), false);
+        assert_eq!(
+            block_on(cx.ipv6_and_ipv4(Name::root()))
+                .unwrap()
+                .answers()
+                .iter()
+                .map(|r| r.data().ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
+            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+        );
+
+        // v4 errors, v6 succeeds
+        cx.client = CachingClient::new(0, mock(vec![error(), v6_message()]), false);
+        assert_eq!(
+            block_on(cx.ipv6_and_ipv4(Name::root()))
                 .unwrap()
                 .answers()
                 .iter()
