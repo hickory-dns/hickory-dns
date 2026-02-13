@@ -11,7 +11,10 @@ use hickory_net::{
 };
 use hickory_proto::{
     op::{DnsRequestOptions, DnsResponse, Query},
-    rr::{DNSClass, Name, RData, Record, RecordType, rdata::A},
+    rr::{
+        DNSClass, Name, RData, Record, RecordType,
+        rdata::{A, AAAA},
+    },
 };
 use hickory_resolver::{
     Hosts, LookupFuture, caching_client::CachingClient, config::LookupIpStrategy, lookup::Lookup,
@@ -69,13 +72,16 @@ async fn test_lookup_hosts() {
     let record = Record::from_rdata(
         Name::from_str("www.example.com.").unwrap(),
         86400,
-        RData::A(A::new(10, 0, 1, 104)),
+        RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
     );
     hosts.insert(
         Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
+        RecordType::AAAA,
         Lookup::new_with_max_ttl(
-            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            Query::query(
+                Name::from_str("www.example.com.").unwrap(),
+                RecordType::AAAA,
+            ),
             [record],
         ),
     );
@@ -90,7 +96,10 @@ async fn test_lookup_hosts() {
     );
     let lookup = lookup.await.unwrap();
 
-    assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
+    assert_eq!(
+        lookup.iter().next().unwrap(),
+        Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)
+    );
 }
 
 fn create_ip_like_example() -> InMemoryZoneHandler {
