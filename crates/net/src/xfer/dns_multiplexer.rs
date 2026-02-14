@@ -22,7 +22,7 @@ use futures_util::{
     ready,
     stream::{Stream, StreamExt},
 };
-use rand::Rng;
+use rand::RngExt;
 use tracing::debug;
 
 use super::{

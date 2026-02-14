@@ -54,7 +54,7 @@ mod no_std_rand {
 
     use critical_section::Mutex;
     use rand::distr::{Distribution, StandardUniform};
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// Generates a random value on `no_std`.
     ///
