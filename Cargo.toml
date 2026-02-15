@@ -114,7 +114,7 @@ socket2 = "0.6"
 system-configuration = "0.7"
 time = "0.3"
 tinyvec = "1.1.1"
-toml = "0.9"
+toml = "1.0.1"
 url = { version = "2.5.4", default-features = false }
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 
