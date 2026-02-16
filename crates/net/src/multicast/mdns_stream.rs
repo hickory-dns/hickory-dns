@@ -10,7 +10,7 @@ use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use futures_util::{
     FutureExt,
@@ -18,7 +18,6 @@ use futures_util::{
     ready,
     stream::{Stream, StreamExt},
 };
-use once_cell::sync::Lazy;
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
 use tracing::{debug, trace};
@@ -31,10 +30,10 @@ use crate::udp::UdpStream;
 
 pub(crate) const MDNS_PORT: u16 = 5353;
 /// mDNS ipv4 address, see [multicast-addresses](https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml)
-pub static MDNS_IPV4: Lazy<SocketAddr> =
-    Lazy::new(|| SocketAddr::new(Ipv4Addr::new(224, 0, 0, 251).into(), MDNS_PORT));
+pub static MDNS_IPV4: LazyLock<SocketAddr> =
+    LazyLock::new(|| SocketAddr::new(Ipv4Addr::new(224, 0, 0, 251).into(), MDNS_PORT));
 /// link-local mDNS ipv6 address, see [ipv6-multicast-addresses](https://www.iana.org/assignments/ipv6-multicast-addresses/ipv6-multicast-addresses.xhtml)
-pub static MDNS_IPV6: Lazy<SocketAddr> = Lazy::new(|| {
+pub static MDNS_IPV6: LazyLock<SocketAddr> = LazyLock::new(|| {
     SocketAddr::new(
         Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FB).into(),
         MDNS_PORT,
@@ -419,9 +418,9 @@ impl Future for NextRandomUdpSocket {
 pub(crate) mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use std::println;
-
     use futures_util::future::Either;
+    use std::println;
+    use std::sync::LazyLock;
     use test_support::subscribe;
     use tokio::runtime;
 
@@ -432,10 +431,11 @@ pub(crate) mod tests {
     const BASE_TEST_PORT: u16 = 5379;
 
     /// 250 appears to be unused/unregistered
-    static TEST_MDNS_IPV4: Lazy<IpAddr> = Lazy::new(|| Ipv4Addr::new(224, 0, 0, 250).into());
+    static TEST_MDNS_IPV4: LazyLock<IpAddr> =
+        LazyLock::new(|| Ipv4Addr::new(224, 0, 0, 250).into());
     /// FA appears to be unused/unregistered
-    static TEST_MDNS_IPV6: Lazy<IpAddr> =
-        Lazy::new(|| Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into());
+    static TEST_MDNS_IPV6: LazyLock<IpAddr> =
+        LazyLock::new(|| Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into());
 
     // one_shot tests are basically clones from the udp tests
     #[tokio::test]

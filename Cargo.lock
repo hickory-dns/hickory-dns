@@ -844,7 +844,6 @@ dependencies = [
  "ipnet",
  "jni",
  "lru-cache",
- "once_cell",
  "parking_lot",
  "pin-project-lite",
  "quinn",
