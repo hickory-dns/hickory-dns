@@ -71,7 +71,6 @@ http = { workspace = true, optional = true }
 idna.workspace = true
 ipnet.workspace = true
 lru-cache = { workspace = true, optional = true }
-once_cell = { workspace = true }
 parking_lot = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["log", "runtime-tokio"] }

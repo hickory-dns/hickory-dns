@@ -684,7 +684,6 @@ dependencies = [
  "ipnet",
  "jni",
  "lru-cache",
- "once_cell",
  "parking_lot",
  "rand 0.10.0",
  "ring",
