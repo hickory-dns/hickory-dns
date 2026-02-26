@@ -927,7 +927,7 @@ pub const QUAD9: ServerGroup<'static> = ServerGroup {
         IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
         IpAddr::V4(Ipv4Addr::new(149, 112, 112, 112)),
         IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
-        IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
+        IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x0009)),
     ],
     server_name: "dns.quad9.net",
     path: "/dns-query",
