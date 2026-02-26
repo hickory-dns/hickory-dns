@@ -95,7 +95,7 @@ hostname = "0.4"
 idna = { version = "1.0.3", default-features = false, features = ["alloc", "compiled_data"] }
 ipconfig = "0.3.0"
 ipnet = { version = "2.3.0", default-features = false }
-jni = "0.21.1"
+jni = "0.22.1"
 js-sys = "0.3.44"
 libc = "0.2"
 lru-cache = "0.1.2"
