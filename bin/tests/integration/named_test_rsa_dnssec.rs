@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 use crate::server_harness::{TestServer, query_a, query_all_dnssec};
 use futures_util::TryStreamExt;
-use hickory_dns::dnssec::key_from_file;
 use hickory_net::DnsHandle;
 use hickory_net::client::Client;
 use hickory_net::dnssec::DnssecDnsHandle;
@@ -18,8 +17,9 @@ use hickory_net::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
 use hickory_proto::{
     dnssec::{Algorithm, TrustAnchors},
     op::{DnsRequestOptions, Query},
-    rr::RecordType,
+    rr::{Record, RecordData, RecordType},
 };
+use std::str::FromStr;
 use test_support::subscribe;
 
 #[cfg(feature = "__dnssec")]
@@ -27,12 +27,37 @@ fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
 
-fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchors> {
-    let key_pair = key_from_file(public_key_path, algorithm).unwrap();
-    let public_key = key_pair.to_public_key().unwrap();
+async fn trust_anchor_from_all_dnskeys<P: RuntimeProvider>(
+    client: &mut Client<P>,
+) -> Arc<TrustAnchors> {
+    use hickory_proto::dnssec::rdata::DNSKEY;
+    use hickory_proto::rr::Name;
+
+    let name = Name::from_str("example.com.").unwrap();
+    let query = Query::query(name, RecordType::DNSKEY);
+    let mut options = DnsRequestOptions::default();
+    options.use_edns = true;
+    options.edns_set_dnssec_ok = true;
+
+    let response = client
+        .lookup(query, options)
+        .try_next()
+        .await
+        .expect("DNSKEY query failed")
+        .expect("DNSKEY query returned no response");
+
     let mut trust_anchor = TrustAnchors::empty();
 
-    trust_anchor.insert(&public_key);
+    for dnskey in response
+        .answers()
+        .iter()
+        .map(Record::data)
+        .filter_map(DNSKEY::try_borrow)
+    {
+        let public_key = dnskey.public_key();
+        trust_anchor.insert(public_key);
+    }
+
     Arc::new(trust_anchor)
 }
 
@@ -48,13 +73,10 @@ async fn standard_tcp_conn<P: RuntimeProvider>(
     Client::<P>::new(future.await.expect("new Client failed"), sender)
 }
 
-async fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
+async fn generic_test(config_toml: &str, _key_path: &str, algorithm: Algorithm) {
     // TODO: look into the `test-log` crate for enabling logging during tests
     // use hickory_net::client::logger;
     // use tracing::LogLevel;
-
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    let server_path = Path::new(&server_path);
     let provider = TokioRuntimeProvider::new();
 
     let server = TestServer::start(config_toml);
@@ -66,9 +88,10 @@ async fn generic_test(config_toml: &str, key_path: &str, algorithm: Algorithm) {
     query_all_dnssec(client, algorithm).await;
 
     // test that request with Dnssec client is successful, i.e. validates chain
-    let trust_anchor = trust_anchor(&server_path.join(key_path), algorithm);
-    let (client, bg) = standard_tcp_conn(tcp_port.expect("no tcp port"), provider).await;
+    let (mut client, bg) = standard_tcp_conn(tcp_port.expect("no tcp port"), provider).await;
     tokio::spawn(bg);
+    // Query all DNSKEYs from the server and add them all to the trust anchor
+    let trust_anchor = trust_anchor_from_all_dnskeys(&mut client).await;
     let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
     query_a(&mut client).await;
