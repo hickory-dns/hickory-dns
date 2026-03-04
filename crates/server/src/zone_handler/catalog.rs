@@ -1002,18 +1002,30 @@ async fn build_authoritative_response(
     };
 
     // everything is done, construct a Message with all sections.
-    let (answers, additionals) = match answers {
-        Some(mut answers) => match answers.take_additionals() {
-            Some(additionals) => (
-                answers,
-                AuthLookup::Records {
+    let (answers, authorities, additionals) = match answers {
+        Some(mut answers) => {
+            // Check if this is a referral, i.e. NS records for a non-NS query
+            let is_referral = answers.iter().next().map_or(false, |r| {
+                r.record_type() == RecordType::NS
+                    && query.query_type() != RecordType::NS
+                    && query.query_type() != RecordType::ANY
+            });
+
+            let additionals = match answers.take_additionals() {
+                Some(additionals) => AuthLookup::Records {
                     answers: additionals,
                     additionals: None,
                 },
-            ),
-            None => (answers, AuthLookup::default()),
-        },
-        None => (AuthLookup::default(), AuthLookup::default()),
+                None => AuthLookup::default(),
+            };
+
+            if is_referral {
+                (AuthLookup::default(), Some(answers), additionals)
+            } else {
+                (answers, None, additionals)
+            }
+        }
+        None => (AuthLookup::default(), None, AuthLookup::default()),
     };
 
     message.set_header(response_header);
@@ -1021,6 +1033,12 @@ async fn build_authoritative_response(
 
     if let Some(ns_records) = ns {
         message.authorities_mut().extend(ns_records.iter().cloned());
+    }
+
+    if let Some(authority_records) = authorities {
+        message
+            .authorities_mut()
+            .extend(authority_records.iter().cloned());
     }
 
     if let Some(soa_records) = soa {
@@ -1344,5 +1362,49 @@ mod tests {
             "Additionals section should not be empty, got {} records",
             additionals_count
         );
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn test_build_authoritative_response_referral() {
+        use crate::net::runtime::TokioRuntimeProvider;
+        use crate::proto::rr::rdata::NS;
+        use crate::store::in_memory::InMemoryZoneHandler;
+        use crate::zone_handler::AxfrPolicy;
+        use std::str::FromStr;
+
+        let origin = Name::from_str("example.com.").unwrap();
+        let sub = Name::from_str("sub.example.com.").unwrap();
+        let ns_name = Name::from_str("ns.example.com.").unwrap();
+
+        let ns_record = Record::from_rdata(sub.clone(), 3600, RData::NS(NS(ns_name)));
+        let mut record_set = RecordSet::from(ns_record);
+        record_set.set_name(sub.clone());
+
+        let auth_lookup = AuthLookup::Records {
+            answers: LookupRecords::new(LookupOptions::default(), Arc::new(record_set)),
+            additionals: None,
+        };
+
+        let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+            origin.clone(),
+            ZoneType::Primary,
+            AxfrPolicy::Deny,
+            #[cfg(feature = "__dnssec")]
+            None,
+        );
+
+        let header = Header::new();
+        let query = LowerQuery::from(Query::query(
+            Name::from_str("www.sub.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        let message =
+            build_authoritative_response(Ok(auth_lookup), &handler, &header, LookupOptions::default(), 0, &query).await;
+
+        assert!(message.answers().is_empty());
+        assert!(!message.authorities().is_empty());
+        assert_eq!(message.authorities()[0].record_type(), RecordType::NS);
     }
 }

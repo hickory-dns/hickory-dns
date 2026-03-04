@@ -200,6 +200,34 @@ impl InnerInMemory {
         record_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
+        // Check for delegation
+        let mut search_name = name.clone();
+        loop {
+            let ns_key = RrKey::new(search_name.clone(), RecordType::NS);
+            if let Some(ns_rrset) = self.records.get(&ns_key) {
+                // We found an NS record, now we need to check if it is the SOA
+                //   if it is the SOA, then it is not a delegation
+                let soa_key = RrKey::new(search_name.clone(), RecordType::SOA);
+                if !self.records.contains_key(&soa_key) {
+                    // If the request is for a DS record, we should not return a referral, as the DS record resides in the parent zone.
+                    //   and we are at the delegation point
+                    if record_type == RecordType::DS && search_name == *name {
+                        break;
+                    }
+
+                    return Some(ns_rrset.clone());
+                }
+
+                // If we found the SOA, we are at the top of the zone, so we stop searching
+                break;
+            }
+
+            if search_name.is_root() {
+                break;
+            }
+            search_name = search_name.base_name();
+        }
+
         // this range covers all the records for any of the RecordTypes at a given label.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
         let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
@@ -867,4 +895,59 @@ fn finish_nsec_record(
 ) -> Record {
     let rdata = NSEC::new_cover_self(next_name.clone(), mem::take(record_type_set));
     Record::from_rdata(name.clone(), ttl, RData::DNSSEC(DNSSECRData::NSEC(rdata)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proto::rr::{rdata::NS, Name, Record};
+    use std::str::FromStr;
+
+    #[test]
+    fn test_inner_lookup_delegation() {
+        let origin = Name::from_str("example.com.").unwrap();
+        let sub = Name::from_str("sub.example.com.").unwrap();
+        let ns_name = Name::from_str("ns.example.com.").unwrap();
+        let mut inner = InnerInMemory::default();
+
+        // Add SOA for example.com
+        let soa = Record::from_rdata(
+            origin.clone(),
+            3600,
+            RData::SOA(SOA::new(
+                ns_name.clone(),
+                Name::from_str("hostmaster.example.com.").unwrap(),
+                1,
+                3600,
+                3600,
+                3600,
+                3600,
+            )),
+        );
+        inner.upsert(soa, 1, DNSClass::IN);
+
+        // Add NS delegation for sub.example.com
+        let ns = Record::from_rdata(sub.clone(), 3600, RData::NS(NS(ns_name.clone())));
+        inner.upsert(ns, 1, DNSClass::IN);
+
+        // Lookup A record in sub.example.com (should return referral)
+        let query_name = Name::from_str("www.sub.example.com.").unwrap();
+        let result = inner.inner_lookup(&query_name.into(), RecordType::A, LookupOptions::default());
+
+        assert!(result.is_some());
+        let rrset = result.unwrap();
+        assert_eq!(rrset.record_type(), RecordType::NS);
+        assert_eq!(rrset.name(), &sub);
+
+        // Lookup DS record at delegation point (should NOT return referral)
+        let result = inner.inner_lookup(&sub.clone().into(), RecordType::DS, LookupOptions::default());
+        assert!(result.is_none());
+
+        // Lookup NS record at delegation point (should return NS record)
+        let result = inner.inner_lookup(&sub.clone().into(), RecordType::NS, LookupOptions::default());
+        assert!(result.is_some());
+        let rrset = result.unwrap();
+        assert_eq!(rrset.record_type(), RecordType::NS);
+        assert_eq!(rrset.name(), &sub);
+    }
 }
