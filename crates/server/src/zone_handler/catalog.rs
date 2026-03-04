@@ -1002,22 +1002,27 @@ async fn build_authoritative_response(
     };
 
     // everything is done, construct a Message with all sections.
-    let (answers, additionals) = match answers {
-        Some(mut answers) => match answers.take_additionals() {
-            Some(additionals) => (
-                answers,
-                AuthLookup::Records {
-                    answers: additionals,
-                    additionals: None,
-                },
-            ),
-            None => (answers, AuthLookup::default()),
-        },
-        None => (AuthLookup::default(), AuthLookup::default()),
-    };
-
     message.set_header(response_header);
-    message.answers_mut().extend(answers.iter().cloned());
+
+    if let Some(mut lookup_records) = answers {
+        if let Some(adds) = lookup_records.take_additionals() {
+            message.additionals_mut().extend(adds.iter().cloned());
+        }
+
+        let is_referral = lookup_records.iter().next().is_some_and(|r| {
+            r.record_type() == RecordType::NS
+                && query.query_type() != RecordType::NS
+                && query.query_type() != RecordType::ANY
+        });
+
+        if is_referral {
+            message
+                .authorities_mut()
+                .extend(lookup_records.iter().cloned());
+        } else {
+            message.answers_mut().extend(lookup_records.iter().cloned());
+        }
+    }
 
     if let Some(ns_records) = ns {
         message.authorities_mut().extend(ns_records.iter().cloned());
@@ -1028,10 +1033,6 @@ async fn build_authoritative_response(
             .authorities_mut()
             .extend(soa_records.iter().cloned());
     }
-
-    message
-        .additionals_mut()
-        .extend(additionals.iter().cloned());
 
     message
 }
@@ -1263,7 +1264,11 @@ async fn build_forwarded_response(
 
 #[cfg(all(test, feature = "resolver"))]
 mod tests {
+    use std::{net::Ipv4Addr, str::FromStr};
+
     use super::*;
+    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::proto::rr::rdata::NS;
     use crate::proto::{
         op::{MessageType, OpCode, Query},
         rr::{
@@ -1272,7 +1277,8 @@ mod tests {
         },
     };
     use crate::resolver::lookup::Lookup;
-    use std::{net::Ipv4Addr, str::FromStr};
+    use crate::store::in_memory::InMemoryZoneHandler;
+    use crate::zone_handler::AxfrPolicy;
 
     #[tokio::test]
     async fn test_build_forwarded_response_preserves_sections() {
@@ -1344,5 +1350,48 @@ mod tests {
             "Additionals section should not be empty, got {} records",
             additionals_count
         );
+    }
+
+    #[tokio::test]
+    async fn test_build_authoritative_response_referral() {
+        let origin = Name::from_str("example.com.").unwrap();
+        let sub = Name::from_str("sub.example.com.").unwrap();
+        let ns_name = Name::from_str("ns.example.com.").unwrap();
+
+        let ns_record = Record::from_rdata(sub.clone(), 3600, RData::NS(NS(ns_name)));
+        let record_set = RecordSet::from(ns_record);
+
+        let auth_lookup = AuthLookup::Records {
+            answers: LookupRecords::new(LookupOptions::default(), Arc::new(record_set)),
+            additionals: None,
+        };
+
+        let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+            origin.clone(),
+            ZoneType::Primary,
+            AxfrPolicy::Deny,
+            #[cfg(feature = "__dnssec")]
+            None,
+        );
+
+        let header = Header::new(0, MessageType::Query, OpCode::Query);
+        let query = LowerQuery::from(Query::query(
+            Name::from_str("www.sub.example.com.").unwrap(),
+            RecordType::A,
+        ));
+
+        let message = build_authoritative_response(
+            Ok(auth_lookup),
+            &handler,
+            &header,
+            LookupOptions::default(),
+            0,
+            &query,
+        )
+        .await;
+
+        assert!(message.answers().is_empty());
+        assert!(!message.authorities().is_empty());
+        assert_eq!(message.authorities()[0].record_type(), RecordType::NS);
     }
 }
