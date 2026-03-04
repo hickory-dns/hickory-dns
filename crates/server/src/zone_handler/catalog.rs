@@ -1400,8 +1400,15 @@ mod tests {
             RecordType::A,
         ));
 
-        let message =
-            build_authoritative_response(Ok(auth_lookup), &handler, &header, LookupOptions::default(), 0, &query).await;
+        let message = build_authoritative_response(
+            Ok(auth_lookup),
+            &handler,
+            &header,
+            LookupOptions::default(),
+            0,
+            &query,
+        )
+        .await;
 
         assert!(message.answers().is_empty());
         assert!(!message.authorities().is_empty());

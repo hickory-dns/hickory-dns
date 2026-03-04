@@ -900,7 +900,7 @@ fn finish_nsec_record(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::rr::{rdata::NS, Name, Record};
+    use crate::proto::rr::{Name, Record, rdata::NS};
     use std::str::FromStr;
 
     #[test]
@@ -932,7 +932,8 @@ mod tests {
 
         // Lookup A record in sub.example.com (should return referral)
         let query_name = Name::from_str("www.sub.example.com.").unwrap();
-        let result = inner.inner_lookup(&query_name.into(), RecordType::A, LookupOptions::default());
+        let result =
+            inner.inner_lookup(&query_name.into(), RecordType::A, LookupOptions::default());
 
         assert!(result.is_some());
         let rrset = result.unwrap();
@@ -940,11 +941,19 @@ mod tests {
         assert_eq!(rrset.name(), &sub);
 
         // Lookup DS record at delegation point (should NOT return referral)
-        let result = inner.inner_lookup(&sub.clone().into(), RecordType::DS, LookupOptions::default());
+        let result = inner.inner_lookup(
+            &sub.clone().into(),
+            RecordType::DS,
+            LookupOptions::default(),
+        );
         assert!(result.is_none());
 
         // Lookup NS record at delegation point (should return NS record)
-        let result = inner.inner_lookup(&sub.clone().into(), RecordType::NS, LookupOptions::default());
+        let result = inner.inner_lookup(
+            &sub.clone().into(),
+            RecordType::NS,
+            LookupOptions::default(),
+        );
         assert!(result.is_some());
         let rrset = result.unwrap();
         assert_eq!(rrset.record_type(), RecordType::NS);
