@@ -1364,7 +1364,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_build_authoritative_response_referral() {
         use crate::net::runtime::TokioRuntimeProvider;
