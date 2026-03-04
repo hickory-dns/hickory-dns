@@ -1005,7 +1005,7 @@ async fn build_authoritative_response(
     let (answers, authorities, additionals) = match answers {
         Some(mut answers) => {
             // Check if this is a referral, i.e. NS records for a non-NS query
-            let is_referral = answers.iter().next().map_or(false, |r| {
+            let is_referral = answers.iter().next().is_some_and(|r| {
                 r.record_type() == RecordType::NS
                     && query.query_type() != RecordType::NS
                     && query.query_type() != RecordType::ANY
@@ -1377,8 +1377,7 @@ mod tests {
         let ns_name = Name::from_str("ns.example.com.").unwrap();
 
         let ns_record = Record::from_rdata(sub.clone(), 3600, RData::NS(NS(ns_name)));
-        let mut record_set = RecordSet::from(ns_record);
-        record_set.set_name(sub.clone());
+        let record_set = RecordSet::from(ns_record);
 
         let auth_lookup = AuthLookup::Records {
             answers: LookupRecords::new(LookupOptions::default(), Arc::new(record_set)),
@@ -1393,7 +1392,7 @@ mod tests {
             None,
         );
 
-        let header = Header::new();
+        let header = Header::new(0, MessageType::Query, OpCode::Query);
         let query = LowerQuery::from(Query::query(
             Name::from_str("www.sub.example.com.").unwrap(),
             RecordType::A,
