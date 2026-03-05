@@ -45,10 +45,10 @@ jobs:
       # driver. Additionally, make `docker build` an alias to
       # `docker buildx build`.
       - uses: docker/setup-buildx-action@v4
+        id: setup-buildx
         with:
           driver: docker-container
           use: true
-          install: true
       # Expose the GitHub runtime via environment variables
       # (`ACTIONS_RUNTIME_TOKEN` and `ACTIONS_RUNTIME_URL`). This is needed by
       # the `gha` cache backend. These values are normally only available to
@@ -57,3 +57,5 @@ jobs:
 
       - name: ${{ matrix.suite }}
         run: just ${{ matrix.suite }}
+        env:
+          BUILDX_BUILDER: ${{ steps.setup-buildx.outputs.name }}
