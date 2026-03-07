@@ -267,6 +267,10 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
         }
 
+        if self.cx.options.happy_eyeballs {
+            servers = interleave_by_address_family(servers);
+        }
+
         // If the name server we're trying is giving us backpressure by returning NetErrorKind::Busy,
         // we will first try the other name servers (as for other error types). However, if the other
         // servers are also busy, we're going to wait for a little while and then retry each server that
@@ -347,8 +351,8 @@ impl<P: ConnectionProvider> PoolState<P> {
                     }
                     // If the server is busy, try it again later if necessary.
                     NetError::Busy => busy.push(server),
-                    // If the connection failed, try another one.
-                    NetError::Io(_) | NetError::NoConnections => {}
+                    // If the connection failed or timed out, try another one.
+                    NetError::Io(_) | NetError::NoConnections | NetError::Timeout => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
                     NetError::Dns(DnsError::NoRecordsFound(NoRecords {
@@ -391,6 +395,51 @@ fn most_specific(previous: NetError, current: NetError) -> NetError {
     }
 
     previous
+}
+
+/// Interleave servers by address family so IPv4 and IPv6 servers alternate.
+///
+/// Expects `servers` to already be sorted (e.g., by SRTT). Preserves the relative order within
+/// each family. The family whose first server has the lower SRTT goes first.
+///
+/// Combined with `num_concurrent_reqs >= 2` this gives Happy Eyeballs-style behavior: both
+/// address families are tried concurrently and whichever responds first wins.
+fn interleave_by_address_family<P: ConnectionProvider>(
+    servers: Vec<Arc<NameServer<P>>>,
+) -> Vec<Arc<NameServer<P>>> {
+    let mut v4 = servers.iter().filter(|s| s.ip().is_ipv4());
+    let mut v6 = servers.iter().filter(|s| s.ip().is_ipv6());
+
+    let (Some(first_v4), Some(first_v6)) = (v4.next(), v6.next()) else {
+        return servers;
+    };
+
+    let mut take_v4 = first_v4.decayed_srtt() <= first_v6.decayed_srtt();
+    let mut result = Vec::with_capacity(servers.len());
+
+    let (mut next_v4, mut next_v6) = (Some(first_v4), Some(first_v6));
+    loop {
+        let next = if take_v4 {
+            next_v4.take().or_else(|| next_v6.take())
+        } else {
+            next_v6.take().or_else(|| next_v4.take())
+        };
+
+        let Some(server) = next else { break };
+        result.push(server.clone());
+        take_v4 = !take_v4;
+
+        if next_v4.is_none() {
+            next_v4 = v4.next();
+        }
+        if next_v6.is_none() {
+            next_v6 = v6.next();
+        }
+        if next_v4.is_none() && next_v6.is_none() {
+            break;
+        }
+    }
+    result
 }
 
 /// Context for a [`NameServerPool`]
@@ -1024,5 +1073,58 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
+    }
+
+    #[test]
+    fn test_interleave_by_address_family() {
+        let conn_provider = TokioRuntimeProvider::default();
+        let opts = ResolverOpts::default();
+
+        let make_ns = |ip: IpAddr| -> Arc<NameServer<TokioRuntimeProvider>> {
+            Arc::new(NameServer::new(
+                [],
+                NameServerConfig::udp(ip),
+                &opts,
+                conn_provider.clone(),
+            ))
+        };
+
+        let v4_1: IpAddr = [1, 1, 1, 1].into();
+        let v4_2: IpAddr = [8, 8, 8, 8].into();
+        let v6_1: IpAddr = "2606:4700::1".parse().unwrap();
+        let v6_2: IpAddr = "2001:4860:4860::8888".parse().unwrap();
+
+        // Mixed: should interleave
+        let servers = vec![make_ns(v4_1), make_ns(v4_2), make_ns(v6_1), make_ns(v6_2)];
+        let result = interleave_by_address_family(servers);
+        let ips: Vec<IpAddr> = result.iter().map(|s| s.ip()).collect();
+        // First two should be from different families
+        assert_ne!(ips[0].is_ipv4(), ips[1].is_ipv4());
+        assert_eq!(ips.len(), 4);
+
+        // Only IPv4: no change
+        let servers = vec![make_ns(v4_1), make_ns(v4_2)];
+        let result = interleave_by_address_family(servers);
+        let ips: Vec<IpAddr> = result.iter().map(|s| s.ip()).collect();
+        assert_eq!(ips, vec![v4_1, v4_2]);
+
+        // Only IPv6: no change
+        let servers = vec![make_ns(v6_1), make_ns(v6_2)];
+        let result = interleave_by_address_family(servers);
+        let ips: Vec<IpAddr> = result.iter().map(|s| s.ip()).collect();
+        assert_eq!(ips, vec![v6_1, v6_2]);
+
+        // Empty
+        let servers: Vec<Arc<NameServer<TokioRuntimeProvider>>> = vec![];
+        let result = interleave_by_address_family(servers);
+        assert!(result.is_empty());
+
+        // Unequal counts: 3 v4, 1 v6
+        let v4_3: IpAddr = [9, 9, 9, 9].into();
+        let servers = vec![make_ns(v4_1), make_ns(v4_2), make_ns(v4_3), make_ns(v6_1)];
+        let result = interleave_by_address_family(servers);
+        let ips: Vec<IpAddr> = result.iter().map(|s| s.ip()).collect();
+        assert_ne!(ips[0].is_ipv4(), ips[1].is_ipv4());
+        assert_eq!(ips.len(), 4);
     }
 }
