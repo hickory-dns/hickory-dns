@@ -1002,43 +1002,30 @@ async fn build_authoritative_response(
     };
 
     // everything is done, construct a Message with all sections.
-    let (answers, authorities, additionals) = match answers {
-        Some(mut answers) => {
-            // Check if this is a referral, i.e. NS records for a non-NS query
-            let is_referral = answers.iter().next().is_some_and(|r| {
-                r.record_type() == RecordType::NS
-                    && query.query_type() != RecordType::NS
-                    && query.query_type() != RecordType::ANY
-            });
-
-            let additionals = match answers.take_additionals() {
-                Some(additionals) => AuthLookup::Records {
-                    answers: additionals,
-                    additionals: None,
-                },
-                None => AuthLookup::default(),
-            };
-
-            if is_referral {
-                (AuthLookup::default(), Some(answers), additionals)
-            } else {
-                (answers, None, additionals)
-            }
-        }
-        None => (AuthLookup::default(), None, AuthLookup::default()),
-    };
-
     message.set_header(response_header);
-    message.answers_mut().extend(answers.iter().cloned());
+
+    if let Some(mut lookup_records) = answers {
+        if let Some(adds) = lookup_records.take_additionals() {
+            message.additionals_mut().extend(adds.iter().cloned());
+        }
+
+        let is_referral = lookup_records.iter().next().is_some_and(|r| {
+            r.record_type() == RecordType::NS
+                && query.query_type() != RecordType::NS
+                && query.query_type() != RecordType::ANY
+        });
+
+        if is_referral {
+            message
+                .authorities_mut()
+                .extend(lookup_records.iter().cloned());
+        } else {
+            message.answers_mut().extend(lookup_records.iter().cloned());
+        }
+    }
 
     if let Some(ns_records) = ns {
         message.authorities_mut().extend(ns_records.iter().cloned());
-    }
-
-    if let Some(authority_records) = authorities {
-        message
-            .authorities_mut()
-            .extend(authority_records.iter().cloned());
     }
 
     if let Some(soa_records) = soa {
@@ -1046,10 +1033,6 @@ async fn build_authoritative_response(
             .authorities_mut()
             .extend(soa_records.iter().cloned());
     }
-
-    message
-        .additionals_mut()
-        .extend(additionals.iter().cloned());
 
     message
 }
@@ -1281,7 +1264,11 @@ async fn build_forwarded_response(
 
 #[cfg(all(test, feature = "resolver"))]
 mod tests {
+    use std::{net::Ipv4Addr, str::FromStr};
+
     use super::*;
+    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::proto::rr::rdata::NS;
     use crate::proto::{
         op::{MessageType, OpCode, Query},
         rr::{
@@ -1290,7 +1277,8 @@ mod tests {
         },
     };
     use crate::resolver::lookup::Lookup;
-    use std::{net::Ipv4Addr, str::FromStr};
+    use crate::store::in_memory::InMemoryZoneHandler;
+    use crate::zone_handler::AxfrPolicy;
 
     #[tokio::test]
     async fn test_build_forwarded_response_preserves_sections() {
@@ -1366,12 +1354,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_authoritative_response_referral() {
-        use crate::net::runtime::TokioRuntimeProvider;
-        use crate::proto::rr::rdata::NS;
-        use crate::store::in_memory::InMemoryZoneHandler;
-        use crate::zone_handler::AxfrPolicy;
-        use std::str::FromStr;
-
         let origin = Name::from_str("example.com.").unwrap();
         let sub = Name::from_str("sub.example.com.").unwrap();
         let ns_name = Name::from_str("ns.example.com.").unwrap();

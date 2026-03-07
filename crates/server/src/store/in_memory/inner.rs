@@ -202,29 +202,26 @@ impl InnerInMemory {
     ) -> Option<Arc<RecordSet>> {
         // Check for delegation
         let mut search_name = name.clone();
-        loop {
+        while !search_name.is_root() {
             let ns_key = RrKey::new(search_name.clone(), RecordType::NS);
-            if let Some(ns_rrset) = self.records.get(&ns_key) {
-                // We found an NS record, now we need to check if it is the SOA
-                //   if it is the SOA, then it is not a delegation
-                let soa_key = RrKey::new(search_name.clone(), RecordType::SOA);
-                if !self.records.contains_key(&soa_key) {
-                    // If the request is for a DS record, we should not return a referral, as the DS record resides in the parent zone.
-                    //   and we are at the delegation point
-                    if record_type == RecordType::DS && search_name == *name {
-                        break;
-                    }
+            let soa_key = RrKey::new(search_name.clone(), RecordType::SOA);
 
-                    return Some(ns_rrset.clone());
-                }
+            let ns_rrset = self.records.get(&ns_key);
+            let has_soa = self.records.contains_key(&soa_key);
+            let ds_exact = record_type == RecordType::DS && search_name == *name;
 
-                // If we found the SOA, we are at the top of the zone, so we stop searching
-                break;
+            match (ns_rrset, has_soa) {
+                // Request is for a DS record and we're at the delegation point.
+                // Don't return a referral, DS record resides in the parent zone.
+                (Some(_), false) if ds_exact => {}
+                // Return a delegation point: NS exists without SOA.
+                (Some(ns), false) => return Some(ns.clone()),
+                // Zone apex: NS with SOA - we're at the top of the zone
+                (Some(_), true) => break,
+                // No NS, keep walking up.
+                (None, _) => {}
             }
 
-            if search_name.is_root() {
-                break;
-            }
             search_name = search_name.base_name();
         }
 
@@ -899,9 +896,10 @@ fn finish_nsec_record(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::proto::rr::{Name, Record, rdata::NS};
-    use std::str::FromStr;
 
     #[test]
     fn test_inner_lookup_delegation() {
