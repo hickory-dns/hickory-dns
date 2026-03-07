@@ -496,6 +496,83 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
         .with_context(|| "base handler: could not serialize Message")
 }
 
+/// This handler simulates an authoritative server that includes parent NS records
+/// Simulates authoritative servers (e.g. twtrdns.net for twitter.com/x.com) that
+/// include parent NS records in responses to subdomain NS queries.
+///
+/// The handler uses a CNAME chain to make the bug observable in testing:
+/// `deep.sub.example.testing. IN CNAME target.example.testing.` with an inline
+/// A record for `target.example.testing.`. When the recursor incorrectly creates
+/// a false zone cut at `sub.example.testing.`, the bailiwick filter (zone =
+/// `sub.example.testing.`) drops the `target.example.testing. IN A` record
+/// because `target.example.testing.` is not a subzone of `sub.example.testing.`.
+/// CNAME following then fails because `target.example.testing. IN A` is not
+/// served as a standalone query. Without the false zone cut (zone =
+/// `example.testing.`), both records pass the bailiwick filter and resolution
+/// succeeds.
+pub(crate) fn parent_ns_in_authority_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let name = msg.queries()[0].name().clone();
+    let q_type = msg.queries()[0].query_type();
+
+    let zone = Name::from_ascii("example.testing.")?;
+    let ns_name = Name::from_ascii("ns.external.testing.")?;
+    let deep_sub = Name::from_ascii("deep.sub.example.testing.")?;
+    let cname_target = Name::from_ascii("target.example.testing.")?;
+
+    msg.set_authoritative(true).set_recursion_desired(false);
+
+    if q_type == RecordType::NS && name == zone {
+        // Direct NS query for the zone itself — return the real NS record.
+        msg.add_answer(Record::from_rdata(
+            zone,
+            86400,
+            RData::NS(rdata::NS(ns_name)),
+        ));
+    } else if q_type == RecordType::A && name == deep_sub {
+        // A query for deep.sub — return a CNAME chain to target.example.testing.
+        // The CNAME owner (deep.sub) is a subzone of both example.testing. and
+        // sub.example.testing., but the A record owner (target.example.testing.)
+        // is only a subzone of example.testing. — not sub.example.testing.
+        // This makes the bailiwick filter the distinguishing factor.
+        msg.add_answer(Record::from_rdata(
+            deep_sub,
+            300,
+            RData::CNAME(rdata::CNAME(cname_target.clone())),
+        ));
+        msg.add_answer(Record::from_rdata(
+            cname_target,
+            300,
+            RData::A(rdata::A([192, 0, 2, 1].into())),
+        ));
+    } else if q_type == RecordType::NS && name != zone && name.base_name() == zone {
+        // NS query for a direct subdomain (e.g. sub.example.testing.) — return
+        // the parent NS in the answer section. This is the response that triggers
+        // the zone cut misidentification bug: the recursor sees an NS record and
+        // (without the fix) treats it as evidence of a zone cut, even though the
+        // NS record's owner name (example.testing.) doesn't match the queried
+        // name (sub.example.testing.).
+        msg.add_answer(Record::from_rdata(
+            zone,
+            86400,
+            RData::NS(rdata::NS(ns_name)),
+        ));
+    } else if q_type == RecordType::NS && zone.zone_of(&name) {
+        // NS query for a deeper subdomain (e.g. deep.sub.example.testing.) —
+        // return NODATA (empty NOERROR). This allows the recursor's
+        // ns_pool_for_name loop to continue past this name without error.
+    } else {
+        msg.set_response_code(ResponseCode::NXDomain);
+    }
+
+    msg.to_vec()
+        .map(Some)
+        .with_context(|| "parent_ns_in_authority handler: could not serialize Message")
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);

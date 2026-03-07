@@ -12,6 +12,96 @@ use dns_test::{
     zone_file::{Root, ZoneFile},
 };
 
+/// External nameserver with parent NS in response
+///
+/// This test reproduces a zone cut misidentification bug. Some authoritative servers
+/// (e.g. twtrdns.net for twitter.com/x.com) include parent NS records in responses to
+/// subdomain NS queries. When the recursor queries for "sub.example.testing. IN NS"
+/// and gets back "example.testing. IN NS ...", the zone cut check must only consider
+/// NS records whose owner name matches the queried zone.
+///
+/// The bug manifests through the bailiwick filter. Without the fix, the recursor
+/// creates a false zone cut at `sub.example.testing.`, tagging the nameserver pool
+/// with `zone = "sub.example.testing."`. When the final A query for
+/// `deep.sub.example.testing.` returns a CNAME to `target.example.testing.` with
+/// an inline A record, the bailiwick filter drops the A record because
+/// `target.example.testing.` is not a subzone of `sub.example.testing.`. CNAME
+/// following then fails because the target is not served as a standalone query.
+///
+/// With the fix, no false zone cut is created, so the pool zone stays
+/// `example.testing.`. Both the CNAME and A records pass the bailiwick filter
+/// and resolution succeeds.
+///
+/// The test uses a custom handler (parent_ns_in_authority) that mimics this behavior.
+#[test]
+fn parent_ns_in_authority_does_not_prevent_resolution() -> Result<(), Error> {
+    let target_fqdn = FQDN("deep.sub.example.testing.")?;
+    let target_ipv4 = Ipv4Addr::new(192, 0, 2, 1);
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+
+    // Use the custom handler that returns parent NS records for subdomain NS
+    // queries, mimicking twtrdns.net behavior.
+    let example_ns = NameServer::new(
+        &Implementation::test_server("parent_ns_in_authority", "udp"),
+        FQDN("example.testing.")?,
+        &network,
+    )?;
+
+    root_ns.referral(
+        FQDN("example.testing.")?,
+        FQDN("ns.external.testing.")?,
+        example_ns.ipv4_addr(),
+    );
+
+    let root_hint: Root = root_ns.root_hint();
+
+    let resolver =
+        Resolver::new(&network, root_hint).start_with_subject(&Implementation::hickory())?;
+
+    let client = Client::new(resolver.network())?;
+
+    let _root_ns = root_ns.start()?;
+    let _example_ns = example_ns.start()?;
+
+    thread::sleep(Duration::from_secs(2));
+
+    let dig_settings = *DigSettings::default().recurse();
+    let res = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &target_fqdn,
+    )?;
+
+    assert!(
+        res.status.is_noerror(),
+        "expected NOERROR, got {:?}",
+        res.status
+    );
+    let a_records: Vec<_> = res
+        .answer
+        .iter()
+        .filter_map(|r| {
+            if let Record::A(rec) = r {
+                Some(rec)
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(
+        a_records.len(),
+        1,
+        "expected exactly one A record in answer"
+    );
+    assert_eq!(a_records[0].ipv4_addr, target_ipv4);
+
+    Ok(())
+}
+
 /// Recursive Delegation
 ///
 /// This test simulates a potentially infinite recursive delegation for the zone example.testing.

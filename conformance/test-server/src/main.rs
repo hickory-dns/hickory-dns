@@ -24,6 +24,7 @@ async fn main() -> Result<()> {
         "cname_loop" => handlers::cname_loop_handler,
         "empty_response" => handlers::empty_response_handler,
         "nsec3_nocover" => handlers::nsec3_nocover_handler,
+        "parent_ns_in_authority" => handlers::parent_ns_in_authority_handler,
         "packet_loss" => handlers::packet_loss_handler,
         "truncated_response" => handlers::truncated_response_handler,
         _ => {

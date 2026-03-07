@@ -543,7 +543,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             let any_ns = response
                 .all_sections()
-                .any(|record| record.record_type() == RecordType::NS);
+                .any(|record| record.record_type() == RecordType::NS && record.name() == &zone);
             if !any_ns {
                 // Not a zone cut, but there is a CNAME or other record at this name. Return the
                 // same pool of name servers as above in the error case, to try again with a
