@@ -315,8 +315,16 @@ impl DnsServer {
             #[cfg(feature = "metrics")]
             config_metrics.increment_zone_metrics(&zone);
 
+            let deny_clients = zone.deny_clients.clone();
+            let allow_clients = zone.allow_clients.clone();
+
             match zone.load(&zone_dir).await {
-                Ok(handlers) => catalog.upsert(zone_name.into(), handlers),
+                Ok(handlers) => catalog.upsert_with_client_policy(
+                    zone_name.into(),
+                    handlers,
+                    deny_clients,
+                    allow_clients,
+                ),
                 Err(err) => return Err(format!("could not load zone {zone_name}: {err}")),
             }
         }

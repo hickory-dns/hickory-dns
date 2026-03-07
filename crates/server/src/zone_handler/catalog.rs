@@ -10,6 +10,7 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{collections::HashMap, iter, sync::Arc};
 
+use ipnet::IpNet;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
@@ -25,6 +26,7 @@ use crate::{
     zone_handler::Nsec3QueryInfo,
 };
 use crate::{
+    access::AccessControl,
     net::runtime::Time,
     proto::{
         op::{Edns, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode},
@@ -45,11 +47,16 @@ use crate::{
     resolver::recursor,
 };
 
+struct ZoneEntry {
+    handlers: Vec<Arc<dyn ZoneHandler>>,
+    client_acl: AccessControl,
+}
+
 /// Set of zones and zone handlers available to this server.
 #[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
-    handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
+    zones: HashMap<LowerName, ZoneEntry>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
 }
@@ -169,7 +176,7 @@ impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
         Self {
-            handlers: HashMap::new(),
+            zones: HashMap::new(),
             nsid_payload: None,
             #[cfg(feature = "metrics")]
             metrics: CatalogMetrics::default(),
@@ -183,19 +190,46 @@ impl Catalog {
     /// * `name` - zone name, e.g. example.com.
     /// * `handlers` - a vec of zone handler objects
     pub fn upsert(&mut self, name: LowerName, handlers: Vec<Arc<dyn ZoneHandler>>) {
+        self.upsert_with_client_policy(name, handlers, [], []);
+    }
+
+    /// Insert or update the provided zone handlers with per-zone client access control.
+    ///
+    /// The `denied_clients` and `allowed_clients` parameters control which client IP addresses
+    /// are permitted to query this zone. The semantics match the server-level access control:
+    /// - If only `allowed_clients` is specified, only those networks may query the zone.
+    /// - If only `denied_clients` is specified, those networks are blocked.
+    /// - If both are specified, `denied_clients` takes precedence, but `allowed_clients`
+    ///   can override denials with more specific prefixes.
+    /// - If neither is specified, all clients are allowed.
+    pub fn upsert_with_client_policy(
+        &mut self,
+        name: LowerName,
+        handlers: Vec<Arc<dyn ZoneHandler>>,
+        denied_clients: impl IntoIterator<Item = IpNet>,
+        allowed_clients: impl IntoIterator<Item = IpNet>,
+    ) {
         #[cfg(feature = "metrics")]
         for handler in handlers.iter() {
             self.metrics.add_handler(handler.as_ref())
         }
 
-        self.handlers.insert(name, handlers);
+        let mut client_acl = AccessControl::default();
+        client_acl.insert_deny(denied_clients);
+        client_acl.insert_allow(allowed_clients);
+
+        self.zones.insert(name, ZoneEntry {
+            handlers,
+            client_acl,
+        });
     }
 
     /// Remove a zone from the catalog
     pub fn remove(&mut self, name: &LowerName) -> Option<Vec<Arc<dyn ZoneHandler>>> {
         // NOTE: metrics are not removed to avoid dropping counters that are potentially still
         // being used by other zone handlers having the same labels
-        self.handlers.remove(name)
+
+        self.zones.remove(name).map(|entry| entry.handlers)
     }
 
     /// Set a specified name server identifier (NSID) in responses
@@ -303,7 +337,22 @@ impl Catalog {
         }
 
         // verify the zone type and number of zones in request, then find the zone to update
-        if let Some(handlers) = self.find(request_info.query.name()) {
+        if let Some(entry) = self.find_entry(request_info.query.name()) {
+            if !entry.client_acl.allow(update.src().ip()) {
+                debug!(
+                    src = %update.src(),
+                    query = %request_info.query,
+                    "client denied by zone client access policy",
+                );
+                return send_error_response(
+                    update,
+                    ResponseCode::Refused,
+                    response_edns,
+                    response_handle,
+                )
+                .await;
+            }
+            let handlers = &entry.handlers;
             #[allow(clippy::never_loop)]
             for handler in handlers {
                 #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
@@ -394,7 +443,7 @@ impl Catalog {
     /// If you do not know the exact domain name to use or you actually
     /// want to use the zone handler it contains, use `find` instead.
     pub fn contains(&self, name: &LowerName) -> bool {
-        self.handlers.contains_key(name)
+        self.zones.contains_key(name)
     }
 
     /// Given the requested query, lookup and return any matching results.
@@ -421,9 +470,9 @@ impl Catalog {
             )
             .await;
         };
-        let handlers = self.find(request_info.query.name());
+        let entry = self.find_entry(request_info.query.name());
 
-        let Some(handlers) = handlers else {
+        let Some(entry) = entry else {
             // There are no zone handlers registered that can handle the request
             return send_error_response(
                 request,
@@ -434,6 +483,22 @@ impl Catalog {
             .await;
         };
 
+        if !entry.client_acl.allow(request.src().ip()) {
+            debug!(
+                src = %request.src(),
+                query = %request_info.query,
+                "client denied by zone client access policy",
+            );
+            return send_error_response(
+                request,
+                ResponseCode::Refused,
+                response_edns,
+                response_handle,
+            )
+            .await;
+        }
+
+        let handlers = &entry.handlers;
         if request_info.query.query_type() == RecordType::AXFR {
             zone_transfer(
                 request_info,
@@ -460,11 +525,15 @@ impl Catalog {
 
     /// Recursively searches the catalog for a matching zone handler
     pub fn find(&self, name: &LowerName) -> Option<&Vec<Arc<dyn ZoneHandler + 'static>>> {
+        self.find_entry(name).map(|entry| &entry.handlers)
+    }
+
+    fn find_entry(&self, name: &LowerName) -> Option<&ZoneEntry> {
         debug!("searching zone handlers for: {name}");
-        self.handlers.get(name).or_else(|| {
+        self.zones.get(name).or_else(|| {
             if !name.is_root() {
                 let name = name.base_name();
-                self.find(&name)
+                self.find_entry(&name)
             } else {
                 None
             }

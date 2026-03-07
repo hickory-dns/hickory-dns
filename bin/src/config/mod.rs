@@ -228,6 +228,12 @@ where
 pub(crate) struct ZoneConfig {
     /// name of the zone
     pub zone: String, // TODO: make Domain::Name decodable
+    /// Networks denied from querying this zone
+    #[serde(default)]
+    pub deny_clients: Vec<IpNet>,
+    /// Networks allowed to query this zone
+    #[serde(default)]
+    pub allow_clients: Vec<IpNet>,
     /// type of the zone
     #[serde(flatten)]
     pub zone_type_config: ZoneTypeConfig,
