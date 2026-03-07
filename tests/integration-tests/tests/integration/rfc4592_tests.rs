@@ -193,7 +193,6 @@ async fn no_synthesis_3() {
 ///    QNAME=host.subdel.example., QTYPE=A, QCLASS=IN
 ///         because subdel.example. exists (and is a zone cut)
 /// ```
-#[ignore = "hickory does not send referrals for names below delegation points (issue #2810)"]
 #[tokio::test]
 async fn no_synthesis_4() {
     subscribe();
