@@ -1,0 +1,228 @@
+//! Builder functions for constructing DNSTAP protobuf messages.
+
+use std::net::{IpAddr, SocketAddr};
+use std::time::SystemTime;
+
+use prost::Message as ProstMessage;
+
+use crate::net::xfer::Protocol;
+
+/// Generated protobuf types for DNSTAP.
+pub(crate) mod dnstap_proto {
+    // Suppress warnings from generated code
+    #![allow(
+        clippy::use_self,
+        missing_docs,
+        clippy::default_trait_access,
+        unreachable_pub,
+        unnameable_types
+    )]
+    include!(concat!(env!("OUT_DIR"), "/dnstap.rs"));
+}
+
+use dnstap_proto::{
+    Dnstap, Message as DnstapMessage, SocketFamily, SocketProtocol, dnstap::Type as DnstapType,
+    message::Type as MessageType,
+};
+
+fn socket_family(addr: &IpAddr) -> i32 {
+    match addr {
+        IpAddr::V4(_) => SocketFamily::Inet as i32,
+        IpAddr::V6(_) => SocketFamily::Inet6 as i32,
+    }
+}
+
+fn addr_bytes(addr: &IpAddr) -> Vec<u8> {
+    match addr {
+        IpAddr::V4(v4) => v4.octets().to_vec(),
+        IpAddr::V6(v6) => v6.octets().to_vec(),
+    }
+}
+
+fn socket_protocol(protocol: Protocol) -> i32 {
+    match protocol {
+        Protocol::Udp => SocketProtocol::Udp as i32,
+        Protocol::Tcp => SocketProtocol::Tcp as i32,
+        #[cfg(feature = "__tls")]
+        Protocol::Tls => SocketProtocol::Dot as i32,
+        #[cfg(feature = "__https")]
+        Protocol::Https => SocketProtocol::Doh as i32,
+        #[cfg(feature = "__quic")]
+        Protocol::Quic => SocketProtocol::Doq as i32,
+        #[cfg(feature = "__h3")]
+        Protocol::H3 => SocketProtocol::Doh as i32,
+        // Protocol is non-exhaustive; fall back to UDP for unknown variants
+        _ => SocketProtocol::Udp as i32,
+    }
+}
+
+fn now_time() -> (u64, u32) {
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.as_secs(), now.subsec_nanos())
+}
+
+/// Build an AUTH_QUERY DNSTAP message.
+pub(super) fn build_query(
+    identity: &Option<Vec<u8>>,
+    version: &Option<Vec<u8>>,
+    src_addr: SocketAddr,
+    protocol: Protocol,
+    query_bytes: &[u8],
+) -> Vec<u8> {
+    let (time_sec, time_nsec) = now_time();
+
+    let message = DnstapMessage {
+        r#type: MessageType::AuthQuery as i32,
+        socket_family: Some(socket_family(&src_addr.ip())),
+        socket_protocol: Some(socket_protocol(protocol)),
+        query_address: Some(addr_bytes(&src_addr.ip())),
+        query_port: Some(src_addr.port() as u32),
+        query_time_sec: Some(time_sec),
+        query_time_nsec: Some(time_nsec),
+        query_message: Some(query_bytes.to_vec()),
+        response_address: None,
+        response_port: None,
+        response_time_sec: None,
+        response_time_nsec: None,
+        response_message: None,
+        query_zone: None,
+        policy: None,
+        http_protocol: None,
+    };
+
+    let dnstap = Dnstap {
+        identity: identity.clone(),
+        version: version.clone(),
+        r#type: DnstapType::Message as i32,
+        message: Some(message),
+        extra: None,
+    };
+
+    dnstap.encode_to_vec()
+}
+
+/// Decode a DNSTAP message from protobuf bytes (for testing).
+#[cfg(test)]
+pub(super) fn decode(bytes: &[u8]) -> Dnstap {
+    <Dnstap as ProstMessage>::decode(bytes).expect("failed to decode DNSTAP message")
+}
+
+/// Build an AUTH_RESPONSE DNSTAP message.
+pub(super) fn build_response(
+    identity: &Option<Vec<u8>>,
+    version: &Option<Vec<u8>>,
+    src_addr: SocketAddr,
+    protocol: Protocol,
+    query_bytes: &[u8],
+    response_bytes: &[u8],
+) -> Vec<u8> {
+    let (time_sec, time_nsec) = now_time();
+
+    let message = DnstapMessage {
+        r#type: MessageType::AuthResponse as i32,
+        socket_family: Some(socket_family(&src_addr.ip())),
+        socket_protocol: Some(socket_protocol(protocol)),
+        query_address: Some(addr_bytes(&src_addr.ip())),
+        query_port: Some(src_addr.port() as u32),
+        query_message: Some(query_bytes.to_vec()),
+        response_time_sec: Some(time_sec),
+        response_time_nsec: Some(time_nsec),
+        response_message: Some(response_bytes.to_vec()),
+        query_time_sec: None,
+        query_time_nsec: None,
+        response_address: None,
+        response_port: None,
+        query_zone: None,
+        policy: None,
+        http_protocol: None,
+    };
+
+    let dnstap = Dnstap {
+        identity: identity.clone(),
+        version: version.clone(),
+        r#type: DnstapType::Message as i32,
+        message: Some(message),
+        extra: None,
+    };
+
+    dnstap.encode_to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_query_ipv4_udp() {
+        let identity = Some(b"test-server".to_vec());
+        let version = Some(b"1.0".to_vec());
+        let src_addr: SocketAddr = "192.168.1.1:12345".parse().unwrap();
+        let query_bytes = b"\x00\x01\x01\x00";
+
+        let encoded = build_query(&identity, &version, src_addr, Protocol::Udp, query_bytes);
+        let decoded = decode(&encoded);
+
+        assert_eq!(decoded.identity.as_deref(), Some(b"test-server".as_slice()));
+        assert_eq!(decoded.version.as_deref(), Some(b"1.0".as_slice()));
+        assert_eq!(decoded.r#type, DnstapType::Message as i32);
+
+        let msg = decoded.message.unwrap();
+        assert_eq!(msg.r#type, MessageType::AuthQuery as i32);
+        assert_eq!(msg.socket_family, Some(SocketFamily::Inet as i32));
+        assert_eq!(msg.socket_protocol, Some(SocketProtocol::Udp as i32));
+        assert_eq!(
+            msg.query_address.as_deref(),
+            Some([192, 168, 1, 1].as_slice())
+        );
+        assert_eq!(msg.query_port, Some(12345));
+        assert!(msg.query_time_sec.is_some());
+        assert!(msg.query_time_nsec.is_some());
+        assert_eq!(msg.query_message.as_deref(), Some(query_bytes.as_slice()));
+        assert!(msg.response_message.is_none());
+    }
+
+    #[test]
+    fn test_build_query_ipv6_tcp() {
+        let src_addr: SocketAddr = "[::1]:53".parse().unwrap();
+        let query_bytes = b"\xab\xcd";
+
+        let encoded = build_query(&None, &None, src_addr, Protocol::Tcp, query_bytes);
+        let decoded = decode(&encoded);
+
+        assert!(decoded.identity.is_none());
+        let msg = decoded.message.unwrap();
+        assert_eq!(msg.socket_family, Some(SocketFamily::Inet6 as i32));
+        assert_eq!(msg.socket_protocol, Some(SocketProtocol::Tcp as i32));
+        assert_eq!(msg.query_address.as_ref().map(|a| a.len()), Some(16));
+        assert_eq!(msg.query_port, Some(53));
+    }
+
+    #[test]
+    fn test_build_response() {
+        let src_addr: SocketAddr = "10.0.0.1:5353".parse().unwrap();
+        let query_bytes = b"\x00\x01";
+        let response_bytes = b"\x00\x01\x80\x00";
+
+        let encoded = build_response(
+            &None,
+            &None,
+            src_addr,
+            Protocol::Udp,
+            query_bytes,
+            response_bytes,
+        );
+        let decoded = decode(&encoded);
+
+        let msg = decoded.message.unwrap();
+        assert_eq!(msg.r#type, MessageType::AuthResponse as i32);
+        assert_eq!(msg.query_message.as_deref(), Some(query_bytes.as_slice()));
+        assert_eq!(
+            msg.response_message.as_deref(),
+            Some(response_bytes.as_slice())
+        );
+        assert!(msg.response_time_sec.is_some());
+        assert!(msg.response_time_nsec.is_some());
+    }
+}
