@@ -120,7 +120,6 @@ async fn wildcard_synthesis_3() {
 ///         because host1.example. exists
 /// ```
 #[tokio::test]
-#[ignore = "hickory does not check for blocking names"]
 async fn no_synthesis_1() {
     subscribe();
 
@@ -144,7 +143,6 @@ async fn no_synthesis_1() {
 ///    QNAME=sub.*.example., QTYPE=MX, QCLASS=IN
 ///         because sub.*.example. exists
 /// ```
-#[ignore = "hickory does not check for blocking names"]
 #[tokio::test]
 async fn no_synthesis_2() {
     subscribe();
@@ -227,7 +225,6 @@ async fn no_synthesis_4() {
 ///         because *.example. exists
 /// ```
 #[tokio::test]
-#[ignore = "hickory does not treat wildcards as blocking themselves"]
 async fn no_synthesis_5() {
     subscribe();
 
@@ -242,6 +239,131 @@ async fn no_synthesis_5() {
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
     assert_eq!(response.answers(), []);
+}
+
+/// A CNAME wildcard must not match a name that already exists in the zone,
+/// even if the existing name has a different record type. Per RFC 4592 Section
+/// 2.2.1, the presence of *any* record at a name blocks wildcard synthesis for
+/// all types at that name.
+///
+/// Zone:
+///   server.example.   A     1.2.3.4
+///   catchall.example. A     3.4.5.6
+///   catchall.example. AAAA  ::1
+///   *.example.        CNAME catchall.example.
+///
+/// Query: server.example. AAAA => must be NODATA (the A record blocks the wildcard).
+#[tokio::test]
+async fn wildcard_cname_blocked_by_existing_name() {
+    subscribe();
+
+    let origin = Name::parse("example.", None).unwrap();
+    const SERIAL: u32 = 1;
+    const TTL: u32 = 3600;
+
+    let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+        origin.clone(),
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        #[cfg(feature = "__dnssec")]
+        None,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            origin.clone(),
+            TTL,
+            RData::SOA(SOA::new(
+                Name::parse("mname", Some(&origin)).unwrap(),
+                Name::parse("rname", Some(&origin)).unwrap(),
+                SERIAL,
+                3600,
+                300,
+                3600000,
+                TTL,
+            )),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            origin.clone(),
+            TTL,
+            RData::NS(NS(Name::parse("ns.example.com.", None).unwrap())),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("server", Some(&origin)).unwrap(),
+            TTL,
+            RData::A(A::new(1, 2, 3, 4)),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("catchall", Some(&origin)).unwrap(),
+            TTL,
+            RData::A(A::new(3, 4, 5, 6)),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("catchall", Some(&origin)).unwrap(),
+            TTL,
+            RData::AAAA(hickory_proto::rr::rdata::AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("*", Some(&origin)).unwrap(),
+            TTL,
+            RData::CNAME(hickory_proto::rr::rdata::CNAME(
+                Name::parse("catchall", Some(&origin)).unwrap(),
+            )),
+        ),
+        SERIAL,
+    );
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
+
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let local_addr = udp_socket.local_addr().unwrap();
+    let mut server = Server::new(catalog);
+    server.register_socket(udp_socket);
+
+    let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(stream);
+    tokio::spawn(bg);
+
+    // server.example. AAAA must return NODATA, not the wildcard CNAME
+    let query_name = Name::parse("server.example.", None).unwrap();
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, RecordType::AAAA)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.answers(), []);
+
+    // unknown.example. AAAA should still get the wildcard CNAME
+    let query_name = Name::parse("unknown.example.", None).unwrap();
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, RecordType::AAAA)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert!(
+        response
+            .answers()
+            .iter()
+            .any(|record| record.record_type() == RecordType::CNAME
+                && record.name() == &query_name)
+    );
 }
 
 /// ```text
