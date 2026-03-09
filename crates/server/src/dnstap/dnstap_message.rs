@@ -7,6 +7,8 @@ use prost::Message as ProstMessage;
 
 use crate::net::xfer::Protocol;
 
+use super::client::DnstapMessageType;
+
 /// Generated protobuf types for DNSTAP.
 pub(crate) mod dnstap_proto {
     // Suppress warnings from generated code
@@ -63,18 +65,37 @@ fn now_time() -> (u64, u32) {
     (now.as_secs(), now.subsec_nanos())
 }
 
-/// Build an AUTH_QUERY DNSTAP message.
+/// Map a `DnstapMessageType` to the corresponding query `MessageType`.
+fn query_message_type(mt: &DnstapMessageType) -> MessageType {
+    match mt {
+        DnstapMessageType::Auth => MessageType::AuthQuery,
+        DnstapMessageType::Client => MessageType::ClientQuery,
+        DnstapMessageType::Resolver => MessageType::ResolverQuery,
+    }
+}
+
+/// Map a `DnstapMessageType` to the corresponding response `MessageType`.
+fn response_message_type(mt: &DnstapMessageType) -> MessageType {
+    match mt {
+        DnstapMessageType::Auth => MessageType::AuthResponse,
+        DnstapMessageType::Client => MessageType::ClientResponse,
+        DnstapMessageType::Resolver => MessageType::ResolverResponse,
+    }
+}
+
+/// Build a query DNSTAP message with the given message type.
 pub(super) fn build_query(
     identity: &Option<Vec<u8>>,
     version: &Option<Vec<u8>>,
     src_addr: SocketAddr,
     protocol: Protocol,
     query_bytes: &[u8],
+    message_type: &DnstapMessageType,
 ) -> Vec<u8> {
     let (time_sec, time_nsec) = now_time();
 
     let message = DnstapMessage {
-        r#type: MessageType::AuthQuery as i32,
+        r#type: query_message_type(message_type) as i32,
         socket_family: Some(socket_family(&src_addr.ip())),
         socket_protocol: Some(socket_protocol(protocol)),
         query_address: Some(addr_bytes(&src_addr.ip())),
@@ -109,7 +130,7 @@ pub(super) fn decode(bytes: &[u8]) -> Dnstap {
     <Dnstap as ProstMessage>::decode(bytes).expect("failed to decode DNSTAP message")
 }
 
-/// Build an AUTH_RESPONSE DNSTAP message.
+/// Build a response DNSTAP message with the given message type.
 pub(super) fn build_response(
     identity: &Option<Vec<u8>>,
     version: &Option<Vec<u8>>,
@@ -117,11 +138,12 @@ pub(super) fn build_response(
     protocol: Protocol,
     query_bytes: &[u8],
     response_bytes: &[u8],
+    message_type: &DnstapMessageType,
 ) -> Vec<u8> {
     let (time_sec, time_nsec) = now_time();
 
     let message = DnstapMessage {
-        r#type: MessageType::AuthResponse as i32,
+        r#type: response_message_type(message_type) as i32,
         socket_family: Some(socket_family(&src_addr.ip())),
         socket_protocol: Some(socket_protocol(protocol)),
         query_address: Some(addr_bytes(&src_addr.ip())),
@@ -161,7 +183,7 @@ mod tests {
         let src_addr: SocketAddr = "192.168.1.1:12345".parse().unwrap();
         let query_bytes = b"\x00\x01\x01\x00";
 
-        let encoded = build_query(&identity, &version, src_addr, Protocol::Udp, query_bytes);
+        let encoded = build_query(&identity, &version, src_addr, Protocol::Udp, query_bytes, &DnstapMessageType::Auth);
         let decoded = decode(&encoded);
 
         assert_eq!(decoded.identity.as_deref(), Some(b"test-server".as_slice()));
@@ -188,7 +210,7 @@ mod tests {
         let src_addr: SocketAddr = "[::1]:53".parse().unwrap();
         let query_bytes = b"\xab\xcd";
 
-        let encoded = build_query(&None, &None, src_addr, Protocol::Tcp, query_bytes);
+        let encoded = build_query(&None, &None, src_addr, Protocol::Tcp, query_bytes, &DnstapMessageType::Auth);
         let decoded = decode(&encoded);
 
         assert!(decoded.identity.is_none());
@@ -212,6 +234,7 @@ mod tests {
             Protocol::Udp,
             query_bytes,
             response_bytes,
+            &DnstapMessageType::Auth,
         );
         let decoded = decode(&encoded);
 

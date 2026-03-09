@@ -146,6 +146,9 @@ async fn test_dnstap_client_sends_to_receiver() {
         version: Some(b"0.26.0".to_vec()),
         buffer_size: 64,
         max_backoff: Duration::from_secs(1),
+        log_auth_query: true,
+        log_auth_response: true,
+        ..Default::default()
     };
     let client = DnstapClient::new(config);
 
@@ -211,6 +214,9 @@ async fn test_dnstap_integrated_with_server() {
         version: None,
         buffer_size: 64,
         max_backoff: Duration::from_secs(1),
+        log_auth_query: true,
+        log_auth_response: true,
+        ..Default::default()
     };
     let dnstap_client = DnstapClient::new(config);
 

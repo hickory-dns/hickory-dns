@@ -7,4 +7,4 @@ mod client;
 mod dnstap_message;
 mod framestream;
 
-pub use client::{DnstapClient, DnstapConfig, DnstapEndpoint};
+pub use client::{DnstapClient, DnstapConfig, DnstapEndpoint, DnstapMessageType};
