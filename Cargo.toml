@@ -118,6 +118,10 @@ toml = "1.0.1"
 url = { version = "2.5.4", default-features = false }
 wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
 
+# protobuf (dnstap)
+prost = { version = "0.14", default-features = false, features = ["derive"] }
+prost-build = { version = "0.14" }
+
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
 # mio = { git = "https://github.com/tokio-rs/mio.git" }
