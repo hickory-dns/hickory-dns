@@ -59,8 +59,14 @@
 # enabled = false
 # tcp_address = "127.0.0.1:6000"
 # unix_path = "/var/run/dnstap.sock"
-# identity = "my-hickory-server"
-# version = "0.26.0"
+## send_identity: include server identity in DNSTAP messages (default: false).
+##  If identity is not set, the system hostname is used.
+# send_identity = false
+# identity = ""
+## send_version: include server version in DNSTAP messages (default: false).
+##  If version is not set, the package version is used.
+# send_version = false
+# version = ""
 # buffer_size = 4096
 # max_backoff_secs = 30
 # log_auth_query = false

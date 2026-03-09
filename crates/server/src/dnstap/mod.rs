@@ -47,7 +47,10 @@
 //! [dnstap]
 //! enabled = true
 //! tcp_address = "127.0.0.1:6000"
-//! identity = "my-hickory-server"
+//! send_identity = true
+//! # identity = "custom-name"  # defaults to hostname
+//! send_version = true
+//! # version = "custom-version"  # defaults to package version
 //! buffer_size = 4096
 //! log_client_query = true
 //! log_client_response = true
