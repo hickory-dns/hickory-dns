@@ -625,6 +625,9 @@ impl TlsCertConfig {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct DnstapSectionConfig {
+    /// Whether DNSTAP logging is enabled (default: false).
+    #[serde(default)]
+    pub(crate) enabled: bool,
     /// TCP address to connect to (e.g. "127.0.0.1:6000")
     pub(crate) tcp_address: Option<String>,
     /// Unix socket path to connect to
@@ -637,11 +640,37 @@ pub(crate) struct DnstapSectionConfig {
     /// Internal channel buffer size (default: 4096)
     #[serde(default = "default_dnstap_buffer_size")]
     pub(crate) buffer_size: usize,
+    /// Whether to log AUTH_QUERY messages (default: false).
+    #[serde(default)]
+    pub(crate) log_auth_query: bool,
+    /// Whether to log AUTH_RESPONSE messages (default: false).
+    #[serde(default)]
+    pub(crate) log_auth_response: bool,
+    /// Whether to log CLIENT_QUERY messages (default: false).
+    #[serde(default)]
+    pub(crate) log_client_query: bool,
+    /// Whether to log CLIENT_RESPONSE messages (default: false).
+    #[serde(default)]
+    pub(crate) log_client_response: bool,
+    /// Whether to log RESOLVER_QUERY messages (default: false).
+    #[serde(default)]
+    pub(crate) log_resolver_query: bool,
+    /// Whether to log RESOLVER_RESPONSE messages (default: false).
+    #[serde(default)]
+    pub(crate) log_resolver_response: bool,
+    /// Maximum reconnection backoff in seconds (default: 30).
+    #[serde(default = "default_dnstap_max_backoff_secs")]
+    pub(crate) max_backoff_secs: u64,
 }
 
 #[cfg(feature = "dnstap")]
 fn default_dnstap_buffer_size() -> usize {
     4096
+}
+
+#[cfg(feature = "dnstap")]
+fn default_dnstap_max_backoff_secs() -> u64 {
+    30
 }
 
 #[cfg(feature = "dnstap")]
@@ -671,7 +700,13 @@ impl DnstapSectionConfig {
             identity: self.identity.map(|s| s.into_bytes()),
             version: self.version.map(|s| s.into_bytes()),
             buffer_size: self.buffer_size,
-            ..Default::default()
+            max_backoff: Duration::from_secs(self.max_backoff_secs),
+            log_auth_query: self.log_auth_query,
+            log_auth_response: self.log_auth_response,
+            log_client_query: self.log_client_query,
+            log_client_response: self.log_client_response,
+            log_resolver_query: self.log_resolver_query,
+            log_resolver_response: self.log_resolver_response,
         })
     }
 }

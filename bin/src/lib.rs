@@ -288,6 +288,8 @@ impl DnsServer {
             http_endpoint,
             deny_networks,
             allow_networks,
+            #[cfg(feature = "dnstap")]
+                dnstap: _,
         } = config;
 
         #[cfg(unix)]
