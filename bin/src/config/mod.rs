@@ -661,9 +661,17 @@ pub(crate) struct DnstapSectionConfig {
     /// Unix socket path to connect to
     #[cfg(unix)]
     pub(crate) unix_path: Option<String>,
-    /// DNS server identity string
+    /// Whether to include server identity in DNSTAP messages (default: false).
+    /// If enabled and `identity` is not set, the system hostname is used.
+    #[serde(default)]
+    pub(crate) send_identity: bool,
+    /// Whether to include server version in DNSTAP messages (default: false).
+    /// If enabled and `version` is not set, the package name and version are used.
+    #[serde(default)]
+    pub(crate) send_version: bool,
+    /// DNS server identity string (overrides hostname when `send_identity` is true)
     pub(crate) identity: Option<String>,
-    /// DNS server version string
+    /// DNS server version string (overrides package version when `send_version` is true)
     pub(crate) version: Option<String>,
     /// Internal channel buffer size (default: 4096)
     #[serde(default = "default_dnstap_buffer_size")]
@@ -725,8 +733,31 @@ impl DnstapSectionConfig {
 
         Ok(DnstapConfig {
             endpoint,
-            identity: self.identity.map(|s| s.into_bytes()),
-            version: self.version.map(|s| s.into_bytes()),
+            identity: if self.send_identity {
+                Some(
+                    self.identity
+                        .unwrap_or_else(|| {
+                            hostname::get()
+                                .map(|h| h.to_string_lossy().into_owned())
+                                .unwrap_or_default()
+                        })
+                        .into_bytes(),
+                )
+            } else {
+                None
+            },
+            version: if self.send_version {
+                Some(
+                    self.version
+                        .unwrap_or_else(|| {
+                            concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"))
+                                .to_string()
+                        })
+                        .into_bytes(),
+                )
+            } else {
+                None
+            },
             buffer_size: self.buffer_size,
             max_backoff: Duration::from_secs(self.max_backoff_secs),
             log_auth_query: self.log_auth_query,
