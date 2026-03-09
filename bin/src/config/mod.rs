@@ -163,6 +163,9 @@ pub(crate) struct Config {
     /// UDP socket configuration options.
     #[serde(default)]
     pub(crate) udp_socket: UdpSocketConfig,
+    /// DNSTAP configuration for structured DNS event logging
+    #[cfg(feature = "dnstap")]
+    pub(crate) dnstap: Option<DnstapSectionConfig>,
 }
 
 /// Configuration options for UDP sockets.
@@ -642,6 +645,62 @@ impl TlsCertConfig {
             .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
 
         Ok(Arc::new(SingleCertAndKey::from(certified_key)))
+    }
+}
+
+/// Configuration for DNSTAP structured DNS event logging
+#[cfg(feature = "dnstap")]
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DnstapSectionConfig {
+    /// TCP address to connect to (e.g. "127.0.0.1:6000")
+    pub(crate) tcp_address: Option<String>,
+    /// Unix socket path to connect to
+    #[cfg(unix)]
+    pub(crate) unix_path: Option<String>,
+    /// DNS server identity string
+    pub(crate) identity: Option<String>,
+    /// DNS server version string
+    pub(crate) version: Option<String>,
+    /// Internal channel buffer size (default: 4096)
+    #[serde(default = "default_dnstap_buffer_size")]
+    pub(crate) buffer_size: usize,
+}
+
+#[cfg(feature = "dnstap")]
+fn default_dnstap_buffer_size() -> usize {
+    4096
+}
+
+#[cfg(feature = "dnstap")]
+impl DnstapSectionConfig {
+    /// Convert to a `DnstapConfig` for the server library.
+    pub(crate) fn into_dnstap_config(self) -> Result<hickory_server::dnstap::DnstapConfig, String> {
+        use hickory_server::dnstap::{DnstapConfig, DnstapEndpoint};
+
+        let endpoint = if let Some(ref addr) = self.tcp_address {
+            DnstapEndpoint::Tcp(
+                addr.parse()
+                    .map_err(|e| format!("invalid dnstap tcp_address: {e}"))?,
+            )
+        } else {
+            #[cfg(unix)]
+            if let Some(ref path) = self.unix_path {
+                DnstapEndpoint::Unix(path.into())
+            } else {
+                return Err("dnstap config must specify either tcp_address or unix_path".into());
+            }
+            #[cfg(not(unix))]
+            return Err("dnstap config must specify tcp_address".into());
+        };
+
+        Ok(DnstapConfig {
+            endpoint,
+            identity: self.identity.map(|s| s.into_bytes()),
+            version: self.version.map(|s| s.into_bytes()),
+            buffer_size: self.buffer_size,
+            ..Default::default()
+        })
     }
 }
 
