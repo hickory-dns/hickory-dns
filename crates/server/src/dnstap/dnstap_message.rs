@@ -88,6 +88,7 @@ pub(super) fn build_query(
     identity: &Option<Vec<u8>>,
     version: &Option<Vec<u8>>,
     src_addr: SocketAddr,
+    server_addr: Option<SocketAddr>,
     protocol: Protocol,
     query_bytes: &[u8],
     message_type: &DnstapMessageType,
@@ -103,8 +104,8 @@ pub(super) fn build_query(
         query_time_sec: Some(time_sec),
         query_time_nsec: Some(time_nsec),
         query_message: Some(query_bytes.to_vec()),
-        response_address: None,
-        response_port: None,
+        response_address: server_addr.map(|a| addr_bytes(&a.ip())),
+        response_port: server_addr.map(|a| a.port() as u32),
         response_time_sec: None,
         response_time_nsec: None,
         response_message: None,
@@ -135,6 +136,7 @@ pub(super) fn build_response(
     identity: &Option<Vec<u8>>,
     version: &Option<Vec<u8>>,
     src_addr: SocketAddr,
+    server_addr: Option<SocketAddr>,
     protocol: Protocol,
     query_bytes: &[u8],
     response_bytes: &[u8],
@@ -154,8 +156,8 @@ pub(super) fn build_response(
         response_message: Some(response_bytes.to_vec()),
         query_time_sec: None,
         query_time_nsec: None,
-        response_address: None,
-        response_port: None,
+        response_address: server_addr.map(|a| addr_bytes(&a.ip())),
+        response_port: server_addr.map(|a| a.port() as u32),
         query_zone: None,
         policy: None,
         http_protocol: None,
@@ -183,7 +185,7 @@ mod tests {
         let src_addr: SocketAddr = "192.168.1.1:12345".parse().unwrap();
         let query_bytes = b"\x00\x01\x01\x00";
 
-        let encoded = build_query(&identity, &version, src_addr, Protocol::Udp, query_bytes, &DnstapMessageType::Auth);
+        let encoded = build_query(&identity, &version, src_addr, None, Protocol::Udp, query_bytes, &DnstapMessageType::Auth);
         let decoded = decode(&encoded);
 
         assert_eq!(decoded.identity.as_deref(), Some(b"test-server".as_slice()));
@@ -210,7 +212,7 @@ mod tests {
         let src_addr: SocketAddr = "[::1]:53".parse().unwrap();
         let query_bytes = b"\xab\xcd";
 
-        let encoded = build_query(&None, &None, src_addr, Protocol::Tcp, query_bytes, &DnstapMessageType::Auth);
+        let encoded = build_query(&None, &None, src_addr, None, Protocol::Tcp, query_bytes, &DnstapMessageType::Auth);
         let decoded = decode(&encoded);
 
         assert!(decoded.identity.is_none());
@@ -231,6 +233,7 @@ mod tests {
             &None,
             &None,
             src_addr,
+            None,
             Protocol::Udp,
             query_bytes,
             response_bytes,

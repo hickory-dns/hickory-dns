@@ -160,6 +160,7 @@ async fn test_dnstap_client_sends_to_receiver() {
     let query_bytes = build_dns_query("example.com");
     client.log_query(
         src_addr,
+        None,
         hickory_server::net::xfer::Protocol::Udp,
         &query_bytes,
     );

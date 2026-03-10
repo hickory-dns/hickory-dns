@@ -440,6 +440,7 @@ async fn handle_udp(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registering udp: {:?}", socket);
+    let server_addr = socket.local_addr().ok();
 
     // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
     //   the address used is acquired from the inbound queries
@@ -483,7 +484,7 @@ async fn handle_udp(
         let cx = cx.clone();
         let stream_handle = stream_handle.with_remote_addr(src_addr);
         inner_join_set.spawn(async move {
-            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+            cx.handle_raw_request(message, Protocol::Udp, stream_handle, server_addr)
                 .await;
         });
 
@@ -504,6 +505,7 @@ async fn handle_tcp(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("register tcp: {listener:?}");
+    let server_addr = listener.local_addr().ok();
     let mut inner_join_set = JoinSet::new();
     loop {
         let (tcp_stream, src_addr) = tokio::select! {
@@ -552,7 +554,7 @@ async fn handle_tcp(
                 };
 
                 // we don't spawn here to limit clients from getting too many resources
-                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone(), server_addr)
                     .await;
             }
         });
@@ -575,6 +577,7 @@ async fn handle_tls(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?listener, "registered tls");
+    let server_addr = listener.local_addr().ok();
     let tls_acceptor = TlsAcceptor::from(tls_config);
 
     let mut inner_join_set = JoinSet::new();
@@ -642,7 +645,7 @@ async fn handle_tls(
                     }
                 };
 
-                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
+                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone(), server_addr)
                     .await;
             }
         });
@@ -692,6 +695,8 @@ pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
     dnstap: Option<Arc<crate::dnstap::DnstapClient>>,
     #[cfg(feature = "dnstap")]
     query_bytes: Bytes,
+    #[cfg(feature = "dnstap")]
+    server_addr: Option<SocketAddr>,
 }
 
 #[async_trait::async_trait]
@@ -758,7 +763,13 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         #[cfg(feature = "dnstap")]
         if let Some(ref dnstap) = self.dnstap {
             let response_bytes = self.handler.take_response_bytes().unwrap_or_default();
-            dnstap.log_response(self.src_addr, self.protocol, &self.query_bytes, &response_bytes);
+            dnstap.log_response(
+                self.src_addr,
+                self.server_addr,
+                self.protocol,
+                &self.query_bytes,
+                &response_bytes,
+            );
         }
 
         Ok(response_info)
@@ -779,12 +790,19 @@ impl<T: RequestHandler> ServerContext<T> {
         message: SerialMessage,
         protocol: Protocol,
         response_handler: BufDnsStreamHandle,
+        server_addr: Option<SocketAddr>,
     ) {
         let (message, src_addr) = message.into_parts();
         let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
 
-        self.handle_request(Bytes::from(message), src_addr, protocol, response_handler)
-            .await;
+        self.handle_request(
+            Bytes::from(message),
+            src_addr,
+            protocol,
+            response_handler,
+            server_addr,
+        )
+        .await;
     }
 
     async fn handle_request(
@@ -793,6 +811,7 @@ impl<T: RequestHandler> ServerContext<T> {
         src_addr: SocketAddr,
         protocol: Protocol,
         response_handler: impl ResponseHandler,
+        _server_addr: Option<SocketAddr>,
     ) {
         let mut decoder = BinDecoder::new(&message_bytes);
         let Ok(header) = Header::read(&mut decoder) else {
@@ -895,7 +914,7 @@ impl<T: RequestHandler> ServerContext<T> {
 
         #[cfg(feature = "dnstap")]
         if let Some(ref dnstap) = self.dnstap {
-            dnstap.log_query(src_addr, protocol, &raw_query_bytes);
+            dnstap.log_query(src_addr, _server_addr, protocol, &raw_query_bytes);
         }
 
         // The reporter will handle making sure to log the result of the request
@@ -912,6 +931,8 @@ impl<T: RequestHandler> ServerContext<T> {
             dnstap: self.dnstap.clone(),
             #[cfg(feature = "dnstap")]
             query_bytes: raw_query_bytes,
+            #[cfg(feature = "dnstap")]
+            server_addr: _server_addr,
         };
 
         self.handler
@@ -956,6 +977,8 @@ async fn error_response_handler(
         dnstap: None,
         #[cfg(feature = "dnstap")]
         query_bytes: Bytes::new(),
+        #[cfg(feature = "dnstap")]
+        server_addr: None,
     };
 
     let response = MessageResponseBuilder::new(&queries, None);
