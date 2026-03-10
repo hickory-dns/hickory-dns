@@ -289,7 +289,7 @@ impl DnsServer {
             deny_networks,
             allow_networks,
             #[cfg(feature = "dnstap")]
-                dnstap: _,
+            dnstap,
         } = config;
 
         #[cfg(unix)]
@@ -331,6 +331,16 @@ impl DnsServer {
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
         let mut server = Server::with_access(catalog, deny_networks, allow_networks);
+
+        #[cfg(feature = "dnstap")]
+        if let Some(dnstap_section) = dnstap {
+            if dnstap_section.enabled {
+                let dnstap_config = dnstap_section.into_dnstap_config()?;
+                let client = hickory_server::dnstap::DnstapClient::new(dnstap_config);
+                server.set_dnstap_client(client);
+                info!("DNSTAP logging enabled");
+            }
+        }
 
         let mut listen_addrs = listen_addrs_ipv4
             .into_iter()
