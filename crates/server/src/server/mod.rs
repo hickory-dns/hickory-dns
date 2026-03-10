@@ -7,6 +7,8 @@
 
 //! `Server` component for hosting a domain name servers operations.
 
+#[cfg(feature = "dnstap")]
+use std::sync::Mutex;
 use std::{
     fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -706,6 +708,13 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
+        // Set up response bytes capture for DNSTAP logging before sending.
+        #[cfg(feature = "dnstap")]
+        if self.dnstap.is_some() {
+            let capture = Arc::new(Mutex::new(None));
+            self.handler.set_response_bytes_capture(capture);
+        }
+
         let response_info = self.handler.send_response(response).await?;
 
         let id = self.request_header.id();
@@ -749,10 +758,8 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
 
         #[cfg(feature = "dnstap")]
         if let Some(ref dnstap) = self.dnstap {
-            // Log AUTH_RESPONSE without wire-format response bytes.
-            // The response_message field is optional in the DNSTAP spec;
-            // all metadata (timing, addresses, protocol) is still captured.
-            dnstap.log_response(self.src_addr, self.protocol, &self.query_bytes, &[]);
+            let response_bytes = self.handler.take_response_bytes().unwrap_or_default();
+            dnstap.log_response(self.src_addr, self.protocol, &self.query_bytes, &response_bytes);
         }
 
         Ok(response_info)
