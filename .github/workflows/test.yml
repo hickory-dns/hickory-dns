@@ -45,6 +45,10 @@ jobs:
 
       - uses: extractions/setup-just@v3
 
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-workspaces@${{ env.CARGO_WS_VERSION }}
@@ -83,6 +87,10 @@ jobs:
           components: llvm-tools-preview
 
       - uses: extractions/setup-just@v3
+
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: cargo install cargo-llvm-cov
         uses: baptiste0928/cargo-install@v3
@@ -154,6 +162,10 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: cargo install cargo-all-features
         uses: baptiste0928/cargo-install@v3
         with:
@@ -217,6 +229,10 @@ jobs:
           components: rustfmt, clippy
 
       - uses: extractions/setup-just@v3
+
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: taiki-e/install-action@v2
         with:
