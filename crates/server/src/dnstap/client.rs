@@ -148,12 +148,19 @@ impl DnstapClient {
     }
 
     /// Log a DNS query event for each enabled query message type.
-    pub fn log_query(&self, src_addr: SocketAddr, protocol: Protocol, query_bytes: &[u8]) {
+    pub fn log_query(
+        &self,
+        src_addr: SocketAddr,
+        server_addr: Option<SocketAddr>,
+        protocol: Protocol,
+        query_bytes: &[u8],
+    ) {
         for message_type in self.enabled_query_types() {
             let encoded = dnstap_message::build_query(
                 &self.identity,
                 &self.version,
                 src_addr,
+                server_addr,
                 protocol,
                 query_bytes,
                 &message_type,
@@ -166,6 +173,7 @@ impl DnstapClient {
     pub fn log_response(
         &self,
         src_addr: SocketAddr,
+        server_addr: Option<SocketAddr>,
         protocol: Protocol,
         query_bytes: &[u8],
         response_bytes: &[u8],
@@ -175,6 +183,7 @@ impl DnstapClient {
                 &self.identity,
                 &self.version,
                 src_addr,
+                server_addr,
                 protocol,
                 query_bytes,
                 response_bytes,
@@ -286,22 +295,33 @@ mod tests {
         let client = new_with_sender(sender, None, None);
 
         // First send should succeed
-        client.log_query("127.0.0.1:1234".parse().unwrap(), Protocol::Udp, b"\x00\x01");
+        client.log_query(
+            "127.0.0.1:1234".parse().unwrap(),
+            None,
+            Protocol::Udp,
+            b"\x00\x01",
+        );
 
         // Fill the channel — second send should be dropped without panic
-        client.log_query("127.0.0.1:1234".parse().unwrap(), Protocol::Udp, b"\x00\x02");
+        client.log_query(
+            "127.0.0.1:1234".parse().unwrap(),
+            None,
+            Protocol::Udp,
+            b"\x00\x02",
+        );
     }
 
     #[tokio::test]
     async fn test_client_sends_to_channel() {
         let (sender, mut receiver) = mpsc::channel(16);
-        let client = new_with_sender(
-            sender,
-            Some(b"hickory".to_vec()),
-            Some(b"0.1".to_vec()),
-        );
+        let client = new_with_sender(sender, Some(b"hickory".to_vec()), Some(b"0.1".to_vec()));
 
-        client.log_query("10.0.0.1:53".parse().unwrap(), Protocol::Tcp, b"\xab\xcd");
+        client.log_query(
+            "10.0.0.1:53".parse().unwrap(),
+            None,
+            Protocol::Tcp,
+            b"\xab\xcd",
+        );
 
         let msg = receiver.try_recv().expect("expected a message in channel");
         assert!(!msg.is_empty());
@@ -314,6 +334,7 @@ mod tests {
 
         client.log_response(
             "10.0.0.1:53".parse().unwrap(),
+            None,
             Protocol::Udp,
             b"\x00\x01",
             b"\x00\x01\x80\x00",
