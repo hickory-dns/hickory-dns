@@ -83,29 +83,32 @@ fn response_message_type(mt: &DnstapMessageType) -> MessageType {
     }
 }
 
+/// Common parameters for building DNSTAP query and response messages.
+pub(super) struct DnstapEventParams<'a> {
+    pub identity: &'a Option<Vec<u8>>,
+    pub version: &'a Option<Vec<u8>>,
+    pub src_addr: SocketAddr,
+    pub server_addr: Option<SocketAddr>,
+    pub protocol: Protocol,
+    pub query_bytes: &'a [u8],
+    pub message_type: &'a DnstapMessageType,
+}
+
 /// Build a query DNSTAP message with the given message type.
-pub(super) fn build_query(
-    identity: &Option<Vec<u8>>,
-    version: &Option<Vec<u8>>,
-    src_addr: SocketAddr,
-    server_addr: Option<SocketAddr>,
-    protocol: Protocol,
-    query_bytes: &[u8],
-    message_type: &DnstapMessageType,
-) -> Vec<u8> {
+pub(super) fn build_query(params: &DnstapEventParams<'_>) -> Vec<u8> {
     let (time_sec, time_nsec) = now_time();
 
     let message = DnstapMessage {
-        r#type: query_message_type(message_type) as i32,
-        socket_family: Some(socket_family(&src_addr.ip())),
-        socket_protocol: Some(socket_protocol(protocol)),
-        query_address: Some(addr_bytes(&src_addr.ip())),
-        query_port: Some(src_addr.port() as u32),
+        r#type: query_message_type(params.message_type) as i32,
+        socket_family: Some(socket_family(&params.src_addr.ip())),
+        socket_protocol: Some(socket_protocol(params.protocol)),
+        query_address: Some(addr_bytes(&params.src_addr.ip())),
+        query_port: Some(params.src_addr.port() as u32),
         query_time_sec: Some(time_sec),
         query_time_nsec: Some(time_nsec),
-        query_message: Some(query_bytes.to_vec()),
-        response_address: server_addr.map(|a| addr_bytes(&a.ip())),
-        response_port: server_addr.map(|a| a.port() as u32),
+        query_message: Some(params.query_bytes.to_vec()),
+        response_address: params.server_addr.map(|a| addr_bytes(&a.ip())),
+        response_port: params.server_addr.map(|a| a.port() as u32),
         response_time_sec: None,
         response_time_nsec: None,
         response_message: None,
@@ -115,8 +118,8 @@ pub(super) fn build_query(
     };
 
     let dnstap = Dnstap {
-        identity: identity.clone(),
-        version: version.clone(),
+        identity: params.identity.clone(),
+        version: params.version.clone(),
         r#type: DnstapType::Message as i32,
         message: Some(message),
         extra: None,
@@ -132,40 +135,31 @@ pub(super) fn decode(bytes: &[u8]) -> Dnstap {
 }
 
 /// Build a response DNSTAP message with the given message type.
-pub(super) fn build_response(
-    identity: &Option<Vec<u8>>,
-    version: &Option<Vec<u8>>,
-    src_addr: SocketAddr,
-    server_addr: Option<SocketAddr>,
-    protocol: Protocol,
-    query_bytes: &[u8],
-    response_bytes: &[u8],
-    message_type: &DnstapMessageType,
-) -> Vec<u8> {
+pub(super) fn build_response(params: &DnstapEventParams<'_>, response_bytes: &[u8]) -> Vec<u8> {
     let (time_sec, time_nsec) = now_time();
 
     let message = DnstapMessage {
-        r#type: response_message_type(message_type) as i32,
-        socket_family: Some(socket_family(&src_addr.ip())),
-        socket_protocol: Some(socket_protocol(protocol)),
-        query_address: Some(addr_bytes(&src_addr.ip())),
-        query_port: Some(src_addr.port() as u32),
-        query_message: Some(query_bytes.to_vec()),
+        r#type: response_message_type(params.message_type) as i32,
+        socket_family: Some(socket_family(&params.src_addr.ip())),
+        socket_protocol: Some(socket_protocol(params.protocol)),
+        query_address: Some(addr_bytes(&params.src_addr.ip())),
+        query_port: Some(params.src_addr.port() as u32),
+        query_message: Some(params.query_bytes.to_vec()),
         response_time_sec: Some(time_sec),
         response_time_nsec: Some(time_nsec),
         response_message: Some(response_bytes.to_vec()),
         query_time_sec: None,
         query_time_nsec: None,
-        response_address: server_addr.map(|a| addr_bytes(&a.ip())),
-        response_port: server_addr.map(|a| a.port() as u32),
+        response_address: params.server_addr.map(|a| addr_bytes(&a.ip())),
+        response_port: params.server_addr.map(|a| a.port() as u32),
         query_zone: None,
         policy: None,
         http_protocol: None,
     };
 
     let dnstap = Dnstap {
-        identity: identity.clone(),
-        version: version.clone(),
+        identity: params.identity.clone(),
+        version: params.version.clone(),
         r#type: DnstapType::Message as i32,
         message: Some(message),
         extra: None,
@@ -184,8 +178,17 @@ mod tests {
         let version = Some(b"1.0".to_vec());
         let src_addr: SocketAddr = "192.168.1.1:12345".parse().unwrap();
         let query_bytes = b"\x00\x01\x01\x00";
+        let message_type = DnstapMessageType::Auth;
 
-        let encoded = build_query(&identity, &version, src_addr, None, Protocol::Udp, query_bytes, &DnstapMessageType::Auth);
+        let encoded = build_query(&DnstapEventParams {
+            identity: &identity,
+            version: &version,
+            src_addr,
+            server_addr: None,
+            protocol: Protocol::Udp,
+            query_bytes,
+            message_type: &message_type,
+        });
         let decoded = decode(&encoded);
 
         assert_eq!(decoded.identity.as_deref(), Some(b"test-server".as_slice()));
@@ -211,8 +214,17 @@ mod tests {
     fn test_build_query_ipv6_tcp() {
         let src_addr: SocketAddr = "[::1]:53".parse().unwrap();
         let query_bytes = b"\xab\xcd";
+        let message_type = DnstapMessageType::Auth;
 
-        let encoded = build_query(&None, &None, src_addr, None, Protocol::Tcp, query_bytes, &DnstapMessageType::Auth);
+        let encoded = build_query(&DnstapEventParams {
+            identity: &None,
+            version: &None,
+            src_addr,
+            server_addr: None,
+            protocol: Protocol::Tcp,
+            query_bytes,
+            message_type: &message_type,
+        });
         let decoded = decode(&encoded);
 
         assert!(decoded.identity.is_none());
@@ -228,16 +240,19 @@ mod tests {
         let src_addr: SocketAddr = "10.0.0.1:5353".parse().unwrap();
         let query_bytes = b"\x00\x01";
         let response_bytes = b"\x00\x01\x80\x00";
+        let message_type = DnstapMessageType::Auth;
 
         let encoded = build_response(
-            &None,
-            &None,
-            src_addr,
-            None,
-            Protocol::Udp,
-            query_bytes,
+            &DnstapEventParams {
+                identity: &None,
+                version: &None,
+                src_addr,
+                server_addr: None,
+                protocol: Protocol::Udp,
+                query_bytes,
+                message_type: &message_type,
+            },
             response_bytes,
-            &DnstapMessageType::Auth,
         );
         let decoded = decode(&encoded);
 

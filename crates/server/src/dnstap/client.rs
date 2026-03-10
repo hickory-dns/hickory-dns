@@ -156,15 +156,15 @@ impl DnstapClient {
         query_bytes: &[u8],
     ) {
         for message_type in self.enabled_query_types() {
-            let encoded = dnstap_message::build_query(
-                &self.identity,
-                &self.version,
+            let encoded = dnstap_message::build_query(&dnstap_message::DnstapEventParams {
+                identity: &self.identity,
+                version: &self.version,
                 src_addr,
                 server_addr,
                 protocol,
                 query_bytes,
-                &message_type,
-            );
+                message_type: &message_type,
+            });
             self.send(encoded);
         }
     }
@@ -180,14 +180,16 @@ impl DnstapClient {
     ) {
         for message_type in self.enabled_response_types() {
             let encoded = dnstap_message::build_response(
-                &self.identity,
-                &self.version,
-                src_addr,
-                server_addr,
-                protocol,
-                query_bytes,
+                &dnstap_message::DnstapEventParams {
+                    identity: &self.identity,
+                    version: &self.version,
+                    src_addr,
+                    server_addr,
+                    protocol,
+                    query_bytes,
+                    message_type: &message_type,
+                },
                 response_bytes,
-                &message_type,
             );
             self.send(encoded);
         }
