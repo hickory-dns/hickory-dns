@@ -1,6 +1,7 @@
 //! Async DNSTAP client that manages connections and sends events.
 
 use std::net::SocketAddr;
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
