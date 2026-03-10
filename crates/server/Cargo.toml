@@ -27,7 +27,7 @@ license.workspace = true
 # Recursive Resolution is Experimental!
 recursor = ["hickory-resolver/recursor"]
 resolver = ["dep:hickory-resolver"]
-sqlite = ["rusqlite"]
+sqlite = ["dep:rusqlite"]
 blocklist = ["resolver"]
 toml = ["dep:toml", "hickory-resolver?/toml"]
 metrics = ["hickory-resolver?/metrics", "dep:metrics"]
