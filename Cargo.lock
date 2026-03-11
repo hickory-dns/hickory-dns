@@ -801,6 +801,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hickory-dnstap"
+version = "0.26.0-alpha.1"
+dependencies = [
+ "bytes",
+ "prost",
+ "prost-build",
+ "protox",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "hickory-integration"
 version = "0.26.0-alpha.1"
 dependencies = [
@@ -813,7 +825,6 @@ dependencies = [
  "hickory-server",
  "once_cell",
  "pretty_assertions",
- "prost",
  "rand 0.10.0",
  "rusqlite",
  "rustls",
@@ -948,6 +959,7 @@ dependencies = [
  "h2",
  "h3",
  "h3-quinn",
+ "hickory-dnstap",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",
@@ -955,9 +967,6 @@ dependencies = [
  "ipnet",
  "metrics",
  "prefix-trie",
- "prost",
- "prost-build",
- "protox",
  "rusqlite",
  "rustls",
  "serde",

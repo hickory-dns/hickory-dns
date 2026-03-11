@@ -10,10 +10,9 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-use crate::net::xfer::Protocol;
-
-use super::dnstap_message;
-use super::framestream;
+use crate::DnsTransport;
+use crate::dnstap_message;
+use crate::framestream;
 
 /// DNSTAP message type variants.
 ///
@@ -152,7 +151,7 @@ impl DnstapClient {
         &self,
         src_addr: SocketAddr,
         server_addr: Option<SocketAddr>,
-        protocol: Protocol,
+        transport: DnsTransport,
         query_bytes: &[u8],
     ) {
         for message_type in self.enabled_query_types() {
@@ -161,7 +160,7 @@ impl DnstapClient {
                 version: &self.version,
                 src_addr,
                 server_addr,
-                protocol,
+                transport,
                 query_bytes,
                 message_type: &message_type,
             });
@@ -174,7 +173,7 @@ impl DnstapClient {
         &self,
         src_addr: SocketAddr,
         server_addr: Option<SocketAddr>,
-        protocol: Protocol,
+        transport: DnsTransport,
         query_bytes: &[u8],
         response_bytes: &[u8],
     ) {
@@ -185,7 +184,7 @@ impl DnstapClient {
                     version: &self.version,
                     src_addr,
                     server_addr,
-                    protocol,
+                    transport,
                     query_bytes,
                     message_type: &message_type,
                 },
@@ -249,7 +248,7 @@ async fn connect_and_send(
 
 /// Create a DNSTAP client that sends to a pre-connected stream (for testing).
 #[cfg(test)]
-pub(super) fn new_with_sender(
+pub(crate) fn new_with_sender(
     sender: mpsc::Sender<Vec<u8>>,
     identity: Option<Vec<u8>>,
     version: Option<Vec<u8>>,
@@ -300,7 +299,7 @@ mod tests {
         client.log_query(
             "127.0.0.1:1234".parse().unwrap(),
             None,
-            Protocol::Udp,
+            DnsTransport::Udp,
             b"\x00\x01",
         );
 
@@ -308,7 +307,7 @@ mod tests {
         client.log_query(
             "127.0.0.1:1234".parse().unwrap(),
             None,
-            Protocol::Udp,
+            DnsTransport::Udp,
             b"\x00\x02",
         );
     }
@@ -321,7 +320,7 @@ mod tests {
         client.log_query(
             "10.0.0.1:53".parse().unwrap(),
             None,
-            Protocol::Tcp,
+            DnsTransport::Tcp,
             b"\xab\xcd",
         );
 
@@ -337,7 +336,7 @@ mod tests {
         client.log_response(
             "10.0.0.1:53".parse().unwrap(),
             None,
-            Protocol::Udp,
+            DnsTransport::Udp,
             b"\x00\x01",
             b"\x00\x01\x80\x00",
         );

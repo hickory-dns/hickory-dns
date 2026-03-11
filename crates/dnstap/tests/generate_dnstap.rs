@@ -1,7 +1,7 @@
 //! Regenerate the DNSTAP protobuf Rust code from `proto/dnstap.proto`.
 //!
 //! Run with:
-//!   cargo test --features dnstap generate_dnstap_proto -- --ignored
+//!   cargo test -p hickory-dnstap generate_dnstap_proto -- --ignored
 //!
 //! This uses `protox` (pure-Rust protobuf compiler) and `prost-build` to
 //! generate the code, so no external `protoc` binary is needed.
@@ -10,7 +10,7 @@
 #[ignore]
 fn generate_dnstap_proto() {
     let proto_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/proto");
-    let out_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/dnstap");
+    let out_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
 
     let file_descriptor_set =
         protox::compile(["dnstap.proto"], [proto_dir]).expect("Failed to compile proto files");
@@ -35,7 +35,7 @@ fn generate_dnstap_proto() {
          // Do not edit manually.\n\
          //\n\
          // To regenerate, run:\n\
-         //   cargo test --features dnstap generate_dnstap_proto -- --ignored\n\
+         //   cargo test -p hickory-dnstap generate_dnstap_proto -- --ignored\n\
          \n{content}"
     );
 

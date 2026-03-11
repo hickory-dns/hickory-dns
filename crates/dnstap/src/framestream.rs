@@ -9,7 +9,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The content type used for DNSTAP Frame Streams.
-pub(super) const DNSTAP_CONTENT_TYPE: &[u8] = b"protobuf:dnstap.Dnstap";
+pub(crate) const DNSTAP_CONTENT_TYPE: &[u8] = b"protobuf:dnstap.Dnstap";
 
 /// Control frame types.
 const CONTROL_ACCEPT: u32 = 0x01;
@@ -53,7 +53,7 @@ fn build_control_frame(control_type: u32, include_content_type: bool) -> Vec<u8>
 }
 
 /// Build a data frame (length-prefixed payload).
-pub(super) fn build_data_frame(payload: &[u8]) -> Vec<u8> {
+pub(crate) fn build_data_frame(payload: &[u8]) -> Vec<u8> {
     let mut buf = Vec::with_capacity(4 + payload.len());
     buf.extend_from_slice(&(payload.len() as u32).to_be_bytes());
     buf.extend_from_slice(payload);
@@ -98,7 +98,7 @@ async fn read_control_frame<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<
 /// 1. Client sends READY frame (with content type)
 /// 2. Server sends ACCEPT frame
 /// 3. Client sends START frame
-pub(super) async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S) -> io::Result<()> {
+pub(crate) async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S) -> io::Result<()> {
     // Send READY control frame
     let ready = build_control_frame(CONTROL_READY, true);
     stream.write_all(&ready).await?;
@@ -122,7 +122,7 @@ pub(super) async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S)
 }
 
 /// Send a STOP control frame and wait for FINISH.
-pub(super) async fn shutdown<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S) -> io::Result<()> {
+pub(crate) async fn shutdown<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S) -> io::Result<()> {
     // Send STOP control frame
     let stop = build_control_frame(CONTROL_STOP, false);
     stream.write_all(&stop).await?;

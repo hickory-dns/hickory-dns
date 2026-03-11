@@ -84,7 +84,7 @@ __https = ["dep:rustls", "dep:webpki-roots"]
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 metrics = ["hickory-server/metrics"]
-dnstap = ["hickory-server/dnstap", "dep:prost"]
+dnstap = ["hickory-server/dnstap"]
 
 [dependencies]
 async-trait.workspace = true
@@ -102,7 +102,6 @@ hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }
 webpki-roots = { workspace = true, optional = true }
-prost = { workspace = true, optional = true }
 
 [dev-dependencies]
 data-encoding.workspace = true

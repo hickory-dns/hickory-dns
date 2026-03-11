@@ -5,9 +5,8 @@ use std::time::SystemTime;
 
 use prost::Message as ProstMessage;
 
-use crate::net::xfer::Protocol;
-
-use super::client::DnstapMessageType;
+use crate::client::DnstapMessageType;
+use crate::DnsTransport;
 
 /// Generated protobuf types for DNSTAP.
 pub(crate) mod dnstap_proto {
@@ -41,20 +40,13 @@ fn addr_bytes(addr: &IpAddr) -> Vec<u8> {
     }
 }
 
-fn socket_protocol(protocol: Protocol) -> i32 {
-    match protocol {
-        Protocol::Udp => SocketProtocol::Udp as i32,
-        Protocol::Tcp => SocketProtocol::Tcp as i32,
-        #[cfg(feature = "__tls")]
-        Protocol::Tls => SocketProtocol::Dot as i32,
-        #[cfg(feature = "__https")]
-        Protocol::Https => SocketProtocol::Doh as i32,
-        #[cfg(feature = "__quic")]
-        Protocol::Quic => SocketProtocol::Doq as i32,
-        #[cfg(feature = "__h3")]
-        Protocol::H3 => SocketProtocol::Doh as i32,
-        // Protocol is non-exhaustive; fall back to UDP for unknown variants
-        _ => SocketProtocol::Udp as i32,
+fn socket_protocol(transport: DnsTransport) -> i32 {
+    match transport {
+        DnsTransport::Udp => SocketProtocol::Udp as i32,
+        DnsTransport::Tcp => SocketProtocol::Tcp as i32,
+        DnsTransport::Tls => SocketProtocol::Dot as i32,
+        DnsTransport::Https => SocketProtocol::Doh as i32,
+        DnsTransport::Quic => SocketProtocol::Doq as i32,
     }
 }
 
@@ -84,24 +76,24 @@ fn response_message_type(mt: &DnstapMessageType) -> MessageType {
 }
 
 /// Common parameters for building DNSTAP query and response messages.
-pub(super) struct DnstapEventParams<'a> {
+pub(crate) struct DnstapEventParams<'a> {
     pub identity: &'a Option<Vec<u8>>,
     pub version: &'a Option<Vec<u8>>,
     pub src_addr: SocketAddr,
     pub server_addr: Option<SocketAddr>,
-    pub protocol: Protocol,
+    pub transport: DnsTransport,
     pub query_bytes: &'a [u8],
     pub message_type: &'a DnstapMessageType,
 }
 
 /// Build a query DNSTAP message with the given message type.
-pub(super) fn build_query(params: &DnstapEventParams<'_>) -> Vec<u8> {
+pub(crate) fn build_query(params: &DnstapEventParams<'_>) -> Vec<u8> {
     let (time_sec, time_nsec) = now_time();
 
     let message = DnstapMessage {
         r#type: query_message_type(params.message_type) as i32,
         socket_family: Some(socket_family(&params.src_addr.ip())),
-        socket_protocol: Some(socket_protocol(params.protocol)),
+        socket_protocol: Some(socket_protocol(params.transport)),
         query_address: Some(addr_bytes(&params.src_addr.ip())),
         query_port: Some(params.src_addr.port() as u32),
         query_time_sec: Some(time_sec),
@@ -130,21 +122,21 @@ pub(super) fn build_query(params: &DnstapEventParams<'_>) -> Vec<u8> {
 
 /// Decode a DNSTAP message from protobuf bytes (for testing).
 #[cfg(test)]
-pub(super) fn decode(bytes: &[u8]) -> Dnstap {
+pub(crate) fn decode(bytes: &[u8]) -> Dnstap {
     <Dnstap as ProstMessage>::decode(bytes).expect("failed to decode DNSTAP message")
 }
 
 /// Build a response DNSTAP message with the given message type.
-pub(super) fn build_response(params: &DnstapEventParams<'_>, response_bytes: &[u8]) -> Vec<u8> {
+pub(crate) fn build_response(params: &DnstapEventParams<'_>, response_bytes: &[u8]) -> Vec<u8> {
     let (time_sec, time_nsec) = now_time();
 
     let message = DnstapMessage {
         r#type: response_message_type(params.message_type) as i32,
         socket_family: Some(socket_family(&params.src_addr.ip())),
-        socket_protocol: Some(socket_protocol(params.protocol)),
+        socket_protocol: Some(socket_protocol(params.transport)),
         query_address: Some(addr_bytes(&params.src_addr.ip())),
         query_port: Some(params.src_addr.port() as u32),
-        query_message: Some(params.query_bytes.to_vec()),
+        query_message: None,
         response_time_sec: Some(time_sec),
         response_time_nsec: Some(time_nsec),
         response_message: Some(response_bytes.to_vec()),
@@ -185,7 +177,7 @@ mod tests {
             version: &version,
             src_addr,
             server_addr: None,
-            protocol: Protocol::Udp,
+            transport: DnsTransport::Udp,
             query_bytes,
             message_type: &message_type,
         });
@@ -221,7 +213,7 @@ mod tests {
             version: &None,
             src_addr,
             server_addr: None,
-            protocol: Protocol::Tcp,
+            transport: DnsTransport::Tcp,
             query_bytes,
             message_type: &message_type,
         });
@@ -248,7 +240,7 @@ mod tests {
                 version: &None,
                 src_addr,
                 server_addr: None,
-                protocol: Protocol::Udp,
+                transport: DnsTransport::Udp,
                 query_bytes,
                 message_type: &message_type,
             },
@@ -258,7 +250,7 @@ mod tests {
 
         let msg = decoded.message.unwrap();
         assert_eq!(msg.r#type, MessageType::AuthResponse as i32);
-        assert_eq!(msg.query_message.as_deref(), Some(query_bytes.as_slice()));
+        assert!(msg.query_message.is_none());
         assert_eq!(
             msg.response_message.as_deref(),
             Some(response_bytes.as_slice())

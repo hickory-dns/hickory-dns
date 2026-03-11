@@ -62,6 +62,26 @@ mod h3_handler;
 #[cfg(feature = "__quic")]
 mod quic_handler;
 mod request_handler;
+
+/// Convert the server's `Protocol` type to the dnstap crate's `DnsTransport`.
+#[cfg(feature = "dnstap")]
+fn to_dnstap_transport(protocol: Protocol) -> crate::dnstap::DnsTransport {
+    use crate::dnstap::DnsTransport;
+    match protocol {
+        Protocol::Udp => DnsTransport::Udp,
+        Protocol::Tcp => DnsTransport::Tcp,
+        #[cfg(feature = "__tls")]
+        Protocol::Tls => DnsTransport::Tls,
+        #[cfg(feature = "__https")]
+        Protocol::Https => DnsTransport::Https,
+        #[cfg(feature = "__quic")]
+        Protocol::Quic => DnsTransport::Quic,
+        #[cfg(feature = "__h3")]
+        Protocol::H3 => DnsTransport::Https,
+        // Protocol is non-exhaustive; fall back to UDP for unknown variants
+        _ => DnsTransport::Udp,
+    }
+}
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
@@ -767,7 +787,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             dnstap.log_response(
                 self.src_addr,
                 self.server_addr,
-                self.protocol,
+                to_dnstap_transport(self.protocol),
                 &self.query_bytes,
                 &response_bytes,
             );
@@ -923,7 +943,7 @@ impl<T: RequestHandler> ServerContext<T> {
 
         #[cfg(feature = "dnstap")]
         if let Some(ref dnstap) = self.dnstap {
-            dnstap.log_query(src_addr, _server_addr, protocol, &raw_query_bytes);
+            dnstap.log_query(src_addr, _server_addr, to_dnstap_transport(protocol), &raw_query_bytes);
         }
 
         // The reporter will handle making sure to log the result of the request
