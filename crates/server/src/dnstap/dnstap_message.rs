@@ -19,7 +19,7 @@ pub(crate) mod dnstap_proto {
         unreachable_pub,
         unnameable_types
     )]
-    include!(concat!(env!("OUT_DIR"), "/dnstap.rs"));
+    include!("proto.rs");
 }
 
 use dnstap_proto::{
