@@ -25,6 +25,7 @@ bytes.workspace = true
 prost = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["registry"] }
 
 [dev-dependencies]
 protox = { workspace = true }

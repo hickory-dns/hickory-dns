@@ -7,8 +7,6 @@
 
 //! `Server` component for hosting a domain name servers operations.
 
-#[cfg(feature = "dnstap")]
-use std::sync::Mutex;
 use std::{
     fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -27,7 +25,7 @@ use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{Instrument, debug, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::ResponseHandlerMetrics;
@@ -62,25 +60,6 @@ mod h3_handler;
 mod quic_handler;
 mod request_handler;
 
-/// Convert the server's `Protocol` type to the dnstap crate's `DnsTransport`.
-#[cfg(feature = "dnstap")]
-fn to_dnstap_transport(protocol: Protocol) -> crate::dnstap::DnsTransport {
-    use crate::dnstap::DnsTransport;
-    match protocol {
-        Protocol::Udp => DnsTransport::Udp,
-        Protocol::Tcp => DnsTransport::Tcp,
-        #[cfg(feature = "__tls")]
-        Protocol::Tls => DnsTransport::Tls,
-        #[cfg(feature = "__https")]
-        Protocol::Https => DnsTransport::Https,
-        #[cfg(feature = "__quic")]
-        Protocol::Quic => DnsTransport::Quic,
-        #[cfg(feature = "__h3")]
-        Protocol::H3 => DnsTransport::Https,
-        // Protocol is non-exhaustive; fall back to UDP for unknown variants
-        _ => DnsTransport::Udp,
-    }
-}
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
@@ -115,19 +94,9 @@ impl<T: RequestHandler> Server<T> {
                 handler,
                 access,
                 shutdown: CancellationToken::new(),
-                #[cfg(feature = "dnstap")]
-                dnstap: None,
             }),
             join_set: JoinSet::new(),
         }
-    }
-
-    /// Set a DNSTAP client for logging DNS events.
-    #[cfg(feature = "dnstap")]
-    pub fn set_dnstap_client(&mut self, client: crate::dnstap::DnstapClient) {
-        Arc::get_mut(&mut self.context)
-            .expect("set_dnstap_client must be called before registering listeners")
-            .dnstap = Some(Arc::new(client));
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
@@ -711,12 +680,6 @@ pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
     handler: R,
     #[cfg(feature = "metrics")]
     metrics: ResponseHandlerMetrics,
-    #[cfg(feature = "dnstap")]
-    dnstap: Option<Arc<crate::dnstap::DnstapClient>>,
-    #[cfg(feature = "dnstap")]
-    query_bytes: Bytes,
-    #[cfg(feature = "dnstap")]
-    server_addr: Option<SocketAddr>,
 }
 
 #[async_trait::async_trait]
@@ -732,13 +695,6 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        // Set up response bytes capture for DNSTAP logging before sending.
-        #[cfg(feature = "dnstap")]
-        if self.dnstap.is_some() {
-            let capture = Arc::new(Mutex::new(None));
-            self.handler.set_response_bytes_capture(capture);
-        }
-
         let response_info = self.handler.send_response(response).await?;
 
         let id = self.request_header.id();
@@ -780,18 +736,6 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         #[cfg(feature = "metrics")]
         self.metrics.update(self, &response_info);
 
-        #[cfg(feature = "dnstap")]
-        if let Some(ref dnstap) = self.dnstap {
-            let response_bytes = self.handler.take_response_bytes().unwrap_or_default();
-            dnstap.log_response(
-                self.src_addr,
-                self.server_addr,
-                to_dnstap_transport(self.protocol),
-                &self.query_bytes,
-                &response_bytes,
-            );
-        }
-
         Ok(response_info)
     }
 }
@@ -800,8 +744,6 @@ struct ServerContext<T> {
     handler: T,
     access: AccessControl,
     shutdown: CancellationToken,
-    #[cfg(feature = "dnstap")]
-    dnstap: Option<Arc<crate::dnstap::DnstapClient>>,
 }
 
 impl<T: RequestHandler> ServerContext<T> {
@@ -831,7 +773,7 @@ impl<T: RequestHandler> ServerContext<T> {
         src_addr: SocketAddr,
         protocol: Protocol,
         response_handler: impl ResponseHandler,
-        _server_addr: Option<SocketAddr>,
+        server_addr: Option<SocketAddr>,
     ) {
         let mut decoder = BinDecoder::new(&message_bytes);
         let Ok(header) = Header::read(&mut decoder) else {
@@ -866,10 +808,6 @@ impl<T: RequestHandler> ServerContext<T> {
 
             return;
         }
-
-        // Save a copy of the raw query bytes for DNSTAP logging before they are moved.
-        #[cfg(feature = "dnstap")]
-        let raw_query_bytes = message_bytes.clone();
 
         // Attempt to decode the message
         let request = match MessageRequest::read(&mut decoder, header) {
@@ -932,9 +870,26 @@ impl<T: RequestHandler> ServerContext<T> {
             );
         }
 
-        #[cfg(feature = "dnstap")]
-        if let Some(ref dnstap) = self.dnstap {
-            dnstap.log_query(src_addr, _server_addr, to_dnstap_transport(protocol), &raw_query_bytes);
+        // Create a DNSTAP span carrying request context for the DnstapLayer.
+        let server_addr_str = server_addr.map(|a| a.to_string()).unwrap_or_default();
+        let dnstap_span = tracing::span!(
+            target: "hickory_server::dnstap",
+            tracing::Level::TRACE,
+            "dns.request",
+            src_addr = %src_addr,
+            protocol = %protocol,
+            server_addr = %server_addr_str,
+        );
+
+        // Emit query bytes as a trace event inside the DNSTAP span.
+        {
+            let _guard = dnstap_span.enter();
+            tracing::event!(
+                target: "hickory_server::dnstap",
+                tracing::Level::TRACE,
+                kind = "query",
+                message_bytes = request.raw.as_ref(),
+            );
         }
 
         // The reporter will handle making sure to log the result of the request
@@ -947,16 +902,13 @@ impl<T: RequestHandler> ServerContext<T> {
             handler: response_handler,
             #[cfg(feature = "metrics")]
             metrics: ResponseHandlerMetrics::default(),
-            #[cfg(feature = "dnstap")]
-            dnstap: self.dnstap.clone(),
-            #[cfg(feature = "dnstap")]
-            query_bytes: raw_query_bytes,
-            #[cfg(feature = "dnstap")]
-            server_addr: _server_addr,
         };
 
+        // Instrument the handler with the DNSTAP span so response events
+        // are captured in the same span context.
         self.handler
             .handle_request::<_, TokioTime>(&request, reporter)
+            .instrument(dnstap_span)
             .await;
     }
 }
@@ -993,12 +945,6 @@ async fn error_response_handler(
         handler: response_handler,
         #[cfg(feature = "metrics")]
         metrics: ResponseHandlerMetrics::default(),
-        #[cfg(feature = "dnstap")]
-        dnstap: None,
-        #[cfg(feature = "dnstap")]
-        query_bytes: Bytes::new(),
-        #[cfg(feature = "dnstap")]
-        server_addr: None,
     };
 
     let response = MessageResponseBuilder::new(&queries, None);
