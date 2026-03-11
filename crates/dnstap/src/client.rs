@@ -100,16 +100,14 @@ impl DnstapClient {
     ///
     /// Spawns a background task that manages the connection and sends messages.
     pub fn new(config: DnstapConfig) -> Self {
-        let (sender, receiver) = mpsc::channel(config.buffer_size);
+        let sender = spawn_background_sender(
+            config.endpoint.clone(),
+            config.buffer_size,
+            config.max_backoff,
+        );
 
         let identity = Arc::new(config.identity.clone());
         let version = Arc::new(config.version.clone());
-
-        tokio::spawn(background_sender(
-            config.endpoint.clone(),
-            config.max_backoff,
-            receiver,
-        ));
 
         Self {
             sender,
@@ -200,6 +198,19 @@ impl DnstapClient {
             warn!("dnstap channel full, dropping message");
         }
     }
+}
+
+/// Spawn a background task that manages the DNSTAP Frame Streams connection.
+///
+/// Returns a sender for submitting encoded DNSTAP protobuf frames.
+pub(crate) fn spawn_background_sender(
+    endpoint: DnstapEndpoint,
+    buffer_size: usize,
+    max_backoff: Duration,
+) -> mpsc::Sender<Vec<u8>> {
+    let (sender, receiver) = mpsc::channel(buffer_size);
+    tokio::spawn(background_sender(endpoint, max_backoff, receiver));
+    sender
 }
 
 /// Background task that manages the DNSTAP connection.

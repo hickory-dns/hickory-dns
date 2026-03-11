@@ -3,23 +3,21 @@
 //! Integration tests for DNSTAP support.
 //!
 //! These tests spin up a mock DNSTAP receiver (Frame Streams server) on TCP,
-//! configure a Hickory DNS server with a DNSTAP client pointing at it, send a
-//! DNS query, and verify that the receiver gets AUTH_QUERY DNSTAP messages.
+//! configure a DnstapLayer pointing at it, send a DNS query through the server,
+//! and verify that the receiver gets DNSTAP messages.
 
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use test_support::subscribe;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc;
+use tracing_subscriber::layer::SubscriberExt;
 
+use hickory_dnstap::{DnsTransport, DnstapClient, DnstapConfig, DnstapEndpoint, DnstapLayer};
 use hickory_proto::op::{Message, MessageType, OpCode, Query};
 use hickory_proto::rr::{Name, RecordType};
 use hickory_proto::serialize::binary::BinEncodable;
-use hickory_server::dnstap::{DnstapClient, DnstapConfig, DnstapEndpoint};
 use hickory_server::server::Server;
 use hickory_server::zone_handler::Catalog;
 
@@ -130,8 +128,6 @@ fn build_dns_query(name: &str) -> Vec<u8> {
 
 #[tokio::test]
 async fn test_dnstap_client_sends_to_receiver() {
-    subscribe();
-
     // Start mock DNSTAP receiver
     let receiver_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let receiver_addr = receiver_listener.local_addr().unwrap();
@@ -158,12 +154,7 @@ async fn test_dnstap_client_sends_to_receiver() {
     // Send a query event
     let src_addr: SocketAddr = "192.168.1.100:5353".parse().unwrap();
     let query_bytes = build_dns_query("example.com");
-    client.log_query(
-        src_addr,
-        None,
-        hickory_server::dnstap::DnsTransport::Udp,
-        &query_bytes,
-    );
+    client.log_query(src_addr, None, DnsTransport::Udp, &query_bytes);
 
     // Drop the client to trigger channel close → STOP frame
     drop(client);
@@ -179,14 +170,9 @@ async fn test_dnstap_client_sends_to_receiver() {
         "expected at least one DNSTAP data frame"
     );
 
-    // Decode the first frame as a DNSTAP protobuf message
-    // We use the generated types from hickory-server's dnstap module indirectly
-    // via prost decode since the proto types aren't re-exported.
-    // Instead, just verify it's valid protobuf with expected identity.
+    // Verify the protobuf contains our identity string
     let frame = &received.data_frames[0];
     assert!(!frame.is_empty(), "data frame should not be empty");
-
-    // Verify the protobuf contains our identity string
     assert!(
         frame
             .windows(b"hickory-test".len())
@@ -198,9 +184,7 @@ async fn test_dnstap_client_sends_to_receiver() {
 }
 
 #[tokio::test]
-async fn test_dnstap_integrated_with_server() {
-    subscribe();
-
+async fn test_dnstap_layer_with_server() {
     // Start mock DNSTAP receiver
     let receiver_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let receiver_addr = receiver_listener.local_addr().unwrap();
@@ -208,7 +192,7 @@ async fn test_dnstap_integrated_with_server() {
     let (frame_sender, mut frame_receiver) = mpsc::channel(1);
     let receiver_task = tokio::spawn(mock_dnstap_receiver(receiver_listener, frame_sender));
 
-    // Create DNS server with DNSTAP
+    // Create the DnstapLayer and install it as the tracing subscriber
     let config = DnstapConfig {
         endpoint: DnstapEndpoint::Tcp(receiver_addr),
         identity: Some(b"hickory-integration".to_vec()),
@@ -219,7 +203,11 @@ async fn test_dnstap_integrated_with_server() {
         log_auth_response: true,
         ..Default::default()
     };
-    let dnstap_client = DnstapClient::new(config);
+    let dnstap_layer = DnstapLayer::new(config);
+
+    // Install a subscriber with both the DNSTAP layer and a fmt layer for debug output
+    let subscriber = tracing_subscriber::registry().with(dnstap_layer);
+    let _guard = tracing::subscriber::set_default(subscriber);
 
     let udp_socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)))
         .await
@@ -227,20 +215,15 @@ async fn test_dnstap_integrated_with_server() {
     let server_addr = udp_socket.local_addr().unwrap();
 
     let mut server = Server::new(Catalog::new());
-    server.set_dnstap_client(dnstap_client);
     server.register_socket(udp_socket);
 
-    let server_continue = Arc::new(AtomicBool::new(true));
-    let server_continue2 = server_continue.clone();
+    let shutdown = server.shutdown_token().clone();
 
     let server_task = tokio::spawn(async move {
-        while server_continue2.load(Ordering::Relaxed) {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        server.shutdown_gracefully().await.unwrap();
+        server.block_until_done().await.unwrap();
     });
 
-    // Give the DNSTAP client time to connect
+    // Give the DNSTAP layer time to connect
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     // Send a DNS query to the server via UDP
@@ -251,9 +234,13 @@ async fn test_dnstap_integrated_with_server() {
     // Give the server time to process and log the DNSTAP event
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    // Shut down the server (which drops the DNSTAP client → triggers STOP)
-    server_continue.store(false, Ordering::Relaxed);
+    // Shut down the server — the DnstapLayer's sender will be dropped when
+    // the subscriber guard drops, triggering the STOP frame.
+    shutdown.cancel();
     server_task.await.unwrap();
+
+    // Drop the subscriber guard to close the DNSTAP channel
+    drop(_guard);
 
     // Collect frames from the receiver
     let received = tokio::time::timeout(Duration::from_secs(5), frame_receiver.recv())

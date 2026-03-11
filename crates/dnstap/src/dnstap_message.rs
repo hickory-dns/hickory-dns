@@ -5,8 +5,8 @@ use std::time::SystemTime;
 
 use prost::Message as ProstMessage;
 
-use crate::client::DnstapMessageType;
 use crate::DnsTransport;
+use crate::client::DnstapMessageType;
 
 /// Generated protobuf types for DNSTAP.
 pub(crate) mod dnstap_proto {

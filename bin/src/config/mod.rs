@@ -684,8 +684,8 @@ fn default_dnstap_max_backoff_secs() -> u64 {
 #[cfg(feature = "dnstap")]
 impl DnstapSectionConfig {
     /// Convert to a `DnstapConfig` for the server library.
-    pub(crate) fn into_dnstap_config(self) -> Result<hickory_server::dnstap::DnstapConfig, String> {
-        use hickory_server::dnstap::{DnstapConfig, DnstapEndpoint};
+    pub(crate) fn into_dnstap_config(self) -> Result<hickory_dnstap::DnstapConfig, String> {
+        use hickory_dnstap::{DnstapConfig, DnstapEndpoint};
 
         let endpoint = if let Some(ref addr) = self.tcp_address {
             DnstapEndpoint::Tcp(

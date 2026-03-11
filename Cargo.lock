@@ -768,6 +768,7 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "hex",
+ "hickory-dnstap",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",
@@ -810,6 +811,7 @@ dependencies = [
  "protox",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -819,6 +821,7 @@ dependencies = [
  "async-trait",
  "data-encoding",
  "futures",
+ "hickory-dnstap",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",

@@ -84,7 +84,7 @@ __https = ["dep:rustls", "dep:webpki-roots"]
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 metrics = ["hickory-server/metrics"]
-dnstap = ["hickory-server/dnstap"]
+dnstap = ["hickory-server/dnstap", "dep:hickory-dnstap"]
 
 [dependencies]
 async-trait.workspace = true
@@ -101,6 +101,7 @@ hickory-proto = { workspace = true, features = ["testing", "std"] }
 hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }
+hickory-dnstap = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -109,7 +110,7 @@ futures = { workspace = true, features = ["thread-pool"] }
 pretty_assertions = "1"
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
