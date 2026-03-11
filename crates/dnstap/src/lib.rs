@@ -5,14 +5,6 @@
 //! [Protocol Buffers](https://protobuf.dev/) for message encoding and
 //! [Frame Streams](https://farsightsec.github.io/fstrm/) for transport framing.
 //!
-//! # Enabling
-//!
-//! DNSTAP support requires the `dnstap` cargo feature:
-//!
-//! ```toml
-//! hickory-server = { version = "...", features = ["dnstap"] }
-//! ```
-//!
 //! # Architecture
 //!
 //! The implementation uses an async client ([`DnstapClient`]) with a background sender task
@@ -56,8 +48,29 @@
 //! log_client_response = true
 //! ```
 
+#![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 mod client;
 mod dnstap_message;
 mod framestream;
 
 pub use client::{DnstapClient, DnstapConfig, DnstapEndpoint, DnstapMessageType};
+
+/// DNS transport protocol for the DNSTAP `socket_protocol` field.
+///
+/// This is a simplified protocol enum that decouples the DNSTAP crate from
+/// the server's internal `Protocol` type and its feature-gated variants.
+#[derive(Clone, Copy, Debug)]
+pub enum DnsTransport {
+    /// DNS over UDP (RFC 1035).
+    Udp,
+    /// DNS over TCP (RFC 1035).
+    Tcp,
+    /// DNS over TLS (RFC 7858).
+    Tls,
+    /// DNS over HTTPS (RFC 8484), including HTTP/3.
+    Https,
+    /// DNS over QUIC (RFC 9250).
+    Quic,
+}

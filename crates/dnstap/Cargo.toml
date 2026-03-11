@@ -1,0 +1,35 @@
+[package]
+name = "hickory-dnstap"
+
+description = """
+DNSTAP structured binary logging for DNS servers. Encodes DNS events as
+Protocol Buffer messages and transports them over Frame Streams.
+"""
+
+documentation = "https://docs.rs/hickory-dnstap"
+
+readme = "README.md"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+
+[dependencies]
+bytes.workspace = true
+prost = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+protox = { workspace = true }
+prost-build = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "io-util"] }
+
+[lints]
+workspace = true

@@ -161,7 +161,7 @@ async fn test_dnstap_client_sends_to_receiver() {
     client.log_query(
         src_addr,
         None,
-        hickory_server::net::xfer::Protocol::Udp,
+        hickory_server::dnstap::DnsTransport::Udp,
         &query_bytes,
     );
 
