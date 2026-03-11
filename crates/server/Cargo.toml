@@ -123,11 +123,10 @@ hickory-resolver = { workspace = true, features = ["serde", "system-config", "to
 metrics = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
 
-[build-dependencies]
-prost-build = { workspace = true }
-
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+protox = { workspace = true }
+prost-build = { workspace = true }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
