@@ -161,6 +161,24 @@ pub struct DnsServer {
 }
 
 impl DnsServer {
+    /// Create a DNSTAP tracing layer from the server configuration file.
+    ///
+    /// This should be called before the tracing subscriber is initialized,
+    /// so the layer can be included in the subscriber stack.
+    #[cfg(feature = "dnstap")]
+    pub fn create_dnstap_layer(&self) -> Result<Option<hickory_dnstap::DnstapLayer>, String> {
+        let config_path = Path::new(&self.config);
+        let config = Config::read_config(config_path)
+            .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
+        if let Some(dnstap_section) = config.dnstap {
+            if dnstap_section.enabled {
+                let dnstap_config = dnstap_section.into_dnstap_config()?;
+                return Ok(Some(hickory_dnstap::DnstapLayer::new(dnstap_config)));
+            }
+        }
+        Ok(None)
+    }
+
     pub async fn run(self) -> Result<(), String> {
         let Self {
             validate,
@@ -288,6 +306,8 @@ impl DnsServer {
             http_endpoint,
             deny_networks,
             allow_networks,
+            #[cfg(feature = "dnstap")]
+            dnstap,
         } = config;
 
         #[cfg(unix)]
@@ -329,6 +349,33 @@ impl DnsServer {
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
         let mut server = Server::with_access(catalog, deny_networks, allow_networks);
+
+        // DNSTAP is configured via a tracing subscriber Layer.
+        // The DnstapLayer should be installed on the tracing subscriber
+        // before the server starts (see hickory-dns.rs).
+        #[cfg(feature = "dnstap")]
+        if let Some(ref dnstap_section) = dnstap {
+            if dnstap_section.enabled {
+                let endpoint_display: String;
+                if let Some(ref addr) = dnstap_section.tcp_address {
+                    endpoint_display = format!("tcp://{addr}");
+                } else {
+                    #[cfg(unix)]
+                    {
+                        endpoint_display = dnstap_section
+                            .unix_path
+                            .as_deref()
+                            .map(|p| format!("unix://{p}"))
+                            .unwrap_or_else(|| "<unknown>".to_string());
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        endpoint_display = "<unknown>".to_string();
+                    }
+                }
+                info!("DNSTAP logging enabled, sending to {endpoint_display}");
+            }
+        }
 
         let mut listen_addrs = listen_addrs_ipv4
             .into_iter()

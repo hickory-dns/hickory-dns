@@ -191,7 +191,7 @@ pub(crate) async fn h2_handler(
                 }
             };
 
-            cx.handle_request(body.freeze(), src_addr, Protocol::Https, responder)
+            cx.handle_request(body.freeze(), src_addr, Protocol::Https, responder, None)
                 .await
         });
 

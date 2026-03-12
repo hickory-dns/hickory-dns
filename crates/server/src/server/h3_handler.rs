@@ -147,7 +147,7 @@ pub(crate) async fn h3_handler(
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
         tokio::spawn(async move {
-            cx.handle_request(request, src_addr, Protocol::H3, responder)
+            cx.handle_request(request, src_addr, Protocol::H3, responder, None)
                 .await
         });
 
