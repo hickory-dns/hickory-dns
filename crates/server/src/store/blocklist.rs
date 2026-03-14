@@ -759,6 +759,46 @@ mod test {
         .await;
     }
 
+    #[test]
+    fn test_blocklist_entry_count() {
+        subscribe();
+        let config = BlocklistConfig {
+            wildcard_match: true,
+            min_wildcard_depth: 2,
+            lists: vec!["default/blocklist.txt".to_string()],
+            sinkhole_ipv4: None,
+            sinkhole_ipv6: None,
+            block_message: None,
+            ttl: 86_400,
+            consult_action: BlocklistConsultAction::Disabled,
+            log_clients: true,
+        };
+
+        let zh = BlocklistZoneHandler::try_from_config(
+            Name::root(),
+            config,
+            Some(Path::new("../../tests/test-data/test_configs/")),
+        )
+        .expect("unable to create config");
+
+        assert_eq!(zh.entry_count(), 4);
+    }
+
+    #[test]
+    fn test_blocklist_entry_count_default() {
+        subscribe();
+        let config = BlocklistConfig::default();
+
+        let zh = BlocklistZoneHandler::try_from_config(
+            Name::root(),
+            config,
+            Some(Path::new("../../tests/test-data/test_configs/")),
+        )
+        .expect("unable to create config");
+
+        assert_eq!(zh.entry_count(), 0);
+    }
+
     async fn basic_test(
         ao: &Arc<dyn ZoneHandler>,
         query: &'static str,
