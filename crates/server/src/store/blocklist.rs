@@ -254,6 +254,11 @@ impl BlocklistZoneHandler {
         Ok(())
     }
 
+    /// Number of unique blocklist entries currently loaded in memory.
+    pub fn entry_count(&self) -> usize {
+        self.blocklist.len()
+    }
+
     /// Build a wildcard match list for a given host
     fn wildcards(&self, host: &Name) -> Vec<LowerName> {
         host.iter()
