@@ -122,7 +122,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // DnsRequestOptions to use with outbound requests made by the recursor.
         let mut request_options = DnsRequestOptions::default();
-        request_options.use_edns = dnssec_policy.is_security_aware();
         request_options.edns_set_dnssec_ok = dnssec_policy.is_security_aware();
         // Set RD=0 in queries made by the recursive resolver. See the last figure in
         // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
