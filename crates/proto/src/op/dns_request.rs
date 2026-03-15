@@ -42,7 +42,7 @@ impl Default for DnsRequestOptions {
     fn default() -> Self {
         Self {
             max_request_depth: 26,
-            use_edns: false,
+            use_edns: true,
             edns_set_dnssec_ok: false,
             recursion_desired: true,
             #[cfg(feature = "std")]
@@ -152,3 +152,32 @@ impl From<Message> for DnsRequest {
 // https://dnsflagday.net/2020/
 #[cfg(feature = "std")]
 const MAX_PAYLOAD_LEN: u16 = 1232;
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use crate::rr::{Name, RecordType};
+
+    #[test]
+    fn from_query_default_includes_edns() {
+        let query = Query::query(Name::from_ascii("example.com.").unwrap(), RecordType::A);
+        let request = DnsRequest::from_query(query, DnsRequestOptions::default());
+        assert!(request.extensions().is_some());
+        assert_eq!(request.max_payload(), MAX_PAYLOAD_LEN);
+    }
+
+    #[test]
+    fn from_query_edns_disabled_no_opt() {
+        let query = Query::query(Name::from_ascii("example.com.").unwrap(), RecordType::A);
+        let request = DnsRequest::from_query(
+            query,
+            DnsRequestOptions {
+                use_edns: false,
+                ..DnsRequestOptions::default()
+            },
+        );
+
+        assert!(request.extensions().is_none());
+        assert_eq!(request.max_payload(), 512);
+    }
+}

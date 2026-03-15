@@ -616,7 +616,7 @@ impl Default for ResolverOpts {
             ndots: default_ndots(),
             timeout: default_timeout(),
             attempts: default_attempts(),
-            edns0: false,
+            edns0: true,
             #[cfg(feature = "__dnssec")]
             validate: false,
             ip_strategy: LookupIpStrategy::default(),
