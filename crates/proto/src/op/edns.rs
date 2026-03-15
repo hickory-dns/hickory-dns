@@ -287,8 +287,13 @@ impl From<EdnsFlags> for u16 {
 }
 
 /// Maximum payload length for EDNS messages.
+///
+/// Per RFC 6891 section 6.2.5, default to 4096 bytes.
+///
+/// <https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5>
+///
 // TODO: this should be configurable
-pub const MAX_PAYLOAD_LEN: u16 = 1232;
+pub const MAX_PAYLOAD_LEN: u16 = 4096;
 
 #[cfg(all(test, feature = "__dnssec"))]
 mod tests {
