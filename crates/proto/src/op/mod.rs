@@ -26,7 +26,7 @@ mod dns_response;
 pub use dns_response::DnsResponse;
 
 mod edns;
-pub use edns::{Edns, EdnsFlags};
+pub use edns::{Edns, EdnsFlags, MAX_PAYLOAD_LEN};
 
 mod header;
 pub use header::{Flags, Header, MessageType};

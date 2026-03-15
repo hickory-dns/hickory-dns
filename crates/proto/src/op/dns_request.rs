@@ -12,8 +12,8 @@ use core::ops::{Deref, DerefMut};
 use core::time::Duration;
 
 #[cfg(feature = "std")]
-use crate::op::{DEFAULT_RETRY_FLOOR, Edns};
-use crate::op::{Message, Query};
+use super::{DEFAULT_RETRY_FLOOR, Edns, edns::MAX_PAYLOAD_LEN};
+use super::{Message, Query};
 
 /// A set of options for expressing options to how requests should be treated
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,12 +146,6 @@ impl From<Message> for DnsRequest {
         Self::new(message, DnsRequestOptions::default())
     }
 }
-
-// TODO: this should be configurable
-// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
-// https://dnsflagday.net/2020/
-#[cfg(feature = "std")]
-const MAX_PAYLOAD_LEN: u16 = 1232;
 
 #[cfg(all(test, feature = "std"))]
 mod tests {

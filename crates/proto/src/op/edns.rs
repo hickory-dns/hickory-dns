@@ -286,6 +286,10 @@ impl From<EdnsFlags> for u16 {
     }
 }
 
+/// Maximum payload length for EDNS messages.
+// TODO: this should be configurable
+pub const MAX_PAYLOAD_LEN: u16 = 1232;
+
 #[cfg(all(test, feature = "__dnssec"))]
 mod tests {
     use super::*;
