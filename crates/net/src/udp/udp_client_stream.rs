@@ -243,14 +243,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                 continue;
             }
 
-            let mut response = match DnsResponse::from_buffer(response_buffer) {
-                Ok(response) => response,
-                Err(e) => {
-                    // on errors deserializing, continue
-                    warn!("dropped malformed message waiting for id: {msg_id} err: {e}");
-                    continue;
-                }
-            };
+            let mut response = DnsResponse::from_buffer(response_buffer)?;
 
             // Validate the message id in the response matches the value chosen for the query.
             if msg_id != response.id() {
