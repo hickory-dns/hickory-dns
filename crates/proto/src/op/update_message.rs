@@ -11,7 +11,7 @@ use core::fmt::Debug;
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
-    op::{Edns, OpCode},
+    op::{Edns, OpCode, edns::MAX_PAYLOAD_LEN},
     rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
 };
 use crate::{
@@ -597,9 +597,3 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
 
     message
 }
-
-// TODO: this should be configurable
-// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
-// https://dnsflagday.net/2020/
-/// Maximum payload length for EDNS update messages
-pub const MAX_PAYLOAD_LEN: u16 = 1232;
