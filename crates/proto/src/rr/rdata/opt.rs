@@ -260,7 +260,7 @@ impl BinEncodable for OPT {
 }
 
 impl<'r> RecordDataDecodable<'r> for OPT {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let mut state: OptReadState = OptReadState::ReadCode;
         let mut options: Vec<(EdnsCode, EdnsOption)> = Vec::new();
         let start_idx = decoder.index();
@@ -525,7 +525,7 @@ impl BinEncodable for EdnsOption {
 
 /// only the supported extensions are listed right now.
 impl<'a> TryFrom<(EdnsCode, &'a [u8])> for EdnsOption {
-    type Error = ProtoError;
+    type Error = DecodeError;
 
     fn try_from(value: (EdnsCode, &'a [u8])) -> Result<Self, Self::Error> {
         Ok(match value.0 {
@@ -710,7 +710,7 @@ impl BinEncodable for ClientSubnet {
 }
 
 impl<'a> BinDecodable<'a> for ClientSubnet {
-    fn read(decoder: &mut BinDecoder<'a>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'a>) -> Result<Self, DecodeError> {
         let family = decoder.read_u16()?.unverified();
 
         match family {
@@ -725,8 +725,7 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                     return Err(DecodeError::IncorrectRDataLengthRead {
                         read: octets.len(),
                         len: addr_len,
-                    }
-                    .into());
+                    });
                 }
                 for octet in octets.iter_mut().take(addr_len) {
                     *octet = decoder.read_u8()?.unverified();
@@ -748,8 +747,7 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                     return Err(DecodeError::IncorrectRDataLengthRead {
                         read: octets.len(),
                         len: addr_len,
-                    }
-                    .into());
+                    });
                 }
                 for octet in octets.iter_mut().take(addr_len) {
                     *octet = decoder.read_u8()?.unverified();
@@ -761,7 +759,7 @@ impl<'a> BinDecodable<'a> for ClientSubnet {
                     scope_prefix,
                 })
             }
-            _ => Err(DecodeError::UnknownAddressFamily(family).into()),
+            _ => Err(DecodeError::UnknownAddressFamily(family)),
         }
     }
 }
@@ -779,7 +777,7 @@ impl<'a> TryFrom<&'a ClientSubnet> for Vec<u8> {
 }
 
 impl<'a> TryFrom<&'a [u8]> for ClientSubnet {
-    type Error = ProtoError;
+    type Error = DecodeError;
 
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         let mut decoder = BinDecoder::new(value);

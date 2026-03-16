@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{
         RecordData, RecordDataDecodable,
         rdata::{
@@ -896,7 +896,7 @@ impl RData {
         decoder: &mut BinDecoder<'_>,
         record_type: RecordType,
         length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    ) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         let result = match record_type {
@@ -913,7 +913,7 @@ impl RData {
                 ANAME::read(decoder).map(Self::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
-                return Err(DecodeError::UnknownRecordTypeValue(rt.into()).into());
+                return Err(DecodeError::UnknownRecordTypeValue(rt.into()));
             }
             RecordType::CAA => {
                 trace!("reading CAA");
@@ -1022,11 +1022,9 @@ impl RData {
         length
             .map(|u| u as usize)
             .verify_unwrap(|rdata_length| read == *rdata_length)
-            .map_err(|rdata_length| {
-                ProtoError::from(DecodeError::IncorrectRDataLengthRead {
-                    read,
-                    len: rdata_length,
-                })
+            .map_err(|rdata_length| DecodeError::IncorrectRDataLengthRead {
+                read,
+                len: rdata_length,
             })?;
 
         result

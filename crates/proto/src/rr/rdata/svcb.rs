@@ -280,7 +280,7 @@ impl From<SvcParamKey> for u16 {
 impl<'r> BinDecodable<'r> for SvcParamKey {
     // a 2 octet field containing the SvcParamKey as an integer in
     //      network byte order.  (See Section 14.3.2 for the defined values.)
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         Ok(decoder.read_u16()?.unverified(/*any u16 is valid*/).into())
     }
 }
@@ -457,7 +457,7 @@ impl SvcParamValue {
     // a 2 octet field containing the length of the SvcParamValue as an
     //      integer between 0 and 65535 in network byte order (but constrained
     //      by the RDATA and DNS message sizes).
-    fn read(key: SvcParamKey, decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+    fn read(key: SvcParamKey, decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
         let len: usize = decoder
             .read_u16()?
             .verify_unwrap(|len| *len as usize <= decoder.len())
@@ -476,7 +476,7 @@ impl SvcParamValue {
             // should always be empty
             SvcParamKey::NoDefaultAlpn => {
                 if len > 0 {
-                    return Err(DecodeError::IncorrectRDataLengthRead { read: len, len: 0 }.into());
+                    return Err(DecodeError::IncorrectRDataLengthRead { read: len, len: 0 });
                 }
 
                 Self::NoDefaultAlpn
@@ -597,7 +597,7 @@ impl<'r> BinDecodable<'r> for Mandatory {
     ///    In wire format, the keys are represented by their numeric values in
     ///    network byte order, concatenated in strictly increasing numeric order.
     /// ```
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut keys = Vec::with_capacity(1);
 
         while decoder.peek().is_some() {
@@ -605,7 +605,7 @@ impl<'r> BinDecodable<'r> for Mandatory {
         }
 
         if keys.is_empty() {
-            return Err(DecodeError::SvcParamMissingValue.into());
+            return Err(DecodeError::SvcParamMissingValue);
         }
 
         Ok(Self(keys))
@@ -782,7 +782,7 @@ impl<'r> BinDecodable<'r> for Alpn {
     ///   exactly fill the SvcParamValue; otherwise, the SvcParamValue is
     ///   malformed.
     /// ```
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut alpns = Vec::with_capacity(1);
 
         while decoder.peek().is_some() {
@@ -792,7 +792,7 @@ impl<'r> BinDecodable<'r> for Alpn {
         }
 
         if alpns.is_empty() {
-            return Err(DecodeError::SvcParamMissingValue.into());
+            return Err(DecodeError::SvcParamMissingValue);
         }
 
         Ok(Self(alpns))
@@ -858,7 +858,7 @@ impl<'r> BinDecodable<'r> for EchConfigList {
     /// ECHConfigList in Base 64 Encoding (Section 4 of RFC4648).
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let data =
             decoder.read_vec(decoder.len())?.unverified(/*up to consumer to validate this data*/);
 
@@ -963,7 +963,7 @@ where
     ///   AAAA RRSet, the list of addresses represents an unordered collection,
     ///   and clients SHOULD pick addresses to use in a random order.  An empty
     ///   list of addresses is invalid.
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut ips = Vec::new();
 
         while decoder.peek().is_some() {
@@ -1030,7 +1030,7 @@ where
 pub struct Unknown(pub Vec<u8>);
 
 impl<'r> BinDecodable<'r> for Unknown {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // The passed slice is already length delimited, and we cannot
         // assume it's a collection of anything.
         let len = decoder.len();
@@ -1103,7 +1103,10 @@ impl RecordDataDecodable<'_> for SVCB {
     ///   If any RRs are malformed, the client MUST reject the entire RRSet and
     ///   fall back to non-SVCB connection establishment.
     /// ```
-    fn read_data(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<SVCB> {
+    fn read_data(
+        decoder: &mut BinDecoder<'_>,
+        rdata_length: Restrict<u16>,
+    ) -> Result<Self, DecodeError> {
         let start_index = decoder.index();
 
         let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
@@ -1132,7 +1135,7 @@ impl RecordDataDecodable<'_> for SVCB {
 
             if let Some(last_key) = svc_params.last().map(|(key, _)| key) {
                 if last_key >= &key {
-                    return Err(DecodeError::SvcParamsOutOfOrder.into());
+                    return Err(DecodeError::SvcParamsOutOfOrder);
                 }
             }
 

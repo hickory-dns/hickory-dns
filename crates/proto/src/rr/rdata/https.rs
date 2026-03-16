@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
 };
 
 use super::SVCB;
@@ -40,7 +40,7 @@ impl BinEncodable for HTTPS {
 }
 
 impl<'r> RecordDataDecodable<'r> for HTTPS {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         SVCB::read_data(decoder, length).map(Self)
     }
 }

@@ -412,7 +412,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
 impl<'r> BinDecodable<'r> for Record<RData> {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
         let name_labels: Name = Name::read(decoder)?;
@@ -427,7 +427,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
         let class: DNSClass = if record_type == RecordType::OPT {
             // verify that the OPT record is Root
             if !name_labels.is_root() {
-                return Err(DecodeError::EdnsNameNotRoot(Box::new(name_labels)).into());
+                return Err(DecodeError::EdnsNameNotRoot(Box::new(name_labels)));
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891

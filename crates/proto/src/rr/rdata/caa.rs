@@ -656,7 +656,7 @@ impl<'r> RecordDataDecodable<'r> for CAA {
     /// The length of the Value field is specified implicitly as the
     /// remaining length of the enclosing RDATA section.
     /// ```
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<CAA> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let flags = decoder.read_u8()?.unverified(/*used as bitfield*/);
 
         let issuer_critical = (flags & 0b1000_0000) != 0;

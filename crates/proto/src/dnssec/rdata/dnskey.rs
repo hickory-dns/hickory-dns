@@ -18,7 +18,7 @@ use crate::{
         Algorithm, DigestType, PublicKey, PublicKeyBuf, Verifier,
         crypto::{Digest, decode_public_key},
     },
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{Name, RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
@@ -370,7 +370,7 @@ impl BinEncodable for DNSKEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for DNSKEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
         let _protocol: u8 = decoder
@@ -398,7 +398,7 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
         let key_len = length
         .map(|u| u as usize)
         .checked_sub(4)
-        .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?
+        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 4, len })?
         .unverified(/*used only as length safely*/);
         let public_key =
             decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);

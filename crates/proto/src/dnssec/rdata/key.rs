@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use super::DNSSECRData;
 use crate::{
     dnssec::{Algorithm, PublicKey, Verifier, crypto::decode_public_key},
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
@@ -330,7 +330,7 @@ impl BinEncodable for KEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for KEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<KEY> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
         //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
         //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
@@ -351,7 +351,7 @@ impl<'r> RecordDataDecodable<'r> for KEY {
         let signatory = UpdateScope::from(flags);
 
         if extended_flags {
-            return Err(DecodeError::ExtendedKeyFlagsUnsupported(flags).into());
+            return Err(DecodeError::ExtendedKeyFlagsUnsupported(flags));
         }
 
         // TODO: protocol my be infallible
@@ -365,7 +365,7 @@ impl<'r> RecordDataDecodable<'r> for KEY {
         let key_len = length
         .map(|u| u as usize)
         .checked_sub(4)
-        .map_err(|_| ProtoError::from("invalid rdata length in KEY"))?
+        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 4, len })?
         .unverified(/*used only as length safely*/);
         let public_key: Vec<u8> =
             decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);

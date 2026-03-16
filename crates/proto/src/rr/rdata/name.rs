@@ -56,7 +56,7 @@ macro_rules! name_rdata {
         }
 
         impl<'r> BinDecodable<'r> for $name {
-            fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+            fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
                 Name::read(decoder).map(Self)
             }
         }

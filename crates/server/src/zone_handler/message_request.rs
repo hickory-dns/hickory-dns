@@ -13,7 +13,9 @@ use crate::{
             emit_message_parts,
         },
         rr::{Record, rdata::TSIG},
-        serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, NameEncoding},
+        serialize::binary::{
+            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
+        },
     },
     zone_handler::LookupError,
 };
@@ -36,7 +38,7 @@ impl MessageRequest {
     pub(crate) fn read(
         decoder: &mut BinDecoder<'_>,
         mut header: Header,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, DecodeError> {
         // get all counts before header moves
         let query_count = header.query_count() as usize;
         let answer_count = header.answer_count() as usize;
@@ -255,7 +257,7 @@ impl Queries {
     fn read_queries(
         decoder: &mut BinDecoder<'_>,
         count: usize,
-    ) -> Result<Vec<LowerQuery>, ProtoError> {
+    ) -> Result<Vec<LowerQuery>, DecodeError> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(LowerQuery::read(decoder)?);
@@ -264,7 +266,7 @@ impl Queries {
     }
 
     /// Read queries from a decoder
-    pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, ProtoError> {
+    pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, DecodeError> {
         let queries_start = decoder.index();
         let queries = Self::read_queries(decoder, num_queries)?;
         let original = decoder

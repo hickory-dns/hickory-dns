@@ -17,10 +17,10 @@ use serde::{Deserialize, Serialize};
 use super::DNSSECRData;
 use crate::{
     dnssec::{Algorithm, DigestType, DnsSecError, PublicKey, rdata::DNSKEY},
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
     },
 };
 
@@ -219,7 +219,7 @@ impl BinEncodable for DS {
 }
 
 impl<'r> RecordDataDecodable<'r> for DS {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
@@ -231,7 +231,7 @@ impl<'r> RecordDataDecodable<'r> for DS {
         let left: usize = length
         .map(|u| u as usize)
         .checked_sub(bytes_read)
-        .map_err(|_| ProtoError::from("invalid rdata length in DS"))?
+        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: bytes_read, len })?
         .unverified(/*used only as length safely*/);
         let digest =
             decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);

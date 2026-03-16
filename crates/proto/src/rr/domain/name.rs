@@ -1221,7 +1221,7 @@ impl<'r> BinDecodable<'r> for Name {
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the `Vec` which it is reading...
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut name = Self::default();
         read_inner(decoder, &mut name, None)?;
         Ok(name)

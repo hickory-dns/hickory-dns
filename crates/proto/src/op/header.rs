@@ -455,7 +455,7 @@ impl BinEncodable for Header {
 }
 
 impl<'r> BinDecodable<'r> for Header {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let id = decoder.read_u16()?.unverified(/*it is valid for this to be any u16*/);
 
         let q_opcd_a_t_r = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/);

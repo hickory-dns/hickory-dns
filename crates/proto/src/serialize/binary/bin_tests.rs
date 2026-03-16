@@ -59,7 +59,7 @@ fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
 #[test]
 fn read_u16() {
     test_read_data_set(get_u16_data(), |mut d| {
-        d.read_u16().map(Restrict::unverified).map_err(Into::into)
+        d.read_u16().map(Restrict::unverified)
     });
 }
 
@@ -84,7 +84,7 @@ fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
 #[test]
 fn read_i32() {
     test_read_data_set(get_i32_data(), |mut d| {
-        d.read_i32().map(Restrict::unverified).map_err(Into::into)
+        d.read_i32().map(Restrict::unverified)
     });
 }
 
@@ -110,7 +110,7 @@ fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
 #[test]
 fn read_u32() {
     test_read_data_set(get_u32_data(), |mut d| {
-        d.read_u32().map(Restrict::unverified).map_err(Into::into)
+        d.read_u32().map(Restrict::unverified)
     });
 }
 
@@ -123,7 +123,7 @@ fn emit_u32() {
 pub(crate) fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
 where
     E: PartialEq<E> + Debug,
-    F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
+    F: Fn(BinDecoder<'_>) -> Result<E, DecodeError>,
 {
     for (_test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
         #[cfg(feature = "std")]

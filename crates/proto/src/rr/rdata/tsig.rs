@@ -388,7 +388,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
     ///  /                                                               /
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let end_idx = length.map(|rdl| rdl as usize)
         .checked_add(decoder.index())
         .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: decoder.index(), len })? // no legal message is long enough to trigger that
@@ -651,7 +651,7 @@ impl BinEncodable for TsigAlgorithm {
 }
 
 impl BinDecodable<'_> for TsigAlgorithm {
-    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
         let mut name = Name::read(decoder)?;
         name.set_fqdn(false);
         Ok(Self::from_name(name))

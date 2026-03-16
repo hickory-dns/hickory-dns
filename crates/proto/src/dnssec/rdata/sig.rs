@@ -19,7 +19,8 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordSet, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -256,7 +257,7 @@ impl BinEncodable for SIG {
 }
 
 impl<'r> RecordDataDecodable<'r> for SIG {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         // TODO should we verify here? or elsewhere...
@@ -288,7 +289,7 @@ impl<'r> RecordDataDecodable<'r> for SIG {
         let sig_len = length
         .map(|u| u as usize)
         .checked_sub(decoder.index() - start_idx)
-        .map_err(|_| ProtoError::from("invalid rdata length in SIG"))?
+        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: decoder.index() - start_idx, len })?
         .unverified(/*used only as length safely*/);
         let sig = decoder
         .read_vec(sig_len)?

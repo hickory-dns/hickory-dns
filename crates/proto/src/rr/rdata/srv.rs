@@ -14,7 +14,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
+    },
 };
 
 /// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
@@ -221,7 +223,7 @@ impl BinEncodable for SRV {
 }
 
 impl<'r> BinDecodable<'r> for SRV {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // SRV { priority: u16, weight: u16, port: u16, target: Name, },
         Ok(Self::new(
             decoder.read_u16()?.unverified(/*any u16 is valid*/),

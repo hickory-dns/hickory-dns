@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 /// The DNS AAAA record type, an IPv6 address
@@ -84,7 +84,7 @@ impl BinEncodable for AAAA {
 }
 
 impl<'r> BinDecodable<'r> for AAAA {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // TODO: would this be more efficient as two u64 reads?
         let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);

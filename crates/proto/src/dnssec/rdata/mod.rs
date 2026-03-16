@@ -32,7 +32,9 @@ use tracing::trace;
 use crate::{
     error::*,
     rr::{RData, RecordDataDecodable, RecordType, rdata::NULL},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
+    },
 };
 
 pub use self::cdnskey::CDNSKEY;
@@ -457,7 +459,7 @@ impl DNSSECRData {
         decoder: &mut BinDecoder<'_>,
         record_type: RecordType,
         rdata_length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
+    ) -> Result<Self, DecodeError> {
         match record_type {
             RecordType::CDNSKEY => {
                 trace!("reading CDNSKEY");

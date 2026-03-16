@@ -14,7 +14,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
@@ -143,7 +143,7 @@ impl From<CertType> for u16 {
 }
 
 impl<'r> BinDecodable<'r> for CertType {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let algorithm_id = decoder
             .read_u16()?
             .unverified(/*CertType is verified as safe in processing this*/);
@@ -366,7 +366,7 @@ impl From<Algorithm> for u8 {
 
 impl<'r> BinDecodable<'r> for Algorithm {
     // https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let algorithm_id = decoder
             .read_u8()?
             .unverified(/*Algorithm is verified as safe in processing this*/);
@@ -451,7 +451,7 @@ impl CERT {
 }
 
 impl TryFrom<&[u8]> for CERT {
-    type Error = ProtoError;
+    type Error = DecodeError;
 
     fn try_from(cert_record: &[u8]) -> Result<Self, Self::Error> {
         let mut decoder = BinDecoder::new(cert_record);
@@ -473,15 +473,14 @@ impl BinEncodable for CERT {
 }
 
 impl<'r> RecordDataDecodable<'r> for CERT {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let rdata_length = length.map(|u| u as usize).unverified(/*used only as length safely*/);
 
         if rdata_length <= 5 {
             return Err(DecodeError::IncorrectRDataLengthRead {
                 read: rdata_length,
                 len: 6,
-            }
-            .into());
+            });
         }
 
         let start_idx = decoder.index();
@@ -494,7 +493,7 @@ impl<'r> RecordDataDecodable<'r> for CERT {
         let cert_len = length
             .map(|u| u as usize)
             .checked_sub(decoder.index() - start_idx)
-            .map_err(|_| ProtoError::from("invalid rdata length in CERT"))?
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: decoder.index() - start_idx, len })?
             .unverified(/*used only as length safely*/);
 
         let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
@@ -760,10 +759,7 @@ mod tests {
         assert!(
             matches!(
                 result,
-                Err(ProtoError::Decode(DecodeError::IncorrectRDataLengthRead {
-                    read: 4,
-                    len: 6
-                }))
+                Err(DecodeError::IncorrectRDataLengthRead { read: 4, len: 6 })
             ),
             "Expected error due to invalid cert_record length, got {result:?}"
         );

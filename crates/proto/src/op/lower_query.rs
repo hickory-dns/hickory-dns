@@ -82,7 +82,7 @@ impl BinEncodable for LowerQuery {
 }
 
 impl<'r> BinDecodable<'r> for LowerQuery {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let original = Query::read(decoder)?;
         Ok(Self::query(original))
     }

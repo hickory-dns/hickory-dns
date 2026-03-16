@@ -94,7 +94,7 @@ impl BinEncodable for MX {
 }
 
 impl<'r> BinDecodable<'r> for MX {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         Ok(Self::new(
             decoder.read_u16()?.unverified(/*any u16 is valid*/),
             Name::read(decoder)?,

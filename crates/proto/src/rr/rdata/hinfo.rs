@@ -106,7 +106,7 @@ impl BinEncodable for HINFO {
 }
 
 impl<'r> BinDecodable<'r> for HINFO {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let cpu = decoder.read_character_data()?
         .unverified(/*any data should be validate in HINFO CPU usage*/)
         .to_vec()
