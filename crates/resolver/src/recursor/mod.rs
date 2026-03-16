@@ -38,7 +38,7 @@ use crate::{
     ConnectionProvider, NameServerTransportState, PoolContext, TlsConfig, TtlConfig,
     config::OpportunisticEncryption,
     proto::{
-        op::{Message, Query},
+        op::{DEFAULT_MAX_PAYLOAD_LEN, Message, Query},
         rr::Name,
     },
 };
@@ -623,6 +623,10 @@ pub struct RecursorOptions {
     /// Configure RFC 9539 opportunistic encryption.
     #[cfg_attr(feature = "serde", serde(default))]
     pub opportunistic_encryption: OpportunisticEncryption,
+
+    /// Configure the EDNS UDP payload size used in queries.
+    #[cfg_attr(feature = "serde", serde(default = "default_edns_payload_len"))]
+    pub edns_payload_len: u16,
 }
 
 impl Default for RecursorOptions {
@@ -640,6 +644,7 @@ impl Default for RecursorOptions {
             cache_policy: TtlConfig::default(),
             case_randomization: false,
             opportunistic_encryption: OpportunisticEncryption::default(),
+            edns_payload_len: default_edns_payload_len(),
         }
     }
 }
@@ -667,6 +672,10 @@ fn ns_recursion_limit_default() -> u8 {
 #[cfg(feature = "serde")]
 fn deny_server_default() -> Vec<IpNet> {
     RECOMMENDED_SERVER_FILTERS.to_vec()
+}
+
+fn default_edns_payload_len() -> u16 {
+    DEFAULT_MAX_PAYLOAD_LEN
 }
 
 /// `Recursor`'s DNSSEC policy

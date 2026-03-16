@@ -40,6 +40,7 @@ use crate::name_server_pool::NameServerTransportState;
 use crate::net::http::DEFAULT_DNS_QUERY_PATH;
 use crate::net::xfer::Protocol;
 use crate::proto::access_control::{AccessControlSet, AccessControlSetBuilder};
+use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
 use crate::proto::rr::Name;
 
 /// Configuration for the upstream nameservers to use for resolution
@@ -590,6 +591,9 @@ pub struct ResolverOpts {
     pub allow_answers: Vec<IpNet>,
     /// Networks listed here will be removed from any answers returned by an upstream server.
     pub deny_answers: Vec<IpNet>,
+    /// Configure the EDNS UDP payload size used in queries.
+    #[cfg_attr(feature = "serde", serde(default = "default_edns_payload_len"))]
+    pub edns_payload_len: u16,
 }
 
 impl ResolverOpts {
@@ -640,6 +644,7 @@ impl Default for ResolverOpts {
             trust_anchor: None,
             allow_answers: vec![],
             deny_answers: vec![],
+            edns_payload_len: default_edns_payload_len(),
         }
     }
 }
@@ -670,6 +675,10 @@ fn default_preserve_intermediates() -> bool {
 
 fn default_recursion_desired() -> bool {
     true
+}
+
+fn default_edns_payload_len() -> u16 {
+    DEFAULT_MAX_PAYLOAD_LEN
 }
 
 /// The lookup ip strategy
