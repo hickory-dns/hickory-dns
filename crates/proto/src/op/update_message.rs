@@ -11,7 +11,7 @@ use core::fmt::Debug;
 
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
-    op::{Edns, OpCode, edns::MAX_PAYLOAD_LEN},
+    op::{Edns, OpCode, edns::DEFAULT_MAX_PAYLOAD_LEN},
     rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
 };
 use crate::{
@@ -193,7 +193,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
         message
             .extensions_mut()
             .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
@@ -265,7 +265,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
         message
             .extensions_mut()
             .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
@@ -358,7 +358,7 @@ pub fn compare_and_swap(
         message
             .extensions_mut()
             .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
@@ -417,7 +417,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
         message
             .extensions_mut()
             .get_or_insert(Edns::new())
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
@@ -477,7 +477,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
         message
             .extensions_mut()
             .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
@@ -546,7 +546,7 @@ pub fn delete_all(
         message
             .extensions_mut()
             .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
@@ -591,7 +591,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
         message
             .extensions_mut()
             .get_or_insert_with(Edns::new)
-            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
 
