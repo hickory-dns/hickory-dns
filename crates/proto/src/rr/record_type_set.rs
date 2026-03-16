@@ -193,7 +193,7 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
                             .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
                             .checked_mul(8)
                             .checked_add(i)
-                            .map_err(|_| "block len or left out of bounds in NSEC(3)")?
+                            .map_err(|_| DecodeError::NsecBitmapOutOfBounds)?
                             .unverified(/*any u8 is valid at this point*/);
                             let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
                             types.insert(RecordType::from(rr_type));
@@ -205,7 +205,7 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
                     // move to the next section of the bit_map
                     let left = left
                         .checked_sub(1)
-                        .map_err(|_| ProtoError::from("block left out of bounds in NSEC(3)"))?;
+                        .map_err(|_| DecodeError::NsecBitmapOutOfBounds)?;
                     if left.unverified(/*comparison is safe*/) == 0 {
                         // we've exhausted this Window, move to the next
                         BitMapReadState::Window

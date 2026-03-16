@@ -152,11 +152,19 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
         let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
         let reserved_flags = flags & 0b1111_1111_1111_1100;
 
-        let offset = u16::try_from(decoder.index() - start_idx)
-            .map_err(|_| ProtoError::from("decoding offset too large in CSYNC"))?;
-        let bit_map_len = length
-            .checked_sub(offset)
-            .map_err(|_| ProtoError::from("invalid rdata length in CSYNC"))?;
+        let offset = u16::try_from(decoder.index() - start_idx).map_err(|_| {
+            DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index() - start_idx,
+                len: u16::MAX as usize,
+            }
+        })?;
+        let bit_map_len =
+            length
+                .checked_sub(offset)
+                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                    read: offset as usize,
+                    len: len as usize,
+                })?;
         let type_bit_maps = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
         Ok(Self {

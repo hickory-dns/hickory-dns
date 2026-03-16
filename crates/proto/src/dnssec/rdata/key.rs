@@ -20,7 +20,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
     },
 };
 
@@ -343,7 +343,7 @@ impl<'r> RecordDataDecodable<'r> for KEY {
                 //    Bits 8-11 are reserved and must be zero.
                 flags & 0b0010_1100_1111_0000 == 0
             })
-            .map_err(|_| ProtoError::from("flag 2, 4-5, and 8-11 are reserved, must be zero"))?;
+            .map_err(DecodeError::KeyFlagsReserved)?;
 
         let key_trust = KeyTrust::from(flags);
         let extended_flags: bool = flags & 0b0001_0000_0000_0000 != 0;
@@ -351,8 +351,7 @@ impl<'r> RecordDataDecodable<'r> for KEY {
         let signatory = UpdateScope::from(flags);
 
         if extended_flags {
-            // TODO: add an optional field to return the raw u16?
-            return Err("extended flags currently not supported".into());
+            return Err(DecodeError::ExtendedKeyFlagsUnsupported(flags).into());
         }
 
         // TODO: protocol my be infallible
