@@ -12,8 +12,8 @@ use core::ops::{Deref, DerefMut};
 use core::time::Duration;
 
 #[cfg(feature = "std")]
-use super::{DEFAULT_RETRY_FLOOR, Edns, edns::MAX_PAYLOAD_LEN};
-use super::{Message, Query};
+use super::{DEFAULT_RETRY_FLOOR, Edns};
+use super::{Message, Query, edns::DEFAULT_MAX_PAYLOAD_LEN};
 
 /// A set of options for expressing options to how requests should be treated
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,6 +22,8 @@ pub struct DnsRequestOptions {
     // TODO: add EDNS options here?
     /// When true, will add EDNS options to the request.
     pub use_edns: bool,
+    /// EDNS UDP payload size
+    pub edns_payload_len: u16,
     /// When true, sets the DO bit in the EDNS options
     pub edns_set_dnssec_ok: bool,
     /// Specifies maximum request depth for DNSSEC validation.
@@ -43,6 +45,7 @@ impl Default for DnsRequestOptions {
         Self {
             max_request_depth: 26,
             use_edns: true,
+            edns_payload_len: DEFAULT_MAX_PAYLOAD_LEN,
             edns_set_dnssec_ok: false,
             recursion_desired: true,
             #[cfg(feature = "std")]
@@ -85,7 +88,7 @@ impl DnsRequest {
             message
                 .extensions_mut()
                 .get_or_insert_with(Edns::new)
-                .set_max_payload(MAX_PAYLOAD_LEN)
+                .set_max_payload(options.edns_payload_len)
                 .set_dnssec_ok(options.edns_set_dnssec_ok);
         }
 
@@ -157,7 +160,7 @@ mod tests {
         let query = Query::query(Name::from_ascii("example.com.").unwrap(), RecordType::A);
         let request = DnsRequest::from_query(query, DnsRequestOptions::default());
         assert!(request.extensions().is_some());
-        assert_eq!(request.max_payload(), MAX_PAYLOAD_LEN);
+        assert_eq!(request.max_payload(), DEFAULT_MAX_PAYLOAD_LEN);
     }
 
     #[test]
