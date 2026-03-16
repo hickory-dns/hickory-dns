@@ -36,7 +36,7 @@ use crate::{
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
     zone_handler::{
         AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
-        MessageResponseBuilder, ZoneHandler, ZoneType,
+        MessageResponseBuilder, Queries, ZoneHandler, ZoneType,
     },
 };
 #[cfg(all(feature = "__dnssec", feature = "recursor"))]
@@ -764,7 +764,14 @@ async fn send_error_response(
             response_edns = Some(&new_edns);
         }
     }
-    let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
+
+    let empty = Queries::empty();
+    let queries = match response_code {
+        ResponseCode::FormErr | ResponseCode::NotImp => &empty,
+        _ => request.raw_queries(),
+    };
+
+    let response = MessageResponseBuilder::new(queries, response_edns)
         .error_msg(request.header(), response_code);
     match response_handle.send_response(response).await {
         Ok(r) => r,
@@ -1264,21 +1271,32 @@ async fn build_forwarded_response(
 
 #[cfg(all(test, feature = "resolver"))]
 mod tests {
-    use std::{net::Ipv4Addr, str::FromStr};
+    use std::{
+        net::{Ipv4Addr, SocketAddr},
+        str::FromStr,
+        sync::{Arc, Mutex},
+    };
 
     use super::*;
-    use crate::net::runtime::TokioRuntimeProvider;
-    use crate::proto::rr::rdata::NS;
-    use crate::proto::{
-        op::{MessageType, OpCode, Query},
-        rr::{
-            Name, RData, Record, RecordType,
-            rdata::{A, SOA},
+    use crate::{
+        net::{
+            NetError,
+            runtime::{TokioRuntimeProvider, TokioTime},
+            xfer::Protocol,
         },
+        proto::{
+            op::{MessageType, OpCode, Query},
+            rr::{
+                Name, RData, Record, RecordType,
+                rdata::{A, NS, SOA},
+            },
+            serialize::binary::BinEncoder,
+        },
+        resolver::lookup::Lookup,
+        server::{RequestHandler, ResponseHandler, ResponseInfo},
+        store::in_memory::InMemoryZoneHandler,
+        zone_handler::{AxfrPolicy, MessageResponse},
     };
-    use crate::resolver::lookup::Lookup;
-    use crate::store::in_memory::InMemoryZoneHandler;
-    use crate::zone_handler::AxfrPolicy;
 
     #[tokio::test]
     async fn test_build_forwarded_response_preserves_sections() {
@@ -1393,5 +1411,77 @@ mod tests {
         assert!(message.answers().is_empty());
         assert!(!message.authorities().is_empty());
         assert_eq!(message.authorities()[0].record_type(), RecordType::NS);
+    }
+
+    /// Verify that error responses from the catalog do not echo back the original queries.
+    ///
+    /// Prevents amplification attacks.
+    #[tokio::test]
+    async fn error_response_does_not_echo_queries() {
+        // Construct a raw DNS query with QDCOUNT=2 (two valid questions).
+        // This parses successfully but triggers FormErr via BadQueryCount
+        // in the catalog's lookup path.
+        #[rustfmt::skip]
+        let raw = vec![
+            0x00, 0x01, // ID
+            0x00, 0x00, // flags: standard query
+            0x00, 0x02, // QDCOUNT = 2
+            0x00, 0x00, // ANCOUNT
+            0x00, 0x00, // NSCOUNT
+            0x00, 0x00, // ARCOUNT
+            // Question 1: example.com. A IN
+            0x07, b'e', b'x', b'a', b'm', b'p', b'l', b'e',
+            0x03, b'c', b'o', b'm',
+            0x00,       // root label
+            0x00, 0x01, // QTYPE = A
+            0x00, 0x01, // QCLASS = IN
+            // Question 2: test.com. A IN
+            0x04, b't', b'e', b's', b't',
+            0x03, b'c', b'o', b'm',
+            0x00,       // root label
+            0x00, 0x01, // QTYPE = A
+            0x00, 0x01, // QCLASS = IN
+        ];
+
+        let request =
+            Request::from_bytes(raw, SocketAddr::from(([127, 0, 0, 1], 53)), Protocol::Udp)
+                .expect("request should parse with QDCOUNT=2");
+
+        let catalog = Catalog::default();
+        let buf = Arc::new(Mutex::new(Vec::new()));
+        let handler = CaptureHandler(Arc::clone(&buf));
+
+        catalog
+            .handle_request::<_, TokioTime>(&request, handler)
+            .await;
+
+        let response_bytes = buf.lock().unwrap();
+        let response = Message::from_vec(&response_bytes).expect("failed to decode response");
+        assert_eq!(response.response_code(), ResponseCode::FormErr);
+        assert_eq!(response.query_count(), 0);
+        assert!(response.queries().is_empty());
+    }
+
+    #[derive(Clone)]
+    struct CaptureHandler(Arc<Mutex<Vec<u8>>>);
+
+    #[async_trait::async_trait]
+    impl ResponseHandler for CaptureHandler {
+        async fn send_response<'a>(
+            &mut self,
+            response: MessageResponse<
+                '_,
+                'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+                impl Iterator<Item = &'a Record> + Send + 'a,
+            >,
+        ) -> Result<ResponseInfo, NetError> {
+            let buf = &mut self.0.lock().unwrap();
+            buf.clear();
+            let mut encoder = BinEncoder::new(buf);
+            Ok(response.destructive_emit(&mut encoder)?)
+        }
     }
 }
