@@ -15,7 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding},
+    serialize::binary::{
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
+    },
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -242,7 +244,7 @@ impl BinEncodable for SOA {
 }
 
 impl<'r> BinDecodable<'r> for SOA {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         Ok(Self {
             mname: Name::read(decoder)?,
             rname: Name::read(decoder)?,

@@ -116,7 +116,7 @@ impl BinEncodable for RecordTypeSet {
 }
 
 impl RecordDataDecodable<'_> for RecordTypeSet {
-    fn read_data(decoder: &mut BinDecoder<'_>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'_>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         // 3.2.1.  Type Bit Maps Encoding
         //
         //  The encoding of the Type Bit Maps field is the same as that used by

@@ -14,11 +14,12 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ProtoError,
     dnssec::{Algorithm, DigestType},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
+    serialize::binary::{
+        BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
+    },
 };
 
 use super::DNSSECRData;
@@ -110,7 +111,7 @@ impl BinEncodable for CDS {
 }
 
 impl<'r> RecordDataDecodable<'r> for CDS {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         let key_tag = decoder.read_u16()?.unverified(/* any u16 is a valid key_tag */);
@@ -128,7 +129,7 @@ impl<'r> RecordDataDecodable<'r> for CDS {
         let left = length
             .map(|u| u as usize)
             .checked_sub(bytes_read)
-            .map_err(|_| ProtoError::from("invalid rdata length in CDS"))?
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: bytes_read, len })?
             .unverified(/* used only as length safely */);
         let digest =
             decoder.read_vec(left)?.unverified(/* this is only compared with other digests */);

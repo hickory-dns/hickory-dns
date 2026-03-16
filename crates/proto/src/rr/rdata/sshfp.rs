@@ -18,9 +18,11 @@ use data_encoding::{Encoding, Specification};
 use once_cell::sync::Lazy;
 
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
+    serialize::binary::{
+        BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
+    },
 };
 
 /// HEX formatting specific to TLSA, SMIMEA and SSHFP encodings
@@ -245,13 +247,13 @@ impl BinEncodable for SSHFP {
 }
 
 impl<'r> RecordDataDecodable<'r> for SSHFP {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let algorithm = decoder.read_u8()?.unverified().into();
         let fingerprint_type = decoder.read_u8()?.unverified().into();
         let fingerprint_len = length
             .map(|l| l as usize)
             .checked_sub(2)
-            .map_err(|_| ProtoError::from("invalid rdata length in SSHFP"))?
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 2, len })?
             .unverified();
         let fingerprint = decoder.read_vec(fingerprint_len)?.unverified();
         Ok(SSHFP::new(algorithm, fingerprint_type, fingerprint))

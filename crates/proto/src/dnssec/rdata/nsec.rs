@@ -163,7 +163,7 @@ impl BinEncodable for NSEC {
 }
 
 impl<'r> RecordDataDecodable<'r> for NSEC {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         let next_domain_name = Name::read(decoder)?;

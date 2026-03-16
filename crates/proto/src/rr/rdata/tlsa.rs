@@ -17,9 +17,11 @@ use serde::{Deserialize, Serialize};
 use super::sshfp;
 
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath},
+    serialize::binary::{
+        BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
+    },
 };
 
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
@@ -398,7 +400,10 @@ impl RecordDataDecodable<'_> for TLSA {
     ///    /                                                               /
     ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
-    fn read_data(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
+    fn read_data(
+        decoder: &mut BinDecoder<'_>,
+        rdata_length: Restrict<u16>,
+    ) -> Result<Self, DecodeError> {
         let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
         let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
         let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
@@ -407,7 +412,7 @@ impl RecordDataDecodable<'_> for TLSA {
         let cert_len = rdata_length
         .map(|u| u as usize)
         .checked_sub(3)
-        .map_err(|_| ProtoError::from("invalid rdata length in TLSA"))?
+        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 3, len })?
         .unverified(/*used purely as length safely*/);
         let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
 

@@ -10,7 +10,7 @@ use super::tlsa::{CertUsage, Matching, Selector, TLSA};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
 };
 
 /// [RFC 8162](https://datatracker.ietf.org/doc/html/rfc8162#section-2)
@@ -70,7 +70,7 @@ impl BinEncodable for SMIMEA {
 
 impl RecordDataDecodable<'_> for SMIMEA {
     #[inline]
-    fn read_data(decoder: &mut BinDecoder<'_>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'_>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         TLSA::read_data(decoder, length).map(Self)
     }
 }

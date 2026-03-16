@@ -23,10 +23,7 @@ mod tsig;
 
 use core::fmt::{Debug, Display};
 
-use crate::{
-    error::ProtoResult,
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, Restrict},
-};
+use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, DecodeError, Restrict};
 
 pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name};
@@ -69,14 +66,17 @@ pub(crate) trait RecordDataDecodable<'r>: Sized {
     /// * `decoder` - data stream from which the RData will be read
     /// * `record_type` - specifies the RecordType that has already been read from the stream
     /// * `length` - the data length that should be read from the stream for this RecordData
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self>;
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError>;
 }
 
 impl<'r, T> RecordDataDecodable<'r> for T
 where
     T: 'r + BinDecodable<'r> + Sized,
 {
-    fn read_data(decoder: &mut BinDecoder<'r>, _length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        _length: Restrict<u16>,
+    ) -> Result<Self, DecodeError> {
         T::read(decoder)
     }
 }

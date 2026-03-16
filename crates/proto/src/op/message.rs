@@ -676,7 +676,7 @@ impl Message {
         decoder: &mut BinDecoder<'_>,
         count: usize,
         is_additional: bool,
-    ) -> ProtoResult<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>)> {
+    ) -> Result<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>), DecodeError> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
         let mut sig = None;
@@ -686,7 +686,7 @@ impl Message {
 
             // There must be no additional records after a TSIG/SIG(0) record.
             if sig.is_some() {
-                return Err(DecodeError::RecordAfterSig.into());
+                return Err(DecodeError::RecordAfterSig);
             }
 
             // OPT, SIG and TSIG records are only allowed in the additional section.
@@ -696,7 +696,9 @@ impl Message {
                     RecordType::OPT | RecordType::SIG | RecordType::TSIG
                 )
             {
-                return Err(DecodeError::RecordNotInAdditionalSection(record.record_type()).into());
+                return Err(DecodeError::RecordNotInAdditionalSection(
+                    record.record_type(),
+                ));
             } else if !is_additional {
                 records.push(record);
                 continue;
@@ -723,7 +725,7 @@ impl Message {
                 }
                 RData::Update0(RecordType::OPT) | RData::OPT(_) => {
                     if edns.is_some() {
-                        return Err(DecodeError::DuplicateEdns.into());
+                        return Err(DecodeError::DuplicateEdns);
                     }
                     edns = Some((&record).into());
                 }
@@ -737,7 +739,7 @@ impl Message {
     }
 
     /// Decodes a message from the buffer.
-    pub fn from_vec(buffer: &[u8]) -> ProtoResult<Self> {
+    pub fn from_vec(buffer: &[u8]) -> Result<Self, DecodeError> {
         let mut decoder = BinDecoder::new(buffer);
         Self::read(&mut decoder)
     }
@@ -1006,7 +1008,7 @@ impl BinEncodable for Message {
 }
 
 impl<'r> BinDecodable<'r> for Message {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut header = Header::read(decoder)?;
 
         // TODO: return just header, and in the case of the rest of message getting an error.
@@ -1603,7 +1605,11 @@ mod tests {
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
         encoder.emit_all(records.iter())?;
-        Message::read_records(&mut BinDecoder::new(&bytes), records.len(), is_additional)
+        Ok(Message::read_records(
+            &mut BinDecoder::new(&bytes),
+            records.len(),
+            is_additional,
+        )?)
     }
 
     #[cfg(feature = "__dnssec")]

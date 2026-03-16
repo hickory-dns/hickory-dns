@@ -86,7 +86,7 @@ impl BinEncodable for A {
 }
 
 impl<'r> BinDecodable<'r> for A {
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // TODO: would this be more efficient as a single u32 read?
         Ok(Ipv4Addr::new(
             decoder.pop()?.unverified(/*valid as any u8*/),

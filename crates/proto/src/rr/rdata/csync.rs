@@ -138,7 +138,7 @@ impl BinEncodable for CSYNC {
 }
 
 impl<'r> RecordDataDecodable<'r> for CSYNC {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         let soa_serial = decoder.read_u32()?.unverified();

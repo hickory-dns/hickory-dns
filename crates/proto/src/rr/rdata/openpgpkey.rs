@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
 };
 
 /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
@@ -56,7 +56,7 @@ impl BinEncodable for OPENPGPKEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for OPENPGPKEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let rdata_length = length.map(usize::from).unverified();
         let public_key =
             decoder.read_vec(rdata_length)?.unverified(/*we do not enforce a specific format*/);

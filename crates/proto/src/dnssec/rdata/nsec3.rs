@@ -300,7 +300,7 @@ impl BinEncodable for NSEC3 {
 }
 
 impl<'r> RecordDataDecodable<'r> for NSEC3 {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
 
         let hash_algorithm = Nsec3HashAlgorithm::try_from(

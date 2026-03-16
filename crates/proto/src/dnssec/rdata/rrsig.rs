@@ -20,7 +20,7 @@ use crate::{
     dnssec::{DnssecSigner, TBS},
     error::ProtoResult,
     rr::{DNSClass, RData, Record, RecordData, RecordDataDecodable, RecordSet, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
 };
 
 /// RRSIG is really a derivation of the original SIG record data. See SIG for more documentation
@@ -116,7 +116,7 @@ impl BinEncodable for RRSIG {
 }
 
 impl<'r> RecordDataDecodable<'r> for RRSIG {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> ProtoResult<Self> {
+    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         SIG::read_data(decoder, length).map(Self)
     }
 }
