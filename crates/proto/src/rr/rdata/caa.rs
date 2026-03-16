@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType, domain::Name},
     serialize::binary::*,
 };
@@ -528,11 +528,11 @@ impl KeyValue {
 }
 
 // TODO: change this to return &str
-fn read_tag(decoder: &mut BinDecoder<'_>, len: Restrict<u8>) -> ProtoResult<String> {
+fn read_tag(decoder: &mut BinDecoder<'_>, len: Restrict<u8>) -> Result<String, DecodeError> {
     let len = len
         .map(|len| len as usize)
         .verify_unwrap(|len| *len > 0 && *len <= 15)
-        .map_err(|_| ProtoError::from("CAA tag length out of bounds, 1-15"))?;
+        .map_err(|_| DecodeError::CaaTagInvalid)?;
     let mut tag = String::with_capacity(len);
 
     for _ in 0..len {
@@ -540,7 +540,7 @@ fn read_tag(decoder: &mut BinDecoder<'_>, len: Restrict<u8>) -> ProtoResult<Stri
             .pop()?
             .map(char::from)
             .verify_unwrap(|ch| matches!(ch, 'a'..='z' | 'A'..='Z' | '0'..='9'))
-            .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
+            .map_err(|_| DecodeError::CaaTagInvalid)?;
 
         tag.push(ch);
     }
@@ -666,7 +666,10 @@ impl<'r> RecordDataDecodable<'r> for CAA {
         let value_len = length
             .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
             .checked_sub(2)
-            .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                read: len as usize,
+                len: u16::from(tag_len.unverified(/*safe usage here*/)) as usize + 2,
+            })?
             .unverified(/* used only as length safely */);
 
         let raw_tag = read_tag(decoder, tag_len)?;

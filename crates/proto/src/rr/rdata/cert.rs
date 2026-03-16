@@ -7,7 +7,6 @@
 
 //! CERT record type for storing certificates in DNS
 use alloc::string::String;
-use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::fmt;
 
@@ -18,7 +17,8 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -477,7 +477,11 @@ impl<'r> RecordDataDecodable<'r> for CERT {
         let rdata_length = length.map(|u| u as usize).unverified(/*used only as length safely*/);
 
         if rdata_length <= 5 {
-            return Err(ProtoError::from("invalid cert_record length".to_string()));
+            return Err(DecodeError::IncorrectRDataLengthRead {
+                read: rdata_length,
+                len: 6,
+            }
+            .into());
         }
 
         let start_idx = decoder.index();
@@ -754,12 +758,14 @@ mod tests {
 
         let result = CERT::try_from(&invalid_cert_record[..]);
         assert!(
-            result.is_err(),
-            "Expected error due to invalid cert_record length"
+            matches!(
+                result,
+                Err(ProtoError::Decode(DecodeError::IncorrectRDataLengthRead {
+                    read: 4,
+                    len: 6
+                }))
+            ),
+            "Expected error due to invalid cert_record length, got {result:?}"
         );
-
-        if let Err(e) = result {
-            assert_eq!(e.to_string(), "invalid cert_record length".to_string());
-        }
     }
 }

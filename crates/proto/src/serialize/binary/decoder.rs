@@ -18,7 +18,10 @@ use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 
 use thiserror::Error;
 
-use crate::{rr::Name, serialize::binary::Restrict};
+use crate::{
+    rr::{Name, RecordType},
+    serialize::binary::Restrict,
+};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -43,6 +46,16 @@ pub enum DecodeError {
     #[cfg(feature = "__dnssec")]
     #[error("dns key value unknown, must be 3: {0}")]
     DnsKeyProtocolNot3(u8),
+
+    /// Reserved KEY flags are set
+    #[cfg(feature = "__dnssec")]
+    #[error("KEY flags reserved bits are set: {0:#06x}")]
+    KeyFlagsReserved(u16),
+
+    /// Extended KEY flags are not supported
+    #[cfg(feature = "__dnssec")]
+    #[error("extended KEY flags not supported")]
+    ExtendedKeyFlagsUnsupported(u16),
 
     /// EDNS resource record label is not the root label, although required
     #[error("edns resource record label must be the root label (.): {0}")]
@@ -127,6 +140,46 @@ pub enum DecodeError {
     /// An unknown algorithm type was found
     #[error("unknown NSEC3 hash algorithm: {0}")]
     UnknownNsec3HashAlgorithm(u8),
+
+    /// A record appeared after TSIG or SIG(0)
+    #[error("record after TSIG or SIG(0)")]
+    RecordAfterSig,
+
+    /// A record type was found outside the additional section
+    #[error("record type {0} only allowed in additional section")]
+    RecordNotInAdditionalSection(RecordType),
+
+    /// More than one EDNS record was found
+    #[error("more than one EDNS record")]
+    DuplicateEdns,
+
+    /// SvcParams were not in strictly increasing order
+    #[error("SvcParams out of order")]
+    SvcParamsOutOfOrder,
+
+    /// An SvcParam was expected to contain at least one value
+    #[error("SvcParam expects at least one value")]
+    SvcParamMissingValue,
+
+    /// NSEC or NSEC3 bitmap data was out of bounds
+    #[error("NSEC bitmap out of bounds")]
+    NsecBitmapOutOfBounds,
+
+    /// CAA tag was invalid (length or characters out of bounds)
+    #[error("CAA tag invalid")]
+    CaaTagInvalid,
+
+    /// NAPTR flags contained characters outside [a-zA-Z0-9]
+    #[error("NAPTR flags not in range [a-zA-Z0-9]")]
+    NaptrFlagsInvalid,
+
+    /// An unknown address family was found
+    #[error("unknown address family: {0:#x}")]
+    UnknownAddressFamily(u16),
+
+    /// Invalid UTF-8 data
+    #[error("invalid UTF-8: {0}")]
+    Utf8(#[from] alloc::string::FromUtf8Error),
 }
 
 impl<'a> BinDecoder<'a> {

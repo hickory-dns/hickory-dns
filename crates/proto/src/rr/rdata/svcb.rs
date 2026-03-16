@@ -25,7 +25,8 @@ use crate::{
         rdata::{A, AAAA},
     },
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, RDataEncoding, Restrict, RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
+        RestrictedMath,
     },
 };
 
@@ -461,12 +462,9 @@ impl SvcParamValue {
             .read_u16()?
             .verify_unwrap(|len| *len as usize <= decoder.len())
             .map(|len| len as usize)
-            .map_err(|u| {
-                ProtoError::from(format!(
-                    "length of SvcParamValue ({}) exceeds remainder in RDATA ({})",
-                    u,
-                    decoder.len()
-                ))
+            .map_err(|u| DecodeError::IncorrectRDataLengthRead {
+                read: decoder.len(),
+                len: u as usize,
             })?;
 
         let param_data = decoder.read_slice(len)?.unverified(/*verification to be done by individual param types*/);
@@ -478,7 +476,7 @@ impl SvcParamValue {
             // should always be empty
             SvcParamKey::NoDefaultAlpn => {
                 if len > 0 {
-                    return Err(ProtoError::from("Alpn expects at least one value"));
+                    return Err(DecodeError::IncorrectRDataLengthRead { read: len, len: 0 }.into());
                 }
 
                 Self::NoDefaultAlpn
@@ -607,7 +605,7 @@ impl<'r> BinDecodable<'r> for Mandatory {
         }
 
         if keys.is_empty() {
-            return Err(ProtoError::from("Mandatory expects at least one value"));
+            return Err(DecodeError::SvcParamMissingValue.into());
         }
 
         Ok(Self(keys))
@@ -794,7 +792,7 @@ impl<'r> BinDecodable<'r> for Alpn {
         }
 
         if alpns.is_empty() {
-            return Err(ProtoError::from("Alpn expects at least one value"));
+            return Err(DecodeError::SvcParamMissingValue.into());
         }
 
         Ok(Self(alpns))
@@ -1114,7 +1112,10 @@ impl RecordDataDecodable<'_> for SVCB {
         let mut remainder_len = rdata_length
             .map(|len| len as usize)
             .checked_sub(decoder.index() - start_index)
-            .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index() - start_index,
+                len,
+            })?
             .unverified(); // valid len
         let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
 
@@ -1131,7 +1132,7 @@ impl RecordDataDecodable<'_> for SVCB {
 
             if let Some(last_key) = svc_params.last().map(|(key, _)| key) {
                 if last_key >= &key {
-                    return Err(ProtoError::from("SvcParams out of order"));
+                    return Err(DecodeError::SvcParamsOutOfOrder.into());
                 }
             }
 
@@ -1139,7 +1140,10 @@ impl RecordDataDecodable<'_> for SVCB {
             remainder_len = rdata_length
                 .map(|len| len as usize)
                 .checked_sub(decoder.index() - start_index)
-                .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
+                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                    read: decoder.index() - start_index,
+                    len,
+                })?
                 .unverified(); // valid len
         }
 

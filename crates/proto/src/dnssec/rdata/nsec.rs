@@ -168,11 +168,19 @@ impl<'r> RecordDataDecodable<'r> for NSEC {
 
         let next_domain_name = Name::read(decoder)?;
 
-        let offset = u16::try_from(decoder.index() - start_idx)
-            .map_err(|_| ProtoError::from("decoding offset too large in NSEC"))?;
-        let bit_map_len = length
-            .checked_sub(offset)
-            .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
+        let offset = u16::try_from(decoder.index() - start_idx).map_err(|_| {
+            DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index() - start_idx,
+                len: u16::MAX as usize,
+            }
+        })?;
+        let bit_map_len =
+            length
+                .checked_sub(offset)
+                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                    read: offset as usize,
+                    len: len as usize,
+                })?;
         let type_bit_maps = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
         Ok(Self {

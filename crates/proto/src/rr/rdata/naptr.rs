@@ -14,7 +14,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
     serialize::binary::*,
 };
@@ -230,7 +230,7 @@ impl<'r> BinDecodable<'r> for NAPTR {
             decoder
                 .read_character_data()?
                 .verify_unwrap(|s| verify_flags(s))
-                .map_err(|_e| ProtoError::from("flags are not within range [a-zA-Z0-9]"))?
+                .map_err(|_| DecodeError::NaptrFlagsInvalid)?
                 .to_vec()
                 .into_boxed_slice(),
             decoder.read_character_data()?.unverified(/*any chardata*/).to_vec().into_boxed_slice(),

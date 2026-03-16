@@ -24,6 +24,7 @@ use crate::proto::dnssec::Proof;
 use crate::proto::op::{DnsResponse, Query, ResponseCode};
 use crate::proto::rr::RData;
 use crate::proto::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
+use crate::proto::serialize::binary::DecodeError;
 
 /// The error type for network protocol errors (UDP, TCP, QUIC, H2, H3)
 #[non_exhaustive]
@@ -178,6 +179,12 @@ impl NetError {
 impl From<NoRecords> for NetError {
     fn from(no_records: NoRecords) -> Self {
         Self::Dns(DnsError::NoRecordsFound(no_records))
+    }
+}
+
+impl From<DecodeError> for NetError {
+    fn from(e: DecodeError) -> Self {
+        Self::Proto(e.into())
     }
 }
 

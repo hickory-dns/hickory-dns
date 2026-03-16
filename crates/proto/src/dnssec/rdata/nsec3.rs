@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
     dnssec::Nsec3HashAlgorithm,
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet, domain::Label},
     serialize::binary::*,
 };
@@ -319,12 +319,18 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
         let salt_len_max = length
             .map(|u| u as usize)
             .checked_sub(decoder.index() - start_idx)
-            .map_err(|_| "invalid rdata for salt_len_max")?;
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index() - start_idx,
+                len,
+            })?;
         let salt_len = salt_len
             .verify_unwrap(|salt_len| {
                 *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/)
             })
-            .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
+            .map_err(|salt_len| DecodeError::IncorrectRDataLengthRead {
+                read: salt_len_max.unverified(/*safe in error context*/),
+                len: salt_len,
+            })?;
         let salt: Vec<u8> =
             decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
 
@@ -333,21 +339,35 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
         let hash_len_max = length
             .map(|u| u as usize)
             .checked_sub(decoder.index() - start_idx)
-            .map_err(|_| "invalid rdata for hash_len_max")?;
+            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index() - start_idx,
+                len,
+            })?;
         let hash_len = hash_len
             .verify_unwrap(|hash_len| {
                 *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/)
             })
-            .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
+            .map_err(|hash_len| DecodeError::IncorrectRDataLengthRead {
+                read: hash_len_max.unverified(/*safe in error context*/),
+                len: hash_len,
+            })?;
         let next_hashed_owner_name: Vec<u8> =
             decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 
         // read the bitmap
-        let offset = u16::try_from(decoder.index() - start_idx)
-            .map_err(|_| ProtoError::from("decoding offset too large in NSEC3"))?;
-        let bit_map_len = length
-            .checked_sub(offset)
-            .map_err(|_| "invalid rdata length in NSEC3")?;
+        let offset = u16::try_from(decoder.index() - start_idx).map_err(|_| {
+            DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index() - start_idx,
+                len: u16::MAX as usize,
+            }
+        })?;
+        let bit_map_len =
+            length
+                .checked_sub(offset)
+                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
+                    read: offset as usize,
+                    len: len as usize,
+                })?;
         let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
 
         Ok(Self::with_record_type_set(

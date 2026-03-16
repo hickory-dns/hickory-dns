@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{Proof, Proven};
 use crate::{
-    error::{ProtoError, ProtoResult},
+    error::ProtoResult,
     rr::{Name, RData, RecordData, RecordType, dns_class::DNSClass},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
@@ -469,12 +469,9 @@ impl<'r> BinDecodable<'r> for Record<RData> {
         let rd_length = decoder
             .read_u16()?
             .verify_unwrap(|u| (*u as usize) <= decoder.len())
-            .map_err(|u| {
-                ProtoError::from(format!(
-                    "rdata length too large for remaining bytes, need: {} remain: {}",
-                    u,
-                    decoder.len()
-                ))
+            .map_err(|u| DecodeError::IncorrectRDataLengthRead {
+                read: decoder.len(),
+                len: u as usize,
             })?;
 
         // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of pre-requisites

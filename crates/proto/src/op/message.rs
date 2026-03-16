@@ -26,7 +26,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
     rr::{RData, Record, RecordType, rdata::TSIG},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 /// The basic request and response data structure, used for all DNS protocols.
@@ -686,7 +686,7 @@ impl Message {
 
             // There must be no additional records after a TSIG/SIG(0) record.
             if sig.is_some() {
-                return Err("TSIG or SIG(0) record must be final resource record".into());
+                return Err(DecodeError::RecordAfterSig.into());
             }
 
             // OPT, SIG and TSIG records are only allowed in the additional section.
@@ -696,11 +696,7 @@ impl Message {
                     RecordType::OPT | RecordType::SIG | RecordType::TSIG
                 )
             {
-                return Err(format!(
-                    "record type {} only allowed in additional section",
-                    record.record_type()
-                )
-                .into());
+                return Err(DecodeError::RecordNotInAdditionalSection(record.record_type()).into());
             } else if !is_additional {
                 records.push(record);
                 continue;
@@ -727,7 +723,7 @@ impl Message {
                 }
                 RData::Update0(RecordType::OPT) | RData::OPT(_) => {
                     if edns.is_some() {
-                        return Err("more than one edns record present".into());
+                        return Err(DecodeError::DuplicateEdns.into());
                     }
                     edns = Some((&record).into());
                 }
@@ -1410,11 +1406,7 @@ mod tests {
             true,
         )
         .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("more than one edns record present")
-        );
+        assert!(error.to_string().contains("more than one EDNS record"));
     }
 
     #[cfg(feature = "std")]
@@ -1442,7 +1434,7 @@ mod tests {
         .unwrap_err();
         assert!(
             err.to_string()
-                .contains("record type OPT only allowed in additional section")
+                .contains("record type OPT only allowed in additional")
         );
     }
 
@@ -1475,11 +1467,7 @@ mod tests {
             true,
         )
         .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("more than one edns record present")
-        );
+        assert!(error.to_string().contains("more than one EDNS record"));
     }
 
     #[cfg(all(feature = "std", feature = "__dnssec"))]
@@ -1503,7 +1491,7 @@ mod tests {
         .unwrap_err();
         assert!(
             err.to_string()
-                .contains("record type TSIG only allowed in additional section")
+                .contains("record type TSIG only allowed in additional")
         );
     }
 
@@ -1529,7 +1517,7 @@ mod tests {
         )
         .unwrap_err()
         .to_string();
-        assert!(error.contains("TSIG or SIG(0) record must be final"));
+        assert!(error.contains("record after TSIG or SIG(0)"));
     }
 
     #[cfg(all(feature = "std", feature = "__dnssec"))]
@@ -1554,7 +1542,7 @@ mod tests {
         )
         .unwrap_err()
         .to_string();
-        assert!(error.contains("TSIG or SIG(0) record must be final"));
+        assert!(error.contains("record after TSIG or SIG(0)"));
     }
 
     #[cfg(all(feature = "std", feature = "__dnssec"))]
@@ -1579,7 +1567,7 @@ mod tests {
         )
         .unwrap_err()
         .to_string();
-        assert!(error.contains("TSIG or SIG(0) record must be final"));
+        assert!(error.contains("record after TSIG or SIG(0)"));
     }
 
     #[cfg(all(feature = "std", feature = "__dnssec"))]
@@ -1604,7 +1592,7 @@ mod tests {
         )
         .unwrap_err()
         .to_string();
-        assert!(error.contains("TSIG or SIG(0) record must be final"));
+        assert!(error.contains("record after TSIG or SIG(0)"));
     }
 
     #[expect(clippy::type_complexity)]
