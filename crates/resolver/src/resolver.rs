@@ -351,6 +351,7 @@ impl<R: ConnectionProvider> Resolver<R> {
         let mut request_opts = DnsRequestOptions::default();
         request_opts.recursion_desired = self.context.options.recursion_desired;
         request_opts.use_edns = self.context.options.edns0;
+        request_opts.edns_payload_len = self.context.options.edns_payload_len;
         request_opts.case_randomization = self.context.options.case_randomization;
 
         // Set DNSSEC OK bit when DNSSEC validation is enabled

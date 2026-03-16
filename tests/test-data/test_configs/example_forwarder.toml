@@ -52,6 +52,7 @@ connections = [
 timeout = 20
 positive_max_ttl = 3600
 negative_max_ttl = 3600
+edns_payload_len = 4096
 ## These options set the answer filter for the forwarder.  Anything listed in deny_answers will be
 ## blocked.  If you need to add a granular exception, you can place an address in allow_answers -
 ## that will override something in deny_answers.  For example, the following configuration blocks

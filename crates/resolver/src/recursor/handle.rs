@@ -84,6 +84,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             cache_policy,
             case_randomization,
             opportunistic_encryption,
+            edns_payload_len,
         } = options;
 
         let avoid_local_udp_ports = Arc::new(avoid_local_udp_ports);
@@ -94,7 +95,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         );
 
         let mut pool_context = PoolContext::new(
-            recursor_opts(avoid_local_udp_ports.clone(), case_randomization),
+            recursor_opts(
+                avoid_local_udp_ports.clone(),
+                case_randomization,
+                edns_payload_len,
+            ),
             tls,
         )
         .with_probe_budget(
@@ -127,6 +132,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // section 2.2 of RFC 1035, for example. Failure to do so may allow for loops
         // between recursive resolvers following referrals to each other.
         request_options.recursion_desired = false;
+        request_options.edns_payload_len = edns_payload_len;
 
         Ok(Self {
             roots,
@@ -854,6 +860,7 @@ mod for_dnssec {
 fn recursor_opts(
     avoid_local_udp_ports: Arc<HashSet<u16>>,
     case_randomization: bool,
+    edns_payload_len: u16,
 ) -> ResolverOpts {
     ResolverOpts {
         ndots: 0,
@@ -865,6 +872,7 @@ fn recursor_opts(
         num_concurrent_reqs: 1,
         avoid_local_udp_ports,
         case_randomization,
+        edns_payload_len,
         ..ResolverOpts::default()
     }
 }
