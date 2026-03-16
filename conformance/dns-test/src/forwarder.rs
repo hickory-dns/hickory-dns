@@ -5,6 +5,7 @@ use crate::{
     container::{Child, Container},
     implementation::{Config, Role},
     record::DNSKEY,
+    tshark::Tshark,
 };
 
 pub struct Forwarder {
@@ -22,6 +23,10 @@ impl Forwarder {
             trust_anchor: TrustAnchor::empty(),
             custom_config: None,
         }
+    }
+
+    pub fn eavesdrop_udp(&self) -> Result<Tshark, Error> {
+        Tshark::new(&self.container)
     }
 
     pub fn network(&self) -> &Network {
@@ -43,7 +48,11 @@ impl Forwarder {
     /// Returns the logs collected so far
     pub fn logs(&self) -> Result<String, Error> {
         if self.implementation.is_hickory() {
-            self.stdout()
+            Ok(format!(
+                "STDOUT:\n{}\nSTDERR:\n{}",
+                self.stdout()?,
+                self.stderr()?,
+            ))
         } else {
             self.stderr()
         }
