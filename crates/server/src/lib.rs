@@ -15,7 +15,7 @@
  */
 
 #![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Hickory DNS is intended to be a fully compliant domain name server and client library.
 //!

@@ -174,7 +174,7 @@
 //! added to the `Resolver` and used for any lookups performed in the `.local.` zone.
 
 #![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub use hickory_net as net;
 pub use hickory_proto as proto;
