@@ -102,7 +102,12 @@ impl<P: ConnectionProvider> Recursor<P> {
             None => Cow::Borrowed(&config.roots),
         };
 
-        let roots_str = fs::read_to_string(path.as_ref())?;
+        let roots_str = fs::read_to_string(path.as_ref()).map_err(|e| {
+            format!(
+                "failed to read roots file '{path}': {e}",
+                path = path.display()
+            )
+        })?;
         let (_zone, roots_zone) =
             Parser::new(roots_str, Some(path.into_owned()), Some(Name::root()))
                 .parse()
