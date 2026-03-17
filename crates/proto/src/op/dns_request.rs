@@ -22,7 +22,15 @@ pub struct DnsRequestOptions {
     // TODO: add EDNS options here?
     /// When true, will add EDNS options to the request.
     pub use_edns: bool,
-    /// EDNS UDP payload size
+    /// EDNS UDP payload size.
+    ///
+    /// Sets the requestor's UDP payload size in the EDNS(0) OPT pseudo-RR in outgoing requests.
+    /// This tells other servers when they need to truncate their responses. Smaller payload sizes
+    /// require more queries with large responses to be retried over TCP, while larger payload sizes
+    /// lead to large responses being fragmented or dropped if they exceed the MTU of a network.
+    ///
+    /// See <https://www.dnsflagday.net/2020/> and
+    /// [RFC 9715](https://www.rfc-editor.org/rfc/rfc9715.html) for discussion.
     pub edns_payload_len: u16,
     /// When true, sets the DO bit in the EDNS options
     pub edns_set_dnssec_ok: bool,
