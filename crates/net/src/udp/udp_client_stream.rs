@@ -283,8 +283,8 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             // receives unsolicited responses or RR data other than that
             // requested, it should discard it without caching it.
             let request_message = Message::from_vec(msg.bytes())?;
-            let request_queries = request_message.queries();
-            let response_queries = response.queries_mut();
+            let request_queries = &request_message.queries;
+            let response_queries = &mut response.queries;
 
             let question_matches = response_queries
                 .iter()
@@ -554,7 +554,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn retry_handler_test() -> Result<(), NetError> {
         let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
+        message.header.set_response_code(ResponseCode::NoError);
 
         let ret = retry::<TokioRuntimeProvider>(
             FixedResponse {

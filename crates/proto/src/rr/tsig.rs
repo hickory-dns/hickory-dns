@@ -256,7 +256,7 @@ impl TSigner {
     pub fn should_sign_message(&self, message: &Message) -> bool {
         [OpCode::Update, OpCode::Notify].contains(&message.op_code())
             || message
-                .queries()
+                .queries
                 .iter()
                 .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
     }

@@ -139,7 +139,7 @@ impl QuicStream {
         // The stream mapping for DoQ allows for unambiguous correlation of queries and responses,
         // so the Message ID field is not required.
 
-        message.set_id(0);
+        message.header.set_id(0);
 
         let bytes = Bytes::from(message.to_vec()?);
 

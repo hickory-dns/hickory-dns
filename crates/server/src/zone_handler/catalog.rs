@@ -564,11 +564,11 @@ async fn lookup<R: ResponseHandler + Unpin>(
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response =
             MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
-                *response_message.header(),
-                response_message.answers().iter(),
-                response_message.authorities().iter(),
+                response_message.header,
+                response_message.answers.iter(),
+                response_message.authorities.iter(),
                 iter::empty(),
-                response_message.additionals().iter(),
+                response_message.additionals.iter(),
             );
 
         #[cfg(feature = "__dnssec")]
@@ -577,11 +577,11 @@ async fn lookup<R: ResponseHandler + Unpin>(
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
             let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
                 .build(
-                    *response_message.header(),
-                    response_message.answers().iter(),
-                    response_message.authorities().iter(),
+                    response_message.header,
+                    response_message.answers.iter(),
+                    response_message.authorities.iter(),
                     iter::empty(),
-                    response_message.additionals().iter(),
+                    response_message.additionals.iter(),
                 );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
@@ -609,7 +609,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         }
 
         #[cfg(feature = "metrics")]
-        metrics.update_request_response(query, response_message.answers().iter());
+        metrics.update_request_response(query, response_message.answers.iter());
 
         match response_handle.send_response(message_response).await {
             Err(error) => {
@@ -845,7 +845,7 @@ async fn build_authoritative_response(
             rcode @ ResponseCode::Refused | rcode @ ResponseCode::NotAuth,
         )) => {
             response_header.set_response_code(rcode);
-            message.set_header(response_header);
+            message.header = response_header;
             return message;
         }
         Err(e) => {
@@ -1002,11 +1002,11 @@ async fn build_authoritative_response(
     };
 
     // everything is done, construct a Message with all sections.
-    message.set_header(response_header);
+    message.header = response_header;
 
     if let Some(mut lookup_records) = answers {
         if let Some(adds) = lookup_records.take_additionals() {
-            message.additionals_mut().extend(adds.iter().cloned());
+            message.additionals.extend(adds.iter().cloned());
         }
 
         let is_referral = lookup_records.iter().next().is_some_and(|r| {
@@ -1016,22 +1016,18 @@ async fn build_authoritative_response(
         });
 
         if is_referral {
-            message
-                .authorities_mut()
-                .extend(lookup_records.iter().cloned());
+            message.authorities.extend(lookup_records.iter().cloned());
         } else {
-            message.answers_mut().extend(lookup_records.iter().cloned());
+            message.answers.extend(lookup_records.iter().cloned());
         }
     }
 
     if let Some(ns_records) = ns {
-        message.authorities_mut().extend(ns_records.iter().cloned());
+        message.authorities.extend(ns_records.iter().cloned());
     }
 
     if let Some(soa_records) = soa {
-        message
-            .authorities_mut()
-            .extend(soa_records.iter().cloned());
+        message.authorities.extend(soa_records.iter().cloned());
     }
 
     message
@@ -1062,7 +1058,7 @@ async fn build_forwarded_response(
         );
 
         response_header.set_response_code(ResponseCode::Refused);
-        message.set_header(response_header);
+        message.header = response_header;
         return message;
     }
 
@@ -1241,22 +1237,18 @@ async fn build_forwarded_response(
         }
     }
 
-    message.set_header(response_header);
+    message.header = response_header;
 
     match answers {
         Answer::Normal(answers) => {
-            message.answers_mut().extend(answers.iter().cloned());
+            message.answers.extend(answers.iter().cloned());
         }
         Answer::NoRecords(soa) => {
-            message.authorities_mut().extend(soa.iter().cloned());
+            message.authorities.extend(soa.iter().cloned());
         }
     }
-    message
-        .authorities_mut()
-        .extend(authorities.iter().cloned());
-    message
-        .additionals_mut()
-        .extend(additionals.iter().cloned());
+    message.authorities.extend(authorities.iter().cloned());
+    message.additionals.extend(additionals.iter().cloned());
 
     // Strip DNSSEC records from all applicable sections based on the DNSSEC OK setting.
     message.maybe_strip_dnssec_records(lookup_options.dnssec_ok)
@@ -1331,12 +1323,12 @@ mod tests {
 
         // Verify that all sections were preserved
         assert!(
-            !message.answers().is_empty(),
+            !message.answers.is_empty(),
             "Answers section should not be empty"
         );
 
         // Check that we have authorities
-        let authorities_count = message.authorities().iter().count();
+        let authorities_count = message.authorities.len();
         assert!(
             authorities_count > 0,
             "Authorities section should not be empty, got {} records",
@@ -1344,7 +1336,7 @@ mod tests {
         );
 
         // Check that we have additionals
-        let additionals_count = message.additionals().iter().count();
+        let additionals_count = message.additionals.len();
         assert!(
             additionals_count > 0,
             "Additionals section should not be empty, got {} records",
@@ -1390,8 +1382,8 @@ mod tests {
         )
         .await;
 
-        assert!(message.answers().is_empty());
-        assert!(!message.authorities().is_empty());
-        assert_eq!(message.authorities()[0].record_type(), RecordType::NS);
+        assert!(message.answers.is_empty());
+        assert!(!message.authorities.is_empty());
+        assert_eq!(message.authorities[0].record_type(), RecordType::NS);
     }
 }

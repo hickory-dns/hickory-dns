@@ -82,19 +82,19 @@ async fn send_response(
     request: &Request,
     response: &DnsResponse,
 ) -> ResponseInfo {
-    let mut response_header = *response.header();
+    let mut response_header = response.header;
     response_header.set_id(request.id());
 
     let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
-    if let Some(edns) = response.extensions() {
+    if let Some(edns) = &response.edns {
         message_response_builder.edns(edns);
     }
     let message_response = message_response_builder.build(
         response_header,
-        response.answers(),
-        response.authorities(),
+        &response.answers,
+        &response.authorities,
         [],
-        response.additionals(),
+        &response.additionals,
     );
 
     let result = response_handle.send_response(message_response).await;

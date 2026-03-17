@@ -280,7 +280,7 @@ mod tests {
         }
 
         let response = Message::from_vec(&buf).expect("failed to decode");
-        assert!(response.header().truncated());
+        assert!(response.header.truncated());
         assert!(response.answer_count() > 1);
         // should never have written the authority section...
         assert_eq!(response.authority_count(), 0);
@@ -318,7 +318,7 @@ mod tests {
         }
 
         let response = Message::from_vec(&buf).expect("failed to decode");
-        assert!(response.header().truncated());
+        assert!(response.header.truncated());
         assert_eq!(response.answer_count(), 0);
         assert!(response.authority_count() > 1);
     }
