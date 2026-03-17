@@ -17,7 +17,7 @@ use crate::{
     proto::{
         ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
-        serialize::binary::BinDecoder,
+        serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
     zone_handler::{LookupError, MessageRequest},
@@ -43,8 +43,9 @@ impl Request {
         protocol: Protocol,
     ) -> Result<Self, ProtoError> {
         let mut decoder = BinDecoder::new(&raw);
+        let header = Header::read(&mut decoder)?;
         Ok(Self {
-            message: MessageRequest::read(&mut decoder)?,
+            message: MessageRequest::read(&mut decoder, header)?,
             raw: Bytes::from(raw),
             src,
             protocol,

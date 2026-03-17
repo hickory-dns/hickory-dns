@@ -33,46 +33,37 @@ pub struct MessageRequest {
 impl MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
-    pub(crate) fn read(decoder: &mut BinDecoder<'_>) -> Result<Self, ProtoError> {
-        let mut header = Header::read(decoder)?;
+    pub(crate) fn read(
+        decoder: &mut BinDecoder<'_>,
+        mut header: Header,
+    ) -> Result<Self, ProtoError> {
+        // get all counts before header moves
+        let query_count = header.query_count() as usize;
+        let answer_count = header.answer_count() as usize;
+        let authority_count = header.authority_count() as usize;
+        let additional_count = header.additional_count() as usize;
 
-        let mut try_parse_rest = move || {
-            // get all counts before header moves
-            let query_count = header.query_count() as usize;
-            let answer_count = header.answer_count() as usize;
-            let authority_count = header.authority_count() as usize;
-            let additional_count = header.additional_count() as usize;
+        let queries = Queries::read(decoder, query_count)?;
+        let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
+        let (authorities, _, _) = Message::read_records(decoder, authority_count, false)?;
+        let (additionals, edns, signature) =
+            Message::read_records(decoder, additional_count, true)?;
 
-            let queries = Queries::read(decoder, query_count)?;
-            let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
-            let (authorities, _, _) = Message::read_records(decoder, authority_count, false)?;
-            let (additionals, edns, signature) =
-                Message::read_records(decoder, additional_count, true)?;
-
-            // need to grab error code from EDNS (which might have a higher value)
-            if let Some(edns) = &edns {
-                let high_response_code = edns.rcode_high();
-                header.merge_response_code(high_response_code);
-            }
-
-            Ok(Self {
-                header,
-                queries,
-                answers,
-                authorities,
-                additionals,
-                signature,
-                edns,
-            })
-        };
-
-        match try_parse_rest() {
-            Ok(message) => Ok(message),
-            Err(e) => Err(ProtoError::FormError {
-                header,
-                error: Box::new(e),
-            }),
+        // need to grab error code from EDNS (which might have a higher value)
+        if let Some(edns) = &edns {
+            let high_response_code = edns.rcode_high();
+            header.merge_response_code(high_response_code);
         }
+
+        Ok(Self {
+            header,
+            queries,
+            answers,
+            authorities,
+            additionals,
+            signature,
+            edns,
+        })
     }
 
     /// Construct a mock MessageRequest for testing purposes

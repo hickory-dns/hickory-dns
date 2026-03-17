@@ -45,7 +45,6 @@ use crate::{
         xfer::Protocol,
     },
     proto::{
-        ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode, SerialMessage},
         rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
@@ -765,6 +764,13 @@ impl<T: RequestHandler> ServerContext<T> {
         response_handler: impl ResponseHandler,
     ) {
         let mut decoder = BinDecoder::new(&message_bytes);
+        let Ok(header) = Header::read(&mut decoder) else {
+            // This will only fail if the message is less than twelve bytes long. Such messages are
+            // definitely not valid DNS queries, so it should be fine to return without sending a
+            // response.
+            return;
+        };
+
         if !self.access.allow(src_addr.ip()) {
             info!(
                 "request:Refused src:{proto}://{addr}#{port}",
@@ -773,12 +779,6 @@ impl<T: RequestHandler> ServerContext<T> {
                 port = src_addr.port(),
             );
 
-            let Ok(header) = Header::read(&mut decoder) else {
-                // This will only fail if the message is less than twelve bytes long. Such messages are
-                // definitely not valid DNS queries, so it should be fine to return without sending a
-                // response.
-                return;
-            };
             let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
                 Ok(queries) => queries,
                 Err(_) => Queries::empty(),
@@ -798,14 +798,14 @@ impl<T: RequestHandler> ServerContext<T> {
         }
 
         // Attempt to decode the message
-        let request = match MessageRequest::read(&mut decoder) {
+        let request = match MessageRequest::read(&mut decoder, header) {
             Ok(message) => Request {
                 message,
                 raw: message_bytes,
                 src: src_addr,
                 protocol,
             },
-            Err(ProtoError::FormError { header, error }) => {
+            Err(error) => {
                 // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
                 let queries = Queries::empty();
 
@@ -820,15 +820,6 @@ impl<T: RequestHandler> ServerContext<T> {
                 )
                 .await;
 
-                return;
-            }
-            Err(error) => {
-                info!(
-                    "request:Failed src:{proto}://{addr}#{port} error:{error}",
-                    proto = protocol,
-                    addr = src_addr.ip(),
-                    port = src_addr.port(),
-                );
                 return;
             }
         };
