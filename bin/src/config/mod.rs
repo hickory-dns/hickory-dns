@@ -160,6 +160,34 @@ pub(crate) struct Config {
     /// Networks allowed to access the server
     #[serde(default)]
     pub(crate) allow_networks: Vec<IpNet>,
+    /// UDP socket configuration options.
+    #[serde(default)]
+    pub(crate) udp_socket: UdpSocketConfig,
+}
+
+/// Configuration options for UDP sockets.
+///
+/// These settings control the kernel buffer sizes for UDP sockets used by the DNS server.
+/// Under high query load, increasing buffer sizes can help prevent packet loss when the
+/// application cannot process incoming packets fast enough.
+///
+/// Note: The kernel may cap the actual buffer size based on system limits
+/// (e.g., `net.core.rmem_max` on Linux). Check logs at startup to see the actual
+/// buffer size that was configured.
+#[derive(Debug, Default, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct UdpSocketConfig {
+    /// UDP socket receive buffer size in bytes.
+    ///
+    /// Controls the kernel buffer for incoming UDP packets. If not specified, the operating
+    /// system default is used. Larger values help absorb traffic bursts without dropping
+    /// packets.
+    pub(crate) recv_buffer_size: Option<usize>,
+    /// UDP socket send buffer size in bytes.
+    ///
+    /// Controls the kernel buffer for outgoing UDP packets. If not specified, the operating
+    /// system default is used. Larger values help when the server is sending many responses.
+    pub(crate) send_buffer_size: Option<usize>,
 }
 
 impl Config {

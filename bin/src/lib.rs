@@ -31,7 +31,7 @@ use hickory_server::server::default_tls_server_config;
 use hickory_server::{server::Server, zone_handler::Catalog};
 
 mod config;
-use config::Config;
+use config::{Config, UdpSocketConfig};
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
@@ -288,6 +288,7 @@ impl DnsServer {
             http_endpoint,
             deny_networks,
             allow_networks,
+            udp_socket: udp_socket_config,
         } = config;
 
         #[cfg(unix)]
@@ -359,6 +360,7 @@ impl DnsServer {
                 .transpose()?,
             #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
             ssl_keylog_enabled,
+            udp_socket_config,
         };
 
         let listen_port = port.unwrap_or(listen_port);
@@ -467,6 +469,7 @@ struct ServerSetup<'a> {
     cert_resolver: Option<Arc<dyn ResolvesServerCert>>,
     #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
     ssl_keylog_enabled: bool,
+    udp_socket_config: UdpSocketConfig,
 }
 
 impl ServerSetup<'_> {
@@ -474,7 +477,7 @@ impl ServerSetup<'_> {
         for addr in &self.listen_addrs {
             info!("binding UDP to {addr:?}");
 
-            let udp_socket = build_udp_socket(*addr, port)
+            let udp_socket = build_udp_socket(*addr, port, self.udp_socket_config)
                 .map_err(|err| format!("failed to bind to UDP socket address {addr:?}: {err}"))?;
 
             info!(
@@ -602,7 +605,7 @@ impl ServerSetup<'_> {
         for addr in &self.listen_addrs {
             info!("Binding QUIC to {addr:?}");
 
-            let quic_listener = build_udp_socket(*addr, port)
+            let quic_listener = build_udp_socket(*addr, port, self.udp_socket_config)
                 .map_err(|err| format!("failed to bind to QUIC socket address {addr:?}: {err}"))?;
 
             info!(
@@ -668,7 +671,11 @@ fn build_tcp_listener(ip: IpAddr, port: u16) -> Result<TcpListener, Error> {
 }
 
 /// Build a UdpSocket for a given IP, port pair; IPv6 sockets will not accept v4 connections
-fn build_udp_socket(ip: IpAddr, port: u16) -> Result<UdpSocket, Error> {
+fn build_udp_socket(
+    ip: IpAddr,
+    port: u16,
+    socket_config: UdpSocketConfig,
+) -> Result<UdpSocket, Error> {
     let sock = if ip.is_ipv4() {
         Socket::new(Domain::IPV4, Type::DGRAM, None)?
     } else {
@@ -678,6 +685,22 @@ fn build_udp_socket(ip: IpAddr, port: u16) -> Result<UdpSocket, Error> {
     };
 
     sock.set_nonblocking(true)?;
+
+    if let Some(size) = socket_config.recv_buffer_size {
+        sock.set_recv_buffer_size(size)?;
+    }
+    if let Some(size) = socket_config.send_buffer_size {
+        sock.set_send_buffer_size(size)?;
+    }
+    if socket_config.recv_buffer_size.is_some() || socket_config.send_buffer_size.is_some() {
+        info!(
+            "UDP socket buffer sizes: recv={} send={} (requested recv={:?} send={:?})",
+            sock.recv_buffer_size().unwrap_or(0),
+            sock.send_buffer_size().unwrap_or(0),
+            socket_config.recv_buffer_size,
+            socket_config.send_buffer_size,
+        );
+    }
 
     let s_addr = SocketAddr::new(ip, port);
     sock.bind(&s_addr.into())?;
