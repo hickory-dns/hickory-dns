@@ -38,7 +38,7 @@ pub struct DnsResponse {
 impl DnsResponse {
     /// Constructs a new DnsResponse with a buffer synthesized from the message
     pub fn from_message(message: Message) -> Result<Self, ProtoError> {
-        if message.header().message_type() != MessageType::Response {
+        if message.header.message_type() != MessageType::Response {
             return Err(ProtoError::NotAResponse);
         }
 
@@ -54,7 +54,7 @@ impl DnsResponse {
     pub fn from_buffer(buffer: Vec<u8>) -> Result<Self, ProtoError> {
         let message = Message::from_vec(&buffer)?;
 
-        if message.header().message_type() != MessageType::Response {
+        if message.header.message_type() != MessageType::Response {
             return Err(ProtoError::NotAResponse);
         }
 
@@ -63,7 +63,7 @@ impl DnsResponse {
 
     /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.
     pub fn soa(&self) -> Option<RecordRef<'_, SOA>> {
-        self.authorities()
+        self.authorities
             .iter()
             .find_map(|record| RecordRef::try_from(record).ok())
     }
@@ -125,7 +125,7 @@ impl DnsResponse {
     /// ```
     pub fn negative_ttl(&self) -> Option<u32> {
         // TODO: should this ensure that the SOA zone matches the Queried Zone?
-        self.authorities()
+        self.authorities
             .iter()
             .filter_map(|record| match record.data() {
                 RData::SOA(soa) => Some((record.ttl(), soa)),
@@ -137,7 +137,7 @@ impl DnsResponse {
 
     /// Does the response contain any records matching the query name and type?
     pub fn contains_answer(&self) -> bool {
-        for q in self.queries() {
+        for q in &self.queries {
             let found = match q.query_type() {
                 RecordType::ANY => self.all_sections().any(|r| r.name() == q.name()),
                 RecordType::SOA => {
@@ -147,7 +147,7 @@ impl DnsResponse {
                         .any(|r| r.name().zone_of(q.name()))
                 }
                 q_type => {
-                    if !self.answers().is_empty() {
+                    if !self.answers.is_empty() {
                         true
                     } else {
                         self.all_sections()
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn test_contains_answer() {
         let mut message = Message::query();
-        message.set_response_code(ResponseCode::NXDomain);
+        message.header.set_response_code(ResponseCode::NXDomain);
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.add_answer(Record::from_rdata(
             Name::root(),
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn contains_soa() {
         let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
+        message.header.set_response_code(ResponseCode::NoError);
         message.add_query(Query::query(an_example(), RecordType::SOA));
         message.add_authority(soa());
 
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn contains_any() {
         let mut message = Message::query();
-        message.set_response_code(ResponseCode::NoError);
+        message.header.set_response_code(ResponseCode::NoError);
         message.add_query(Query::query(xx(), RecordType::ANY));
         message.add_authority(ns1_record());
         message.add_additional(ns1_a());

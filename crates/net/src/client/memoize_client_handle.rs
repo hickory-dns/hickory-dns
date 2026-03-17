@@ -53,7 +53,7 @@ where
         client: H,
     ) -> impl Stream<Item = Result<DnsResponse, NetError>> {
         // TODO: what if we want to support multiple queries (non-standard)?
-        let query = request.queries().first().expect("no query!").clone();
+        let query = request.queries.first().expect("no query!").clone();
 
         // lock all the currently running queries
         let mut active_queries = active_queries.lock().await;
@@ -126,7 +126,7 @@ mod test {
                 std::println!(
                     "sending {}: {}",
                     *i,
-                    request.queries().first().expect("no query!").clone()
+                    request.queries.first().expect("no query!").clone()
                 );
 
                 *i += 1;

@@ -343,7 +343,7 @@ impl FetchKeysOpt {
         let trust_anchor = TrustAnchors::default();
 
         for dnskey in response
-            .answers()
+            .answers
             .iter()
             .filter_map(Record::try_borrow::<DNSKEY>)
             .filter(|dnskey| dnskey.data().secure_entry_point() && dnskey.data().zone_key())

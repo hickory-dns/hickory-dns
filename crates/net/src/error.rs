@@ -285,9 +285,9 @@ impl DnsError {
 
                     // Collect any referral nameservers and associated glue records
                     let mut referral_name_servers = vec![];
-                    for ns in response.authorities().iter().filter(|ns| ns.record_type() == RecordType::NS) {
+                    for ns in response.authorities.iter().filter(|ns| ns.record_type() == RecordType::NS) {
                         let glue = response
-                            .additionals()
+                            .additionals
                             .iter()
                             .filter_map(|record| {
                                 if let RData::NS(ns_data) = ns.data() {
@@ -308,14 +308,14 @@ impl DnsError {
                         None
                     };
 
-                    let authorities = if !response.authorities().is_empty() {
-                        Some(response.authorities().to_owned().into())
+                    let authorities = if !response.authorities.is_empty() {
+                        Some(response.authorities.to_owned().into())
                     } else {
                         None
                     };
 
                     let negative_ttl = response.negative_ttl();
-                    let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
+                    let query = response.into_message().queries.drain(..).next().unwrap_or_default();
 
                     Err(Self::NoRecordsFound(NoRecords {
                         query: Box::new(query),

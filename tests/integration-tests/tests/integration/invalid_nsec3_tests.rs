@@ -105,7 +105,7 @@ async fn no_data_error() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 
@@ -137,7 +137,7 @@ async fn no_data_error_empty_non_terminal() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 
@@ -173,7 +173,7 @@ async fn referral_opt_out_unsigned() {
     assert_eq!(response.answer_count(), 0);
     assert!(
         response
-            .authorities()
+            .authorities
             .iter()
             .any(|record| record.record_type().is_ns())
     );
@@ -251,7 +251,7 @@ async fn wildcard_no_data_error() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 
@@ -303,7 +303,7 @@ async fn ds_child_zone_no_data_error() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 
@@ -382,16 +382,16 @@ async fn test_exclude_nsec3(
 
     let mut modified_response = original_response.clone();
     modified_response
-        .authorities_mut()
+        .authorities
         .retain(|record| record.name() != &nsec3_name);
-    let new_count = modified_response.authorities().len().try_into().unwrap();
-    modified_response.set_authority_count(new_count);
+    let new_count = modified_response.authorities.len().try_into().unwrap();
+    modified_response.header.set_authority_count(new_count);
     assert!(
-        modified_response.authorities().len() < original_response.authorities().len(),
+        modified_response.authorities.len() < original_response.authorities.len(),
         "failed to remove expected NSEC3 record and signature at {nsec3_owner_name}: {modified_response:?}"
     );
 
-    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers()[0].data() else {
+    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers[0].data() else {
         panic!("expected DNSKEY record: {dnskey_response:#?}");
     };
 

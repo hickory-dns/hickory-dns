@@ -160,8 +160,8 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
         let active_requests = self.active_requests.clone();
 
         Box::pin(once(async move {
-            debug!("sending request: {:?}", request.queries());
-            let query = match request.queries().first() {
+            debug!("sending request: {:?}", request.queries);
+            let query = match request.queries.first() {
                 Some(q) => q.clone(),
                 None => return Err("no query in request".into()),
             };
@@ -228,16 +228,16 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                 }
             };
 
-            let answers_len = response.answers().len();
-            let authorities_len = response.authorities().len();
+            let answers_len = response.answers.len();
+            let authorities_len = response.authorities.len();
 
-            response.additionals_mut().retain(answer_filter);
-            response.answers_mut().retain(answer_filter);
-            response.authorities_mut().retain(answer_filter);
+            response.additionals.retain(answer_filter);
+            response.answers.retain(answer_filter);
+            response.authorities.retain(answer_filter);
 
-            if response.answers().is_empty() && answers_len != 0
-                || (response.answers().is_empty()
-                    && response.authorities().is_empty()
+            if response.answers.is_empty() && answers_len != 0
+                || (response.answers.is_empty()
+                    && response.authorities.is_empty()
                     && authorities_len != 0)
             {
                 return Err(NoRecords::new(Box::new(query.clone()), ResponseCode::NXDomain).into());
@@ -932,7 +932,7 @@ impl CacheKey {
     fn from_request(request: &DnsRequest) -> Self {
         let dnssec_ok;
         let client_subnet;
-        if let Some(edns) = request.extensions() {
+        if let Some(edns) = &request.edns {
             dnssec_ok = edns.flags().dnssec_ok;
             if let Some(EdnsOption::Subnet(subnet)) = edns.option(EdnsCode::Subnet) {
                 client_subnet = Some(*subnet);
@@ -947,7 +947,7 @@ impl CacheKey {
             op_code: request.op_code(),
             recursion_desired: request.recursion_desired(),
             checking_disabled: request.checking_disabled(),
-            queries: request.queries().to_vec(),
+            queries: request.queries.clone(),
             dnssec_ok,
             client_subnet,
         }
@@ -1083,7 +1083,7 @@ mod tests {
             .await
             .expect("lookup failed");
 
-        assert!(!response.answers().is_empty());
+        assert!(!response.answers.is_empty());
 
         assert!(
             name_servers[0].is_connected(),
@@ -1100,7 +1100,7 @@ mod tests {
             .await
             .expect("lookup failed");
 
-        assert!(!response.answers().is_empty());
+        assert!(!response.answers.is_empty());
 
         assert!(
             name_servers[0].is_connected(),
@@ -1166,7 +1166,7 @@ mod tests {
             .expect("pool should retry on timeout and succeed with the second server");
 
         assert!(
-            !response.answers().is_empty(),
+            !response.answers.is_empty(),
             "expected A record in response"
         );
     }
