@@ -254,21 +254,14 @@ impl Queries {
         }
     }
 
-    fn read_queries(
-        decoder: &mut BinDecoder<'_>,
-        count: usize,
-    ) -> Result<Vec<LowerQuery>, DecodeError> {
-        let mut queries = Vec::with_capacity(count);
-        for _ in 0..count {
-            queries.push(LowerQuery::read(decoder)?);
-        }
-        Ok(queries)
-    }
-
     /// Read queries from a decoder
     pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, DecodeError> {
         let queries_start = decoder.index();
-        let queries = Self::read_queries(decoder, num_queries)?;
+        let mut queries = Vec::with_capacity(num_queries);
+        for _ in 0..num_queries {
+            queries.push(LowerQuery::read(decoder)?);
+        }
+
         let original = decoder
             .slice_from(queries_start)?
             .to_vec()
