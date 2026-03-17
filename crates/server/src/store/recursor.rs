@@ -59,7 +59,7 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
         };
 
         let recursor = Recursor::from_config(config, root_dir, conn_provider.clone())
-            .map_err(|e| format!("failed to build recursor for zone {origin}: {e}"))?;
+            .map_err(|e| format!("failed to build recursor: {e}"))?;
 
         Ok(Self {
             origin: origin.into(),
