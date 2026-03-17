@@ -42,7 +42,7 @@ ns_cache_size = 1024
 response_cache_size = 1048576
 recursion_limit = 24
 ns_recursion_limit = 24
-edns_payload_len = 4096
+edns_payload_len = 1232
 
 ## allow_answers: these networks will override entries in deny_answers and allow you to make
 ## granular exceptions to networks you otherwise want to filter from upstream responses.  This
