@@ -623,6 +623,14 @@ pub struct RecursorOptions {
     /// Configure RFC 9539 opportunistic encryption.
     #[cfg_attr(feature = "serde", serde(default))]
     pub opportunistic_encryption: OpportunisticEncryption,
+
+    /// Which address families to use when connecting to name servers during recursive resolution.
+    ///
+    /// When set to `Ipv4Only`, only IPv4 name server addresses will be used. This is useful on
+    /// systems where IPv6 is configured but has no actual connectivity, as it avoids timeouts
+    /// waiting for unreachable IPv6 name servers.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub ip_strategy: RecursorIpStrategy,
 }
 
 impl Default for RecursorOptions {
@@ -640,6 +648,7 @@ impl Default for RecursorOptions {
             cache_policy: TtlConfig::default(),
             case_randomization: false,
             opportunistic_encryption: OpportunisticEncryption::default(),
+            ip_strategy: RecursorIpStrategy::default(),
         }
     }
 }
@@ -667,6 +676,30 @@ fn ns_recursion_limit_default() -> u8 {
 #[cfg(feature = "serde")]
 fn deny_server_default() -> Vec<IpNet> {
     RECOMMENDED_SERVER_FILTERS.to_vec()
+}
+
+/// Controls which address families the recursor uses when connecting to name servers.
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
+pub enum RecursorIpStrategy {
+    /// Use both IPv4 and IPv6 name server addresses
+    #[default]
+    Ipv4AndIpv6,
+    /// Only use IPv4 name server addresses
+    Ipv4Only,
+    /// Only use IPv6 name server addresses
+    Ipv6Only,
+}
+
+impl RecursorIpStrategy {
+    /// Returns true if the given IP address is allowed by this strategy.
+    pub fn is_allowed(&self, ip: IpAddr) -> bool {
+        match self {
+            Self::Ipv4AndIpv6 => true,
+            Self::Ipv4Only => ip.is_ipv4(),
+            Self::Ipv6Only => ip.is_ipv6(),
+        }
+    }
 }
 
 /// `Recursor`'s DNSSEC policy

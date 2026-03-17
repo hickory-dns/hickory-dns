@@ -590,6 +590,13 @@ pub struct ResolverOpts {
     pub allow_answers: Vec<IpNet>,
     /// Networks listed here will be removed from any answers returned by an upstream server.
     pub deny_answers: Vec<IpNet>,
+    /// Interleave servers by address family (IPv4/IPv6) after sorting.
+    ///
+    /// When enabled, the server list is reordered so that IPv4 and IPv6 servers alternate. Combined
+    /// with `num_concurrent_reqs >= 2`, this provides Happy Eyeballs-style behavior: both address
+    /// families are tried concurrently, and whichever responds first wins. This is particularly
+    /// useful when one address family is configured but has no actual connectivity.
+    pub happy_eyeballs: bool,
 }
 
 impl ResolverOpts {
@@ -640,6 +647,7 @@ impl Default for ResolverOpts {
             trust_anchor: None,
             allow_answers: vec![],
             deny_answers: vec![],
+            happy_eyeballs: false,
         }
     }
 }
@@ -1119,5 +1127,6 @@ mod tests {
         assert_eq!(code.os_port_selection, json.os_port_selection);
         assert_eq!(code.case_randomization, json.case_randomization);
         assert_eq!(code.trust_anchor, json.trust_anchor);
+        assert_eq!(code.happy_eyeballs, json.happy_eyeballs);
     }
 }

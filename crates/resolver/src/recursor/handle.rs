@@ -14,7 +14,10 @@ use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
-use super::{DnssecPolicy, RecursorError, RecursorOptions, error::AuthorityData, is_subzone};
+use super::{
+    DnssecPolicy, RecursorError, RecursorIpStrategy, RecursorOptions, error::AuthorityData,
+    is_subzone,
+};
 #[cfg(feature = "metrics")]
 use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "__dnssec")]
@@ -53,6 +56,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     connection_cache: Arc<Mutex<LruCache<IpAddr, Arc<NameServer<P>>>>>,
     request_options: DnsRequestOptions,
     ttl_config: TtlConfig,
+    ip_strategy: RecursorIpStrategy,
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
@@ -65,11 +69,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         conn_provider: P,
     ) -> Result<Self, RecursorError> {
         assert!(!roots.is_empty(), "roots must not be empty");
-        let servers = roots
-            .iter()
-            .copied()
-            .map(|ip| name_server_config(ip, &options.opportunistic_encryption))
-            .collect::<Vec<_>>();
 
         let RecursorOptions {
             ns_cache_size,
@@ -84,7 +83,20 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             cache_policy,
             case_randomization,
             opportunistic_encryption,
+            ip_strategy,
         } = options;
+
+        let servers = roots
+            .iter()
+            .copied()
+            .filter(|ip| ip_strategy.is_allowed(*ip))
+            .map(|ip| name_server_config(ip, &opportunistic_encryption))
+            .collect::<Vec<_>>();
+
+        assert!(
+            !servers.is_empty(),
+            "no root servers remaining after applying ip_strategy filter"
+        );
 
         let avoid_local_udp_ports = Arc::new(avoid_local_udp_ports);
 
@@ -145,6 +157,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
             ttl_config: cache_policy.clone(),
+            ip_strategy,
         })
     }
 
@@ -585,7 +598,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     ns_pool_ttl = zns.ttl();
                 }
 
-                for record_type in [RecordType::A, RecordType::AAAA] {
+                let glue_record_types: &[RecordType] = match self.ip_strategy {
+                    RecursorIpStrategy::Ipv4Only => &[RecordType::A],
+                    RecursorIpStrategy::Ipv6Only => &[RecordType::AAAA],
+                    RecursorIpStrategy::Ipv4AndIpv6 => &[RecordType::A, RecordType::AAAA],
+                };
+                for &record_type in glue_record_types {
                     if let Some(Ok(response)) = self
                         .response_cache
                         .get(&Query::query(ns_data.0.clone(), record_type), request_time)
@@ -698,6 +716,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
                 _ => continue,
             };
+            if !self.ip_strategy.is_allowed(ip) {
+                debug!(name = %record.name(), %ip, "ignoring address due to ip_strategy");
+                continue;
+            }
             if self.name_server_filter.denied(ip) {
                 debug!(name = %record.name(), %ip, "ignoring address due to do_not_query");
                 continue;
@@ -746,8 +768,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let mut futures = FuturesUnordered::new();
 
+        let record_types: &[RecordType] = match self.ip_strategy {
+            RecursorIpStrategy::Ipv4Only => &[RecordType::A],
+            RecursorIpStrategy::Ipv6Only => &[RecordType::AAAA],
+            RecursorIpStrategy::Ipv4AndIpv6 => &[RecordType::A, RecordType::AAAA],
+        };
+
         for (pool, query) in pool_queries.iter() {
-            for rec_type in [RecordType::A, RecordType::AAAA] {
+            for &rec_type in record_types {
                 futures.push(Box::pin(
                     pool.lookup(Query::query(query.clone(), rec_type), self.request_options)
                         .into_future()
@@ -762,13 +790,17 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             match next {
                 Some(Ok(mut response)) => {
                     debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
+                    let ip_strategy = self.ip_strategy;
                     config.extend(response
                         .take_answers()
                         .into_iter()
                         .filter_map(|answer| {
                             let ip = answer.data().ip_addr()?;
 
-                            if self.name_server_filter.denied(ip) {
+                            if !ip_strategy.is_allowed(ip) {
+                                debug!(%ip, "append_ips_from_lookup: ignoring address due to ip_strategy");
+                                None
+                            } else if self.name_server_filter.denied(ip) {
                                 debug!(%ip, "append_ips_from_lookup: ignoring address due to do_not_query");
                                 None
                             } else {
@@ -862,9 +894,10 @@ fn recursor_opts(
         validate: false, // we'll need to do any dnssec validation differently in a recursor (top-down rather than bottom-up)
         preserve_intermediates: true,
         recursion_desired: false,
-        num_concurrent_reqs: 1,
+        num_concurrent_reqs: 2,
         avoid_local_udp_ports,
         case_randomization,
+        happy_eyeballs: true,
         ..ResolverOpts::default()
     }
 }
