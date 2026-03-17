@@ -33,7 +33,7 @@ impl Lookup {
     /// Create a new Lookup from a complete DNS Message.
     pub(crate) fn new(message: Message, valid_until: Instant) -> Self {
         debug_assert!(
-            !message.queries().is_empty(),
+            !message.queries.is_empty(),
             "lookup message must have at least one query"
         );
 
@@ -74,7 +74,7 @@ impl Lookup {
     /// Returns a reference to the `Query` that was used to produce this result.
     pub fn query(&self) -> &Query {
         self.message
-            .queries()
+            .queries
             .first()
             .expect("Lookup message always has a query")
     }
@@ -86,17 +86,17 @@ impl Lookup {
 
     /// Returns a reference to the answer records from the message.
     pub fn answers(&self) -> &[Record] {
-        self.message.answers()
+        &self.message.answers
     }
 
     /// Returns a reference to the authority records from the message.
     pub fn authorities(&self) -> &[Record] {
-        self.message.authorities()
+        &self.message.authorities
     }
 
     /// Returns a reference to the additional records from the message.
     pub fn additionals(&self) -> &[Record] {
-        self.message.additionals()
+        &self.message.additionals
     }
 
     /// Returns the `Instant` at which this `Lookup` is no longer valid.

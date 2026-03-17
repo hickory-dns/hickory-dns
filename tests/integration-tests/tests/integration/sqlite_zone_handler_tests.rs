@@ -259,7 +259,7 @@ async fn test_authorize_update() {
     let handler = create_example();
 
     let mut message = Message::query();
-    message.set_op_code(OpCode::Update);
+    message.header.set_op_code(OpCode::Update);
     message.add_query(Query::default());
 
     let bytes = message.to_bytes().unwrap();
@@ -1263,10 +1263,8 @@ fn test_update_message(name: Name) -> Message {
     add_rec.set_dns_class(DNSClass::IN);
 
     let mut message = Message::query();
-    message
-        .set_op_code(OpCode::Update)
-        .add_query(q)
-        .add_authority(add_rec);
+    message.header.set_op_code(OpCode::Update);
+    message.add_query(q).add_authority(add_rec);
     message
 }
 

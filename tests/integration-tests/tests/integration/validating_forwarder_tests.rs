@@ -86,7 +86,7 @@ async fn query_validate_true_unsigned_zone_with_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 }
 
 #[tokio::test]
@@ -102,7 +102,7 @@ async fn query_validate_true_unsigned_zone_no_soa() {
         .await
         .unwrap();
     assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 }
 
 #[tokio::test]
@@ -255,7 +255,7 @@ async fn setup_client_forwarder(
 
 fn answered_a_1234(response: DnsResponse) -> bool {
     response
-        .answers()
+        .answers
         .iter()
         .any(|record| matches!(record.data(), RData::A(a) if a.0 == Ipv4Addr::new(1, 2, 3, 4)))
 }

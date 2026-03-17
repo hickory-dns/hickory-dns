@@ -95,20 +95,20 @@ async fn test_zone_transfer() {
 
     assert_ne!(result.len(), 1);
     assert_eq!(
-        result.iter().map(|r| r.answers().len()).sum::<usize>(),
+        result.iter().map(|r| r.answers.len()).sum::<usize>(),
         bogus_record_count + 3
     );
 
-    let RData::SOA(soa) = result[0].answers()[0].data() else {
+    let RData::SOA(soa) = result[0].answers[0].data() else {
         panic!("First answer was not an SOA record");
     };
 
-    assert_eq!(result[0].answers()[0].record_type(), RecordType::SOA);
+    assert_eq!(result[0].answers[0].record_type(), RecordType::SOA);
     assert_eq!(
         result
             .last()
             .unwrap()
-            .answers()
+            .answers
             .last()
             .unwrap()
             .record_type(),
@@ -133,13 +133,13 @@ async fn test_zone_transfer() {
         .expect("query failed");
     assert_eq!(result.len(), 1);
     let result = &result[0];
-    assert_eq!(result.answers().len(), 3 + 2);
+    assert_eq!(result.answers.len(), 3 + 2);
 
-    assert_serial(&result.answers()[0], 20210102);
-    assert_serial(&result.answers()[1], 20210101);
-    assert_serial(&result.answers()[2], 20210102);
-    assert_eq!(result.answers()[3].record_type(), RecordType::A);
-    assert_serial(&result.answers()[4], 20210102);
+    assert_serial(&result.answers[0], 20210102);
+    assert_serial(&result.answers[1], 20210101);
+    assert_serial(&result.answers[2], 20210102);
+    assert_eq!(result.answers[3].record_type(), RecordType::A);
+    assert_serial(&result.answers[4], 20210102);
 }
 
 fn assert_serial(r: &Record, expected: u32) {

@@ -71,16 +71,54 @@ use crate::{
 ///
 /// By default Message is a Query. Use the Message::as_update() to create and update, or
 ///  Message::new_update()
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Message {
-    header: Header,
-    queries: Vec<Query>,
-    answers: Vec<Record>,
-    authorities: Vec<Record>,
-    additionals: Vec<Record>,
-    signature: Option<Box<Record<TSIG>>>,
-    edns: Option<Edns>,
+    /// The message header
+    pub header: Header,
+    /// Query name and other query parameters
+    pub queries: Vec<Query>,
+    /// Records which directly answer the query
+    pub answers: Vec<Record>,
+    /// Records with describe other authoritative servers
+    ///
+    /// May optionally carry the SOA record for the authoritative data in the answer section.
+    pub authorities: Vec<Record>,
+    /// Records which may be helpful in using the records in the other sections
+    pub additionals: Vec<Record>,
+    /// TSIG signature for the message, if any
+    pub signature: Option<Box<Record<TSIG>>>,
+    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
+    ///
+    /// ```text
+    /// 6.1.1.  Basic Elements
+    ///
+    ///  An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+    ///  additional data section of a request.
+    ///
+    ///  The OPT RR has RR type 41.
+    ///
+    ///  If an OPT record is present in a received request, compliant
+    ///  responders MUST include an OPT record in their respective responses.
+    ///
+    ///  An OPT record does not carry any DNS data.  It is used only to
+    ///  contain control information pertaining to the question-and-answer
+    ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
+    ///  forwarded, or stored in or loaded from Zone Files.
+    ///
+    ///  The OPT RR MAY be placed anywhere within the additional data section.
+    ///  When an OPT RR is included within any DNS message, it MUST be the
+    ///  only OPT RR in that message.  If a query message with more than one
+    ///  OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
+    ///  placement flexibility for the OPT RR does not override the need for
+    ///  the TSIG or SIG(0) RRs to be the last in the additional section
+    ///  whenever they are present.
+    /// ```
+    /// # Return value
+    ///
+    /// Optionally returns a reference to EDNS OPT pseudo-RR
+    pub edns: Option<Edns>,
 }
 
 impl Message {
@@ -99,7 +137,7 @@ impl Message {
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Self {
         let mut message = Self::response(id, op_code);
-        message.set_response_code(response_code);
+        message.header.set_response_code(response_code);
         message
     }
 
@@ -136,8 +174,8 @@ impl Message {
 
         // drops additional/answer/nameservers/signature
         // adds query/OPT
-        msg.add_queries(self.queries().iter().cloned());
-        if let Some(edns) = self.extensions().clone() {
+        msg.add_queries(self.queries.iter().cloned());
+        if let Some(edns) = self.edns.clone() {
             msg.set_edns(edns);
         }
 
@@ -162,7 +200,7 @@ impl Message {
             return self;
         }
 
-        let Some(query_type) = self.queries().first().map(|q| q.query_type()) else {
+        let Some(query_type) = self.queries.first().map(|q| q.query_type()) else {
             return self; // No query, return unchanged
         };
 
@@ -171,106 +209,10 @@ impl Message {
             record_type == query_type || !record_type.is_dnssec()
         };
 
-        self.answers_mut().retain(predicate);
-        self.authorities_mut().retain(predicate);
-        self.additionals_mut().retain(predicate);
+        self.answers.retain(predicate);
+        self.authorities.retain(predicate);
+        self.additionals.retain(predicate);
 
-        self
-    }
-
-    /// Sets the [`Header`]
-    pub fn set_header(&mut self, header: Header) -> &mut Self {
-        self.header = header;
-        self
-    }
-
-    /// See [`Header::set_id()`]
-    pub fn set_id(&mut self, id: u16) -> &mut Self {
-        self.header.set_id(id);
-        self
-    }
-
-    /// See [`Header::set_op_code()`]
-    pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
-        self.header.set_op_code(op_code);
-        self
-    }
-
-    /// See [`Header::set_authoritative()`]
-    pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
-        self.header.set_authoritative(authoritative);
-        self
-    }
-
-    /// See [`Header::set_truncated()`]
-    pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
-        self.header.set_truncated(truncated);
-        self
-    }
-
-    /// See [`Header::set_recursion_desired()`]
-    pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
-        self.header.set_recursion_desired(recursion_desired);
-        self
-    }
-
-    /// See [`Header::set_recursion_available()`]
-    pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
-        self.header.set_recursion_available(recursion_available);
-        self
-    }
-
-    /// See [`Header::set_authentic_data()`]
-    pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
-        self.header.set_authentic_data(authentic_data);
-        self
-    }
-
-    /// See [`Header::set_checking_disabled()`]
-    pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
-        self.header.set_checking_disabled(checking_disabled);
-        self
-    }
-
-    /// See [`Header::set_response_code()`]
-    pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
-        self.header.set_response_code(response_code);
-        self
-    }
-
-    /// See [`Header::set_query_count()`]
-    ///
-    /// this count will be ignored during serialization,
-    /// where the length of the associated records will be used instead.
-    pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
-        self.header.set_query_count(query_count);
-        self
-    }
-
-    /// See [`Header::set_answer_count()`]
-    ///
-    /// this count will be ignored during serialization,
-    /// where the length of the associated records will be used instead.
-    pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
-        self.header.set_answer_count(answer_count);
-        self
-    }
-
-    /// See [`Header::set_authority_count()`]
-    ///
-    /// this count will be ignored during serialization,
-    /// where the length of the associated records will be used instead.
-    pub fn set_authority_count(&mut self, authority_count: u16) -> &mut Self {
-        self.header.set_authority_count(authority_count);
-        self
-    }
-
-    /// See [`Header::set_additional_count()`]
-    ///
-    /// this count will be ignored during serialization,
-    /// where the length of the associated records will be used instead.
-    pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
-        self.header.set_additional_count(additional_count);
         self
     }
 
@@ -411,139 +353,10 @@ impl Message {
         }
     }
 
-    /// Gets the header of the Message
-    pub fn header(&self) -> &Header {
-        &self.header
-    }
-
-    /// See [`Header::id()`]
-    pub fn id(&self) -> u16 {
-        self.header.id()
-    }
-
-    /// See [`Header::message_type()`]
-    pub fn message_type(&self) -> MessageType {
-        self.header.message_type()
-    }
-
-    /// See [`Header::op_code()`]
-    pub fn op_code(&self) -> OpCode {
-        self.header.op_code()
-    }
-
-    /// See [`Header::authoritative()`]
-    pub fn authoritative(&self) -> bool {
-        self.header.authoritative()
-    }
-
-    /// See [`Header::truncated()`]
-    pub fn truncated(&self) -> bool {
-        self.header.truncated()
-    }
-
-    /// See [`Header::recursion_desired()`]
-    pub fn recursion_desired(&self) -> bool {
-        self.header.recursion_desired()
-    }
-
-    /// See [`Header::recursion_available()`]
-    pub fn recursion_available(&self) -> bool {
-        self.header.recursion_available()
-    }
-
-    /// See [`Header::authentic_data()`]
-    pub fn authentic_data(&self) -> bool {
-        self.header.authentic_data()
-    }
-
-    /// See [`Header::checking_disabled()`]
-    pub fn checking_disabled(&self) -> bool {
-        self.header.checking_disabled()
-    }
-
-    /// # Return value
-    ///
-    /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
-    ///  record to create the EDNS `ResponseCode`
-    pub fn response_code(&self) -> ResponseCode {
-        self.header.response_code()
-    }
-
-    /// ```text
-    /// Question        Carries the query name and other query parameters.
-    /// ```
-    pub fn queries(&self) -> &[Query] {
-        &self.queries
-    }
-
-    /// Provides mutable access to `queries`
-    pub fn queries_mut(&mut self) -> &mut Vec<Query> {
-        &mut self.queries
-    }
-
-    /// Removes all the answers from the Message
-    pub fn take_queries(&mut self) -> Vec<Query> {
-        mem::take(&mut self.queries)
-    }
-
-    /// ```text
-    /// Answer          Carries RRs which directly answer the query.
-    /// ```
-    pub fn answers(&self) -> &[Record] {
-        &self.answers
-    }
-
-    /// Provides mutable access to `answers`
-    pub fn answers_mut(&mut self) -> &mut Vec<Record> {
-        &mut self.answers
-    }
-
-    /// Removes the Answer section records from the message
-    pub fn take_answers(&mut self) -> Vec<Record> {
-        mem::take(&mut self.answers)
-    }
-
     /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
     #[cfg(feature = "__dnssec")]
     pub fn dnssec_answers(&self) -> DnssecIter<'_> {
         DnssecIter::new(&self.answers)
-    }
-
-    /// ```text
-    /// Authority       Carries RRs which describe other authoritative servers.
-    ///                 May optionally carry the SOA RR for the authoritative
-    ///                 data in the answer section.
-    /// ```
-    pub fn authorities(&self) -> &[Record] {
-        &self.authorities
-    }
-
-    /// Provides mutable access to `authorities`
-    pub fn authorities_mut(&mut self) -> &mut Vec<Record> {
-        &mut self.authorities
-    }
-
-    /// Remove the Authority section records from the message
-    pub fn take_authorities(&mut self) -> Vec<Record> {
-        mem::take(&mut self.authorities)
-    }
-
-    /// ```text
-    /// Additional      Carries RRs which may be helpful in using the RRs in the
-    ///                 other sections.
-    /// ```
-    pub fn additionals(&self) -> &[Record] {
-        &self.additionals
-    }
-
-    /// Provides mutable access to `additionals`
-    pub fn additionals_mut(&mut self) -> &mut Vec<Record> {
-        &mut self.additionals
-    }
-
-    /// Remove the Additional section records from the message
-    pub fn take_additionals(&mut self) -> Vec<Record> {
-        mem::take(&mut self.additionals)
     }
 
     /// Consume the message, returning an iterator over records from all sections
@@ -562,44 +375,6 @@ impl Message {
             .iter()
             .chain(self.authorities.iter())
             .chain(self.additionals.iter())
-    }
-
-    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
-    ///
-    /// ```text
-    /// 6.1.1.  Basic Elements
-    ///
-    ///  An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
-    ///  additional data section of a request.
-    ///
-    ///  The OPT RR has RR type 41.
-    ///
-    ///  If an OPT record is present in a received request, compliant
-    ///  responders MUST include an OPT record in their respective responses.
-    ///
-    ///  An OPT record does not carry any DNS data.  It is used only to
-    ///  contain control information pertaining to the question-and-answer
-    ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
-    ///  forwarded, or stored in or loaded from Zone Files.
-    ///
-    ///  The OPT RR MAY be placed anywhere within the additional data section.
-    ///  When an OPT RR is included within any DNS message, it MUST be the
-    ///  only OPT RR in that message.  If a query message with more than one
-    ///  OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
-    ///  placement flexibility for the OPT RR does not override the need for
-    ///  the TSIG or SIG(0) RRs to be the last in the additional section
-    ///  whenever they are present.
-    /// ```
-    /// # Return value
-    ///
-    /// Optionally returns a reference to EDNS OPT pseudo-RR
-    pub fn extensions(&self) -> &Option<Edns> {
-        &self.edns
-    }
-
-    /// Returns mutable reference of EDNS OPT pseudo-RR
-    pub fn extensions_mut(&mut self) -> &mut Option<Edns> {
-        &mut self.edns
     }
 
     /// # Return value
@@ -1066,24 +841,24 @@ impl fmt::Display for Message {
             Ok(())
         };
 
-        writeln!(f, "; header {header}", header = self.header())?;
+        writeln!(f, "; header {header}", header = self.header)?;
 
-        if let Some(edns) = self.extensions() {
+        if let Some(edns) = &self.edns {
             writeln!(f, "; edns {edns}")?;
         }
 
         writeln!(f, "; query")?;
-        write_query(self.queries(), f)?;
+        write_query(&self.queries, f)?;
 
-        if self.header().message_type() == MessageType::Response
-            || self.header().op_code() == OpCode::Update
+        if self.header.message_type() == MessageType::Response
+            || self.header.op_code() == OpCode::Update
         {
             writeln!(f, "; answers {}", self.answer_count())?;
-            write_slice(self.answers(), f)?;
+            write_slice(&self.answers, f)?;
             writeln!(f, "; authorities {}", self.authority_count())?;
-            write_slice(self.authorities(), f)?;
+            write_slice(&self.authorities, f)?;
             writeln!(f, "; additionals {}", self.additional_count())?;
-            write_slice(self.additionals(), f)?;
+            write_slice(&self.additionals, f)?;
         }
 
         Ok(())
@@ -1111,6 +886,7 @@ mod tests {
     fn test_emit_and_read_header() {
         let mut message = Message::response(10, OpCode::Update);
         message
+            .header
             .set_authoritative(true)
             .set_truncated(false)
             .set_recursion_desired(true)
@@ -1124,13 +900,13 @@ mod tests {
     fn test_emit_and_read_query() {
         let mut message = Message::response(10, OpCode::Update);
         message
+            .header
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
             .set_recursion_available(true)
-            .set_response_code(ResponseCode::ServFail)
-            .add_query(Query::new())
-            .update_counts(); // we're not testing the query parsing, just message
+            .set_response_code(ResponseCode::ServFail);
+        message.add_query(Query::new()).update_counts(); // we're not testing the query parsing, just message
 
         test_emit_and_read(message);
     }
@@ -1139,6 +915,7 @@ mod tests {
     fn test_emit_and_read_records() {
         let mut message = Message::response(10, OpCode::Update);
         message
+            .header
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
@@ -1173,6 +950,7 @@ mod tests {
     fn test_header_counts_correction_after_emit_read() {
         let mut message = Message::response(10, OpCode::Update);
         message
+            .header
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
@@ -1188,9 +966,9 @@ mod tests {
         // at here, we don't call update_counts and we even set wrong count,
         // because we are trying to test whether the counts in the header
         // are correct after the message is emitted and read.
-        message.set_query_count(1);
-        message.set_answer_count(5);
-        message.set_authority_count(5);
+        message.header.set_query_count(1);
+        message.header.set_answer_count(5);
+        message.header.set_authority_count(5);
         // message.set_additional_count(1);
 
         let got = get_message_after_emitting_and_reading(message);

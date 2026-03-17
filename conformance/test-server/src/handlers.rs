@@ -18,35 +18,36 @@ use std::{
 /// This handler generates a valid A-record response to any query
 pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
+    let name = msg.queries[0].name().clone();
 
-    msg.set_recursion_desired(false)
-        .add_answer(Record::from_rdata(
-            name,
-            1,
-            RData::A(rdata::A([192, 0, 2, 1].into())),
-        ))
-        .to_vec()
-        .map(Some)
-        .with_context(|| "base handler: could not serialize Message")
+    msg.header.set_recursion_desired(false);
+    msg.add_answer(Record::from_rdata(
+        name,
+        1,
+        RData::A(rdata::A([192, 0, 2, 1].into())),
+    ))
+    .to_vec()
+    .map(Some)
+    .with_context(|| "base handler: could not serialize Message")
 }
 
 /// This handler responds to any messages with an incorrect transaction (query) id.
 pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
+    let name = msg.queries[0].name().clone();
 
-    msg.set_id(if msg.id() == 65535 { 0 } else { msg.id() + 1 })
+    msg.header
+        .set_id(if msg.id() == 65535 { 0 } else { msg.id() + 1 })
         .set_recursion_desired(false)
-        .set_authoritative(true)
-        .add_answer(Record::from_rdata(
-            name,
-            1,
-            RData::A(rdata::A([192, 0, 2, 1].into())),
-        ))
-        .to_vec()
-        .map(Some)
-        .with_context(|| "bad txid handler: could not serialize Message")
+        .set_authoritative(true);
+    msg.add_answer(Record::from_rdata(
+        name,
+        1,
+        RData::A(rdata::A([192, 0, 2, 1].into())),
+    ))
+    .to_vec()
+    .map(Some)
+    .with_context(|| "bad txid handler: could not serialize Message")
 }
 
 /// This handler responds to any messages with an empty message (no response records)
@@ -69,12 +70,12 @@ pub(crate) fn truncated_response_handler(
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
+    let name = msg.queries[0].name().clone();
 
     if name != Name::from_ascii("example.testing.").unwrap()
-        && msg.queries()[0].query_type() != RecordType::TXT
+        && msg.queries[0].query_type() != RecordType::TXT
     {
-        msg.set_response_code(ResponseCode::NXDomain);
+        msg.header.set_response_code(ResponseCode::NXDomain);
         return msg
             .to_vec()
             .map(Some)
@@ -98,26 +99,27 @@ pub(crate) fn truncated_response_handler(
         ),
     };
 
-    msg.set_authoritative(true)
+    msg.header
+        .set_authoritative(true)
         .set_recursion_desired(false)
         .set_truncated(match transport {
             Transport::Udp => true,
             Transport::Tcp => false,
-        })
-        .add_answer(Record::from_rdata(
-            name,
-            86400,
-            RData::TXT(rdata::TXT::new(vec![protocol_str, counter_str])),
-        ))
-        .to_vec()
-        .map(Some)
-        .with_context(|| "truncated response handler: could not serialize Message")
+        });
+    msg.add_answer(Record::from_rdata(
+        name,
+        86400,
+        RData::TXT(rdata::TXT::new(vec![protocol_str, counter_str])),
+    ))
+    .to_vec()
+    .map(Some)
+    .with_context(|| "truncated response handler: could not serialize Message")
 }
 
 /// This handler simulates packet loss by not responding to the first query it receives
 pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let query = msg.queries()[0].clone();
+    let query = msg.queries[0].clone();
     let name = query.name().clone();
     let q_type = query.query_type();
 
@@ -126,15 +128,16 @@ pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result
             PACKET_LOSS_MARKER.store(true, Ordering::Relaxed);
             return Ok(None);
         }
-        msg.set_recursion_desired(false)
-            .set_authoritative(true)
-            .add_answer(Record::from_rdata(
-                name,
-                86400,
-                RData::A(rdata::A([192, 0, 2, 1].into())),
-            ));
+        msg.header
+            .set_recursion_desired(false)
+            .set_authoritative(true);
+        msg.add_answer(Record::from_rdata(
+            name,
+            86400,
+            RData::A(rdata::A([192, 0, 2, 1].into())),
+        ));
     } else {
-        msg.set_response_code(ResponseCode::NXDomain);
+        msg.header.set_response_code(ResponseCode::NXDomain);
     }
 
     msg.to_vec()
@@ -145,7 +148,7 @@ pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result
 /// This handler does not preserve the case of query names in responses.
 pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let mut queries = msg.take_queries();
+    let mut queries = msg.queries;
 
     // This doesn't use Name::randomize_case_labels since that doesn't guarantee
     // input != output.
@@ -161,27 +164,28 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
     }
     queries[0].name = mod_name;
     let name = queries[0].name().clone();
-    msg.add_queries(queries);
+    msg.queries = queries;
 
-    msg.set_authoritative(true)
-        .set_recursion_desired(false)
-        .add_answer(Record::from_rdata(
-            name,
-            0,
-            RData::A(rdata::A(match transport {
-                Transport::Tcp => [192, 0, 2, 2].into(),
-                Transport::Udp => [192, 0, 2, 1].into(),
-            })),
-        ))
-        .to_vec()
-        .map(Some)
-        .with_context(|| "bad case handler: could not serialize Message")
+    msg.header
+        .set_authoritative(true)
+        .set_recursion_desired(false);
+    msg.add_answer(Record::from_rdata(
+        name,
+        0,
+        RData::A(rdata::A(match transport {
+            Transport::Tcp => [192, 0, 2, 2].into(),
+            Transport::Udp => [192, 0, 2, 1].into(),
+        })),
+    ))
+    .to_vec()
+    .map(Some)
+    .with_context(|| "bad case handler: could not serialize Message")
 }
 
 /// This handler generates a large number of lengthy CNAME records to resolve
 pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
+    let name = msg.queries[0].name().clone();
 
     let Some(host) = name.iter().next() else {
         return Ok(None);
@@ -216,9 +220,10 @@ pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<
         }
     }
 
-    msg.set_authoritative(true)
-        .set_recursion_desired(false)
-        .to_vec()
+    msg.header
+        .set_authoritative(true)
+        .set_recursion_desired(false);
+    msg.to_vec()
         .map(Some)
         .with_context(|| "cname loop handler: could not serialize Message")
 }
@@ -235,8 +240,8 @@ pub(crate) fn nsec3_nocover_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let query_name = msg.queries()[0].name().clone();
-    let query_type = msg.queries()[0].query_type();
+    let query_name = msg.queries[0].name().clone();
+    let query_type = msg.queries[0].query_type();
 
     let origin_name = Name::from_ascii("hickory-dns.testing.").unwrap();
     let correct_name = origin_name.prepend_label("subdomain-0")?;
@@ -284,7 +289,7 @@ pub(crate) fn nsec3_nocover_handler(
             }
         }
         RecordType::A if query_name == valid_nx_name => {
-            msg.set_response_code(ResponseCode::NXDomain);
+            msg.header.set_response_code(ResponseCode::NXDomain);
 
             let Some(params_rec) = records
                 .clone()
@@ -402,7 +407,7 @@ pub(crate) fn nsec3_nocover_handler(
             }
         }
         RecordType::A => {
-            msg.set_response_code(ResponseCode::NXDomain);
+            msg.header.set_response_code(ResponseCode::NXDomain);
 
             let mut nsec3_name = None;
             for record in records {
@@ -449,11 +454,12 @@ pub(crate) fn nsec3_nocover_handler(
         _ => {}
     }
 
-    msg.set_recursion_desired(true)
+    msg.header
+        .set_recursion_desired(true)
         .set_recursion_available(true)
         .set_authoritative(true)
-        .set_authentic_data(true)
-        .to_vec()
+        .set_authentic_data(true);
+    msg.to_vec()
         .map(Some)
         .with_context(|| "nsec3 no cover handler: could not serialize Message")
 }
@@ -464,7 +470,7 @@ pub(crate) fn nsec3_nocover_handler(
 /// responsive A record.
 pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
+    let name = msg.queries[0].name().clone();
 
     if name == Name::from_ascii("cname.example.testing.")? {
         msg.add_answer(Record::from_rdata(
@@ -490,8 +496,8 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
         ));
     }
 
-    msg.set_recursion_desired(false)
-        .to_vec()
+    msg.header.set_recursion_desired(false);
+    msg.to_vec()
         .map(Some)
         .with_context(|| "base handler: could not serialize Message")
 }
@@ -515,15 +521,17 @@ pub(crate) fn parent_ns_in_authority_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.to_response();
-    let name = msg.queries()[0].name().clone();
-    let q_type = msg.queries()[0].query_type();
+    let name = msg.queries[0].name().clone();
+    let q_type = msg.queries[0].query_type();
 
     let zone = Name::from_ascii("example.testing.")?;
     let ns_name = Name::from_ascii("ns.external.testing.")?;
     let deep_sub = Name::from_ascii("deep.sub.example.testing.")?;
     let cname_target = Name::from_ascii("target.example.testing.")?;
 
-    msg.set_authoritative(true).set_recursion_desired(false);
+    msg.header
+        .set_authoritative(true)
+        .set_recursion_desired(false);
 
     if q_type == RecordType::NS && name == zone {
         // Direct NS query for the zone itself — return the real NS record.
@@ -565,7 +573,7 @@ pub(crate) fn parent_ns_in_authority_handler(
         // return NODATA (empty NOERROR). This allows the recursor's
         // ns_pool_for_name loop to continue past this name without error.
     } else {
-        msg.set_response_code(ResponseCode::NXDomain);
+        msg.header.set_response_code(ResponseCode::NXDomain);
     }
 
     msg.to_vec()

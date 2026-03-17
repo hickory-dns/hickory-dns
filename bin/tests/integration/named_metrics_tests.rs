@@ -210,7 +210,7 @@ async fn test_request_response() {
             .await
             .unwrap();
 
-        if let RData::A(addr) = response.answers()[0].data() {
+        if let RData::A(addr) = response.answers[0].data() {
             assert_eq!(*addr, A::new(127, 0, 0, 1));
         };
 
@@ -223,7 +223,7 @@ async fn test_request_response() {
             .await
             .unwrap();
 
-        if let RData::PTR(ptr) = response.answers()[0].data() {
+        if let RData::PTR(ptr) = response.answers[0].data() {
             assert_eq!(*ptr, PTR("localhost.".parse().unwrap()));
         };
 
@@ -410,7 +410,7 @@ async fn test_blocklist_metrics() {
         .await
         .unwrap();
 
-        let RData::A(addr) = response.answers()[0].data() else {
+        let RData::A(addr) = response.answers[0].data() else {
             panic!("expected A record response");
         };
         assert_eq!(*addr, A::new(192, 0, 2, 1));
@@ -425,7 +425,7 @@ async fn test_blocklist_metrics() {
         .await
         .unwrap();
 
-        let RData::NS(_addr) = response.answers()[0].data() else {
+        let RData::NS(_addr) = response.answers[0].data() else {
             panic!("expected NS record response");
         };
 
@@ -457,7 +457,7 @@ async fn test_consulting_blocklist_metrics() {
         .await
         .unwrap();
 
-        let RData::A(addr) = response.answers()[0].data() else {
+        let RData::A(addr) = response.answers[0].data() else {
             panic!("expected A record response");
         };
         assert!(*addr != A::new(192, 0, 2, 1));
@@ -471,7 +471,7 @@ async fn test_consulting_blocklist_metrics() {
         .await
         .unwrap();
 
-        let RData::NS(_addr) = response.answers()[0].data() else {
+        let RData::NS(_addr) = response.answers[0].data() else {
             panic!("expected NS record response");
         };
 
@@ -604,7 +604,7 @@ async fn test_opp_enc_metrics() {
             )
             .await
             .unwrap();
-        let RData::A(addr) = response.answers()[0].data() else {
+        let RData::A(addr) = response.answers[0].data() else {
             panic!("expected A record response");
         };
         assert_eq!(*addr, A::new(127, 0, 0, 1));

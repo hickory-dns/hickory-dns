@@ -141,7 +141,7 @@ fn print_ok(lookup: Lookup) {
 
     let message = lookup.message();
 
-    let answers = message.answers();
+    let answers = &message.answers;
     if !answers.is_empty() {
         println!("\n;; {} SECTION:", style("ANSWER").yellow());
         for r in answers {
@@ -149,7 +149,7 @@ fn print_ok(lookup: Lookup) {
         }
     }
 
-    let authority = message.authorities();
+    let authority = &message.authorities;
     if !authority.is_empty() {
         println!("\n;; {} SECTION:", style("AUTHORITY").yellow());
         for r in authority {
@@ -157,7 +157,7 @@ fn print_ok(lookup: Lookup) {
         }
     }
 
-    let additional = message.additionals();
+    let additional = &message.additionals;
     if !additional.is_empty() {
         println!("\n;; {} SECTION:", style("ADDITIONAL").yellow());
         for r in additional {

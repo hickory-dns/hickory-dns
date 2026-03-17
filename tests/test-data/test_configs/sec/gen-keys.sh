@@ -24,7 +24,7 @@ ${OPENSSL:?} req -new -x509 -days 365 -sha256 \
                  -out ${CRT_FILE:?} -outform der \
                  -subj '/O=Hickory DNS/CN=ns.example.com' \
                  -config <(cat /etc/ssl/openssl.cnf <(printf "\n[x509v3]\nsubjectAltName=critical,DNS:ns.example.com\nkeyUsage=critical,digitalSignature,keyAgreement,keyCertSign\nextendedKeyUsage=critical,serverAuth,clientAuth\nbasicConstraints=critical,pathlen:0")) \
-                 -extensions x509v3 \
+                 .edns x509v3 \
                  -reqexts x509v3
 
 
@@ -37,6 +37,6 @@ ${OPENSSL:?} pkcs12 -export -out ${P12_FILE:?} -inkey ${KEY_FILE:?}.pem -in ${CR
                     -macalg sha256 \
                     -name "ns.example.com" \
                     -info
-                
+
 echo "====> verifying certificate"
 ${OPENSSL:?} verify -CAfile ${CRT_FILE:?}.pem ${CRT_FILE:?}.pem

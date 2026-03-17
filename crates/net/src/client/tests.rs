@@ -29,8 +29,7 @@ async fn readme_example() {
     use core::net::SocketAddr;
 
     use crate::client::{Client, ClientHandle};
-    use crate::proto::op::DnsResponse;
-    use crate::proto::rr::{DNSClass, Name, Record, RecordType};
+    use crate::proto::rr::{DNSClass, Name, RecordType};
     use crate::runtime::TokioRuntimeProvider;
     use crate::udp::UdpClientStream;
 
@@ -44,7 +43,7 @@ async fn readme_example() {
 
     // NOTE: see 'Setup a connection' example above
     // Send the query and get a message response, see RecordType for all supported options
-    let response: DnsResponse = client
+    let response = client
         .query(name, DNSClass::IN, RecordType::A)
         .await
         .unwrap();
@@ -53,7 +52,7 @@ async fn readme_example() {
     //  dereferenced to a Message. There are many fields to a Message, It's beyond the scope
     //  of these examples to explain them. See hickory_dns::op::message::Message for more details.
     //  generally we will be interested in the Message::answers
-    let answers: &[Record] = response.answers();
+    let answers = &response.answers;
 
     // Records are generic objects which can contain any data.
     //  In order to access it we need to first check what type of record it is
@@ -113,7 +112,7 @@ async fn test_stream_xfr_valid_axfr() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ended));
-    assert_eq!(response.answers().len(), 4);
+    assert_eq!(response.answers.len(), 4);
 
     assert!(stream.next().await.is_none());
 }
@@ -132,15 +131,15 @@ async fn test_stream_xfr_valid_axfr_multipart() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Second { .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Axfr { .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ended));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     assert!(stream.next().await.is_none());
 }
@@ -154,11 +153,11 @@ async fn test_stream_xfr_empty_axfr() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Second { .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ended));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     assert!(stream.next().await.is_none());
 }
@@ -195,7 +194,7 @@ async fn test_stream_xfr_axfr_with_non_xfr_reply() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ended));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     assert!(stream.next().await.is_none());
 }
@@ -214,11 +213,11 @@ async fn test_stream_xfr_invalid_axfr_multipart() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Second { .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Axfr { .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     stream.next().await.unwrap().unwrap_err();
     assert!(matches!(stream.state, Ended));
@@ -242,7 +241,7 @@ async fn test_stream_xfr_valid_ixfr() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ended));
-    assert_eq!(response.answers().len(), 6);
+    assert_eq!(response.answers.len(), 6);
 
     assert!(stream.next().await.is_none());
 }
@@ -264,27 +263,27 @@ async fn test_stream_xfr_valid_ixfr_multipart() {
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Second { .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ixfr { even: true, .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ixfr { even: true, .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ixfr { even: false, .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ixfr { even: false, .. }));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     let response = stream.next().await.unwrap().unwrap();
     assert!(matches!(stream.state, Ended));
-    assert_eq!(response.answers().len(), 1);
+    assert_eq!(response.answers.len(), 1);
 
     assert!(stream.next().await.is_none());
 }
@@ -337,10 +336,10 @@ async fn async_client() {
     };
 
     let expected_answers = vec![A::new(8, 8, 4, 4), A::new(8, 8, 8, 8)];
-    assert_a_records_match(message_returned.answers(), &expected_answers);
+    assert_a_records_match(&message_returned.answers, &expected_answers);
 
     let message_parsed = Message::from_vec(&buffer)
         .expect("buffer was parsed already by Client so we should be able to do it again");
 
-    assert_a_records_match(message_parsed.answers(), &expected_answers);
+    assert_a_records_match(&message_parsed.answers, &expected_answers);
 }

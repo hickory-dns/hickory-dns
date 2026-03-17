@@ -925,7 +925,8 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     fn test_sign_encode_id_changed() {
         let mut message = Message::query();
-        message.set_id(123).add_answer(Record::stub());
+        message.header.set_id(123);
+        message.answers.push(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();
 
@@ -948,7 +949,7 @@ mod tests {
         let message_byte = message.to_bytes().unwrap();
         let mut message = Message::from_bytes(&message_byte).unwrap();
 
-        message.set_id(456); // simulate the request id being changed due to request forwarding
+        message.header.set_id(456); // simulate the request id being changed due to request forwarding
 
         let message_byte = message.to_bytes().unwrap();
 

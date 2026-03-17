@@ -339,8 +339,8 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
     let mut query: Query = Query::new();
     query.set_name(Name::from_ascii(query_name).unwrap());
     question.add_query(query);
-    question.set_recursion_desired(true);
-    question.set_authentic_data(true);
+    question.header.set_recursion_desired(true);
+    question.header.set_authentic_data(true);
 
     let question_bytes = question.to_bytes().unwrap();
     let question_req =
@@ -360,10 +360,10 @@ async fn basic_test(catalog: &Catalog, query_name: &'static str, answer: A) {
     let (_, response_handler) = do_query(catalog, query_name).await;
     let result = response_handler.into_message().await;
 
-    let answers: &[Record] = result.answers();
+    let answers = result.answers;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
+    assert_eq!(result.header.response_code(), ResponseCode::NoError);
+    assert_eq!(result.header.message_type(), MessageType::Response);
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(answers.first().unwrap().data(), &RData::A(answer));

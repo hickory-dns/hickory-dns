@@ -49,7 +49,7 @@ async fn wildcard_synthesis_1() {
     assert_eq!(response.response_code(), ResponseCode::NoError);
     assert!(
         response
-            .answers()
+            .answers
             .iter()
             .any(|record| record.record_type() == query_type && record.name() == &query_name)
     );
@@ -78,7 +78,7 @@ async fn wildcard_synthesis_2() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert_eq!(response.answers(), []);
+    assert_eq!(response.answers, []);
 }
 
 /// ```text
@@ -106,7 +106,7 @@ async fn wildcard_synthesis_3() {
     assert_eq!(response.response_code(), ResponseCode::NoError);
     assert!(
         response
-            .answers()
+            .answers
             .iter()
             .any(|record| record.record_type() == query_type && record.name() == &query_name)
     );
@@ -134,7 +134,7 @@ async fn no_synthesis_1() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert_eq!(response.answers(), []);
+    assert_eq!(response.answers, []);
 }
 
 /// ```text
@@ -159,7 +159,7 @@ async fn no_synthesis_2() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert_eq!(response.answers(), []);
+    assert_eq!(response.answers, []);
 }
 
 /// ```text
@@ -183,7 +183,7 @@ async fn no_synthesis_3() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
-    assert_eq!(response.answers(), []);
+    assert_eq!(response.answers, []);
 }
 
 /// ```text
@@ -207,11 +207,11 @@ async fn no_synthesis_4() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert_eq!(response.answers(), []);
+    assert_eq!(response.answers, []);
     let delegation_name = query_name.base_name();
     assert!(
         response
-            .authorities()
+            .authorities
             .iter()
             .any(|record| record.record_type() == RecordType::NS
                 && record.name() == &delegation_name)
@@ -240,7 +240,7 @@ async fn no_synthesis_5() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
-    assert_eq!(response.answers(), []);
+    assert_eq!(response.answers, []);
 }
 
 /// ```text

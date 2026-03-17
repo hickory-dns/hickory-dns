@@ -89,8 +89,8 @@ async fn test_create() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0], record);
+    assert_eq!(result.answers.len(), 1);
+    assert_eq!(result.answers[0], record);
 
     // Trying to create the record again should error.
     let result = client
@@ -164,7 +164,7 @@ async fn test_tsig_zone_transfer() {
     // We should have received the expected number of records; the count of bogus
     // records, plus the additional metadata records (SOA, NS, etc).
     assert_eq!(
-        result.iter().map(|r| r.answers().len()).sum::<usize>(),
+        result.iter().map(|r| r.answers.len()).sum::<usize>(),
         bogus_record_count + 3
     );
 }
