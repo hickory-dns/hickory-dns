@@ -244,7 +244,7 @@ mod tests {
 
     use crate::proto::op::{Header, Message, MessageType, OpCode};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
-    use crate::proto::serialize::binary::{BinDecoder, BinEncoder};
+    use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 
     use super::*;
 
@@ -367,7 +367,8 @@ mod tests {
         ];
 
         let mut decoder = BinDecoder::new(data);
-        let msg = MessageRequest::read(&mut decoder).unwrap();
+        let header = Header::read(&mut decoder).unwrap();
+        let msg = MessageRequest::read(&mut decoder, header).unwrap();
 
         eprintln!("queries: {:?}", msg.queries());
 
