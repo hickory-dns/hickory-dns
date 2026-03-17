@@ -244,7 +244,7 @@ mod tests {
 
     use crate::proto::op::{Header, Message, MessageType, OpCode};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
-    use crate::proto::serialize::binary::BinEncoder;
+    use crate::proto::serialize::binary::{BinDecoder, BinEncoder};
 
     use super::*;
 
@@ -356,8 +356,6 @@ mod tests {
     //     encoder.emit_vec(self.cached_serialized)?;
     #[test]
     fn bad_length_of_named_pointers() {
-        use hickory_proto::serialize::binary::BinDecodable;
-
         let mut buf = Vec::with_capacity(512);
         let mut encoder = BinEncoder::new(&mut buf);
 
@@ -368,7 +366,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
 
-        let msg = MessageRequest::from_bytes(data).unwrap();
+        let mut decoder = BinDecoder::new(data);
+        let msg = MessageRequest::read(&mut decoder).unwrap();
 
         eprintln!("queries: {:?}", msg.queries());
 
