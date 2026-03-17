@@ -625,6 +625,8 @@ pub struct RecursorOptions {
     pub opportunistic_encryption: OpportunisticEncryption,
 
     /// Configure the EDNS UDP payload size used in queries.
+    ///
+    /// See [DnsRequestOptions::edns_payload_len][crate::proto::op::DnsRequestOptions::edns_payload_len].
     #[cfg_attr(feature = "serde", serde(default = "default_edns_payload_len"))]
     pub edns_payload_len: u16,
 }
