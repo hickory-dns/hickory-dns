@@ -655,6 +655,7 @@ fn build_tcp_listener(ip: IpAddr, port: u16) -> Result<TcpListener, Error> {
         s
     };
 
+    sock.set_reuse_address(true)?;
     sock.set_nonblocking(true)?;
 
     let s_addr = SocketAddr::new(ip, port);
