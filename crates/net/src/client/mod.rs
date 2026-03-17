@@ -241,6 +241,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         // build the message
         let mut message = Message::query();
         message
+            .header
             // 3.3. NOTIFY is similar to QUERY in that it has a request message with
             // the header QR flag "clear" and a response message with QR "set".  The
             // response message contains no useful information, but its reception by
@@ -252,7 +253,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         // Extended dns
         if self.is_using_edns() {
             message
-                .extensions_mut()
+                .edns
                 .get_or_insert_with(Edns::new)
                 .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
                 .set_version(0);
@@ -813,7 +814,7 @@ where
 
         let message = ready!(self.state.inner().poll_next_unpin(cx)).map(|response| {
             let ok = response?;
-            self.state.process(ok.answers())?;
+            self.state.process(&ok.answers)?;
             Ok(ok)
         });
         Poll::Ready(message)

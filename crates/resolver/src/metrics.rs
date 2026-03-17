@@ -286,7 +286,7 @@ pub mod recursor {
     impl DnssecRecursorMetrics {
         pub(crate) fn increment_proof_counter(&self, response: &Message) {
             match response
-                .answers()
+                .answers
                 .iter()
                 .map(|record| record.proof())
                 .min()

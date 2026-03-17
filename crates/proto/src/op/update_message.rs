@@ -75,7 +75,7 @@ pub trait UpdateMessage: Debug {
 ///   to properly do that.
 impl UpdateMessage for Message {
     fn id(&self) -> u16 {
-        self.id()
+        self.header.id()
     }
 
     fn add_zone(&mut self, query: Query) {
@@ -111,19 +111,19 @@ impl UpdateMessage for Message {
     }
 
     fn zones(&self) -> &[Query] {
-        self.queries()
+        &self.queries
     }
 
     fn prerequisites(&self) -> &[Record] {
-        self.answers()
+        &self.answers
     }
 
     fn updates(&self) -> &[Record] {
-        self.authorities()
+        &self.authorities
     }
 
     fn additionals(&self) -> &[Record] {
-        self.additionals()
+        &self.additionals
     }
 
     fn signature(&self) -> Option<&Record<TSIG>> {
@@ -179,6 +179,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     // build the message
     let mut message = Message::query();
     message
+        .header
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
     message.add_zone(zone);
@@ -191,7 +192,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     // Extended dns
     if use_edns {
         message
-            .extensions_mut()
+            .edns
             .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
@@ -248,6 +249,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     // build the message
     let mut message = Message::query();
     message
+        .header
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
     message.add_zone(zone);
@@ -263,7 +265,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     // Extended dns
     if use_edns {
         message
-            .extensions_mut()
+            .edns
             .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
@@ -333,6 +335,7 @@ pub fn compare_and_swap(
     // build the message
     let mut message = Message::query();
     message
+        .header
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
     message.add_zone(zone);
@@ -356,7 +359,7 @@ pub fn compare_and_swap(
     // Extended dns
     if use_edns {
         message
-            .extensions_mut()
+            .edns
             .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
@@ -402,6 +405,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     // build the message
     let mut message = Message::query();
     message
+        .header
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
     message.add_zone(zone);
@@ -415,8 +419,8 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     // Extended dns
     if use_edns {
         message
-            .extensions_mut()
-            .get_or_insert(Edns::new())
+            .edns
+            .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -460,6 +464,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     // build the message
     let mut message = Message::query();
     message
+        .header
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
     message.add_zone(zone);
@@ -475,7 +480,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     // Extended dns
     if use_edns {
         message
-            .extensions_mut()
+            .edns
             .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
@@ -527,6 +532,7 @@ pub fn delete_all(
     // build the message
     let mut message = Message::query();
     message
+        .header
         .set_op_code(OpCode::Update)
         .set_recursion_desired(false);
     message.add_zone(zone);
@@ -544,7 +550,7 @@ pub fn delete_all(
     // Extended dns
     if use_edns {
         message
-            .extensions_mut()
+            .edns
             .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
@@ -577,7 +583,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
 
     // build the message
     let mut message = Message::query();
-    message.set_recursion_desired(false);
+    message.header.set_recursion_desired(false);
     message.add_zone(zone);
 
     if let Some(soa) = last_soa {
@@ -589,7 +595,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     // Extended dns
     {
         message
-            .extensions_mut()
+            .edns
             .get_or_insert_with(Edns::new)
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);

@@ -242,7 +242,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         };
 
         let (mut request, _) = request.into_parts();
-        request.set_id(query_id);
+        request.header.set_id(query_id);
 
         #[cfg(feature = "__dnssec")]
         let mut verifier = None;
@@ -452,7 +452,7 @@ mod test {
             };
 
             if let Some(mut message) = self.messages.pop() {
-                message.set_id(id);
+                message.header.set_id(id);
                 Poll::Ready(Some(Ok(SerialMessage::new(
                     message.to_bytes().unwrap(),
                     self.addr,
@@ -489,13 +489,13 @@ mod test {
         let name = Name::from_ascii("www.example.com.").unwrap();
 
         let mut request = Message::query();
+        request.header.set_recursion_desired(true);
         request
             .add_query({
                 let mut q = Query::query(name.clone(), RecordType::A);
                 q.set_query_class(DNSClass::IN);
                 q
-            })
-            .set_recursion_desired(true);
+            });
 
         let mut response = request.to_response();
         response.add_answer(
@@ -517,12 +517,12 @@ mod test {
         let name = Name::from_ascii("example.com.").unwrap();
 
         let mut msg = Message::query();
+        msg.header.set_recursion_desired(true);
         msg.add_query({
             let mut query = Query::query(name, RecordType::AXFR);
             query.set_query_class(DNSClass::IN);
             query
-        })
-        .set_recursion_desired(true);
+        });
         msg
     }
 
@@ -640,7 +640,7 @@ mod test {
             r = response.try_collect::<Vec<_>>() => r.unwrap(),
         };
         assert_eq!(response.len(), 1);
-        assert_eq!(response[0].answers().len(), axfr_response().len());
+        assert_eq!(response[0].answers.len(), axfr_response().len());
     }
 
     #[tokio::test]
@@ -658,7 +658,7 @@ mod test {
         };
         assert_eq!(response.len(), 2);
         assert_eq!(
-            response.iter().map(|m| m.answers().len()).sum::<usize>(),
+            response.iter().map(|m| m.answers.len()).sum::<usize>(),
             axfr_response().len()
         );
     }

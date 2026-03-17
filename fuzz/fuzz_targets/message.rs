@@ -50,23 +50,23 @@ fn messages_equal(original: &Message, reparsed: &Message) -> bool {
     }
 
     // compare headers
-    if original.header() != reparsed.header() {
+    if original.header != reparsed.header {
         return false;
     }
 
     // compare queries
-    if original.queries() != reparsed.queries() {
+    if original.queries != reparsed.queries {
         return false;
     }
 
     // now compare answers
-    if !records_equal(original.answers(), reparsed.answers()) {
+    if !records_equal(&original.answers, &reparsed.answers) {
         return false;
     }
-    if !records_equal(original.authorities(), reparsed.authorities()) {
+    if !records_equal(&original.authorities, &reparsed.authorities) {
         return false;
     }
-    if !records_equal(original.additionals(), reparsed.additionals()) {
+    if !records_equal(&original.additionals, &reparsed.additionals) {
         return false;
     }
 

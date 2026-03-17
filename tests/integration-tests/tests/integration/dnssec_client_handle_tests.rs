@@ -53,14 +53,14 @@ where
     println!("response records: {response:?}");
     assert!(
         response
-            .extensions()
+            .edns
             .as_ref()
             .expect("edns not here")
             .flags()
             .dnssec_ok
     );
 
-    assert!(!response.answers().is_empty());
+    assert!(!response.answers.is_empty());
 }
 
 #[tokio::test]
@@ -128,7 +128,7 @@ where
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 }
 
 // // TODO: this test is flaky
@@ -169,7 +169,7 @@ where
 //     assert_eq!(response.response_code(), ResponseCode::NoError);
 //     // rollernet doesn't have any DS records...
 //     //  would have failed validation
-//     assert!(response.answers().is_empty());
+//     assert!(response.answers.is_empty());
 // }
 
 // fn dnssec_rollernet_td_mixed_case_test<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
@@ -189,7 +189,7 @@ where
 //     assert_eq!(response.response_code(), ResponseCode::NoError);
 //     // rollernet doesn't have any DS records...
 //     //  would have failed validation
-//     assert!(response.answers().is_empty());
+//     assert!(response.answers.is_empty());
 // }
 
 async fn with_nonet<F, Fut>(test: F)

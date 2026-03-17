@@ -136,12 +136,12 @@ impl Entry {
         match &*self.result {
             Ok(response) => {
                 let mut response = response.clone();
-                for section_fn in [
-                    Message::answers_mut,
-                    Message::authorities_mut,
-                    Message::additionals_mut,
+                for records in [
+                    &mut response.answers,
+                    &mut response.authorities,
+                    &mut response.additionals,
                 ] {
-                    for record in section_fn(&mut response) {
+                    for record in records {
                         record.decrement_ttl(elapsed);
                     }
                 }
@@ -626,7 +626,7 @@ mod tests {
 
         let result = cache.get(&query, now).unwrap();
         let cache_message = result.unwrap();
-        assert_eq!(cache_message.answers(), message.answers());
+        assert_eq!(cache_message.answers, message.answers);
     }
 
     #[test]
@@ -672,7 +672,7 @@ mod tests {
 
         let result = cache.get(&query, now + Duration::from_secs(2)).unwrap();
         let cache_message = result.unwrap();
-        let record = cache_message.answers().first().unwrap();
+        let record = cache_message.answers.first().unwrap();
         assert_eq!(record.ttl(), 8);
     }
 

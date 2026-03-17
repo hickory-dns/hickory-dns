@@ -126,14 +126,14 @@ async fn test_query(mut client: Client<TokioRuntimeProvider>) {
     println!("response records: {response:?}");
     assert!(
         response
-            .queries()
+            .queries
             .first()
             .expect("expected query")
             .name()
             .eq_case(&name)
     );
 
-    let record = &response.answers()[0];
+    let record = &response.answers[0];
     assert_eq!(record.name(), &name);
     assert_eq!(record.record_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
@@ -154,16 +154,15 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
 
     // TODO: write builder
     let mut msg = Message::query();
+    msg.header.set_recursion_desired(true);
     msg.add_query({
         let mut query = Query::query(name.clone(), RecordType::A);
         query.set_query_class(DNSClass::IN);
         query
-    })
-    .set_recursion_desired(true)
-    .set_edns(edns)
-    .extensions_mut()
-    .as_mut()
-    .map(|edns| edns.set_max_payload(1232).set_version(0));
+    });
+
+    edns.set_max_payload(1232).set_version(0);
+    msg.edns = Some(edns);
 
     let response = client
         .send(DnsRequest::from(msg))
@@ -175,17 +174,17 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
     println!("response records: {response:?}");
     assert!(
         response
-            .queries()
+            .queries
             .first()
             .expect("expected query")
             .name()
             .eq_case(&name)
     );
 
-    assert!(!response.answers().is_empty());
-    assert!(response.extensions().is_some());
+    assert!(!response.answers.is_empty());
+    assert!(response.edns.is_some());
     let subnet_option = response
-        .extensions()
+        .edns
         .as_ref()
         .unwrap()
         .option(EdnsCode::Subnet)
@@ -231,14 +230,14 @@ async fn test_secure_query_example(mut client: DnssecClient) {
     println!("response records: {response:?}");
     assert!(
         response
-            .extensions()
+            .edns
             .as_ref()
             .expect("edns not here")
             .flags()
             .dnssec_ok
     );
 
-    assert!(!response.answers().is_empty());
+    assert!(!response.answers.is_empty());
 }
 
 async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {
@@ -372,7 +371,7 @@ async fn test_nsec_query_type() {
 
     // TODO: it would be nice to verify that the NSEC records were validated...
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answers().is_empty());
+    assert!(response.answers.is_empty());
 }
 
 // NSEC3 tests
@@ -454,8 +453,8 @@ async fn test_create() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0], record);
+    assert_eq!(result.answers.len(), 1);
+    assert_eq!(result.answers[0], record);
 
     // trying to create again should error
     // TODO: it would be cool to make this
@@ -510,8 +509,8 @@ async fn test_append() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0], record);
+    assert_eq!(result.answers.len(), 1);
+    assert_eq!(result.answers[0], record);
 
     // will fail if already set and not the same value.
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
@@ -531,11 +530,11 @@ async fn test_append() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
+    assert_eq!(result.answers.len(), 2);
 
     assert!(
         result
-            .answers()
+            .answers
             .iter()
             .any(|rr| if let RData::A(ip) = *rr.data() {
                 ip == A::new(100, 10, 100, 10)
@@ -545,7 +544,7 @@ async fn test_append() {
     );
     assert!(
         result
-            .answers()
+            .answers
             .iter()
             .any(|rr| if let RData::A(ip) = rr.data() {
                 *ip == A::new(101, 11, 101, 11)
@@ -570,7 +569,7 @@ async fn test_append() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
+    assert_eq!(result.answers.len(), 2);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -608,10 +607,10 @@ async fn test_compare_and_swap() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
+    assert_eq!(result.answers.len(), 1);
     assert!(
         result
-            .answers()
+            .answers
             .iter()
             .any(|rr| if let RData::A(ip) = rr.data() {
                 *ip == A::new(101, 11, 101, 11)
@@ -634,10 +633,10 @@ async fn test_compare_and_swap() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
+    assert_eq!(result.answers.len(), 1);
     assert!(
         result
-            .answers()
+            .answers
             .iter()
             .any(|rr| if let RData::A(ip) = rr.data() {
                 *ip == A::new(101, 11, 101, 11)
@@ -698,10 +697,10 @@ async fn test_delete_by_rdata() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
+    assert_eq!(result.answers.len(), 1);
     assert!(
         result
-            .answers()
+            .answers
             .iter()
             .any(|rr| if let RData::A(ip) = rr.data() {
                 *ip == A::new(100, 10, 100, 10)
@@ -762,7 +761,7 @@ async fn test_delete_rrset() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.answers.len(), 0);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -815,12 +814,12 @@ async fn test_delete_all() {
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.answers.len(), 0);
 
     let result = client
         .query(record.name().clone(), record.dns_class(), RecordType::AAAA)
         .await
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.answers.len(), 0);
 }

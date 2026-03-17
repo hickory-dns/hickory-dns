@@ -509,8 +509,8 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             };
 
             Err(RecursorError::Net(NetError::from(dns_error)))
-        } else if response.answers().is_empty()
-            && !response.authorities().is_empty()
+        } else if response.answers.is_empty()
+            && !response.authorities.is_empty()
             && response.response_code() == ResponseCode::NoError
         {
             let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
@@ -520,7 +520,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                 .map(|record| Box::new(record.to_owned()));
             no_records.authorities = Some(
                 response
-                    .authorities()
+                    .authorities
                     .iter()
                     .filter_map(|x| match x.record_type() {
                         RecordType::SOA => None,
