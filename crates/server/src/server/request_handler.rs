@@ -17,7 +17,7 @@ use crate::{
     proto::{
         ProtoError,
         op::{Header, LowerQuery, MessageType, ResponseCode},
-        serialize::binary::{BinDecodable, BinDecoder},
+        serialize::binary::BinDecoder,
     },
     server::ResponseHandler,
     zone_handler::{LookupError, MessageRequest},
