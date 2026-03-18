@@ -27,6 +27,8 @@ async fn main() -> Result<()> {
         "parent_ns_in_authority" => handlers::parent_ns_in_authority_handler,
         "packet_loss" => handlers::packet_loss_handler,
         "truncated_response" => handlers::truncated_response_handler,
+        "qr_not_response" => handlers::qr_not_response_handler,
+        "qr_not_response_force_tcp" => handlers::qr_not_response_force_tcp_handler,
         _ => {
             return Err(anyhow::Error::msg("unknown handler"));
         }

@@ -377,3 +377,58 @@ fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
 
     Ok(())
 }
+
+/// Verify that Hickory rejects responses with QR=0 (Query type) over UDP
+#[test]
+fn qr_validation_test_udp() -> Result<(), Error> {
+    qr_validation_test_impl("qr_not_response", "udp")
+}
+
+/// Verify that Hickory rejects responses with QR=0 (Query type) over TCP
+#[test]
+fn qr_validation_test_tcp() -> Result<(), Error> {
+    qr_validation_test_impl("qr_not_response_force_tcp", "both")
+}
+
+fn qr_validation_test_impl(handler: &'static str, proto: &'static str) -> Result<(), Error> {
+    let network = Network::new()?;
+
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server(handler, proto),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    root_ns.referral(
+        FQDN::TEST_TLD,
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .start_with_subject(&Implementation::hickory())?;
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let res = Client::new(resolver.network())?.dig(
+        *DigSettings::default().recurse(),
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN("www.example.testing.")?,
+    );
+
+    let resolver_logs = resolver.logs()?;
+
+    match res {
+        Ok(res) => {
+            assert!(res.status.is_servfail());
+            assert_eq!(res.answer.len(), 0);
+        }
+        Err(e) => panic!("unexpected error {e:?} resolver logs: {resolver_logs}"),
+    }
+
+    assert!(resolver_logs.contains("response received with incorrect QR flag"));
+    Ok(())
+}

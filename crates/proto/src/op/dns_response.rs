@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::ProtoError,
-    op::Message,
+    op::{Message, MessageType},
     rr::{RData, RecordType, rdata::SOA, resource::RecordRef},
 };
 
@@ -38,6 +38,10 @@ pub struct DnsResponse {
 impl DnsResponse {
     /// Constructs a new DnsResponse with a buffer synthesized from the message
     pub fn from_message(message: Message) -> Result<Self, ProtoError> {
+        if message.header().message_type() != MessageType::Response {
+            return Err(ProtoError::NotAResponse);
+        }
+
         Ok(Self {
             buffer: message.to_vec()?,
             message,
@@ -49,6 +53,11 @@ impl DnsResponse {
     /// Returns an error if the response message cannot be decoded.
     pub fn from_buffer(buffer: Vec<u8>) -> Result<Self, ProtoError> {
         let message = Message::from_vec(&buffer)?;
+
+        if message.header().message_type() != MessageType::Response {
+            return Err(ProtoError::NotAResponse);
+        }
+
         Ok(Self { message, buffer })
     }
 
@@ -281,5 +290,17 @@ mod tests {
         let response = DnsResponse::from_message(message.to_response()).unwrap();
 
         assert!(response.contains_answer());
+    }
+
+    #[test]
+    fn not_a_response() {
+        assert!(matches!(
+            DnsResponse::from_message(Message::query()).unwrap_err(),
+            ProtoError::NotAResponse
+        ));
+        assert!(matches!(
+            DnsResponse::from_buffer(Message::query().to_vec().unwrap()).unwrap_err(),
+            ProtoError::NotAResponse
+        ));
     }
 }
