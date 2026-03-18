@@ -9,8 +9,8 @@ use crate::{
     proto::{
         ProtoError,
         op::{
-            Edns, EmitAndCount, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode,
-            emit_message_parts,
+            Edns, EmitAndCount, Header, LowerQuery, Message, MessageType, Metadata, OpCode,
+            ResponseCode, emit_message_parts,
         },
         rr::{Record, rdata::TSIG},
         serialize::binary::{
@@ -23,7 +23,7 @@ use crate::{
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
 pub struct MessageRequest {
-    header: Header,
+    metadata: Metadata,
     queries: Queries,
     answers: Vec<Record>,
     authorities: Vec<Record>,
@@ -35,30 +35,26 @@ pub struct MessageRequest {
 impl MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
-    pub(crate) fn read(
-        decoder: &mut BinDecoder<'_>,
-        mut header: Header,
-    ) -> Result<Self, DecodeError> {
-        // get all counts before header moves
-        let query_count = header.query_count() as usize;
-        let answer_count = header.answer_count() as usize;
-        let authority_count = header.authority_count() as usize;
-        let additional_count = header.additional_count() as usize;
-
-        let queries = Queries::read(decoder, query_count)?;
-        let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
-        let (authorities, _, _) = Message::read_records(decoder, authority_count, false)?;
+    pub(crate) fn read(decoder: &mut BinDecoder<'_>, header: Header) -> Result<Self, DecodeError> {
+        let Header {
+            mut metadata,
+            counts,
+        } = header;
+        let queries = Queries::read(decoder, counts.query_count as usize)?;
+        let (answers, _, _) = Message::read_records(decoder, counts.answer_count as usize, false)?;
+        let (authorities, _, _) =
+            Message::read_records(decoder, counts.authority_count as usize, false)?;
         let (additionals, edns, signature) =
-            Message::read_records(decoder, additional_count, true)?;
+            Message::read_records(decoder, counts.additional_count as usize, true)?;
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
             let high_response_code = edns.rcode_high();
-            header.merge_response_code(high_response_code);
+            metadata.merge_response_code(high_response_code);
         }
 
         Ok(Self {
-            header,
+            metadata,
             queries,
             answers,
             authorities,
@@ -72,9 +68,9 @@ impl MessageRequest {
     ///
     /// The unspecified fields are left empty.
     #[cfg(any(test, feature = "testing"))]
-    pub fn mock(header: Header, query: impl Into<LowerQuery>) -> Self {
+    pub fn mock(metadata: Metadata, query: impl Into<LowerQuery>) -> Self {
         Self {
-            header,
+            metadata,
             queries: Queries::new(vec![query.into()]),
             answers: Vec::new(),
             authorities: Vec::new(),
@@ -85,53 +81,53 @@ impl MessageRequest {
     }
 
     /// Return the request header
-    pub fn header(&self) -> &Header {
-        &self.header
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
-        self.header.id()
+        self.metadata.id()
     }
 
     /// see `Header::message_type()`
     pub fn message_type(&self) -> MessageType {
-        self.header.message_type()
+        self.metadata.message_type()
     }
 
     /// see `Header::op_code()`
     pub fn op_code(&self) -> OpCode {
-        self.header.op_code()
+        self.metadata.op_code()
     }
 
     /// see `Header::authoritative()`
     pub fn authoritative(&self) -> bool {
-        self.header.authoritative()
+        self.metadata.authoritative()
     }
 
     /// see `Header::truncated()`
     pub fn truncated(&self) -> bool {
-        self.header.truncated()
+        self.metadata.truncated()
     }
 
     /// see `Header::recursion_desired()`
     pub fn recursion_desired(&self) -> bool {
-        self.header.recursion_desired()
+        self.metadata.recursion_desired()
     }
 
     /// see `Header::recursion_available()`
     pub fn recursion_available(&self) -> bool {
-        self.header.recursion_available()
+        self.metadata.recursion_available()
     }
 
     /// see `Header::authentic_data()`
     pub fn authentic_data(&self) -> bool {
-        self.header.authentic_data()
+        self.metadata.authentic_data()
     }
 
     /// see `Header::checking_disabled()`
     pub fn checking_disabled(&self) -> bool {
-        self.header.checking_disabled()
+        self.metadata.checking_disabled()
     }
 
     /// # Return value
@@ -139,7 +135,7 @@ impl MessageRequest {
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
-        self.header.response_code()
+        self.metadata.response_code()
     }
 
     /// ```text
@@ -346,7 +342,7 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
 impl BinEncodable for MessageRequest {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
         emit_message_parts(
-            &self.header,
+            &self.metadata,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form
             //   in cases where that's necessary, like SIG0 validation
             &mut self.queries.queries.iter(),

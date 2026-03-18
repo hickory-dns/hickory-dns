@@ -762,7 +762,7 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
         |_destination: IpAddr, protocol: Protocol, msg: &mut Message| {
             if protocol == Protocol::Udp {
-                msg.header.set_truncated(true);
+                msg.metadata.set_truncated(true);
             }
         },
     ));

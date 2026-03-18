@@ -19,7 +19,7 @@ use core::num::ParseIntError;
 
 use thiserror::Error;
 
-use crate::op::Header;
+use crate::op::Metadata;
 use crate::serialize::binary::DecodeError;
 
 /// An alias for results returned by functions of this crate
@@ -52,7 +52,7 @@ pub enum ProtoError {
     #[error("message format error: {error}")]
     FormError {
         /// Header of the bad Message
-        header: Header,
+        header: Metadata,
         /// Error that occurred while parsing the Message
         error: Box<Self>,
     },

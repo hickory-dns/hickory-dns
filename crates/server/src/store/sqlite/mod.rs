@@ -942,7 +942,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         request: &Request,
         now: u64,
     ) -> (Result<(), ResponseCode>, TSigResponseContext) {
-        let req_id = request.header().id();
+        let req_id = request.id();
 
         debug!("authorizing with: {tsig:?}");
         // RFC 8945 Section 5.5: "To prevent cross-algorithm attacks, there SHOULD only be

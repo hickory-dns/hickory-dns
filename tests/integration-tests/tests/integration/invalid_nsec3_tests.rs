@@ -170,7 +170,7 @@ async fn referral_opt_out_unsigned() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert_eq!(response.answer_count(), 0);
+    assert!(response.answers.is_empty());
     assert!(
         response
             .authorities
@@ -218,7 +218,7 @@ async fn wildcard_expansion() {
         .unwrap();
     print_response(&response);
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    assert!(response.answer_count() > 0);
+    assert!(!response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 
@@ -384,8 +384,6 @@ async fn test_exclude_nsec3(
     modified_response
         .authorities
         .retain(|record| record.name() != &nsec3_name);
-    let new_count = modified_response.authorities.len().try_into().unwrap();
-    modified_response.header.set_authority_count(new_count);
     assert!(
         modified_response.authorities.len() < original_response.authorities.len(),
         "failed to remove expected NSEC3 record and signature at {nsec3_owner_name}: {modified_response:?}"

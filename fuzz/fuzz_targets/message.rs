@@ -50,7 +50,7 @@ fn messages_equal(original: &Message, reparsed: &Message) -> bool {
     }
 
     // compare headers
-    if original.header != reparsed.header {
+    if original.metadata != reparsed.metadata {
         return false;
     }
 

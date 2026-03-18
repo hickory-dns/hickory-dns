@@ -241,7 +241,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         // build the message
         let mut message = Message::query();
         message
-            .header
+            .metadata
             // 3.3. NOTIFY is similar to QUERY in that it has a request message with
             // the header QR flag "clear" and a response message with QR "set".  The
             // response message contains no useful information, but its reception by

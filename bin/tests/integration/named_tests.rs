@@ -296,7 +296,7 @@ async fn test_forward() {
             .iter()
             .any(|record| matches!(record.data(), RData::A(_)))
     );
-    assert!(!response.header.authoritative());
+    assert!(!response.metadata.authoritative());
 }
 
 #[tokio::test]

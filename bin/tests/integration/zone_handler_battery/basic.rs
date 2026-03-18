@@ -10,7 +10,7 @@ use hickory_net::{
     xfer::Protocol,
 };
 use hickory_proto::{
-    op::{Header, Message, MessageType, OpCode, Query, ResponseCode},
+    op::{Message, MessageType, Metadata, OpCode, Query, ResponseCode},
     rr::{
         Name, RData, RecordType,
         rdata::{A as A4, AAAA},
@@ -21,12 +21,12 @@ use hickory_server::{
     zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
 };
 
-const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
+const TEST_METADATA: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
 
 pub fn test_a_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -104,7 +104,7 @@ pub fn test_ns(handler: impl ZoneHandler) {
 pub fn test_ns_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("example.com.").unwrap(), RecordType::NS),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -137,7 +137,7 @@ pub fn test_ns_lookup(handler: impl ZoneHandler) {
 pub fn test_mx(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("example.com.").unwrap(), RecordType::MX),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -187,7 +187,7 @@ pub fn test_mx(handler: impl ZoneHandler) {
 pub fn test_mx_to_null(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("no-service.example.com.").unwrap(),
                 RecordType::MX,
@@ -219,7 +219,7 @@ pub fn test_mx_to_null(handler: impl ZoneHandler) {
 pub fn test_cname(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("alias.example.com.").unwrap(),
                 RecordType::CNAME,
@@ -248,7 +248,7 @@ pub fn test_cname(handler: impl ZoneHandler) {
 pub fn test_cname_alias(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("alias.example.com.").unwrap(), RecordType::A),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -286,7 +286,7 @@ pub fn test_cname_alias(handler: impl ZoneHandler) {
 pub fn test_cname_chain(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("alias-chain.example.com.").unwrap(),
                 RecordType::A,
@@ -339,7 +339,7 @@ pub fn test_cname_chain(handler: impl ZoneHandler) {
 pub fn test_aname(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("example.com.").unwrap(), RecordType::ANAME),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -393,7 +393,7 @@ pub fn test_aname(handler: impl ZoneHandler) {
 pub fn test_aname_a_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("example.com.").unwrap(), RecordType::A),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -436,7 +436,7 @@ pub fn test_aname_a_lookup(handler: impl ZoneHandler) {
 pub fn test_aname_chain(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("aname-chain.example.com.").unwrap(),
                 RecordType::A,
@@ -515,7 +515,7 @@ pub fn test_update_errors(handler: impl ZoneHandler) {
 pub fn test_dots_in_name(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("this.has.dots.example.com.").unwrap(),
                 RecordType::A,
@@ -543,7 +543,7 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
     // the rest should all be NameExists
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("has.dots.example.com.").unwrap(),
                 RecordType::A,
@@ -567,7 +567,7 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
     // the rest should all be NameExists
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -584,7 +584,7 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
     // and this should be an NXDOMAIN
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("not.this.has.dots.example.com.").unwrap(),
                 RecordType::A,
@@ -606,7 +606,7 @@ pub fn test_wildcard(handler: impl ZoneHandler) {
     // check direct lookup
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("*.wildcard.example.com.").unwrap(),
                 RecordType::CNAME,
@@ -636,7 +636,7 @@ pub fn test_wildcard(handler: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("www.wildcard.example.com.").unwrap(),
                 RecordType::CNAME,
@@ -674,7 +674,7 @@ pub fn test_wildcard_subdomain(handler: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
                 RecordType::CNAME,
@@ -712,7 +712,7 @@ pub fn test_wildcard_chain(handler: impl ZoneHandler) {
     // check wildcard lookup
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("www.wildcard.example.com.").unwrap(),
                 RecordType::A,
@@ -753,7 +753,7 @@ pub fn test_wildcard_chain(handler: impl ZoneHandler) {
 pub fn test_srv(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(
                 Name::from_str("server.example.com.").unwrap(),
                 RecordType::SRV,
@@ -810,7 +810,7 @@ pub fn test_srv(handler: impl ZoneHandler) {
 pub fn test_invalid_lookup(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("www.google.com.").unwrap(), RecordType::A),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
