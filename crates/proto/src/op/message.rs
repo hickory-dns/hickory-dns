@@ -549,34 +549,6 @@ impl Message {
 
         Ok(verifier)
     }
-
-    /// Consumes `Message` and returns into components
-    pub fn into_parts(self) -> MessageParts {
-        self.into()
-    }
-}
-
-impl From<MessageParts> for Message {
-    fn from(msg: MessageParts) -> Self {
-        let MessageParts {
-            header,
-            queries,
-            answers,
-            authorities,
-            additionals,
-            signature,
-            edns,
-        } = msg;
-        Self {
-            header,
-            queries,
-            answers,
-            authorities,
-            additionals,
-            signature,
-            edns,
-        }
-    }
 }
 
 impl Deref for Message {
@@ -584,55 +556,6 @@ impl Deref for Message {
 
     fn deref(&self) -> &Self::Target {
         &self.header
-    }
-}
-
-/// Consumes `Message` giving public access to fields in `Message` so they can be
-/// destructured and taken by value
-/// ```rust
-/// use hickory_proto::op::{Message, MessageParts};
-///
-/// let msg = Message::query();
-/// let MessageParts { queries, .. } = msg.into_parts();
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MessageParts {
-    /// message header
-    pub header: Header,
-    /// message queries
-    pub queries: Vec<Query>,
-    /// message answers
-    pub answers: Vec<Record>,
-    /// message authorities
-    pub authorities: Vec<Record>,
-    /// message additional records
-    pub additionals: Vec<Record>,
-    /// message signature
-    pub signature: Option<Box<Record<TSIG>>>,
-    /// optional edns records
-    pub edns: Option<Edns>,
-}
-
-impl From<Message> for MessageParts {
-    fn from(msg: Message) -> Self {
-        let Message {
-            header,
-            queries,
-            answers,
-            authorities,
-            additionals,
-            signature,
-            edns,
-        } = msg;
-        Self {
-            header,
-            queries,
-            answers,
-            authorities,
-            additionals,
-            signature,
-            edns,
-        }
     }
 }
 
