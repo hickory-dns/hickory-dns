@@ -5,16 +5,21 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use prefix_trie::PrefixSet;
 use tracing::debug;
 
-/// An IPv4/IPv6 access control set.  This mainly hides the complexity of supporting v4 and v6
-/// addresses concurrently in a given set.  The AccessControlSet differs from a typical Access
-/// Control List in that there is no order.  The access semantics are:
+/// An IPv4/IPv6 access control set.
 ///
-/// | Present in allow list | Present in deny list |  Result  |
+/// Use [`AccessControlSetBuilder`] to construct an instance.
+/// When determining if an [`IpAddr`] is denied with [`Self::denied()`], the deny list
+/// is considered first, and the allow list may override the deny
+/// decision.
+///
+/// The full access semantics are:
+///
+/// | Present in deny list | Present in allow list |  Result  |
 /// |-----------------------|----------------------|----------|
-/// |                  true |                false |  allowed |
-/// |                  true |                 true |  allowed |
+/// |                  true |                false |  denied |
 /// |                 false |                false |  allowed |
-/// |                 false |                 true |   denied |
+/// |                  true |                 true |  allowed |
+/// |                 false |                 true |  allowed |
 #[derive(Clone, Debug)]
 pub struct AccessControlSet {
     name: &'static str,
@@ -25,8 +30,9 @@ pub struct AccessControlSet {
 }
 
 impl<'a> AccessControlSet {
-    /// Construct a new AccessControlSet with the given `name`.  `name` is an arbitrary string used
-    /// in log messages.
+    /// Construct an access control set with the given `name`.
+    ///
+    /// The name is used to contextualize logging when an [`IpAddr`] is denied.
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
@@ -37,7 +43,9 @@ impl<'a> AccessControlSet {
         }
     }
 
-    /// Insert new subnets in the allow list.  Existing subnets will not be removed.
+    /// Override the [`Self::deny()`] list for the provided IP networks, allowing access.
+    ///
+    /// Existing networks allowed by prior [`Self::allow()`] calls are not removed.
     pub fn allow(&mut self, allow: impl Iterator<Item = &'a IpNet>) {
         for network in allow {
             debug!(self.name, ?network, "appending to allow list");
@@ -52,7 +60,9 @@ impl<'a> AccessControlSet {
         }
     }
 
-    /// Insert new subnets in the deny list.  Existing subnets will not be removed.
+    /// Deny clients from the provided IP networks, unless present in the [`Self::allow()`] list.
+    ///
+    /// Existing networks denied by prior [`Self::deny()`] calls are not removed.
     pub fn deny(&mut self, deny: impl Iterator<Item = &'a IpNet>) {
         for network in deny {
             debug!(self.name, ?network, "appending to deny list");
@@ -67,21 +77,25 @@ impl<'a> AccessControlSet {
         }
     }
 
-    /// Clear all subnets from the allow list.
+    /// Clear all IP networks previous allowed with [`Self::allow()`].
     pub fn clear_allow(&mut self) {
         self.v4_allow.clear();
         self.v6_allow.clear();
     }
 
-    /// Clear all subnets from the deny list.
+    /// Clear all IP networks previously denied with [`Self::deny()`].
     pub fn clear_deny(&mut self) {
         self.v4_deny.clear();
         self.v6_deny.clear();
     }
 
-    /// Check if the IP address `ip` should be denied.  If the IP address is in the deny list
-    /// and not in the allow list, this function will return true.  All other combinations will
-    /// return false (i.e., the allow list acts like an exception list.)
+    /// Check if the IP address `ip` should be denied.
+    ///
+    /// If the IP address is in a network previously denied by [`Self::deny()`] that wasn't
+    /// explicitly allowed with [`Self::allow()`], this function will return true.
+    ///
+    /// All other combinations will return false (i.e., [`Self::allow()`] acts like an
+    /// exception list for [`Self::deny()`])
     pub fn denied(&self, ip: IpAddr) -> bool {
         match ip {
             IpAddr::V4(ip) => {
@@ -96,28 +110,38 @@ impl<'a> AccessControlSet {
     }
 }
 
-/// A builder interface for the AccessControlSet
+/// A builder interface for constructing an [`AccessControlSet`].
 pub struct AccessControlSetBuilder(AccessControlSet);
 
 impl<'a> AccessControlSetBuilder {
-    /// Set `name` for logging purposes on the AccessControlSetBuilder
+    /// Construct a builder for an access control set with the given `name`.
+    ///
+    /// The `name` is used to contextualize logging when an [`IpAddr`] is denied.
     pub fn new(name: &'static str) -> Self {
         Self(AccessControlSet::new(name))
     }
 
-    /// Add allow list IP addresses for the AccessControlSetBuilder
+    /// Override the [`Self::deny()`] list for the provided IP networks, allowing access.
+    ///
+    /// Existing networks allowed by prior [`Self::allow()`] calls are not removed.
+    ///
+    /// See [`AccessControlSet`] for more information on the access semantics.
     pub fn allow(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
         self.0.allow(allow);
         self
     }
 
-    /// Add deny list IP addresses for the AccessControlSetBuilder
+    /// Deny clients from the provided IP networks, unless present in the [`Self::allow()`] list.
+    ///
+    /// Existing networks denied by prior [`Self::deny()`] calls are not removed.
+    ///
+    /// See [`AccessControlSet`] for more information on the access semantics.
     pub fn deny(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
         self.0.deny(deny);
         self
     }
 
-    /// Construct the AccessControlSet
+    /// Consume the builder and produce an [`AccessControlSet`].
     pub fn build(self) -> AccessControlSet {
         self.0
     }
