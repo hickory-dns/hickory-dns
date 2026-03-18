@@ -137,7 +137,9 @@ mod test {
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
                 let mut message = Message::query();
                 message.set_id(i);
-                return Box::new(once(ok(DnsResponse::from_message(message).unwrap())));
+                return Box::new(once(ok(
+                    DnsResponse::from_message(message.to_response()).unwrap()
+                )));
             }
 
             self.attempts.fetch_add(1, Ordering::SeqCst);

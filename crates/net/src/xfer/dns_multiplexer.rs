@@ -488,15 +488,16 @@ mod test {
     fn a_query_answer() -> (DnsRequest, Vec<Message>) {
         let name = Name::from_ascii("www.example.com.").unwrap();
 
-        let mut msg = Message::query();
-        msg.add_query({
-            let mut query = Query::query(name.clone(), RecordType::A);
-            query.set_query_class(DNSClass::IN);
-            query
-        })
-        .set_recursion_desired(true);
+        let mut request = Message::query();
+        request
+            .add_query({
+                let mut q = Query::query(name.clone(), RecordType::A);
+                q.set_query_class(DNSClass::IN);
+                q
+            })
+            .set_recursion_desired(true);
 
-        let mut response = msg.to_response();
+        let mut response = request.to_response();
         response.add_answer(
             Record::from_rdata(
                 name,
@@ -507,8 +508,8 @@ mod test {
             .clone(),
         );
         (
-            DnsRequest::new(response, DnsRequestOptions::default()),
-            vec![msg],
+            DnsRequest::new(request, DnsRequestOptions::default()),
+            vec![response],
         )
     }
 

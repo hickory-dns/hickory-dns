@@ -45,11 +45,12 @@ async fn server_responder(mut server: QuicServer) {
         while let Some(stream) = conn.next().await {
             let mut stream = stream.expect("new client stream failed");
 
-            let client_message = stream.receive().await.expect("failed to receive");
+            let bytes = stream.receive_bytes().await.expect("failed to receive");
+            let client_message = Message::from_vec(&bytes).expect("failed to parse message");
 
-            // just response with the same message.
+            // just respond with the same message converted to a response.
             stream
-                .send(client_message.into_message())
+                .send(client_message.to_response())
                 .await
                 .expect("failed to send response")
         }
@@ -127,7 +128,7 @@ async fn test_quic_stream() {
         .expect("no response received")
         .expect("failed to read response");
 
-    assert_eq!(*response, message);
+    assert_eq!(*response, message.to_response());
 
     // and finally kill the server
     server_join.abort();
