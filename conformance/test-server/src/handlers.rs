@@ -6,7 +6,7 @@ use hickory_proto::{
         Nsec3HashAlgorithm,
         rdata::{NSEC3, NSEC3PARAM, RRSIG},
     },
-    op::{Message, ResponseCode},
+    op::{Message, MessageType, ResponseCode},
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
@@ -571,6 +571,62 @@ pub(crate) fn parent_ns_in_authority_handler(
     msg.to_vec()
         .map(Some)
         .with_context(|| "parent_ns_in_authority handler: could not serialize Message")
+}
+
+/// This handler generates a response with QR=0 (Query type instead of Response type).
+/// Such responses should be rejected by resolvers as invalid.
+pub(crate) fn qr_not_response_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let name = msg.queries()[0].name().clone();
+
+    let mut header = *msg.header();
+    header.set_message_type(MessageType::Query);
+    msg.set_header(header)
+        .set_recursion_desired(false)
+        .add_answer(Record::from_rdata(
+            name,
+            1,
+            RData::A(rdata::A([192, 0, 2, 1].into())),
+        ))
+        .to_vec()
+        .map(Some)
+        .with_context(|| "qr_not_response handler: could not serialize Message")
+}
+
+/// This handler forces TCP by returning truncated on UDP, then returns QR=0 on TCP.
+/// Used to test QR validation over TCP connections.
+pub(crate) fn qr_not_response_force_tcp_handler(
+    bytes: &[u8],
+    transport: Transport,
+) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.to_response();
+    let name = msg.queries()[0].name().clone();
+
+    match transport {
+        Transport::Udp => msg
+            .set_truncated(true)
+            .set_authoritative(true)
+            .to_vec()
+            .map(Some)
+            .with_context(|| "qr_not_response_force_tcp handler: could not serialize Message"),
+        Transport::Tcp => {
+            let mut header = *msg.header();
+            header.set_message_type(MessageType::Query);
+            msg.set_header(header)
+                .set_recursion_desired(false)
+                .add_answer(Record::from_rdata(
+                    name,
+                    1,
+                    RData::A(rdata::A([192, 0, 2, 1].into())),
+                ))
+                .to_vec()
+                .map(Some)
+                .with_context(|| "qr_not_response_force_tcp handler: could not serialize Message")
+        }
+    }
 }
 
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);

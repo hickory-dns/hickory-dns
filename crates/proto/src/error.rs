@@ -77,6 +77,10 @@ pub enum ProtoError {
         count: usize,
     },
 
+    /// A response was received with QR=0, indicating it was a query and not a response
+    #[error("response received with incorrect QR flag")]
+    NotAResponse,
+
     /// An url parsing error
     #[error("url parsing error")]
     UrlParsing(#[from] url::ParseError),
