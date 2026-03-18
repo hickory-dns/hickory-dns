@@ -176,7 +176,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 debug!("translating NoRecordsFound to DnsResponse for {query}");
                 let mut msg = Message::query();
                 msg.add_query(*query);
-                msg.header.set_response_code(response_code);
+                msg.metadata.set_response_code(response_code);
 
                 if let Some(authorities) = authorities {
                     for record in authorities.iter() {
@@ -1081,8 +1081,8 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         let handle = self.clone_with_context();
         request.edns.get_or_insert_with(Edns::new).enable_dnssec();
 
-        request.header.set_authentic_data(true);
-        request.header.set_checking_disabled(false);
+        request.metadata.set_authentic_data(true);
+        request.metadata.set_checking_disabled(false);
         let options = *request.options();
 
         Box::pin(self.handle.send(request).then(move |result| {

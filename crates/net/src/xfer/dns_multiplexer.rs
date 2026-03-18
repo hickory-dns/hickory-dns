@@ -242,7 +242,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         };
 
         let (mut request, _) = request.into_parts();
-        request.header.set_id(query_id);
+        request.metadata.set_id(query_id);
 
         #[cfg(feature = "__dnssec")]
         let mut verifier = None;
@@ -452,7 +452,7 @@ mod test {
             };
 
             if let Some(mut message) = self.messages.pop() {
-                message.header.set_id(id);
+                message.metadata.set_id(id);
                 Poll::Ready(Some(Ok(SerialMessage::new(
                     message.to_bytes().unwrap(),
                     self.addr,
@@ -489,7 +489,7 @@ mod test {
         let name = Name::from_ascii("www.example.com.").unwrap();
 
         let mut msg = Message::query();
-        msg.header.set_recursion_desired(true);
+        msg.metadata.set_recursion_desired(true);
         msg.add_query({
             let mut query = Query::query(name.clone(), RecordType::A);
             query.set_query_class(DNSClass::IN);
@@ -516,7 +516,7 @@ mod test {
         let name = Name::from_ascii("example.com.").unwrap();
 
         let mut msg = Message::query();
-        msg.header.set_recursion_desired(true);
+        msg.metadata.set_recursion_desired(true);
         msg.add_query({
             let mut query = Query::query(name, RecordType::AXFR);
             query.set_query_class(DNSClass::IN);

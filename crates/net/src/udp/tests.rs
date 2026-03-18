@@ -148,7 +148,7 @@ pub(super) async fn udp_client_stream_bad_id_test(
         |idx, message| {
             // Mutate the first response to have the wrong ID
             if idx == 0 {
-                message.header.set_id(message.id().wrapping_add(1));
+                message.metadata.set_id(message.id().wrapping_add(1));
             }
         },
         |response| {
@@ -237,7 +237,7 @@ async fn udp_client_stream_test_inner(
 
                 for response_idx in 0..response_count {
                     let mut message = Message::query();
-                    message.header.set_id(request.id());
+                    message.metadata.set_id(request.id());
                     message.add_queries(request.queries.to_vec());
                     message.add_answer(Record::from_rdata(
                         test_name_server.clone(),

@@ -29,7 +29,7 @@ mod edns;
 pub use edns::{DEFAULT_MAX_PAYLOAD_LEN, Edns, EdnsFlags};
 
 mod header;
-pub use header::{Flags, Header, MessageType};
+pub use header::{Flags, Header, HeaderCounts, MessageType, Metadata};
 
 mod lower_query;
 pub use lower_query::LowerQuery;

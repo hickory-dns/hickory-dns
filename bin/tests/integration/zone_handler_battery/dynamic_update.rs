@@ -13,7 +13,7 @@ use hickory_net::{
     xfer::Protocol,
 };
 use hickory_proto::{
-    op::{Header, Message, MessageType, OpCode, Query, ResponseCode, update_message},
+    op::{Message, MessageType, Metadata, OpCode, Query, ResponseCode, update_message},
     rr::{
         DNSClass, Name, RData, Record, RecordSet, RecordType, TSigner,
         rdata::{A as A4, AAAA, tsig::TsigAlgorithm},
@@ -26,7 +26,7 @@ use hickory_server::{
     zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
 };
 
-const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
+const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
 
 fn update_zone_handler(
     mut message: Message,

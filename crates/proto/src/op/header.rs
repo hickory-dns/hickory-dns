@@ -9,7 +9,7 @@
 
 #[cfg(test)]
 use alloc::vec::Vec;
-use core::{convert::From, fmt};
+use core::{convert::From, fmt, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -55,6 +55,126 @@ use crate::{
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Header {
+    /// The message metadata (ID, flags, response and op code)
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub metadata: Metadata,
+    /// Record counts for the message, for use during encoding/decoding
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub counts: HeaderCounts,
+}
+
+impl BinEncodable for Header {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        // Id
+        encoder.emit_u16(self.id)?;
+
+        // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
+        let mut q_opcd_a_t_r: u8 = if let MessageType::Response = self.message_type {
+            0x80
+        } else {
+            0x00
+        };
+        q_opcd_a_t_r |= u8::from(self.op_code) << 3;
+        q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
+        q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
+        q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
+        encoder.emit(q_opcd_a_t_r)?;
+
+        // IsRecursionAvailable, Triple 0's, ResponseCode
+        let mut r_z_ad_cd_rcod: u8 = if self.recursion_available {
+            0b1000_0000
+        } else {
+            0b0000_0000
+        };
+        r_z_ad_cd_rcod |= if self.authentic_data {
+            0b0010_0000
+        } else {
+            0b0000_0000
+        };
+        r_z_ad_cd_rcod |= if self.checking_disabled {
+            0b0001_0000
+        } else {
+            0b0000_0000
+        };
+        r_z_ad_cd_rcod |= self.response_code.low();
+        encoder.emit(r_z_ad_cd_rcod)?;
+
+        encoder.emit_u16(self.counts.query_count)?;
+        encoder.emit_u16(self.counts.answer_count)?;
+        encoder.emit_u16(self.counts.authority_count)?;
+        encoder.emit_u16(self.counts.additional_count)?;
+
+        Ok(())
+    }
+}
+
+impl<'r> BinDecodable<'r> for Header {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        let id = decoder.read_u16()?.unverified(/*it is valid for this to be any u16*/);
+
+        let q_opcd_a_t_r = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/);
+        // if the first bit is set
+        let message_type = if (0b1000_0000 & q_opcd_a_t_r) == 0b1000_0000 {
+            MessageType::Response
+        } else {
+            MessageType::Query
+        };
+        // the 4bit opcode, masked and then shifted right 3bits for the u8...
+        let op_code = OpCode::from_u8((0b0111_1000 & q_opcd_a_t_r) >> 3);
+        let authoritative = (0b0000_0100 & q_opcd_a_t_r) == 0b0000_0100;
+        let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
+        let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
+
+        let r_z_ad_cd_rcod = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/); // fail fast...
+
+        let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
+        let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
+        let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
+        let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
+        let response_code = ResponseCode::from_low(response_code);
+
+        let metadata = Metadata {
+            id,
+            message_type,
+            op_code,
+            authoritative,
+            truncation,
+            recursion_desired,
+            recursion_available,
+            authentic_data,
+            checking_disabled,
+            response_code,
+        };
+
+        let counts = HeaderCounts {
+            query_count: decoder.read_u16()?.unverified(),
+            answer_count: decoder.read_u16()?.unverified(),
+            authority_count: decoder.read_u16()?.unverified(),
+            additional_count: decoder.read_u16()?.unverified(),
+        };
+
+        // TODO: question, should this use the builder pattern instead? might be cleaner code, but
+        //  this guarantees that the Header is fully instantiated with all values...
+        Ok(Self { metadata, counts })
+    }
+}
+
+impl EncodedSize for Header {
+    const LEN: usize = 12;
+}
+
+impl Deref for Header {
+    type Target = Metadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.metadata
+    }
+}
+
+/// Message metadata, including the message ID, flags, response code, and op code.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct Metadata {
     id: u16,
     message_type: MessageType,
     op_code: OpCode,
@@ -65,13 +185,9 @@ pub struct Header {
     authentic_data: bool,
     checking_disabled: bool,
     response_code: ResponseCode,
-    query_count: u16,
-    answer_count: u16,
-    authority_count: u16,
-    additional_count: u16,
 }
 
-impl Header {
+impl Metadata {
     /// Construct a new `Header` with the given `id`, `message_type`, and `op_code`.
     pub const fn new(id: u16, message_type: MessageType, op_code: OpCode) -> Self {
         Self {
@@ -85,10 +201,6 @@ impl Header {
             authentic_data: false,
             checking_disabled: false,
             response_code: ResponseCode::NoError,
-            query_count: 0,
-            answer_count: 0,
-            authority_count: 0,
-            additional_count: 0,
         }
     }
 
@@ -110,22 +222,18 @@ impl Header {
     ///    dangerous, given the existing implementation.  Meanings for these
     ///    bits may only be assigned by a Standards Action.
     /// ```
-    pub fn response_from_request(header: &Self) -> Self {
+    pub fn response_from_request(req: &Self) -> Self {
         Self {
-            id: header.id,
+            id: req.id,
             message_type: MessageType::Response,
-            op_code: header.op_code,
+            op_code: req.op_code,
             authoritative: false,
             truncation: false,
-            recursion_desired: header.recursion_desired,
+            recursion_desired: req.recursion_desired,
             recursion_available: false,
             authentic_data: false,
-            checking_disabled: header.checking_disabled,
+            checking_disabled: req.checking_disabled,
             response_code: ResponseCode::default(),
-            query_count: 0,
-            answer_count: 0,
-            authority_count: 0,
-            additional_count: 0,
         }
     }
 
@@ -211,30 +319,6 @@ impl Header {
     #[doc(hidden)]
     pub fn merge_response_code(&mut self, high_response_code: u8) {
         self.response_code = ResponseCode::from(high_response_code, self.response_code.low());
-    }
-
-    /// Number or query records in the message
-    pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
-        self.query_count = query_count;
-        self
-    }
-
-    /// Number of answer records in the message
-    pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
-        self.answer_count = answer_count;
-        self
-    }
-
-    /// Number of authority records in the message
-    pub fn set_authority_count(&mut self, authority_count: u16) -> &mut Self {
-        self.authority_count = authority_count;
-        self
-    }
-
-    /// Number of additional records in the message
-    pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
-        self.additional_count = additional_count;
-        self
     }
 
     /// ```text
@@ -353,179 +437,36 @@ impl Header {
     pub fn response_code(&self) -> ResponseCode {
         self.response_code
     }
-
-    /// ```text
-    /// QDCOUNT         an unsigned 16 bit integer specifying the number of
-    ///                 entries in the question section.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// If this is a query, this will return the number of queries in the query section of the
-    /// message, for updates this represents the zone count (must be no more than 1).
-    pub fn query_count(&self) -> u16 {
-        self.query_count
-    }
-
-    /// ```text
-    /// ANCOUNT         an unsigned 16 bit integer specifying the number of
-    ///                 resource records in the answer section.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// For query responses this is the number of records in the answer section, should be 0 for
-    ///  requests, for updates this is the count of prerequisite records.
-    pub fn answer_count(&self) -> u16 {
-        self.answer_count
-    }
-
-    /// for queries this is the nameservers which are authorities for the SOA of the Record
-    /// for updates this is the update record count
-    /// ```text
-    /// NSCOUNT         an unsigned 16 bit integer specifying the number of name
-    ///                 server resource records in the authority records
-    ///                 section.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// For query responses this is the number of authorities, or nameservers, in the authority
-    ///  section, for updates this is the number of update records being sent.
-    pub fn authority_count(&self) -> u16 {
-        self.authority_count
-    }
-
-    /// ```text
-    /// ARCOUNT         an unsigned 16 bit integer specifying the number of
-    ///                 resource records in the additional records section.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// This is the additional record section count, this section may include EDNS options.
-    pub fn additional_count(&self) -> u16 {
-        self.additional_count
-    }
 }
 
-impl BinEncodable for Header {
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        // Id
-        encoder.emit_u16(self.id)?;
-
-        // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
-        let mut q_opcd_a_t_r: u8 = if let MessageType::Response = self.message_type {
-            0x80
-        } else {
-            0x00
-        };
-        q_opcd_a_t_r |= u8::from(self.op_code) << 3;
-        q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
-        q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
-        q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
-        encoder.emit(q_opcd_a_t_r)?;
-
-        // IsRecursionAvailable, Triple 0's, ResponseCode
-        let mut r_z_ad_cd_rcod: u8 = if self.recursion_available {
-            0b1000_0000
-        } else {
-            0b0000_0000
-        };
-        r_z_ad_cd_rcod |= if self.authentic_data {
-            0b0010_0000
-        } else {
-            0b0000_0000
-        };
-        r_z_ad_cd_rcod |= if self.checking_disabled {
-            0b0001_0000
-        } else {
-            0b0000_0000
-        };
-        r_z_ad_cd_rcod |= self.response_code.low();
-        encoder.emit(r_z_ad_cd_rcod)?;
-
-        encoder.emit_u16(self.query_count)?;
-        encoder.emit_u16(self.answer_count)?;
-        encoder.emit_u16(self.authority_count)?;
-        encoder.emit_u16(self.additional_count)?;
-
-        Ok(())
-    }
-}
-
-impl<'r> BinDecodable<'r> for Header {
-    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let id = decoder.read_u16()?.unverified(/*it is valid for this to be any u16*/);
-
-        let q_opcd_a_t_r = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/);
-        // if the first bit is set
-        let message_type = if (0b1000_0000 & q_opcd_a_t_r) == 0b1000_0000 {
-            MessageType::Response
-        } else {
-            MessageType::Query
-        };
-        // the 4bit opcode, masked and then shifted right 3bits for the u8...
-        let op_code = OpCode::from_u8((0b0111_1000 & q_opcd_a_t_r) >> 3);
-        let authoritative = (0b0000_0100 & q_opcd_a_t_r) == 0b0000_0100;
-        let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
-        let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
-
-        let r_z_ad_cd_rcod = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/); // fail fast...
-
-        let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
-        let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
-        let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
-        let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
-        let response_code = ResponseCode::from_low(response_code);
-
-        // TODO: We should pass these restrictions on, they can't be trusted, but that would seriously complicate the Header type..
-        // TODO: perhaps the read methods for BinDecodable should return Restrict?
-        let query_count =
-            decoder.read_u16()?.unverified(/*this must be verified when reading queries*/);
-        let answer_count =
-            decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
-        let authority_count =
-            decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
-        let additional_count =
-            decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
-
-        // TODO: question, should this use the builder pattern instead? might be cleaner code, but
-        //  this guarantees that the Header is fully instantiated with all values...
-        Ok(Self {
-            id,
-            message_type,
-            op_code,
-            authoritative,
-            truncation,
-            recursion_desired,
-            recursion_available,
-            authentic_data,
-            checking_disabled,
-            response_code,
-            query_count,
-            answer_count,
-            authority_count,
-            additional_count,
-        })
-    }
-}
-
-impl fmt::Display for Header {
+impl fmt::Display for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
-            "{id}:{message_type}:{flags}:{code:?}:{op_code}:{answers}/{authorities}/{additionals}",
+            "{id}:{message_type}:{flags}:{code:?}:{op_code}",
             id = self.id,
             message_type = self.message_type,
             flags = self.flags(),
             code = self.response_code,
             op_code = self.op_code,
-            answers = self.answer_count,
-            authorities = self.authority_count,
-            additionals = self.additional_count,
         )
     }
+}
+
+/// Tracks the counts of the records in the Message.
+///
+/// This is only used internally during serialization.
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct HeaderCounts {
+    /// The number of queries in the Message
+    pub query_count: u16,
+    /// The number of answer records in the Message
+    pub answer_count: u16,
+    /// The number of authority records in the Message
+    pub authority_count: u16,
+    /// The number of additional records in the Message
+    pub additional_count: u16,
 }
 
 /// Message types are either Query (also Update) or Response
@@ -608,20 +549,24 @@ mod tests {
         let mut decoder = BinDecoder::new(&byte_vec);
 
         let expect = Header {
-            id: 0x0110,
-            message_type: MessageType::Response,
-            op_code: OpCode::Update,
-            authoritative: false,
-            truncation: true,
-            recursion_desired: false,
-            recursion_available: true,
-            authentic_data: false,
-            checking_disabled: false,
-            response_code: ResponseCode::NXDomain,
-            query_count: 0x8877,
-            answer_count: 0x6655,
-            authority_count: 0x4433,
-            additional_count: 0x2211,
+            metadata: Metadata {
+                id: 0x0110,
+                message_type: MessageType::Response,
+                op_code: OpCode::Update,
+                authoritative: false,
+                truncation: true,
+                recursion_desired: false,
+                recursion_available: true,
+                authentic_data: false,
+                checking_disabled: false,
+                response_code: ResponseCode::NXDomain,
+            },
+            counts: HeaderCounts {
+                query_count: 0x8877,
+                answer_count: 0x6655,
+                authority_count: 0x4433,
+                additional_count: 0x2211,
+            },
         };
 
         let got = Header::read(&mut decoder).unwrap();
@@ -632,23 +577,27 @@ mod tests {
     #[test]
     fn test_write() {
         let header = Header {
-            id: 0x0110,
-            message_type: MessageType::Response,
-            op_code: OpCode::Update,
-            authoritative: false,
-            truncation: true,
-            recursion_desired: false,
-            recursion_available: true,
-            authentic_data: false,
-            checking_disabled: false,
-            response_code: ResponseCode::NXDomain,
-            query_count: 0x8877,
-            answer_count: 0x6655,
-            authority_count: 0x4433,
-            additional_count: 0x2211,
+            metadata: Metadata {
+                id: 0x0110,
+                message_type: MessageType::Response,
+                op_code: OpCode::Update,
+                authoritative: false,
+                truncation: true,
+                recursion_desired: false,
+                recursion_available: true,
+                authentic_data: false,
+                checking_disabled: false,
+                response_code: ResponseCode::NXDomain,
+            },
+            counts: HeaderCounts {
+                query_count: 0x8877,
+                answer_count: 0x6655,
+                authority_count: 0x4433,
+                additional_count: 0x2211,
+            },
         };
 
-        let expect: Vec<u8> = vec![
+        let expect = vec![
             0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
             0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
         ];

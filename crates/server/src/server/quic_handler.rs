@@ -159,9 +159,9 @@ impl ResponseHandler for QuicResponseHandle {
         >,
     ) -> Result<ResponseInfo, NetError> {
         // The id should always be 0 in DoQ
-        response.header_mut().set_id(0);
+        response.metadata_mut().set_id(0);
 
-        let id = response.header().id();
+        let id = response.metadata().id();
         let mut bytes = Vec::with_capacity(512);
         let info = {
             let mut encoder = BinEncoder::new(&mut bytes);

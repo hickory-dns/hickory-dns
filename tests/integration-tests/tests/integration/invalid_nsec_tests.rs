@@ -250,8 +250,6 @@ async fn test_exclude_nsec(
     modified_response.authorities.retain(|record| {
         record.name() != &nsec_owner_name || record.record_type() != RecordType::NSEC
     });
-    let new_count = modified_response.authorities.len().try_into().unwrap();
-    modified_response.header.set_authority_count(new_count);
     assert!(
         modified_response.authorities.len() < original_response.authorities.len(),
         "failed to remove expected NSEC record at {nsec_owner_name}: {modified_response:?}"

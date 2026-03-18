@@ -24,7 +24,7 @@ use crate::random;
 use crate::rr::{TSigVerifier, TSigner};
 use crate::{
     error::{ProtoError, ProtoResult},
-    op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
+    op::{Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, Query, ResponseCode},
     rr::{RData, Record, RecordType, rdata::TSIG},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
@@ -75,8 +75,8 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Message {
-    /// The message header
-    pub header: Header,
+    /// Metadata from the message header
+    pub metadata: Metadata,
     /// Query name and other query parameters
     pub queries: Vec<Query>,
     /// Records which directly answer the query
@@ -137,7 +137,7 @@ impl Message {
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Self {
         let mut message = Self::response(id, op_code);
-        message.header.set_response_code(response_code);
+        message.metadata.set_response_code(response_code);
         message
     }
 
@@ -149,7 +149,7 @@ impl Message {
     /// Create a new [`Message`] with the given header contents
     pub fn new(id: u16, message_type: MessageType, op_code: OpCode) -> Self {
         Self {
-            header: Header::new(id, message_type, op_code),
+            metadata: Metadata::new(id, message_type, op_code),
             queries: Vec::new(),
             answers: Vec::new(),
             authorities: Vec::new(),
@@ -162,15 +162,11 @@ impl Message {
     /// Truncates a Message, this blindly removes all response fields and sets truncated to `true`
     pub fn truncate(&self) -> Self {
         // copy header
-        let mut header = self.header;
-        header.set_truncated(true);
-        header
-            .set_additional_count(0)
-            .set_answer_count(0)
-            .set_authority_count(0);
+        let mut metadata = self.metadata;
+        metadata.set_truncated(true);
 
         let mut msg = Self::new(0, MessageType::Query, OpCode::Query);
-        msg.header = header;
+        msg.metadata = metadata;
 
         // drops additional/answer/nameservers/signature
         // adds query/OPT
@@ -340,10 +336,10 @@ impl Message {
 
     /// Returns a clone of the `Message` with the message type set to `Response`.
     pub fn to_response(&self) -> Self {
-        let mut header = self.header;
-        header.set_message_type(MessageType::Response);
+        let mut metadata = self.metadata;
+        metadata.set_message_type(MessageType::Response);
         Self {
-            header,
+            metadata,
             queries: self.queries.clone(),
             answers: self.answers.clone(),
             authorities: self.authorities.clone(),
@@ -402,24 +398,6 @@ impl Message {
     /// Remove signatures from the Message
     pub fn take_signature(&mut self) -> Option<Box<Record<TSIG>>> {
         self.signature.take()
-    }
-
-    // TODO: only necessary in tests, should it be removed?
-    /// this is necessary to match the counts in the header from the record sections
-    ///  this happens implicitly on write_to, so no need to call before write_to
-    #[cfg(test)]
-    pub fn update_counts(&mut self) -> &mut Self {
-        self.header = update_header_counts(
-            &self.header,
-            self.truncated(),
-            HeaderCounts {
-                query_count: self.queries.len(),
-                answer_count: self.answers.len(),
-                authority_count: self.authorities.len(),
-                additional_count: self.additionals.len(),
-            },
-        );
-        self
     }
 
     /// Attempts to read the specified number of `Query`s
@@ -552,57 +530,26 @@ impl Message {
 }
 
 impl Deref for Message {
-    type Target = Header;
+    type Target = Metadata;
 
     fn deref(&self) -> &Self::Target {
-        &self.header
+        &self.metadata
     }
 }
 
-/// Tracks the counts of the records in the Message.
-///
-/// This is only used internally during serialization.
-#[derive(Clone, Copy, Debug)]
-struct HeaderCounts {
-    /// The number of queries in the Message
-    query_count: usize,
-    /// The number of answer records in the Message
-    answer_count: usize,
-    /// The number of authority records in the Message
-    authority_count: usize,
-    /// The number of additional records in the Message
-    additional_count: usize,
-}
-
-/// Returns a new Header with accurate counts for each Message section
-fn update_header_counts(
-    current_header: &Header,
-    is_truncated: bool,
-    counts: HeaderCounts,
-) -> Header {
-    assert!(counts.query_count <= u16::MAX as usize);
-    assert!(counts.answer_count <= u16::MAX as usize);
-    assert!(counts.authority_count <= u16::MAX as usize);
-    assert!(counts.additional_count <= u16::MAX as usize);
-
-    // TODO: should the function just take by value?
-    let mut header = *current_header;
-    header
-        .set_query_count(counts.query_count as u16)
-        .set_answer_count(counts.answer_count as u16)
-        .set_authority_count(counts.authority_count as u16)
-        .set_additional_count(counts.additional_count as u16)
-        .set_truncated(is_truncated);
-
-    header
-}
-
 /// Returns the count written and a boolean if it was truncated
-fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
-    match result {
-        Ok(count) => Ok((count, false)),
-        Err(ProtoError::NotAllRecordsWritten { count }) => Ok((count, true)),
-        Err(e) => Err(e),
+fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(u16, bool)> {
+    let (count, truncated) = match result {
+        Ok(count) => (count, false),
+        Err(ProtoError::NotAllRecordsWritten { count }) => (count, true),
+        Err(e) => return Err(e),
+    };
+
+    match u16::try_from(count) {
+        Ok(count) => Ok((count, truncated)),
+        Err(_) => Err(ProtoError::Message(
+            "too many records to fit in header count",
+        )),
     }
 }
 
@@ -625,7 +572,7 @@ impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
 /// In the case of a successful emit, the final header (updated counts, etc) is returned for help with logging, etc.
 #[allow(clippy::too_many_arguments)]
 pub fn emit_message_parts<Q, A, N, D>(
-    header: &Header,
+    metadata: &Metadata,
     queries: &mut Q,
     answers: &mut A,
     authorities: &mut N,
@@ -651,16 +598,16 @@ where
 
     if let Some(mut edns) = edns.cloned() {
         // need to commit the error code
-        edns.set_rcode_high(header.response_code().high());
+        edns.set_rcode_high(metadata.response_code().high());
 
         let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(&edns))))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
-    } else if header.response_code().high() > 0 {
+    } else if metadata.response_code().high() > 0 {
         warn!(
             "response code: {} for request: {} requires EDNS but none available",
-            header.response_code(),
-            header.id()
+            metadata.response_code(),
+            metadata.id()
         );
     }
 
@@ -675,23 +622,37 @@ where
     additional_count.1 |= count.1;
 
     let counts = HeaderCounts {
-        query_count,
+        query_count: match u16::try_from(query_count) {
+            Ok(count) => count,
+            Err(_) => {
+                return Err(ProtoError::Message(
+                    "too many queries to fit in header count",
+                ));
+            }
+        },
         answer_count: answer_count.0,
         authority_count: authority_count.0,
         additional_count: additional_count.0,
     };
-    let was_truncated =
-        header.truncated() || answer_count.1 || authority_count.1 || additional_count.1;
 
-    let final_header = update_header_counts(header, was_truncated, counts);
-    place.replace(encoder, final_header)?;
-    Ok(final_header)
+    let mut final_metadata = *metadata;
+    final_metadata.set_truncated(
+        metadata.truncated() || answer_count.1 || authority_count.1 || additional_count.1,
+    );
+
+    let header = Header {
+        metadata: final_metadata,
+        counts,
+    };
+
+    place.replace(encoder, header)?;
+    Ok(header)
 }
 
 impl BinEncodable for Message {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         emit_message_parts(
-            &self.header,
+            &self.metadata,
             &mut self.queries.iter(),
             &mut self.answers.iter(),
             &mut self.authorities.iter(),
@@ -707,35 +668,35 @@ impl BinEncodable for Message {
 
 impl<'r> BinDecodable<'r> for Message {
     fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let mut header = Header::read(decoder)?;
+        let Header {
+            mut metadata,
+            counts,
+        } = Header::read(decoder)?;
 
         // TODO: return just header, and in the case of the rest of message getting an error.
         //  this could improve error detection while decoding.
 
         // get the questions
-        let count = header.query_count() as usize;
+        let count = counts.query_count as usize;
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(Query::read(decoder)?);
         }
 
-        // get all counts before header moves
-        let answer_count = header.answer_count() as usize;
-        let authority_count = header.authority_count() as usize;
-        let additional_count = header.additional_count() as usize;
-
-        let (answers, _, _) = Self::read_records(decoder, answer_count, false)?;
-        let (authorities, _, _) = Self::read_records(decoder, authority_count, false)?;
-        let (additionals, edns, signature) = Self::read_records(decoder, additional_count, true)?;
+        let (answers, _, _) = Self::read_records(decoder, counts.answer_count as usize, false)?;
+        let (authorities, _, _) =
+            Self::read_records(decoder, counts.authority_count as usize, false)?;
+        let (additionals, edns, signature) =
+            Self::read_records(decoder, counts.additional_count as usize, true)?;
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
             let high_response_code = edns.rcode_high();
-            header.merge_response_code(high_response_code);
+            metadata.merge_response_code(high_response_code);
         }
 
         Ok(Self {
-            header,
+            metadata,
             queries,
             answers,
             authorities,
@@ -764,7 +725,7 @@ impl fmt::Display for Message {
             Ok(())
         };
 
-        writeln!(f, "; header {header}", header = self.header)?;
+        writeln!(f, "; header {header}", header = self.metadata)?;
 
         if let Some(edns) = &self.edns {
             writeln!(f, "; edns {edns}")?;
@@ -773,14 +734,14 @@ impl fmt::Display for Message {
         writeln!(f, "; query")?;
         write_query(&self.queries, f)?;
 
-        if self.header.message_type() == MessageType::Response
-            || self.header.op_code() == OpCode::Update
+        if self.metadata.message_type() == MessageType::Response
+            || self.metadata.op_code() == OpCode::Update
         {
-            writeln!(f, "; answers {}", self.answer_count())?;
+            writeln!(f, "; answers {}", self.answers.len())?;
             write_slice(&self.answers, f)?;
-            writeln!(f, "; authorities {}", self.authority_count())?;
+            writeln!(f, "; authorities {}", self.authorities.len())?;
             write_slice(&self.authorities, f)?;
-            writeln!(f, "; additionals {}", self.additional_count())?;
+            writeln!(f, "; additionals {}", self.additionals.len())?;
             write_slice(&self.additionals, f)?;
         }
 
@@ -809,7 +770,7 @@ mod tests {
     fn test_emit_and_read_header() {
         let mut message = Message::response(10, OpCode::Update);
         message
-            .header
+            .metadata
             .set_authoritative(true)
             .set_truncated(false)
             .set_recursion_desired(true)
@@ -823,13 +784,13 @@ mod tests {
     fn test_emit_and_read_query() {
         let mut message = Message::response(10, OpCode::Update);
         message
-            .header
+            .metadata
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
             .set_recursion_available(true)
             .set_response_code(ResponseCode::ServFail);
-        message.add_query(Query::new()).update_counts(); // we're not testing the query parsing, just message
+        message.add_query(Query::new());
 
         test_emit_and_read(message);
     }
@@ -838,7 +799,7 @@ mod tests {
     fn test_emit_and_read_records() {
         let mut message = Message::response(10, OpCode::Update);
         message
-            .header
+            .metadata
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
@@ -850,7 +811,6 @@ mod tests {
         message.add_answer(Record::stub());
         message.add_authority(Record::stub());
         message.add_additional(Record::stub());
-        message.update_counts();
 
         test_emit_and_read(message);
     }
@@ -873,7 +833,7 @@ mod tests {
     fn test_header_counts_correction_after_emit_read() {
         let mut message = Message::response(10, OpCode::Update);
         message
-            .header
+            .metadata
             .set_authoritative(true)
             .set_truncated(true)
             .set_recursion_desired(true)
@@ -886,21 +846,11 @@ mod tests {
         message.add_authority(Record::stub());
         message.add_additional(Record::stub());
 
-        // at here, we don't call update_counts and we even set wrong count,
-        // because we are trying to test whether the counts in the header
-        // are correct after the message is emitted and read.
-        message.header.set_query_count(1);
-        message.header.set_answer_count(5);
-        message.header.set_authority_count(5);
-        // message.set_additional_count(1);
-
         let got = get_message_after_emitting_and_reading(message);
-
-        // make comparison
-        assert_eq!(got.query_count(), 0);
-        assert_eq!(got.answer_count(), 1);
-        assert_eq!(got.authority_count(), 1);
-        assert_eq!(got.additional_count(), 1);
+        assert_eq!(got.queries.len(), 0);
+        assert_eq!(got.answers.len(), 1);
+        assert_eq!(got.authorities.len(), 1);
+        assert_eq!(got.additionals.len(), 1);
     }
 
     #[cfg(test)]

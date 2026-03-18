@@ -5,19 +5,14 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use alloc::vec::Vec;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
-use alloc::vec::Vec;
-
-use crate::{
-    error::{ProtoError, ProtoResult},
-    op::Header,
-};
-
 use super::BinEncodable;
+use crate::error::{ProtoError, ProtoResult};
 
 // this is private to make sure there is no accidental access to the inner buffer.
 mod private {
@@ -537,10 +532,6 @@ pub trait EncodedSize: BinEncodable {
 
 impl EncodedSize for u16 {
     const LEN: usize = 2;
-}
-
-impl EncodedSize for Header {
-    const LEN: usize = 12;
 }
 
 /// A place in the encoded stream that the encoder can rewrite
