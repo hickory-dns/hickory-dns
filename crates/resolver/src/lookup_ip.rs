@@ -351,7 +351,7 @@ pub(crate) mod tests {
             RData::A(Ipv4Addr::LOCALHOST.into()),
         )]);
 
-        let resp = DnsResponse::from_message(message).unwrap();
+        let resp = DnsResponse::from_message(message.to_response()).unwrap();
         assert!(resp.contains_answer());
         Ok(resp)
     }
@@ -365,13 +365,13 @@ pub(crate) mod tests {
             RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into()),
         )]);
 
-        let resp = DnsResponse::from_message(message).unwrap();
+        let resp = DnsResponse::from_message(message.to_response()).unwrap();
         assert!(resp.contains_answer());
         Ok(resp)
     }
 
     pub(crate) fn empty() -> Result<DnsResponse, NetError> {
-        Ok(DnsResponse::from_message(Message::query()).unwrap())
+        Ok(DnsResponse::from_message(Message::query().to_response()).unwrap())
     }
 
     pub(crate) fn error() -> Result<DnsResponse, NetError> {

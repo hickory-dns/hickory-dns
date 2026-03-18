@@ -122,7 +122,7 @@ mod test {
             let i = Arc::clone(&self.i);
             Box::pin(stream::once(async move {
                 let mut i = i.lock().await;
-                let message = Message::new(*i, MessageType::Query, OpCode::Query);
+                let message = Message::new(*i, MessageType::Query, OpCode::Query).to_response();
                 std::println!(
                     "sending {}: {}",
                     *i,
