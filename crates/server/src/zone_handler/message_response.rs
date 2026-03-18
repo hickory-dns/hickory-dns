@@ -8,7 +8,7 @@
 use crate::{
     proto::{
         ProtoError,
-        op::{Edns, Header, ResponseCode, emit_message_parts},
+        op::{Edns, Metadata, ResponseCode, emit_message_parts},
         rr::{Record, rdata::TSIG},
         serialize::binary::BinEncoder,
     },
@@ -28,7 +28,7 @@ where
     Soa: Iterator<Item = &'a Record> + Send + 'a,
     Additionals: Iterator<Item = &'a Record> + Send + 'a,
 {
-    header: Header,
+    metadata: Metadata,
     queries: &'q Queries,
     answers: Answers,
     authorities: Authorities,
@@ -46,13 +46,13 @@ where
     D: Iterator<Item = &'a Record> + Send + 'a,
 {
     /// Returns the header of the message
-    pub fn header(&self) -> &Header {
-        &self.header
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
     /// Get a mutable reference to the header
-    pub fn header_mut(&mut self) -> &mut Header {
-        &mut self.header
+    pub fn metadata_mut(&mut self) -> &mut Metadata {
+        &mut self.metadata
     }
 
     /// Set the EDNS options for the Response
@@ -79,8 +79,8 @@ where
         // soa records are part of the authority section
         let mut authorities = self.authorities.chain(self.soa);
 
-        emit_message_parts(
-            &self.header,
+        let header = emit_message_parts(
+            &self.metadata,
             &mut self.queries.as_emit_and_count(),
             &mut self.answers,
             &mut authorities,
@@ -88,8 +88,9 @@ where
             self.edns,
             self.signature.as_deref(),
             encoder,
-        )
-        .map(Into::into)
+        )?;
+
+        Ok(ResponseInfo::from(header))
     }
 }
 
@@ -139,7 +140,7 @@ impl<'q> MessageResponseBuilder<'q> {
     ///     impl Iterator<Item = &'static Record> + Send + 'static,
     /// > {
     ///     MessageResponseBuilder::from_message_request(request)
-    ///         .error_msg(request.header(), ResponseCode::ServFail)
+    ///         .error_msg(request.metadata(), ResponseCode::ServFail)
     /// }
     /// ```
     pub fn from_message_request(message: &'q MessageRequest) -> Self {
@@ -155,7 +156,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// Constructs the new MessageResponse with associated data
     pub fn build<'a, A, N, S, D>(
         self,
-        header: Header,
+        metadata: Metadata,
         answers: A,
         authorities: N,
         soa: S,
@@ -172,7 +173,7 @@ impl<'q> MessageResponseBuilder<'q> {
         D::IntoIter: Send,
     {
         MessageResponse {
-            header,
+            metadata,
             queries: self.queries,
             answers: answers.into_iter(),
             authorities: authorities.into_iter(),
@@ -186,7 +187,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// Construct a Response with no associated records
     pub fn build_no_records<'a>(
         self,
-        header: Header,
+        metadata: Metadata,
     ) -> MessageResponse<
         'q,
         'a,
@@ -196,7 +197,7 @@ impl<'q> MessageResponseBuilder<'q> {
         impl Iterator<Item = &'a Record> + Send + 'a,
     > {
         MessageResponse {
-            header,
+            metadata,
             queries: self.queries,
             answers: Box::new(None.into_iter()),
             authorities: Box::new(None.into_iter()),
@@ -210,7 +211,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// Constructs a new error MessageResponse with associated header and response code
     pub fn error_msg<'a>(
         self,
-        request_header: &Header,
+        request_meta: &Metadata,
         response_code: ResponseCode,
     ) -> MessageResponse<
         'q,
@@ -220,11 +221,11 @@ impl<'q> MessageResponseBuilder<'q> {
         impl Iterator<Item = &'a Record> + Send + 'a,
         impl Iterator<Item = &'a Record> + Send + 'a,
     > {
-        let mut header = Header::response_from_request(request_header);
-        header.set_response_code(response_code);
+        let mut metadata = Metadata::response_from_request(request_meta);
+        metadata.set_response_code(response_code);
 
         MessageResponse {
-            header,
+            metadata,
             queries: self.queries,
             answers: Box::new(None.into_iter()),
             authorities: Box::new(None.into_iter()),
@@ -242,7 +243,7 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use crate::proto::op::{Header, Message, MessageType, OpCode};
+    use crate::proto::op::{Header, Message, MessageType, Metadata, OpCode};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
     use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 
@@ -264,7 +265,7 @@ mod tests {
             .clone();
 
             let message = MessageResponse {
-                header: Header::new(10, MessageType::Response, OpCode::Query),
+                metadata: Metadata::new(10, MessageType::Response, OpCode::Query),
                 queries: &Queries::empty(),
                 answers: iter::repeat(&answer),
                 authorities: iter::once(&answer),
@@ -280,10 +281,10 @@ mod tests {
         }
 
         let response = Message::from_vec(&buf).expect("failed to decode");
-        assert!(response.header.truncated());
-        assert!(response.answer_count() > 1);
+        assert!(response.metadata.truncated());
+        assert!(response.answers.len() > 1);
         // should never have written the authority section...
-        assert_eq!(response.authority_count(), 0);
+        assert_eq!(response.authorities.len(), 0);
     }
 
     #[test]
@@ -302,7 +303,7 @@ mod tests {
             .clone();
 
             let message = MessageResponse {
-                header: Header::new(10, MessageType::Response, OpCode::Query),
+                metadata: Metadata::new(10, MessageType::Response, OpCode::Query),
                 queries: &Queries::empty(),
                 answers: iter::empty(),
                 authorities: iter::repeat(&answer),
@@ -318,9 +319,9 @@ mod tests {
         }
 
         let response = Message::from_vec(&buf).expect("failed to decode");
-        assert!(response.header.truncated());
-        assert_eq!(response.answer_count(), 0);
-        assert!(response.authority_count() > 1);
+        assert!(response.metadata.truncated());
+        assert_eq!(response.answers.len(), 0);
+        assert!(response.authorities.len() > 1);
     }
 
     // https://github.com/hickory-dns/hickory-dns/issues/2210
@@ -373,7 +374,7 @@ mod tests {
         eprintln!("queries: {:?}", msg.queries());
 
         MessageResponseBuilder::new(msg.raw_queries(), None)
-            .build_no_records(Header::response_from_request(msg.header()))
+            .build_no_records(Metadata::response_from_request(msg.metadata()))
             .destructive_emit(&mut encoder)
             .unwrap();
     }

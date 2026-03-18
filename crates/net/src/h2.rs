@@ -116,7 +116,7 @@ impl DnsRequestSender for HttpsClientStream {
         }
 
         // per the RFC, a zero id allows for the HTTP packet to be cached better
-        request.header.set_id(0);
+        request.metadata.set_id(0);
 
         let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
@@ -503,7 +503,7 @@ mod tests {
         let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
-        request.header.set_recursion_desired(true);
+        request.metadata.set_recursion_desired(true);
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
@@ -541,7 +541,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        request.header.set_recursion_desired(true);
+        request.metadata.set_recursion_desired(true);
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
@@ -572,7 +572,7 @@ mod tests {
         let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
-        request.header.set_recursion_desired(true);
+        request.metadata.set_recursion_desired(true);
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
@@ -614,7 +614,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        request.header.set_recursion_desired(true);
+        request.metadata.set_recursion_desired(true);
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
@@ -646,7 +646,7 @@ mod tests {
         let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
-        request.header.set_recursion_desired(true);
+        request.metadata.set_recursion_desired(true);
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
@@ -686,7 +686,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        request.header.set_recursion_desired(true);
+        request.metadata.set_recursion_desired(true);
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);

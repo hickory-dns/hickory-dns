@@ -13,7 +13,7 @@ use hickory_proto::{
         Algorithm, Verifier,
         rdata::{DNSKEY, DNSSECRData, RRSIG},
     },
-    op::{Header, MessageType, OpCode, Query},
+    op::{MessageType, Metadata, OpCode, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
 };
 use hickory_server::{
@@ -21,7 +21,7 @@ use hickory_server::{
     zone_handler::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
 };
 
-const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
+const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
 
 pub fn test_a_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(

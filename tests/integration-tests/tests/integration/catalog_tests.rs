@@ -168,7 +168,7 @@ async fn test_catalog_lookup() {
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header.authoritative());
+    assert!(result.metadata.authoritative());
 
     let answers = result.answers;
 
@@ -207,7 +207,7 @@ async fn test_catalog_lookup() {
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header.authoritative());
+    assert!(result.metadata.authoritative());
 
     let answers = result.answers;
 
@@ -258,7 +258,7 @@ async fn test_catalog_lookup_soa() {
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header.authoritative());
+    assert!(result.metadata.authoritative());
 
     let answers = result.answers;
 
@@ -330,7 +330,7 @@ async fn test_catalog_nx_soa() {
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header.authoritative());
+    assert!(result.metadata.authoritative());
 
     let authorities = result.authorities;
 
@@ -386,7 +386,7 @@ async fn test_non_authoritive_nx_refused() {
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert_eq!(result.message_type(), MessageType::Response);
-    assert!(!result.header.authoritative());
+    assert!(!result.metadata.authoritative());
 
     assert_eq!(result.authorities.len(), 0);
     assert_eq!(result.answers.len(), 0);
@@ -915,7 +915,7 @@ async fn test_update_forwarder() {
         86400,
         RData::A(A(Ipv4Addr::LOCALHOST)),
     ));
-    message.header.set_recursion_desired(true);
+    message.metadata.set_recursion_desired(true);
 
     let message_bytes = message.to_bytes().unwrap();
     let request =

@@ -185,7 +185,7 @@ impl MockNetworkHandler {
             let query = Query::query(response.query_name.clone(), response.query_type);
             let mut message = Message::response(0, OpCode::Query);
             message.add_query(query.clone());
-            message.header.set_authoritative(true);
+            message.metadata.set_authoritative(true);
 
             if let Some(ns) = hashed_responses.get(&response.ns) {
                 if let Some(existing_message) = ns.get(&query) {
@@ -242,7 +242,7 @@ impl MockHandler for MockNetworkHandler {
             return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
         };
         let mut response = response.clone();
-        response.header.set_id(request.id());
+        response.metadata.set_id(request.id());
         response.queries.clear();
         response.add_query(query.clone());
 

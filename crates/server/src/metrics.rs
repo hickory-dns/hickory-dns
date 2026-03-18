@@ -13,7 +13,7 @@ use std::{
 };
 
 use hickory_net::xfer::Protocol as NetProtocol;
-use hickory_proto::op::{Header, LowerQuery, OpCode, ResponseCode};
+use hickory_proto::op::{LowerQuery, Metadata, OpCode, ResponseCode};
 use hickory_proto::rr::{DNSClass, Record, RecordType};
 use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 
@@ -360,9 +360,8 @@ impl ResponseHandlerMetrics {
     ) {
         self.proto.increment(&response_handler.protocol);
         self.operation
-            .increment(&response_handler.request_header.op_code());
-        self.request_flags
-            .increment(&response_handler.request_header);
+            .increment(&response_handler.request_meta.op_code());
+        self.request_flags.increment(&response_handler.request_meta);
 
         self.response_code.increment(&response_info.response_code());
         self.response_flags.increment(response_info);
@@ -518,23 +517,23 @@ impl FlagMetrics {
 }
 
 impl FlagMetrics {
-    pub(super) fn increment(&self, header: &Header) {
-        if header.authoritative() {
+    pub(super) fn increment(&self, metadata: &Metadata) {
+        if metadata.authoritative() {
             self.authoritative.increment(1);
         }
-        if header.authentic_data() {
+        if metadata.authentic_data() {
             self.authentic_data.increment(1);
         }
-        if header.checking_disabled() {
+        if metadata.checking_disabled() {
             self.checking_disabled.increment(1);
         }
-        if header.recursion_available() {
+        if metadata.recursion_available() {
             self.recursion_available.increment(1);
         }
-        if header.recursion_desired() {
+        if metadata.recursion_desired() {
             self.recursion_desired.increment(1);
         }
-        if header.truncated() {
+        if metadata.truncated() {
             self.truncation.increment(1);
         }
     }

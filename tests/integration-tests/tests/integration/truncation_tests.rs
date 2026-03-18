@@ -47,7 +47,7 @@ async fn test_truncation() {
         query.set_query_class(DNSClass::IN);
         query
     });
-    msg.header.set_recursion_desired(true);
+    msg.metadata.set_recursion_desired(true);
     msg.edns = Some({
         let mut edns = Edns::new();
         edns.set_max_payload(max_payload).set_version(0);
