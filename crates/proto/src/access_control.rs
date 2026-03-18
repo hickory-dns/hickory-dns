@@ -29,11 +29,11 @@ pub struct AccessControlSet {
     v6_deny: PrefixSet<Ipv6Net>,
 }
 
-impl<'a> AccessControlSet {
+impl AccessControlSet {
     /// Construct an access control set with the given `name`.
     ///
     /// The name is used to contextualize logging when an [`IpAddr`] is denied.
-    pub fn new(name: &'static str) -> Self {
+    fn new(name: &'static str) -> Self {
         Self {
             name,
             v4_allow: PrefixSet::new(),
@@ -43,59 +43,14 @@ impl<'a> AccessControlSet {
         }
     }
 
-    /// Override the [`Self::deny()`] list for the provided IP networks, allowing access.
-    ///
-    /// Existing networks allowed by prior [`Self::allow()`] calls are not removed.
-    pub fn allow(&mut self, allow: impl Iterator<Item = &'a IpNet>) {
-        for network in allow {
-            debug!(self.name, ?network, "appending to allow list");
-            match network {
-                IpNet::V4(network) => {
-                    self.v4_allow.insert(*network);
-                }
-                IpNet::V6(network) => {
-                    self.v6_allow.insert(*network);
-                }
-            }
-        }
-    }
-
-    /// Deny clients from the provided IP networks, unless present in the [`Self::allow()`] list.
-    ///
-    /// Existing networks denied by prior [`Self::deny()`] calls are not removed.
-    pub fn deny(&mut self, deny: impl Iterator<Item = &'a IpNet>) {
-        for network in deny {
-            debug!(self.name, ?network, "appending to deny list");
-            match network {
-                IpNet::V4(network) => {
-                    self.v4_deny.insert(*network);
-                }
-                IpNet::V6(network) => {
-                    self.v6_deny.insert(*network);
-                }
-            }
-        }
-    }
-
-    /// Clear all IP networks previous allowed with [`Self::allow()`].
-    pub fn clear_allow(&mut self) {
-        self.v4_allow.clear();
-        self.v6_allow.clear();
-    }
-
-    /// Clear all IP networks previously denied with [`Self::deny()`].
-    pub fn clear_deny(&mut self) {
-        self.v4_deny.clear();
-        self.v6_deny.clear();
-    }
-
     /// Check if the IP address `ip` should be denied.
     ///
-    /// If the IP address is in a network previously denied by [`Self::deny()`] that wasn't
-    /// explicitly allowed with [`Self::allow()`], this function will return true.
+    /// If the IP address is in a network previously denied by [`AccessControlSetBuilder::deny()`]
+    /// that wasn't explicitly allowed with [`AccessControlSetBuilder::allow()`], this function
+    /// will return true.
     ///
-    /// All other combinations will return false (i.e., [`Self::allow()`] acts like an
-    /// exception list for [`Self::deny()`])
+    /// All other combinations will return false (i.e., [`AccessControlSetBuilder::allow()`] acts
+    /// like an exception list for [`AccessControlSetBuilder::deny()`])
     pub fn denied(&self, ip: IpAddr) -> bool {
         match ip {
             IpAddr::V4(ip) => {
@@ -127,17 +82,50 @@ impl<'a> AccessControlSetBuilder {
     ///
     /// See [`AccessControlSet`] for more information on the access semantics.
     pub fn allow(mut self, allow: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.0.allow(allow);
+        for network in allow {
+            debug!(name = self.0.name, ?network, "appending to allow list");
+            match network {
+                IpNet::V4(network) => {
+                    self.0.v4_allow.insert(*network);
+                }
+                IpNet::V6(network) => {
+                    self.0.v6_allow.insert(*network);
+                }
+            }
+        }
         self
     }
-
     /// Deny clients from the provided IP networks, unless present in the [`Self::allow()`] list.
     ///
     /// Existing networks denied by prior [`Self::deny()`] calls are not removed.
     ///
     /// See [`AccessControlSet`] for more information on the access semantics.
     pub fn deny(mut self, deny: impl Iterator<Item = &'a IpNet>) -> Self {
-        self.0.deny(deny);
+        for network in deny {
+            debug!(name = self.0.name, ?network, "appending to deny list");
+            match network {
+                IpNet::V4(network) => {
+                    self.0.v4_deny.insert(*network);
+                }
+                IpNet::V6(network) => {
+                    self.0.v6_deny.insert(*network);
+                }
+            }
+        }
+        self
+    }
+
+    /// Clear all IP networks previous allowed with [`Self::allow()`].
+    pub fn clear_allow(mut self) -> Self {
+        self.0.v4_allow.clear();
+        self.0.v6_allow.clear();
+        self
+    }
+
+    /// Clear all IP networks previously denied with [`Self::deny()`].
+    pub fn clear_deny(mut self) -> Self {
+        self.0.v4_deny.clear();
+        self.0.v6_deny.clear();
         self
     }
 
