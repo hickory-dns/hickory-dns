@@ -3,7 +3,7 @@
 
 extern crate test;
 
-use hickory_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
+use hickory_proto::op::{Message, MessageType, Metadata, OpCode, ResponseCode};
 use hickory_proto::rr::{Name, Record, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 

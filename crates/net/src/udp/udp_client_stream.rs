@@ -554,7 +554,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn retry_handler_test() -> Result<(), NetError> {
         let mut message = Message::query();
-        message.header.set_response_code(ResponseCode::NoError);
+        message.metadata.set_response_code(ResponseCode::NoError);
 
         let ret = retry::<TokioRuntimeProvider>(
             FixedResponse {

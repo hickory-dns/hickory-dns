@@ -14,7 +14,7 @@ use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::{Edns, LowerQuery, Message};
-use hickory_proto::op::{Header, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::op::{MessageType, Metadata, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::TSigner;
 #[cfg(feature = "__dnssec")]
@@ -37,7 +37,7 @@ use hickory_server::zone_handler::{
 };
 use test_support::subscribe;
 
-const TEST_HEADER: &Header = &Header::new(10, MessageType::Query, OpCode::Query);
+const TEST_METADATA: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
 
 fn create_example() -> SqliteZoneHandler {
     let mut handler = hickory_integration::example_zone::create_example();
@@ -61,7 +61,7 @@ async fn test_search() {
     let mut query = Query::new();
     query.set_name(origin.into());
     let request = Request::from_message(
-        MessageRequest::mock(*TEST_HEADER, query),
+        MessageRequest::mock(*TEST_METADATA, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
     )
@@ -92,7 +92,7 @@ async fn test_search_www() {
     let mut query = Query::new();
     query.set_name(www_name);
     let request = Request::from_message(
-        MessageRequest::mock(*TEST_HEADER, query),
+        MessageRequest::mock(*TEST_METADATA, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
     )
@@ -259,7 +259,7 @@ async fn test_authorize_update() {
     let handler = create_example();
 
     let mut message = Message::query();
-    message.header.set_op_code(OpCode::Update);
+    message.metadata.set_op_code(OpCode::Update);
     message.add_query(Query::default());
 
     let bytes = message.to_bytes().unwrap();
@@ -665,7 +665,7 @@ async fn test_update() {
     original_vec.sort();
 
     let message_request = MessageRequest::mock(
-        Header::new(0, MessageType::Query, OpCode::Query),
+        Metadata::new(0, MessageType::Query, OpCode::Query),
         Query::query(origin_name, RecordType::AXFR),
     );
     let request = Request::from_message(
@@ -950,7 +950,7 @@ async fn test_update_tsig_valid() {
     let new_name = Name::from_str("new.example.com.").unwrap();
     let origin_name = Name::from_str("example.com.").unwrap();
     let message_request = MessageRequest::mock(
-        Header::new(0, MessageType::Query, OpCode::Query),
+        Metadata::new(0, MessageType::Query, OpCode::Query),
         Query::query(origin_name, RecordType::AXFR),
     );
     let request = Request::from_message(
@@ -1009,14 +1009,14 @@ async fn test_update_tsig_valid() {
         NSIDPayload::new([0xC0, 0xFF, 0xEE]).unwrap(),
     ));
     let response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns));
-    let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
+    let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NoError);
     let mut response = response.build_no_records(response_header);
 
     // Serialize the unsigned response to get the TBS bytes to sign with the signer.
     let mut tbs_response_buf = Vec::with_capacity(512);
     let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-    let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
+    let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NoError);
     let tbs_response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns))
         .build_no_records(response_header);
@@ -1205,14 +1205,14 @@ async fn test_update_tsig_invalid_stale_sig() {
     // The catalog handles this in normal operation, but we're testing at the level of the
     // SqliteZoneHandler and so have to do this ourselves.
     let response = MessageResponseBuilder::new(request.raw_queries(), None);
-    let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
+    let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NotAuth);
     let mut response = response.build_no_records(response_header);
 
     // Serialize the unsigned response to get the TBS bytes to sign with the signer.
     let mut tbs_response_buf = Vec::with_capacity(512);
     let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-    let mut response_header = Header::new(request.id(), MessageType::Response, OpCode::Update);
+    let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
     response_header.set_response_code(ResponseCode::NotAuth);
     let tbs_response =
         MessageResponseBuilder::new(request.raw_queries(), None).build_no_records(response_header);
@@ -1263,7 +1263,7 @@ fn test_update_message(name: Name) -> Message {
     add_rec.set_dns_class(DNSClass::IN);
 
     let mut message = Message::query();
-    message.header.set_op_code(OpCode::Update);
+    message.metadata.set_op_code(OpCode::Update);
     message.add_query(q).add_authority(add_rec);
     message
 }
@@ -1279,7 +1279,7 @@ async fn test_zone_signing() {
     let handler = create_secure_example();
 
     let message_request = MessageRequest::mock(
-        Header::new(0, MessageType::Query, OpCode::Query),
+        Metadata::new(0, MessageType::Query, OpCode::Query),
         Query::query(handler.origin().clone().into(), RecordType::AXFR),
     );
     let request = Request::from_message(
@@ -1544,7 +1544,7 @@ async fn test_axfr_allow_all() {
 
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -1575,7 +1575,7 @@ async fn test_axfr_deny_all() {
 
     let request = Request::from_message(
         MessageRequest::mock(
-            *TEST_HEADER,
+            *TEST_METADATA,
             Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -1612,7 +1612,7 @@ async fn test_axfr_deny_unsigned() {
         RecordType::AXFR,
     ));
     let request = Request::from_message(
-        MessageRequest::mock(*TEST_HEADER, query),
+        MessageRequest::mock(*TEST_METADATA, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
     )

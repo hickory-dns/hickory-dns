@@ -45,7 +45,7 @@ use crate::{
         xfer::Protocol,
     },
     proto::{
-        op::{Header, LowerQuery, MessageType, ResponseCode, SerialMessage},
+        op::{Header, LowerQuery, MessageType, Metadata, ResponseCode, SerialMessage},
         rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
     },
@@ -669,7 +669,7 @@ pub fn default_tls_server_config(
 
 #[derive(Clone)]
 pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
-    pub(super) request_header: Header,
+    pub(super) request_meta: Metadata,
     queries: Vec<LowerQuery>,
     pub(super) protocol: Protocol,
     src_addr: SocketAddr,
@@ -693,7 +693,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
     ) -> Result<ResponseInfo, NetError> {
         let response_info = self.handler.send_response(response).await?;
 
-        let id = self.request_header.id();
+        let id = self.request_meta.id();
         let rid = response_info.id();
         if id != rid {
             warn!("request id:{id} does not match response id:{rid}");
@@ -701,9 +701,9 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         }
 
         let rflags = response_info.flags();
-        let answer_count = response_info.answer_count();
-        let authority_count = response_info.authority_count();
-        let additional_count = response_info.additional_count();
+        let answer_count = response_info.counts().answer_count;
+        let authority_count = response_info.counts().authority_count;
+        let additional_count = response_info.counts().additional_count;
         let response_code = response_info.response_code();
 
         info!(
@@ -712,8 +712,8 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             proto = self.protocol,
             addr = self.src_addr.ip(),
             port = self.src_addr.port(),
-            op = self.request_header.op_code(),
-            qflags = self.request_header.flags(),
+            op = self.request_meta.op_code(),
+            qflags = self.request_meta.flags(),
             code = response_code,
             answers = answer_count,
             authorities = authority_count,
@@ -779,7 +779,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 port = src_addr.port(),
             );
 
-            let queries = match Queries::read(&mut decoder, header.query_count() as usize) {
+            let queries = match Queries::read(&mut decoder, header.counts.query_count as usize) {
                 Ok(queries) => queries,
                 Err(_) => Queries::empty(),
             };
@@ -830,7 +830,7 @@ impl<T: RequestHandler> ServerContext<T> {
         }
 
         let id = request.message.id();
-        let qflags = request.message.header().flags();
+        let qflags = request.message.metadata().flags();
         let qop_code = request.message.op_code();
         let message_type = request.message.message_type();
         let is_dnssec = request
@@ -861,7 +861,7 @@ impl<T: RequestHandler> ServerContext<T> {
         // The reporter will handle making sure to log the result of the request
         let queries = request.queries().to_vec();
         let reporter = ReportingResponseHandler {
-            request_header: *request.header(),
+            request_meta: *request.metadata(),
             queries,
             protocol: request.protocol(),
             src_addr: request.src(),
@@ -901,7 +901,7 @@ async fn error_response_handler(
 
     // The reporter will handle making sure to log the result of the request
     let mut reporter = ReportingResponseHandler {
-        request_header: header,
+        request_meta: header.metadata,
         queries: queries.queries().to_vec(),
         protocol,
         src_addr,

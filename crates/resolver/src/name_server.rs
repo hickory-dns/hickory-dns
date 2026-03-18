@@ -2150,7 +2150,7 @@ mod mock_provider {
 
         fn send(&self, request: DnsRequest) -> Self::Response {
             let mut response = Message::response(request.id(), request.op_code());
-            response.header.set_response_code(ResponseCode::NoError);
+            response.metadata.set_response_code(ResponseCode::NoError);
             response.add_queries(request.queries.clone());
             Box::pin(once(future::ready(Ok(
                 DnsResponse::from_message(response).unwrap()

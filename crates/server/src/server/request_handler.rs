@@ -7,8 +7,9 @@
 
 //! Request Handler for incoming requests
 
-use bytes::Bytes;
 use std::net::SocketAddr;
+
+use bytes::Bytes;
 
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
@@ -16,7 +17,7 @@ use crate::{
     net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{Header, LowerQuery, MessageType, ResponseCode},
+        op::{Header, HeaderCounts, LowerQuery, MessageType, Metadata, ResponseCode},
         serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
@@ -78,7 +79,7 @@ impl Request {
         Ok(RequestInfo {
             src: self.src,
             protocol: self.protocol,
-            header: self.message.header(),
+            metadata: self.message.metadata(),
             query: self.message.raw_queries().try_as_query()?,
         })
     }
@@ -117,7 +118,7 @@ pub struct RequestInfo<'a> {
     /// The protocol used for the request
     pub protocol: Protocol,
     /// The header from the original request
-    pub header: &'a Header,
+    pub metadata: &'a Metadata,
     /// The query from the request
     pub query: &'a LowerQuery,
 }
@@ -134,13 +135,13 @@ impl<'a> RequestInfo<'a> {
     pub fn new(
         src: SocketAddr,
         protocol: Protocol,
-        header: &'a Header,
+        metadata: &'a Metadata,
         query: &'a LowerQuery,
     ) -> Self {
         Self {
             src,
             protocol,
-            header,
+            metadata,
             query,
         }
     }
@@ -153,23 +154,31 @@ pub struct ResponseInfo(Header);
 
 impl ResponseInfo {
     pub(crate) fn serve_failed(request: &Request) -> Self {
-        let mut header = Header::new(request.id(), MessageType::Response, request.op_code());
-        header.set_response_code(ResponseCode::ServFail);
-        header.into()
+        let mut metadata = Metadata::new(request.id(), MessageType::Response, request.op_code());
+        metadata.set_response_code(ResponseCode::ServFail);
+        Self(Header {
+            metadata,
+            counts: HeaderCounts::default(),
+        })
+    }
+
+    /// Header counts for the response
+    pub fn counts(&self) -> HeaderCounts {
+        self.0.counts
     }
 }
 
 impl From<Header> for ResponseInfo {
-    fn from(header: Header) -> Self {
-        Self(header)
+    fn from(value: Header) -> Self {
+        Self(value)
     }
 }
 
 impl std::ops::Deref for ResponseInfo {
-    type Target = Header;
+    type Target = Metadata;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.0.metadata
     }
 }
 
@@ -192,12 +201,12 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::op::{Header, OpCode, Query};
+    use crate::proto::op::{Metadata, OpCode, Query};
 
     #[test]
     fn request_info_clone() {
         let query = Query::new();
-        let header = Header::new(10, MessageType::Query, OpCode::Query);
+        let header = Metadata::new(10, MessageType::Query, OpCode::Query);
         let lower_query = query.into();
         let origin = RequestInfo::new(
             "127.0.0.1:3000".parse().unwrap(),
@@ -206,6 +215,6 @@ mod tests {
             &lower_query,
         );
         let cloned = origin.clone();
-        assert_eq!(origin.header, cloned.header);
+        assert_eq!(origin.metadata, cloned.metadata);
     }
 }
