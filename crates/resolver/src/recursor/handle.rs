@@ -111,7 +111,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             AccessControlSetBuilder::new("answers")
                 .allow(allow_answers.iter()) // no recommended exceptions
                 .deny(deny_answers.iter()) // no recommend default filters
-                .build(),
+                .build()?,
         );
         pool_context.opportunistic_encryption = opportunistic_encryption;
         if let Some(state) = encrypted_transport_state {
@@ -145,7 +145,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             name_server_filter: AccessControlSetBuilder::new("name_servers")
                 .allow(allow_server.iter())
                 .deny(deny_server.iter())
-                .build(),
+                .build()?,
             pool_context,
             conn_provider,
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
