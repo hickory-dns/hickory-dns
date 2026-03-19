@@ -5,6 +5,8 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use prefix_trie::PrefixSet;
 use tracing::debug;
 
+use crate::ProtoError;
+
 /// A builder interface for constructing an [`AccessControlSet`].
 pub struct AccessControlSetBuilder(AccessControlSet);
 
@@ -71,8 +73,19 @@ impl<'a> AccessControlSetBuilder {
     }
 
     /// Consume the builder and produce an [`AccessControlSet`].
-    pub fn build(self) -> AccessControlSet {
-        self.0
+    ///
+    /// Returns an error if [`Self::allow()`] was used to add deny list override networks
+    /// without using [`Self::deny()`] to specify one or more denied networks.
+    pub fn build(self) -> Result<AccessControlSet, ProtoError> {
+        let deny_empty = self.0.v4_deny.is_empty() && self.0.v6_deny.is_empty();
+        let allowed_count = self.0.v4_allow.iter().count() + self.0.v6_allow.iter().count();
+        if deny_empty && allowed_count != 0 {
+            return Err(format!(
+                "access control set {name:?} has {allowed_count} allowed overrides, but no denied networks to override",
+                name = self.0.name
+            ).into());
+        }
+        Ok(self.0)
     }
 }
 
@@ -160,7 +173,8 @@ mod tests {
                 ]
                 .iter(),
             )
-            .build();
+            .build()
+            .unwrap();
 
         // 10.1.0.3/29 above should cause 10.1.0.0/29 to be placed into the allow list; validate the
         // address before and after are blocked, and addresses within the subnet are allowed
@@ -184,6 +198,7 @@ mod tests {
             name: &'static str,
             in_deny: bool,
             in_allow: bool,
+            expected_build_err: bool,
             expected_denied: bool,
         }
 
@@ -192,24 +207,28 @@ mod tests {
                 name: "deny=true, allow=false -> denied",
                 in_deny: true,
                 in_allow: false,
+                expected_build_err: false,
                 expected_denied: true,
             },
             TestCase {
                 name: "deny=false, allow=false -> allowed",
                 in_deny: false,
                 in_allow: false,
+                expected_build_err: false,
                 expected_denied: false,
             },
             TestCase {
                 name: "deny=true, allow=true -> allowed",
                 in_deny: true,
                 in_allow: true,
+                expected_build_err: false,
                 expected_denied: false,
             },
             TestCase {
                 name: "deny=false, allow=true -> allowed",
                 in_deny: false,
                 in_allow: true,
+                expected_build_err: true,
                 expected_denied: false,
             },
         ];
@@ -220,7 +239,7 @@ mod tests {
         let test_v6_net = "2001:db8::/32".parse().unwrap();
 
         for tc in &test_cases {
-            let mut builder = AccessControlSetBuilder::new("test");
+            let mut builder = AccessControlSetBuilder::new(tc.name);
             if tc.in_deny {
                 builder = builder.deny([test_v4_net, test_v6_net].iter());
             }
@@ -228,7 +247,12 @@ mod tests {
                 builder = builder.allow([test_v4_net, test_v6_net].iter());
             }
 
-            let acs = builder.build();
+            let Ok(acs) = builder.build() else {
+                match tc.expected_build_err {
+                    true => continue,
+                    false => panic!("unexpected builder error"),
+                }
+            };
             assert_eq!(
                 acs.denied(test_v4),
                 tc.expected_denied,

@@ -23,6 +23,7 @@ use std::{fs, io};
 use ipnet::IpNet;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 #[cfg(all(
     feature = "toml",
     feature = "serde",
@@ -600,16 +601,12 @@ pub struct ResolverOpts {
 
 impl ResolverOpts {
     pub(crate) fn answer_address_filter(&self) -> Option<AccessControlSet> {
-        if self.deny_answers.is_empty() {
-            return None;
-        }
-
-        Some(
-            AccessControlSetBuilder::new("resolver_answer_filter")
-                .allow(self.allow_answers.iter())
-                .deny(self.deny_answers.iter())
-                .build(),
-        )
+        AccessControlSetBuilder::new("resolver_answer_filter")
+            .allow(self.allow_answers.iter())
+            .deny(self.deny_answers.iter())
+            .build()
+            .inspect_err(|err| warn!("{err}"))
+            .ok()
     }
 }
 
