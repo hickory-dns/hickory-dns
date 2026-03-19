@@ -739,10 +739,20 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // To avoid incrementing the depth counter for each nameserver, we'll use the passed in
             // depth as a fixed base for the nameserver lookups
             let nameserver_pool = if !is_subzone(zone, &record_name) {
-                self.ns_pool_for_name(record_name.clone(), request_time, depth)
-                    .await?
-                    .1 // discard the depth part of the tuple
-                    .with_zone(zone.clone())
+                match self
+                    .ns_pool_for_name(record_name.clone(), request_time, depth)
+                    .await
+                {
+                    Ok((_, pool)) => pool.with_zone(zone.clone()),
+                    // The NS hostname could not be resolved. This doesn't mean the
+                    // original queried domain doesn't exist, only that this nameserver
+                    // is unreachable. Skip it and try others. If they all fail, the
+                    // empty pool will result in SERVFAIL.
+                    Err(error) => {
+                        debug!(?record_name, ?error, "nameserver hostname lookup failure");
+                        continue;
+                    }
+                }
             } else {
                 nameserver_pool.clone()
             };
