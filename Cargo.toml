@@ -83,6 +83,9 @@ http = "1.1"
 # no_std
 critical-section = { version = "1.1.1" }
 
+# benchmarks
+criterion = { version = "0.8.2", features = ["async_tokio"] }
+
 # others
 bitflags = "2.4.1"
 bytes = "1"
