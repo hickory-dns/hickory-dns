@@ -175,4 +175,71 @@ mod tests {
         assert!(!acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 0x200].into()));
         assert!(acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 1].into()));
     }
+
+    // Test the access control semantics described in the Rustdoc of `AccessControlSet`
+    #[test]
+    fn access_control_semantics_test() {
+        struct TestCase {
+            name: &'static str,
+            in_deny: bool,
+            in_allow: bool,
+            expected_denied: bool,
+        }
+
+        let test_cases = [
+            TestCase {
+                name: "deny=true, allow=false -> denied",
+                in_deny: true,
+                in_allow: false,
+                expected_denied: true,
+            },
+            TestCase {
+                name: "deny=false, allow=false -> allowed",
+                in_deny: false,
+                in_allow: false,
+                expected_denied: false,
+            },
+            TestCase {
+                name: "deny=true, allow=true -> allowed",
+                in_deny: true,
+                in_allow: true,
+                expected_denied: false,
+            },
+            TestCase {
+                name: "deny=false, allow=true -> allowed",
+                in_deny: false,
+                in_allow: true,
+                expected_denied: false,
+            },
+        ];
+
+        let test_v4 = [192, 0, 2, 1].into();
+        let test_v4_net = "192.0.2.0/24".parse().unwrap();
+        let test_v6 = [0x2001, 0xdb8, 0, 0, 0, 0, 0, 1].into();
+        let test_v6_net = "2001:db8::/32".parse().unwrap();
+
+        for tc in &test_cases {
+            let mut builder = AccessControlSetBuilder::new("test");
+            if tc.in_deny {
+                builder = builder.deny([test_v4_net, test_v6_net].iter());
+            }
+            if tc.in_allow {
+                builder = builder.allow([test_v4_net, test_v6_net].iter());
+            }
+
+            let acs = builder.build();
+            assert_eq!(
+                acs.denied(test_v4),
+                tc.expected_denied,
+                "IPv4 case '{}' failed",
+                tc.name
+            );
+            assert_eq!(
+                acs.denied(test_v6),
+                tc.expected_denied,
+                "IPv6 case '{}' failed",
+                tc.name
+            );
+        }
+    }
 }
