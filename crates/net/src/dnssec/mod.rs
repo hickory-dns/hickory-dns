@@ -183,7 +183,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     }
                 }
 
-                match DnsResponse::from_message(msg) {
+                match DnsResponse::from_message(msg.to_response()) {
                     Ok(response) => response,
                     Err(err) => {
                         return Err(NetError::from(format!(
