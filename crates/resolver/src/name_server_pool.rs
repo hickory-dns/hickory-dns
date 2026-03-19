@@ -188,9 +188,9 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             active_requests.lock().remove(&key);
             let mut response = response?;
 
-            let Some(acs) = acs else {
+            if acs.allows_all() {
                 return Ok(response);
-            };
+            }
 
             let answer_filter = |record: &Record| {
                 let ip = match record.data() {
@@ -408,7 +408,7 @@ pub struct PoolContext {
     /// Opportunistic encryption name server transport state
     pub transport_state: AsyncMutex<NameServerTransportState>,
     /// Answer address filter
-    pub answer_address_filter: Option<AccessControlSet>,
+    pub answer_address_filter: AccessControlSet,
 }
 
 impl PoolContext {
@@ -435,7 +435,7 @@ impl PoolContext {
 
     /// Add an answer address filter
     pub fn with_answer_filter(mut self, answer_filter: AccessControlSet) -> Self {
-        self.answer_address_filter = Some(answer_filter);
+        self.answer_address_filter = answer_filter;
         self
     }
 

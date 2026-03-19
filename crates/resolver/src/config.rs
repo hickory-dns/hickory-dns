@@ -600,13 +600,14 @@ pub struct ResolverOpts {
 }
 
 impl ResolverOpts {
-    pub(crate) fn answer_address_filter(&self) -> Option<AccessControlSet> {
-        AccessControlSetBuilder::new("resolver_answer_filter")
+    pub(crate) fn answer_address_filter(&self) -> AccessControlSet {
+        let name = "resolver_answer_filter";
+        AccessControlSetBuilder::new(name)
             .allow(self.allow_answers.iter())
             .deny(self.deny_answers.iter())
             .build()
             .inspect_err(|err| warn!("{err}"))
-            .ok()
+            .unwrap_or_else(|_| AccessControlSet::empty(name))
     }
 }
 

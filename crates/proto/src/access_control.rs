@@ -127,6 +127,18 @@ impl AccessControlSet {
         }
     }
 
+    /// Construct an empty access control set with the given `name` that allows all networks.
+    pub fn empty(name: &'static str) -> Self {
+        Self::new(name)
+    }
+
+    /// Returns true if the access control set allows all addresses.
+    ///
+    /// This is true when no IPv4 or IPv6 networks are denied.
+    pub fn allows_all(&self) -> bool {
+        self.v4_deny.is_empty() && self.v4_deny.is_empty()
+    }
+
     /// Check if the IP address `ip` should be denied.
     ///
     /// If the IP address is in a network previously denied by [`AccessControlSetBuilder::deny()`]
@@ -136,6 +148,10 @@ impl AccessControlSet {
     /// All other combinations will return false (i.e., [`AccessControlSetBuilder::allow()`] acts
     /// like an exception list for [`AccessControlSetBuilder::deny()`])
     pub fn denied(&self, ip: IpAddr) -> bool {
+        // If both deny lists are empty, short-circuit. There's nothing to consider.
+        if self.allows_all() {
+            return false;
+        }
         match ip {
             IpAddr::V4(ip) => {
                 self.v4_allow.get_spm(&ip.into()).is_none()
