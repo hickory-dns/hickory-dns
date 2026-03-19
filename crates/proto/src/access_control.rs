@@ -135,41 +135,44 @@ impl<'a> AccessControlSetBuilder {
     }
 }
 
-#[test]
-fn access_control_set_test() {
-    use super::access_control::AccessControlSetBuilder;
+#[cfg(test)]
+mod tests {
+    use crate::access_control::AccessControlSetBuilder;
 
-    let acs = AccessControlSetBuilder::new("test acs")
-        .deny(
-            [
-                "10.0.0.0/8".parse().unwrap(),
-                "172.16.0.0/12".parse().unwrap(),
-                "192.168.0.0/16".parse().unwrap(),
-                "fe80::/10".parse().unwrap(),
-            ]
-            .iter(),
-        )
-        .allow(
-            [
-                "10.1.0.3/29".parse().unwrap(),
-                "192.168.1.10/32".parse().unwrap(),
-                "fe80::200/128".parse().unwrap(),
-            ]
-            .iter(),
-        )
-        .build();
+    #[test]
+    fn access_control_set_networks_test() {
+        let acs = AccessControlSetBuilder::new("test acs")
+            .deny(
+                [
+                    "10.0.0.0/8".parse().unwrap(),
+                    "172.16.0.0/12".parse().unwrap(),
+                    "192.168.0.0/16".parse().unwrap(),
+                    "fe80::/10".parse().unwrap(),
+                ]
+                .iter(),
+            )
+            .allow(
+                [
+                    "10.1.0.3/29".parse().unwrap(),
+                    "192.168.1.10/32".parse().unwrap(),
+                    "fe80::200/128".parse().unwrap(),
+                ]
+                .iter(),
+            )
+            .build();
 
-    // 10.1.0.3/29 above should cause 10.1.0.0/29 to be placed into the allow list; validate the
-    // address before and after are blocked, and addresses within the subnet are allowed
-    assert!(acs.denied([10, 0, 254, 254].into()));
-    assert!(!acs.denied([10, 1, 0, 0].into()));
-    assert!(!acs.denied([10, 1, 0, 3].into()));
-    assert!(!acs.denied([10, 1, 0, 7].into()));
-    assert!(acs.denied([10, 1, 0, 8].into()));
+        // 10.1.0.3/29 above should cause 10.1.0.0/29 to be placed into the allow list; validate the
+        // address before and after are blocked, and addresses within the subnet are allowed
+        assert!(acs.denied([10, 0, 254, 254].into()));
+        assert!(!acs.denied([10, 1, 0, 0].into()));
+        assert!(!acs.denied([10, 1, 0, 3].into()));
+        assert!(!acs.denied([10, 1, 0, 7].into()));
+        assert!(acs.denied([10, 1, 0, 8].into()));
 
-    assert!(acs.denied([192, 168, 1, 1].into()));
-    assert!(!acs.denied([192, 168, 1, 10].into()));
+        assert!(acs.denied([192, 168, 1, 1].into()));
+        assert!(!acs.denied([192, 168, 1, 10].into()));
 
-    assert!(!acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 0x200].into()));
-    assert!(acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 1].into()));
+        assert!(!acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 0x200].into()));
+        assert!(acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 1].into()));
+    }
 }
