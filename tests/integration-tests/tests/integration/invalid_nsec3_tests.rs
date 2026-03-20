@@ -53,7 +53,7 @@ async fn name_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 
@@ -104,7 +104,7 @@ async fn no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
@@ -136,7 +136,7 @@ async fn no_data_error_empty_non_terminal() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
@@ -169,7 +169,7 @@ async fn referral_opt_out_unsigned() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(response.answers.is_empty());
     assert!(
         response
@@ -217,7 +217,7 @@ async fn wildcard_expansion() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(!response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
@@ -250,7 +250,7 @@ async fn wildcard_no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
@@ -302,7 +302,7 @@ async fn ds_child_zone_no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(response.answers.is_empty());
 
     let dnskey_response = fetch_dnskey(&mut client).await;
@@ -349,7 +349,7 @@ async fn validation_loop_test() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
 
     let dnskey_response = fetch_dnskey(&mut client).await;
 

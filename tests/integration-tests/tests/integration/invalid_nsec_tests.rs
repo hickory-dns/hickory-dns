@@ -46,7 +46,7 @@ async fn name_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
 
     let nsec_count = response
         .all_sections()
@@ -93,7 +93,7 @@ async fn no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .all_sections()
@@ -130,7 +130,7 @@ async fn wildcard_expansion() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .authorities
@@ -169,7 +169,7 @@ async fn wildcard_no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .all_sections()
@@ -216,7 +216,7 @@ async fn ds_child_zone_no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .all_sections()

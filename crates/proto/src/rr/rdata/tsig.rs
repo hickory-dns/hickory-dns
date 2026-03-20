@@ -779,7 +779,7 @@ pub fn signed_bitmessage_to_buf(
     };
 
     let tsig = tsig_rr.data();
-    metadata.set_id(tsig.oid);
+    metadata.id = tsig.oid;
 
     // Construct the TBS data.
     let mut buf = Vec::with_capacity(message.len());
@@ -902,7 +902,7 @@ mod tests {
             12345,
             60,
             vec![],
-            message.id(),
+            message.id,
             None,
             vec![],
         );
@@ -926,7 +926,7 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     fn test_sign_encode_id_changed() {
         let mut message = Message::query();
-        message.metadata.set_id(123);
+        message.metadata.id = 123;
         message.answers.push(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();
@@ -936,7 +936,7 @@ mod tests {
             12345,
             60,
             vec![],
-            message.id(),
+            message.id,
             None,
             vec![],
         );
@@ -950,7 +950,7 @@ mod tests {
         let message_byte = message.to_bytes().unwrap();
         let mut message = Message::from_bytes(&message_byte).unwrap();
 
-        message.metadata.set_id(456); // simulate the request id being changed due to request forwarding
+        message.metadata.id = 456; // simulate the request id being changed due to request forwarding
 
         let message_byte = message.to_bytes().unwrap();
 

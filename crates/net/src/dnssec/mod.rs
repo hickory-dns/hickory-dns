@@ -176,7 +176,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 debug!("translating NoRecordsFound to DnsResponse for {query}");
                 let mut msg = Message::query();
                 msg.add_query(*query);
-                msg.metadata.set_response_code(response_code);
+                msg.metadata.response_code = response_code;
 
                 if let Some(authorities) = authorities {
                     for record in authorities.iter() {
@@ -198,7 +198,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         debug!(
             "validating message_response: {}, with {} trust_anchors",
-            message.id(),
+            message.id,
             self.trust_anchor.len(),
         );
 
@@ -288,7 +288,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             (true, false, _) => verify_nsec3(
                 &query,
                 find_soa_name(&message),
-                message.response_code(),
+                message.response_code,
                 &message.answers,
                 &nsec3s,
                 self.nsec3_soft_iteration_limit,
@@ -297,7 +297,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             (false, true, _) => verify_nsec(
                 &query,
                 find_soa_name(&message),
-                message.response_code(),
+                message.response_code,
                 &message.answers,
                 nsecs.as_slice(),
             ),
@@ -1065,7 +1065,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         }
 
         // dnssec only matters on queries.
-        match request.op_code() {
+        match request.op_code {
             OpCode::Query => {}
             _ => return Box::pin(self.handle.send(request)),
         }
@@ -1081,8 +1081,8 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         let handle = self.clone_with_context();
         request.edns.get_or_insert_with(Edns::new).enable_dnssec();
 
-        request.metadata.set_authentic_data(true);
-        request.metadata.set_checking_disabled(false);
+        request.metadata.authentic_data = true;
+        request.metadata.checking_disabled = false;
         let options = *request.options();
 
         Box::pin(self.handle.send(request).then(move |result| {

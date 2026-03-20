@@ -693,8 +693,8 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
     ) -> Result<ResponseInfo, NetError> {
         let response_info = self.handler.send_response(response).await?;
 
-        let id = self.request_meta.id();
-        let rid = response_info.id();
+        let id = self.request_meta.id;
+        let rid = response_info.id;
         if id != rid {
             warn!("request id:{id} does not match response id:{rid}");
             debug_assert_eq!(id, rid, "request id and response id should match");
@@ -704,7 +704,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         let answer_count = response_info.counts().answer_count;
         let authority_count = response_info.counts().authority_count;
         let additional_count = response_info.counts().additional_count;
-        let response_code = response_info.response_code();
+        let response_code = response_info.response_code;
 
         info!(
             "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
@@ -712,7 +712,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             proto = self.protocol,
             addr = self.src_addr.ip(),
             port = self.src_addr.port(),
-            op = self.request_meta.op_code(),
+            op = self.request_meta.op_code,
             qflags = self.request_meta.flags(),
             code = response_code,
             answers = answer_count,
@@ -889,12 +889,12 @@ async fn error_response_handler(
     // debug for more info on why the message parsing failed
     debug!(
         "request:{id} src:{proto}://{addr}#{port} type:{message_type} {op}:{response_code}:{error}",
-        id = header.id(),
+        id = header.id,
         proto = protocol,
         addr = src_addr.ip(),
         port = src_addr.port(),
-        message_type = header.message_type(),
-        op = header.op_code(),
+        message_type = header.message_type,
+        op = header.op_code,
         response_code = response_code,
         error = error,
     );

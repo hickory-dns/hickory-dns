@@ -240,15 +240,13 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         // build the message
         let mut message = Message::query();
-        message
-            .metadata
-            // 3.3. NOTIFY is similar to QUERY in that it has a request message with
-            // the header QR flag "clear" and a response message with QR "set".  The
-            // response message contains no useful information, but its reception by
-            // the Primary is an indication that the Secondary has received the NOTIFY
-            // and that the Primary Zone Server can remove the Secondary from any retry queue for
-            // this NOTIFY event.
-            .set_op_code(OpCode::Notify);
+        // 3.3. NOTIFY is similar to QUERY in that it has a request message with
+        // the header QR flag "clear" and a response message with QR "set".  The
+        // response message contains no useful information, but its reception by
+        // the Primary is an indication that the Secondary has received the NOTIFY
+        // and that the Primary Zone Server can remove the Secondary from any retry queue for
+        // this NOTIFY event.
+        message.metadata.op_code = OpCode::Notify;
 
         // Extended dns
         if self.is_using_edns() {

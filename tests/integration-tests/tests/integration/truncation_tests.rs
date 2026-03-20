@@ -47,7 +47,7 @@ async fn test_truncation() {
         query.set_query_class(DNSClass::IN);
         query
     });
-    msg.metadata.set_recursion_desired(true);
+    msg.metadata.recursion_desired = true;
     msg.edns = Some({
         let mut edns = Edns::new();
         edns.set_max_payload(max_payload).set_version(0);
@@ -60,7 +60,7 @@ async fn test_truncation() {
         .await
         .expect("query failed");
 
-    assert!(result.truncated());
+    assert!(result.metadata.truncation);
     assert_eq!(max_payload, result.max_payload());
 
     server.shutdown_gracefully().await.unwrap();

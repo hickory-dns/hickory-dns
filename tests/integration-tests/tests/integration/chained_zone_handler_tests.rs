@@ -339,8 +339,8 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
     let mut query: Query = Query::new();
     query.set_name(Name::from_ascii(query_name).unwrap());
     question.add_query(query);
-    question.metadata.set_recursion_desired(true);
-    question.metadata.set_authentic_data(true);
+    question.metadata.recursion_desired = true;
+    question.metadata.authentic_data = true;
 
     let question_bytes = question.to_bytes().unwrap();
     let question_req =
@@ -362,8 +362,8 @@ async fn basic_test(catalog: &Catalog, query_name: &'static str, answer: A) {
 
     let answers = result.answers;
 
-    assert_eq!(result.metadata.response_code(), ResponseCode::NoError);
-    assert_eq!(result.metadata.message_type(), MessageType::Response);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(answers.first().unwrap().data(), &RData::A(answer));
@@ -372,6 +372,6 @@ async fn basic_test(catalog: &Catalog, query_name: &'static str, answer: A) {
 async fn error_test(catalog: &Catalog, query_name: &str, r_code: ResponseCode) {
     let (res, _) = do_query(catalog, query_name).await;
 
-    assert_eq!(res.response_code(), r_code);
+    assert_eq!(res.response_code, r_code);
     assert_eq!(res.counts().answer_count, 0);
 }

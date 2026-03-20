@@ -105,7 +105,7 @@ async fn test_server_unknown_type() {
         .await
         .expect("query failed for unknown");
 
-    assert_eq!(client_result.response_code(), ResponseCode::NoError);
+    assert_eq!(client_result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(
         client_result.queries.first().unwrap().query_type(),
         RecordType::Unknown(65535)
@@ -148,7 +148,7 @@ async fn test_server_form_error_on_multiple_queries() {
         RecordType::AAAA,
     );
     let mut message = Message::query();
-    message.metadata.set_recursion_desired(true);
+    message.metadata.recursion_desired = true;
     message.add_query(query_a).add_query(query_aaaa);
 
     let mut client_result = client
@@ -160,7 +160,7 @@ async fn test_server_form_error_on_multiple_queries() {
     assert_eq!(client_result.len(), 1);
     let client_result = client_result.pop().expect("there should be one response");
 
-    assert_eq!(client_result.response_code(), ResponseCode::FormErr);
+    assert_eq!(client_result.metadata.response_code, ResponseCode::FormErr);
 
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();
@@ -311,12 +311,12 @@ async fn client_thread_www(future: impl Future<Output = Client<TokioRuntimeProvi
         .expect("error querying");
 
     assert_eq!(
-        response.response_code(),
+        response.metadata.response_code,
         ResponseCode::NoError,
         "got an error: {:?}",
-        response.response_code()
+        response.metadata.response_code
     );
-    assert!(response.metadata.authoritative());
+    assert!(response.metadata.authoritative);
 
     let record = &response.answers[0];
     assert_eq!(record.name(), &name);
@@ -431,8 +431,8 @@ async fn edns_multiple_opt_rr() {
     let response = Message::from_vec(&response_buf).unwrap();
 
     dbg!(&response);
-    assert_eq!(message.metadata.id(), response.metadata.id());
-    assert_eq!(response.response_code(), ResponseCode::FormErr);
+    assert_eq!(message.metadata.id, response.metadata.id);
+    assert_eq!(response.metadata.response_code, ResponseCode::FormErr);
 
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();

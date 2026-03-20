@@ -38,7 +38,7 @@ pub struct DnsResponse {
 impl DnsResponse {
     /// Constructs a new DnsResponse with a buffer synthesized from the message
     pub fn from_message(message: Message) -> Result<Self, ProtoError> {
-        if message.metadata.message_type() != MessageType::Response {
+        if message.metadata.message_type != MessageType::Response {
             return Err(ProtoError::NotAResponse);
         }
 
@@ -53,7 +53,7 @@ impl DnsResponse {
     /// Returns an error if the response message cannot be decoded.
     pub fn from_buffer(buffer: Vec<u8>) -> Result<Self, ProtoError> {
         let message = Message::from_vec(&buffer)?;
-        if message.metadata.message_type() != MessageType::Response {
+        if message.metadata.message_type != MessageType::Response {
             return Err(ProtoError::NotAResponse);
         }
 
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn test_contains_answer() {
         let mut message = Message::query();
-        message.metadata.set_response_code(ResponseCode::NXDomain);
+        message.metadata.response_code = ResponseCode::NXDomain;
         message.add_query(Query::query(Name::root(), RecordType::A));
         message.add_answer(Record::from_rdata(
             Name::root(),
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn contains_soa() {
         let mut message = Message::query();
-        message.metadata.set_response_code(ResponseCode::NoError);
+        message.metadata.response_code = ResponseCode::NoError;
         message.add_query(Query::query(an_example(), RecordType::SOA));
         message.add_authority(soa());
 
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn contains_any() {
         let mut message = Message::query();
-        message.metadata.set_response_code(ResponseCode::NoError);
+        message.metadata.response_code = ResponseCode::NoError;
         message.add_query(Query::query(xx(), RecordType::ANY));
         message.add_authority(ns1_record());
         message.add_additional(ns1_a());

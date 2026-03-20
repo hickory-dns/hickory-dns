@@ -93,7 +93,7 @@ where
         .query(name, DNSClass::IN, RecordType::A)
         .await
         .expect("query failed");
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
 }
 
 #[tokio::test]
@@ -127,7 +127,7 @@ where
         .await
         .expect("query failed");
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(response.answers.is_empty());
 }
 
@@ -166,7 +166,7 @@ where
 //         ))
 //         .expect("query failed");
 
-//     assert_eq!(response.response_code(), ResponseCode::NoError);
+//     assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 //     // rollernet doesn't have any DS records...
 //     //  would have failed validation
 //     assert!(response.answers.is_empty());
@@ -186,7 +186,7 @@ where
 //         ))
 //         .expect("query failed");
 
-//     assert_eq!(response.response_code(), ResponseCode::NoError);
+//     assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 //     // rollernet doesn't have any DS records...
 //     //  would have failed validation
 //     assert!(response.answers.is_empty());

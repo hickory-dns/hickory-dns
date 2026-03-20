@@ -136,7 +136,7 @@ mod test {
 
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
                 let mut message = Message::query();
-                message.metadata.set_id(i);
+                message.metadata.id = i;
                 return Box::new(once(ok(
                     DnsResponse::from_message(message.to_response()).unwrap()
                 )));
@@ -160,7 +160,7 @@ mod test {
         );
         let test1 = DnsRequest::from(Message::query());
         let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
-        assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
+        assert_eq!(result.id, 1); // this is checking the number of iterations the TestClient ran
     }
 
     #[test]

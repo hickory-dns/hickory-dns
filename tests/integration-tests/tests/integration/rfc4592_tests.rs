@@ -46,7 +46,7 @@ async fn wildcard_synthesis_1() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(
         response
             .answers
@@ -77,7 +77,7 @@ async fn wildcard_synthesis_2() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert_eq!(response.answers, []);
 }
 
@@ -103,7 +103,7 @@ async fn wildcard_synthesis_3() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(
         response
             .answers
@@ -133,7 +133,7 @@ async fn no_synthesis_1() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert_eq!(response.answers, []);
 }
 
@@ -158,7 +158,7 @@ async fn no_synthesis_2() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert_eq!(response.answers, []);
 }
 
@@ -182,7 +182,7 @@ async fn no_synthesis_3() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
     assert_eq!(response.answers, []);
 }
 
@@ -206,7 +206,7 @@ async fn no_synthesis_4() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert_eq!(response.answers, []);
     let delegation_name = query_name.base_name();
     assert!(
@@ -239,7 +239,7 @@ async fn no_synthesis_5() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
     assert_eq!(response.answers, []);
 }
 

@@ -155,7 +155,7 @@ pub struct ResponseInfo(Header);
 impl ResponseInfo {
     pub(crate) fn serve_failed(request: &Request) -> Self {
         let mut metadata = Metadata::new(request.id(), MessageType::Response, request.op_code());
-        metadata.set_response_code(ResponseCode::ServFail);
+        metadata.response_code = ResponseCode::ServFail;
         Self(Header {
             metadata,
             counts: HeaderCounts::default(),
