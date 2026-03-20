@@ -60,7 +60,7 @@ impl RequestHandler for MockHandler {
         } else {
             error!(query = ?request_info.query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
-            let mut response_meta = Metadata::response_from_request(request.metadata());
+            let mut response_meta = Metadata::response_from_request(&request.metadata);
             response_meta.response_code = ResponseCode::ServFail;
             let result = response_handle
                 .send_response(response_builder.build_no_records(response_meta))
@@ -86,7 +86,7 @@ async fn send_response(
     response: &DnsResponse,
 ) -> ResponseInfo {
     let mut response_meta = response.metadata;
-    response_meta.id = request.id();
+    response_meta.id = request.metadata.id;
 
     let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
     if let Some(edns) = &response.edns {
@@ -106,9 +106,9 @@ async fn send_response(
         Err(e) => {
             error!(error = %e, "error responding to request");
             let mut metadata = Metadata::new(
-                request.id(),
+                request.metadata.id,
                 MessageType::Response,
-                request.metadata().op_code,
+                request.metadata.op_code,
             );
             metadata.response_code = ResponseCode::ServFail;
             ResponseInfo::from(Header {
