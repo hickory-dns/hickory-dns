@@ -824,18 +824,19 @@ impl<T: RequestHandler> ServerContext<T> {
             }
         };
 
-        if request.message.message_type() == MessageType::Response {
+        if request.message.metadata.message_type == MessageType::Response {
             // Don't process response messages to avoid DoS attacks from reflection.
             return;
         }
 
-        let id = request.message.id();
-        let qflags = request.message.metadata().flags();
-        let qop_code = request.message.op_code();
-        let message_type = request.message.message_type();
+        let id = request.message.metadata.id;
+        let qflags = request.message.metadata.flags();
+        let qop_code = request.message.metadata.op_code;
+        let message_type = request.message.metadata.message_type;
         let is_dnssec = request
             .message
-            .edns()
+            .edns
+            .as_ref()
             .is_some_and(|edns| edns.flags().dnssec_ok);
 
         debug!(
@@ -849,7 +850,7 @@ impl<T: RequestHandler> ServerContext<T> {
             op = qop_code,
             qflags = qflags
         );
-        for query in request.queries().iter() {
+        for query in request.queries.queries().iter() {
             debug!(
                 "query:{query}:{qtype}:{class}",
                 query = query.name(),
@@ -859,9 +860,9 @@ impl<T: RequestHandler> ServerContext<T> {
         }
 
         // The reporter will handle making sure to log the result of the request
-        let queries = request.queries().to_vec();
+        let queries = request.queries.queries().to_vec();
         let reporter = ReportingResponseHandler {
-            request_meta: *request.metadata(),
+            request_meta: request.metadata,
             queries,
             protocol: request.protocol(),
             src_addr: request.src(),

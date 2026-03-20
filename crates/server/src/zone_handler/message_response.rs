@@ -140,11 +140,11 @@ impl<'q> MessageResponseBuilder<'q> {
     ///     impl Iterator<Item = &'static Record> + Send + 'static,
     /// > {
     ///     MessageResponseBuilder::from_message_request(request)
-    ///         .error_msg(request.metadata(), ResponseCode::ServFail)
+    ///         .error_msg(&request.metadata, ResponseCode::ServFail)
     /// }
     /// ```
     pub fn from_message_request(message: &'q MessageRequest) -> Self {
-        Self::new(message.raw_queries(), None)
+        Self::new(&message.queries, None)
     }
 
     /// Associate EDNS with the Response
@@ -371,10 +371,10 @@ mod tests {
         let header = Header::read(&mut decoder).unwrap();
         let msg = MessageRequest::read(&mut decoder, header).unwrap();
 
-        eprintln!("queries: {:?}", msg.queries());
+        eprintln!("queries: {:?}", msg.queries.queries());
 
-        MessageResponseBuilder::new(msg.raw_queries(), None)
-            .build_no_records(Metadata::response_from_request(msg.metadata()))
+        MessageResponseBuilder::new(&msg.queries, None)
+            .build_no_records(Metadata::response_from_request(&msg.metadata))
             .destructive_emit(&mut encoder)
             .unwrap();
     }
