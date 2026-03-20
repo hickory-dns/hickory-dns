@@ -469,7 +469,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
 
             // if the cached response is a referral, or if any record is indeterminate, fall
             // through and perform DNSSEC validation
-            if response.authoritative() && none_indeterminate {
+            if response.authoritative && none_indeterminate {
                 let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
                 #[cfg(feature = "metrics")]
                 self.metrics
@@ -494,7 +494,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         // These need to bypass the cache lookup (and casting to a Lookup object in general)
         // to preserve SOA and DNSSEC records, and to keep those records in the authorities
         // section of the response.
-        if response.response_code() == ResponseCode::NXDomain {
+        if response.response_code == ResponseCode::NXDomain {
             use crate::recursor::RecursorError;
 
             let Err(dns_error) = DnsError::from_response(response) else {
@@ -506,7 +506,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
             Err(RecursorError::Net(NetError::from(dns_error)))
         } else if response.answers.is_empty()
             && !response.authorities.is_empty()
-            && response.response_code() == ResponseCode::NoError
+            && response.response_code == ResponseCode::NoError
         {
             let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
             no_records.soa = response

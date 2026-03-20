@@ -40,7 +40,7 @@ async fn recursor_connection_deduplication() -> Result<(), NetError> {
             .resolve(Query::query(query, RecordType::A), Instant::now(), false)
             .await?;
 
-        assert_eq!(response.response_code(), ResponseCode::NoError);
+        assert_eq!(response.response_code, ResponseCode::NoError);
 
         assert_eq!(
             provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
@@ -83,7 +83,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
         )
         .await?;
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code, ResponseCode::NoError);
     assert_eq!(
         provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
         1
@@ -109,7 +109,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
         .await
         .unwrap();
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code, ResponseCode::NoError);
     // Roots aren't subject to cache expiration
     assert_eq!(
         provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
@@ -724,7 +724,7 @@ async fn ttl_lookup(
 }
 
 fn validate_response(response: Message, name: &Name, ip: IpAddr) -> bool {
-    response.response_code() == ResponseCode::NoError
+    response.response_code == ResponseCode::NoError
         && response.answers == [Record::from_rdata(name.clone(), 0, ip.into())]
 }
 
@@ -762,7 +762,7 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
         |_destination: IpAddr, protocol: Protocol, msg: &mut Message| {
             if protocol == Protocol::Udp {
-                msg.metadata.set_truncated(true);
+                msg.metadata.truncation = true;
             }
         },
     ));
@@ -857,7 +857,7 @@ mod metrics {
                         )
                         .await
                         .unwrap();
-                    assert_eq!(response.response_code(), ResponseCode::NoError);
+                    assert_eq!(response.response_code, ResponseCode::NoError);
                 }
             });
         });

@@ -167,7 +167,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = result?;
-            if response.authoritative() {
+            if response.authoritative {
                 #[cfg(feature = "metrics")]
                 {
                     self.metrics.cache_hit_counter.increment(1);
@@ -405,7 +405,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             None => return None,
         };
 
-        if !response.authoritative() {
+        if !response.authoritative {
             return None;
         }
 
@@ -816,7 +816,7 @@ mod for_dnssec {
         type Runtime = P::RuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
-            let query = if let OpCode::Query = request.op_code() {
+            let query = if let OpCode::Query = request.op_code {
                 if let Some(query) = request.queries.first().cloned() {
                     query
                 } else {

@@ -242,7 +242,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         };
 
         let (mut request, _) = request.into_parts();
-        request.metadata.set_id(query_id);
+        request.metadata.id = query_id;
 
         #[cfg(feature = "__dnssec")]
         let mut verifier = None;
@@ -267,7 +267,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         // send the message
         let active_request = ActiveRequest::new(
             complete,
-            request.id(),
+            request.id,
             timeout,
             #[cfg(feature = "__dnssec")]
             verifier,
@@ -340,7 +340,7 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
 
                     //   deserialize or log decode_error
                     match DnsResponse::from_buffer(buffer.into_parts().0) {
-                        Ok(response) => match self.active_requests.entry(response.id()) {
+                        Ok(response) => match self.active_requests.entry(response.id) {
                             Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
@@ -359,7 +359,7 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
                                 #[cfg(not(feature = "__dnssec"))]
                                 ignore_send(active_request.completion.try_send(Ok(response)));
                             }
-                            Entry::Vacant(..) => debug!("unexpected request_id: {}", response.id()),
+                            Entry::Vacant(..) => debug!("unexpected request_id: {}", response.id),
                         },
                         // TODO: return src address for diagnostics
                         Err(error) => debug!(%error, "error decoding message"),
@@ -447,12 +447,12 @@ mod test {
                         .poll_next_unpin(cx)
                 );
                 let message = serial.unwrap().to_message().unwrap();
-                self.id = Some(message.id());
-                message.id()
+                self.id = Some(message.id);
+                message.id
             };
 
             if let Some(mut message) = self.messages.pop() {
-                message.metadata.set_id(id);
+                message.metadata.id = id;
                 Poll::Ready(Some(Ok(SerialMessage::new(
                     message.to_bytes().unwrap(),
                     self.addr,
@@ -489,7 +489,7 @@ mod test {
         let name = Name::from_ascii("www.example.com.").unwrap();
 
         let mut msg = Message::query();
-        msg.metadata.set_recursion_desired(true);
+        msg.metadata.recursion_desired = true;
         msg.add_query({
             let mut query = Query::query(name.clone(), RecordType::A);
             query.set_query_class(DNSClass::IN);
@@ -516,7 +516,7 @@ mod test {
         let name = Name::from_ascii("example.com.").unwrap();
 
         let mut msg = Message::query();
-        msg.metadata.set_recursion_desired(true);
+        msg.metadata.recursion_desired = true;
         msg.add_query({
             let mut query = Query::query(name, RecordType::AXFR);
             query.set_query_class(DNSClass::IN);

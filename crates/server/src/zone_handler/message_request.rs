@@ -87,47 +87,47 @@ impl MessageRequest {
 
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
-        self.metadata.id()
+        self.metadata.id
     }
 
     /// see `Header::message_type()`
     pub fn message_type(&self) -> MessageType {
-        self.metadata.message_type()
+        self.metadata.message_type
     }
 
     /// see `Header::op_code()`
     pub fn op_code(&self) -> OpCode {
-        self.metadata.op_code()
+        self.metadata.op_code
     }
 
     /// see `Header::authoritative()`
     pub fn authoritative(&self) -> bool {
-        self.metadata.authoritative()
+        self.metadata.authoritative
     }
 
     /// see `Header::truncated()`
     pub fn truncated(&self) -> bool {
-        self.metadata.truncated()
+        self.metadata.truncation
     }
 
     /// see `Header::recursion_desired()`
     pub fn recursion_desired(&self) -> bool {
-        self.metadata.recursion_desired()
+        self.metadata.recursion_desired
     }
 
     /// see `Header::recursion_available()`
     pub fn recursion_available(&self) -> bool {
-        self.metadata.recursion_available()
+        self.metadata.recursion_available
     }
 
     /// see `Header::authentic_data()`
     pub fn authentic_data(&self) -> bool {
-        self.metadata.authentic_data()
+        self.metadata.authentic_data
     }
 
     /// see `Header::checking_disabled()`
     pub fn checking_disabled(&self) -> bool {
-        self.metadata.checking_disabled()
+        self.metadata.checking_disabled
     }
 
     /// # Return value
@@ -135,7 +135,7 @@ impl MessageRequest {
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
-        self.metadata.response_code()
+        self.metadata.response_code
     }
 
     /// ```text

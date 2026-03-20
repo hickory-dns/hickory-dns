@@ -137,7 +137,7 @@ impl Message {
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Self {
         let mut message = Self::response(id, op_code);
-        message.metadata.set_response_code(response_code);
+        message.metadata.response_code = response_code;
         message
     }
 
@@ -163,7 +163,7 @@ impl Message {
     pub fn truncate(&self) -> Self {
         // copy header
         let mut metadata = self.metadata;
-        metadata.set_truncated(true);
+        metadata.truncation = true;
 
         let mut msg = Self::new(0, MessageType::Query, OpCode::Query);
         msg.metadata = metadata;
@@ -337,7 +337,7 @@ impl Message {
     /// Returns a clone of the `Message` with the message type set to `Response`.
     pub fn to_response(&self) -> Self {
         let mut metadata = self.metadata;
-        metadata.set_message_type(MessageType::Response);
+        metadata.message_type = MessageType::Response;
         Self {
             metadata,
             queries: self.queries.clone(),
@@ -598,16 +598,15 @@ where
 
     if let Some(mut edns) = edns.cloned() {
         // need to commit the error code
-        edns.set_rcode_high(metadata.response_code().high());
+        edns.set_rcode_high(metadata.response_code.high());
 
         let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(&edns))))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
-    } else if metadata.response_code().high() > 0 {
+    } else if metadata.response_code.high() > 0 {
         warn!(
             "response code: {} for request: {} requires EDNS but none available",
-            metadata.response_code(),
-            metadata.id()
+            metadata.response_code, metadata.id
         );
     }
 
@@ -636,9 +635,8 @@ where
     };
 
     let mut final_metadata = *metadata;
-    final_metadata.set_truncated(
-        metadata.truncated() || answer_count.1 || authority_count.1 || additional_count.1,
-    );
+    final_metadata.truncation =
+        metadata.truncation || answer_count.1 || authority_count.1 || additional_count.1;
 
     let header = Header {
         metadata: final_metadata,
@@ -734,8 +732,8 @@ impl fmt::Display for Message {
         writeln!(f, "; query")?;
         write_query(&self.queries, f)?;
 
-        if self.metadata.message_type() == MessageType::Response
-            || self.metadata.op_code() == OpCode::Update
+        if self.metadata.message_type == MessageType::Response
+            || self.metadata.op_code == OpCode::Update
         {
             writeln!(f, "; answers {}", self.answers.len())?;
             write_slice(&self.answers, f)?;
@@ -769,13 +767,11 @@ mod tests {
     #[test]
     fn test_emit_and_read_header() {
         let mut message = Message::response(10, OpCode::Update);
-        message
-            .metadata
-            .set_authoritative(true)
-            .set_truncated(false)
-            .set_recursion_desired(true)
-            .set_recursion_available(true)
-            .set_response_code(ResponseCode::ServFail);
+        message.metadata.authoritative = true;
+        message.metadata.truncation = false;
+        message.metadata.recursion_desired = true;
+        message.metadata.recursion_available = true;
+        message.metadata.response_code = ResponseCode::ServFail;
 
         test_emit_and_read(message);
     }
@@ -783,13 +779,11 @@ mod tests {
     #[test]
     fn test_emit_and_read_query() {
         let mut message = Message::response(10, OpCode::Update);
-        message
-            .metadata
-            .set_authoritative(true)
-            .set_truncated(true)
-            .set_recursion_desired(true)
-            .set_recursion_available(true)
-            .set_response_code(ResponseCode::ServFail);
+        message.metadata.authoritative = true;
+        message.metadata.truncation = true;
+        message.metadata.recursion_desired = true;
+        message.metadata.recursion_available = true;
+        message.metadata.response_code = ResponseCode::ServFail;
         message.add_query(Query::new());
 
         test_emit_and_read(message);
@@ -798,15 +792,13 @@ mod tests {
     #[test]
     fn test_emit_and_read_records() {
         let mut message = Message::response(10, OpCode::Update);
-        message
-            .metadata
-            .set_authoritative(true)
-            .set_truncated(true)
-            .set_recursion_desired(true)
-            .set_recursion_available(true)
-            .set_authentic_data(true)
-            .set_checking_disabled(true)
-            .set_response_code(ResponseCode::ServFail);
+        message.metadata.authoritative = true;
+        message.metadata.truncation = true;
+        message.metadata.recursion_desired = true;
+        message.metadata.recursion_available = true;
+        message.metadata.authentic_data = true;
+        message.metadata.checking_disabled = true;
+        message.metadata.response_code = ResponseCode::ServFail;
 
         message.add_answer(Record::stub());
         message.add_authority(Record::stub());
@@ -832,15 +824,13 @@ mod tests {
     #[test]
     fn test_header_counts_correction_after_emit_read() {
         let mut message = Message::response(10, OpCode::Update);
-        message
-            .metadata
-            .set_authoritative(true)
-            .set_truncated(true)
-            .set_recursion_desired(true)
-            .set_recursion_available(true)
-            .set_authentic_data(true)
-            .set_checking_disabled(true)
-            .set_response_code(ResponseCode::ServFail);
+        message.metadata.authoritative = true;
+        message.metadata.truncation = true;
+        message.metadata.recursion_desired = true;
+        message.metadata.recursion_available = true;
+        message.metadata.authentic_data = true;
+        message.metadata.checking_disabled = true;
+        message.metadata.response_code = ResponseCode::ServFail;
 
         message.add_answer(Record::stub());
         message.add_authority(Record::stub());
@@ -890,7 +880,7 @@ mod tests {
         let mut decoder = BinDecoder::new(&buf);
         let message = Message::read(&mut decoder).unwrap();
 
-        assert_eq!(message.id(), 4_096);
+        assert_eq!(message.id, 4_096);
 
         let mut buf: Vec<u8> = Vec::with_capacity(512);
         {
@@ -901,7 +891,7 @@ mod tests {
         let mut decoder = BinDecoder::new(&buf);
         let message = Message::read(&mut decoder).unwrap();
 
-        assert_eq!(message.id(), 4_096);
+        assert_eq!(message.id, 4_096);
     }
 
     #[test]

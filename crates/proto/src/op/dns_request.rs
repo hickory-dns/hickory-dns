@@ -89,9 +89,7 @@ impl DnsRequest {
         }
 
         message.queries.push(query);
-        message
-            .metadata
-            .set_recursion_desired(options.recursion_desired);
+        message.metadata.recursion_desired = options.recursion_desired;
 
         if options.use_edns {
             message

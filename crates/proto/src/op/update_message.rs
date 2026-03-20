@@ -75,7 +75,7 @@ pub trait UpdateMessage: Debug {
 ///   to properly do that.
 impl UpdateMessage for Message {
     fn id(&self) -> u16 {
-        self.metadata.id()
+        self.metadata.id
     }
 
     fn add_zone(&mut self, query: Query) {
@@ -178,10 +178,8 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
 
     // build the message
     let mut message = Message::query();
-    message
-        .metadata
-        .set_op_code(OpCode::Update)
-        .set_recursion_desired(false);
+    message.metadata.op_code = OpCode::Update;
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     let mut prerequisite = Record::update0(rrset.name().clone(), 0, rrset.record_type());
@@ -248,10 +246,8 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
 
     // build the message
     let mut message = Message::query();
-    message
-        .metadata
-        .set_op_code(OpCode::Update)
-        .set_recursion_desired(false);
+    message.metadata.op_code = OpCode::Update;
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     if must_exist {
@@ -334,10 +330,8 @@ pub fn compare_and_swap(
 
     // build the message
     let mut message = Message::query();
-    message
-        .metadata
-        .set_op_code(OpCode::Update)
-        .set_recursion_desired(false);
+    message.metadata.op_code = OpCode::Update;
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     // make sure the record is what is expected
@@ -404,10 +398,8 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
 
     // build the message
     let mut message = Message::query();
-    message
-        .metadata
-        .set_op_code(OpCode::Update)
-        .set_recursion_desired(false);
+    message.metadata.op_code = OpCode::Update;
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     // the class must be none to delete a record
@@ -463,10 +455,8 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 
     // build the message
     let mut message = Message::query();
-    message
-        .metadata
-        .set_op_code(OpCode::Update)
-        .set_recursion_desired(false);
+    message.metadata.op_code = OpCode::Update;
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     // the class must be any to delete an rrset
@@ -531,10 +521,8 @@ pub fn delete_all(
 
     // build the message
     let mut message = Message::query();
-    message
-        .metadata
-        .set_op_code(OpCode::Update)
-        .set_recursion_desired(false);
+    message.metadata.op_code = OpCode::Update;
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     // the TTL should be 0
@@ -583,7 +571,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
 
     // build the message
     let mut message = Message::query();
-    message.metadata.set_recursion_desired(false);
+    message.metadata.recursion_desired = false;
     message.add_zone(zone);
 
     if let Some(soa) = last_soa {

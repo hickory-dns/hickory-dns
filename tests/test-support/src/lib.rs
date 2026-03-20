@@ -185,7 +185,7 @@ impl MockNetworkHandler {
             let query = Query::query(response.query_name.clone(), response.query_type);
             let mut message = Message::response(0, OpCode::Query);
             message.add_query(query.clone());
-            message.metadata.set_authoritative(true);
+            message.metadata.authoritative = true;
 
             if let Some(ns) = hashed_responses.get(&response.ns) {
                 if let Some(existing_message) = ns.get(&query) {
@@ -233,16 +233,16 @@ impl MockHandler for MockNetworkHandler {
     fn handle(&self, destination: IpAddr, protocol: Protocol, request: Message) -> Message {
         let Some(server_responses) = self.responses.get(&destination) else {
             error!(%destination, "unexpected destination IP address");
-            return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
+            return Message::error_msg(request.id, request.op_code, ResponseCode::ServFail);
         };
         let query = &request.queries[0];
         info!(%destination, %query, "handling request");
         let Some(response) = server_responses.get(query) else {
             error!(%query, "unexpected query");
-            return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
+            return Message::error_msg(request.id, request.op_code, ResponseCode::ServFail);
         };
         let mut response = response.clone();
-        response.metadata.set_id(request.id());
+        response.metadata.id = request.id;
         response.queries.clear();
         response.add_query(query.clone());
 

@@ -222,7 +222,7 @@ impl<'q> MessageResponseBuilder<'q> {
         impl Iterator<Item = &'a Record> + Send + 'a,
     > {
         let mut metadata = Metadata::response_from_request(request_meta);
-        metadata.set_response_code(response_code);
+        metadata.response_code = response_code;
 
         MessageResponse {
             metadata,
@@ -281,7 +281,7 @@ mod tests {
         }
 
         let response = Message::from_vec(&buf).expect("failed to decode");
-        assert!(response.metadata.truncated());
+        assert!(response.metadata.truncation);
         assert!(response.answers.len() > 1);
         // should never have written the authority section...
         assert_eq!(response.authorities.len(), 0);
@@ -319,7 +319,7 @@ mod tests {
         }
 
         let response = Message::from_vec(&buf).expect("failed to decode");
-        assert!(response.metadata.truncated());
+        assert!(response.metadata.truncation);
         assert_eq!(response.answers.len(), 0);
         assert!(response.authorities.len() > 1);
     }
