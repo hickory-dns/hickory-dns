@@ -72,7 +72,7 @@ impl RequestHandler for Catalog {
         let mut resp_edns: Edns;
 
         // check if it's edns
-        let response_edns = if let Some(req_edns) = request.edns() {
+        let response_edns = if let Some(req_edns) = request.edns.as_ref() {
             resp_edns = Edns::new();
 
             // check our version against the request
@@ -126,17 +126,17 @@ impl RequestHandler for Catalog {
         };
 
         let now = T::current_time();
-        match request.message_type() {
+        match request.metadata.message_type {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
-            MessageType::Query => match request.op_code() {
+            MessageType::Query => match request.metadata.op_code {
                 OpCode::Query => {
-                    debug!("query received: {}", request.id());
+                    debug!("query received: {}", request.metadata.id);
                     self.lookup(request, response_edns, now, response_handle)
                         .await
                 }
                 OpCode::Update => {
-                    debug!("update received: {}", request.id());
+                    debug!("update received: {}", request.metadata.id);
                     self.update(request, response_edns, now, response_handle)
                         .await
                 }
@@ -152,7 +152,10 @@ impl RequestHandler for Catalog {
                 }
             },
             MessageType::Response => {
-                warn!("got a response as a request from id: {}", request.id());
+                warn!(
+                    "got a response as a request from id: {}",
+                    request.metadata.id
+                );
                 send_error_response(
                     request,
                     ResponseCode::FormErr,
@@ -323,9 +326,9 @@ impl Catalog {
                     _ => (ResponseCode::NotAuth, None),
                 };
 
-                let response = MessageResponseBuilder::new(update.raw_queries(), response_edns);
+                let response = MessageResponseBuilder::new(&update.queries, response_edns);
                 let mut response_meta =
-                    Metadata::new(update.id(), MessageType::Response, OpCode::Update);
+                    Metadata::new(update.metadata.id, MessageType::Response, OpCode::Update);
                 response_meta.response_code = response_code;
                 #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
                 let mut response = response.build_no_records(response_meta);
@@ -335,11 +338,10 @@ impl Catalog {
                     let mut tbs_response_buf = Vec::with_capacity(512);
                     let mut encoder = BinEncoder::new(&mut tbs_response_buf);
                     let mut response_meta =
-                        Metadata::new(update.id(), MessageType::Response, OpCode::Update);
+                        Metadata::new(update.metadata.id, MessageType::Response, OpCode::Update);
                     response_meta.response_code = response_code;
-                    let tbs_response =
-                        MessageResponseBuilder::new(update.raw_queries(), response_edns)
-                            .build_no_records(response_meta);
+                    let tbs_response = MessageResponseBuilder::new(&update.queries, response_edns)
+                        .build_no_records(response_meta);
                     if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                         error!(%error, "error encoding response");
                         return send_error_response(
@@ -480,9 +482,9 @@ async fn lookup<R: ResponseHandler + Unpin>(
     mut response_handle: R,
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> ResponseInfo {
-    let edns = request.edns();
+    let edns = request.edns.as_ref();
     let lookup_options = LookupOptions::from_edns(edns);
-    let request_id = request.id();
+    let request_id = request.metadata.id;
 
     if lookup_options.dnssec_ok {
         info!("request: {request_id} lookup_options: {lookup_options:?}");
@@ -555,15 +557,15 @@ async fn lookup<R: ResponseHandler + Unpin>(
             result,
             &**handler,
             request_id,
-            request.metadata(),
+            &request.metadata,
             query,
             edns,
         )
         .await;
 
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
-        let mut message_response =
-            MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
+        let mut message_response = MessageResponseBuilder::new(&request.queries, response_edns)
+            .build(
                 response_message.metadata,
                 response_message.answers.iter(),
                 response_message.authorities.iter(),
@@ -575,14 +577,13 @@ async fn lookup<R: ResponseHandler + Unpin>(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                .build(
-                    response_message.metadata,
-                    response_message.answers.iter(),
-                    response_message.authorities.iter(),
-                    iter::empty(),
-                    response_message.additionals.iter(),
-                );
+            let tbs_response = MessageResponseBuilder::new(&request.queries, response_edns).build(
+                response_message.metadata,
+                response_message.answers.iter(),
+                response_message.authorities.iter(),
+                iter::empty(),
+                response_message.additionals.iter(),
+            );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
                 return send_error_response(
@@ -638,13 +639,13 @@ async fn zone_transfer(
     now: u64,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
-    let request_edns = request.edns();
+    let request_edns = request.edns.as_ref();
     let lookup_options = LookupOptions::from_edns(request_edns);
     for handler in handlers.iter() {
         debug!(
             query = %request_info.query,
             origin = %handler.origin(),
-            request_id = request.id(),
+            request_id = request.metadata.id,
             "performing zone transfer"
         );
         #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
@@ -653,7 +654,7 @@ async fn zone_transfer(
             continue;
         };
 
-        let mut response_meta = Metadata::response_from_request(request.metadata());
+        let mut response_meta = Metadata::response_from_request(&request.metadata);
         let zone_transfer = match result {
             Ok(zone_transfer) => {
                 response_meta.response_code = ResponseCode::NoError;
@@ -679,8 +680,8 @@ async fn zone_transfer(
 
         // TODO(issue #351): Send more than one message in response as needed.
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
-        let mut message_response =
-            MessageResponseBuilder::new(request.raw_queries(), response_edns).build(
+        let mut message_response = MessageResponseBuilder::new(&request.queries, response_edns)
+            .build(
                 response_meta,
                 zone_transfer
                     .iter()
@@ -694,16 +695,15 @@ async fn zone_transfer(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-            let tbs_response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-                .build(
-                    response_meta,
-                    zone_transfer
-                        .iter()
-                        .flat_map(|zone_transfer| zone_transfer.iter()),
-                    iter::empty(),
-                    iter::empty(),
-                    iter::empty(),
-                );
+            let tbs_response = MessageResponseBuilder::new(&request.queries, response_edns).build(
+                response_meta,
+                zone_transfer
+                    .iter()
+                    .flat_map(|zone_transfer| zone_transfer.iter()),
+                iter::empty(),
+                iter::empty(),
+                iter::empty(),
+            );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
                 return send_error_response(
@@ -764,8 +764,8 @@ async fn send_error_response(
             response_edns = Some(&new_edns);
         }
     }
-    let response = MessageResponseBuilder::new(request.raw_queries(), response_edns)
-        .error_msg(request.metadata(), response_code);
+    let response = MessageResponseBuilder::new(&request.queries, response_edns)
+        .error_msg(&request.metadata, response_code);
     match response_handle.send_response(response).await {
         Ok(r) => r,
         Err(error) => {
