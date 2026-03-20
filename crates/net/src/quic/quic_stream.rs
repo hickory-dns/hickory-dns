@@ -139,7 +139,7 @@ impl QuicStream {
         // The stream mapping for DoQ allows for unambiguous correlation of queries and responses,
         // so the Message ID field is not required.
 
-        message.metadata.set_id(0);
+        message.metadata.id = 0;
 
         let bytes = Bytes::from(message.to_vec()?);
 
@@ -177,11 +177,11 @@ impl QuicStream {
         let message = Message::from_vec(&bytes)?;
 
         // assert that the message id is 0, this is a bad dns-over-quic packet if not
-        if message.id() != 0 {
+        if message.id != 0 {
             if let Err(error) = self.reset(DoqErrorCode::ProtocolError) {
                 debug!(%error, "stream already closed");
             }
-            return Err(NetError::QuicMessageIdNot0(message.id()));
+            return Err(NetError::QuicMessageIdNot0(message.id));
         }
 
         Ok(DnsResponse::from_buffer(bytes.to_vec())?)

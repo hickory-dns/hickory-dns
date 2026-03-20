@@ -360,10 +360,10 @@ impl ResponseHandlerMetrics {
     ) {
         self.proto.increment(&response_handler.protocol);
         self.operation
-            .increment(&response_handler.request_meta.op_code());
+            .increment(&response_handler.request_meta.op_code);
         self.request_flags.increment(&response_handler.request_meta);
 
-        self.response_code.increment(&response_info.response_code());
+        self.response_code.increment(&response_info.response_code);
         self.response_flags.increment(response_info);
     }
 }
@@ -518,22 +518,22 @@ impl FlagMetrics {
 
 impl FlagMetrics {
     pub(super) fn increment(&self, metadata: &Metadata) {
-        if metadata.authoritative() {
+        if metadata.authoritative {
             self.authoritative.increment(1);
         }
-        if metadata.authentic_data() {
+        if metadata.authentic_data {
             self.authentic_data.increment(1);
         }
-        if metadata.checking_disabled() {
+        if metadata.checking_disabled {
             self.checking_disabled.increment(1);
         }
-        if metadata.recursion_available() {
+        if metadata.recursion_available {
             self.recursion_available.increment(1);
         }
-        if metadata.recursion_desired() {
+        if metadata.recursion_desired {
             self.recursion_desired.increment(1);
         }
-        if metadata.truncated() {
+        if metadata.truncation {
             self.truncation.increment(1);
         }
     }

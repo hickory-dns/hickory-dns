@@ -104,10 +104,10 @@ impl ResponseHandler for ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let id = response.metadata().id();
+        let id = response.metadata().id;
         debug!(
             id,
-            response_code = %response.metadata().response_code(),
+            response_code = %response.metadata().response_code,
             "sending response",
         );
         let mut buffer = Vec::with_capacity(512);
@@ -148,7 +148,7 @@ pub(crate) fn encode_fallback_servfail_response(
     encoder.set_max_size(512);
 
     let mut metadata = Metadata::new(id, MessageType::Response, OpCode::Query);
-    metadata.set_response_code(ResponseCode::ServFail);
+    metadata.response_code = ResponseCode::ServFail;
     let header = Header {
         metadata,
         counts: HeaderCounts::default(),

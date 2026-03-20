@@ -246,7 +246,7 @@ pub async fn query_a_refused<C: ClientHandle>(client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
     let response = query_message(client, name, RecordType::A).await.unwrap();
 
-    assert_eq!(response.response_code(), ResponseCode::Refused);
+    assert_eq!(response.metadata.response_code, ResponseCode::Refused);
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.

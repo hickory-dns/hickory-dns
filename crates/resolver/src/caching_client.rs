@@ -305,7 +305,7 @@ where
         // need to capture these before the subsequent and destructive record processing
         let soa = response.soa().as_ref().map(RecordRef::to_owned);
         let negative_ttl = response.negative_ttl();
-        let response_code = response.response_code();
+        let response_code = response.response_code;
 
         // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
         // FIXME: for SRV this evaluation is inadequate. CNAME is a single chain to a single record

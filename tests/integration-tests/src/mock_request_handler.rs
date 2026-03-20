@@ -61,7 +61,7 @@ impl RequestHandler for MockHandler {
             error!(query = ?request_info.query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
             let mut response_meta = Metadata::response_from_request(request.metadata());
-            response_meta.set_response_code(ResponseCode::ServFail);
+            response_meta.response_code = ResponseCode::ServFail;
             let result = response_handle
                 .send_response(response_builder.build_no_records(response_meta))
                 .await;
@@ -86,7 +86,7 @@ async fn send_response(
     response: &DnsResponse,
 ) -> ResponseInfo {
     let mut response_meta = response.metadata;
-    response_meta.set_id(request.id());
+    response_meta.id = request.id();
 
     let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
     if let Some(edns) = &response.edns {
@@ -108,9 +108,9 @@ async fn send_response(
             let mut metadata = Metadata::new(
                 request.id(),
                 MessageType::Response,
-                request.metadata().op_code(),
+                request.metadata().op_code,
             );
-            metadata.set_response_code(ResponseCode::ServFail);
+            metadata.response_code = ResponseCode::ServFail;
             ResponseInfo::from(Header {
                 metadata,
                 counts: HeaderCounts::default(),
@@ -132,6 +132,6 @@ pub async fn fetch_dnskey(client: &mut DnssecClient) -> DnsResponse {
         )
         .await
         .unwrap();
-    assert_eq!(dnskey_response.response_code(), ResponseCode::NoError);
+    assert_eq!(dnskey_response.response_code, ResponseCode::NoError);
     dnskey_response
 }

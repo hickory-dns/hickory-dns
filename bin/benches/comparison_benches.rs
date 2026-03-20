@@ -111,9 +111,9 @@ fn bench<S: DnsRequestSender>(b: &mut Bencher, sender: S) {
     let query = client.query(name.clone(), DNSClass::IN, RecordType::A);
     let response = io_loop.block_on(query).expect("Request failed");
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
-    let record = &response.answers()[0];
+    let record = &response.answers[0];
     if let RData::A(address) = record.data() {
         assert_eq!(address, &A(Ipv4Addr::LOCALHOST));
     } else {
