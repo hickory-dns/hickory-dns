@@ -17,18 +17,21 @@ use crate::{
     net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{Header, HeaderCounts, LowerQuery, MessageType, Metadata, ResponseCode},
+        op::{Header, HeaderCounts, LowerQuery, Message, MessageType, Metadata, ResponseCode},
+        rr::{Record, rdata::TSIG},
         serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
-    zone_handler::{LookupError, MessageRequest},
+    zone_handler::{LookupError, Queries, UpdateRequest},
 };
 
 /// An incoming request to the DNS catalog
 #[derive(Debug)]
 pub struct Request {
     /// Message with the associated query or update data
-    pub(crate) message: MessageRequest,
+    pub(crate) message: Message,
+    /// Server-side query data with cached wire bytes and lowercased names
+    pub(crate) server_queries: Queries,
     pub(super) raw: Bytes,
     /// Source address of the Client
     pub(super) src: SocketAddr,
@@ -43,20 +46,16 @@ impl Request {
         src: SocketAddr,
         protocol: Protocol,
     ) -> Result<Self, ProtoError> {
+        let raw = Bytes::from(raw);
         let mut decoder = BinDecoder::new(&raw);
         let header = Header::read(&mut decoder)?;
-        Ok(Self {
-            message: MessageRequest::read(&mut decoder, header)?,
-            raw: Bytes::from(raw),
-            src,
-            protocol,
-        })
+        Ok(Self::read(&mut decoder, header, raw.clone(), src, protocol)?)
     }
 
-    /// Construct a new Request from the encoding of a MessageRequest, source address, and protocol
+    /// Construct a new Request from the encoding of a Message, source address, and protocol
     #[cfg(feature = "testing")]
     pub fn from_message(
-        message: MessageRequest,
+        message: Message,
         src: SocketAddr,
         protocol: Protocol,
     ) -> Result<Self, ProtoError> {
@@ -64,12 +63,35 @@ impl Request {
         let mut encoder = BinEncoder::new(&mut encoded);
         message.emit(&mut encoder)?;
 
+        let server_queries = Queries::from_queries(&message.queries);
+
         Ok(Self {
             message,
+            server_queries,
             raw: Bytes::from(encoded),
             src,
             protocol,
         })
+    }
+
+    /// Construct a mock Request for testing purposes
+    ///
+    /// The unspecified fields are left empty.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn mock(metadata: Metadata, query: impl Into<LowerQuery>) -> Self {
+        let lower_query: LowerQuery = query.into();
+        let query_clone = lower_query.original().clone();
+        let server_queries = Queries::new(vec![lower_query]);
+        let mut message = Message::new(metadata.id, metadata.message_type, metadata.op_code);
+        message.metadata = metadata;
+        message.queries = vec![query_clone];
+        Self {
+            message,
+            server_queries,
+            raw: Bytes::new(),
+            src: SocketAddr::from(([127, 0, 0, 1], 53)),
+            protocol: Protocol::Udp,
+        }
     }
 
     /// Return just the header and request information from the Request Message
@@ -80,7 +102,7 @@ impl Request {
             src: self.src,
             protocol: self.protocol,
             metadata: &self.message.metadata,
-            query: self.message.queries.try_as_query()?,
+            query: self.server_queries.try_as_query()?,
         })
     }
 
@@ -98,13 +120,87 @@ impl Request {
     pub fn as_slice(&self) -> &[u8] {
         &self.raw
     }
+
+    /// Construct a Request from a pre-parsed header and decoder
+    pub(super) fn read(
+        decoder: &mut BinDecoder<'_>,
+        header: Header,
+        raw: Bytes,
+        src: SocketAddr,
+        protocol: Protocol,
+    ) -> Result<Self, crate::proto::serialize::binary::DecodeError> {
+        let Header {
+            mut metadata,
+            counts,
+        } = header;
+
+        let server_queries = Queries::read(decoder, counts.query_count as usize)?;
+        let queries = server_queries
+            .queries()
+            .iter()
+            .map(|lq| lq.original().clone())
+            .collect();
+        let (answers, _, _) =
+            Message::read_records(decoder, counts.answer_count as usize, false)?;
+        let (authorities, _, _) =
+            Message::read_records(decoder, counts.authority_count as usize, false)?;
+        let (additionals, edns, signature) =
+            Message::read_records(decoder, counts.additional_count as usize, true)?;
+
+        if let Some(edns) = &edns {
+            metadata.merge_response_code(edns.rcode_high());
+        }
+
+        let mut message = Message::new(metadata.id, metadata.message_type, metadata.op_code);
+        message.metadata = metadata;
+        message.queries = queries;
+        message.answers = answers;
+        message.authorities = authorities;
+        message.additionals = additionals;
+        message.signature = signature;
+        message.edns = edns;
+
+        Ok(Self {
+            message,
+            server_queries,
+            raw,
+            src,
+            protocol,
+        })
+    }
 }
 
 impl std::ops::Deref for Request {
-    type Target = MessageRequest;
+    type Target = Message;
 
     fn deref(&self) -> &Self::Target {
         &self.message
+    }
+}
+
+impl UpdateRequest for Request {
+    fn id(&self) -> u16 {
+        self.message.metadata.id
+    }
+
+    fn zone(&self) -> Result<&LowerQuery, LookupError> {
+        self.server_queries.try_as_query()
+    }
+
+    fn prerequisites(&self) -> &[Record] {
+        &self.message.answers
+    }
+
+    fn updates(&self) -> &[Record] {
+        &self.message.authorities
+    }
+
+    fn additionals(&self) -> &[Record] {
+        &self.message.additionals
+    }
+
+    fn signature(&self) -> Option<&Record<TSIG>> {
+        self.message.signature.as_deref()
     }
 }
 

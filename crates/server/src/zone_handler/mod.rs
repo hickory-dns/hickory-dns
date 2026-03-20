@@ -41,7 +41,7 @@ pub use self::auth_lookup::{
     ZoneTransfer,
 };
 pub use self::catalog::Catalog;
-pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
+pub use self::message_request::{Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 
 /// ZoneHandler implementations can be used with a `Catalog`

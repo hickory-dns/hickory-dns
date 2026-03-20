@@ -59,7 +59,7 @@ impl RequestHandler for MockHandler {
             send_response(response_handle, request, &self.dnskey_response).await
         } else {
             error!(query = ?request_info.query, "unexpected request");
-            let response_builder = MessageResponseBuilder::from_message_request(request);
+            let response_builder = MessageResponseBuilder::from_request(request);
             let mut response_meta = Metadata::response_from_request(&request.metadata);
             response_meta.response_code = ResponseCode::ServFail;
             let result = response_handle
@@ -88,7 +88,7 @@ async fn send_response(
     let mut response_meta = response.metadata;
     response_meta.id = request.metadata.id;
 
-    let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
+    let mut message_response_builder = MessageResponseBuilder::from_request(request);
     if let Some(edns) = &response.edns {
         message_response_builder.edns(edns);
     }

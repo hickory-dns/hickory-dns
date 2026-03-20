@@ -1,13 +1,10 @@
 #![cfg(feature = "__dnssec")]
 #![allow(unreachable_pub)]
 
-use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use futures_executor::block_on;
-
-use hickory_net::xfer::Protocol;
 use hickory_proto::{
     dnssec::{
         Algorithm, Verifier,
@@ -18,21 +15,16 @@ use hickory_proto::{
 };
 use hickory_server::{
     server::Request,
-    zone_handler::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{DnssecZoneHandler, LookupOptions, ZoneHandler},
 };
 
 const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
 
 pub fn test_a_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
-    let request = Request::from_message(
-        MessageRequest::mock(
-            *TEST_HEADER,
-            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
-        ),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    let request = Request::mock(
+        *TEST_HEADER,
+        Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+    );
 
     let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
@@ -128,18 +120,13 @@ pub fn test_ns(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 }
 
 pub fn test_aname_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
-    let request = Request::from_message(
-        MessageRequest::mock(
-            *TEST_HEADER,
-            Query::query(
-                Name::from_str("aname-chain.example.com.").unwrap(),
-                RecordType::A,
-            ),
+    let request = Request::mock(
+        *TEST_HEADER,
+        Query::query(
+            Name::from_str("aname-chain.example.com.").unwrap(),
+            RecordType::A,
         ),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    );
 
     let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
@@ -161,18 +148,13 @@ pub fn test_aname_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 
 pub fn test_wildcard(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     // check wildcard lookup
-    let request = Request::from_message(
-        MessageRequest::mock(
-            *TEST_HEADER,
-            Query::query(
-                Name::from_str("www.wildcard.example.com.").unwrap(),
-                RecordType::CNAME,
-            ),
+    let request = Request::mock(
+        *TEST_HEADER,
+        Query::query(
+            Name::from_str("www.wildcard.example.com.").unwrap(),
+            RecordType::CNAME,
         ),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    );
 
     let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0
@@ -200,18 +182,13 @@ pub fn test_wildcard(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 
 pub fn test_wildcard_subdomain(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     // check wildcard lookup
-    let request = Request::from_message(
-        MessageRequest::mock(
-            *TEST_HEADER,
-            Query::query(
-                Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
-                RecordType::CNAME,
-            ),
+    let request = Request::mock(
+        *TEST_HEADER,
+        Query::query(
+            Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
+            RecordType::CNAME,
         ),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    );
 
     let lookup = block_on(handler.search(&request, LookupOptions::for_dnssec()))
         .0

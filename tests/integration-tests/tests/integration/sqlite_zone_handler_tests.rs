@@ -33,7 +33,7 @@ use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
 #[cfg(feature = "__dnssec")]
 use hickory_server::zone_handler::MessageResponseBuilder;
 use hickory_server::zone_handler::{
-    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
+    AxfrPolicy, LookupError, LookupOptions, ZoneHandler, ZoneType,
 };
 use test_support::subscribe;
 
@@ -60,12 +60,7 @@ async fn test_search() {
 
     let mut query = Query::new();
     query.set_name(origin.into());
-    let request = Request::from_message(
-        MessageRequest::mock(*TEST_METADATA, query),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    let request = Request::mock(*TEST_METADATA, query);
 
     let result = example
         .search(&request, LookupOptions::default())
@@ -91,12 +86,7 @@ async fn test_search_www() {
 
     let mut query = Query::new();
     query.set_name(www_name);
-    let request = Request::from_message(
-        MessageRequest::mock(*TEST_METADATA, query),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    let request = Request::mock(*TEST_METADATA, query);
 
     let result = example
         .search(&request, LookupOptions::default())
@@ -664,7 +654,7 @@ async fn test_update() {
 
     original_vec.sort();
 
-    let message_request = MessageRequest::mock(
+    let message_request = Request::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
         Query::query(origin_name, RecordType::AXFR),
     );
@@ -949,7 +939,7 @@ async fn test_update_tsig_valid() {
     // We want to add a new A record for a name. Let's first verify it doesn't exist yet.
     let new_name = Name::from_str("new.example.com.").unwrap();
     let origin_name = Name::from_str("example.com.").unwrap();
-    let message_request = MessageRequest::mock(
+    let message_request = Request::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
         Query::query(origin_name, RecordType::AXFR),
     );
@@ -1282,7 +1272,7 @@ async fn test_zone_signing() {
 
     let handler = create_secure_example();
 
-    let message_request = MessageRequest::mock(
+    let message_request = Request::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
         Query::query(handler.origin().clone().into(), RecordType::AXFR),
     );
@@ -1546,15 +1536,10 @@ async fn test_axfr_allow_all() {
     let mut handler = create_example();
     handler.set_axfr_policy(AxfrPolicy::AllowAll);
 
-    let request = Request::from_message(
-        MessageRequest::mock(
-            *TEST_METADATA,
-            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
-        ),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    let request = Request::mock(
+        *TEST_METADATA,
+        Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+    );
 
     let result = handler
         .zone_transfer(
@@ -1577,15 +1562,10 @@ async fn test_axfr_deny_all() {
     let mut handler = create_example();
     handler.set_axfr_policy(AxfrPolicy::Deny);
 
-    let request = Request::from_message(
-        MessageRequest::mock(
-            *TEST_METADATA,
-            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
-        ),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    let request = Request::mock(
+        *TEST_METADATA,
+        Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+    );
 
     let err = handler
         .zone_transfer(
@@ -1615,12 +1595,7 @@ async fn test_axfr_deny_unsigned() {
         Name::from_str("example.com.").unwrap(),
         RecordType::AXFR,
     ));
-    let request = Request::from_message(
-        MessageRequest::mock(*TEST_METADATA, query),
-        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
-        Protocol::Udp,
-    )
-    .unwrap();
+    let request = Request::mock(*TEST_METADATA, query);
 
     let err = handler
         .zone_transfer(

@@ -49,7 +49,7 @@ use crate::{
         rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
     },
-    zone_handler::{MessageRequest, MessageResponseBuilder, Queries},
+    zone_handler::{MessageResponseBuilder, Queries},
 };
 
 #[cfg(feature = "__https")]
@@ -798,13 +798,8 @@ impl<T: RequestHandler> ServerContext<T> {
         }
 
         // Attempt to decode the message
-        let request = match MessageRequest::read(&mut decoder, header) {
-            Ok(message) => Request {
-                message,
-                raw: message_bytes,
-                src: src_addr,
-                protocol,
-            },
+        let request = match Request::read(&mut decoder, header, message_bytes.clone(), src_addr, protocol) {
+            Ok(request) => request,
             Err(error) => {
                 // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
                 let queries = Queries::empty();
@@ -850,7 +845,7 @@ impl<T: RequestHandler> ServerContext<T> {
             op = qop_code,
             qflags = qflags
         );
-        for query in request.queries.queries().iter() {
+        for query in request.server_queries.queries().iter() {
             debug!(
                 "query:{query}:{qtype}:{class}",
                 query = query.name(),
@@ -860,7 +855,7 @@ impl<T: RequestHandler> ServerContext<T> {
         }
 
         // The reporter will handle making sure to log the result of the request
-        let queries = request.queries.queries().to_vec();
+        let queries = request.server_queries.queries().to_vec();
         let reporter = ReportingResponseHandler {
             request_meta: request.metadata,
             queries,

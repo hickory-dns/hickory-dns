@@ -12,8 +12,8 @@ use crate::{
         rr::{Record, rdata::TSIG},
         serialize::binary::BinEncoder,
     },
-    server::ResponseInfo,
-    zone_handler::{Queries, message_request::MessageRequest},
+    server::{Request, ResponseInfo},
+    zone_handler::Queries,
 };
 
 /// A [`crate::proto::serialize::binary::BinEncodable`] message with borrowed data for
@@ -120,7 +120,7 @@ impl<'q> MessageResponseBuilder<'q> {
     ///
     /// # Arguments
     ///
-    /// * `message` - original request message to associate with the response
+    /// * `request` - original request to associate with the response
     ///
     /// # Example
     ///
@@ -139,12 +139,12 @@ impl<'q> MessageResponseBuilder<'q> {
     ///     impl Iterator<Item = &'static Record> + Send + 'static,
     ///     impl Iterator<Item = &'static Record> + Send + 'static,
     /// > {
-    ///     MessageResponseBuilder::from_message_request(request)
+    ///     MessageResponseBuilder::from_request(request)
     ///         .error_msg(&request.metadata, ResponseCode::ServFail)
     /// }
     /// ```
-    pub fn from_message_request(message: &'q MessageRequest) -> Self {
-        Self::new(&message.queries, None)
+    pub fn from_request(request: &'q Request) -> Self {
+        Self::new(&request.server_queries, None)
     }
 
     /// Associate EDNS with the Response
@@ -240,12 +240,14 @@ impl<'q> MessageResponseBuilder<'q> {
 #[cfg(test)]
 mod tests {
     use std::iter;
-    use std::net::Ipv4Addr;
+    use std::net::{Ipv4Addr, SocketAddr};
     use std::str::FromStr;
 
-    use crate::proto::op::{Header, Message, MessageType, Metadata, OpCode};
+    use crate::net::xfer::Protocol;
+    use crate::proto::op::{Message, MessageType, Metadata, OpCode};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
-    use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
+    use crate::proto::serialize::binary::BinEncoder;
+    use crate::server::Request;
 
     use super::*;
 
@@ -367,13 +369,16 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
 
-        let mut decoder = BinDecoder::new(data);
-        let header = Header::read(&mut decoder).unwrap();
-        let msg = MessageRequest::read(&mut decoder, header).unwrap();
+        let msg = Request::from_bytes(
+            data.to_vec(),
+            SocketAddr::from(([127, 0, 0, 1], 53)),
+            Protocol::Udp,
+        )
+        .unwrap();
 
-        eprintln!("queries: {:?}", msg.queries.queries());
+        eprintln!("queries: {:?}", msg.server_queries.queries());
 
-        MessageResponseBuilder::new(&msg.queries, None)
+        MessageResponseBuilder::new(&msg.server_queries, None)
             .build_no_records(Metadata::response_from_request(&msg.metadata))
             .destructive_emit(&mut encoder)
             .unwrap();

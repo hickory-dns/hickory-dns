@@ -326,7 +326,7 @@ impl Catalog {
                     _ => (ResponseCode::NotAuth, None),
                 };
 
-                let response = MessageResponseBuilder::new(&update.queries, response_edns);
+                let response = MessageResponseBuilder::new(&update.server_queries, response_edns);
                 let mut response_meta =
                     Metadata::new(update.metadata.id, MessageType::Response, OpCode::Update);
                 response_meta.response_code = response_code;
@@ -340,7 +340,7 @@ impl Catalog {
                     let mut response_meta =
                         Metadata::new(update.metadata.id, MessageType::Response, OpCode::Update);
                     response_meta.response_code = response_code;
-                    let tbs_response = MessageResponseBuilder::new(&update.queries, response_edns)
+                    let tbs_response = MessageResponseBuilder::new(&update.server_queries, response_edns)
                         .build_no_records(response_meta);
                     if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                         error!(%error, "error encoding response");
@@ -564,7 +564,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         .await;
 
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
-        let mut message_response = MessageResponseBuilder::new(&request.queries, response_edns)
+        let mut message_response = MessageResponseBuilder::new(&request.server_queries, response_edns)
             .build(
                 response_message.metadata,
                 response_message.answers.iter(),
@@ -577,7 +577,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-            let tbs_response = MessageResponseBuilder::new(&request.queries, response_edns).build(
+            let tbs_response = MessageResponseBuilder::new(&request.server_queries, response_edns).build(
                 response_message.metadata,
                 response_message.answers.iter(),
                 response_message.authorities.iter(),
@@ -680,7 +680,7 @@ async fn zone_transfer(
 
         // TODO(issue #351): Send more than one message in response as needed.
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
-        let mut message_response = MessageResponseBuilder::new(&request.queries, response_edns)
+        let mut message_response = MessageResponseBuilder::new(&request.server_queries, response_edns)
             .build(
                 response_meta,
                 zone_transfer
@@ -695,7 +695,7 @@ async fn zone_transfer(
         if let Some(signer) = signer {
             let mut tbs_response_buf = Vec::with_capacity(512);
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-            let tbs_response = MessageResponseBuilder::new(&request.queries, response_edns).build(
+            let tbs_response = MessageResponseBuilder::new(&request.server_queries, response_edns).build(
                 response_meta,
                 zone_transfer
                     .iter()
@@ -764,7 +764,7 @@ async fn send_error_response(
             response_edns = Some(&new_edns);
         }
     }
-    let response = MessageResponseBuilder::new(&request.queries, response_edns)
+    let response = MessageResponseBuilder::new(&request.server_queries, response_edns)
         .error_msg(&request.metadata, response_code);
     match response_handle.send_response(response).await {
         Ok(r) => r,

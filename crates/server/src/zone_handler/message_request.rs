@@ -5,130 +5,19 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(feature = "testing")]
+use crate::proto::op::Query;
+#[cfg(any(test, feature = "testing"))]
+use crate::proto::serialize::binary::BinEncodable;
 use crate::{
     proto::{
         ProtoError,
-        op::{Edns, EmitAndCount, Header, LowerQuery, Message, Metadata, emit_message_parts},
+        op::{EmitAndCount, LowerQuery},
         rr::{Record, rdata::TSIG},
-        serialize::binary::{
-            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
-        },
+        serialize::binary::{BinDecodable, BinDecoder, BinEncoder, DecodeError, NameEncoding},
     },
     zone_handler::LookupError,
 };
-
-/// A Message which captures the data from an inbound request
-#[derive(Debug, PartialEq)]
-pub struct MessageRequest {
-    /// Metadata from the message header
-    pub metadata: Metadata,
-    /// Query name and other query parameters
-    pub queries: Queries,
-    /// Records which directly answer the query
-    pub answers: Vec<Record>,
-    /// Records with describe other authoritative servers
-    ///
-    /// May optionally carry the SOA record for the authoritative data in the answer section.
-    pub authorities: Vec<Record>,
-    /// Records which may be helpful in using the records in the other sections
-    pub additionals: Vec<Record>,
-    /// TSIG signature for the message, if any
-    pub signature: Option<Box<Record<TSIG>>>,
-    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
-    ///
-    /// ```text
-    /// 6.1.1.  Basic Elements
-    ///
-    ///  An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
-    ///  additional data section of a request.
-    ///
-    ///  The OPT RR has RR type 41.
-    ///
-    ///  If an OPT record is present in a received request, compliant
-    ///  responders MUST include an OPT record in their respective responses.
-    ///
-    ///  An OPT record does not carry any DNS data.  It is used only to
-    ///  contain control information pertaining to the question-and-answer
-    ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
-    ///  forwarded, or stored in or loaded from Zone Files.
-    ///
-    ///  The OPT RR MAY be placed anywhere within the additional data section.
-    ///  When an OPT RR is included within any DNS message, it MUST be the
-    ///  only OPT RR in that message.  If a query message with more than one
-    ///  OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
-    ///  placement flexibility for the OPT RR does not override the need for
-    ///  the TSIG or SIG(0) RRs to be the last in the additional section
-    ///  whenever they are present.
-    /// ```
-    /// # Return value
-    ///
-    /// Optionally returns a reference to EDNS OPT pseudo-RR
-    pub edns: Option<Edns>,
-}
-
-impl MessageRequest {
-    // TODO: generify this with Message?
-    /// Reads a MessageRequest from the decoder
-    pub(crate) fn read(decoder: &mut BinDecoder<'_>, header: Header) -> Result<Self, DecodeError> {
-        let Header {
-            mut metadata,
-            counts,
-        } = header;
-        let queries = Queries::read(decoder, counts.query_count as usize)?;
-        let (answers, _, _) = Message::read_records(decoder, counts.answer_count as usize, false)?;
-        let (authorities, _, _) =
-            Message::read_records(decoder, counts.authority_count as usize, false)?;
-        let (additionals, edns, signature) =
-            Message::read_records(decoder, counts.additional_count as usize, true)?;
-
-        // need to grab error code from EDNS (which might have a higher value)
-        if let Some(edns) = &edns {
-            let high_response_code = edns.rcode_high();
-            metadata.merge_response_code(high_response_code);
-        }
-
-        Ok(Self {
-            metadata,
-            queries,
-            answers,
-            authorities,
-            additionals,
-            signature,
-            edns,
-        })
-    }
-
-    /// Construct a mock MessageRequest for testing purposes
-    ///
-    /// The unspecified fields are left empty.
-    #[cfg(any(test, feature = "testing"))]
-    pub fn mock(metadata: Metadata, query: impl Into<LowerQuery>) -> Self {
-        Self {
-            metadata,
-            queries: Queries::new(vec![query.into()]),
-            answers: Vec::new(),
-            authorities: Vec::new(),
-            additionals: Vec::new(),
-            signature: None,
-            edns: None,
-        }
-    }
-
-    /// # Return value
-    ///
-    /// the max payload value as it's defined in the EDNS OPT pseudo-RR.
-    pub fn max_payload(&self) -> u16 {
-        let max_size = self.edns.as_ref().map_or(512, Edns::max_payload);
-        if max_size < 512 { 512 } else { max_size }
-    }
-
-    /// # Return value
-    ///
-    /// the version as defined in the EDNS record
-    pub fn version(&self) -> u8 {
-        self.edns.as_ref().map_or(0, Edns::version)
-    }
-}
 
 /// A set of Queries with the associated serialized data
 #[derive(Debug, PartialEq, Eq)]
@@ -208,6 +97,21 @@ impl Queries {
         Ok(&self.queries[0])
     }
 
+    /// Construct `Queries` from a slice of `Query`, encoding them to cache the wire bytes
+    #[cfg(feature = "testing")]
+    pub fn from_queries(queries: &[Query]) -> Self {
+        let lower: Vec<LowerQuery> = queries.iter().cloned().map(LowerQuery::from).collect();
+        let mut encoded = Vec::new();
+        let mut encoder = BinEncoder::new(&mut encoded);
+        for q in queries {
+            q.emit(&mut encoder).unwrap();
+        }
+        Self {
+            queries: lower,
+            original: encoded.into_boxed_slice(),
+        }
+    }
+
     /// Construct an empty set of queries
     pub(crate) fn empty() -> Self {
         Self {
@@ -241,26 +145,7 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
     }
 }
 
-impl BinEncodable for MessageRequest {
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
-        emit_message_parts(
-            &self.metadata,
-            // we emit the queries, not the raw bytes, in order to guarantee canonical form
-            //   in cases where that's necessary, like SIG0 validation
-            &mut self.queries.queries.iter(),
-            &mut self.answers.iter(),
-            &mut self.authorities.iter(),
-            &mut self.additionals.iter(),
-            self.edns.as_ref(),
-            self.signature.as_deref(),
-            encoder,
-        )?;
-
-        Ok(())
-    }
-}
-
-/// A type which represents an MessageRequest for dynamic Update.
+/// A type which represents a Request for dynamic Update.
 pub trait UpdateRequest {
     /// Id of the Message
     fn id(&self) -> u16;
@@ -279,31 +164,4 @@ pub trait UpdateRequest {
 
     /// Signature for verifying the Message
     fn signature(&self) -> Option<&Record<TSIG>>;
-}
-
-impl UpdateRequest for MessageRequest {
-    fn id(&self) -> u16 {
-        self.metadata.id
-    }
-
-    fn zone(&self) -> Result<&LowerQuery, LookupError> {
-        // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
-        self.queries.try_as_query()
-    }
-
-    fn prerequisites(&self) -> &[Record] {
-        &self.answers
-    }
-
-    fn updates(&self) -> &[Record] {
-        &self.authorities
-    }
-
-    fn additionals(&self) -> &[Record] {
-        &self.additionals
-    }
-
-    fn signature(&self) -> Option<&Record<TSIG>> {
-        self.signature.as_deref()
-    }
 }
