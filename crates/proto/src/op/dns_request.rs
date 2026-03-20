@@ -88,13 +88,12 @@ impl DnsRequest {
             query.name.randomize_label_case();
         }
 
-        message
-            .add_query(query)
-            .set_recursion_desired(options.recursion_desired);
+        message.queries.push(query);
+        message.metadata.recursion_desired = options.recursion_desired;
 
         if options.use_edns {
             message
-                .extensions_mut()
+                .edns
                 .get_or_insert_with(Edns::new)
                 .set_max_payload(options.edns_payload_len)
                 .set_dnssec_ok(options.edns_set_dnssec_ok);
@@ -167,7 +166,7 @@ mod tests {
     fn from_query_default_includes_edns() {
         let query = Query::query(Name::from_ascii("example.com.").unwrap(), RecordType::A);
         let request = DnsRequest::from_query(query, DnsRequestOptions::default());
-        assert!(request.extensions().is_some());
+        assert!(request.edns.is_some());
         assert_eq!(request.max_payload(), DEFAULT_MAX_PAYLOAD_LEN);
     }
 
@@ -182,7 +181,7 @@ mod tests {
             },
         );
 
-        assert!(request.extensions().is_none());
+        assert!(request.edns.is_none());
         assert_eq!(request.max_payload(), 512);
     }
 }

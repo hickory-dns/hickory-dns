@@ -46,7 +46,7 @@ async fn name_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
 
     let nsec_count = response
         .all_sections()
@@ -93,7 +93,7 @@ async fn no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .all_sections()
@@ -130,10 +130,10 @@ async fn wildcard_expansion() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
-        .authorities()
+        .authorities
         .iter()
         .filter(|record| record.record_type() == RecordType::NSEC)
         .count();
@@ -169,7 +169,7 @@ async fn wildcard_no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .all_sections()
@@ -216,7 +216,7 @@ async fn ds_child_zone_no_data_error() {
         .await
         .unwrap();
     print_response(&response);
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let nsec_count = response
         .all_sections()
@@ -247,17 +247,15 @@ async fn test_exclude_nsec(
     nsec_owner_name: Name,
 ) {
     let mut modified_response = original_response.clone();
-    modified_response.authorities_mut().retain(|record| {
+    modified_response.authorities.retain(|record| {
         record.name() != &nsec_owner_name || record.record_type() != RecordType::NSEC
     });
-    let new_count = modified_response.authorities().len().try_into().unwrap();
-    modified_response.set_authority_count(new_count);
     assert!(
-        modified_response.authorities().len() < original_response.authorities().len(),
+        modified_response.authorities.len() < original_response.authorities.len(),
         "failed to remove expected NSEC record at {nsec_owner_name}: {modified_response:?}"
     );
 
-    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers()[0].data() else {
+    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers[0].data() else {
         panic!("expected DNSKEY in DNSKEY response: {dnskey_response:#?}");
     };
 

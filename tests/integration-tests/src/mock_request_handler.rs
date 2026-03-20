@@ -5,7 +5,7 @@ use hickory_net::runtime::Time;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::DNSClass;
 use hickory_proto::{
-    op::{DnsResponse, Header, MessageType, ResponseCode},
+    op::{DnsResponse, Header, HeaderCounts, MessageType, Metadata, ResponseCode},
     rr::{LowerName, Name, RecordType},
 };
 use hickory_server::{
@@ -60,15 +60,18 @@ impl RequestHandler for MockHandler {
         } else {
             error!(query = ?request_info.query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
-            let mut response_header = Header::response_from_request(request.header());
-            response_header.set_response_code(ResponseCode::ServFail);
+            let mut response_meta = Metadata::response_from_request(&request.metadata);
+            response_meta.response_code = ResponseCode::ServFail;
             let result = response_handle
-                .send_response(response_builder.build_no_records(response_header))
+                .send_response(response_builder.build_no_records(response_meta))
                 .await;
             if let Err(e) = result {
                 error!(error = %e, "error responding to request");
             }
-            response_header.into()
+            ResponseInfo::from(Header {
+                metadata: response_meta,
+                counts: HeaderCounts::default(),
+            })
         }
     }
 }
@@ -82,19 +85,19 @@ async fn send_response(
     request: &Request,
     response: &DnsResponse,
 ) -> ResponseInfo {
-    let mut response_header = *response.header();
-    response_header.set_id(request.id());
+    let mut response_meta = response.metadata;
+    response_meta.id = request.metadata.id;
 
     let mut message_response_builder = MessageResponseBuilder::from_message_request(request);
-    if let Some(edns) = response.extensions() {
+    if let Some(edns) = &response.edns {
         message_response_builder.edns(edns);
     }
     let message_response = message_response_builder.build(
-        response_header,
-        response.answers(),
-        response.authorities(),
+        response_meta,
+        &response.answers,
+        &response.authorities,
         [],
-        response.additionals(),
+        &response.additionals,
     );
 
     let result = response_handle.send_response(message_response).await;
@@ -102,13 +105,16 @@ async fn send_response(
         Ok(info) => info,
         Err(e) => {
             error!(error = %e, "error responding to request");
-            let mut header = Header::new(
-                request.id(),
+            let mut metadata = Metadata::new(
+                request.metadata.id,
                 MessageType::Response,
-                request.header().op_code(),
+                request.metadata.op_code,
             );
-            header.set_response_code(ResponseCode::ServFail);
-            ResponseInfo::from(header)
+            metadata.response_code = ResponseCode::ServFail;
+            ResponseInfo::from(Header {
+                metadata,
+                counts: HeaderCounts::default(),
+            })
         }
     }
 }
@@ -126,6 +132,6 @@ pub async fn fetch_dnskey(client: &mut DnssecClient) -> DnsResponse {
         )
         .await
         .unwrap();
-    assert_eq!(dnskey_response.response_code(), ResponseCode::NoError);
+    assert_eq!(dnskey_response.response_code, ResponseCode::NoError);
     dnskey_response
 }

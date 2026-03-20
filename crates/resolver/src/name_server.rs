@@ -889,7 +889,7 @@ mod tests {
             )
             .await
             .expect("query failed");
-        assert_eq!(response.response_code(), ResponseCode::NoError);
+        assert_eq!(response.response_code, ResponseCode::NoError);
     }
 
     #[tokio::test]
@@ -942,8 +942,8 @@ mod tests {
                 let mut buffer = [0_u8; 512];
                 let (len, addr) = server.recv_from(&mut buffer).await.unwrap();
                 let request = Message::from_vec(&buffer[0..len]).unwrap();
-                let mut response = Message::response(request.id(), request.op_code());
-                response.add_queries(request.queries().to_vec());
+                let mut response = Message::response(request.id, request.op_code);
+                response.add_queries(request.queries.to_vec());
                 response.add_answer(Record::from_rdata(
                     name,
                     0,
@@ -985,7 +985,7 @@ mod tests {
             .await
             .unwrap();
 
-        let response_query_name = response.queries().first().unwrap().name();
+        let response_query_name = response.queries.first().unwrap().name();
         assert!(response_query_name.eq_case(&name));
     }
 
@@ -2149,9 +2149,9 @@ mod mock_provider {
         type Runtime = MockSyncRuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
-            let mut response = Message::response(request.id(), request.op_code());
-            response.set_response_code(ResponseCode::NoError);
-            response.add_queries(request.queries().iter().cloned());
+            let mut response = Message::response(request.id, request.op_code);
+            response.metadata.response_code = ResponseCode::NoError;
+            response.add_queries(request.queries.clone());
             Box::pin(once(future::ready(Ok(
                 DnsResponse::from_message(response).unwrap()
             ))))

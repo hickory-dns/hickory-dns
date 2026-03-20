@@ -156,14 +156,14 @@ async fn test_query(client: &mut Client<TokioRuntimeProvider>) {
     println!("response records: {response:?}");
     assert!(
         response
-            .queries()
+            .queries
             .first()
             .expect("expected query")
             .name()
             .eq_case(&name)
     );
 
-    assert!(!response.answers().is_empty());
+    assert!(!response.answers.is_empty());
 }
 
 async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
@@ -175,16 +175,15 @@ async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
 
     // TODO: write builder
     let mut msg = Message::query();
+    msg.metadata.recursion_desired = true;
     msg.add_query({
         let mut query = Query::query(name.clone(), RecordType::A);
         query.set_query_class(DNSClass::IN);
         query
-    })
-    .set_recursion_desired(true)
-    .set_edns(edns)
-    .extensions_mut()
-    .as_mut()
-    .map(|edns| edns.set_max_payload(1232).set_version(0));
+    });
+
+    edns.set_max_payload(1232).set_version(0);
+    msg.edns = Some(edns);
 
     let response = client
         .send(DnsRequest::from(msg))
@@ -194,17 +193,17 @@ async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
     println!("response records: {response:?}");
     assert!(
         response
-            .queries()
+            .queries
             .first()
             .expect("expected query")
             .name()
             .eq_case(&name)
     );
 
-    assert!(!response.answers().is_empty());
-    assert!(response.extensions().is_some());
+    assert!(!response.answers.is_empty());
+    assert!(response.edns.is_some());
     let subnet_option = response
-        .extensions()
+        .edns
         .as_ref()
         .unwrap()
         .option(EdnsCode::Subnet)
@@ -237,7 +236,7 @@ async fn test_notify() {
     assert!(message.is_ok());
     let message = message.unwrap();
     assert_eq!(
-        message.response_code(),
+        message.metadata.response_code,
         ResponseCode::NotImp,
         "the catalog must support Notify now, update this"
     );
@@ -301,7 +300,7 @@ async fn test_create() {
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     let result = client
         .query(
             record.name().clone(),
@@ -310,9 +309,9 @@ async fn test_create() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0], record);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 1);
+    assert_eq!(result.answers[0], record);
 
     // trying to create again should error
     // TODO: it would be cool to make this
@@ -320,14 +319,14 @@ async fn test_create() {
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     let mut record = record;
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = client.create(record, origin).await.expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -356,7 +355,7 @@ async fn test_create_multi() {
         .create(rrset.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     let result = client
         .query(
             record.name().clone(),
@@ -365,11 +364,11 @@ async fn test_create_multi() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 2);
 
-    assert!(result.answers().contains(&record));
-    assert!(result.answers().contains(&record2));
+    assert!(result.answers.contains(&record));
+    assert!(result.answers.contains(&record2));
 
     // trying to create again should error
     // TODO: it would be cool to make this
@@ -377,14 +376,14 @@ async fn test_create_multi() {
         .create(rrset, origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     let mut record = record;
     record.set_data(RData::A(A::new(101, 11, 101, 12)));
 
     let result = client.create(record, origin).await.expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -406,14 +405,14 @@ async fn test_append() {
         .append(record.clone(), origin.clone(), true)
         .await
         .expect("append failed");
-    assert_eq!(result.response_code(), ResponseCode::NXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXRRSet);
 
     // next append to a non-existent RRset
     let result = client
         .append(record.clone(), origin.clone(), false)
         .await
         .expect("append failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // verify record contents
     let result = client
@@ -424,9 +423,9 @@ async fn test_append() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0], record);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 1);
+    assert_eq!(result.answers[0], record);
 
     // will fail if already set and not the same value.
     let mut record2 = record.clone();
@@ -437,7 +436,7 @@ async fn test_append() {
         .append(record2.clone(), origin.clone(), true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -447,18 +446,18 @@ async fn test_append() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 2);
 
-    assert!(result.answers().contains(&record));
-    assert!(result.answers().contains(&record2));
+    assert!(result.answers.contains(&record));
+    assert!(result.answers.contains(&record2));
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
         .append(record.clone(), origin, true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -468,8 +467,8 @@ async fn test_append() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 2);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -491,14 +490,14 @@ async fn test_append_multi() {
         .append(record.clone(), origin.clone(), true)
         .await
         .expect("append failed");
-    assert_eq!(result.response_code(), ResponseCode::NXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXRRSet);
 
     // next append to a non-existent RRset
     let result = client
         .append(record.clone(), origin.clone(), false)
         .await
         .expect("append failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // verify record contents
     let result = client
@@ -509,9 +508,9 @@ async fn test_append_multi() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0], record);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 1);
+    assert_eq!(result.answers[0], record);
 
     // will fail if already set and not the same value.
     let mut record2 = record.clone();
@@ -527,7 +526,7 @@ async fn test_append_multi() {
         .append(rrset, origin.clone(), true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -537,12 +536,12 @@ async fn test_append_multi() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 3);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 3);
 
-    assert!(result.answers().contains(&record));
-    assert!(result.answers().contains(&record2));
-    assert!(result.answers().contains(&record3));
+    assert!(result.answers.contains(&record));
+    assert!(result.answers.contains(&record2));
+    assert!(result.answers.contains(&record3));
 
     // show that appending the same thing again is ok, but doesn't add any records
     // TODO: technically this is a test for the Server, not client...
@@ -550,7 +549,7 @@ async fn test_append_multi() {
         .append(record.clone(), origin, true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -560,8 +559,8 @@ async fn test_append_multi() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 3);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 3);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -582,7 +581,7 @@ async fn test_compare_and_swap() {
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let current = record;
     let mut new = current.clone();
@@ -593,16 +592,16 @@ async fn test_compare_and_swap() {
         .compare_and_swap(current.clone(), new.clone(), origin.clone())
         .await
         .expect("compare_and_swap failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(new.name().clone(), new.dns_class(), new.record_type())
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().contains(&new));
-    assert!(!result.answers().contains(&current));
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 1);
+    assert!(result.answers.contains(&new));
+    assert!(!result.answers.contains(&current));
 
     // check the it fails if tried again.
     let mut not = new.clone();
@@ -613,16 +612,16 @@ async fn test_compare_and_swap() {
         .compare_and_swap(current, not.clone(), origin)
         .await
         .expect("compare_and_swap failed");
-    assert_eq!(result.response_code(), ResponseCode::NXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXRRSet);
 
     let result = client
         .query(new.name().clone(), new.dns_class(), new.record_type())
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().contains(&new));
-    assert!(!result.answers().contains(&not));
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 1);
+    assert!(result.answers.contains(&new));
+    assert!(!result.answers.contains(&not));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -651,7 +650,7 @@ async fn test_compare_and_swap_multi() {
         .create(current.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let mut new = RecordSet::with_ttl(current.name().clone(), current.record_type(), current.ttl());
     let new1 = new.new_record(&RData::A(A::new(100, 10, 101, 10))).clone();
@@ -662,18 +661,18 @@ async fn test_compare_and_swap_multi() {
         .compare_and_swap(current.clone(), new.clone(), origin.clone())
         .await
         .expect("compare_and_swap failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(new.name().clone(), new.dns_class(), new.record_type())
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
-    assert!(result.answers().contains(&new1));
-    assert!(result.answers().contains(&new2));
-    assert!(!result.answers().contains(&current1));
-    assert!(!result.answers().contains(&current2));
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 2);
+    assert!(result.answers.contains(&new1));
+    assert!(result.answers.contains(&new2));
+    assert!(!result.answers.contains(&current1));
+    assert!(!result.answers.contains(&current2));
 
     // check the it fails if tried again.
     let mut not = new1.clone();
@@ -684,16 +683,16 @@ async fn test_compare_and_swap_multi() {
         .compare_and_swap(current, not.clone(), origin)
         .await
         .expect("compare_and_swap failed");
-    assert_eq!(result.response_code(), ResponseCode::NXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXRRSet);
 
     let result = client
         .query(new.name().clone(), new.dns_class(), new.record_type())
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
-    assert!(result.answers().contains(&new1));
-    assert!(!result.answers().contains(&not));
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 2);
+    assert!(result.answers.contains(&new1));
+    assert!(!result.answers.contains(&not));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -715,14 +714,14 @@ async fn test_delete_by_rdata() {
         .delete_by_rdata(record1.clone(), origin.clone())
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // next create to a non-existent RRset
     let result = client
         .create(record1.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let mut record2 = record1.clone();
     record2.set_data(RData::A(A::new(101, 11, 101, 11)));
@@ -730,14 +729,14 @@ async fn test_delete_by_rdata() {
         .append(record2.clone(), origin.clone(), true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // verify record contents
     let result = client
         .delete_by_rdata(record2, origin)
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -747,9 +746,9 @@ async fn test_delete_by_rdata() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().contains(&record1));
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 1);
+    assert!(result.answers.contains(&record1));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -785,14 +784,14 @@ async fn test_delete_by_rdata_multi() {
         .delete_by_rdata(rrset.clone(), origin.clone())
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // next create to a non-existent RRset
     let result = client
         .create(rrset, origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -809,14 +808,14 @@ async fn test_delete_by_rdata_multi() {
         .append(rrset.clone(), origin.clone(), true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // verify record contents
     let result = client
         .delete_by_rdata(rrset, origin)
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -826,12 +825,12 @@ async fn test_delete_by_rdata_multi() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.answers().len(), 2);
-    assert!(!result.answers().contains(&record1));
-    assert!(result.answers().contains(&record2));
-    assert!(!result.answers().contains(&record3));
-    assert!(result.answers().contains(&record4));
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.answers.len(), 2);
+    assert!(!result.answers.contains(&record1));
+    assert!(result.answers.contains(&record2));
+    assert!(!result.answers.contains(&record3));
+    assert!(result.answers.contains(&record4));
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -853,28 +852,28 @@ async fn test_delete_rrset() {
         .delete_rrset(record.clone(), origin.clone())
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // next create to a non-existent RRset
     let result = client
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // verify record contents
     let result = client
         .delete_rrset(record.clone(), origin)
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(
@@ -884,8 +883,8 @@ async fn test_delete_rrset() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(result.answers.len(), 0);
 }
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
@@ -910,42 +909,42 @@ async fn test_delete_all() {
         .delete_all(record.name().clone(), origin.clone(), DNSClass::IN)
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // next create to a non-existent RRset
     let result = client
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
     let result = client
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     // verify record contents
     let result = client
         .delete_all(record.name().clone(), origin, DNSClass::IN)
         .await
         .expect("delete failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
         .query(record.name().clone(), record.dns_class(), RecordType::A)
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(result.answers.len(), 0);
 
     let result = client
         .query(record.name().clone(), record.dns_class(), RecordType::AAAA)
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(result.answers.len(), 0);
 }
 
 async fn test_timeout_query(mut client: Client<TokioRuntimeProvider>) {

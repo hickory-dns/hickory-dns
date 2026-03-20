@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::mem;
 use std::slice::Iter;
 use std::sync::Arc;
 
@@ -79,7 +80,7 @@ impl AuthLookup {
     pub fn authorities(&self) -> Option<LookupRecordsIter<'_>> {
         match self {
             Self::Response(message) => {
-                Some(LookupRecordsIter::SliceIter(message.authorities().iter()))
+                Some(LookupRecordsIter::SliceIter(message.authorities.iter()))
             }
             _ => None,
         }
@@ -90,7 +91,7 @@ impl AuthLookup {
         match self {
             Self::Records { additionals, .. } => additionals.as_ref().map(|l| l.iter()),
             Self::Response(message) => {
-                Some(LookupRecordsIter::SliceIter(message.additionals().iter()))
+                Some(LookupRecordsIter::SliceIter(message.additionals.iter()))
             }
             _ => None,
         }
@@ -100,7 +101,9 @@ impl AuthLookup {
     pub fn take_additionals(&mut self) -> Option<LookupRecords> {
         match self {
             Self::Records { additionals, .. } => additionals.take(),
-            Self::Response(message) => Some(LookupRecords::Section(message.take_additionals())),
+            Self::Response(message) => {
+                Some(LookupRecords::Section(mem::take(&mut message.additionals)))
+            }
             _ => None,
         }
     }
@@ -124,7 +127,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
             AuthLookup::Records { answers: r, .. } => AuthLookupIter::Records(r.into_iter()),
             #[cfg(feature = "resolver")]
             AuthLookup::Resolved(lookup) => AuthLookupIter::Response(lookup.answers().iter()),
-            AuthLookup::Response(message) => AuthLookupIter::Response(message.answers().iter()),
+            AuthLookup::Response(message) => AuthLookupIter::Response(message.answers.iter()),
         }
     }
 }

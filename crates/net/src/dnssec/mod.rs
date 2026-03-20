@@ -11,6 +11,7 @@ use core::{
     clone::Clone,
     fmt::Display,
     hash::{Hash, Hasher},
+    mem,
     ops::RangeInclusive,
     pin::Pin,
     time::Duration,
@@ -175,7 +176,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 debug!("translating NoRecordsFound to DnsResponse for {query}");
                 let mut msg = Message::query();
                 msg.add_query(*query);
-                msg.set_response_code(response_code);
+                msg.metadata.response_code = response_code;
 
                 if let Some(authorities) = authorities {
                     for record in authorities.iter() {
@@ -197,7 +198,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         debug!(
             "validating message_response: {}, with {} trust_anchors",
-            message.id(),
+            message.id,
             self.trust_anchor.len(),
         );
 
@@ -206,9 +207,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // group the record sets by name and type
         //  each rrset type needs to validated independently
-        let answers = message.take_answers();
-        let authorities = message.take_authorities();
-        let additionals = message.take_additionals();
+        let answers = mem::take(&mut message.answers);
+        let authorities = mem::take(&mut message.authorities);
+        let additionals = mem::take(&mut message.additionals);
 
         let answers = self
             .verify_rrsets(&query, answers, options, current_time)
@@ -233,9 +234,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         message.insert_authorities(authorities);
         message.insert_additionals(additionals);
 
-        if !message.authorities().is_empty()
+        if !message.authorities.is_empty()
             && message
-                .authorities()
+                .authorities
                 .iter()
                 .all(|x| x.proof() == Proof::Insecure)
         {
@@ -243,11 +244,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
 
         let nsec3s = message
-            .authorities()
+            .authorities
             .iter()
             .filter_map(|rr| {
                 if message
-                    .authorities()
+                    .authorities
                     .iter()
                     .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
                 {
@@ -262,11 +263,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .collect::<Vec<_>>();
 
         let nsecs = message
-            .authorities()
+            .authorities
             .iter()
             .filter_map(|rr| {
                 if message
-                    .authorities()
+                    .authorities
                     .iter()
                     .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
                 {
@@ -287,8 +288,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             (true, false, _) => verify_nsec3(
                 &query,
                 find_soa_name(&message),
-                message.response_code(),
-                message.answers(),
+                message.response_code,
+                &message.answers,
                 &nsec3s,
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
@@ -296,8 +297,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             (false, true, _) => verify_nsec(
                 &query,
                 find_soa_name(&message),
-                message.response_code(),
-                message.answers(),
+                message.response_code,
+                &message.answers,
                 nsecs.as_slice(),
             ),
             (true, true, _) => {
@@ -312,7 +313,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             }
             (false, false, false) => {
                 // Return Ok if there were no NSEC/NSEC3 records and no wildcard RRSIGs.
-                if !message.answers().is_empty() {
+                if !message.answers.is_empty() {
                     return Ok(message);
                 }
 
@@ -768,19 +769,21 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let error_opt = match ds_message {
             Ok(mut ds_message)
                 if ds_message
-                    .answers()
+                    .answers
                     .iter()
                     .filter(|r| r.record_type() == RecordType::DS)
                     .any(|r| r.proof().is_secure()) =>
             {
                 // This is a secure DS RRset.
 
-                let all_records = ds_message.take_answers().into_iter().filter_map(|r| {
-                    r.map(|data| match data {
-                        RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
-                        _ => None,
-                    })
-                });
+                let all_records = mem::take(&mut ds_message.answers)
+                    .into_iter()
+                    .filter_map(|r| {
+                        r.map(|data| match data {
+                            RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
+                            _ => None,
+                        })
+                    });
 
                 let mut supported_records = vec![];
                 let mut all_unknown = None;
@@ -812,7 +815,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             }
             Ok(response) => {
                 let any_ds_rr = response
-                    .answers()
+                    .answers
                     .iter()
                     .any(|r| r.record_type() == RecordType::DS);
                 if any_ds_rr {
@@ -1062,27 +1065,24 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         }
 
         // dnssec only matters on queries.
-        match request.op_code() {
+        match request.op_code {
             OpCode::Query => {}
             _ => return Box::pin(self.handle.send(request)),
         }
 
         // This will fail on no queries, that is a very odd type of request, isn't it?
         // TODO: with mDNS there can be multiple queries
-        let Some(query) = request.queries().first().cloned() else {
+        let Some(query) = request.queries.first().cloned() else {
             return Box::pin(stream::once(future::err(NetError::from(
                 "no query in request",
             ))));
         };
 
         let handle = self.clone_with_context();
-        request
-            .extensions_mut()
-            .get_or_insert_with(Edns::new)
-            .enable_dnssec();
+        request.edns.get_or_insert_with(Edns::new).enable_dnssec();
 
-        request.set_authentic_data(true);
-        request.set_checking_disabled(false);
+        request.metadata.authentic_data = true;
+        request.metadata.checking_disabled = false;
         let options = *request.options();
 
         Box::pin(self.handle.send(request).then(move |result| {
@@ -1112,7 +1112,7 @@ fn verify_rrsig_with_keys(
     }
 
     // DNSKEYs were already validated by the inner query in the above lookup
-    let dnskeys = dnskey_message.answers().iter().filter_map(|r| {
+    let dnskeys = dnskey_message.answers.iter().filter_map(|r| {
         let dnskey = r.try_borrow::<DNSKEY>()?;
 
         let tag = match dnskey.data().calculate_key_tag() {
@@ -1169,7 +1169,7 @@ fn verify_rrsig_with_keys(
 /// See RFC 4035 B.4 - Referral to Signed Zone, B.5 Referral to Unsigned Zone, B.6 - Wildcard
 /// Expansion, RFC 5155 B.3 - Referral to an Opt-Out Unsigned Zone, and B.4 - Wildcard Expansion.
 fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
-    for record in verified_message.authorities() {
+    for record in &verified_message.authorities {
         if record.record_type() == RecordType::SOA {
             return Some(record.name());
         }

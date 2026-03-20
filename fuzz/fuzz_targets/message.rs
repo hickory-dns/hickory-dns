@@ -44,29 +44,29 @@ fn messages_equal(original: &Message, reparsed: &Message) -> bool {
     }
 
     // see if there are some of the records that don't round trip properly...
-    if reparsed.truncated() {
+    if reparsed.metadata.truncation {
         // TODO: there might be a better comparison to make here.
         return true;
     }
 
     // compare headers
-    if original.header() != reparsed.header() {
+    if original.metadata != reparsed.metadata {
         return false;
     }
 
     // compare queries
-    if original.queries() != reparsed.queries() {
+    if original.queries != reparsed.queries {
         return false;
     }
 
     // now compare answers
-    if !records_equal(original.answers(), reparsed.answers()) {
+    if !records_equal(&original.answers, &reparsed.answers) {
         return false;
     }
-    if !records_equal(original.authorities(), reparsed.authorities()) {
+    if !records_equal(&original.authorities, &reparsed.authorities) {
         return false;
     }
-    if !records_equal(original.additionals(), reparsed.additionals()) {
+    if !records_equal(&original.additionals, &reparsed.additionals) {
         return false;
     }
 

@@ -108,7 +108,7 @@ axfr_policy = "Deny"
 ## keys of the specified formats can be generated in PEM format. Instructions
 ## for custom keys can be found elsewhere.
 ##
-## supported extensions are 'der', 'pem'. ED25519 keys are only supported
+## supported.edns are 'der', 'pem'. ED25519 keys are only supported
 ## with 'pk8'.
 ##
 ## the currently supported set of supported_algorithms are

@@ -105,17 +105,17 @@ async fn test_server_unknown_type() {
         .await
         .expect("query failed for unknown");
 
-    assert_eq!(client_result.response_code(), ResponseCode::NoError);
+    assert_eq!(client_result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(
-        client_result.queries().first().unwrap().query_type(),
+        client_result.queries.first().unwrap().query_type(),
         RecordType::Unknown(65535)
     );
-    assert!(client_result.answers().is_empty());
-    assert!(!client_result.authorities().is_empty());
+    assert!(client_result.answers.is_empty());
+    assert!(!client_result.authorities.is_empty());
     // SOA should be the first record in the response
     assert_eq!(
         client_result
-            .authorities()
+            .authorities
             .first()
             .expect("no SOA present")
             .record_type(),
@@ -148,10 +148,8 @@ async fn test_server_form_error_on_multiple_queries() {
         RecordType::AAAA,
     );
     let mut message = Message::query();
-    message
-        .add_query(query_a)
-        .add_query(query_aaaa)
-        .set_recursion_desired(true);
+    message.metadata.recursion_desired = true;
+    message.add_query(query_a).add_query(query_aaaa);
 
     let mut client_result = client
         .send(DnsRequest::from(message))
@@ -162,7 +160,7 @@ async fn test_server_form_error_on_multiple_queries() {
     assert_eq!(client_result.len(), 1);
     let client_result = client_result.pop().expect("there should be one response");
 
-    assert_eq!(client_result.response_code(), ResponseCode::FormErr);
+    assert_eq!(client_result.metadata.response_code, ResponseCode::FormErr);
 
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();
@@ -313,14 +311,14 @@ async fn client_thread_www(future: impl Future<Output = Client<TokioRuntimeProvi
         .expect("error querying");
 
     assert_eq!(
-        response.response_code(),
+        response.metadata.response_code,
         ResponseCode::NoError,
         "got an error: {:?}",
-        response.response_code()
+        response.metadata.response_code
     );
-    assert!(response.header().authoritative());
+    assert!(response.metadata.authoritative);
 
-    let record = &response.answers()[0];
+    let record = &response.answers[0];
     assert_eq!(record.name(), &name);
     assert_eq!(record.record_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
@@ -433,8 +431,8 @@ async fn edns_multiple_opt_rr() {
     let response = Message::from_vec(&response_buf).unwrap();
 
     dbg!(&response);
-    assert_eq!(message.header().id(), response.header().id());
-    assert_eq!(response.response_code(), ResponseCode::FormErr);
+    assert_eq!(message.metadata.id, response.metadata.id);
+    assert_eq!(response.metadata.response_code, ResponseCode::FormErr);
 
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();

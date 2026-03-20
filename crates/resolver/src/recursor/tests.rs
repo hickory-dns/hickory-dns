@@ -40,7 +40,7 @@ async fn recursor_connection_deduplication() -> Result<(), NetError> {
             .resolve(Query::query(query, RecordType::A), Instant::now(), false)
             .await?;
 
-        assert_eq!(response.response_code(), ResponseCode::NoError);
+        assert_eq!(response.response_code, ResponseCode::NoError);
 
         assert_eq!(
             provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
@@ -83,7 +83,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
         )
         .await?;
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code, ResponseCode::NoError);
     assert_eq!(
         provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
         1
@@ -109,7 +109,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
         .await
         .unwrap();
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code, ResponseCode::NoError);
     // Roots aren't subject to cache expiration
     assert_eq!(
         provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
@@ -674,15 +674,15 @@ fn ns_cache_test_fixture(
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
         move |destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
             let leaf_ns = leaf_ns.clone();
-            let query_name = msg.queries()[0].name();
-            let query_type = msg.queries()[0].query_type();
+            let query_name = msg.queries[0].name();
+            let query_type = msg.queries[0].query_type();
 
             if !off_domain {
                 if destination == TLD_IP && *query_name == leaf_zone && query_type == RecordType::NS
                 {
                     let count = counter.fetch_add(1, Ordering::Relaxed);
                     if count > 0 {
-                        let _ = msg.take_additionals();
+                        msg.additionals.clear();
                         msg.add_additional(Record::from_rdata(leaf_ns, ns_ttl, leaf_2_ip.into()));
                     }
                 }
@@ -692,7 +692,7 @@ fn ns_cache_test_fixture(
             {
                 let count = counter.fetch_add(1, Ordering::Relaxed);
                 if count > 0 {
-                    let _ = msg.take_answers();
+                    msg.answers.clear();
                     msg.add_answer(Record::from_rdata(leaf_ns, zone_ttl, leaf_2_ip.into()));
                 }
             }
@@ -724,8 +724,8 @@ async fn ttl_lookup(
 }
 
 fn validate_response(response: Message, name: &Name, ip: IpAddr) -> bool {
-    response.response_code() == ResponseCode::NoError
-        && response.answers() == [Record::from_rdata(name.clone(), 0, ip.into())]
+    response.response_code == ResponseCode::NoError
+        && response.answers == [Record::from_rdata(name.clone(), 0, ip.into())]
 }
 
 fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
@@ -762,7 +762,7 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
         |_destination: IpAddr, protocol: Protocol, msg: &mut Message| {
             if protocol == Protocol::Udp {
-                msg.set_truncated(true);
+                msg.metadata.truncation = true;
             }
         },
     ));
@@ -857,7 +857,7 @@ mod metrics {
                         )
                         .await
                         .unwrap();
-                    assert_eq!(response.response_code(), ResponseCode::NoError);
+                    assert_eq!(response.response_code, ResponseCode::NoError);
                 }
             });
         });

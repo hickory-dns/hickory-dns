@@ -50,7 +50,7 @@ fn retry_on_retryable_error() {
     );
     let test1 = DnsRequest::from(Message::query());
     let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
-    assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
+    assert_eq!(result.metadata.id, 1); // this is checking the number of iterations the TestClient ran
 }
 
 // The RetryDnsHandle should not retry the same name server(s) on a negative response, such as
@@ -59,7 +59,7 @@ fn retry_on_retryable_error() {
 fn dont_retry_on_negative_response() {
     subscribe();
     let mut response = Message::response(10, OpCode::Update);
-    response.set_response_code(ResponseCode::NoError);
+    response.metadata.response_code = ResponseCode::NoError;
     let error = DnsError::from_response(DnsResponse::from_message(response).unwrap())
         .expect_err("NODATA should be an error");
     let client = RetryDnsHandle::new(

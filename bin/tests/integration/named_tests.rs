@@ -150,8 +150,8 @@ async fn test_nodata_where_name_exists() {
         )
         .await
         .unwrap();
-    assert_eq!(msg.response_code(), ResponseCode::NoError);
-    assert!(msg.answers().is_empty());
+    assert_eq!(msg.metadata.response_code, ResponseCode::NoError);
+    assert!(msg.answers.is_empty());
 }
 
 #[tokio::test]
@@ -175,8 +175,8 @@ async fn test_nxdomain_where_no_name_exists() {
         )
         .await
         .unwrap();
-    assert_eq!(msg.response_code(), ResponseCode::NXDomain);
-    assert!(msg.answers().is_empty());
+    assert_eq!(msg.metadata.response_code, ResponseCode::NXDomain);
+    assert!(msg.answers.is_empty());
 }
 
 #[tokio::test]
@@ -270,7 +270,7 @@ async fn test_forward() {
 
     assert!(
         response
-            .answers()
+            .answers
             .iter()
             .any(|record| matches!(record.data(), RData::A(_)))
     );
@@ -292,11 +292,11 @@ async fn test_forward() {
     .unwrap();
     assert!(
         response
-            .answers()
+            .answers
             .iter()
             .any(|record| matches!(record.data(), RData::A(_)))
     );
-    assert!(!response.header().authoritative());
+    assert!(!response.metadata.authoritative);
 }
 
 #[tokio::test]

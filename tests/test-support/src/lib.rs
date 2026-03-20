@@ -185,7 +185,7 @@ impl MockNetworkHandler {
             let query = Query::query(response.query_name.clone(), response.query_type);
             let mut message = Message::response(0, OpCode::Query);
             message.add_query(query.clone());
-            message.set_authoritative(true);
+            message.metadata.authoritative = true;
 
             if let Some(ns) = hashed_responses.get(&response.ns) {
                 if let Some(existing_message) = ns.get(&query) {
@@ -205,7 +205,7 @@ impl MockNetworkHandler {
                 MockResponseSection::Authority => message.add_authority(record),
             };
 
-            let query = message.queries()[0].clone();
+            let query = message.queries[0].clone();
             if let Some(ns) = hashed_responses.get_mut(&response.ns) {
                 ns.insert(query, message);
             } else {
@@ -233,17 +233,17 @@ impl MockHandler for MockNetworkHandler {
     fn handle(&self, destination: IpAddr, protocol: Protocol, request: Message) -> Message {
         let Some(server_responses) = self.responses.get(&destination) else {
             error!(%destination, "unexpected destination IP address");
-            return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
+            return Message::error_msg(request.id, request.op_code, ResponseCode::ServFail);
         };
-        let query = &request.queries()[0];
+        let query = &request.queries[0];
         info!(%destination, %query, "handling request");
         let Some(response) = server_responses.get(query) else {
             error!(%query, "unexpected query");
-            return Message::error_msg(request.id(), request.op_code(), ResponseCode::ServFail);
+            return Message::error_msg(request.id, request.op_code, ResponseCode::ServFail);
         };
         let mut response = response.clone();
-        response.set_id(request.id());
-        response.take_queries();
+        response.metadata.id = request.id;
+        response.queries.clear();
         response.add_query(query.clone());
 
         (self.mutate)(destination, protocol, &mut response);
@@ -401,8 +401,7 @@ impl DnsUdpSocket for MockUdpSocket {
             }
         };
 
-        self.queries
-            .insert(target.ip(), request.queries()[0].clone());
+        self.queries.insert(target.ip(), request.queries[0].clone());
         let response = self.handler.handle(target.ip(), Protocol::Udp, request);
 
         let mut guard = self.inner.lock().unwrap();
@@ -510,7 +509,7 @@ impl AsyncWrite for MockTcpStream {
             };
 
             self.queries
-                .insert(self.destination, request.queries()[0].clone());
+                .insert(self.destination, request.queries[0].clone());
             let response = self
                 .handler
                 .handle(self.destination, Protocol::Tcp, request);

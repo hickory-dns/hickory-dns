@@ -53,7 +53,7 @@ async fn query_validate_true_signed_zone_with_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(answered_a_1234(response));
 }
 
@@ -69,7 +69,7 @@ async fn query_validate_true_signed_zone_no_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(answered_a_1234(response));
 }
 
@@ -85,8 +85,8 @@ async fn query_validate_true_unsigned_zone_with_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
+    assert!(response.answers.is_empty());
 }
 
 #[tokio::test]
@@ -101,8 +101,8 @@ async fn query_validate_true_unsigned_zone_no_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
+    assert!(response.answers.is_empty());
 }
 
 #[tokio::test]
@@ -115,7 +115,7 @@ async fn query_validate_false_signed_zone_with_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(answered_a_1234(response));
 }
 
@@ -129,7 +129,7 @@ async fn query_validate_false_signed_zone_no_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(answered_a_1234(response));
 }
 
@@ -143,7 +143,7 @@ async fn query_validate_false_unsigned_zone_with_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(answered_a_1234(response));
 }
 
@@ -157,7 +157,7 @@ async fn query_validate_false_unsigned_zone_no_soa() {
         .query(Name::root(), DNSClass::IN, RecordType::A)
         .await
         .unwrap();
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
     assert!(answered_a_1234(response));
 }
 
@@ -255,7 +255,7 @@ async fn setup_client_forwarder(
 
 fn answered_a_1234(response: DnsResponse) -> bool {
     response
-        .answers()
+        .answers
         .iter()
         .any(|record| matches!(record.data(), RData::A(a) if a.0 == Ipv4Addr::new(1, 2, 3, 4)))
 }

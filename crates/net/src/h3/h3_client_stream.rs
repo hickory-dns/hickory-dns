@@ -236,7 +236,7 @@ impl DnsRequestSender for H3ClientStream {
         }
 
         // per the RFC, a zero id allows for the HTTP packet to be cached better
-        request.set_id(0);
+        request.metadata.id = 0;
 
         let bytes = match request.to_vec() {
             Ok(bytes) => bytes,
@@ -494,11 +494,11 @@ mod tests {
         let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
-        request.set_recursion_desired(true);
+        request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
-        *request.extensions_mut() = Some(edns);
+        request.edns = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -519,7 +519,7 @@ mod tests {
 
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| matches!(record.data(), RData::A(_)))
         );
@@ -532,11 +532,11 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        request.set_recursion_desired(true);
+        request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
-        *request.extensions_mut() = Some(edns);
+        request.edns = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -548,7 +548,7 @@ mod tests {
 
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| matches!(record.data(), RData::AAAA(_)))
         );
@@ -562,11 +562,11 @@ mod tests {
         let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
-        request.set_recursion_desired(true);
+        request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
-        *request.extensions_mut() = Some(edns);
+        request.edns = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -591,7 +591,7 @@ mod tests {
 
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| matches!(record.data(), RData::A(_)))
         );
@@ -604,11 +604,11 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        request.set_recursion_desired(true);
+        request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
-        *request.extensions_mut() = Some(edns);
+        request.edns = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -620,7 +620,7 @@ mod tests {
 
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| matches!(record.data(), RData::AAAA(_)))
         );
@@ -634,11 +634,11 @@ mod tests {
         let mut request = Message::query();
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
-        request.set_recursion_desired(true);
+        request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
-        *request.extensions_mut() = Some(edns);
+        request.edns = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -665,7 +665,7 @@ mod tests {
 
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| matches!(record.data(), RData::A(_)))
         );
@@ -678,11 +678,11 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        request.set_recursion_desired(true);
+        request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
         edns.set_version(0);
         edns.set_max_payload(1232);
-        *request.extensions_mut() = Some(edns);
+        request.edns = Some(edns);
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
@@ -692,7 +692,7 @@ mod tests {
 
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| matches!(record.data(), RData::AAAA(_)))
         );

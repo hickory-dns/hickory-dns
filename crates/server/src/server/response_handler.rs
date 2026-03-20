@@ -15,7 +15,7 @@ use crate::{
     },
     proto::{
         ProtoError,
-        op::{Header, MessageType, OpCode, ResponseCode, SerialMessage},
+        op::{Header, HeaderCounts, MessageType, Metadata, OpCode, ResponseCode, SerialMessage},
         rr::Record,
         serialize::binary::BinEncodable,
         serialize::binary::BinEncoder,
@@ -104,10 +104,10 @@ impl ResponseHandler for ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let id = response.header().id();
+        let id = response.metadata().id;
         debug!(
             id,
-            response_code = %response.header().response_code(),
+            response_code = %response.metadata().response_code,
             "sending response",
         );
         let mut buffer = Vec::with_capacity(512);
@@ -146,9 +146,14 @@ pub(crate) fn encode_fallback_servfail_response(
     buffer.clear();
     let mut encoder = BinEncoder::new(buffer);
     encoder.set_max_size(512);
-    let mut header = Header::new(id, MessageType::Response, OpCode::Query);
-    header.set_response_code(ResponseCode::ServFail);
-    header.emit(&mut encoder)?;
 
+    let mut metadata = Metadata::new(id, MessageType::Response, OpCode::Query);
+    metadata.response_code = ResponseCode::ServFail;
+    let header = Header {
+        metadata,
+        counts: HeaderCounts::default(),
+    };
+
+    header.emit(&mut encoder)?;
     Ok(ResponseInfo::from(header))
 }

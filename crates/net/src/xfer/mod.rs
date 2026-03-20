@@ -248,8 +248,7 @@ impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
     fn send(&self, request: DnsRequest) -> Self::Response {
         debug!(
             "enqueueing message:{}:{:?}",
-            request.op_code(),
-            request.queries()
+            request.op_code, request.queries
         );
 
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);

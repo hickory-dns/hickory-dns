@@ -8,10 +8,7 @@
 use crate::{
     proto::{
         ProtoError,
-        op::{
-            Edns, EmitAndCount, Header, LowerQuery, Message, MessageType, OpCode, ResponseCode,
-            emit_message_parts,
-        },
+        op::{Edns, EmitAndCount, Header, LowerQuery, Message, Metadata, emit_message_parts},
         rr::{Record, rdata::TSIG},
         serialize::binary::{
             BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
@@ -23,156 +20,20 @@ use crate::{
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
 pub struct MessageRequest {
-    header: Header,
-    queries: Queries,
-    answers: Vec<Record>,
-    authorities: Vec<Record>,
-    additionals: Vec<Record>,
-    signature: Option<Box<Record<TSIG>>>,
-    edns: Option<Edns>,
-}
-
-impl MessageRequest {
-    // TODO: generify this with Message?
-    /// Reads a MessageRequest from the decoder
-    pub(crate) fn read(
-        decoder: &mut BinDecoder<'_>,
-        mut header: Header,
-    ) -> Result<Self, DecodeError> {
-        // get all counts before header moves
-        let query_count = header.query_count() as usize;
-        let answer_count = header.answer_count() as usize;
-        let authority_count = header.authority_count() as usize;
-        let additional_count = header.additional_count() as usize;
-
-        let queries = Queries::read(decoder, query_count)?;
-        let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
-        let (authorities, _, _) = Message::read_records(decoder, authority_count, false)?;
-        let (additionals, edns, signature) =
-            Message::read_records(decoder, additional_count, true)?;
-
-        // need to grab error code from EDNS (which might have a higher value)
-        if let Some(edns) = &edns {
-            let high_response_code = edns.rcode_high();
-            header.merge_response_code(high_response_code);
-        }
-
-        Ok(Self {
-            header,
-            queries,
-            answers,
-            authorities,
-            additionals,
-            signature,
-            edns,
-        })
-    }
-
-    /// Construct a mock MessageRequest for testing purposes
+    /// Metadata from the message header
+    pub metadata: Metadata,
+    /// Query name and other query parameters
+    pub queries: Queries,
+    /// Records which directly answer the query
+    pub answers: Vec<Record>,
+    /// Records with describe other authoritative servers
     ///
-    /// The unspecified fields are left empty.
-    #[cfg(any(test, feature = "testing"))]
-    pub fn mock(header: Header, query: impl Into<LowerQuery>) -> Self {
-        Self {
-            header,
-            queries: Queries::new(vec![query.into()]),
-            answers: Vec::new(),
-            authorities: Vec::new(),
-            additionals: Vec::new(),
-            signature: None,
-            edns: None,
-        }
-    }
-
-    /// Return the request header
-    pub fn header(&self) -> &Header {
-        &self.header
-    }
-
-    /// see `Header::id()`
-    pub fn id(&self) -> u16 {
-        self.header.id()
-    }
-
-    /// see `Header::message_type()`
-    pub fn message_type(&self) -> MessageType {
-        self.header.message_type()
-    }
-
-    /// see `Header::op_code()`
-    pub fn op_code(&self) -> OpCode {
-        self.header.op_code()
-    }
-
-    /// see `Header::authoritative()`
-    pub fn authoritative(&self) -> bool {
-        self.header.authoritative()
-    }
-
-    /// see `Header::truncated()`
-    pub fn truncated(&self) -> bool {
-        self.header.truncated()
-    }
-
-    /// see `Header::recursion_desired()`
-    pub fn recursion_desired(&self) -> bool {
-        self.header.recursion_desired()
-    }
-
-    /// see `Header::recursion_available()`
-    pub fn recursion_available(&self) -> bool {
-        self.header.recursion_available()
-    }
-
-    /// see `Header::authentic_data()`
-    pub fn authentic_data(&self) -> bool {
-        self.header.authentic_data()
-    }
-
-    /// see `Header::checking_disabled()`
-    pub fn checking_disabled(&self) -> bool {
-        self.header.checking_disabled()
-    }
-
-    /// # Return value
-    ///
-    /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
-    ///  record to create the EDNS `ResponseCode`
-    pub fn response_code(&self) -> ResponseCode {
-        self.header.response_code()
-    }
-
-    /// ```text
-    /// Question        Carries the query name and other query parameters.
-    /// ```
-    pub fn queries(&self) -> &[LowerQuery] {
-        &self.queries.queries
-    }
-
-    /// ```text
-    /// Answer          Carries RRs which directly answer the query.
-    /// ```
-    pub fn answers(&self) -> &[Record] {
-        &self.answers
-    }
-
-    /// ```text
-    /// Authority       Carries RRs which describe other authoritative servers.
-    ///                 May optionally carry the SOA RR for the authoritative
-    ///                 data in the answer section.
-    /// ```
-    pub fn authorities(&self) -> &[Record] {
-        &self.authorities
-    }
-
-    /// ```text
-    /// Additional      Carries RRs which may be helpful in using the RRs in the
-    ///                 other sections.
-    /// ```
-    pub fn additionals(&self) -> &[Record] {
-        &self.additionals
-    }
-
+    /// May optionally carry the SOA record for the authoritative data in the answer section.
+    pub authorities: Vec<Record>,
+    /// Records which may be helpful in using the records in the other sections
+    pub additionals: Vec<Record>,
+    /// TSIG signature for the message, if any
+    pub signature: Option<Box<Record<TSIG>>>,
     /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
     ///
     /// ```text
@@ -189,7 +50,7 @@ impl MessageRequest {
     ///  An OPT record does not carry any DNS data.  It is used only to
     ///  contain control information pertaining to the question-and-answer
     ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
-    ///  forwarded, or stored in or loaded from zone files.
+    ///  forwarded, or stored in or loaded from Zone Files.
     ///
     ///  The OPT RR MAY be placed anywhere within the additional data section.
     ///  When an OPT RR is included within any DNS message, it MUST be the
@@ -201,14 +62,56 @@ impl MessageRequest {
     /// ```
     /// # Return value
     ///
-    /// Returns the EDNS record if it was found in the additional section.
-    pub fn edns(&self) -> Option<&Edns> {
-        self.edns.as_ref()
+    /// Optionally returns a reference to EDNS OPT pseudo-RR
+    pub edns: Option<Edns>,
+}
+
+impl MessageRequest {
+    // TODO: generify this with Message?
+    /// Reads a MessageRequest from the decoder
+    pub(crate) fn read(decoder: &mut BinDecoder<'_>, header: Header) -> Result<Self, DecodeError> {
+        let Header {
+            mut metadata,
+            counts,
+        } = header;
+        let queries = Queries::read(decoder, counts.query_count as usize)?;
+        let (answers, _, _) = Message::read_records(decoder, counts.answer_count as usize, false)?;
+        let (authorities, _, _) =
+            Message::read_records(decoder, counts.authority_count as usize, false)?;
+        let (additionals, edns, signature) =
+            Message::read_records(decoder, counts.additional_count as usize, true)?;
+
+        // need to grab error code from EDNS (which might have a higher value)
+        if let Some(edns) = &edns {
+            let high_response_code = edns.rcode_high();
+            metadata.merge_response_code(high_response_code);
+        }
+
+        Ok(Self {
+            metadata,
+            queries,
+            answers,
+            authorities,
+            additionals,
+            signature,
+            edns,
+        })
     }
 
-    /// The message signature for signed messages
-    pub fn signature(&self) -> Option<&Record<TSIG>> {
-        self.signature.as_deref()
+    /// Construct a mock MessageRequest for testing purposes
+    ///
+    /// The unspecified fields are left empty.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn mock(metadata: Metadata, query: impl Into<LowerQuery>) -> Self {
+        Self {
+            metadata,
+            queries: Queries::new(vec![query.into()]),
+            answers: Vec::new(),
+            authorities: Vec::new(),
+            additionals: Vec::new(),
+            signature: None,
+            edns: None,
+        }
     }
 
     /// # Return value
@@ -224,11 +127,6 @@ impl MessageRequest {
     /// the version as defined in the EDNS record
     pub fn version(&self) -> u8 {
         self.edns.as_ref().map_or(0, Edns::version)
-    }
-
-    /// Returns the original queries received from the client
-    pub fn raw_queries(&self) -> &Queries {
-        &self.queries
     }
 }
 
@@ -346,7 +244,7 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
 impl BinEncodable for MessageRequest {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
         emit_message_parts(
-            &self.header,
+            &self.metadata,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form
             //   in cases where that's necessary, like SIG0 validation
             &mut self.queries.queries.iter(),
@@ -385,27 +283,27 @@ pub trait UpdateRequest {
 
 impl UpdateRequest for MessageRequest {
     fn id(&self) -> u16 {
-        Self::id(self)
+        self.metadata.id
     }
 
     fn zone(&self) -> Result<&LowerQuery, LookupError> {
         // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
-        self.raw_queries().try_as_query()
+        self.queries.try_as_query()
     }
 
     fn prerequisites(&self) -> &[Record] {
-        self.answers()
+        &self.answers
     }
 
     fn updates(&self) -> &[Record] {
-        self.authorities()
+        &self.authorities
     }
 
     fn additionals(&self) -> &[Record] {
-        self.additionals()
+        &self.additionals
     }
 
     fn signature(&self) -> Option<&Record<TSIG>> {
-        self.signature()
+        self.signature.as_deref()
     }
 }

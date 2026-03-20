@@ -737,13 +737,15 @@ pub fn signed_bitmessage_to_buf(
     first_message: bool,
 ) -> ProtoResult<(Vec<u8>, Box<Record<TSIG>>)> {
     let mut decoder = BinDecoder::new(message);
-    let mut header = Header::read(&mut decoder)?;
+    let Header {
+        mut metadata,
+        mut counts,
+    } = Header::read(&mut decoder)?;
 
     // Adjust the header additional count down by one - this separates out the final
     // additional data TSIG record.
-    let adc = header.additional_count();
-    if adc > 0 {
-        header.set_additional_count(adc - 1);
+    if counts.additional_count > 0 {
+        counts.additional_count -= 1;
     } else {
         return Err(ProtoError::from(
             "missing tsig from response that must be authenticated",
@@ -754,19 +756,18 @@ pub fn signed_bitmessage_to_buf(
     let start_data = message.len() - decoder.len();
 
     // Advance past the queries.
-    let count = header.query_count();
+    let count = counts.query_count;
     for _ in 0..count {
         Query::read(&mut decoder)?;
     }
 
     // Advance past answer and authority records together.
-    let answer_authority_count = header.answer_count() as usize + header.authority_count() as usize;
+    let answer_authority_count = (counts.answer_count + counts.authority_count) as usize;
     let (_, _, sig) = Message::read_records(&mut decoder, answer_authority_count, false)?;
     debug_assert!(sig.is_none());
 
     // Advance past additional records, up to the final TSIG record.
-    let additional_count = header.additional_count() as usize;
-    let (_, _, sig) = Message::read_records(&mut decoder, additional_count, true)?;
+    let (_, _, sig) = Message::read_records(&mut decoder, counts.additional_count as usize, true)?;
     debug_assert!(sig.is_none());
     // Note the position of the decoder ahead of the final additional data TSIG record.
     let end_data = message.len() - decoder.len();
@@ -778,7 +779,7 @@ pub fn signed_bitmessage_to_buf(
     };
 
     let tsig = tsig_rr.data();
-    header.set_id(tsig.oid);
+    metadata.id = tsig.oid;
 
     // Construct the TBS data.
     let mut buf = Vec::with_capacity(message.len());
@@ -791,7 +792,7 @@ pub fn signed_bitmessage_to_buf(
     }
 
     // Emit the header we modified to remove the TSIG additional record.
-    header.emit(&mut encoder)?;
+    Header { metadata, counts }.emit(&mut encoder)?;
 
     // Emit all the message data between the header and the TSIG record.
     encoder.emit_vec(&message[start_data..end_data])?;
@@ -901,7 +902,7 @@ mod tests {
             12345,
             60,
             vec![],
-            message.id(),
+            message.id,
             None,
             vec![],
         );
@@ -925,7 +926,8 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     fn test_sign_encode_id_changed() {
         let mut message = Message::query();
-        message.set_id(123).add_answer(Record::stub());
+        message.metadata.id = 123;
+        message.answers.push(Record::stub());
 
         let key_name = Name::from_ascii("some.name").unwrap();
 
@@ -934,7 +936,7 @@ mod tests {
             12345,
             60,
             vec![],
-            message.id(),
+            message.id,
             None,
             vec![],
         );
@@ -948,7 +950,7 @@ mod tests {
         let message_byte = message.to_bytes().unwrap();
         let mut message = Message::from_bytes(&message_byte).unwrap();
 
-        message.set_id(456); // simulate the request id being changed due to request forwarding
+        message.metadata.id = 456; // simulate the request id being changed due to request forwarding
 
         let message_byte = message.to_bytes().unwrap();
 

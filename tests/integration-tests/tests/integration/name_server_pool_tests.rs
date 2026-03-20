@@ -168,7 +168,7 @@ fn test_datagram() {
     let future = pool.send(request).first_answer();
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], udp_record);
+    assert_eq!(response.answers[0], udp_record);
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn test_datagram_stream_upgrades_on_truncation() {
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
-    udp_message.set_truncated(true);
+    udp_message.metadata.truncation = true;
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
@@ -208,7 +208,7 @@ fn test_datagram_stream_upgrades_on_truncation() {
     let future = pool.send(build_request(query)).first_answer();
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], tcp_record);
+    assert_eq!(response.answers[0], tcp_record);
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
     let tcp_record2 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 3));
 
     let mut udp_message = message(query.clone(), vec![udp_record], vec![], vec![]);
-    udp_message.set_truncated(true);
+    udp_message.metadata.truncation = true;
 
     let tcp_message = message(
         query.clone(),
@@ -255,7 +255,7 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
     let future = pool.send(build_request(query)).first_answer();
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers(), &[tcp_record1, tcp_record2]);
+    assert_eq!(response.answers, &[tcp_record1, tcp_record2]);
 }
 
 #[test]
@@ -290,7 +290,7 @@ fn test_datagram_fails_to_stream() {
 
     let future = pool.send(build_request(query)).first_answer();
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], tcp_record);
+    assert_eq!(response.answers[0], tcp_record);
 }
 
 #[test]
@@ -303,7 +303,7 @@ fn test_tcp_fallback_only_on_truncated() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
-    udp_message.set_response_code(ResponseCode::ServFail);
+    udp_message.metadata.response_code = ResponseCode::ServFail;
     let udp_response = DnsResponse::from_message(udp_message).unwrap();
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
@@ -340,11 +340,11 @@ fn test_no_tcp_fallback_on_non_io_error() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
-    udp_message.set_response_code(ResponseCode::NXDomain);
+    udp_message.metadata.response_code = ResponseCode::NXDomain;
     let udp_response = DnsResponse::from_message(udp_message).unwrap();
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
-    tcp_message.set_response_code(ResponseCode::NotImp); // assuming a NotImp to distinguish with UDP response
+    tcp_message.metadata.response_code = ResponseCode::NotImp; // assuming a NotImp to distinguish with UDP response
     let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
     let mut options = ResolverOpts::default();
@@ -386,7 +386,7 @@ fn test_tcp_fallback_on_io_error() {
     let udp_message: Result<DnsResponse, _> = Err(NetError::from(io_error));
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
-    tcp_message.set_response_code(ResponseCode::NotImp);
+    tcp_message.metadata.response_code = ResponseCode::NotImp;
 
     let udp_nameserver = mock_nameserver(
         vec![udp_message],
@@ -427,7 +427,7 @@ fn test_tcp_fallback_on_no_connections() {
     let udp_message: Result<DnsResponse, _> = Err(NetError::NoConnections);
 
     let mut tcp_message = message(query.clone(), vec![], vec![], vec![]);
-    tcp_message.set_response_code(ResponseCode::NotImp);
+    tcp_message.metadata.response_code = ResponseCode::NotImp;
 
     let udp_nameserver = mock_nameserver(
         vec![udp_message],
@@ -468,7 +468,7 @@ fn test_trust_nx_responses_fails() {
         Name::from_str("example.com.").unwrap(),
     );
     let mut nx_message = message(query.clone(), vec![], vec![soa_record], vec![]);
-    nx_message.set_response_code(ResponseCode::NXDomain);
+    nx_message.metadata.response_code = ResponseCode::NXDomain;
 
     let success_msg = message(
         query.clone(),
@@ -569,7 +569,7 @@ fn test_distrust_nx_responses() {
             .iter()
             .map(|response_code| {
                 let mut error_message = message(query.clone(), vec![], vec![], vec![]);
-                error_message.set_response_code(*response_code);
+                error_message.metadata.response_code = *response_code;
                 Ok(DnsResponse::from_message(error_message).unwrap())
             })
             .collect(),
@@ -594,7 +594,7 @@ fn test_distrust_nx_responses() {
         let fut = pool.send(build_request(query.clone())).first_answer();
         let response = block_on(fut).expect("query did not eventually succeed");
         assert_eq!(
-            response.answers(),
+            response.answers,
             slice::from_ref(&v4_record),
             "did not see expected fallback behavior on response code `{}`",
             response_code
@@ -666,7 +666,7 @@ fn test_user_provided_server_order() {
         .for_each(|expected_record| {
             let future = pool.send(build_request(query.clone())).first_answer();
             let response = block_on(future).unwrap();
-            assert_eq!(response.answers()[0], expected_record);
+            assert_eq!(response.answers[0], expected_record);
         });
 }
 
@@ -686,7 +686,7 @@ fn test_return_error_from_highest_priority_nameserver() {
         .iter()
         .map(|response_code| {
             let mut error_message = message(query.clone(), vec![], vec![], vec![]);
-            error_message.set_response_code(*response_code);
+            error_message.metadata.response_code = *response_code;
             let response =
                 DnsError::from_response(DnsResponse::from_message(error_message).unwrap())
                     .expect_err("error code should result in resolve error");
@@ -807,7 +807,7 @@ fn test_concurrent_requests_2_conns() {
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], udp_record);
+    assert_eq!(response.answers[0], udp_record);
 }
 
 #[test]
@@ -847,7 +847,7 @@ fn test_concurrent_requests_more_than_conns() {
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], udp_record);
+    assert_eq!(response.answers[0], udp_record);
 }
 
 #[test]
@@ -886,7 +886,7 @@ fn test_concurrent_requests_1_conn() {
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], udp_record);
+    assert_eq!(response.answers[0], udp_record);
 }
 
 #[test]
@@ -925,5 +925,5 @@ fn test_concurrent_requests_0_conn() {
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], udp_record);
+    assert_eq!(response.answers[0], udp_record);
 }

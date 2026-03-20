@@ -214,19 +214,19 @@ async fn test_rrsig_ttl() {
         // check the ttl of all answers, of which at least one must be of type A and one
         // of type RRSIG
         let expected_ttl = 86400;
-        for answer in response.answers() {
+        for answer in &response.answers {
             println!("{answer}");
             assert_eq!(answer.ttl(), expected_ttl);
         }
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|answer| answer.record_type() == RecordType::A)
         );
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|answer| answer.record_type() == RecordType::RRSIG)
         );
@@ -249,19 +249,19 @@ async fn test_rrsig_ttl() {
         // check the ttl of all answers, of which at least one must be of type A and one
         // of type RRSIG
         let expected_ttl = 900;
-        for answer in response.answers() {
+        for answer in &response.answers {
             println!("{answer}");
             assert_eq!(answer.ttl(), expected_ttl);
         }
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|answer| answer.record_type() == RecordType::A)
         );
         assert!(
             response
-                .answers()
+                .answers
                 .iter()
                 .any(|answer| answer.record_type() == RecordType::RRSIG)
         );

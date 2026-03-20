@@ -166,11 +166,11 @@ async fn test_catalog_lookup() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header().authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
-    let answers = result.answers();
+    let answers = result.answers;
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
@@ -179,7 +179,7 @@ async fn test_catalog_lookup() {
         &RData::A(A::new(93, 184, 215, 14))
     );
 
-    let authorities = result.authorities();
+    let authorities = result.authorities;
     assert!(authorities.is_empty());
 
     // other zone
@@ -205,11 +205,11 @@ async fn test_catalog_lookup() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header().authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
-    let answers = result.answers();
+    let answers = result.answers;
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
@@ -256,11 +256,11 @@ async fn test_catalog_lookup_soa() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header().authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
-    let answers = result.answers();
+    let answers = result.answers;
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::SOA);
@@ -278,7 +278,7 @@ async fn test_catalog_lookup_soa() {
     );
 
     // assert SOA requests get NS records
-    let mut ns = result.authorities().to_vec();
+    let mut ns = result.authorities;
     ns.sort();
 
     assert_eq!(ns.len(), 2);
@@ -328,11 +328,11 @@ async fn test_catalog_nx_soa() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.header().authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
-    let authorities = result.authorities();
+    let authorities = result.authorities;
 
     assert_eq!(authorities.len(), 1);
     assert_eq!(authorities.first().unwrap().record_type(), RecordType::SOA);
@@ -384,13 +384,13 @@ async fn test_non_authoritive_nx_refused() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(!result.header().authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(!result.metadata.authoritative);
 
-    assert_eq!(result.authorities().len(), 0);
-    assert_eq!(result.answers().len(), 0);
-    assert_eq!(result.additionals().len(), 0);
+    assert_eq!(result.authorities.len(), 0);
+    assert_eq!(result.answers.len(), 0);
+    assert_eq!(result.additionals.len(), 0);
 }
 
 #[tokio::test]
@@ -444,7 +444,7 @@ async fn test_axfr_allow_all() {
         .await;
     let result = response_handler.into_message().await;
 
-    let mut answers = result.answers().to_vec();
+    let mut answers = result.answers;
 
     assert_eq!(answers.first().expect("no records found?"), &soa);
     assert_eq!(answers.last().expect("no records found?"), &soa);
@@ -567,10 +567,10 @@ async fn test_axfr_deny_all() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
-    assert!(result.answers().is_empty());
-    assert!(result.authorities().is_empty());
-    assert!(result.additionals().is_empty());
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
+    assert!(result.answers.is_empty());
+    assert!(result.authorities.is_empty());
+    assert!(result.additionals.is_empty());
 }
 
 #[cfg(feature = "sqlite")]
@@ -605,10 +605,10 @@ async fn test_axfr_deny_all_sqlite() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::Refused);
-    assert!(response.answers().is_empty());
-    assert!(response.authorities().is_empty());
-    assert!(response.additionals().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::Refused);
+    assert!(response.answers.is_empty());
+    assert!(response.authorities.is_empty());
+    assert!(response.additionals.is_empty());
 }
 
 #[tokio::test]
@@ -647,10 +647,10 @@ async fn test_axfr_deny_unsigned() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
-    assert!(result.answers().is_empty());
-    assert!(result.authorities().is_empty());
-    assert!(result.additionals().is_empty());
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
+    assert!(result.answers.is_empty());
+    assert!(result.authorities.is_empty());
+    assert!(result.additionals.is_empty());
 }
 
 // Test that requesting NSID produces no NSID response when a payload isn't configured.
@@ -671,13 +671,10 @@ async fn test_nsid_disabled_requested() {
         .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     // We sent EDNS in the request, and so expect to find EDNS in the response.
-    let edns = response
-        .extensions()
-        .as_ref()
-        .expect("missing response EDNS");
+    let edns = response.edns.as_ref().expect("missing response EDNS");
     // We shouldn't find an NSID payload in the response EDNS even though we requested it
     // The catalog had no payload configured.
     assert!(
@@ -707,13 +704,10 @@ async fn test_nsid_enabled_not_requested() {
         .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     // We sent EDNS in the request, and so expect to find EDNS in the response.
-    let edns = response
-        .extensions()
-        .as_ref()
-        .expect("missing response EDNS");
+    let edns = response.edns.as_ref().expect("missing response EDNS");
     // We shouldn't find an NSID payload in the response EDNS - we didn't request it.
     assert!(
         edns.option(EdnsCode::NSID).is_none(),
@@ -744,13 +738,10 @@ async fn test_nsid_enabled_and_requested() {
         .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     // We sent EDNS in the request, and so expect to find EDNS in the response.
-    let edns = response
-        .extensions()
-        .as_ref()
-        .expect("missing response EDNS");
+    let edns = response.edns.as_ref().expect("missing response EDNS");
     // We should find the expected EDNS NSID payload.
     assert_eq!(edns.option(EdnsCode::NSID), Some(&EdnsOption::NSID(nsid)));
 }
@@ -816,10 +807,10 @@ async fn test_cname_additionals() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
-    let answers = result.answers();
+    let answers = result.answers;
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
@@ -827,7 +818,7 @@ async fn test_cname_additionals() {
         &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
-    let additionals = result.additionals();
+    let additionals = result.additionals;
     assert!(!additionals.is_empty());
     assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
@@ -870,10 +861,10 @@ async fn test_multiple_cname_additionals() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
-    let answers = result.answers();
+    let answers = result.answers;
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
@@ -882,7 +873,7 @@ async fn test_multiple_cname_additionals() {
     );
 
     // we should have the intermediate record
-    let additionals = result.additionals();
+    let additionals = result.additionals;
     assert!(!additionals.is_empty());
     assert_eq!(
         additionals.first().unwrap().record_type(),
@@ -894,7 +885,6 @@ async fn test_multiple_cname_additionals() {
     );
 
     // final record should be the actual
-    let additionals = result.additionals();
     assert!(!additionals.is_empty());
     assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
     assert_eq!(
@@ -925,7 +915,7 @@ async fn test_update_forwarder() {
         86400,
         RData::A(A(Ipv4Addr::LOCALHOST)),
     ));
-    message.set_recursion_desired(true);
+    message.metadata.recursion_desired = true;
 
     let message_bytes = message.to_bytes().unwrap();
     let request =
@@ -937,10 +927,10 @@ async fn test_update_forwarder() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::NotAuth);
-    assert!(response.answers().is_empty());
-    assert!(response.authorities().is_empty());
-    assert!(response.additionals().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::NotAuth);
+    assert!(response.answers.is_empty());
+    assert!(response.authorities.is_empty());
+    assert!(response.additionals.is_empty());
 }
 
 #[tokio::test]
@@ -964,10 +954,10 @@ async fn test_empty_chain_query() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
-    assert!(response.authorities().is_empty());
-    assert!(response.additionals().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
+    assert!(response.answers.is_empty());
+    assert!(response.authorities.is_empty());
+    assert!(response.additionals.is_empty());
 }
 
 #[tokio::test]
@@ -996,10 +986,10 @@ async fn test_empty_chain_update() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
-    assert!(response.authorities().is_empty());
-    assert!(response.additionals().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
+    assert!(response.answers.is_empty());
+    assert!(response.authorities.is_empty());
+    assert!(response.additionals.is_empty());
 }
 
 #[tokio::test]
@@ -1023,10 +1013,10 @@ async fn test_empty_chain_axfr() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
-    assert!(response.answers().is_empty());
-    assert!(response.authorities().is_empty());
-    assert!(response.additionals().is_empty());
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
+    assert!(response.answers.is_empty());
+    assert!(response.authorities.is_empty());
+    assert!(response.additionals.is_empty());
 }
 
 #[cfg(feature = "__dnssec")]
@@ -1077,10 +1067,7 @@ mod dnssec {
     async fn run_query(catalog: &Catalog, query: Query) -> Message {
         let mut question = Message::query();
         question.add_query(query);
-        question
-            .extensions_mut()
-            .get_or_insert_with(Edns::new)
-            .enable_dnssec();
+        question.edns.get_or_insert_with(Edns::new).enable_dnssec();
 
         let question_bytes = question.to_bytes().unwrap();
         let question_req =
@@ -1112,16 +1099,16 @@ mod dnssec {
             let result = run_query(&catalog, query).await;
 
             let dnskey = result
-                .answers()
+                .answers
                 .iter()
                 .find(|e| e.record_type() == RecordType::DNSKEY)
                 .expect("result to contain one DNSKEY");
             let rrsig = result
-                .answers()
+                .answers
                 .iter()
                 .find(|e| e.record_type() == RecordType::RRSIG)
                 .expect("result to contain one DNSKEY");
-            assert_eq!(result.answers().len(), 2, "expect only one answer");
+            assert_eq!(result.answers.len(), 2, "expect only one answer");
 
             match dnskey.data() {
                 RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) => assert!(dnskey.zone_key()),
@@ -1143,16 +1130,16 @@ mod dnssec {
             query.set_query_type(RecordType::NSEC);
 
             let result = run_query(&catalog, query).await;
-            assert!(result.answers().is_empty());
+            assert!(result.answers.is_empty());
 
             result
-                .authorities()
+                .authorities
                 .iter()
                 .find(|e| e.record_type() == RecordType::SOA)
                 .expect("authority section to contains SOA");
 
             let nsec3 = result
-                .authorities()
+                .authorities
                 .iter()
                 .find(|e| e.record_type() == RecordType::NSEC3)
                 .expect("result to contain NSEC3");
@@ -1191,7 +1178,7 @@ mod dnssec {
             let result = run_query(&catalog, query).await;
 
             let nsec3param = result
-                .answers()
+                .answers
                 .iter()
                 .find(|e| e.record_type() == RecordType::NSEC3PARAM)
                 .expect("result to contain one NSEC3PARAM");

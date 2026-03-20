@@ -167,7 +167,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = result?;
-            if response.authoritative() {
+            if response.authoritative {
                 #[cfg(feature = "metrics")]
                 {
                     self.metrics.cache_hit_counter.increment(1);
@@ -329,7 +329,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             // Check if the response has data for the canonical name.
             if response
-                .answers()
+                .answers
                 .iter()
                 .any(|record| record.name() == &name.0)
             {
@@ -369,7 +369,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             // Here, we're looking for either the terminal record type (matching the
             // original query, or another CNAME.
-            cname_chain.extend(response.answers().iter().filter_map(|r| {
+            cname_chain.extend(response.answers.iter().filter_map(|r| {
                 if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
                     return Some(r.to_owned());
                 }
@@ -387,7 +387,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         if !cname_chain.is_empty() {
-            response.answers_mut().extend(cname_chain);
+            response.answers.extend(cname_chain);
         }
 
         Ok(response)
@@ -405,7 +405,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             None => return None,
         };
 
-        if !response.authoritative() {
+        if !response.authoritative {
             return None;
         }
 
@@ -452,18 +452,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             true
         };
 
-        let answers_len = response.answers().len();
-        let authorities_len = response.authorities().len();
+        let answers_len = response.answers.len();
+        let authorities_len = response.authorities.len();
 
-        response.additionals_mut().retain(answer_filter);
-        response.answers_mut().retain(answer_filter);
-        response.authorities_mut().retain(answer_filter);
+        response.additionals.retain(answer_filter);
+        response.answers.retain(answer_filter);
+        response.authorities.retain(answer_filter);
 
         // If we stripped all of the answers out, or if we stripped all of the authorities
         // out and there are no answers, return an NXDomain response.
-        if response.answers().is_empty() && answers_len != 0
-            || (response.answers().is_empty()
-                && response.authorities().is_empty()
+        if response.answers.is_empty() && answers_len != 0
+            || (response.answers.is_empty()
+                && response.authorities.is_empty()
                 && authorities_len != 0)
         {
             return Err(RecursorError::Negative(AuthorityData::new(
@@ -766,10 +766,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         while let Some(next) = futures.next().await {
             match next {
-                Some(Ok(mut response)) => {
+                Some(Ok(response)) => {
                     debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
-                    config.extend(response
-                        .take_answers()
+                    config.extend(response.into_message()
+                        .answers
                         .into_iter()
                         .filter_map(|answer| {
                             let ip = answer.data().ip_addr()?;
@@ -816,8 +816,8 @@ mod for_dnssec {
         type Runtime = P::RuntimeProvider;
 
         fn send(&self, request: DnsRequest) -> Self::Response {
-            let query = if let OpCode::Query = request.op_code() {
-                if let Some(query) = request.queries().first().cloned() {
+            let query = if let OpCode::Query = request.op_code {
+                if let Some(query) = request.queries.first().cloned() {
                     query
                 } else {
                     return Box::pin(stream::once(future::err(NetError::from(
@@ -846,9 +846,9 @@ mod for_dnssec {
                 // we can put "stubs" in the other fields
                 let mut msg = Message::query();
 
-                msg.add_answers(response.answers().iter().cloned());
-                msg.add_authorities(response.authorities().iter().cloned());
-                msg.add_additionals(response.additionals().iter().cloned());
+                msg.add_answers(response.answers.iter().cloned());
+                msg.add_authorities(response.authorities.iter().cloned());
+                msg.add_additionals(response.additionals.iter().cloned());
 
                 DnsResponse::from_message(msg).map_err(NetError::from)
             })

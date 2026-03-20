@@ -228,7 +228,7 @@ where
         let valid_until = now
             + Duration::from_secs(
                 message
-                    .answers()
+                    .answers
                     .iter()
                     .map(Record::ttl)
                     .min()
@@ -258,7 +258,7 @@ where
         // need to capture these before the subsequent and destructive record processing
         let soa = response.soa().as_ref().map(RecordRef::to_owned);
         let negative_ttl = response.negative_ttl();
-        let response_code = response.response_code();
+        let response_code = response.response_code;
 
         // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
         // FIXME: for SRV this evaluation is inadequate. CNAME is a single chain to a single record
@@ -276,7 +276,7 @@ where
                     // For SRV, the name added for the search becomes the target name.
                     //
                     // TODO: should this include the additionals?
-                    response.answers().iter().fold(
+                    response.answers.iter().fold(
                         (Cow::Borrowed(query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
                             match r.data() {
@@ -385,7 +385,7 @@ where
                     }));
 
                     // Replace ANSWER section with filtered records, preserve AUTHORITY and ADDITIONAL sections
-                    *message.answers_mut() = preserved_records;
+                    message.answers = preserved_records;
                 }
 
                 // Strip DNSSEC records if DO bit is not set.
@@ -1632,7 +1632,7 @@ mod tests {
         if let Ok(records) = records {
             if let Records::Exists { message, min_ttl } = records {
                 assert_eq!(min_ttl, 1);
-                assert!(!message.answers().is_empty());
+                assert!(!message.answers.is_empty());
             } else {
                 panic!("records don't exist");
             }

@@ -231,7 +231,7 @@ pub async fn query_message<C: ClientHandle>(
 pub async fn query_a<C: ClientHandle>(client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
     let response = query_message(client, name, RecordType::A).await.unwrap();
-    let record = &response.answers()[0];
+    let record = &response.answers[0];
 
     if let RData::A(address) = record.data() {
         assert_eq!(address, &A::new(127, 0, 0, 1))
@@ -246,7 +246,7 @@ pub async fn query_a_refused<C: ClientHandle>(client: &mut C) {
     let name = Name::from_str("www.example.com.").unwrap();
     let response = query_message(client, name, RecordType::A).await.unwrap();
 
-    assert_eq!(response.response_code(), ResponseCode::Refused);
+    assert_eq!(response.metadata.response_code, ResponseCode::Refused);
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
@@ -270,7 +270,7 @@ pub async fn query_all_dnssec(client: Client<TokioRuntimeProvider>, algorithm: A
         .unwrap();
 
     let dnskey = response
-        .answers()
+        .answers
         .iter()
         .map(Record::data)
         .filter_map(DNSKEY::try_borrow)
@@ -282,7 +282,7 @@ pub async fn query_all_dnssec(client: Client<TokioRuntimeProvider>, algorithm: A
         .unwrap();
 
     let rrsig = response
-        .answers()
+        .answers
         .iter()
         .map(Record::data)
         .filter_map(RRSIG::try_borrow)
@@ -320,7 +320,7 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
 
     fn send(&self, mut request: DnsRequest) -> Self::Response {
         // mutable block
-        let edns = request.extensions_mut().get_or_insert_with(Edns::new);
+        let edns = request.edns.get_or_insert_with(Edns::new);
         edns.set_dnssec_ok(true);
 
         println!("sending message");
