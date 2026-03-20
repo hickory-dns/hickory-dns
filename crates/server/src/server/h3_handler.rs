@@ -179,7 +179,7 @@ impl ResponseHandler for H3ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let id = response.metadata().id();
+        let id = response.metadata().id;
         let mut bytes = Vec::with_capacity(512);
         // mut block
         let info = {

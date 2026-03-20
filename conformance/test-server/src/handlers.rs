@@ -20,7 +20,7 @@ pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option
     let mut msg = Message::from_vec(bytes)?.to_response();
     let name = msg.queries[0].name().clone();
 
-    msg.metadata.set_recursion_desired(false);
+    msg.metadata.recursion_desired = false;
     msg.add_answer(Record::from_rdata(
         name,
         1,
@@ -36,10 +36,9 @@ pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Op
     let mut msg = Message::from_vec(bytes)?.to_response();
     let name = msg.queries[0].name().clone();
 
-    msg.metadata
-        .set_id(if msg.id() == 65535 { 0 } else { msg.id() + 1 })
-        .set_recursion_desired(false)
-        .set_authoritative(true);
+    msg.metadata.id = if msg.metadata.id == 65535 { 0 } else { msg.metadata.id + 1 };
+    msg.metadata.recursion_desired = false;
+    msg.metadata.authoritative = true;
     msg.add_answer(Record::from_rdata(
         name,
         1,
@@ -75,7 +74,7 @@ pub(crate) fn truncated_response_handler(
     if name != Name::from_ascii("example.testing.").unwrap()
         && msg.queries[0].query_type() != RecordType::TXT
     {
-        msg.metadata.set_response_code(ResponseCode::NXDomain);
+        msg.metadata.response_code = ResponseCode::NXDomain;
         return msg
             .to_vec()
             .map(Some)
@@ -99,13 +98,12 @@ pub(crate) fn truncated_response_handler(
         ),
     };
 
-    msg.metadata
-        .set_authoritative(true)
-        .set_recursion_desired(false)
-        .set_truncated(match transport {
-            Transport::Udp => true,
-            Transport::Tcp => false,
-        });
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
+    msg.metadata.truncation = match transport {
+        Transport::Udp => true,
+        Transport::Tcp => false,
+    };
     msg.add_answer(Record::from_rdata(
         name,
         86400,
@@ -128,16 +126,15 @@ pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result
             PACKET_LOSS_MARKER.store(true, Ordering::Relaxed);
             return Ok(None);
         }
-        msg.metadata
-            .set_recursion_desired(false)
-            .set_authoritative(true);
+        msg.metadata.recursion_desired = false;
+        msg.metadata.authoritative = true;
         msg.add_answer(Record::from_rdata(
             name,
             86400,
             RData::A(rdata::A([192, 0, 2, 1].into())),
         ));
     } else {
-        msg.metadata.set_response_code(ResponseCode::NXDomain);
+        msg.metadata.response_code = ResponseCode::NXDomain;
     }
 
     msg.to_vec()
@@ -166,9 +163,8 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
     let name = queries[0].name().clone();
     msg.queries = queries;
 
-    msg.metadata
-        .set_authoritative(true)
-        .set_recursion_desired(false);
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
     msg.add_answer(Record::from_rdata(
         name,
         0,
@@ -220,9 +216,8 @@ pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<
         }
     }
 
-    msg.metadata
-        .set_authoritative(true)
-        .set_recursion_desired(false);
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
     msg.to_vec()
         .map(Some)
         .with_context(|| "cname loop handler: could not serialize Message")
@@ -289,7 +284,7 @@ pub(crate) fn nsec3_nocover_handler(
             }
         }
         RecordType::A if query_name == valid_nx_name => {
-            msg.metadata.set_response_code(ResponseCode::NXDomain);
+            msg.metadata.response_code = ResponseCode::NXDomain;
 
             let Some(params_rec) = records
                 .clone()
@@ -407,7 +402,7 @@ pub(crate) fn nsec3_nocover_handler(
             }
         }
         RecordType::A => {
-            msg.metadata.set_response_code(ResponseCode::NXDomain);
+            msg.metadata.response_code = ResponseCode::NXDomain;
 
             let mut nsec3_name = None;
             for record in records {
@@ -454,11 +449,10 @@ pub(crate) fn nsec3_nocover_handler(
         _ => {}
     }
 
-    msg.metadata
-        .set_recursion_desired(true)
-        .set_recursion_available(true)
-        .set_authoritative(true)
-        .set_authentic_data(true);
+    msg.metadata.recursion_desired = true;
+    msg.metadata.recursion_available = true;
+    msg.metadata.authoritative = true;
+    msg.metadata.authentic_data = true;
     msg.to_vec()
         .map(Some)
         .with_context(|| "nsec3 no cover handler: could not serialize Message")
@@ -496,7 +490,7 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
         ));
     }
 
-    msg.metadata.set_recursion_desired(false);
+    msg.metadata.recursion_desired = false;
     msg.to_vec()
         .map(Some)
         .with_context(|| "base handler: could not serialize Message")
@@ -529,9 +523,8 @@ pub(crate) fn parent_ns_in_authority_handler(
     let deep_sub = Name::from_ascii("deep.sub.example.testing.")?;
     let cname_target = Name::from_ascii("target.example.testing.")?;
 
-    msg.metadata
-        .set_authoritative(true)
-        .set_recursion_desired(false);
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
 
     if q_type == RecordType::NS && name == zone {
         // Direct NS query for the zone itself — return the real NS record.
@@ -573,7 +566,7 @@ pub(crate) fn parent_ns_in_authority_handler(
         // return NODATA (empty NOERROR). This allows the recursor's
         // ns_pool_for_name loop to continue past this name without error.
     } else {
-        msg.metadata.set_response_code(ResponseCode::NXDomain);
+        msg.metadata.response_code = ResponseCode::NXDomain;
     }
 
     msg.to_vec()

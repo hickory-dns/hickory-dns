@@ -326,7 +326,7 @@ impl<P: ConnectionProvider> PoolState<P> {
 
             while let Some((server, result)) = requests.next().await {
                 let e = match result {
-                    Ok(response) if response.truncated() => {
+                    Ok(response) if response.truncation => {
                         debug!("truncated response received, retrying over TCP");
                         policy.disable_udp = true;
                         err = NetError::from("received truncated response");
@@ -871,9 +871,9 @@ impl CacheKey {
             client_subnet = None;
         }
         Self {
-            op_code: request.op_code(),
-            recursion_desired: request.recursion_desired(),
-            checking_disabled: request.checking_disabled(),
+            op_code: request.op_code,
+            recursion_desired: request.recursion_desired,
+            checking_disabled: request.checking_disabled,
             queries: request.queries.clone(),
             dnssec_ok,
             client_subnet,

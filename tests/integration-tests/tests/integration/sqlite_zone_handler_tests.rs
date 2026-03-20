@@ -259,7 +259,7 @@ async fn test_authorize_update() {
     let handler = create_example();
 
     let mut message = Message::query();
-    message.metadata.set_op_code(OpCode::Update);
+    message.metadata.op_code = OpCode::Update;
     message.add_query(Query::default());
 
     let bytes = message.to_bytes().unwrap();
@@ -1010,14 +1010,14 @@ async fn test_update_tsig_valid() {
     ));
     let response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns));
     let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
-    response_header.set_response_code(ResponseCode::NoError);
+    response_header.response_code = ResponseCode::NoError;
     let mut response = response.build_no_records(response_header);
 
     // Serialize the unsigned response to get the TBS bytes to sign with the signer.
     let mut tbs_response_buf = Vec::with_capacity(512);
     let mut encoder = BinEncoder::new(&mut tbs_response_buf);
     let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
-    response_header.set_response_code(ResponseCode::NoError);
+    response_header.response_code = ResponseCode::NoError;
     let tbs_response = MessageResponseBuilder::new(request.raw_queries(), Some(&edns))
         .build_no_records(response_header);
     tbs_response.destructive_emit(&mut encoder).unwrap();
@@ -1206,14 +1206,14 @@ async fn test_update_tsig_invalid_stale_sig() {
     // SqliteZoneHandler and so have to do this ourselves.
     let response = MessageResponseBuilder::new(request.raw_queries(), None);
     let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
-    response_header.set_response_code(ResponseCode::NotAuth);
+    response_header.response_code = ResponseCode::NotAuth;
     let mut response = response.build_no_records(response_header);
 
     // Serialize the unsigned response to get the TBS bytes to sign with the signer.
     let mut tbs_response_buf = Vec::with_capacity(512);
     let mut encoder = BinEncoder::new(&mut tbs_response_buf);
     let mut response_header = Metadata::new(request.id(), MessageType::Response, OpCode::Update);
-    response_header.set_response_code(ResponseCode::NotAuth);
+    response_header.response_code = ResponseCode::NotAuth;
     let tbs_response =
         MessageResponseBuilder::new(request.raw_queries(), None).build_no_records(response_header);
     tbs_response.destructive_emit(&mut encoder).unwrap();
@@ -1263,7 +1263,7 @@ fn test_update_message(name: Name) -> Message {
     add_rec.set_dns_class(DNSClass::IN);
 
     let mut message = Message::query();
-    message.metadata.set_op_code(OpCode::Update);
+    message.metadata.op_code = OpCode::Update;
     message.add_query(q).add_authority(add_rec);
     message
 }

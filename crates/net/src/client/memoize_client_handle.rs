@@ -153,16 +153,16 @@ mod test {
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
         let result = block_on(client.send(DnsRequest::from(test1.clone())).first_answer()).unwrap();
-        assert_eq!(result.id(), 0);
+        assert_eq!(result.id, 0);
 
         let result = block_on(client.send(DnsRequest::from(test2.clone())).first_answer()).unwrap();
-        assert_eq!(result.id(), 1);
+        assert_eq!(result.id, 1);
 
         // should get the same result for each...
         let result = block_on(client.send(DnsRequest::from(test1)).first_answer()).unwrap();
-        assert_eq!(result.id(), 0);
+        assert_eq!(result.id, 0);
 
         let result = block_on(client.send(DnsRequest::from(test2)).first_answer()).unwrap();
-        assert_eq!(result.id(), 1);
+        assert_eq!(result.id, 1);
     }
 }

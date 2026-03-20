@@ -166,9 +166,9 @@ async fn test_catalog_lookup() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.metadata.authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
     let answers = result.answers;
 
@@ -205,9 +205,9 @@ async fn test_catalog_lookup() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.metadata.authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
     let answers = result.answers;
 
@@ -256,9 +256,9 @@ async fn test_catalog_lookup_soa() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NoError);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.metadata.authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
     let answers = result.answers;
 
@@ -328,9 +328,9 @@ async fn test_catalog_nx_soa() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(result.metadata.authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
 
     let authorities = result.authorities;
 
@@ -384,9 +384,9 @@ async fn test_non_authoritive_nx_refused() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert!(!result.metadata.authoritative());
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(!result.metadata.authoritative);
 
     assert_eq!(result.authorities.len(), 0);
     assert_eq!(result.answers.len(), 0);
@@ -567,7 +567,7 @@ async fn test_axfr_deny_all() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
     assert!(result.answers.is_empty());
     assert!(result.authorities.is_empty());
     assert!(result.additionals.is_empty());
@@ -605,7 +605,7 @@ async fn test_axfr_deny_all_sqlite() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::Refused);
+    assert_eq!(response.metadata.response_code, ResponseCode::Refused);
     assert!(response.answers.is_empty());
     assert!(response.authorities.is_empty());
     assert!(response.additionals.is_empty());
@@ -647,7 +647,7 @@ async fn test_axfr_deny_unsigned() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
     assert!(result.answers.is_empty());
     assert!(result.authorities.is_empty());
     assert!(result.additionals.is_empty());
@@ -671,7 +671,7 @@ async fn test_nsid_disabled_requested() {
         .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     // We sent EDNS in the request, and so expect to find EDNS in the response.
     let edns = response.edns.as_ref().expect("missing response EDNS");
@@ -704,7 +704,7 @@ async fn test_nsid_enabled_not_requested() {
         .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     // We sent EDNS in the request, and so expect to find EDNS in the response.
     let edns = response.edns.as_ref().expect("missing response EDNS");
@@ -738,7 +738,7 @@ async fn test_nsid_enabled_and_requested() {
         .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
         .await;
     let response = response_handler.into_message().await;
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     // We sent EDNS in the request, and so expect to find EDNS in the response.
     let edns = response.edns.as_ref().expect("missing response EDNS");
@@ -807,8 +807,8 @@ async fn test_cname_additionals() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let answers = result.answers;
     assert_eq!(answers.len(), 1);
@@ -861,8 +861,8 @@ async fn test_multiple_cname_additionals() {
         .await;
     let result = response_handler.into_message().await;
 
-    assert_eq!(result.message_type(), MessageType::Response);
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let answers = result.answers;
     assert_eq!(answers.len(), 1);
@@ -915,7 +915,7 @@ async fn test_update_forwarder() {
         86400,
         RData::A(A(Ipv4Addr::LOCALHOST)),
     ));
-    message.metadata.set_recursion_desired(true);
+    message.metadata.recursion_desired = true;
 
     let message_bytes = message.to_bytes().unwrap();
     let request =
@@ -927,7 +927,7 @@ async fn test_update_forwarder() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::NotAuth);
+    assert_eq!(response.metadata.response_code, ResponseCode::NotAuth);
     assert!(response.answers.is_empty());
     assert!(response.authorities.is_empty());
     assert!(response.additionals.is_empty());
@@ -954,7 +954,7 @@ async fn test_empty_chain_query() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
     assert!(response.answers.is_empty());
     assert!(response.authorities.is_empty());
     assert!(response.additionals.is_empty());
@@ -986,7 +986,7 @@ async fn test_empty_chain_update() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
     assert!(response.answers.is_empty());
     assert!(response.authorities.is_empty());
     assert!(response.additionals.is_empty());
@@ -1013,7 +1013,7 @@ async fn test_empty_chain_axfr() {
         .await;
     let response = response_handler.into_message().await;
 
-    assert_eq!(response.response_code(), ResponseCode::ServFail);
+    assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
     assert!(response.answers.is_empty());
     assert!(response.authorities.is_empty());
     assert!(response.additionals.is_empty());

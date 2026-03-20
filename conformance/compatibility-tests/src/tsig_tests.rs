@@ -79,7 +79,7 @@ async fn test_create() {
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     let result = client
         .query(
             record.name().clone(),
@@ -88,7 +88,7 @@ async fn test_create() {
         )
         .await
         .expect("query failed");
-    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(result.answers.len(), 1);
     assert_eq!(result.answers[0], record);
 
@@ -97,14 +97,14 @@ async fn test_create() {
         .create(record.clone(), origin.clone())
         .await
         .expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 
     // Similarly, trying to create the record again should fail if already set and
     // the update is not the same value.
     record.set_data(RData::A(A::new(101, 11, 101, 11)));
 
     let result = client.create(record, origin).await.expect("create failed");
-    assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+    assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 }
 
 #[tokio::test]

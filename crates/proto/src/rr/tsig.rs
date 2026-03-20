@@ -254,7 +254,7 @@ impl TSigner {
 
     /// Returns true if the `TSigner` should sign the given `Message`
     pub fn should_sign_message(&self, message: &Message) -> bool {
-        [OpCode::Update, OpCode::Notify].contains(&message.op_code())
+        [OpCode::Update, OpCode::Notify].contains(&message.op_code)
             || message
                 .queries
                 .iter()
@@ -371,7 +371,7 @@ impl TSigner {
     ) -> ProtoResult<(Box<Record<TSIG>>, Option<TSigVerifier>)> {
         debug!("signing message: {:?}", message);
 
-        let pre_tsig = TSIG::stub(message.id(), current_time, self);
+        let pre_tsig = TSIG::stub(message.id, current_time, self);
         let signature = self
             .sign(&message_tbs(message, &pre_tsig, &self.0.signer_name)?)
             .map_err(|err| ProtoError::from(err.to_string()))?;

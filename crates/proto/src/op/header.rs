@@ -172,19 +172,97 @@ impl Deref for Header {
 }
 
 /// Message metadata, including the message ID, flags, response code, and op code.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Metadata {
-    id: u16,
-    message_type: MessageType,
-    op_code: OpCode,
-    authoritative: bool,
-    truncation: bool,
-    recursion_desired: bool,
-    recursion_available: bool,
-    authentic_data: bool,
-    checking_disabled: bool,
-    response_code: ResponseCode,
+    /// ```text
+    /// ID              A 16 bit identifier assigned by the program that
+    ///                 generates any kind of query.  This identifier is copied
+    ///                 the corresponding reply and can be used by the requester
+    ///                 to match up replies to outstanding queries.
+    /// ```
+    pub id: u16,
+    /// ```text
+    /// QR              A one bit field that specifies whether this message is a
+    ///                 query (0), or a response (1).
+    /// ```
+    pub message_type: MessageType,
+    /// ```text
+    /// OPCODE          A four bit field that specifies kind of query in this
+    ///                 message.  This value is set by the originator of a query
+    ///                 and copied into the response.  The values are: <see super::op_code>
+    /// ```
+    pub op_code: OpCode,
+    /// ```text
+    /// AA              Authoritative Answer - this bit is valid in responses,
+    ///                 and specifies that the responding name server is an
+    ///                 authority for the domain name in question section.
+    ///
+    ///                 Note that the contents of the answer section may have
+    ///                 multiple owner names because of aliases.  The AA bit
+    ///                 corresponds to the name which matches the query name, or
+    ///                 the first owner name in the answer section.
+    /// ```
+    pub authoritative: bool,
+    /// ```text
+    /// TC              TrunCation - specifies that this message was truncated
+    ///                 due to length greater than that permitted on the
+    ///                 transmission channel.
+    /// ```
+    pub truncation: bool,
+    /// ```text
+    /// RD              Recursion Desired - this bit may be set in a query and
+    ///                 is copied into the response.  If RD is set, it directs
+    ///                 the name server to pursue the query recursively.
+    ///                 Recursive query support is optional.
+    /// ```
+    pub recursion_desired: bool,
+    /// ```text
+    /// RA              Recursion Available - this be is set or cleared in a
+    ///                 response, and denotes whether recursive query support is
+    ///                 available in the name server.
+    /// ```
+    pub recursion_available: bool,
+    /// [RFC 4035, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4035#section-3.1.6)
+    ///
+    /// ```text
+    ///
+    /// 3.1.6.  The AD and CD Bits in an Authoritative Response
+    ///
+    ///   The CD and AD bits are designed for use in communication between
+    ///   security-aware resolvers and security-aware recursive name servers.
+    ///   These bits are for the most part not relevant to query processing by
+    ///   security-aware authoritative name servers.
+    ///
+    ///   A security-aware name server does not perform signature validation
+    ///   for authoritative data during query processing, even when the CD bit
+    ///   is clear.  A security-aware name server SHOULD clear the CD bit when
+    ///   composing an authoritative response.
+    ///
+    ///   A security-aware name server MUST NOT set the AD bit in a response
+    ///   unless the name server considers all RRsets in the Answer and
+    ///   Authority sections of the response to be authentic.  A security-aware
+    ///   name server's local policy MAY consider data from an authoritative
+    ///   zone to be authentic without further validation.  However, the name
+    ///   server MUST NOT do so unless the name server obtained the
+    ///   authoritative zone via secure means (such as a secure zone transfer
+    ///   mechanism) and MUST NOT do so unless this behavior has been
+    ///   configured explicitly.
+    ///
+    ///   A security-aware name server that supports recursion MUST follow the
+    ///   rules for the CD and AD bits given in Section 3.2 when generating a
+    ///   response that involves data obtained via recursion.
+    /// ```
+    pub authentic_data: bool,
+    /// See [`Metadata::authentic_data`] for more information on the CD bit.
+    pub checking_disabled: bool,
+    /// ```text
+    /// RCODE           Response code - this 4 bit field is set as part of
+    ///                 responses.  The values have the following
+    ///                 interpretation: <see super::response_code>
+    /// ```
+    pub response_code: ResponseCode,
 }
 
 impl Metadata {
@@ -237,62 +315,6 @@ impl Metadata {
         }
     }
 
-    /// Sets the id of the message, for queries this should be random.
-    pub fn set_id(&mut self, id: u16) -> &mut Self {
-        self.id = id;
-        self
-    }
-
-    /// Sets the message type, Queries and Updates both use Query.
-    pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
-        self.message_type = message_type;
-        self
-    }
-
-    /// Set the operation code for the message
-    pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
-        self.op_code = op_code;
-        self
-    }
-
-    /// From the server is specifies that it is an authoritative response.
-    pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
-        self.authoritative = authoritative;
-        self
-    }
-
-    /// Specifies that the records were too large for the payload.
-    ///
-    /// See EDNS or TCP for resolutions to truncation.
-    pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
-        self.truncation = truncated;
-        self
-    }
-
-    /// Specify that the resolver should recursively request data from upstream DNS nodes
-    pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
-        self.recursion_desired = recursion_desired;
-        self
-    }
-
-    /// Specifies that recursion is available from this or the remote resolver
-    pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
-        self.recursion_available = recursion_available;
-        self
-    }
-
-    /// Specifies that the data is authentic, i.e. the resolver believes all data to be valid through DNSSEC
-    pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
-        self.authentic_data = authentic_data;
-        self
-    }
-
-    /// Used during recursive resolution to specified if a resolver should or should not validate DNSSEC signatures
-    pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
-        self.checking_disabled = checking_disabled;
-        self
-    }
-
     /// A method to get all header flags (useful for Display purposes)
     pub fn flags(&self) -> Flags {
         Flags {
@@ -305,12 +327,6 @@ impl Metadata {
         }
     }
 
-    /// The low response code (original response codes before EDNS extensions)
-    pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
-        self.response_code = response_code;
-        self
-    }
-
     /// This combines the high and low response code values to form the complete ResponseCode from the EDNS record.
     ///   The existing high order bits will be overwritten (if set), and `high_response_code` will be merge with
     ///   the existing low order bits.
@@ -319,123 +335,6 @@ impl Metadata {
     #[doc(hidden)]
     pub fn merge_response_code(&mut self, high_response_code: u8) {
         self.response_code = ResponseCode::from(high_response_code, self.response_code.low());
-    }
-
-    /// ```text
-    /// ID              A 16 bit identifier assigned by the program that
-    ///                 generates any kind of query.  This identifier is copied
-    ///                 the corresponding reply and can be used by the requester
-    ///                 to match up replies to outstanding queries.
-    /// ```
-    pub fn id(&self) -> u16 {
-        self.id
-    }
-
-    /// ```text
-    /// QR              A one bit field that specifies whether this message is a
-    ///                 query (0), or a response (1).
-    /// ```
-    pub fn message_type(&self) -> MessageType {
-        self.message_type
-    }
-
-    /// ```text
-    /// OPCODE          A four bit field that specifies kind of query in this
-    ///                 message.  This value is set by the originator of a query
-    ///                 and copied into the response.  The values are: <see super::op_code>
-    /// ```
-    pub fn op_code(&self) -> OpCode {
-        self.op_code
-    }
-
-    /// ```text
-    /// AA              Authoritative Answer - this bit is valid in responses,
-    ///                 and specifies that the responding name server is an
-    ///                 authority for the domain name in question section.
-    ///
-    ///                 Note that the contents of the answer section may have
-    ///                 multiple owner names because of aliases.  The AA bit
-    ///                 corresponds to the name which matches the query name, or
-    ///                 the first owner name in the answer section.
-    /// ```
-    pub fn authoritative(&self) -> bool {
-        self.authoritative
-    }
-
-    /// ```text
-    /// TC              TrunCation - specifies that this message was truncated
-    ///                 due to length greater than that permitted on the
-    ///                 transmission channel.
-    /// ```
-    pub fn truncated(&self) -> bool {
-        self.truncation
-    }
-
-    /// ```text
-    /// RD              Recursion Desired - this bit may be set in a query and
-    ///                 is copied into the response.  If RD is set, it directs
-    ///                 the name server to pursue the query recursively.
-    ///                 Recursive query support is optional.
-    /// ```
-    pub fn recursion_desired(&self) -> bool {
-        self.recursion_desired
-    }
-
-    /// ```text
-    /// RA              Recursion Available - this be is set or cleared in a
-    ///                 response, and denotes whether recursive query support is
-    ///                 available in the name server.
-    /// ```
-    pub fn recursion_available(&self) -> bool {
-        self.recursion_available
-    }
-
-    /// [RFC 4035, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4035#section-3.1.6)
-    ///
-    /// ```text
-    ///
-    /// 3.1.6.  The AD and CD Bits in an Authoritative Response
-    ///
-    ///   The CD and AD bits are designed for use in communication between
-    ///   security-aware resolvers and security-aware recursive name servers.
-    ///   These bits are for the most part not relevant to query processing by
-    ///   security-aware authoritative name servers.
-    ///
-    ///   A security-aware name server does not perform signature validation
-    ///   for authoritative data during query processing, even when the CD bit
-    ///   is clear.  A security-aware name server SHOULD clear the CD bit when
-    ///   composing an authoritative response.
-    ///
-    ///   A security-aware name server MUST NOT set the AD bit in a response
-    ///   unless the name server considers all RRsets in the Answer and
-    ///   Authority sections of the response to be authentic.  A security-aware
-    ///   name server's local policy MAY consider data from an authoritative
-    ///   zone to be authentic without further validation.  However, the name
-    ///   server MUST NOT do so unless the name server obtained the
-    ///   authoritative zone via secure means (such as a secure zone transfer
-    ///   mechanism) and MUST NOT do so unless this behavior has been
-    ///   configured explicitly.
-    ///
-    ///   A security-aware name server that supports recursion MUST follow the
-    ///   rules for the CD and AD bits given in Section 3.2 when generating a
-    ///   response that involves data obtained via recursion.
-    /// ```
-    pub fn authentic_data(&self) -> bool {
-        self.authentic_data
-    }
-
-    /// see `is_authentic_data()`
-    pub fn checking_disabled(&self) -> bool {
-        self.checking_disabled
-    }
-
-    /// ```text
-    /// RCODE           Response code - this 4 bit field is set as part of
-    ///                 responses.  The values have the following
-    ///                 interpretation: <see super::response_code>
-    /// ```
-    pub fn response_code(&self) -> ResponseCode {
-        self.response_code
     }
 }
 
