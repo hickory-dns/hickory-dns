@@ -101,7 +101,7 @@ impl ResponseCache {
     }
 
     /// Returns the approximate number of entries in the cache.
-    #[cfg(all(feature = "metrics", feature = "recursor"))]
+    #[cfg(feature = "metrics")]
     pub(crate) fn entry_count(&self) -> u64 {
         #[cfg(test)]
         {
