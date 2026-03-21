@@ -70,6 +70,8 @@ where
     cache: ResponseCache,
     client: C,
     preserve_intermediates: bool,
+    #[cfg(feature = "metrics")]
+    cache_metrics: crate::metrics::CacheMetrics,
 }
 
 impl<C> CachingClient<C>
@@ -94,6 +96,8 @@ where
             cache,
             client,
             preserve_intermediates,
+            #[cfg(feature = "metrics")]
+            cache_metrics: crate::metrics::CacheMetrics::default(),
         }
     }
 
@@ -161,9 +165,27 @@ where
 
         let is_dnssec = client.client.is_verifying_dnssec();
 
+        #[cfg(feature = "metrics")]
+        let request_start = Instant::now();
+
         if let Some(cached_lookup) = client.lookup_from_cache(&query) {
+            #[cfg(feature = "metrics")]
+            {
+                client.cache_metrics.cache_hit.increment(1);
+                client
+                    .cache_metrics
+                    .cache_hit_duration
+                    .record(request_start.elapsed());
+                client
+                    .cache_metrics
+                    .cache_size
+                    .set(client.cache.entry_count() as f64);
+            }
             return cached_lookup;
         };
+
+        #[cfg(feature = "metrics")]
+        client.cache_metrics.cache_miss.increment(1);
 
         let response_message = client
             .client
@@ -184,14 +206,24 @@ where
         let records = match response_message {
             Ok(response_message) => {
                 // allow the handle_noerror function to deal with any error codes
-                let records = Self::handle_noerror(
+                let records = match Self::handle_noerror(
                     &mut client,
                     options,
                     &query,
                     response_message,
                     preserved_records,
                     depth,
-                )?;
+                ) {
+                    Ok(records) => records,
+                    Err(err) => {
+                        #[cfg(feature = "metrics")]
+                        client
+                            .cache_metrics
+                            .cache_miss_duration
+                            .record(request_start.elapsed());
+                        return Err(err);
+                    }
+                };
 
                 Ok(records)
             }
@@ -202,18 +234,33 @@ where
                 }
                 Err(no_records.into())
             }
-            Err(err) => return Err(err),
+            Err(err) => {
+                #[cfg(feature = "metrics")]
+                client
+                    .cache_metrics
+                    .cache_miss_duration
+                    .record(request_start.elapsed());
+                return Err(err);
+            }
         };
 
         // after the request, evaluate if we have additional queries to perform
-        match records {
+        let result = match records {
             Ok(Records::CnameChain { next: future, .. }) => match future.await {
                 Ok(lookup) => client.cname(lookup, query),
                 Err(e) => client.cache(query, Err(e)),
             },
             Ok(Records::Exists { message, min_ttl }) => client.cache(query, Ok((message, min_ttl))),
             Err(e) => client.cache(query, Err(e)),
-        }
+        };
+
+        #[cfg(feature = "metrics")]
+        client
+            .cache_metrics
+            .cache_miss_duration
+            .record(request_start.elapsed());
+
+        result
     }
 
     /// Check if this query is already cached
@@ -467,7 +514,7 @@ where
         result: Result<(Message, u32), NetError>,
     ) -> Result<Lookup, NetError> {
         let now = Instant::now();
-        match result {
+        let result = match result {
             Ok((message, min_ttl)) => {
                 let valid_until = now + Duration::from_secs(min_ttl.into());
                 let lookup = Lookup::new(message.clone(), valid_until);
@@ -478,7 +525,12 @@ where
                 self.cache.insert(query, Err(err.clone()), now);
                 Err(err)
             }
-        }
+        };
+        #[cfg(feature = "metrics")]
+        self.cache_metrics
+            .cache_size
+            .set(self.cache.entry_count() as f64);
+        result
     }
 
     /// Flushes/Removes all entries from the cache
