@@ -1,0 +1,23 @@
+listen_addrs_ipv4 = ["0.0.0.0"]
+listen_addrs_ipv6 = ["::0"]
+
+## A zone available to all clients (authoritative, no client restrictions)
+[[zones]]
+zone = "example.com"
+zone_type = "Primary"
+file = "example.com.zone"
+
+## A zone restricted to LAN clients only
+[[zones]]
+zone = "internal.example.com"
+zone_type = "Primary"
+allow_clients = ["192.168.0.0/16", "10.0.0.0/8", "fd00::/8"]
+file = "example.com.zone"
+
+## A zone with deny + allow override
+[[zones]]
+zone = "restricted.example.com"
+zone_type = "Primary"
+deny_clients = ["192.168.0.0/16"]
+allow_clients = ["192.168.1.0/24"]
+file = "example.com.zone"

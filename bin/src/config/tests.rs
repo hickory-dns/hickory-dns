@@ -235,6 +235,7 @@ define_test_config!(ipv4_only);
 define_test_config!(ipv6_only);
 #[cfg(feature = "resolver")]
 define_test_config!(example_forwarder);
+define_test_config!(example_client_acl);
 
 /// Iterator that yields modified TOML tables with an extra field added, and recurses down the
 /// table's values.
@@ -498,6 +499,37 @@ fn test_reject_unknown_fields() {
             }
         }
     }
+}
+
+#[test]
+fn test_parse_client_acl() {
+    let config = Config::from_toml(
+        r#"
+[[zones]]
+zone = "example.com"
+zone_type = "Primary"
+allow_clients = ["192.168.0.0/16", "10.0.0.0/8"]
+deny_clients = ["192.168.1.0/24"]
+file = "example.com.zone"
+
+[[zones]]
+zone = "other.com"
+zone_type = "Primary"
+file = "example.com.zone"
+"#,
+    )
+    .unwrap();
+
+    assert_eq!(config.zones[0].allow_clients.len(), 2);
+    assert_eq!(
+        config.zones[0].allow_clients[0],
+        "192.168.0.0/16".parse::<ipnet::IpNet>().unwrap()
+    );
+    assert_eq!(config.zones[0].deny_clients.len(), 1);
+
+    // Zone without client ACL should have empty lists
+    assert!(config.zones[1].allow_clients.is_empty());
+    assert!(config.zones[1].deny_clients.is_empty());
 }
 
 fn server_zone(config: &Config, index: usize) -> &ServerZoneConfig {

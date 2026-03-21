@@ -1,4 +1,4 @@
-use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
+use std::{net::Ipv4Addr, net::SocketAddr, str::FromStr, sync::Arc};
 
 use hickory_net::{
     runtime::{Time, TokioTime},
@@ -1205,5 +1205,192 @@ mod dnssec {
             assert_eq!(nsec3param.iterations(), 0);
             assert!(nsec3param.salt().is_empty());
         }
+    }
+}
+
+#[tokio::test]
+async fn test_catalog_client_acl_allow() {
+    subscribe();
+
+    let example = create_example();
+    let origin = example.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert_with_client_policy(
+        origin.clone(),
+        vec![Arc::new(example)],
+        [],
+        ["192.168.0.0/16".parse().unwrap()],
+    );
+
+    let mut question = Message::query();
+    let mut query = Query::new();
+    query.set_name(origin.clone().into());
+    question.add_query(query);
+    let question_bytes = question.to_bytes().unwrap();
+
+    // Client from allowed network should succeed
+    let question_req = Request::from_bytes(
+        question_bytes.clone(),
+        SocketAddr::from(([192, 168, 1, 10], 5553)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+
+    // Client from disallowed network should be refused
+    let question_req = Request::from_bytes(
+        question_bytes,
+        SocketAddr::from(([10, 0, 0, 1], 5553)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+    assert_eq!(result.response_code(), ResponseCode::Refused);
+}
+
+#[tokio::test]
+async fn test_catalog_client_acl_deny_with_override() {
+    subscribe();
+
+    let example = create_example();
+    let origin = example.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert_with_client_policy(
+        origin.clone(),
+        vec![Arc::new(example)],
+        ["192.168.0.0/16".parse().unwrap()],
+        ["192.168.1.0/24".parse().unwrap()],
+    );
+
+    let mut question = Message::query();
+    let mut query = Query::new();
+    query.set_name(origin.clone().into());
+    question.add_query(query);
+    let question_bytes = question.to_bytes().unwrap();
+
+    // Client from allowed subnet (overrides deny) should succeed
+    let question_req = Request::from_bytes(
+        question_bytes.clone(),
+        SocketAddr::from(([192, 168, 1, 10], 5553)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+
+    // Client from denied network (not in allow override) should be refused
+    let question_req = Request::from_bytes(
+        question_bytes.clone(),
+        SocketAddr::from(([192, 168, 2, 10], 5553)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+    assert_eq!(result.response_code(), ResponseCode::Refused);
+
+    // Client from outside the denied network should succeed
+    let question_req = Request::from_bytes(
+        question_bytes,
+        SocketAddr::from(([10, 0, 0, 1], 5553)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+}
+
+#[tokio::test]
+async fn test_catalog_no_client_acl_allows_all() {
+    subscribe();
+
+    let example = create_example();
+    let origin = example.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), vec![Arc::new(example)]);
+
+    let mut question = Message::query();
+    let mut query = Query::new();
+    query.set_name(origin.clone().into());
+    question.add_query(query);
+    let question_bytes = question.to_bytes().unwrap();
+
+    // Any client should succeed when no ACL is configured
+    for addr in [
+        SocketAddr::from(([192, 168, 1, 1], 5553)),
+        SocketAddr::from(([10, 0, 0, 1], 5553)),
+        SocketAddr::from(([1, 2, 3, 4], 5553)),
+    ] {
+        let question_req =
+            Request::from_bytes(question_bytes.clone(), addr, Protocol::Udp).unwrap();
+
+        let response_handler = TestResponseHandler::new();
+        catalog
+            .lookup(
+                &question_req,
+                None,
+                TokioTime::current_time(),
+                response_handler.clone(),
+            )
+            .await;
+        let result = response_handler.into_message().await;
+        assert_eq!(
+            result.response_code(),
+            ResponseCode::NoError,
+            "client {addr} should be allowed"
+        );
     }
 }
