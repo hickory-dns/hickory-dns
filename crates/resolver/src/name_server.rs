@@ -164,18 +164,27 @@ impl<P: ConnectionProvider> NameServer<P> {
                 // this transitions the state to failure
                 meta.set_status(Status::Failed);
 
-                // record the failure
+                // record the failure on both the per-connection and server-level SRTTs.
+                // updating server_srtt ensures the server is deprioritized in pool
+                // ordering (decayed_srtt) so other servers get a chance to be tried.
                 match &error {
                     NetError::Busy | NetError::Io(_) | NetError::Timeout => {
-                        meta.srtt.record_failure()
+                        meta.srtt.record_failure();
+                        self.server_srtt.record_failure();
                     }
                     #[cfg(feature = "__quic")]
                     NetError::QuinnConfigError(_)
                     | NetError::QuinnConnect(_)
                     | NetError::QuinnConnection(_)
-                    | NetError::QuinnTlsConfigError(_) => meta.srtt.record_failure(),
+                    | NetError::QuinnTlsConfigError(_) => {
+                        meta.srtt.record_failure();
+                        self.server_srtt.record_failure();
+                    }
                     #[cfg(feature = "__tls")]
-                    NetError::RustlsError(_) => meta.srtt.record_failure(),
+                    NetError::RustlsError(_) => {
+                        meta.srtt.record_failure();
+                        self.server_srtt.record_failure();
+                    }
                     _ => {}
                 }
 
