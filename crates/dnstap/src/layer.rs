@@ -12,7 +12,7 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
 
-use crate::client::{DnstapMessageType, spawn_background_sender};
+use crate::client::{DnstapConnection, DnstapMessageType, create_background_sender};
 use crate::dnstap_message::{self, DnstapEventParams};
 use crate::{DnsTransport, DnstapConfig};
 
@@ -33,18 +33,23 @@ pub struct DnstapLayer {
 }
 
 impl DnstapLayer {
-    /// Create a new DNSTAP layer from configuration.
+    /// Create a new DNSTAP layer and its associated connection handle.
     ///
-    /// Spawns a background task that manages the Frame Streams connection
-    /// and sends DNSTAP messages to the configured endpoint.
-    pub fn new(config: DnstapConfig) -> Self {
-        let sender = spawn_background_sender(
+    /// The layer is immediately usable as a [`tracing_subscriber::Layer`] —
+    /// events will be queued in an internal channel.  The returned
+    /// [`DnstapConnection`] must be [`start`](DnstapConnection::start)ed
+    /// inside a Tokio runtime to actually connect to the collector and drain
+    /// the queue.  This two-phase design lets the caller control *when* the
+    /// background task (and its "handshake completed" log line) fires relative
+    /// to other startup messages.
+    pub fn new(config: DnstapConfig) -> (Self, DnstapConnection) {
+        let (sender, connection) = create_background_sender(
             config.endpoint.clone(),
             config.buffer_size,
             config.max_backoff,
         );
 
-        Self {
+        let layer = Self {
             sender,
             identity: Arc::new(config.identity),
             version: Arc::new(config.version),
@@ -54,7 +59,9 @@ impl DnstapLayer {
             log_client_response: config.log_client_response,
             log_resolver_query: config.log_resolver_query,
             log_resolver_response: config.log_resolver_response,
-        }
+        };
+
+        (layer, connection)
     }
 
     fn enabled_query_types(&self) -> impl Iterator<Item = DnstapMessageType> + '_ {

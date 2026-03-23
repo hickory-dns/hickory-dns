@@ -203,7 +203,8 @@ async fn test_dnstap_layer_with_server() {
         log_auth_response: true,
         ..Default::default()
     };
-    let dnstap_layer = DnstapLayer::new(config);
+    let (dnstap_layer, dnstap_connection) = DnstapLayer::new(config);
+    dnstap_connection.start();
 
     // Install a subscriber with both the DNSTAP layer and a fmt layer for debug output
     let subscriber = tracing_subscriber::registry().with(dnstap_layer);

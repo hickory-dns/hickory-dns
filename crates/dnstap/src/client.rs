@@ -98,13 +98,15 @@ pub struct DnstapClient {
 impl DnstapClient {
     /// Create a new DNSTAP client with the given configuration.
     ///
-    /// Spawns a background task that manages the connection and sends messages.
+    /// Immediately spawns a background task that manages the connection and
+    /// sends messages.  Must be called inside a Tokio runtime context.
     pub fn new(config: DnstapConfig) -> Self {
-        let sender = spawn_background_sender(
+        let (sender, connection) = create_background_sender(
             config.endpoint.clone(),
             config.buffer_size,
             config.max_backoff,
         );
+        connection.start();
 
         let identity = Arc::new(config.identity.clone());
         let version = Arc::new(config.version.clone());
@@ -200,17 +202,48 @@ impl DnstapClient {
     }
 }
 
-/// Spawn a background task that manages the DNSTAP Frame Streams connection.
+/// Create the mpsc channel for the DNSTAP background sender.
 ///
-/// Returns a sender for submitting encoded DNSTAP protobuf frames.
-pub(crate) fn spawn_background_sender(
+/// Returns the sender (for the layer to enqueue frames) and a
+/// [`DnstapConnection`] that must be [`start`](DnstapConnection::start)ed
+/// inside a Tokio runtime to actually connect and drain the channel.
+pub(crate) fn create_background_sender(
     endpoint: DnstapEndpoint,
     buffer_size: usize,
     max_backoff: Duration,
-) -> mpsc::Sender<Vec<u8>> {
+) -> (mpsc::Sender<Vec<u8>>, DnstapConnection) {
     let (sender, receiver) = mpsc::channel(buffer_size);
-    tokio::spawn(background_sender(endpoint, max_backoff, receiver));
-    sender
+    let conn = DnstapConnection {
+        endpoint,
+        max_backoff,
+        receiver,
+    };
+    (sender, conn)
+}
+
+/// Handle for the not-yet-spawned DNSTAP background sender.
+///
+/// Call [`start`](Self::start) once the server is ready to accept connections
+/// so that the connection handshake log appears in the right place in the
+/// startup output.
+pub struct DnstapConnection {
+    endpoint: DnstapEndpoint,
+    max_backoff: Duration,
+    receiver: mpsc::Receiver<Vec<u8>>,
+}
+
+impl DnstapConnection {
+    /// Spawn the background sender task.
+    ///
+    /// The task connects to the DNSTAP endpoint, performs the Frame Streams
+    /// handshake, and begins draining queued frames.
+    pub fn start(self) {
+        tokio::spawn(background_sender(
+            self.endpoint,
+            self.max_backoff,
+            self.receiver,
+        ));
+    }
 }
 
 /// Background task that manages the DNSTAP connection.

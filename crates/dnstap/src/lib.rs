@@ -56,7 +56,7 @@ mod dnstap_message;
 mod framestream;
 mod layer;
 
-pub use client::{DnstapClient, DnstapConfig, DnstapEndpoint, DnstapMessageType};
+pub use client::{DnstapClient, DnstapConfig, DnstapConnection, DnstapEndpoint, DnstapMessageType};
 pub use layer::DnstapLayer;
 
 /// DNS transport protocol for the DNSTAP `socket_protocol` field.

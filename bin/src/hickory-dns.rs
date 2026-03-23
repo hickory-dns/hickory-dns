@@ -56,7 +56,6 @@ fn run() -> Result<(), String> {
         _ => Level::INFO,
     };
 
-    // Build the tokio runtime early so DNSTAP layer can spawn its background task
     let mut runtime = runtime::Builder::new_multi_thread();
     runtime.enable_all().thread_name("hickory-server-runtime");
     if let Some(workers) = args.workers {
@@ -66,13 +65,10 @@ fn run() -> Result<(), String> {
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
-    // Create the DNSTAP layer inside the runtime context so it can spawn its
-    // background sender task.
+    // Create the DNSTAP layer (channel only — the background task is spawned
+    // later inside `run()` so its log output appears after startup messages).
     #[cfg(feature = "dnstap")]
-    let dnstap_layer = {
-        let _guard = runtime.enter();
-        args.create_dnstap_layer()?
-    };
+    let (dnstap_layer, dnstap_connection) = args.create_dnstap_layer()?;
 
     // Setup tracing for logging based on input.
     // The EnvFilter is attached to the fmt layer only (per-layer filtering)
@@ -92,5 +88,8 @@ fn run() -> Result<(), String> {
 
     info!("Hickory DNS {} starting...", env!("CARGO_PKG_VERSION"));
 
-    runtime.block_on(args.run())
+    runtime.block_on(args.run(
+        #[cfg(feature = "dnstap")]
+        dnstap_connection,
+    ))
 }
