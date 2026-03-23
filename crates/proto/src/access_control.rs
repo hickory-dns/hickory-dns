@@ -136,7 +136,7 @@ impl AccessControlSet {
     ///
     /// This is true when no IPv4 or IPv6 networks are denied.
     pub fn allows_all(&self) -> bool {
-        self.v4_deny.is_empty() && self.v4_deny.is_empty()
+        self.v4_deny.is_empty() && self.v6_deny.is_empty()
     }
 
     /// Check if the IP address `ip` should be denied.
@@ -167,7 +167,7 @@ impl AccessControlSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::access_control::AccessControlSetBuilder;
+    use crate::access_control::{AccessControlSet, AccessControlSetBuilder};
 
     #[test]
     fn access_control_set_networks_test() {
@@ -282,5 +282,64 @@ mod tests {
                 tc.name
             );
         }
+    }
+
+    #[test]
+    fn allows_all_test() {
+        let empty = AccessControlSet::empty("empty");
+        assert!(empty.allows_all());
+
+        let v4_only = AccessControlSetBuilder::new("v4 only")
+            .deny(["10.0.0.0/8".parse().unwrap()].iter())
+            .build()
+            .unwrap();
+        assert!(!v4_only.allows_all());
+
+        let v6_only = AccessControlSetBuilder::new("v6 only")
+            .deny(["fe80::/10".parse().unwrap()].iter())
+            .build()
+            .unwrap();
+        assert!(!v6_only.allows_all());
+
+        let both = AccessControlSetBuilder::new("both")
+            .deny(["10.0.0.0/8".parse().unwrap(), "fe80::/10".parse().unwrap()].iter())
+            .build()
+            .unwrap();
+        assert!(!both.allows_all());
+    }
+
+    #[test]
+    fn v4_only_deny_test() {
+        let acs = AccessControlSetBuilder::new("v4 only deny")
+            .deny(["10.0.0.0/8".parse().unwrap()].iter())
+            .build()
+            .unwrap();
+
+        assert!(!acs.allows_all());
+        assert!(acs.denied([10, 0, 0, 1].into()));
+        assert!(acs.denied([10, 255, 255, 255].into()));
+        assert!(!acs.denied([11, 0, 0, 1].into()));
+        assert!(!acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 1].into()));
+    }
+
+    #[test]
+    fn v6_only_deny_test() {
+        let acs = AccessControlSetBuilder::new("v6 only deny")
+            .deny(["fe80::/10".parse().unwrap()].iter())
+            .build()
+            .unwrap();
+
+        assert!(!acs.allows_all());
+        assert!(acs.denied([0xfe80, 0, 0, 0, 0, 0, 0, 1].into()));
+        assert!(
+            acs.denied(
+                [
+                    0xfebf, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff
+                ]
+                .into()
+            )
+        );
+        assert!(!acs.denied([0xfec0, 0, 0, 0, 0, 0, 0, 1].into()));
+        assert!(!acs.denied([10, 0, 0, 1].into()));
     }
 }
