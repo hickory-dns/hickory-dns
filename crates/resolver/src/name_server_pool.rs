@@ -898,14 +898,23 @@ impl Future for SharedLookup {
 #[cfg(test)]
 #[cfg(feature = "tokio")]
 mod tests {
-    use std::{net::IpAddr, str::FromStr};
+    use std::collections::HashSet;
+    use std::future::Future;
+    use std::io;
+    use std::net::{IpAddr, SocketAddr};
+    use std::pin::Pin;
+    use std::str::FromStr;
+    use std::time::Duration;
 
-    use test_support::subscribe;
+    use futures_util::future;
+    use test_support::{
+        MockNetworkHandler, MockProvider, MockRecord, MockTcpStream, MockUdpSocket, subscribe,
+    };
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::config::{NameServerConfig, ResolverConfig};
-    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::config::{NameServerConfig, ResolverConfig, ServerOrderingStrategy};
+    use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
     use crate::net::xfer::{DnsHandle, FirstAnswer};
     use crate::proto::op::{DnsRequestOptions, Query};
     use crate::proto::rr::{Name, RecordType};
@@ -1024,5 +1033,192 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
+    }
+
+    /// Regression test: when the first name server in the pool times out, the pool should
+    /// try the remaining servers rather than returning the timeout error immediately.
+    ///
+    /// Before the fix (adding `NetError::Timeout` to the retry match arm in `try_send`),
+    /// a timeout from one server would cause the entire lookup to fail even when other
+    /// servers in the pool could have answered successfully.
+    #[tokio::test]
+    async fn test_pool_retries_on_timeout() {
+        subscribe();
+
+        let timeout_ip = IpAddr::from([10, 0, 0, 1]);
+        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        // Set up a mock handler where the good server returns a valid A record.
+        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let handler = MockNetworkHandler::new(responses);
+        let mock_provider = MockProvider::new(handler);
+
+        // Wrap in TimeoutProvider so that the timeout_ip always fails with TimedOut.
+        let provider = TimeoutProvider::new(mock_provider, vec![timeout_ip]);
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let pool = NameServerPool::from_nameservers(
+            vec![
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp(timeout_ip),
+                    &opts,
+                    provider.clone(),
+                )),
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp(good_ip),
+                    &opts,
+                    provider.clone(),
+                )),
+            ],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        // This should succeed: the pool should fall through the timeout from the first
+        // server and get the answer from the second server.
+        let response = pool
+            .lookup(
+                Query::query(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .expect("pool should retry on timeout and succeed with the second server");
+
+        assert!(
+            !response.answers().is_empty(),
+            "expected A record in response"
+        );
+    }
+
+    /// Regression test: when a server times out, its server-level SRTT should be penalized
+    /// so that it gets deprioritized in future pool ordering.
+    #[tokio::test]
+    async fn test_timeout_penalizes_server_srtt() {
+        subscribe();
+
+        let timeout_ip = IpAddr::from([10, 0, 0, 1]);
+        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let handler = MockNetworkHandler::new(responses);
+        let mock_provider = MockProvider::new(handler);
+        let provider = TimeoutProvider::new(mock_provider, vec![timeout_ip]);
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let ns_timeout = Arc::new(NameServer::new(
+            [].into_iter(),
+            NameServerConfig::udp(timeout_ip),
+            &opts,
+            provider.clone(),
+        ));
+        let ns_good = Arc::new(NameServer::new(
+            [].into_iter(),
+            NameServerConfig::udp(good_ip),
+            &opts,
+            provider.clone(),
+        ));
+
+        let initial_srtt_timeout = ns_timeout.decayed_srtt();
+
+        let pool = NameServerPool::from_nameservers(
+            vec![ns_timeout.clone(), ns_good.clone()],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        // Perform a lookup - the first server will timeout, second will succeed.
+        let _response = pool
+            .lookup(
+                Query::query(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .expect("lookup should succeed via second server");
+
+        // The timeout server's SRTT should have been penalized (increased).
+        assert!(
+            ns_timeout.decayed_srtt() > initial_srtt_timeout,
+            "timeout server SRTT should increase after failure: {} should be > {}",
+            ns_timeout.decayed_srtt(),
+            initial_srtt_timeout,
+        );
+
+        // The good server's SRTT should not have been penalized.
+        // It may have changed slightly due to recording a successful RTT, but should
+        // not have jumped to the failure penalty value.
+        let failure_penalty = 5_000_000.0_f64; // SRTT failure penalty
+        assert!(
+            ns_good.decayed_srtt() < failure_penalty,
+            "good server SRTT should not be penalized: {}",
+            ns_good.decayed_srtt(),
+        );
+    }
+
+    /// A [`RuntimeProvider`] wrapper that returns `io::ErrorKind::TimedOut` from `bind_udp`
+    /// for a specified set of server IPs, simulating a connection-level timeout. All other
+    /// IPs are delegated to the inner provider.
+    #[derive(Clone)]
+    struct TimeoutProvider {
+        inner: MockProvider,
+        timeout_ips: Arc<HashSet<IpAddr>>,
+    }
+
+    impl TimeoutProvider {
+        fn new(inner: MockProvider, timeout_ips: Vec<IpAddr>) -> Self {
+            Self {
+                inner,
+                timeout_ips: Arc::new(timeout_ips.into_iter().collect()),
+            }
+        }
+    }
+
+    impl RuntimeProvider for TimeoutProvider {
+        type Handle = TokioHandle;
+        type Timer = TokioTime;
+        type Udp = MockUdpSocket;
+        type Tcp = MockTcpStream;
+
+        fn create_handle(&self) -> Self::Handle {
+            self.inner.create_handle()
+        }
+
+        fn connect_tcp(
+            &self,
+            server_addr: SocketAddr,
+            bind_addr: Option<SocketAddr>,
+            timeout: Option<Duration>,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, io::Error>> + Send>> {
+            if self.timeout_ips.contains(&server_addr.ip()) {
+                Box::pin(future::ready(Err(io::Error::from(io::ErrorKind::TimedOut))))
+            } else {
+                self.inner.connect_tcp(server_addr, bind_addr, timeout)
+            }
+        }
+
+        fn bind_udp(
+            &self,
+            local_addr: SocketAddr,
+            server_addr: SocketAddr,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
+            if self.timeout_ips.contains(&server_addr.ip()) {
+                Box::pin(future::ready(Err(io::Error::from(io::ErrorKind::TimedOut))))
+            } else {
+                self.inner.bind_udp(local_addr, server_addr)
+            }
+        }
     }
 }
