@@ -248,7 +248,14 @@ impl<P: ConnectionProvider> PoolState<P> {
             //   reorder the connections based on current view...
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => {
-                servers.sort_by(|a, b| a.decayed_srtt().total_cmp(&b.decayed_srtt()));
+                // Use sort_by_cached_key so that decayed_srtt() is called once per server
+                // rather than once per comparison. decayed_srtt() reads the current time on
+                // every call, so calling it inside sort_by would produce different values for
+                // the same server across comparisons, violating the total-order requirement
+                // and causing a panic in Rust's sort implementation.
+                // Positive f64 bit patterns sort in the same order as their float values,
+                // so to_bits() is a valid u64 ordering key for non-negative SRTT values.
+                servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
@@ -1219,6 +1226,77 @@ mod tests {
             } else {
                 self.inner.bind_udp(local_addr, server_addr)
             }
+        }
+    }
+
+    /// Regression test: sorting servers by decayed SRTT must not panic.
+    ///
+    /// `decayed_srtt()` applies a time-based decay that reads the current clock
+    /// on each call.  With `sort_by`, the comparator could return different
+    /// results for the same pair of servers as time advanced between calls,
+    /// violating the total-order invariant and causing a panic in the standard
+    /// library's sort implementation.  The fix uses `sort_by_cached_key` which
+    /// evaluates each key exactly once.
+    ///
+    /// This test creates many servers with nearly-identical initial SRTTs,
+    /// records a failure on each to activate the time-based decay path, then
+    /// fires repeated lookups that trigger the sort.  Before the fix, this would
+    /// reliably panic with "user-provided comparison function does not correctly
+    /// implement a total order".
+    #[tokio::test]
+    async fn test_sort_by_decayed_srtt_does_not_panic() {
+        use test_support::{MockNetworkHandler, MockProvider, MockRecord};
+
+        subscribe();
+
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        // Create 50 servers — enough that Rust's sort makes many comparisons
+        // and has a high chance of detecting a non-total-order comparator.
+        let server_ips: Vec<IpAddr> = (1..=50).map(|i| IpAddr::from([10, 0, 0, i])).collect();
+
+        // Every server can answer the query.
+        let responses: Vec<MockRecord> = server_ips
+            .iter()
+            .map(|&ip| MockRecord::a(ip, &query_name, ip))
+            .collect();
+        let handler = MockNetworkHandler::new(responses);
+        let mock_provider = MockProvider::new(handler);
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::QueryStatistics,
+            ..ResolverOpts::default()
+        };
+
+        let servers: Vec<Arc<NameServer<MockProvider>>> = server_ips
+            .iter()
+            .map(|&ip| {
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp(ip),
+                    &opts,
+                    mock_provider.clone(),
+                ))
+            })
+            .collect();
+
+        let pool = NameServerPool::from_nameservers(
+            servers,
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        // Fire many lookups.  Each one sorts the server list by decayed SRTT.
+        // The first lookup also sets `last_update` on the servers that are
+        // queried, activating the time-based decay for future sorts.
+        for _ in 0..50 {
+            let _ = pool
+                .lookup(
+                    Query::query(query_name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                )
+                .first_answer()
+                .await;
         }
     }
 }
