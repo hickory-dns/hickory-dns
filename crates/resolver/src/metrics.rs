@@ -136,7 +136,7 @@ pub mod recursor {
             let cache_hit_duration = histogram!(CACHE_HIT_DURATION);
             describe_histogram!(
                 CACHE_HIT_DURATION,
-                Unit::Milliseconds,
+                Unit::Seconds,
                 "Duration of recursive resolution for queries that are answered from cache."
             );
             let cache_miss_duration = histogram!(CACHE_MISS_DURATION);
@@ -309,7 +309,7 @@ pub mod recursor {
     pub const OUTGOING_QUERIES_TOTAL: &str = "hickory_recursor_outgoing_queries_total";
 
     /// Duration of recursive resolution for queries that are answered from cache.
-    pub const CACHE_HIT_DURATION: &str = "hickory_recursor_cache_hit_duration_milliseconds";
+    pub const CACHE_HIT_DURATION: &str = "hickory_recursor_cache_hit_duration_seconds";
 
     /// Duration of recursive resolution for queries that are not answered from cache.
     pub const CACHE_MISS_DURATION: &str = "hickory_recursor_cache_miss_duration_seconds";
