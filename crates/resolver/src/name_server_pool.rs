@@ -347,8 +347,8 @@ impl<P: ConnectionProvider> PoolState<P> {
                     }
                     // If the server is busy, try it again later if necessary.
                     NetError::Busy => busy.push(server),
-                    // If the connection failed, try another one.
-                    NetError::Io(_) | NetError::NoConnections => {}
+                    // If the connection failed or timed out, try another one.
+                    NetError::Io(_) | NetError::NoConnections | NetError::Timeout => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
                     NetError::Dns(DnsError::NoRecordsFound(NoRecords {
