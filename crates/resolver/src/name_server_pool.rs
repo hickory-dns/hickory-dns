@@ -159,11 +159,11 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
             let key = Arc::new(CacheKey::from_request(&request));
 
-            let lookup = {
+            let (lookup, is_creator) = {
                 let mut active = active_requests.lock();
                 if let Some(existing) = active.get(&key) {
                     debug!(%query, "query currently in progress - returning shared lookup");
-                    existing.clone()
+                    (existing.clone(), false)
                 } else {
                     info!(%query, "creating new shared lookup");
 
@@ -178,14 +178,21 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
 
                     let shared_lookup = SharedLookup(lookup);
                     active.insert(key.clone(), shared_lookup.clone());
-                    shared_lookup
+                    (shared_lookup, true)
                 }
             };
 
-            let response = lookup.await;
+            // Only the creator removes the key so that the entry is not
+            // removed prematurely by a waiter task.  Using a guard ensures
+            // the entry is removed even if `lookup.await` panics, which
+            // would otherwise leave a poisoned `SharedLookup` in the map and
+            // cause every subsequent request for the same key to also panic.
+            let _cleanup = is_creator.then(|| ActiveRequestCleanup {
+                active_requests: active_requests.clone(),
+                key: key.clone(),
+            });
 
-            // remove the concurrent request marker
-            active_requests.lock().remove(&key);
+            let response = lookup.await;
             let mut response = response?;
 
             if acs.allows_all() {
@@ -848,6 +855,23 @@ mod opportunistic_encryption_persistence {
             true => Path::new("."),
             false => parent,
         })
+    }
+}
+
+/// RAII guard that removes a deduplication key from `active_requests` when dropped.
+///
+/// This is created only by the "creator" task (the one that inserted the key).
+/// Using `Drop` guarantees the entry is removed even if the inner future panics,
+/// preventing a poisoned [`SharedLookup`] from remaining in the map and causing
+/// every subsequent request for the same key to also panic.
+struct ActiveRequestCleanup {
+    active_requests: Arc<Mutex<HashMap<Arc<CacheKey>, SharedLookup>>>,
+    key: Arc<CacheKey>,
+}
+
+impl Drop for ActiveRequestCleanup {
+    fn drop(&mut self) {
+        self.active_requests.lock().remove(&self.key);
     }
 }
 
