@@ -254,7 +254,8 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                     response.id()
                 );
 
-                return Err(NetError::BadTransactionId);
+                // await an answer with the correct message id
+                continue;
             }
 
             // Validate the returned query name.
