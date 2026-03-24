@@ -23,6 +23,7 @@ use futures_util::{
     future::{BoxFuture, Shared},
 };
 use parking_lot::Mutex;
+use rand::seq::SliceRandom as _;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -85,7 +86,15 @@ impl<P: ConnectionProvider> NameServerPool<P> {
     }
 
     #[doc(hidden)]
-    pub fn from_nameservers(servers: Vec<Arc<NameServer<P>>>, cx: Arc<PoolContext>) -> Self {
+    pub fn from_nameservers(mut servers: Vec<Arc<NameServer<P>>>, cx: Arc<PoolContext>) -> Self {
+        // Shuffle so that the cold-start phase (before SRTT measurements
+        // differentiate servers) distributes queries across all providers
+        // rather than always hitting the first few in config order.
+        // Only applies to QueryStatistics ordering — UserProvidedOrder and
+        // RoundRobin manage their own sequencing and must not be shuffled.
+        if cx.options.server_ordering_strategy == ServerOrderingStrategy::QueryStatistics {
+            servers.shuffle(&mut rand::rng());
+        }
         Self {
             state: Arc::new(PoolState {
                 servers,
