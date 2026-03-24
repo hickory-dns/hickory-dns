@@ -297,9 +297,12 @@ impl<P: ConnectionProvider> PoolState<P> {
         // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
         // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
         //
-        // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
-        // close to the connection, which means the top level resolution might take substantially longer
-        // to fire than the timeout configured in `ResolverOpts`.
+        // Enforce an end-to-end deadline so the total time spent in this loop never exceeds the
+        // configured timeout.  Without this, the pool can spend up to N × timeout (where N is the
+        // number of servers) before returning an error — well past the point where clients have
+        // given up and retransmitted the query.
+        let deadline = Instant::now() + self.cx.options.timeout;
+
         let mut servers = VecDeque::from(servers);
         let mut backoff = Duration::from_millis(20);
         let mut busy = SmallVec::<[Arc<NameServer<P>>; 2]>::new();
@@ -307,6 +310,11 @@ impl<P: ConnectionProvider> PoolState<P> {
         let mut policy = ConnectionPolicy::default();
 
         loop {
+            // Check the deadline before starting a new round of server attempts.
+            if Instant::now() >= deadline {
+                return Err(NetError::Timeout);
+            }
+
             // construct the parallel requests, 2 is the default
             let mut par_servers = SmallVec::<[_; 2]>::new();
             while !servers.is_empty()
@@ -321,8 +329,13 @@ impl<P: ConnectionProvider> PoolState<P> {
 
             if par_servers.is_empty() {
                 if !busy.is_empty() && backoff < Duration::from_millis(300) {
+                    // Cap the backoff sleep so we don't sleep past the deadline.
+                    let remaining = deadline.saturating_duration_since(Instant::now());
+                    if remaining.is_zero() {
+                        return Err(NetError::Timeout);
+                    }
                     <<P as ConnectionProvider>::RuntimeProvider as RuntimeProvider>::Timer::delay_for(
-                        backoff,
+                        backoff.min(remaining),
                     ).await;
                     servers.extend(busy.drain(..).filter(|ns| policy.allows_server(ns)));
                     backoff *= 2;
