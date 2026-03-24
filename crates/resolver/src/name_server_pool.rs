@@ -327,9 +327,18 @@ impl<P: ConnectionProvider> PoolState<P> {
                 .map(|server| {
                     let mut request = request.clone();
 
-                    // Set the retry interval to 1.2 times the current decayed SRTT
+                    // Set the retry interval to 1.2 times the current decayed SRTT,
+                    // clamped to a ceiling.  The UDP stream already enforces a floor
+                    // (DEFAULT_RETRY_FLOOR = 333ms), so values below that are harmless.
+                    // However, after failures the SRTT can inflate significantly
+                    // (150ms penalty per failure), pushing the retry interval to 700ms+.
+                    // That means fewer UDP retransmits within the per-connection timeout
+                    // window, reducing the chance of a successful response.  Cap at 500ms
+                    // so that even degraded servers get reasonable retransmit frequency.
+                    const MAX_RETRY_INTERVAL: Duration = Duration::from_millis(500);
                     let retry_interval =
-                        Duration::from_micros((server.decayed_srtt() * 1.2) as u64);
+                        Duration::from_micros((server.decayed_srtt() * 1.2) as u64)
+                            .min(MAX_RETRY_INTERVAL);
                     request.options_mut().retry_interval = retry_interval;
                     debug!(?retry_interval, ip = ?server.ip(), "setting retry_interval");
 
