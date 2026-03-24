@@ -30,11 +30,6 @@ use crate::proto::serialize::binary::DecodeError;
 #[non_exhaustive]
 #[derive(Error, Clone, Debug)]
 pub enum NetError {
-    /// A UDP response was received with an incorrect transaction id, likely indicating a
-    /// cache-poisoning attempt.
-    #[error("bad transaction id received")]
-    BadTransactionId,
-
     /// The underlying resource is too busy
     ///
     /// This is a signal that an internal resource is too busy. The intended action should be tried

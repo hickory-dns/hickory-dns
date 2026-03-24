@@ -152,8 +152,9 @@ pub(super) async fn udp_client_stream_bad_id_test(
             }
         },
         |response| {
-            // The test should pass when we see a bad transaction ID response error.
-            matches!(response, Err(NetError::BadTransactionId))
+            // The test should pass when we see a timeout after waiting for a response
+            // with a correct transaction ID
+            matches!(response, Err(NetError::Timeout))
         },
     )
     .await;
