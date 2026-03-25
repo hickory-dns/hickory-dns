@@ -47,6 +47,12 @@ impl OPENPGPKEY {
     pub fn public_key(&self) -> &[u8] {
         &self.public_key
     }
+
+    /// The public key. This should be an OpenPGP Transferable Public Key,
+    /// but this is not guaranteed.
+    pub fn into_public_key(self) -> Vec<u8> {
+        self.public_key
+    }
 }
 
 impl BinEncodable for OPENPGPKEY {

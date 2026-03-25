@@ -49,6 +49,11 @@ impl SMIMEA {
     ) -> Self {
         Self(TLSA::new(cert_usage, selector, matching, cert_data))
     }
+
+    /// Binary data for validating the cert, see other members to understand the format
+    pub fn into_cert_data(self) -> Vec<u8> {
+        self.0.into_cert_data()
+    }
 }
 
 /// This implementation allows calling the associated functions of [TLSA] on [SMIMEA].

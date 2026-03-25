@@ -440,8 +440,13 @@ impl CERT {
     }
 
     /// Returns the CERT record data
-    pub fn cert_data(&self) -> Vec<u8> {
-        self.cert_data.clone()
+    pub fn cert_data(&self) -> &[u8] {
+        &self.cert_data
+    }
+
+    /// Returns the CERT record data
+    pub fn into_cert_data(self) -> Vec<u8> {
+        self.cert_data
     }
 
     /// Returns the CERT (Base64)

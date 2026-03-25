@@ -370,9 +370,14 @@ impl TLSA {
         self.matching
     }
 
-    /// Binary data for validating the cert, see other members to understand format
+    /// Binary data for validating the cert, see other members to understand the format
     pub fn cert_data(&self) -> &[u8] {
         &self.cert_data
+    }
+
+    /// Binary data for validating the cert, see other members to understand the format
+    pub fn into_cert_data(self) -> Vec<u8> {
+        self.cert_data
     }
 }
 

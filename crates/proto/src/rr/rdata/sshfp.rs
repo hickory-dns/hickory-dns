@@ -103,6 +103,11 @@ impl SSHFP {
     pub fn fingerprint(&self) -> &[u8] {
         &self.fingerprint
     }
+
+    /// The fingerprint of the public key.
+    pub fn into_fingerprint(self) -> Vec<u8> {
+        self.fingerprint
+    }
 }
 
 /// ```text
