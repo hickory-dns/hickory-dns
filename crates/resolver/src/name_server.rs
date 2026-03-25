@@ -208,17 +208,22 @@ impl<P: ConnectionProvider> NameServer<P> {
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), NetError> {
-        let mut connections = self.connections.lock().await;
-        connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
-        if let Some(conn) = policy.select_connection(
-            self.config.ip,
-            &*cx.transport_state().await,
-            &cx.opportunistic_encryption,
-            &connections,
-        ) {
-            return Ok((conn.handle.clone(), conn.meta.clone(), conn.protocol));
+        // Check for an existing usable connection (short lock)
+        {
+            let mut connections = self.connections.lock().await;
+            connections
+                .retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
+            if let Some(conn) = policy.select_connection(
+                self.config.ip,
+                &*cx.transport_state().await,
+                &cx.opportunistic_encryption,
+                &connections,
+            ) {
+                return Ok((conn.handle.clone(), conn.meta.clone(), conn.protocol));
+            }
         }
 
+        // Select connection config and update transport state (no lock)
         debug!(config = ?self.config, "connecting");
         let config = policy
             .select_connection_config(
@@ -238,6 +243,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             self.consider_probe_encrypted_transport(&policy, cx).await;
         }
 
+        // Establish connection
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
@@ -251,10 +257,10 @@ impl<P: ConnectionProvider> NameServer<P> {
                 .complete_connection(self.config.ip, protocol);
         }
 
-        // establish a new connection
+        // Store the new connection (with lock)
         let state = ConnectionState::new(handle.clone(), protocol);
         let meta = state.meta.clone();
-        connections.push(state);
+        self.connections.lock().await.push(state);
         Ok((handle, meta, protocol))
     }
 
