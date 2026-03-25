@@ -41,14 +41,15 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     pub async fn exchange<P: RuntimeProvider<Tcp = S>>(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
-        timeout: Duration,
+        connect_timeout: Duration,
+        request_timeout: Duration,
         provider: P,
     ) -> Result<DnsExchange<P>, NetError> {
         let mut handle = provider.create_handle();
-        let (future, sender) = Self::new(remote_addr, bind_addr, Some(timeout), provider);
+        let (future, sender) = Self::new(remote_addr, bind_addr, Some(connect_timeout), provider);
 
         // TODO: need config for Signer...
-        let multiplexer = DnsMultiplexer::new(future.await?, sender).with_timeout(timeout);
+        let multiplexer = DnsMultiplexer::new(future.await?, sender).with_timeout(request_timeout);
         let (exchange, bg) = DnsExchange::from_stream(multiplexer);
         handle.spawn_bg(bg);
         Ok(exchange)

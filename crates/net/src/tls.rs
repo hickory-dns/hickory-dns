@@ -43,13 +43,14 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     server_name: ServerName<'static>,
     mut config: ClientConfig,
     timeout: Duration,
+    connect_timeout: Duration,
     provider: P,
 ) -> Result<DnsExchange<P>, NetError> {
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     config.enable_sni = false;
 
     let stream = provider
-        .connect_tcp(remote_addr, None, Some(timeout))
+        .connect_tcp(remote_addr, None, Some(connect_timeout))
         .await?;
     let (future, sender) = tls_client_connect_with_future(
         stream,

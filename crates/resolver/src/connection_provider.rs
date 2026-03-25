@@ -98,12 +98,18 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                         .exchange())
                 }))
             }
-            (ProtocolConfig::Tcp, _) => Ok(Box::pin(TcpClientStream::exchange(
-                remote_addr,
-                config.bind_addr,
-                cx.options.timeout,
-                self.clone(),
-            ))),
+            (ProtocolConfig::Tcp, _) => {
+                let connect_timeout = cx.options.connect_timeout;
+                let request_timeout = cx.options.timeout;
+                let provider = self.clone();
+                Ok(Box::pin(TcpClientStream::exchange(
+                    remote_addr,
+                    config.bind_addr,
+                    connect_timeout,
+                    request_timeout,
+                    provider,
+                )))
+            }
             #[cfg(feature = "__tls")]
             (ProtocolConfig::Tls { server_name }, _) => {
                 let Ok(server_name) = ServerName::try_from(&**server_name) else {
@@ -113,11 +119,13 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 };
 
                 let server_name = server_name.to_owned();
+                let connect_timeout = cx.options.connect_timeout;
                 Ok(Box::pin(tls_exchange(
                     remote_addr,
                     server_name,
                     cx.tls.clone(),
                     cx.options.timeout,
+                    connect_timeout,
                     self.clone(),
                 )))
             }
@@ -125,7 +133,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             (ProtocolConfig::Https { server_name, path }, _) => {
                 let mut builder =
                     HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone());
-                builder.connect_timeout(cx.options.timeout);
+                builder.connect_timeout(cx.options.connect_timeout);
                 Ok(Box::pin(builder.exchange(
                     remote_addr,
                     server_name.clone(),
@@ -143,7 +151,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 Ok(Box::pin(
                     QuicClientStream::builder()
                         .crypto_config(cx.tls.clone())
-                        .connect_timeout(cx.options.timeout)
+                        .connect_timeout(cx.options.connect_timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -170,7 +178,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     H3ClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
-                        .connect_timeout(cx.options.timeout)
+                        .connect_timeout(cx.options.connect_timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,

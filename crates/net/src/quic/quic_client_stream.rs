@@ -216,7 +216,7 @@ impl QuicClientStreamBuilder {
         self
     }
 
-    /// Override the connect timeout (default: 5 seconds).
+    /// Override the connect timeout (default: 2 seconds).
     pub fn connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = timeout;
         self
