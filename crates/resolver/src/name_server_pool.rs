@@ -247,6 +247,20 @@ struct PoolState<P: ConnectionProvider> {
     next: AtomicUsize,
 }
 
+/// Sorts servers by their decayed SRTT for query-statistics-based ordering.
+///
+/// Uses `sort_by_cached_key` to evaluate each server's decayed SRTT exactly
+/// once. This is critical because `decayed_srtt()` reads shared mutable state
+/// that can change between calls due to concurrent query completions, which
+/// would violate the total-order invariant required by `sort_by`.
+pub(crate) fn sort_servers_by_query_statistics<P: ConnectionProvider>(
+    servers: &mut [Arc<NameServer<P>>],
+) {
+    // Positive f64 bit patterns sort in the same order as their float values,
+    // so to_bits() is a valid u64 ordering key for non-negative SRTT values.
+    servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
+}
+
 impl<P: ConnectionProvider> PoolState<P> {
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
         let mut servers = self.servers.clone();
@@ -255,14 +269,7 @@ impl<P: ConnectionProvider> PoolState<P> {
             //   reorder the connections based on current view...
             //   this reorders the inner set
             ServerOrderingStrategy::QueryStatistics => {
-                // Use sort_by_cached_key so that decayed_srtt() is called once per server
-                // rather than once per comparison. decayed_srtt() reads the current time on
-                // every call, so calling it inside sort_by would produce different values for
-                // the same server across comparisons, violating the total-order requirement
-                // and causing a panic in Rust's sort implementation.
-                // Positive f64 bit patterns sort in the same order as their float values,
-                // so to_bits() is a valid u64 ordering key for non-negative SRTT values.
-                servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
+                sort_servers_by_query_statistics(&mut servers);
             }
             ServerOrderingStrategy::UserProvidedOrder => {}
             ServerOrderingStrategy::RoundRobin => {
@@ -968,6 +975,8 @@ mod tests {
     use std::net::{IpAddr, SocketAddr};
     use std::pin::Pin;
     use std::str::FromStr;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::thread;
     use std::time::Duration;
 
     use futures_util::future;
@@ -1417,74 +1426,66 @@ mod tests {
         }
     }
 
-    /// Regression test: sorting servers by decayed SRTT must not panic.
+    /// Regression test: `sort_servers_by_query_statistics` must not panic when
+    /// SRTT values are concurrently modified.
     ///
-    /// `decayed_srtt()` applies a time-based decay that reads the current clock
-    /// on each call.  With `sort_by`, the comparator could return different
-    /// results for the same pair of servers as time advanced between calls,
-    /// violating the total-order invariant and causing a panic in the standard
-    /// library's sort implementation.  The fix uses `sort_by_cached_key` which
-    /// evaluates each key exactly once.
-    ///
-    /// This test creates many servers with nearly-identical initial SRTTs,
-    /// records a failure on each to activate the time-based decay path, then
-    /// fires repeated lookups that trigger the sort.  Before the fix, this would
-    /// reliably panic with "user-provided comparison function does not correctly
-    /// implement a total order".
-    #[tokio::test]
-    async fn test_sort_by_decayed_srtt_does_not_panic() {
-        use test_support::{MockNetworkHandler, MockProvider, MockRecord};
+    /// `record()` and `record_failure()` can modify a server's SRTT while
+    /// another thread sorts the server list. With `sort_by`, the comparator
+    /// re-evaluates `decayed_srtt()` on every comparison, observing values
+    /// that change between calls and violating the total-order invariant.
+    /// The fix uses `sort_by_cached_key`, which evaluates each key exactly
+    /// once before sorting.
+    #[test]
+    fn test_sort_by_decayed_srtt_does_not_panic() {
+        let opts = ResolverOpts::default();
+        let mock_provider = MockProvider::new(MockNetworkHandler::new(vec![]));
 
-        subscribe();
-
-        let query_name = Name::from_str("example.com.").unwrap();
-
-        // Create 50 servers — enough that Rust's sort makes many comparisons
-        // and has a high chance of detecting a non-total-order comparator.
-        let server_ips: Vec<IpAddr> = (1..=50).map(|i| IpAddr::from([10, 0, 0, i])).collect();
-
-        // Every server can answer the query.
-        let responses: Vec<MockRecord> = server_ips
-            .iter()
-            .map(|&ip| MockRecord::a(ip, &query_name, ip))
-            .collect();
-        let handler = MockNetworkHandler::new(responses);
-        let mock_provider = MockProvider::new(handler);
-
-        let opts = ResolverOpts {
-            num_concurrent_reqs: 1,
-            server_ordering_strategy: ServerOrderingStrategy::QueryStatistics,
-            ..ResolverOpts::default()
-        };
-
-        let servers: Vec<Arc<NameServer<MockProvider>>> = server_ips
-            .iter()
-            .map(|&ip| {
-                Arc::new(NameServer::new(
-                    [].into_iter(),
-                    NameServerConfig::udp(ip),
+        let mut servers = (1..=50)
+            .map(|i| {
+                let ns = Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::udp(IpAddr::from([10, 0, 0, i])),
                     &opts,
                     mock_provider.clone(),
-                ))
+                ));
+                // Activate the time-based decay path by recording a failure,
+                // which sets `last_update` to `Some(now)`.
+                ns.test_record_failure();
+                ns
             })
-            .collect();
+            .collect::<Vec<_>>();
 
-        let pool = NameServerPool::from_nameservers(
-            servers,
-            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
-        );
+        // Spawn a thread that continuously modifies SRTT values, simulating
+        // concurrent queries completing on other threads.
+        let servers_writer = servers.clone();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_writer = stop.clone();
+        let writer = thread::spawn(move || {
+            while !stop_writer.load(Ordering::Relaxed) {
+                for s in &servers_writer {
+                    s.test_record_failure();
+                }
+            }
+        });
 
-        // Fire many lookups.  Each one sorts the server list by decayed SRTT.
-        // The first lookup also sets `last_update` on the servers that are
-        // queried, activating the time-based decay for future sorts.
-        for _ in 0..50 {
-            let _ = pool
-                .lookup(
-                    Query::query(query_name.clone(), RecordType::A),
-                    DnsRequestOptions::default(),
-                )
-                .first_answer()
-                .await;
+        // Ensure the writer thread stops even if the test panics.
+        struct StopGuard(Arc<AtomicBool>);
+        impl Drop for StopGuard {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::Relaxed);
+            }
         }
+        let _guard = StopGuard(stop.clone());
+
+        // Call the production sort function many times while the writer
+        // thread concurrently modifies SRTT values. With sort_by_cached_key
+        // this is safe. With sort_by, the concurrent modifications cause
+        // inconsistent comparisons that panic the sort.
+        for _ in 0..100_000 {
+            sort_servers_by_query_statistics(&mut servers);
+        }
+
+        stop.store(true, Ordering::Relaxed);
+        writer.join().unwrap();
     }
 }

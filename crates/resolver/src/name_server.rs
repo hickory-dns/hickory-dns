@@ -292,6 +292,11 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     #[cfg(test)]
+    pub(crate) fn test_record_failure(&self) {
+        self.server_srtt.record_failure();
+    }
+
+    #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
         let Some(connections) = self.connections.try_lock() else {
