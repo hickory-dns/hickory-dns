@@ -860,7 +860,7 @@ mod for_dnssec {
                 msg.add_authorities(response.authorities.iter().cloned());
                 msg.add_additionals(response.additionals.iter().cloned());
 
-                DnsResponse::from_message(msg.to_response()).map_err(NetError::from)
+                DnsResponse::from_message(msg.into_response()).map_err(NetError::from)
             })
             .boxed()
         }

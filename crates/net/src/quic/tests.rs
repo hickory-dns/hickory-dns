@@ -50,7 +50,7 @@ async fn server_responder(mut server: QuicServer) {
 
             // just respond with the same message converted to a response.
             stream
-                .send(client_message.to_response())
+                .send(client_message.into_response())
                 .await
                 .expect("failed to send response")
         }
@@ -128,7 +128,7 @@ async fn test_quic_stream() {
         .expect("no response received")
         .expect("failed to read response");
 
-    assert_eq!(*response, message.to_response());
+    assert_eq!(*response, message.into_response());
 
     // and finally kill the server
     server_join.abort();

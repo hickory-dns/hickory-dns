@@ -92,7 +92,7 @@ fn get_stream_testcase(
         Ok({
             let mut m = Message::query();
             m.insert_answers(r);
-            DnsResponse::from_message(m.to_response()).unwrap()
+            DnsResponse::from_message(m.into_response()).unwrap()
         })
     });
     iter(stream)

@@ -242,7 +242,7 @@ async fn udp_client_stream_test_inner(
                 assert_eq!(request.queries[0].query_type(), RecordType::NULL);
 
                 for response_idx in 0..response_count {
-                    let mut message = request.to_response();
+                    let mut message = request.clone().into_response();
                     message.add_answer(Record::from_rdata(
                         test_name_server.clone(),
                         0,

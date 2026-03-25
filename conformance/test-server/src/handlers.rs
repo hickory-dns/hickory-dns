@@ -17,7 +17,7 @@ use std::{
 
 /// This handler generates a valid A-record response to any query
 pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     msg.metadata.recursion_desired = false;
@@ -33,7 +33,7 @@ pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option
 
 /// This handler responds to any messages with an incorrect transaction (query) id.
 pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     msg.metadata.id = if msg.metadata.id == 65535 {
@@ -59,7 +59,7 @@ pub(crate) fn empty_response_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     Message::from_vec(bytes)?
-        .to_response()
+        .into_response()
         .to_vec()
         .map(Some)
         .with_context(|| "empty response handler: could not serialize Message")
@@ -72,7 +72,7 @@ pub(crate) fn truncated_response_handler(
     bytes: &[u8],
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     if name != Name::from_ascii("example.testing.").unwrap()
@@ -120,7 +120,7 @@ pub(crate) fn truncated_response_handler(
 
 /// This handler simulates packet loss by not responding to the first query it receives
 pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let query = msg.queries[0].clone();
     let name = query.name().clone();
     let q_type = query.query_type();
@@ -148,7 +148,7 @@ pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result
 
 /// This handler does not preserve the case of query names in responses.
 pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let mut queries = msg.queries;
 
     // This doesn't use Name::randomize_case_labels since that doesn't guarantee
@@ -184,7 +184,7 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
 
 /// This handler generates a large number of lengthy CNAME records to resolve
 pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     let Some(host) = name.iter().next() else {
@@ -238,7 +238,7 @@ pub(crate) fn nsec3_nocover_handler(
     bytes: &[u8],
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let query_name = msg.queries[0].name().clone();
     let query_type = msg.queries[0].query_type();
 
@@ -467,7 +467,7 @@ pub(crate) fn nsec3_nocover_handler(
 /// chain, and a default case that returns a superfluous out of bailiwick record along with a
 /// responsive A record.
 pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     if name == Name::from_ascii("cname.example.testing.")? {
@@ -518,7 +518,7 @@ pub(crate) fn parent_ns_in_authority_handler(
     bytes: &[u8],
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
     let q_type = msg.queries[0].query_type();
 
@@ -584,7 +584,7 @@ pub(crate) fn qr_not_response_handler(
     bytes: &[u8],
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     msg.metadata.message_type = MessageType::Query;
@@ -605,7 +605,7 @@ pub(crate) fn qr_not_response_force_tcp_handler(
     bytes: &[u8],
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.to_response();
+    let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
 
     match transport {
