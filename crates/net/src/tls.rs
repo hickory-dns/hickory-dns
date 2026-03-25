@@ -59,7 +59,9 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
     config.enable_sni = false;
 
-    let stream = provider.connect_tcp(remote_addr, None, None).await?;
+    let stream = provider
+        .connect_tcp(remote_addr, None, Some(timeout))
+        .await?;
     let (future, sender) = tls_client_connect_with_future(
         stream,
         remote_addr,
