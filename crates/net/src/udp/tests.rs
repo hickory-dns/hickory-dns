@@ -219,6 +219,11 @@ async fn udp_client_stream_test_inner(
     query.add_query(Query::query(query_name.clone(), RecordType::NULL));
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
 
+    // Keep the server socket alive until the client is done, so that retry
+    // attempts don't hit a closed port. On Windows, sending UDP to a closed
+    // port triggers ICMP "port unreachable" which causes `recv_from()` to return
+    // a connection reset error instead of blocking until timeout.
+    let server_done = stop_thread_killer.clone();
     let test_name_server = query_name;
     let server_handle = thread::Builder::new()
         .name(format!("{test_name}:server"))
@@ -251,6 +256,10 @@ async fn udp_client_stream_test_inner(
                     debug!("server sent response {response_idx} for request {i}");
                 }
                 thread::yield_now();
+            }
+
+            while !server_done.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(10));
             }
         })
         .unwrap();
