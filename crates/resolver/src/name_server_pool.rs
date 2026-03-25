@@ -14,7 +14,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 use std::task::{Context, Poll};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
 use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
@@ -331,6 +331,11 @@ impl<P: ConnectionProvider> PoolState<P> {
                 return Err(err);
             }
 
+            // Track all servers in the parallel batch so we can penalize any
+            // that are still in-flight when a winner is found.
+            let in_flight = par_servers.iter().cloned().collect::<SmallVec<[_; 2]>>();
+
+            let batch_start = Instant::now();
             let mut requests = par_servers
                 .into_iter()
                 .map(|server| {
@@ -347,7 +352,12 @@ impl<P: ConnectionProvider> PoolState<P> {
                 })
                 .collect::<FuturesUnordered<_>>();
 
+            // Servers that have already completed (successfully or with an
+            // error) — used to avoid double-penalizing them.
+            let mut completed = SmallVec::<[IpAddr; 2]>::new();
+
             while let Some((server, result)) = requests.next().await {
+                completed.push(server.ip());
                 let e = match result {
                     Ok(response) if response.truncated() => {
                         debug!("truncated response received, retrying over TCP");
@@ -356,7 +366,17 @@ impl<P: ConnectionProvider> PoolState<P> {
                         servers.push_front(server);
                         continue;
                     }
-                    Ok(response) => return Ok(response),
+                    Ok(response) => {
+                        // Penalize servers still in-flight (see `record_cancelled`).
+                        let winner_rtt = batch_start.elapsed();
+                        for abandoned in &in_flight {
+                            if !completed.contains(&abandoned.ip()) {
+                                debug!(ip = ?abandoned.ip(), ?winner_rtt, "recording cancelled parallel server");
+                                abandoned.record_cancelled(winner_rtt);
+                            }
+                        }
+                        return Ok(response);
+                    }
                     Err(e) => e,
                 };
 
@@ -1256,6 +1276,137 @@ mod tests {
         ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
             if self.timeout_ips.contains(&server_addr.ip()) {
                 Box::pin(future::ready(Err(io::Error::from(io::ErrorKind::TimedOut))))
+            } else {
+                self.inner.bind_udp(local_addr, server_addr)
+            }
+        }
+    }
+
+    /// Regression test: an unreachable server racing in parallel must be penalized.
+    ///
+    /// When `num_concurrent_reqs >= 2`, multiple servers are queried in parallel
+    /// via `FuturesUnordered`. If a reachable server responds first, the
+    /// unreachable server's future is dropped (cancelled). Before the fix, this
+    /// meant `record_failure()` was never called for the unreachable server,
+    /// leaving its SRTT unchanged so it would be retried on every subsequent
+    /// query.
+    #[tokio::test]
+    async fn test_cancelled_parallel_server_is_penalized() {
+        subscribe();
+
+        let unreachable_ip = IpAddr::from([10, 0, 0, 1]);
+        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let handler = MockNetworkHandler::new(responses);
+        let mock_provider = MockProvider::new(handler);
+        let provider = PendingProvider::new(mock_provider, vec![unreachable_ip]);
+
+        let opts = ResolverOpts {
+            // Both servers are queried in parallel — the key condition for this bug.
+            num_concurrent_reqs: 2,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let ns_unreachable = Arc::new(NameServer::new(
+            [].into_iter(),
+            NameServerConfig::udp(unreachable_ip),
+            &opts,
+            provider.clone(),
+        ));
+        let ns_good = Arc::new(NameServer::new(
+            [].into_iter(),
+            NameServerConfig::udp(good_ip),
+            &opts,
+            provider.clone(),
+        ));
+
+        let initial_srtt = ns_unreachable.decayed_srtt();
+
+        let pool = NameServerPool::from_nameservers(
+            vec![ns_unreachable.clone(), ns_good.clone()],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        // The good server wins the race; the unreachable server's future is cancelled.
+        let _response = pool
+            .lookup(
+                Query::query(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .expect("lookup should succeed via good server");
+
+        // The unreachable server's SRTT must have increased despite its future
+        // being cancelled (not completing with an error).
+        assert!(
+            ns_unreachable.decayed_srtt() > initial_srtt,
+            "unreachable server SRTT should increase after being cancelled: {} should be > {}",
+            ns_unreachable.decayed_srtt(),
+            initial_srtt,
+        );
+
+        // The good server should not have been penalized.
+        let failure_penalty = 5_000_000.0_f64;
+        assert!(
+            ns_good.decayed_srtt() < failure_penalty,
+            "good server SRTT should not be penalized: {}",
+            ns_good.decayed_srtt(),
+        );
+    }
+
+    /// A [`RuntimeProvider`] wrapper where specified IPs never complete their
+    /// connection — the future stays pending forever. This simulates an
+    /// unreachable server (SYN sent, no SYN-ACK) where the OS TCP handshake
+    /// hasn't timed out yet.
+    #[derive(Clone)]
+    struct PendingProvider {
+        inner: MockProvider,
+        pending_ips: Arc<HashSet<IpAddr>>,
+    }
+
+    impl PendingProvider {
+        fn new(inner: MockProvider, pending_ips: Vec<IpAddr>) -> Self {
+            Self {
+                inner,
+                pending_ips: Arc::new(pending_ips.into_iter().collect()),
+            }
+        }
+    }
+
+    impl RuntimeProvider for PendingProvider {
+        type Handle = TokioHandle;
+        type Timer = TokioTime;
+        type Udp = MockUdpSocket;
+        type Tcp = MockTcpStream;
+
+        fn create_handle(&self) -> Self::Handle {
+            self.inner.create_handle()
+        }
+
+        fn connect_tcp(
+            &self,
+            server_addr: SocketAddr,
+            bind_addr: Option<SocketAddr>,
+            timeout: Option<Duration>,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, io::Error>> + Send>> {
+            if self.pending_ips.contains(&server_addr.ip()) {
+                Box::pin(future::pending())
+            } else {
+                self.inner.connect_tcp(server_addr, bind_addr, timeout)
+            }
+        }
+
+        fn bind_udp(
+            &self,
+            local_addr: SocketAddr,
+            server_addr: SocketAddr,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
+            if self.pending_ips.contains(&server_addr.ip()) {
+                Box::pin(future::pending())
             } else {
                 self.inner.bind_udp(local_addr, server_addr)
             }
