@@ -125,11 +125,9 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => Ok(Box::pin(
-                HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone()).exchange(
-                    remote_addr,
-                    server_name.clone(),
-                    path.clone(),
-                ),
+                HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
+                    .connect_timeout(cx.options.timeout)
+                    .exchange(remote_addr, server_name.clone(), path.clone()),
             )),
 
             #[cfg(feature = "__quic")]
