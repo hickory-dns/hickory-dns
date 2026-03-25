@@ -14,6 +14,7 @@ use core::{
 };
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::stream::Stream;
 use quinn::{
@@ -199,6 +200,7 @@ pub struct QuicClientStreamBuilder {
     crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
+    connect_timeout: Duration,
 }
 
 impl QuicClientStreamBuilder {
@@ -211,6 +213,12 @@ impl QuicClientStreamBuilder {
     /// Sets the address to connect from.
     pub fn bind_addr(mut self, bind_addr: SocketAddr) -> Self {
         self.bind_addr = Some(bind_addr);
+        self
+    }
+
+    /// Override the connect timeout (default: 5 seconds).
+    pub fn connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
         self
     }
 
@@ -306,15 +314,19 @@ impl QuicClientStreamBuilder {
             })?
         };
 
-        let quic_connection = connect_quic(
-            name_server,
-            server_name.clone(),
-            quic_stream::DOQ_ALPN,
-            crypto_config,
-            self.transport_config,
-            endpoint,
+        let quic_connection = timeout(
+            self.connect_timeout,
+            connect_quic(
+                name_server,
+                server_name.clone(),
+                quic_stream::DOQ_ALPN,
+                crypto_config,
+                self.transport_config,
+                endpoint,
+            ),
         )
-        .await?;
+        .await
+        .map_err(|_| NetError::Timeout)??;
 
         Ok(QuicClientStream {
             quic_connection,
@@ -349,22 +361,11 @@ pub(crate) async fn connect_quic(
     Ok(if early_data_enabled {
         match connecting.into_0rtt() {
             Ok((new_connection, _)) => new_connection,
-            Err(connecting) => connect_with_timeout(connecting).await?,
+            Err(connecting) => connecting.await?,
         }
     } else {
-        connect_with_timeout(connecting).await?
+        connecting.await?
     })
-}
-
-async fn connect_with_timeout(connecting: quinn::Connecting) -> Result<Connection, io::Error> {
-    match timeout(CONNECT_TIMEOUT, connecting).await {
-        Ok(Ok(connection)) => Ok(connection),
-        Ok(Err(e)) => Err(e.into()),
-        Err(_) => Err(io::Error::new(
-            io::ErrorKind::TimedOut,
-            format!("QUIC handshake timed out after {CONNECT_TIMEOUT:?}",),
-        )),
-    }
 }
 
 impl Default for QuicClientStreamBuilder {
@@ -377,6 +378,7 @@ impl Default for QuicClientStreamBuilder {
             crypto_config: None,
             transport_config: Arc::new(transport_config),
             bind_addr: None,
+            connect_timeout: CONNECT_TIMEOUT,
         }
     }
 }

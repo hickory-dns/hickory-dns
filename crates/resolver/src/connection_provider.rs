@@ -143,6 +143,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 Ok(Box::pin(
                     QuicClientStream::builder()
                         .crypto_config(cx.tls.clone())
+                        .connect_timeout(cx.options.timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -169,6 +170,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     H3ClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
+                        .connect_timeout(cx.options.timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
