@@ -261,7 +261,7 @@ mod tests {
             RData::A(A::new(127, 0, 0, 2)),
         ));
 
-        let response = DnsResponse::from_message(message.to_response()).unwrap();
+        let response = DnsResponse::from_message(message.into_response()).unwrap();
 
         assert!(response.contains_answer())
     }
@@ -273,7 +273,7 @@ mod tests {
         message.add_query(Query::query(an_example(), RecordType::SOA));
         message.add_authority(soa());
 
-        let response = DnsResponse::from_message(message.to_response()).unwrap();
+        let response = DnsResponse::from_message(message.into_response()).unwrap();
 
         assert!(response.contains_answer());
     }
@@ -286,7 +286,7 @@ mod tests {
         message.add_authority(ns1_record());
         message.add_additional(ns1_a());
 
-        let response = DnsResponse::from_message(message.to_response()).unwrap();
+        let response = DnsResponse::from_message(message.into_response()).unwrap();
 
         assert!(response.contains_answer());
     }

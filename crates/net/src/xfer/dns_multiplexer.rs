@@ -496,7 +496,7 @@ mod test {
             q
         });
 
-        let mut response = request.to_response();
+        let mut response = request.clone().into_response();
         response.add_answer(
             Record::from_rdata(
                 name,
@@ -585,7 +585,7 @@ mod test {
     fn axfr_query_answer() -> (DnsRequest, Vec<Message>) {
         let msg = axfr_query();
 
-        let mut response = msg.to_response();
+        let mut response = msg.clone().into_response();
         response.insert_answers(axfr_response());
         (
             DnsRequest::new(msg, DnsRequestOptions::default()),
@@ -599,9 +599,9 @@ mod test {
         let query = base.clone();
         let mut rr = axfr_response();
         let rr2 = rr.split_off(3);
-        let mut msg1 = base.to_response();
+        let mut msg1 = base.clone().into_response();
         msg1.insert_answers(rr);
-        let mut msg2 = base.to_response();
+        let mut msg2 = base.into_response();
         msg2.insert_answers(rr2);
         (
             DnsRequest::new(query, DnsRequestOptions::default()),

@@ -693,7 +693,7 @@ mod tests {
             86400,
             RData::CNAME(CNAME(Name::from_str("actual.example.com.").unwrap())),
         )]);
-        Ok(DnsResponse::from_message(message.to_response()).unwrap())
+        Ok(DnsResponse::from_message(message.into_response()).unwrap())
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -713,7 +713,7 @@ mod tests {
                 Name::from_str("www.example.com.").unwrap(),
             )),
         )]);
-        Ok(DnsResponse::from_message(message.to_response()).unwrap())
+        Ok(DnsResponse::from_message(message.into_response()).unwrap())
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -728,7 +728,7 @@ mod tests {
             86400,
             RData::NS(NS(Name::from_str("www.example.com.").unwrap())),
         )]);
-        Ok(DnsResponse::from_message(message.to_response()).unwrap())
+        Ok(DnsResponse::from_message(message.into_response()).unwrap())
     }
 
     fn no_recursion_on_query_test(query_type: RecordType) {
@@ -1676,7 +1676,7 @@ mod tests {
             &mut client,
             DnsRequestOptions::default(),
             &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
-            DnsResponse::from_message(message.to_response()).unwrap(),
+            DnsResponse::from_message(message.into_response()).unwrap(),
             vec![],
             DepthTracker::default(),
         );

@@ -230,11 +230,11 @@ pub fn message(
     message.insert_answers(answers);
     message.insert_authorities(authorities);
     message.insert_additionals(additionals);
-    message.to_response()
+    message.into_response()
 }
 
 pub fn empty() -> Result<DnsResponse, ProtoError> {
-    Ok(DnsResponse::from_message(Message::query().to_response()).unwrap())
+    Ok(DnsResponse::from_message(Message::query().into_response()).unwrap())
 }
 
 pub trait OnSend: Clone + Send + Sync + 'static {

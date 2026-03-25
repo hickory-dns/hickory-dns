@@ -138,7 +138,7 @@ mod test {
                 let mut message = Message::query();
                 message.metadata.id = i;
                 return Box::new(once(ok(
-                    DnsResponse::from_message(message.to_response()).unwrap()
+                    DnsResponse::from_message(message.into_response()).unwrap()
                 )));
             }
 

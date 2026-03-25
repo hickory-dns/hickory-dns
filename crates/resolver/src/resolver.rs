@@ -1569,13 +1569,13 @@ mod tests {
             RData::A(A::new(127, 0, 0, 1)),
         )]);
 
-        let resp = DnsResponse::from_message(message.to_response()).unwrap();
+        let resp = DnsResponse::from_message(message.into_response()).unwrap();
         assert!(resp.contains_answer());
         Ok(resp)
     }
 
     fn empty() -> Result<DnsResponse, NetError> {
-        Ok(DnsResponse::from_message(Message::query().to_response()).unwrap())
+        Ok(DnsResponse::from_message(Message::query().into_response()).unwrap())
     }
 
     fn error() -> Result<DnsResponse, NetError> {

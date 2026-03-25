@@ -335,18 +335,9 @@ impl Message {
     }
 
     /// Returns a clone of the `Message` with the message type set to `Response`.
-    pub fn to_response(&self) -> Self {
-        let mut metadata = self.metadata;
-        metadata.message_type = MessageType::Response;
-        Self {
-            metadata,
-            queries: self.queries.clone(),
-            answers: self.answers.clone(),
-            authorities: self.authorities.clone(),
-            additionals: self.additionals.clone(),
-            signature: self.signature.clone(),
-            edns: self.edns.clone(),
-        }
+    pub fn into_response(mut self) -> Self {
+        self.metadata.message_type = MessageType::Response;
+        self
     }
 
     /// Returns a borrowed iterator of the answer records wrapped in a dnssec Proven type
