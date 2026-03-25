@@ -273,6 +273,24 @@ impl<P: ConnectionProvider> NameServer<P> {
         self.server_srtt.current()
     }
 
+    /// Records an SRTT observation for a server whose in-flight request was
+    /// cancelled because a parallel request to another server succeeded first.
+    ///
+    /// Records the winner's RTT plus a small penalty (`CANCEL_PENALTY`) as the
+    /// observation: the cancelled server was *at least* that slow (it hadn't
+    /// responded yet), and the penalty ensures the winner retains a sorting
+    /// advantage in the next round. This avoids the full `FAILURE_PENALTY`
+    /// which would be too harsh for a server that's merely slightly slower.
+    ///
+    /// A truly unreachable server will be cancelled on every query and its SRTT
+    /// will ratchet up as the EWMA repeatedly incorporates the winner's RTT
+    /// without ever recording a real (successful) measurement to bring it back
+    /// down.
+    pub(super) fn record_cancelled(&self, winner_rtt: Duration) {
+        const CANCEL_PENALTY: Duration = Duration::from_millis(5);
+        self.server_srtt.record(winner_rtt + CANCEL_PENALTY);
+    }
+
     #[cfg(test)]
     #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
