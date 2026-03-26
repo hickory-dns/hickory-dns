@@ -478,7 +478,6 @@ mod tests {
 
     use rustls::KeyLogFile;
     use test_support::subscribe;
-    use tokio::runtime::Runtime;
     use tokio::task::JoinSet;
 
     use super::*;
@@ -626,8 +625,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_h3_cloudflare() {
+    #[tokio::test]
+    async fn test_h3_cloudflare() {
         subscribe();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
@@ -645,7 +644,7 @@ mod tests {
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let connect = H3ClientStream::builder()
+        let mut h3 = H3ClientStream::builder()
             .crypto_config(client_config)
             // Currently CF is using a broken GREASE implementation, see <https://github.com/hyperium/h3/issues/206>.
             .disable_grease(true)
@@ -653,14 +652,14 @@ mod tests {
                 cloudflare,
                 Arc::from("cloudflare-dns.com"),
                 Arc::from("/dns-query"),
-            );
+            )
+            .await
+            .expect("h3 connect failed");
 
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut h3 = runtime.block_on(connect).expect("h3 connect failed");
-
-        let response = runtime
-            .block_on(h3.send_message(request).first_answer())
+        let response = h3
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         assert!(
@@ -686,8 +685,10 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let response = runtime
-            .block_on(h3.send_message(request).first_answer())
+        let response = h3
+            .send_message(request)
+            .first_answer()
+            .await
             .expect("send_message failed");
 
         assert!(
