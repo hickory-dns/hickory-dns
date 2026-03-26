@@ -658,7 +658,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         let ns = Arc::new(NameServer::new(
                             [],
                             server.clone(),
-                            &self.pool_context.clone().options,
+                            &self.pool_context.options,
                             self.conn_provider.clone(),
                         ));
                         cache.insert(server.ip, ns.clone());
