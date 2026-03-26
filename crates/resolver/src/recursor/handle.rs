@@ -495,16 +495,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         request_time: Instant,
         mut depth: u8,
     ) -> Result<(u8, NameServerPool<P>), RecursorError> {
-        // Build a list of every zone between the root and the query name (but not including the root.)
-        let mut zones = vec![];
-        for i in 1..=query_name.num_labels() {
-            zones.push(query_name.trim_to(i as usize));
-        }
-        trace!(?zones, "looking for zones");
+        // Iterate through zones from TLD down to the query name (not including root)
+        let num_labels = query_name.num_labels();
+        trace!(num_labels, %query_name, "looking for zones");
 
         let mut nameserver_pool = self.roots.clone().with_zone(Name::root());
 
-        for zone in zones {
+        for i in 1..=num_labels {
+            let zone = query_name.trim_to(i as usize);
             if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
                 match ns.ttl_expired() {
                     true => debug!(?zone, "cached name server pool expired"),
