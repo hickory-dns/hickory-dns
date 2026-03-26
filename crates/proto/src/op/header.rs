@@ -69,7 +69,7 @@ impl BinEncodable for Header {
         encoder.emit_u16(self.id)?;
 
         // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
-        let mut q_opcd_a_t_r: u8 = if let MessageType::Response = self.message_type {
+        let mut q_opcd_a_t_r = if let MessageType::Response = self.message_type {
             0x80
         } else {
             0x00
@@ -81,7 +81,7 @@ impl BinEncodable for Header {
         encoder.emit(q_opcd_a_t_r)?;
 
         // IsRecursionAvailable, Triple 0's, ResponseCode
-        let mut r_z_ad_cd_rcod: u8 = if self.recursion_available {
+        let mut r_z_ad_cd_rcod = if self.recursion_available {
             0b1000_0000
         } else {
             0b0000_0000
