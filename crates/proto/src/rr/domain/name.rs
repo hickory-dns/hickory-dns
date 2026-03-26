@@ -373,31 +373,7 @@ impl Name {
 
     /// same as `zone_of` allows for case sensitive call
     pub fn zone_of_case(&self, name: &Self) -> bool {
-        let self_len = self.label_ends.len();
-        let name_len = name.label_ends.len();
-        if self_len == 0 {
-            return true;
-        }
-        if name_len == 0 {
-            // self_len != 0
-            return false;
-        }
-        if self_len > name_len {
-            return false;
-        }
-
-        let self_iter = self.iter().rev();
-        let name_iter = name.iter().rev();
-
-        let zip_iter = self_iter.zip(name_iter);
-
-        for (self_label, name_label) in zip_iter {
-            if self_label != name_label {
-                return false;
-            }
-        }
-
-        true
+        self.zone_of_with(name, <[u8]>::eq)
     }
 
     /// returns true if the name components of self are all present at the end of name
@@ -416,10 +392,23 @@ impl Name {
     /// assert!(!another.zone_of(&name));
     /// ```
     pub fn zone_of(&self, name: &Self) -> bool {
-        let self_lower = self.to_lowercase();
-        let name_lower = name.to_lowercase();
+        self.zone_of_with(name, <[u8]>::eq_ignore_ascii_case)
+    }
 
-        self_lower.zone_of_case(&name_lower)
+    fn zone_of_with(&self, name: &Self, label_eq: fn(&[u8], &[u8]) -> bool) -> bool {
+        let self_len = self.label_ends.len();
+        let name_len = name.label_ends.len();
+        match (self_len, name_len) {
+            (0, _) => return true,
+            (_, 0) => return false,
+            _ if self_len > name_len => return false,
+            _ => {}
+        }
+
+        self.iter()
+            .rev()
+            .zip(name.iter().rev())
+            .all(|(a, b)| label_eq(a, b))
     }
 
     /// Returns the number of labels in the name, discounting `*`.
