@@ -28,20 +28,26 @@ use crate::xfer::{
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
-/// The underlying `DnsRequestSender` is expected to multiplex any I/O connections. DnsExchange assumes that the underlying stream is responsible for this.
+/// The underlying `DnsRequestSender` is expected to multiplex any I/O connections.
+/// DnsExchange assumes that the underlying stream is responsible for this.
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsExchange<P> {
     sender: BufDnsRequestStreamHandle<P>,
 }
 
 impl<P: RuntimeProvider> DnsExchange<P> {
-    /// Initializes a TcpStream with an existing tcp::TcpStream.
+    /// Wraps a [`DnsRequestSender`] in a buffered, cloneable [`DnsHandle`].
     ///
-    /// This is intended for use with a TcpListener and Incoming.
+    /// Returns a `DnsExchange` handle and a background future that must be spawned
+    /// to drive I/O. The handle can be cloned and shared across tasks; requests are
+    /// buffered in an internal channel and forwarded to the underlying stream by the
+    /// background task.
     ///
     /// # Arguments
     ///
-    /// * `stream` - the established IO stream for communication
+    /// * `stream` - Any [`DnsRequestSender`] (e.g.,
+    ///   [`UdpClientStream`][crate::udp::UdpClientStream],
+    ///   [`TcpClientStream`][crate::tcp::TcpClientStream])
     pub fn from_stream<S: DnsRequestSender>(
         stream: S,
     ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
