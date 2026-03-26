@@ -74,12 +74,12 @@ impl MessageRequest {
             mut metadata,
             counts,
         } = header;
-        let queries = Queries::read(decoder, counts.query_count as usize)?;
-        let (answers, _, _) = Message::read_records(decoder, counts.answer_count as usize, false)?;
+        let queries = Queries::read(decoder, counts.queries as usize)?;
+        let (answers, _, _) = Message::read_records(decoder, counts.answers as usize, false)?;
         let (authorities, _, _) =
-            Message::read_records(decoder, counts.authority_count as usize, false)?;
+            Message::read_records(decoder, counts.authorities as usize, false)?;
         let (additionals, edns, signature) =
-            Message::read_records(decoder, counts.additional_count as usize, true)?;
+            Message::read_records(decoder, counts.additionals as usize, true)?;
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {

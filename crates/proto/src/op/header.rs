@@ -99,10 +99,10 @@ impl BinEncodable for Header {
         r_z_ad_cd_rcod |= self.response_code.low();
         encoder.emit(r_z_ad_cd_rcod)?;
 
-        encoder.emit_u16(self.counts.query_count)?;
-        encoder.emit_u16(self.counts.answer_count)?;
-        encoder.emit_u16(self.counts.authority_count)?;
-        encoder.emit_u16(self.counts.additional_count)?;
+        encoder.emit_u16(self.counts.queries)?;
+        encoder.emit_u16(self.counts.answers)?;
+        encoder.emit_u16(self.counts.authorities)?;
+        encoder.emit_u16(self.counts.additionals)?;
 
         Ok(())
     }
@@ -147,10 +147,10 @@ impl<'r> BinDecodable<'r> for Header {
         };
 
         let counts = HeaderCounts {
-            query_count: decoder.read_u16()?.unverified(/*this must be verified when reading queries*/),
-            answer_count: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
-            authority_count: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
-            additional_count: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
+            queries: decoder.read_u16()?.unverified(/*this must be verified when reading queries*/),
+            answers: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
+            authorities: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
+            additionals: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
         };
 
         Ok(Self { metadata, counts })
@@ -359,13 +359,13 @@ impl fmt::Display for Metadata {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct HeaderCounts {
     /// The number of queries in the Message
-    pub query_count: u16,
+    pub queries: u16,
     /// The number of answer records in the Message
-    pub answer_count: u16,
+    pub answers: u16,
     /// The number of authority records in the Message
-    pub authority_count: u16,
+    pub authorities: u16,
     /// The number of additional records in the Message
-    pub additional_count: u16,
+    pub additionals: u16,
 }
 
 /// Message types are either Query (also Update) or Response
@@ -461,10 +461,10 @@ mod tests {
                 response_code: ResponseCode::NXDomain,
             },
             counts: HeaderCounts {
-                query_count: 0x8877,
-                answer_count: 0x6655,
-                authority_count: 0x4433,
-                additional_count: 0x2211,
+                queries: 0x8877,
+                answers: 0x6655,
+                authorities: 0x4433,
+                additionals: 0x2211,
             },
         };
 
@@ -489,10 +489,10 @@ mod tests {
                 response_code: ResponseCode::NXDomain,
             },
             counts: HeaderCounts {
-                query_count: 0x8877,
-                answer_count: 0x6655,
-                authority_count: 0x4433,
-                additional_count: 0x2211,
+                queries: 0x8877,
+                answers: 0x6655,
+                authorities: 0x4433,
+                additionals: 0x2211,
             },
         };
 

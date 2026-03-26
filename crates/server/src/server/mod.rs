@@ -701,9 +701,9 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         }
 
         let rflags = response_info.flags();
-        let answer_count = response_info.counts().answer_count;
-        let authority_count = response_info.counts().authority_count;
-        let additional_count = response_info.counts().additional_count;
+        let answer_count = response_info.counts().answers;
+        let authority_count = response_info.counts().authorities;
+        let additional_count = response_info.counts().additionals;
         let response_code = response_info.response_code;
 
         info!(
@@ -779,7 +779,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 port = src_addr.port(),
             );
 
-            let queries = match Queries::read(&mut decoder, header.counts.query_count as usize) {
+            let queries = match Queries::read(&mut decoder, header.counts.queries as usize) {
                 Ok(queries) => queries,
                 Err(_) => Queries::empty(),
             };
