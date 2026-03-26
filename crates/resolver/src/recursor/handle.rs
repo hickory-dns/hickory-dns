@@ -716,7 +716,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             if record.ttl() < ttl {
                 ttl = record.ttl();
             }
-            let ns_glue_ips = glue_map.entry(record.name().clone()).or_default();
+            let ns_glue_ips = match glue_map.get_mut(record.name()) {
+                Some(ips) => ips,
+                None => {
+                    glue_map.insert(record.name().clone(), Vec::new());
+                    glue_map.get_mut(record.name()).unwrap()
+                }
+            };
             if !ns_glue_ips.contains(&ip) {
                 ns_glue_ips.push(ip);
             }
