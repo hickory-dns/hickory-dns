@@ -310,15 +310,22 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         cname_limit: Arc<AtomicU8>,
     ) -> Result<Message, RecursorError> {
         let query_type = query.query_type();
-        let query_name = query.name().clone();
 
         // Don't resolve CNAME lookups for a CNAME (or ANY) query
         if query_type == RecordType::CNAME || query_type == RecordType::ANY {
             return Ok(response);
         }
 
+        // Return early if there aren't any CNAME in the response.
+        let has_cname = response
+            .all_sections()
+            .any(|rec| matches!(rec.data(), CNAME(_)));
+        if !has_cname {
+            return Ok(response);
+        }
+
         depth += 1;
-        RecursorError::recursion_exceeded(self.recursion_limit, depth, &query_name)?;
+        RecursorError::recursion_exceeded(self.recursion_limit, depth, query.name())?;
 
         let mut cname_chain = vec![];
 
