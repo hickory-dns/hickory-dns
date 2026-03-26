@@ -744,8 +744,8 @@ pub fn signed_bitmessage_to_buf(
 
     // Adjust the header additional count down by one - this separates out the final
     // additional data TSIG record.
-    if counts.additional_count > 0 {
-        counts.additional_count -= 1;
+    if counts.additionals > 0 {
+        counts.additionals -= 1;
     } else {
         return Err(ProtoError::from(
             "missing tsig from response that must be authenticated",
@@ -756,18 +756,18 @@ pub fn signed_bitmessage_to_buf(
     let start_data = message.len() - decoder.len();
 
     // Advance past the queries.
-    let count = counts.query_count;
+    let count = counts.queries;
     for _ in 0..count {
         Query::read(&mut decoder)?;
     }
 
     // Advance past answer and authority records together.
-    let answer_authority_count = (counts.answer_count + counts.authority_count) as usize;
+    let answer_authority_count = (counts.answers + counts.authorities) as usize;
     let (_, _, sig) = Message::read_records(&mut decoder, answer_authority_count, false)?;
     debug_assert!(sig.is_none());
 
     // Advance past additional records, up to the final TSIG record.
-    let (_, _, sig) = Message::read_records(&mut decoder, counts.additional_count as usize, true)?;
+    let (_, _, sig) = Message::read_records(&mut decoder, counts.additionals as usize, true)?;
     debug_assert!(sig.is_none());
     // Note the position of the decoder ahead of the final additional data TSIG record.
     let end_data = message.len() - decoder.len();

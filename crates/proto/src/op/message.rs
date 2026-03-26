@@ -612,7 +612,7 @@ where
     additional_count.1 |= count.1;
 
     let counts = HeaderCounts {
-        query_count: match u16::try_from(query_count) {
+        queries: match u16::try_from(query_count) {
             Ok(count) => count,
             Err(_) => {
                 return Err(ProtoError::Message(
@@ -620,9 +620,9 @@ where
                 ));
             }
         },
-        answer_count: answer_count.0,
-        authority_count: authority_count.0,
-        additional_count: additional_count.0,
+        answers: answer_count.0,
+        authorities: authority_count.0,
+        additionals: additional_count.0,
     };
 
     let mut final_metadata = *metadata;
@@ -666,17 +666,16 @@ impl<'r> BinDecodable<'r> for Message {
         //  this could improve error detection while decoding.
 
         // get the questions
-        let count = counts.query_count as usize;
+        let count = counts.queries as usize;
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(Query::read(decoder)?);
         }
 
-        let (answers, _, _) = Self::read_records(decoder, counts.answer_count as usize, false)?;
-        let (authorities, _, _) =
-            Self::read_records(decoder, counts.authority_count as usize, false)?;
+        let (answers, _, _) = Self::read_records(decoder, counts.answers as usize, false)?;
+        let (authorities, _, _) = Self::read_records(decoder, counts.authorities as usize, false)?;
         let (additionals, edns, signature) =
-            Self::read_records(decoder, counts.additional_count as usize, true)?;
+            Self::read_records(decoder, counts.additionals as usize, true)?;
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
