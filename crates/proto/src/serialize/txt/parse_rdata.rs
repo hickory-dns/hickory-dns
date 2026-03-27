@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::{DNSSECRData, DS};
-use crate::rr::rdata::{A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR};
+use crate::rr::rdata::{A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY};
 use crate::{
     rr::{
         Name, RData, RecordType,
@@ -85,7 +85,7 @@ impl RDataParser for RData {
                 ));
             }
             RecordType::NS => Self::NS(NS(Name::from_tokens(tokens, origin)?)),
-            RecordType::OPENPGPKEY => Self::OPENPGPKEY(openpgpkey::parse(tokens)?),
+            RecordType::OPENPGPKEY => Self::OPENPGPKEY(OPENPGPKEY::from_tokens(tokens)?),
             RecordType::OPT => return Err(ParseError::from("parsing OPT doesn't make sense")),
             RecordType::PTR => Self::PTR(PTR(Name::from_tokens(tokens, origin)?)),
             RecordType::SMIMEA => Self::SMIMEA(smimea::parse(tokens)?),
