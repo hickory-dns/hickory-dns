@@ -7,6 +7,7 @@
 
 //! start of authority record defining ownership and defaults for the zone
 
+use alloc::string::ToString;
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -15,8 +16,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
+    serialize::{
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
+        txt::{ParseError, parse_ttl},
     },
 };
 
@@ -167,6 +169,57 @@ impl SOA {
             expire,
             minimum,
         }
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+        origin: Option<&Name>,
+    ) -> Result<Self, ParseError> {
+        let mname: Name = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("mname".to_string()))
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+        let rname: Name = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("rname".to_string()))
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+        let serial: u32 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("serial".to_string()))
+            .and_then(parse_ttl)?;
+
+        let refresh: i32 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("refresh".to_string()))
+            .and_then(parse_ttl)?
+            .try_into()
+            .map_err(|_e| ParseError::from("refresh outside i32 range"))?;
+
+        let retry: i32 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("retry".to_string()))
+            .and_then(parse_ttl)?
+            .try_into()
+            .map_err(|_e| ParseError::from("retry outside i32 range"))?;
+
+        let expire: i32 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("expire".to_string()))
+            .and_then(parse_ttl)?
+            .try_into()
+            .map_err(|_e| ParseError::from("expire outside i32 range"))?;
+
+        let minimum: u32 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("minimum".to_string()))
+            .and_then(parse_ttl)?;
+
+        Ok(Self::new(
+            mname, rname, serial, refresh, retry, expire, minimum,
+        ))
     }
 
     /// Increments the serial number by one
@@ -346,5 +399,38 @@ mod tests {
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = SOA::read_data(&mut decoder, Restrict::new(len)).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_parse() {
+        use core::str::FromStr;
+
+        let soa_tokens = vec![
+            "hickory-dns.org.",
+            "root.hickory-dns.org.",
+            "199609203",
+            "8h",
+            "120m",
+            "7d",
+            "24h",
+        ];
+
+        let parsed_soa = SOA::from_tokens(
+            soa_tokens.into_iter(),
+            Some(&Name::from_str("example.com.").unwrap()),
+        )
+        .expect("failed to parse tokens");
+
+        let expected_soa = SOA::new(
+            "hickory-dns.org.".parse().unwrap(),
+            "root.hickory-dns.org.".parse().unwrap(),
+            199609203,
+            28800,
+            7200,
+            604800,
+            86400,
+        );
+
+        assert_eq!(parsed_soa, expected_soa);
     }
 }
