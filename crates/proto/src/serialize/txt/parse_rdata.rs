@@ -67,12 +67,12 @@ impl RDataParser for RData {
         let rdata = match record_type {
             RecordType::A => Self::A(A::from_tokens(tokens)?),
             RecordType::AAAA => Self::AAAA(AAAA::from_tokens(tokens)?),
-            RecordType::ANAME => Self::ANAME(ANAME(name::parse(tokens, origin)?)),
+            RecordType::ANAME => Self::ANAME(ANAME(Name::from_tokens(tokens, origin)?)),
             RecordType::ANY => return Err(ParseError::from("parsing ANY doesn't make sense")),
             RecordType::AXFR => return Err(ParseError::from("parsing AXFR doesn't make sense")),
             RecordType::CAA => Self::CAA(CAA::from_tokens(tokens)?),
             RecordType::CERT => Self::CERT(CERT::from_tokens(tokens)?),
-            RecordType::CNAME => Self::CNAME(CNAME(name::parse(tokens, origin)?)),
+            RecordType::CNAME => Self::CNAME(CNAME(Name::from_tokens(tokens, origin)?)),
             RecordType::CSYNC => Self::CSYNC(CSYNC::from_tokens(tokens)?),
             RecordType::HINFO => Self::HINFO(HINFO::from_tokens(tokens)?),
             RecordType::HTTPS => svcb::parse(tokens).map(HTTPS).map(Self::HTTPS)?,
@@ -84,10 +84,10 @@ impl RDataParser for RData {
                     "parse is not implemented for NULL record",
                 ));
             }
-            RecordType::NS => Self::NS(NS(name::parse(tokens, origin)?)),
+            RecordType::NS => Self::NS(NS(Name::from_tokens(tokens, origin)?)),
             RecordType::OPENPGPKEY => Self::OPENPGPKEY(openpgpkey::parse(tokens)?),
             RecordType::OPT => return Err(ParseError::from("parsing OPT doesn't make sense")),
-            RecordType::PTR => Self::PTR(PTR(name::parse(tokens, origin)?)),
+            RecordType::PTR => Self::PTR(PTR(Name::from_tokens(tokens, origin)?)),
             RecordType::SMIMEA => Self::SMIMEA(smimea::parse(tokens)?),
             RecordType::SOA => Self::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => Self::SRV(srv::parse(tokens, origin)?),
