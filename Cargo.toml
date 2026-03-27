@@ -13,7 +13,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.26.0-beta.1"
+version = "0.26.0-beta.2"
 authors = ["The contributors to Hickory DNS"]
 edition = "2021"
 rust-version = "1.88"

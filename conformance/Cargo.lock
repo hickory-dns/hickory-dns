@@ -662,7 +662,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hickory-net"
-version = "0.26.0-beta.1"
+version = "0.26.0-beta.2"
 dependencies = [
  "async-trait",
  "aws-lc-rs",
@@ -691,7 +691,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-proto"
-version = "0.26.0-beta.1"
+version = "0.26.0-beta.2"
 dependencies = [
  "aws-lc-rs",
  "bitflags",
@@ -713,7 +713,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-resolver"
-version = "0.26.0-beta.1"
+version = "0.26.0-beta.2"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -1681,7 +1681,7 @@ dependencies = [
 
 [[package]]
 name = "test-support"
-version = "0.26.0-beta.1"
+version = "0.26.0-beta.2"
 dependencies = [
  "bytes",
  "futures-util",
