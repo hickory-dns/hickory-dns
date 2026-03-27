@@ -26,12 +26,13 @@ use core::{fmt, str};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 use url::Url;
 
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType, domain::Name},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// The CAA RR Type
@@ -113,6 +114,60 @@ impl CAA {
             tag: "iodef".to_owned(),
             value,
         }
+    }
+
+    /// Parse the RData from a set of Tokens
+    ///
+    /// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.1)
+    ///
+    /// ```text
+    /// 5.1.1.  Canonical Presentation Format
+    ///
+    ///    The canonical presentation format of the CAA record is:
+    ///
+    ///    CAA <flags> <tag> <value>
+    ///
+    ///    Where:
+    ///
+    ///    Flags:  Is an unsigned integer between 0 and 255.
+    ///
+    ///    Tag:  Is a non-zero sequence of US-ASCII letters and numbers in lower
+    ///       case.
+    ///
+    ///    Value:  Is the <character-string> encoding of the value field as
+    ///       specified in [RFC1035], Section 5.1.
+    /// ```
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+    ) -> Result<CAA, ParseError> {
+        let flags_str: &str = tokens
+            .next()
+            .ok_or(ParseError::Message("caa flags not present"))?;
+        let tag_str: &str = tokens
+            .next()
+            .ok_or(ParseError::Message("caa tag not present"))?;
+        let value_str: &str = tokens
+            .next()
+            .ok_or(ParseError::Message("caa value not present"))?;
+
+        // parse the flags
+        let flags = flags_str.parse::<u8>()?;
+        let issuer_critical = (flags & 0b1000_0000) != 0;
+        let reserved_flags = flags & 0b0111_1111;
+        if reserved_flags != 0 {
+            warn!("unexpected flag values in caa (0 or 128): {}", flags);
+        }
+
+        let tag = tag_str.to_owned();
+        let value = value_str.as_bytes().to_vec();
+
+        // return the new CAA record
+        Ok(CAA {
+            issuer_critical,
+            reserved_flags,
+            tag,
+            value,
+        })
     }
 
     /// Returns the Flags field of the resource record
@@ -704,6 +759,7 @@ mod tests {
     use std::println;
 
     use super::*;
+    use crate::serialize::txt::RDataParser;
 
     #[test]
     fn test_read_tag() {
@@ -1076,6 +1132,83 @@ mod tests {
             let mut encoded = Vec::new();
             caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();
             assert_eq!(original.as_slice(), &encoded);
+        }
+    }
+
+    #[test]
+    fn test_parsing() {
+        //nocerts       CAA 0 issue \";\"
+        assert!(CAA::from_tokens(vec!["0", "issue", ";"].into_iter()).is_ok());
+
+        // certs         CAA 0 issuewild \"example.net\"
+        assert!(CAA::from_tokens(vec!["0", "issue", "example.net"].into_iter()).is_ok());
+
+        // issuer critical = true
+        test_to_string_parse_is_reversible(CAA::new_issue(true, None, vec![]), "128 issue \";\"");
+
+        // deny
+        test_to_string_parse_is_reversible(CAA::new_issue(false, None, vec![]), "0 issue \";\"");
+
+        // only hostname
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![],
+            ),
+            "0 issue \"example.com\"",
+        );
+
+        // hostname and one parameter
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![KeyValue::new("one", "1")],
+            ),
+            "0 issue \"example.com; one=1\"",
+        );
+
+        // hostname and two parameters
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+            ),
+            "0 issue \"example.com; one=1; two=2\"",
+        );
+
+        // no hostname and one parameter
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(false, None, vec![KeyValue::new("one", "1")]),
+            "0 issue \"; one=1\"",
+        );
+
+        // no hostname and two parameters
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                None,
+                vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+            ),
+            "0 issue \"; one=1; two=2\"",
+        );
+    }
+
+    fn test_to_string_parse_is_reversible(expected_rdata: CAA, input_string: &str) {
+        let expected_rdata_string = expected_rdata.to_string();
+        assert_eq!(
+            input_string, expected_rdata_string,
+            "input string does not match expected_rdata.to_string()"
+        );
+
+        match RData::try_from_str(RecordType::CAA, input_string).expect("CAA rdata parse failed") {
+            RData::CAA(parsed_rdata) => assert_eq!(
+                expected_rdata, parsed_rdata,
+                "CAA rdata was not parsed as expected. input={input_string:?} expected_rdata={expected_rdata:?} parsed_rdata={parsed_rdata:?}",
+            ),
+            parsed_rdata => panic!("Parsed RData is not CAA: {:?}", parsed_rdata),
         }
     }
 }
