@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! service records for identify port mapping for specific services on a host
-use core::fmt;
+use alloc::string::ToString;
+use core::{fmt, str::FromStr};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -14,8 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
+    serialize::{
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
+        txt::ParseError,
     },
 };
 
@@ -176,6 +178,34 @@ impl SRV {
             port,
             target,
         }
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+        origin: Option<&Name>,
+    ) -> Result<Self, ParseError> {
+        let priority: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("priority".to_string()))
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+        let weight: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("weight".to_string()))
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+        let port: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("port".to_string()))
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+        let target: Name = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("target".to_string()))
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+        Ok(Self::new(priority, weight, port, target))
     }
 }
 
