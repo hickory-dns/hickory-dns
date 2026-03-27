@@ -9,6 +9,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
+use core::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -448,21 +449,21 @@ impl CERT {
             .next()
             .ok_or(ParseError::Message("CERT cert type field missing"))?;
         let cert_type = CertType::from(
-            to_u16(token)
+            u16::from_str(token)
                 .map_err(|_| ParseError::Message("Invalid digit found in cert_type token"))?,
         );
 
         let token = iter
             .next()
             .ok_or(ParseError::Message("CERT key tag field missing"))?;
-        let key_tag = to_u16(token)
+        let key_tag = u16::from_str(token)
             .map_err(|_| ParseError::Message("Invalid digit found in key_tag token"))?;
 
         let token = iter
             .next()
             .ok_or(ParseError::Message("CERT algorithm field missing"))?;
         let algorithm = Algorithm::from(
-            to_u8(token)
+            u8::from_str(token)
                 .map_err(|_| ParseError::Message("Invalid digit found in algorithm token"))?,
         );
 
@@ -600,14 +601,6 @@ impl fmt::Display for CERT {
 
         Ok(())
     }
-}
-
-fn to_u16(data: &str) -> Result<u16, ParseError> {
-    data.parse().map_err(ParseError::from)
-}
-
-fn to_u8(data: &str) -> Result<u8, ParseError> {
-    data.parse().map_err(ParseError::from)
 }
 
 #[cfg(test)]
