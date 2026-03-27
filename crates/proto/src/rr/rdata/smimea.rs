@@ -6,11 +6,14 @@ use core::{fmt, ops::Deref};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::tlsa::{CertUsage, Matching, Selector, TLSA};
+use super::tlsa::{self, CertUsage, Matching, Selector, TLSA};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
+    serialize::{
+        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
+        txt::ParseError,
+    },
 };
 
 /// [RFC 8162](https://datatracker.ietf.org/doc/html/rfc8162#section-2)
@@ -48,6 +51,15 @@ impl SMIMEA {
         cert_data: Vec<u8>,
     ) -> Self {
         Self(TLSA::new(cert_usage, selector, matching, cert_data))
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        tokens: I,
+    ) -> Result<Self, ParseError> {
+        tlsa::parse_impl(tokens).map(|(usage, selector, matching, cert_data)| {
+            SMIMEA::new(usage, selector, matching, cert_data)
+        })
     }
 }
 
@@ -95,5 +107,42 @@ impl RecordData for SMIMEA {
 impl fmt::Display for SMIMEA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         fmt::Display::fmt(&self.0, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parsing() {
+        assert!(
+            SMIMEA::from_tokens(
+                vec![
+                    "0",
+                    "0",
+                    "1",
+                    "d2abde240d7cd3ee6b4b28c54df034b9",
+                    "7983a1d16e8a410e4561cb106618e971",
+                ]
+                .into_iter()
+            )
+            .is_ok()
+        );
+        assert!(
+            SMIMEA::from_tokens(
+                vec![
+                    "1",
+                    "1",
+                    "2",
+                    "92003ba34942dc74152e2f2c408d29ec",
+                    "a5a520e7f2e06bb944f4dca346baf63c",
+                    "1b177615d466f6c4b71c216a50292bd5",
+                    "8c9ebdd2f74e38fe51ffd48c43326cbc",
+                ]
+                .into_iter()
+            )
+            .is_ok()
+        );
     }
 }
