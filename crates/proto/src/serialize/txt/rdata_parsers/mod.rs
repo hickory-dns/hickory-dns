@@ -20,8 +20,6 @@
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
 #[cfg(feature = "__dnssec")]
-pub(crate) mod dnskey;
-#[cfg(feature = "__dnssec")]
 pub(crate) mod ds;
 pub(crate) mod hinfo;
 pub(crate) mod mx;
