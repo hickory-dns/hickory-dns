@@ -24,5 +24,4 @@ pub(crate) mod soa;
 pub(crate) mod srv;
 pub(crate) mod sshfp;
 pub(crate) mod svcb;
-pub(crate) mod tlsa;
 pub(crate) mod txt;

@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::{DNSSECRData, DS};
-use crate::rr::rdata::{A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY};
+use crate::rr::rdata::{A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY, TLSA};
 use crate::{
     rr::{
         Name, RData, RecordType,
@@ -93,7 +93,7 @@ impl RDataParser for RData {
             RecordType::SRV => Self::SRV(srv::parse(tokens, origin)?),
             RecordType::SSHFP => Self::SSHFP(sshfp::parse(tokens)?),
             RecordType::SVCB => svcb::parse(tokens).map(Self::SVCB)?,
-            RecordType::TLSA => Self::TLSA(tlsa::parse(tokens)?),
+            RecordType::TLSA => Self::TLSA(TLSA::from_tokens(tokens)?),
             RecordType::TXT => Self::TXT(txt::parse(tokens)?),
             RecordType::SIG => return Err(ParseError::from("parsing SIG doesn't make sense")),
             RecordType::DNSKEY => {

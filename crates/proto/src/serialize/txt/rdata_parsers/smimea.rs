@@ -1,7 +1,6 @@
 //! SMIMEA records for storing S/MIME authentication records
 
-use super::tlsa;
-use crate::rr::rdata::SMIMEA;
+use crate::rr::rdata::{SMIMEA, tlsa};
 use crate::serialize::txt::errors::ParseResult;
 
 /// Parse the RData from a set of Tokens
