@@ -10,9 +10,8 @@ use crate::{
     dnssec::rdata::DNSKEY,
     rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
-        ParseError, ParseResult,
+        ParseError, ParseResult, parse_time,
         rdata_parsers::dnskey,
-        zone,
         zone_lex::{Lexer, Token as LexToken},
     },
 };
@@ -57,7 +56,7 @@ impl<'a> Parser<'a> {
                                 class,
                             }
                         } else {
-                            let ttl = zone::Parser::parse_time(&data)?;
+                            let ttl = parse_time(&data)?;
                             State::Class { name, ttl }
                         }
                     } else {
