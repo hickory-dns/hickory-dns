@@ -9,7 +9,7 @@
 use alloc::vec::Vec;
 
 #[cfg(feature = "__dnssec")]
-use crate::dnssec::rdata::DNSSECRData;
+use crate::dnssec::rdata::{DNSSECRData, DS};
 use crate::rr::rdata::{A, AAAA, CAA, CERT, CSYNC};
 use crate::{
     rr::{
@@ -104,7 +104,7 @@ impl RDataParser for RData {
             }
             RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
             #[cfg(feature = "__dnssec")]
-            RecordType::DS => Self::DNSSEC(DNSSECRData::DS(ds::parse(tokens)?)),
+            RecordType::DS => Self::DNSSEC(DNSSECRData::DS(DS::from_tokens(tokens)?)),
             #[cfg(not(feature = "__dnssec"))]
             RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
             RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
