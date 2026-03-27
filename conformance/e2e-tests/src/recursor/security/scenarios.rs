@@ -413,7 +413,7 @@ fn qr_validation_test_impl(handler: &'static str, proto: &'static str) -> Result
     let _leaf_ns = leaf_ns.start()?;
 
     let res = Client::new(resolver.network())?.dig(
-        *DigSettings::default().recurse(),
+        *DigSettings::default().recurse().timeout(10),
         resolver.ipv4_addr(),
         RecordType::A,
         &FQDN("www.example.testing.")?,
