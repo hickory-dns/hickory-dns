@@ -759,7 +759,6 @@ mod tests {
     use std::println;
 
     use super::*;
-    use crate::serialize::txt::RDataParser;
 
     #[test]
     fn test_read_tag() {
