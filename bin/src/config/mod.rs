@@ -188,6 +188,16 @@ pub(crate) struct UdpSocketConfig {
     /// Controls the kernel buffer for outgoing UDP packets. If not specified, the operating
     /// system default is used. Larger values help when the server is sending many responses.
     pub(crate) send_buffer_size: Option<usize>,
+    /// Number of UDP sockets to create per listen address (Unix only).
+    ///
+    /// Using multiple sockets with SO_REUSEPORT allows the kernel to distribute incoming packets
+    /// across sockets, which may improve performance under high load. Optimal values depend
+    /// on workload and setting it too high will have the opposite effect and cause performance
+    /// degradation.
+    ///
+    /// Defaults to 1.
+    #[cfg(unix)]
+    pub(crate) sockets: Option<usize>,
 }
 
 impl Config {
