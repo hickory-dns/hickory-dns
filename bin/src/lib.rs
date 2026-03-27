@@ -474,20 +474,23 @@ struct ServerSetup<'a> {
 
 impl ServerSetup<'_> {
     fn udp(&mut self, port: u16) -> Result<(), String> {
+        #[cfg(unix)]
+        let num_sockets = self.udp_socket_config.sockets.unwrap_or(1);
+        #[cfg(not(unix))]
+        let num_sockets = 1_usize;
         for addr in &self.listen_addrs {
-            info!("binding UDP to {addr:?}");
+            info!("binding {num_sockets} UDP socket(s) to {addr:?}:{port}");
 
-            let udp_socket = build_udp_socket(*addr, port, self.udp_socket_config)
-                .map_err(|err| format!("failed to bind to UDP socket address {addr:?}: {err}"))?;
+            for _ in 0..num_sockets {
+                let udp_socket =
+                    build_udp_socket(*addr, port, self.udp_socket_config).map_err(|err| {
+                        format!("failed to bind to UDP socket address {addr:?}: {err}")
+                    })?;
 
-            info!(
-                "listening for UDP on {:?}",
-                udp_socket
-                    .local_addr()
-                    .map_err(|err| format!("failed to lookup local address: {err}"))?
-            );
+                self.server.register_socket(udp_socket);
+            }
 
-            self.server.register_socket(udp_socket);
+            info!("listening for UDP on {addr:?}:{port} ({num_sockets} sockets)");
         }
 
         Ok(())
@@ -685,6 +688,11 @@ fn build_udp_socket(
     };
 
     sock.set_nonblocking(true)?;
+
+    #[cfg(unix)]
+    if socket_config.sockets.is_some_and(|count| count > 1) {
+        sock.set_reuse_port(true)?;
+    }
 
     if let Some(size) = socket_config.recv_buffer_size {
         sock.set_recv_buffer_size(size)?;
