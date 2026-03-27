@@ -7,6 +7,7 @@
 
 //! mail exchange, email, record
 
+use alloc::string::ToString;
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -73,6 +74,23 @@ impl MX {
             preference,
             exchange,
         }
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+        origin: Option<&Name>,
+    ) -> Result<Self, ParseError> {
+        let preference: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("preference".to_string()))
+            .and_then(|s| s.parse().map_err(Into::into))?;
+        let exchange: Name = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("exchange".to_string()))
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+        Ok(Self::new(preference, exchange))
     }
 }
 
