@@ -16,9 +16,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
-        RestrictedMath,
+    serialize::{
+        binary::{
+            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
+            Restrict, RestrictedMath,
+        },
+        txt::ParseError,
     },
 };
 
@@ -435,6 +438,45 @@ impl CERT {
         }
     }
 
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        tokens: I,
+    ) -> Result<Self, ParseError> {
+        let mut iter = tokens;
+
+        let token = iter
+            .next()
+            .ok_or(ParseError::Message("CERT cert type field missing"))?;
+        let cert_type = CertType::from(
+            to_u16(token)
+                .map_err(|_| ParseError::Message("Invalid digit found in cert_type token"))?,
+        );
+
+        let token = iter
+            .next()
+            .ok_or(ParseError::Message("CERT key tag field missing"))?;
+        let key_tag = to_u16(token)
+            .map_err(|_| ParseError::Message("Invalid digit found in key_tag token"))?;
+
+        let token = iter
+            .next()
+            .ok_or(ParseError::Message("CERT algorithm field missing"))?;
+        let algorithm = Algorithm::from(
+            to_u8(token)
+                .map_err(|_| ParseError::Message("Invalid digit found in algorithm token"))?,
+        );
+
+        let token = iter
+            .next()
+            .ok_or(ParseError::Message("CERT data missing"))?;
+
+        let cert_data = data_encoding::BASE64
+            .decode(token.as_bytes())
+            .map_err(|_| ParseError::Message("Invalid base64 CERT data"))?;
+
+        Ok(Self::new(cert_type, key_tag, algorithm, cert_data))
+    }
+
     /// Returns the CERT (Base64)
     pub fn cert_base64(&self) -> String {
         data_encoding::BASE64.encode(&self.cert_data).clone()
@@ -558,6 +600,14 @@ impl fmt::Display for CERT {
 
         Ok(())
     }
+}
+
+fn to_u16(data: &str) -> Result<u16, ParseError> {
+    data.parse().map_err(ParseError::from)
+}
+
+fn to_u8(data: &str) -> Result<u8, ParseError> {
+    data.parse().map_err(ParseError::from)
 }
 
 #[cfg(test)]
@@ -754,5 +804,60 @@ mod tests {
             ),
             "Expected error due to invalid cert_record length, got {result:?}"
         );
+    }
+
+    #[test]
+    fn test_valid_cert_data() {
+        // Base64-encoded dummy certificate data.
+        let tokens = vec!["1", "123", "3", "Q2VydGlmaWNhdGUgZGF0YQ=="].into_iter();
+
+        let result = CERT::from_tokens(tokens);
+
+        assert!(result.is_ok());
+
+        let cert = result.unwrap();
+        assert_eq!(cert.cert_type, CertType::from(1));
+        assert_eq!(cert.key_tag, 123);
+        assert_eq!(cert.algorithm, Algorithm::from(3));
+        assert_eq!(cert.cert_data, b"Certificate data".to_vec()); // Decoded base64 data.
+    }
+
+    #[test]
+    fn test_invalid_base64_data() {
+        // Invalid base64 data (contains invalid characters).
+        let tokens = vec!["1", "123", "3", "Invalid_base64"].into_iter();
+
+        let result = CERT::from_tokens(tokens);
+
+        // Expecting an error for invalid base64 data.
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(format!("{err}"), "Invalid base64 CERT data");
+    }
+
+    #[test]
+    fn test_invalid_token_digit() {
+        // Missing cert_type (first token) will try to decode cert leading to invalid digit
+        let tokens = vec!["123", "3", "Q2VydGlmaWNhdGUgZGF0YQ=="].into_iter();
+
+        let result = CERT::from_tokens(tokens);
+
+        // Expecting an error due to missing cert type.
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(format!("{err}"), "Invalid digit found in algorithm token");
+    }
+
+    #[test]
+    fn test_missing_cert_data() {
+        // Missing cert_data (last token)
+        let tokens = vec!["1", "123", "3"].into_iter();
+
+        let result = CERT::from_tokens(tokens);
+
+        // Expecting an error due to missing cert data.
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(format!("{err}"), "CERT data missing");
     }
 }
