@@ -19,8 +19,6 @@
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
-#[cfg(feature = "__dnssec")]
-pub(crate) mod ds;
 pub(crate) mod hinfo;
 pub(crate) mod mx;
 pub(crate) mod name;
