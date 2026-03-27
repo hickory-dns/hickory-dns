@@ -6,7 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 //! text records for storing arbitrary data
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -15,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -79,6 +83,15 @@ impl TXT {
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         }
+    }
+
+    /// Parse the RData from a set of Tokens
+    #[allow(clippy::unnecessary_wraps)]
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        tokens: I,
+    ) -> Result<Self, ParseError> {
+        let txt_data = tokens.map(ToString::to_string).collect::<Vec<_>>();
+        Ok(Self::new(txt_data))
     }
 }
 

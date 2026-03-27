@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use crate::dnssec::rdata::{DNSSECRData, DS};
 use crate::rr::rdata::{
     A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA,
+    TXT,
 };
 use crate::{
     rr::{
@@ -20,7 +21,6 @@ use crate::{
     },
     serialize::txt::{
         errors::{ParseError, ParseResult},
-        rdata_parsers::*,
         zone_lex::Lexer,
     },
 };
@@ -96,7 +96,7 @@ impl RDataParser for RData {
             RecordType::SSHFP => Self::SSHFP(SSHFP::from_tokens(tokens)?),
             RecordType::SVCB => Self::SVCB(SVCB::from_tokens(tokens)?),
             RecordType::TLSA => Self::TLSA(TLSA::from_tokens(tokens)?),
-            RecordType::TXT => Self::TXT(txt::parse(tokens)?),
+            RecordType::TXT => Self::TXT(TXT::from_tokens(tokens)?),
             RecordType::SIG => return Err(ParseError::from("parsing SIG doesn't make sense")),
             RecordType::DNSKEY => {
                 return Err(ParseError::from("DNSKEY should be dynamically generated"));
