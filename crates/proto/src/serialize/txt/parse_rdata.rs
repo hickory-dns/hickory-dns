@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::DNSSECRData;
-use crate::rr::rdata::{A, AAAA, CAA, CERT};
+use crate::rr::rdata::{A, AAAA, CAA, CERT, CSYNC};
 use crate::{
     rr::{
         Name, RData, RecordType,
@@ -73,7 +73,7 @@ impl RDataParser for RData {
             RecordType::CAA => Self::CAA(CAA::from_tokens(tokens)?),
             RecordType::CERT => Self::CERT(CERT::from_tokens(tokens)?),
             RecordType::CNAME => Self::CNAME(CNAME(name::parse(tokens, origin)?)),
-            RecordType::CSYNC => csync::parse(tokens).map(Self::CSYNC)?,
+            RecordType::CSYNC => Self::CSYNC(CSYNC::from_tokens(tokens)?),
             RecordType::HINFO => Self::HINFO(hinfo::parse(tokens)?),
             RecordType::HTTPS => svcb::parse(tokens).map(HTTPS).map(Self::HTTPS)?,
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
