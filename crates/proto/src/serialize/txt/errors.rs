@@ -1,4 +1,5 @@
 use alloc::string::String;
+#[cfg(feature = "std")]
 use std::io;
 
 use thiserror::Error;
@@ -47,7 +48,7 @@ pub enum ParseError {
 
     /// A data encoding error
     #[error("data encoding error: {0}")]
-    DataEncoding(#[from] data_encoding::DecodeError),
+    DataEncoding(#[cfg_attr(feature = "std", source)] data_encoding::DecodeError),
 
     /// An error got returned from IO
     #[cfg(feature = "std")]
@@ -99,6 +100,12 @@ impl Clone for ParseError {
     }
 }
 
+impl From<data_encoding::DecodeError> for ParseError {
+    fn from(e: data_encoding::DecodeError) -> Self {
+        Self::DataEncoding(e)
+    }
+}
+
 impl From<&'static str> for ParseError {
     fn from(msg: &'static str) -> Self {
         Self::Message(msg)
@@ -123,6 +130,7 @@ impl From<core::convert::Infallible> for ParseError {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<ParseError> for io::Error {
     fn from(e: ParseError) -> Self {
         Self::other(e)

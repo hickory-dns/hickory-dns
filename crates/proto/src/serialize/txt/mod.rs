@@ -24,10 +24,12 @@ mod parse_rdata;
 mod rdata_parsers;
 #[cfg(feature = "__dnssec")]
 pub mod trust_anchor;
+#[cfg(feature = "std")]
 mod zone;
 mod zone_lex;
 
 pub use self::parse_rdata::RDataParser;
+#[cfg(feature = "std")]
 pub use self::zone::Parser;
 use self::zone_lex::Lexer;
 pub use self::zone_lex::Token;
