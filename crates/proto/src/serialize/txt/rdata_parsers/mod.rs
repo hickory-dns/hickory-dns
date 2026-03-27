@@ -19,7 +19,6 @@
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
-pub(crate) mod naptr;
 pub(crate) mod openpgpkey;
 pub(crate) mod smimea;
 pub(crate) mod soa;

@@ -7,8 +7,11 @@
 
 //! Dynamic Delegation Discovery System
 
-use alloc::{boxed::Box, string::String};
-use core::fmt;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
+use core::{fmt, str::FromStr};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -16,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// [RFC 3403 DDDS DNS Database, October 2002](https://tools.ietf.org/html/rfc3403#section-4)
@@ -179,6 +182,64 @@ impl NAPTR {
             replacement,
         }
     }
+
+    /// Parse the RData from a set of Tokens
+    ///
+    /// ```text
+    /// ;;      order pflags service           regexp replacement
+    /// IN NAPTR 100  50  "a"    "z3950+N2L+N2C"     ""   cidserver.example.com.
+    /// IN NAPTR 100  50  "a"    "rcds+N2C"          ""   cidserver.example.com.
+    /// IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.
+    /// ```
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+        origin: Option<&Name>,
+    ) -> Result<Self, ParseError> {
+        let order: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("order".to_string()))
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+        let preference: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("preference".to_string()))
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+        let flags = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("flags".to_string()))
+            .map(ToString::to_string)
+            .map(|s| s.into_bytes().into_boxed_slice())?;
+        if !verify_flags(&flags) {
+            return Err(ParseError::from("bad flags, must be in range [a-zA-Z0-9]"));
+        }
+
+        let service = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("service".to_string()))
+            .map(ToString::to_string)
+            .map(|s| s.into_bytes().into_boxed_slice())?;
+
+        let regexp = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("regexp".to_string()))
+            .map(ToString::to_string)
+            .map(|s| s.into_bytes().into_boxed_slice())?;
+
+        let replacement: Name = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("replacement".to_string()))
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+        Ok(Self::new(
+            order,
+            preference,
+            flags,
+            service,
+            regexp,
+            replacement,
+        ))
+    }
 }
 
 /// verifies that the flags are valid
@@ -333,6 +394,42 @@ mod tests {
         assert!(
             read_rdata.is_err(),
             "should have failed decoding with bad flag data"
+        );
+    }
+
+    #[test]
+    fn test_parsing() {
+        // IN NAPTR 100  50  "a"    "z3950+N2L+N2C"     ""   cidserver.example.com.
+        // IN NAPTR 100  50  "a"    "rcds+N2C"          ""   cidserver.example.com.
+        // IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.
+        assert_eq!(
+            NAPTR::from_tokens(
+                vec!["100", "50", "a", "z3950+N2L+N2C", "", "cidserver"].into_iter(),
+                Some(&Name::from_str("example.com.").unwrap())
+            )
+            .expect("failed to parse NAPTR"),
+            NAPTR::new(
+                100,
+                50,
+                b"a".to_vec().into_boxed_slice(),
+                b"z3950+N2L+N2C".to_vec().into_boxed_slice(),
+                b"".to_vec().into_boxed_slice(),
+                Name::from_str("cidserver.example.com.").unwrap()
+            ),
+        );
+    }
+
+    #[test]
+    fn test_parsing_fails() {
+        // IN NAPTR 100  50  "a"    "z3950+N2L+N2C"     ""   cidserver.example.com.
+        // IN NAPTR 100  50  "a"    "rcds+N2C"          ""   cidserver.example.com.
+        // IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.
+        assert!(
+            NAPTR::from_tokens(
+                vec!["100", "50", "-", "z3950+N2L+N2C", "", "cidserver"].into_iter(),
+                Some(&Name::from_str("example.com.").unwrap())
+            )
+            .is_err()
         );
     }
 }
