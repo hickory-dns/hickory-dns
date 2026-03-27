@@ -662,23 +662,19 @@ impl Name {
 
     /// Compare two Names, not considering FQDN-ness.
     fn cmp_labels<F: LabelCmp>(&self, other: &Self) -> Ordering {
-        if self.label_ends.is_empty() && other.label_ends.is_empty() {
-            return Ordering::Equal;
-        }
-
-        // we reverse the iters so that we are comparing from the root/domain to the local...
-        let self_labels = self.iter().rev();
-        let other_labels = other.iter().rev();
-
-        for (l, r) in self_labels.zip(other_labels) {
-            let l = Label::from_raw_bytes(l).unwrap();
-            let r = Label::from_raw_bytes(r).unwrap();
-            match l.cmp_with_f::<F>(&r) {
-                Ordering::Equal => continue,
-                not_eq => return not_eq,
+        // Compare from root to local (reversed)
+        for (l, r) in self.iter().rev().zip(other.iter().rev()) {
+            for (&a, &b) in l.iter().zip(r.iter()) {
+                match F::cmp_u8(a, b) {
+                    Ordering::Equal => {}
+                    ord => return ord,
+                }
+            }
+            match l.len().cmp(&r.len()) {
+                Ordering::Equal => {}
+                ord => return ord,
             }
         }
-
         self.label_ends.len().cmp(&other.label_ends.len())
     }
 
