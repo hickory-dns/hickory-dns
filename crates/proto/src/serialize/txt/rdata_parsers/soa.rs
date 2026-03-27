@@ -22,7 +22,7 @@ use crate::{
     rr::{domain::Name, rdata::SOA},
     serialize::txt::{
         errors::{ParseError, ParseResult},
-        parse_time,
+        parse_ttl,
     },
 };
 
@@ -44,33 +44,33 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     let serial: u32 = tokens
         .next()
         .ok_or_else(|| ParseError::MissingToken("serial".to_string()))
-        .and_then(parse_time)?;
+        .and_then(parse_ttl)?;
 
     let refresh: i32 = tokens
         .next()
         .ok_or_else(|| ParseError::MissingToken("refresh".to_string()))
-        .and_then(parse_time)?
+        .and_then(parse_ttl)?
         .try_into()
         .map_err(|_e| ParseError::from("refresh outside i32 range"))?;
 
     let retry: i32 = tokens
         .next()
         .ok_or_else(|| ParseError::MissingToken("retry".to_string()))
-        .and_then(parse_time)?
+        .and_then(parse_ttl)?
         .try_into()
         .map_err(|_e| ParseError::from("retry outside i32 range"))?;
 
     let expire: i32 = tokens
         .next()
         .ok_or_else(|| ParseError::MissingToken("expire".to_string()))
-        .and_then(parse_time)?
+        .and_then(parse_ttl)?
         .try_into()
         .map_err(|_e| ParseError::from("expire outside i32 range"))?;
 
     let minimum: u32 = tokens
         .next()
         .ok_or_else(|| ParseError::MissingToken("minimum".to_string()))
-        .and_then(parse_time)?;
+        .and_then(parse_ttl)?;
 
     Ok(SOA::new(
         mname, rname, serial, refresh, retry, expire, minimum,

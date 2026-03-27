@@ -22,7 +22,7 @@ use crate::{
     serialize::txt::{
         ParseError, ParseResult,
         parse_rdata::RDataParser,
-        parse_time,
+        parse_ttl,
         zone_lex::{Lexer, Token},
     },
 };
@@ -194,7 +194,7 @@ impl<'a> Parser<'a> {
                     }
                     State::Ttl => match t {
                         Token::CharData(data) => {
-                            cx.ttl.default = Some(parse_time(&data)?);
+                            cx.ttl.default = Some(parse_ttl(&data)?);
                             State::StartLine
                         }
                         _ => return Err(ParseError::UnexpectedToken(t)),
@@ -265,7 +265,7 @@ impl<'a> Parser<'a> {
                             // One of Class or Type (these cannot be overlapping!)
                             Token::CharData(mut data) => {
                                 // if it's a number it's a ttl
-                                let result: ParseResult<u32> = parse_time(&data);
+                                let result: ParseResult<u32> = parse_ttl(&data);
                                 if let Ok(ttl) = result {
                                     cx.ttl.this = Some(ttl);
                                     State::TtlClassType // hm, should this go to just ClassType?
