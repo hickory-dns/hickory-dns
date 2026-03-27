@@ -1119,14 +1119,10 @@ impl PartialEq<Self> for Name {
 impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.is_fqdn.hash(state);
-
-        // this needs to be CaseInsensitive like PartialEq
-        for l in self
-            .iter()
-            .map(|l| Label::from_raw_bytes(l).unwrap().to_lowercase())
-        {
-            l.hash(state);
-        }
+        // Note: case-insensitive like `PartialEq`
+        self.iter()
+            .flatten()
+            .for_each(|&b| state.write_u8(b.to_ascii_lowercase()));
     }
 }
 
