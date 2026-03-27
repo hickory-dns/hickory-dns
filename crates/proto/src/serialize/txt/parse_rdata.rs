@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::DNSSECRData;
-use crate::rr::rdata::A;
+use crate::rr::rdata::{A, AAAA};
 use crate::{
     rr::{
         Name, RData, RecordType,
@@ -66,7 +66,7 @@ impl RDataParser for RData {
     ) -> ParseResult<Self> {
         let rdata = match record_type {
             RecordType::A => Self::A(A::from_tokens(tokens)?),
-            RecordType::AAAA => Self::AAAA(aaaa::parse(tokens)?),
+            RecordType::AAAA => Self::AAAA(AAAA::from_tokens(tokens)?),
             RecordType::ANAME => Self::ANAME(ANAME(name::parse(tokens, origin)?)),
             RecordType::ANY => return Err(ParseError::from("parsing ANY doesn't make sense")),
             RecordType::AXFR => return Err(ParseError::from("parsing AXFR doesn't make sense")),
