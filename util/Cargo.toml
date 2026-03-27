@@ -97,7 +97,7 @@ data-encoding.workspace = true
 rustls = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
-hickory-proto = { workspace = true, features = ["text-parsing"] }
+hickory-proto = { workspace = true }
 hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["recursor", "system-config", "tokio"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
