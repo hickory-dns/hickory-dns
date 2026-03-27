@@ -11,7 +11,6 @@ use crate::{
     rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
         ParseError, ParseResult, parse_ttl,
-        rdata_parsers::dnskey,
         zone_lex::{Lexer, Token as LexToken},
     },
 };
@@ -144,7 +143,7 @@ impl<'a> Parser<'a> {
         class: DNSClass,
         records: &mut Vec<Entry>,
     ) -> ParseResult<()> {
-        let dnskey = dnskey::parse(rdata_parts.iter().map(AsRef::as_ref))?;
+        let dnskey = DNSKEY::from_tokens(rdata_parts.iter().map(AsRef::as_ref))?;
 
         let record = Record {
             name_labels: name,
