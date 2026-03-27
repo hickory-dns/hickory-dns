@@ -8,7 +8,6 @@
 //! text records for storing arbitrary data
 use alloc::{boxed::Box, string::String, vec::Vec};
 use core::fmt;
-use core::slice::Iter;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -34,8 +33,12 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct TXT {
-    txt_data: Box<[Box<[u8]>]>,
+    /// ```text
+    /// TXT-DATA        One or more <character-string>s.
+    /// ```
+    pub txt_data: Box<[Box<[u8]>]>,
 }
 
 impl TXT {
@@ -77,23 +80,11 @@ impl TXT {
                 .into_boxed_slice(),
         }
     }
-
-    /// ```text
-    /// TXT-DATA        One or more <character-string>s.
-    /// ```
-    pub fn txt_data(&self) -> &[Box<[u8]>] {
-        &self.txt_data
-    }
-
-    /// Returns an iterator over the arrays in the txt data
-    pub fn iter(&self) -> Iter<'_, Box<[u8]>> {
-        self.txt_data.iter()
-    }
 }
 
 impl BinEncodable for TXT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        for s in self.txt_data() {
+        for s in &self.txt_data {
             encoder.emit_character_data(s)?;
         }
 

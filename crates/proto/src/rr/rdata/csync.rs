@@ -39,12 +39,66 @@ use crate::{
 /// [rfc7477]: https://tools.ietf.org/html/rfc7477
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct CSYNC {
-    soa_serial: u32,
-    immediate: bool,
-    soa_minimum: bool,
-    reserved_flags: u16,
-    type_bit_maps: RecordTypeSet,
+    /// [RFC 7477](https://datatracker.ietf.org/doc/html/rfc7477#section-2.1.1.1)
+    ///
+    /// ```text
+    /// 2.1.1.1.  The SOA Serial Field
+    ///
+    ///    The SOA Serial field contains a copy of the 32-bit SOA serial number
+    ///    from the child zone.  If the soaminimum flag is set, parental agents
+    ///    querying children's authoritative servers MUST NOT act on data from
+    ///    zones advertising an SOA serial number less than this value.  See
+    ///    [RFC1982] for properly implementing "less than" logic.  If the
+    ///    soaminimum flag is not set, parental agents MUST ignore the value in
+    ///    the SOA Serial field.  Clients can set the field to any value if the
+    ///    soaminimum flag is unset, such as the number zero.
+    ///
+    ///    Note that a child zone's current SOA serial number may be greater
+    ///    than the number indicated by the CSYNC record.  A child SHOULD update
+    ///    the SOA Serial field in the CSYNC record every time the data being
+    ///    referenced by the CSYNC record is changed (e.g., an NS record or
+    ///    associated address record is changed).  A child MAY choose to update
+    ///    the SOA Serial field to always match the current SOA Serial field.
+    ///
+    ///    Parental agents MAY cache SOA serial numbers from data they use and
+    ///    refuse to process data from zones older than the last instance from
+    ///    which they pulled data.
+    ///
+    ///    Although Section 3.2 of [RFC1982] describes how to properly implement
+    ///    a less-than comparison operation with SOA serial numbers that may
+    ///    wrap beyond the 32-bit value in both the SOA record and the CSYNC
+    ///    record, it is important that a child using the soaminimum flag must
+    ///    not increment its SOA serial number value more than 2^16 within the
+    ///    period of time that a parent might wait between polling the child for
+    ///    the CSYNC record.
+    /// ```
+    pub soa_serial: u32,
+
+    /// The immediate flag
+    pub immediate: bool,
+    /// The soaminimum flag
+    pub soa_minimum: bool,
+    /// The reserved flags
+    pub reserved_flags: u16,
+
+    /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2.1), Child-to-Parent Synchronization in DNS, March 2015
+    ///
+    /// ```text
+    /// 2.1.1.2.1.  The Type Bit Map Field
+    ///
+    ///    The Type Bit Map field indicates the record types to be processed by
+    ///    the parental agent, according to the procedures in Section 3.  The
+    ///    Type Bit Map field is encoded in the same way as the Type Bit Map
+    ///    field of the NSEC record, described in [RFC4034], Section 4.1.2.  If
+    ///    a bit has been set that a parental agent implementation does not
+    ///    understand, the parental agent MUST NOT act upon the record.
+    ///    Specifically, a parental agent must not simply copy the data, and it
+    ///    must understand the semantics associated with a bit in the Type Bit
+    ///    Map field that has been set to 1.
+    /// ```
+    pub type_bit_maps: RecordTypeSet,
 }
 
 impl CSYNC {
@@ -73,25 +127,6 @@ impl CSYNC {
             reserved_flags: 0,
             type_bit_maps: RecordTypeSet::new(type_bit_maps),
         }
-    }
-
-    /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2.1), Child-to-Parent Synchronization in DNS, March 2015
-    ///
-    /// ```text
-    /// 2.1.1.2.1.  The Type Bit Map Field
-    ///
-    ///    The Type Bit Map field indicates the record types to be processed by
-    ///    the parental agent, according to the procedures in Section 3.  The
-    ///    Type Bit Map field is encoded in the same way as the Type Bit Map
-    ///    field of the NSEC record, described in [RFC4034], Section 4.1.2.  If
-    ///    a bit has been set that a parental agent implementation does not
-    ///    understand, the parental agent MUST NOT act upon the record.
-    ///    Specifically, a parental agent must not simply copy the data, and it
-    ///    must understand the semantics associated with a bit in the Type Bit
-    ///    Map field that has been set to 1.
-    /// ```
-    pub fn type_bit_maps(&self) -> impl Iterator<Item = RecordType> + '_ {
-        self.type_bit_maps.iter()
     }
 
     /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2), Child-to-Parent Synchronization in DNS, March 2015

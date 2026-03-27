@@ -72,28 +72,8 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct SVCB {
-    svc_priority: u16,
-    target_name: Name,
-    svc_params: Vec<(SvcParamKey, SvcParamValue)>,
-}
-
-impl SVCB {
-    /// Create a new SVCB record from parts
-    ///
-    /// It is up to the caller to validate the data going into the record
-    pub fn new(
-        svc_priority: u16,
-        target_name: Name,
-        svc_params: Vec<(SvcParamKey, SvcParamValue)>,
-    ) -> Self {
-        Self {
-            svc_priority,
-            target_name,
-            svc_params,
-        }
-    }
-
     ///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.4.1)
     /// ```text
     /// 2.4.1.  SvcPriority
@@ -115,9 +95,7 @@ impl SVCB {
     ///   a priority level to the records before using them, to ensure uniform
     ///   load-balancing.
     /// ```
-    pub fn svc_priority(&self) -> u16 {
-        self.svc_priority
-    }
+    pub svc_priority: u16,
 
     ///  [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.5)
     /// ```text
@@ -148,13 +126,26 @@ impl SVCB {
     ///    svc2.example.net. 300   IN A     192.0.2.2
     ///    svc2.example.net. 300   IN AAAA  2001:db8::2
     /// ```
-    pub fn target_name(&self) -> &Name {
-        &self.target_name
-    }
+    pub target_name: Name,
 
     /// See [`SvcParamKey`] for details on each parameter
-    pub fn svc_params(&self) -> &[(SvcParamKey, SvcParamValue)] {
-        &self.svc_params
+    pub svc_params: Vec<(SvcParamKey, SvcParamValue)>,
+}
+
+impl SVCB {
+    /// Create a new SVCB record from parts
+    ///
+    /// It is up to the caller to validate the data going into the record
+    pub fn new(
+        svc_priority: u16,
+        target_name: Name,
+        svc_params: Vec<(SvcParamKey, SvcParamValue)>,
+    ) -> Self {
+        Self {
+            svc_priority,
+            target_name,
+            svc_params,
+        }
     }
 }
 

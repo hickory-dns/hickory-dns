@@ -77,10 +77,10 @@ mod tests {
         assert!(result.is_ok());
 
         let cert = result.unwrap();
-        assert_eq!(cert.cert_type(), CertType::from(1));
-        assert_eq!(cert.key_tag(), 123);
-        assert_eq!(cert.algorithm(), Algorithm::from(3));
-        assert_eq!(cert.cert_data(), b"Certificate data".to_vec()); // Decoded base64 data.
+        assert_eq!(cert.cert_type, CertType::from(1));
+        assert_eq!(cert.key_tag, 123);
+        assert_eq!(cert.algorithm, Algorithm::from(3));
+        assert_eq!(cert.cert_data, b"Certificate data"); // Decoded base64 data.
     }
 
     #[test]

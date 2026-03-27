@@ -35,7 +35,8 @@ impl RecordTypeSet {
         }
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = RecordType> + '_ {
+    /// Returns an iterator over all types in this record type set.
+    pub fn iter(&self) -> impl Iterator<Item = RecordType> + '_ {
         self.types.iter().copied()
     }
 

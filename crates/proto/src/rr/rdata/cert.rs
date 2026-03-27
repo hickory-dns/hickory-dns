@@ -401,11 +401,22 @@ impl fmt::Display for Algorithm {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct CERT {
-    cert_type: CertType,
-    key_tag: u16,
-    algorithm: Algorithm,
-    cert_data: Vec<u8>,
+    /// The CERT type
+    pub cert_type: CertType,
+
+    /// The CERT key tag
+    pub key_tag: u16,
+
+    /// The CERT algorithm
+    pub algorithm: Algorithm,
+
+    /// The CERT record data
+    ///
+    /// The data stored here is **not** base64-encoded. Use the `cert_base64()` function
+    /// if you need the data in base64-encoded format.
+    pub cert_data: Vec<u8>,
 }
 
 impl CERT {
@@ -422,26 +433,6 @@ impl CERT {
             algorithm,
             cert_data,
         }
-    }
-
-    /// Returns the CERT type
-    pub fn cert_type(&self) -> CertType {
-        self.cert_type
-    }
-
-    /// Returns the CERT key tag
-    pub fn key_tag(&self) -> u16 {
-        self.key_tag
-    }
-
-    /// Returns the CERT algorithm
-    pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
-    }
-
-    /// Returns the CERT record data
-    pub fn cert_data(&self) -> Vec<u8> {
-        self.cert_data.clone()
     }
 
     /// Returns the CERT (Base64)

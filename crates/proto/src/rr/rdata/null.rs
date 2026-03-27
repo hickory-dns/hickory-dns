@@ -37,8 +37,10 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct NULL {
-    anything: Vec<u8>,
+    /// The buffer stored in the NULL
+    pub anything: Vec<u8>,
 }
 
 impl NULL {
@@ -56,16 +58,11 @@ impl NULL {
 
         Self { anything }
     }
-
-    /// Returns the buffer stored in the NULL
-    pub fn anything(&self) -> &[u8] {
-        &self.anything
-    }
 }
 
 impl BinEncodable for NULL {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        for b in self.anything() {
+        for b in &self.anything {
             encoder.emit(*b)?;
         }
 

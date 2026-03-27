@@ -72,16 +72,13 @@ pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
         panic!("expected SOA record");
     };
 
-    assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
-    assert_eq!(
-        Name::from_str("root.hickory-dns.org.").unwrap(),
-        *soa.rname()
-    );
-    assert!(199609203 < soa.serial()); // serial should be one or more b/c of the signing process
-    assert_eq!(28800, soa.refresh());
-    assert_eq!(7200, soa.retry());
-    assert_eq!(604800, soa.expire());
-    assert_eq!(86400, soa.minimum());
+    assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), soa.mname);
+    assert_eq!(Name::from_str("root.hickory-dns.org.").unwrap(), soa.rname);
+    assert!(199609203 < soa.serial); // serial should be one or more b/c of the signing process
+    assert_eq!(28800, soa.refresh);
+    assert_eq!(7200, soa.retry);
+    assert_eq!(604800, soa.expire);
+    assert_eq!(86400, soa.minimum);
 
     let rrsig_records: Vec<_> = other_records
         .into_iter()

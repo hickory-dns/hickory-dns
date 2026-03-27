@@ -45,11 +45,21 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct TLSA {
-    cert_usage: CertUsage,
-    selector: Selector,
-    matching: Matching,
-    cert_data: Vec<u8>,
+    /// Specifies the provided association that will be used to match the certificate
+    /// presented in the TLS handshake
+    pub cert_usage: CertUsage,
+
+    /// Specifies which part of the TLS certificate presented by the server will be
+    /// matched against the association data
+    pub selector: Selector,
+
+    /// Specifies how the certificate association is presented
+    pub matching: Matching,
+
+    /// Binary data for validating the cert, see other members to understand format
+    pub cert_data: Vec<u8>,
 }
 
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.1)
@@ -353,26 +363,6 @@ impl TLSA {
             matching,
             cert_data,
         }
-    }
-
-    /// Specifies the provided association that will be used to match the certificate presented in the TLS handshake
-    pub fn cert_usage(&self) -> CertUsage {
-        self.cert_usage
-    }
-
-    /// Specifies which part of the TLS certificate presented by the server will be matched against the association data
-    pub fn selector(&self) -> Selector {
-        self.selector
-    }
-
-    /// Specifies how the certificate association is presented
-    pub fn matching(&self) -> Matching {
-        self.matching
-    }
-
-    /// Binary data for validating the cert, see other members to understand format
-    pub fn cert_data(&self) -> &[u8] {
-        &self.cert_data
     }
 }
 

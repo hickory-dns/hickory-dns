@@ -169,8 +169,10 @@ use crate::dnssec::SupportedAlgorithms;
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, Ord, PartialOrd)]
+#[non_exhaustive]
 pub struct OPT {
-    options: Vec<(EdnsCode, EdnsOption)>,
+    /// List of code and record type tuples
+    pub options: Vec<(EdnsCode, EdnsOption)>,
 }
 
 impl OPT {

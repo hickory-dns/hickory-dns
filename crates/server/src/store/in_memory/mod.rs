@@ -106,7 +106,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
                 },
             )
             .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
-        let serial = soa.serial();
+        let serial = soa.serial;
 
         let iter = records.into_values();
 
@@ -711,8 +711,8 @@ fn maybe_next_name(
         (RData::ANAME(name), RecordType::ANAME) => name,
         (RData::NS(ns), RecordType::NS) => &ns.0,
         (RData::CNAME(name), RecordType::CNAME) => name,
-        (RData::MX(mx), RecordType::MX) => mx.exchange(),
-        (RData::SRV(srv), RecordType::SRV) => srv.target(),
+        (RData::MX(mx), RecordType::MX) => &mx.exchange,
+        (RData::SRV(srv), RecordType::SRV) => &srv.target,
         _ => return None,
     };
 

@@ -131,7 +131,7 @@ impl DnsResponse {
                 _ => None,
             })
             .next()
-            .map(|(ttl, soa)| (ttl).min(soa.minimum()))
+            .map(|(ttl, soa)| (ttl).min(soa.minimum))
     }
 
     /// Does the response contain any records matching the query name and type?

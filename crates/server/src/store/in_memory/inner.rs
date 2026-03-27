@@ -175,7 +175,7 @@ impl InnerInMemory {
     /// Returns the minimum ttl (as used in the SOA record)
     pub(super) fn minimum_ttl(&self, origin: &LowerName) -> u32 {
         match self.inner_soa(origin) {
-            Some(soa) => soa.minimum(),
+            Some(soa) => soa.minimum,
             None => {
                 error!("could not lookup SOA for zone handler: {origin}");
                 0
@@ -186,7 +186,7 @@ impl InnerInMemory {
     /// get the current serial number for the zone.
     pub(super) fn serial(&self, origin: &LowerName) -> u32 {
         match self.inner_soa(origin) {
-            Some(soa) => soa.serial(),
+            Some(soa) => soa.serial,
             None => {
                 error!("could not lookup SOA for zone handler: {origin}");
                 0
@@ -401,7 +401,7 @@ impl InnerInMemory {
 
         let serial = if let RData::SOA(soa_rdata) = record.data_mut() {
             soa_rdata.increment_serial();
-            soa_rdata.serial()
+            soa_rdata.serial
         } else {
             panic!("This was not an SOA record"); // valid panic, never should happen
         };

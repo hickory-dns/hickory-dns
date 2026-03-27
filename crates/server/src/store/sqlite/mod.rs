@@ -980,13 +980,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
 
         (
             response,
-            TSigResponseContext::new(
-                req_id,
-                now,
-                tsigner.clone(),
-                tsig.data().mac().to_vec(),
-                error,
-            ),
+            TSigResponseContext::new(req_id, now, tsigner.clone(), tsig.data().mac.clone(), error),
         )
     }
 }

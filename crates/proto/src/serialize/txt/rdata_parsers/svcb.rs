@@ -373,10 +373,10 @@ mod tests {
     fn test_parsing() {
         let svcb: HTTPS = parse_record(CF_HTTPS_RECORD);
 
-        assert_eq!(svcb.svc_priority(), 1);
-        assert_eq!(*svcb.target_name(), Name::root());
+        assert_eq!(svcb.svc_priority, 1);
+        assert_eq!(svcb.target_name, Name::root());
 
-        let mut params = svcb.svc_params().iter();
+        let mut params = svcb.svc_params.iter();
 
         // alpn
         let param = params.next().expect("not alpn");
@@ -443,8 +443,8 @@ mod tests {
         for record in records.iter() {
             let svcb: HTTPS = parse_record(record);
 
-            assert_eq!(svcb.svc_priority(), 1);
-            assert_eq!(*svcb.target_name(), Name::root());
+            assert_eq!(svcb.svc_priority, 1);
+            assert_eq!(svcb.target_name, Name::root());
         }
     }
 

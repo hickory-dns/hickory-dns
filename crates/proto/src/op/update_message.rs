@@ -558,7 +558,7 @@ pub fn delete_all(
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     if let Some(soa) = &last_soa {
-        assert_eq!(&zone_origin, soa.mname());
+        assert_eq!(zone_origin, soa.mname);
     }
 
     let mut zone: Query = Query::new();
@@ -576,7 +576,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
 
     if let Some(soa) = last_soa {
         // for IXFR, old SOA is put as authority to indicate last known version
-        let record = Record::from_rdata(soa.mname().clone(), 0, RData::SOA(soa));
+        let record = Record::from_rdata(soa.mname.clone(), 0, RData::SOA(soa));
         message.add_authority(record);
     }
 

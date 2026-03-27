@@ -66,16 +66,13 @@ pub fn test_soa(handler: impl ZoneHandler) {
         .data()
     {
         RData::SOA(soa) => {
-            assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), *soa.mname());
-            assert_eq!(
-                Name::from_str("root.hickory-dns.org.").unwrap(),
-                *soa.rname()
-            );
-            assert_eq!(199609203, soa.serial());
-            assert_eq!(28800, soa.refresh());
-            assert_eq!(7200, soa.retry());
-            assert_eq!(604800, soa.expire());
-            assert_eq!(86400, soa.minimum());
+            assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), soa.mname);
+            assert_eq!(Name::from_str("root.hickory-dns.org.").unwrap(), soa.rname);
+            assert_eq!(199609203, soa.serial);
+            assert_eq!(28800, soa.refresh);
+            assert_eq!(7200, soa.retry);
+            assert_eq!(604800, soa.expire);
+            assert_eq!(86400, soa.minimum);
         }
         _ => panic!("wrong rdata type returned"),
     }
@@ -156,10 +153,7 @@ pub fn test_mx(handler: impl ZoneHandler) {
         .expect("no record found in zone handler");
 
     match mx.data() {
-        RData::MX(mx) => assert_eq!(
-            Name::from_str("alias.example.com.").unwrap(),
-            *mx.exchange()
-        ),
+        RData::MX(mx) => assert_eq!(Name::from_str("alias.example.com.").unwrap(), mx.exchange),
         _ => panic!("wrong rdata type returned"),
     }
 
@@ -211,7 +205,7 @@ pub fn test_mx_to_null(handler: impl ZoneHandler) {
         .expect("MX record not found in zone handler");
 
     match mx.data() {
-        RData::MX(mx) => assert_eq!(Name::from_str(".").unwrap(), *mx.exchange()),
+        RData::MX(mx) => assert_eq!(Name::from_str(".").unwrap(), mx.exchange),
         _ => panic!("wrong rdata type returned"),
     }
 }
@@ -776,7 +770,7 @@ pub fn test_srv(handler: impl ZoneHandler) {
         .expect("SRV record not found in zone handler");
 
     match srv.data() {
-        RData::SRV(srv) => assert_eq!(Name::from_str("alias.example.com.").unwrap(), *srv.target()),
+        RData::SRV(srv) => assert_eq!(Name::from_str("alias.example.com.").unwrap(), srv.target),
         _ => panic!("wrong rdata type returned"),
     }
 

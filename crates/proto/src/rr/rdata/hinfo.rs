@@ -47,9 +47,13 @@ use crate::{
 /// [rfc1035]: https://tools.ietf.org/html/rfc1035
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct HINFO {
-    cpu: Box<[u8]>,
-    os: Box<[u8]>,
+    /// A `character-string` which specifies the CPU type.
+    pub cpu: Box<[u8]>,
+
+    /// A `character-string` which specifies the operating system type.
+    pub os: Box<[u8]>,
 }
 
 impl HINFO {
@@ -83,16 +87,6 @@ impl HINFO {
     /// The new HINFO record data.
     pub fn from_bytes(cpu: Box<[u8]>, os: Box<[u8]>) -> Self {
         Self { cpu, os }
-    }
-
-    /// A `character-string` which specifies the CPU type.
-    pub fn cpu(&self) -> &[u8] {
-        &self.cpu
-    }
-
-    /// A `character-string` which specifies the operating system type.
-    pub fn os(&self) -> &[u8] {
-        &self.os
     }
 }
 

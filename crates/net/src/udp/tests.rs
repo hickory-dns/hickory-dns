@@ -121,7 +121,7 @@ pub(super) async fn udp_client_stream_test(server_addr: IpAddr, provider: impl R
             Ok(response) => {
                 let response = Message::from(response);
                 if let RData::NULL(null) = response.answers[0].data() {
-                    assert_eq!(null.anything(), b"DEADBEEF");
+                    assert_eq!(null.anything, b"DEADBEEF");
                     true
                 } else {
                     panic!("not a NULL response");
