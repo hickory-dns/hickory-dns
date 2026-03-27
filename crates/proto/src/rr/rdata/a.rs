@@ -31,9 +31,14 @@
 //! "10.2.0.52" or "192.0.5.6").
 //! ```
 
-use core::net::AddrParseError;
+use alloc::string::ToString;
 pub use core::net::Ipv4Addr;
-use core::{fmt, ops::Deref, str};
+use core::{
+    fmt,
+    net::AddrParseError,
+    ops::Deref,
+    str::{self, FromStr},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -41,7 +46,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::*,
     rr::{RData, RecordData, RecordType},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// The DNS A record type, an IPv4 address
@@ -53,6 +58,17 @@ impl A {
     /// Construct a new AAAA record with the 32 bits of IPv4 address
     pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
         Self(Ipv4Addr::new(a, b, c, d))
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+    ) -> Result<Self, ParseError> {
+        let address: Ipv4Addr = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("ipv4 address".to_string()))
+            .and_then(|s| Ipv4Addr::from_str(s).map_err(Into::into))?;
+        Ok(address.into())
     }
 }
 
@@ -124,7 +140,7 @@ impl fmt::Display for A {
     }
 }
 
-impl str::FromStr for A {
+impl FromStr for A {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<Self, AddrParseError> {
         Ipv4Addr::from_str(s).map(From::from)
