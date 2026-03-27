@@ -7,7 +7,6 @@
 
 //! domain name, aka labels, implementation
 
-#[cfg(feature = "serde")]
 use alloc::string::ToString;
 use alloc::{string::String, vec::Vec};
 use core::char;
@@ -28,6 +27,7 @@ use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
 };
+use crate::serialize::txt::ParseError;
 
 /// A domain name
 #[derive(Clone, Default, Eq)]
@@ -475,6 +475,18 @@ impl Name {
     /// 1, this is never the case so the method returns false.
     pub fn is_empty(&self) -> bool {
         false
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+        origin: Option<&Self>,
+    ) -> Result<Self, ParseError> {
+        let name = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("name".to_string()))
+            .and_then(|s| Self::parse(s, origin).map_err(ParseError::from))?;
+        Ok(name)
     }
 
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
