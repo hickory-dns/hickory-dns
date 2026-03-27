@@ -20,20 +20,24 @@ use alloc::string::ToString;
 use core::str::FromStr;
 
 mod errors;
+pub use errors::{LexerError, ParseError, ParseResult};
+
 mod parse_rdata;
+pub use parse_rdata::RDataParser;
+
 mod rdata_parsers;
+
 #[cfg(feature = "__dnssec")]
 pub mod trust_anchor;
+
 #[cfg(feature = "std")]
 mod zone;
-mod zone_lex;
-
-pub use self::parse_rdata::RDataParser;
 #[cfg(feature = "std")]
-pub use self::zone::Parser;
-use self::zone_lex::Lexer;
-pub use self::zone_lex::Token;
-pub use errors::{LexerError, ParseError, ParseResult};
+pub use zone::Parser;
+
+mod zone_lex;
+use zone_lex::Lexer;
+pub use zone_lex::Token;
 
 /// parses the string following the rules from:
 ///  <https://tools.ietf.org/html/rfc2308> (NXCaching RFC) and
