@@ -36,7 +36,7 @@ mod zone;
 pub use zone::Parser;
 
 mod zone_lex;
-use zone_lex::Lexer;
+pub(crate) use zone_lex::Lexer;
 pub use zone_lex::Token;
 
 /// parses the string following the rules from:

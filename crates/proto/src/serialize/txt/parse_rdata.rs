@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::{DNSSECRData, DS};
 use crate::rr::rdata::{
-    A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY, SMIMEA, SOA, SRV, SSHFP, TLSA,
+    A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA,
 };
 use crate::{
     rr::{
@@ -77,7 +77,7 @@ impl RDataParser for RData {
             RecordType::CNAME => Self::CNAME(CNAME(Name::from_tokens(tokens, origin)?)),
             RecordType::CSYNC => Self::CSYNC(CSYNC::from_tokens(tokens)?),
             RecordType::HINFO => Self::HINFO(HINFO::from_tokens(tokens)?),
-            RecordType::HTTPS => svcb::parse(tokens).map(HTTPS).map(Self::HTTPS)?,
+            RecordType::HTTPS => Self::HTTPS(HTTPS(SVCB::from_tokens(tokens)?)),
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
             RecordType::MX => Self::MX(MX::from_tokens(tokens, origin)?),
             RecordType::NAPTR => Self::NAPTR(NAPTR::from_tokens(tokens, origin)?),
@@ -94,7 +94,7 @@ impl RDataParser for RData {
             RecordType::SOA => Self::SOA(SOA::from_tokens(tokens, origin)?),
             RecordType::SRV => Self::SRV(SRV::from_tokens(tokens, origin)?),
             RecordType::SSHFP => Self::SSHFP(SSHFP::from_tokens(tokens)?),
-            RecordType::SVCB => svcb::parse(tokens).map(Self::SVCB)?,
+            RecordType::SVCB => Self::SVCB(SVCB::from_tokens(tokens)?),
             RecordType::TLSA => Self::TLSA(TLSA::from_tokens(tokens)?),
             RecordType::TXT => Self::TXT(txt::parse(tokens)?),
             RecordType::SIG => return Err(ParseError::from("parsing SIG doesn't make sense")),
