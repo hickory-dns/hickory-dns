@@ -48,28 +48,28 @@ pub use errors::{LexerError, ParseError, ParseResult};
 ///
 /// # Example
 /// ```
-/// use hickory_proto::serialize::txt::parse_time;
+/// use hickory_proto::serialize::txt::parse_ttl;
 ///
-/// assert_eq!(parse_time("0").unwrap(),  0);
-/// assert!(parse_time("s").is_err());
-/// assert!(parse_time("").is_err());
-/// assert_eq!(parse_time("0s").unwrap(), 0);
-/// assert_eq!(parse_time("1").unwrap(),  1);
-/// assert_eq!(parse_time("1S").unwrap(), 1);
-/// assert_eq!(parse_time("1s").unwrap(), 1);
-/// assert_eq!(parse_time("1M").unwrap(), 60);
-/// assert_eq!(parse_time("1m").unwrap(), 60);
-/// assert_eq!(parse_time("1H").unwrap(), 3600);
-/// assert_eq!(parse_time("1h").unwrap(), 3600);
-/// assert_eq!(parse_time("1D").unwrap(), 86400);
-/// assert_eq!(parse_time("1d").unwrap(), 86400);
-/// assert_eq!(parse_time("1W").unwrap(), 604800);
-/// assert_eq!(parse_time("1w").unwrap(), 604800);
-/// assert_eq!(parse_time("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
-/// assert_eq!(parse_time("3w3w").unwrap(), 3*604800+3*604800);
-/// assert!(parse_time("7102w").is_err());
+/// assert_eq!(parse_ttl("0").unwrap(),  0);
+/// assert!(parse_ttl("s").is_err());
+/// assert!(parse_ttl("").is_err());
+/// assert_eq!(parse_ttl("0s").unwrap(), 0);
+/// assert_eq!(parse_ttl("1").unwrap(),  1);
+/// assert_eq!(parse_ttl("1S").unwrap(), 1);
+/// assert_eq!(parse_ttl("1s").unwrap(), 1);
+/// assert_eq!(parse_ttl("1M").unwrap(), 60);
+/// assert_eq!(parse_ttl("1m").unwrap(), 60);
+/// assert_eq!(parse_ttl("1H").unwrap(), 3600);
+/// assert_eq!(parse_ttl("1h").unwrap(), 3600);
+/// assert_eq!(parse_ttl("1D").unwrap(), 86400);
+/// assert_eq!(parse_ttl("1d").unwrap(), 86400);
+/// assert_eq!(parse_ttl("1W").unwrap(), 604800);
+/// assert_eq!(parse_ttl("1w").unwrap(), 604800);
+/// assert_eq!(parse_ttl("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
+/// assert_eq!(parse_ttl("3w3w").unwrap(), 3*604800+3*604800);
+/// assert!(parse_ttl("7102w").is_err());
 /// ```
-pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
+pub fn parse_ttl(ttl_str: &str) -> ParseResult<u32> {
     if ttl_str.is_empty() {
         return Err(ParseError::ParseTime(ttl_str.to_string()));
     }
