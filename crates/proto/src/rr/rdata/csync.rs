@@ -7,7 +7,8 @@
 
 //! CSYNC record for synchronizing data from a child zone to the parent
 
-use core::fmt;
+use alloc::{collections::BTreeSet, string::ToString};
+use core::{fmt, str::FromStr};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::*,
     rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// [RFC 7477, Child-to-Parent Synchronization in DNS, March 2015][rfc7477]
@@ -127,6 +128,37 @@ impl CSYNC {
             reserved_flags: 0,
             type_bit_maps: RecordTypeSet::new(type_bit_maps),
         }
+    }
+
+    /// Parse the RData from a set of Tokens
+    ///
+    /// ```text
+    /// IN CSYNC 1 3 A NS AAAA
+    /// IN CSYNC 66 0 MX
+    /// ```
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+    ) -> Result<Self, ParseError> {
+        let soa_serial: u32 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("soa_serial".to_string()))
+            .and_then(|s| s.parse().map_err(Into::into))?;
+
+        let flags: u16 = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("flags".to_string()))
+            .and_then(|s| s.parse().map_err(Into::into))?;
+
+        let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
+        let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
+
+        let mut record_types = BTreeSet::new();
+
+        for token in tokens {
+            record_types.insert(RecordType::from_str(token)?);
+        }
+
+        Ok(Self::new(soa_serial, immediate, soa_minimum, record_types))
     }
 
     /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2), Child-to-Parent Synchronization in DNS, March 2015
@@ -275,5 +307,21 @@ mod tests {
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = CSYNC::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_parsing() {
+        // IN CSYNC 123 3 NS
+        assert_eq!(
+            CSYNC::from_tokens(vec!["123", "3", "NS"].into_iter()).expect("failed to parse CSYNC"),
+            CSYNC::new(123, true, true, [RecordType::NS]),
+        );
+    }
+
+    #[test]
+    fn test_parsing_fails() {
+        // IN CSYNC NS
+        assert!(CSYNC::from_tokens(vec!["NS"].into_iter()).is_err());
+        assert!(CSYNC::from_tokens(vec![].into_iter()).is_err());
     }
 }
