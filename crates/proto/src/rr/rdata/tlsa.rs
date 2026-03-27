@@ -365,12 +365,66 @@ impl TLSA {
     }
 
     /// Parse the RData from a set of Tokens
+    ///
+    /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
+    ///
+    /// ```text
+    /// 2.2.  TLSA RR Presentation Format
+    ///
+    ///    The presentation format of the RDATA portion (as defined in
+    ///    [RFC1035]) is as follows:
+    ///
+    ///    o  The certificate usage field MUST be represented as an 8-bit
+    ///       unsigned integer.
+    ///
+    ///    o  The selector field MUST be represented as an 8-bit unsigned
+    ///       integer.
+    ///
+    ///    o  The matching type field MUST be represented as an 8-bit unsigned
+    ///       integer.
+    ///
+    ///    o  The certificate association data field MUST be represented as a
+    ///       string of hexadecimal characters.  Whitespace is allowed within
+    ///       the string of hexadecimal characters, as described in [RFC1035].
+    /// ```
     pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
         tokens: I,
     ) -> Result<Self, ParseError> {
-        parse_impl(tokens).map(|(usage, selector, matching, cert_data)| {
-            Self::new(usage, selector, matching, cert_data)
-        })
+        let mut iter = tokens;
+
+        let token: &str = iter
+            .next()
+            .ok_or(ParseError::Message("TLSA usage field missing"))?;
+        let cert_usage = CertUsage::from(to_u8(token)?);
+
+        let token = iter
+            .next()
+            .ok_or(ParseError::Message("TLSA selector field missing"))?;
+        let selector = to_u8(token)?.into();
+
+        let token = iter
+            .next()
+            .ok_or(ParseError::Message("TLSA matching field missing"))?;
+        let matching = to_u8(token)?.into();
+
+        // these are all in hex: "a string of hexadecimal characters"
+        //   aside: personally I find it funny that the other fields are decimal, while this is hex encoded...
+        let cert_data = iter.fold(String::new(), |mut cert_data, data| {
+            cert_data.push_str(data);
+            cert_data
+        });
+        let cert_data = sshfp::HEX.decode(cert_data.as_bytes())?;
+
+        if !cert_data.is_empty() {
+            Ok(Self {
+                cert_usage,
+                selector,
+                matching,
+                cert_data,
+            })
+        } else {
+            Err(ParseError::Message("TLSA data field missing"))
+        }
     }
 }
 
@@ -498,62 +552,6 @@ impl fmt::Display for TLSA {
             matching = u8::from(self.matching),
             cert = sshfp::HEX.encode(&self.cert_data),
         )
-    }
-}
-
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
-///
-/// ```text
-/// 2.2.  TLSA RR Presentation Format
-///
-///    The presentation format of the RDATA portion (as defined in
-///    [RFC1035]) is as follows:
-///
-///    o  The certificate usage field MUST be represented as an 8-bit
-///       unsigned integer.
-///
-///    o  The selector field MUST be represented as an 8-bit unsigned
-///       integer.
-///
-///    o  The matching type field MUST be represented as an 8-bit unsigned
-///       integer.
-///
-///    o  The certificate association data field MUST be represented as a
-///       string of hexadecimal characters.  Whitespace is allowed within
-///       the string of hexadecimal characters, as described in [RFC1035].
-/// ```
-pub(crate) fn parse_impl<'i, I: Iterator<Item = &'i str>>(
-    tokens: I,
-) -> Result<(CertUsage, Selector, Matching, Vec<u8>), ParseError> {
-    let mut iter = tokens;
-
-    let token: &str = iter
-        .next()
-        .ok_or(ParseError::Message("TLSA usage field missing"))?;
-    let usage = CertUsage::from(to_u8(token)?);
-
-    let token = iter
-        .next()
-        .ok_or(ParseError::Message("TLSA selector field missing"))?;
-    let selector = to_u8(token)?.into();
-
-    let token = iter
-        .next()
-        .ok_or(ParseError::Message("TLSA matching field missing"))?;
-    let matching = to_u8(token)?.into();
-
-    // these are all in hex: "a string of hexadecimal characters"
-    //   aside: personally I find it funny that the other fields are decimal, while this is hex encoded...
-    let cert_data = iter.fold(String::new(), |mut cert_data, data| {
-        cert_data.push_str(data);
-        cert_data
-    });
-    let cert_data = sshfp::HEX.decode(cert_data.as_bytes())?;
-
-    if !cert_data.is_empty() {
-        Ok((usage, selector, matching, cert_data))
-    } else {
-        Err(ParseError::Message("TLSA data field missing"))
     }
 }
 
