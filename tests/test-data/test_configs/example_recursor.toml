@@ -1,11 +1,16 @@
 ## UDP socket buffer configuration
-## Under high query load, increasing buffer sizes can help prevent packet loss.
-## If not specified, the operating system defaults are used.
+## Under high query load, increasing buffer sizes and the count of bound UDP
+## sockets can help prevent packet loss.
+##
+## For buffer sizes, if not specified, the operating system defaults are used.
 ## Note: The kernel may cap the actual buffer size based on system limits
 ## (e.g., net.core.rmem_max and net.core.wmem_max on Linux).
+##
+## For socket count, if not specified, 1 socket is used.
 # [udp_socket]
 # recv_buffer_size = 4194304  # 4MB
 # send_buffer_size = 4194304  # 4MB
+# sockets = 1
 
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
