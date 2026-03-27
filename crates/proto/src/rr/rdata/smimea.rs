@@ -6,7 +6,7 @@ use core::{fmt, ops::Deref};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::tlsa::{self, CertUsage, Matching, Selector, TLSA};
+use super::tlsa::{CertUsage, Matching, Selector, TLSA};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
@@ -57,9 +57,7 @@ impl SMIMEA {
     pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
         tokens: I,
     ) -> Result<Self, ParseError> {
-        tlsa::parse_impl(tokens).map(|(usage, selector, matching, cert_data)| {
-            SMIMEA::new(usage, selector, matching, cert_data)
-        })
+        TLSA::from_tokens(tokens).map(Self)
     }
 }
 
