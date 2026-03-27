@@ -66,14 +66,71 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct SOA {
-    mname: Name,
-    rname: Name,
-    serial: u32,
-    refresh: i32,
-    retry: i32,
-    expire: i32,
-    minimum: u32,
+    /// The `domain-name` of the name server that was the original or primary source of data for
+    /// this zone, i.e. the Primary Name Server.
+    ///
+    /// ```text
+    /// MNAME           The <domain-name> of the name server that was the
+    ///                 original or primary source of data for this zone.
+    /// ```
+    pub mname: Name,
+
+    /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
+    /// the responsible name.
+    ///
+    /// ```text
+    /// RNAME           A <domain-name> which specifies the mailbox of the
+    ///                 person responsible for this zone.
+    /// ```
+    pub rname: Name,
+
+    /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
+    /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
+    ///
+    /// ```text
+    /// SERIAL          The unsigned 32 bit version number of the original copy
+    ///                 of the zone.  Zone transfers preserve this value.  This
+    ///                 value wraps and should be compared using sequence space
+    ///                 arithmetic.
+    /// ```
+    pub serial: u32,
+
+    /// A 32 bit time interval before the zone should be refreshed, in seconds.
+    ///
+    /// ```text
+    /// REFRESH         A 32 bit time interval before the zone should be
+    ///                 refreshed.
+    /// ```
+    pub refresh: i32,
+
+    /// A 32 bit time interval that should elapse before a failed refresh should be retried,
+    /// in seconds.
+    ///
+    /// ```text
+    /// RETRY           A 32 bit time interval that should elapse before a
+    ///                 failed refresh should be retried.
+    /// ```
+    pub retry: i32,
+
+    /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
+    /// before the zone is no longer authoritative, in seconds
+    ///
+    /// ```text
+    /// EXPIRE          A 32 bit time value that specifies the upper limit on
+    ///                 the time interval that can elapse before the zone is no
+    ///                 longer authoritative.
+    /// ```
+    pub expire: i32,
+
+    /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
+    ///
+    /// ```text
+    /// MINIMUM         The unsigned 32 bit minimum TTL field that should be
+    ///                 exported with any RR from this zone.
+    /// ```
+    pub minimum: u32,
 }
 
 impl SOA {
@@ -115,98 +172,6 @@ impl SOA {
     /// Increments the serial number by one
     pub fn increment_serial(&mut self) {
         self.serial += 1; // TODO: what to do on overflow?
-    }
-
-    /// ```text
-    /// MNAME           The <domain-name> of the name server that was the
-    ///                 original or primary source of data for this zone.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// The `domain-name` of the name server that was the original or primary source of data for
-    /// this zone, i.e. the Primary Name Server.
-    pub fn mname(&self) -> &Name {
-        &self.mname
-    }
-
-    /// ```text
-    /// RNAME           A <domain-name> which specifies the mailbox of the
-    ///                 person responsible for this zone.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
-    /// the responsible name.
-    pub fn rname(&self) -> &Name {
-        &self.rname
-    }
-
-    /// ```text
-    /// SERIAL          The unsigned 32 bit version number of the original copy
-    ///                 of the zone.  Zone transfers preserve this value.  This
-    ///                 value wraps and should be compared using sequence space
-    ///                 arithmetic.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
-    /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
-    pub fn serial(&self) -> u32 {
-        self.serial
-    }
-
-    /// ```text
-    /// REFRESH         A 32 bit time interval before the zone should be
-    ///                 refreshed.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// A 32 bit time interval before the zone should be refreshed, in seconds.
-    pub fn refresh(&self) -> i32 {
-        self.refresh
-    }
-
-    /// ```text
-    /// RETRY           A 32 bit time interval that should elapse before a
-    ///                 failed refresh should be retried.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// A 32 bit time interval that should elapse before a failed refresh should be retried,
-    /// in seconds.
-    pub fn retry(&self) -> i32 {
-        self.retry
-    }
-
-    /// ```text
-    /// EXPIRE          A 32 bit time value that specifies the upper limit on
-    ///                 the time interval that can elapse before the zone is no
-    ///                 longer authoritative.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
-    /// before the zone is no longer authoritative, in seconds
-    pub fn expire(&self) -> i32 {
-        self.expire
-    }
-
-    /// ```text
-    /// MINIMUM         The unsigned 32 bit minimum TTL field that should be
-    ///                 exported with any RR from this zone.
-    /// ```
-    ///
-    /// # Return value
-    ///
-    /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
-    pub fn minimum(&self) -> u32 {
-        self.minimum
     }
 }
 

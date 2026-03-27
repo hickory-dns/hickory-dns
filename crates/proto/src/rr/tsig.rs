@@ -111,7 +111,7 @@ impl TSigResponseContext {
 
                 let mut stub_tsig = TSIG::stub(self.request_id, self.time, &signer);
                 if let Some(err) = error {
-                    stub_tsig.set_error(err);
+                    stub_tsig.error = Some(err);
                 }
 
                 let tbs_tsig_encoded =
@@ -129,7 +129,7 @@ impl TSigResponseContext {
             }
             TsigResponseKind::BadSignature { signer } => {
                 let mut stub_tsig = TSIG::stub(self.request_id, self.time, &signer);
-                stub_tsig.set_error(TsigError::BadSig);
+                stub_tsig.error = Some(TsigError::BadSig);
                 Ok(Box::new(make_tsig_record(
                     signer.signer_name().clone(),
                     stub_tsig,
@@ -295,7 +295,7 @@ impl TSigner {
 
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key
-        if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
+        if record.name() != &self.0.signer_name || tsig.algorithm != self.0.algorithm {
             return Err(DnsSecError::TsigWrongKey);
         }
 
@@ -305,13 +305,12 @@ impl TSigner {
         // While the RFC supports this, we take a conservative approach and do not. Truncated
         // MAC tags offer less security than their full-width counterparts, and the spec includes
         // them only for backwards compatibility.
-        if tsig.mac().len() < tsig.algorithm().output_len()? {
+        if tsig.mac.len() < tsig.algorithm.output_len()? {
             return Err(DnsSecError::from(
                 "Please file an issue with https://github.com/hickory-dns/hickory-dns to support truncated HMACs with TSIG",
             ));
         }
-        let mac = tsig.mac();
-        self.verify(&tbv, mac)?;
+        self.verify(&tbv, &tsig.mac)?;
 
         // 3.  Check time values
         // Since we don't have a time source to use here we instead defer this to the caller.
@@ -320,11 +319,11 @@ impl TSigner {
         // We have already rejected truncated MACs so this step is not applicable.
 
         Ok((
-            tsig.mac().to_vec(),
-            tsig.time(),
+            tsig.mac.to_vec(),
+            tsig.time,
             Range {
-                start: tsig.time() - tsig.fudge() as u64,
-                end: tsig.time() + tsig.fudge() as u64,
+                start: tsig.time - tsig.fudge as u64,
+                end: tsig.time + tsig.fudge as u64,
             },
         ))
     }

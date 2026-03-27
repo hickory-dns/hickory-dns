@@ -19,7 +19,7 @@ use crate::{
 /// > the [TLSA] record
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct SMIMEA(TLSA);
+pub struct SMIMEA(pub TLSA);
 
 impl SMIMEA {
     /// Construct a new SMIMEA

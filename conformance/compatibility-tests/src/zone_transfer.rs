@@ -140,5 +140,5 @@ fn assert_serial(r: &Record, expected: u32) {
     let RData::SOA(soa) = r.data() else {
         panic!("expected SOA record, got: {:?}", r.data())
     };
-    assert_eq!(soa.serial(), expected);
+    assert_eq!(soa.serial, expected);
 }

@@ -148,14 +148,31 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct TSIG {
-    algorithm: TsigAlgorithm,
-    time: u64,
-    fudge: u16,
-    mac: Vec<u8>,
-    oid: u16,
-    error: Option<TsigError>,
-    other: Vec<u8>,
+    /// The algorithm used for the authentication code
+    pub algorithm: TsigAlgorithm,
+
+    /// The time this TSIG was generated at
+    pub time: u64,
+
+    /// The max delta from `time` for remote to accept the signature
+    pub fudge: u16,
+
+    /// The Mac in this TSIG
+    pub mac: Vec<u8>,
+
+    /// The original ID
+    pub oid: u16,
+
+    /// The TSIG error RCODE
+    ///
+    /// This is separate from the top-level error RCODE of a response
+    /// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
+    pub error: Option<TsigError>,
+
+    /// Additional data relevant to this TSIG
+    pub other: Vec<u8>,
 }
 
 impl TSIG {
@@ -208,42 +225,6 @@ impl TSIG {
             error,
             other,
         }
-    }
-
-    /// Returns the Mac in this TSIG
-    pub fn mac(&self) -> &[u8] {
-        &self.mac
-    }
-
-    /// Returns the time this TSIG was generated at
-    pub fn time(&self) -> u64 {
-        self.time
-    }
-
-    /// Returns the max delta from `time` for remote to accept the signature
-    pub fn fudge(&self) -> u16 {
-        self.fudge
-    }
-
-    /// Returns the algorithm used for the authentication code
-    pub fn algorithm(&self) -> &TsigAlgorithm {
-        &self.algorithm
-    }
-
-    /// Returns the TSIG error RCODE
-    ///
-    /// This is separate from the top-level error RCODE of a response
-    /// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
-    pub fn error(&self) -> &Option<TsigError> {
-        &self.error
-    }
-
-    /// Set the TSIG error RCODE
-    ///
-    /// This is separate from the top-level error RCODE of a response
-    /// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
-    pub fn set_error(&mut self, error: TsigError) {
-        self.error = Some(error)
     }
 
     /// Emit TSIG RR and RDATA as used for computing MAC

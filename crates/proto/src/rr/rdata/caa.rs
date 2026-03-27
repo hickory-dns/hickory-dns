@@ -39,11 +39,20 @@ use crate::{
 /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659)
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct CAA {
-    pub(crate) issuer_critical: bool,
-    pub(crate) reserved_flags: u8,
-    pub(crate) raw_tag: String,
-    pub(crate) raw_value: Vec<u8>,
+    /// Indicates that the corresponding property tag MUST be understood if the semantics
+    /// of the CAA record are to be correctly interpreted by an issuer
+    pub issuer_critical: bool,
+
+    /// The flags of the record minus the issuer_critical flag
+    pub reserved_flags: u8,
+
+    /// The property tag
+    pub raw_tag: String,
+
+    /// The raw value of the CAA record
+    pub raw_value: Vec<u8>,
 }
 
 impl CAA {
@@ -106,17 +115,6 @@ impl CAA {
         }
     }
 
-    /// Indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
-    pub fn issuer_critical(&self) -> bool {
-        self.issuer_critical
-    }
-
-    /// Set the Issuer Critical Flag. This indicates that the corresponding property tag MUST be
-    /// understood if the semantics of the CAA record are to be correctly interpreted by an issuer.
-    pub fn set_issuer_critical(&mut self, issuer_critical: bool) {
-        self.issuer_critical = issuer_critical;
-    }
-
     /// Returns the Flags field of the resource record
     pub fn flags(&self) -> u8 {
         let mut flags = self.reserved_flags & 0b0111_1111;
@@ -124,16 +122,6 @@ impl CAA {
             flags |= 0b1000_0000;
         }
         flags
-    }
-
-    /// The property tag, see struct documentation
-    pub fn tag(&self) -> &str {
-        &self.raw_tag
-    }
-
-    /// Set the property tag, see struct documentation
-    pub fn set_tag(&mut self, tag: String) {
-        self.raw_tag = tag;
     }
 
     /// Set the value associated with an `issue` or `issuewild` tag.
@@ -185,11 +173,6 @@ impl CAA {
             return Err("CAA property tag is not 'iodef'".into());
         }
         read_iodef(&self.raw_value)
-    }
-
-    /// Get the raw value of the CAA record.
-    pub fn raw_value(&self) -> &[u8] {
-        &self.raw_value
     }
 }
 
@@ -1053,8 +1036,8 @@ mod tests {
 
         let mut decoder = BinDecoder::new(MESSAGE);
         let caa = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap();
-        assert!(!caa.issuer_critical());
-        assert_eq!(caa.tag(), "issue");
+        assert!(!caa.issuer_critical);
+        assert_eq!(caa.raw_tag, "issue");
         match (caa.value_as_issue(), caa.value_as_iodef()) {
             (Err(_), Err(_)) => {}
             _ => panic!("wrong value type"),

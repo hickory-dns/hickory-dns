@@ -984,7 +984,7 @@ async fn test_update_tsig_valid() {
         .unwrap();
     let (sig, _) = signer.sign_message(&message, now).unwrap();
     // Save the MAC of the request so we can verify the response.
-    let request_mac = sig.data().mac().to_vec();
+    let request_mac = sig.data().mac.clone();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1107,9 +1107,9 @@ async fn test_update_tsig_invalid_unknown_signer() {
     let tsig_rr = tsig_rr.data();
 
     // The TSIG RR should be unsigned.
-    assert_eq!(tsig_rr.mac(), &[]);
+    assert_eq!(tsig_rr.mac, &[]);
     // The TSIG RR should have the expected TSIG error RCODE.
-    assert_eq!(tsig_rr.error(), &Some(TsigError::BadKey));
+    assert_eq!(tsig_rr.error, Some(TsigError::BadKey));
 }
 
 #[cfg(feature = "__dnssec")]
@@ -1160,9 +1160,9 @@ async fn test_update_tsig_invalid_sig() {
     let tsig_rr = tsig_rr.data();
 
     // The TSIG RR should be unsigned.
-    assert_eq!(tsig_rr.mac(), &[]);
+    assert_eq!(tsig_rr.mac, &[]);
     // The TSIG RR should have the expected TSIG error RCODE.
-    assert_eq!(tsig_rr.error(), &Some(TsigError::BadSig));
+    assert_eq!(tsig_rr.error, Some(TsigError::BadSig));
 }
 
 #[cfg(feature = "__dnssec")]
@@ -1187,7 +1187,7 @@ async fn test_update_tsig_invalid_stale_sig() {
     let too_stale = now - (signer.fudge() as u64) - 1;
     let (sig, _) = signer.sign_message(&message, too_stale).unwrap();
     // Save the MAC of the request so we can verify the response.
-    let request_mac = sig.data().mac().to_vec();
+    let request_mac = sig.data().mac.clone();
     message.set_signature(sig);
 
     // TODO(@cpu): add and use a MessageRequestBuilder type?
@@ -1224,7 +1224,7 @@ async fn test_update_tsig_invalid_stale_sig() {
 
     // Update the response with the produced signature.
     let resp_sig = resp_signer.sign(&tbs_response_buf).unwrap();
-    let error = *resp_sig.data().error();
+    let error = resp_sig.data().error;
     response.set_signature(resp_sig);
 
     // Serialize the now-signed response.

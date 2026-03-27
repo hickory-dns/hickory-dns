@@ -50,44 +50,8 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct NAPTR {
-    order: u16,
-    preference: u16,
-    flags: Box<[u8]>,
-    services: Box<[u8]>,
-    regexp: Box<[u8]>,
-    replacement: Name,
-}
-
-impl NAPTR {
-    /// Constructs a new NAPTR record
-    ///
-    /// # Arguments
-    ///
-    /// * `order` - the order in which the NAPTR records MUST be processed in order to accurately represent the ordered list of Rules.
-    /// * `preference` - this field is equivalent to the Priority value in the DDDS Algorithm.
-    /// * `flags` - flags to control aspects of the rewriting and interpretation of the fields in the record.  Flags are single characters from the set A-Z and 0-9.
-    /// * `services` - the Service Parameters applicable to this this delegation path.
-    /// * `regexp` - substitution expression that is applied to the original string held by the client in order to construct the next domain name to lookup.
-    /// * `replacement` - the next domain-name to query for depending on the potential values found in the flags field.
-    pub fn new(
-        order: u16,
-        preference: u16,
-        flags: Box<[u8]>,
-        services: Box<[u8]>,
-        regexp: Box<[u8]>,
-        replacement: Name,
-    ) -> Self {
-        Self {
-            order,
-            preference,
-            flags,
-            services,
-            regexp,
-            replacement,
-        }
-    }
-
     /// ```text
     ///   ORDER
     ///      A 16-bit unsigned integer specifying the order in which the NAPTR
@@ -97,9 +61,7 @@ impl NAPTR {
     ///      to be the same rule and should be selected based on the
     ///      combination of the Preference values and Services offered.
     /// ```
-    pub fn order(&self) -> u16 {
-        self.order
-    }
+    pub order: u16,
 
     /// ```text
     ///   PREFERENCE
@@ -130,9 +92,7 @@ impl NAPTR {
     ///      should be needed then methods such as SRV records or multiple A
     ///      records should be utilized to accomplish load balancing.
     /// ```
-    pub fn preference(&self) -> u16 {
-        self.preference
-    }
+    pub preference: u16,
 
     /// ```text
     ///   FLAGS
@@ -145,9 +105,7 @@ impl NAPTR {
     ///      Database to define the Flags in this field.  It must define which
     ///      ones are terminal and which ones are not.
     /// ```
-    pub fn flags(&self) -> &[u8] {
-        &self.flags
-    }
+    pub flags: Box<[u8]>,
 
     /// ```text
     ///   SERVICES
@@ -156,9 +114,7 @@ impl NAPTR {
     ///      Application Specification to specify the values found in this
     ///      field.
     /// ```
-    pub fn services(&self) -> &[u8] {
-        &self.services
-    }
+    pub services: Box<[u8]>,
 
     /// ```text
     ///   REGEXP
@@ -175,9 +131,7 @@ impl NAPTR {
     ///      be extremely fault sensitive, very error prone, and extremely
     ///      difficult to debug.
     /// ```
-    pub fn regexp(&self) -> &[u8] {
-        &self.regexp
-    }
+    pub regexp: Box<[u8]>,
 
     /// ```text
     ///   REPLACEMENT
@@ -194,8 +148,36 @@ impl NAPTR {
     ///      returned that has values for both fields then it is considered to
     ///      be in error and SHOULD be either ignored or an error returned.
     /// ```
-    pub fn replacement(&self) -> &Name {
-        &self.replacement
+    pub replacement: Name,
+}
+
+impl NAPTR {
+    /// Constructs a new NAPTR record
+    ///
+    /// # Arguments
+    ///
+    /// * `order` - the order in which the NAPTR records MUST be processed in order to accurately represent the ordered list of Rules.
+    /// * `preference` - this field is equivalent to the Priority value in the DDDS Algorithm.
+    /// * `flags` - flags to control aspects of the rewriting and interpretation of the fields in the record.  Flags are single characters from the set A-Z and 0-9.
+    /// * `services` - the Service Parameters applicable to this this delegation path.
+    /// * `regexp` - substitution expression that is applied to the original string held by the client in order to construct the next domain name to lookup.
+    /// * `replacement` - the next domain-name to query for depending on the potential values found in the flags field.
+    pub fn new(
+        order: u16,
+        preference: u16,
+        flags: Box<[u8]>,
+        services: Box<[u8]>,
+        regexp: Box<[u8]>,
+        replacement: Name,
+    ) -> Self {
+        Self {
+            order,
+            preference,
+            flags,
+            services,
+            regexp,
+            replacement,
+        }
     }
 }
 

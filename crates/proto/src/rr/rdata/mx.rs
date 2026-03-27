@@ -37,9 +37,24 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct MX {
-    preference: u16,
-    exchange: Name,
+    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+    ///
+    /// ```text
+    /// PREFERENCE      A 16 bit integer which specifies the preference given to
+    ///                 this RR among others at the same owner.  Lower values
+    ///                 are preferred.
+    /// ```
+    pub preference: u16,
+
+    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+    ///
+    /// ```text
+    /// EXCHANGE        A <domain-name> which specifies a host willing to act as
+    ///                 a mail exchange for the owner name.
+    /// ```
+    pub exchange: Name,
 }
 
 impl MX {
@@ -59,35 +74,14 @@ impl MX {
             exchange,
         }
     }
-
-    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
-    ///
-    /// ```text
-    /// PREFERENCE      A 16 bit integer which specifies the preference given to
-    ///                 this RR among others at the same owner.  Lower values
-    ///                 are preferred.
-    /// ```
-    pub fn preference(&self) -> u16 {
-        self.preference
-    }
-
-    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
-    ///
-    /// ```text
-    /// EXCHANGE        A <domain-name> which specifies a host willing to act as
-    ///                 a mail exchange for the owner name.
-    /// ```
-    pub fn exchange(&self) -> &Name {
-        &self.exchange
-    }
 }
 
 impl BinEncodable for MX {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::StandardRecord);
 
-        encoder.emit_u16(self.preference())?;
-        self.exchange().emit(&mut encoder)?;
+        encoder.emit_u16(self.preference)?;
+        self.exchange.emit(&mut encoder)?;
 
         Ok(())
     }

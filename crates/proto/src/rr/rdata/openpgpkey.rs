@@ -27,8 +27,12 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct OPENPGPKEY {
-    public_key: Vec<u8>,
+    /// The public key.
+    ///
+    /// This should be an OpenPGP Transferable Public Key, but this is not guaranteed.
+    pub public_key: Vec<u8>,
 }
 
 impl OPENPGPKEY {
@@ -41,17 +45,11 @@ impl OPENPGPKEY {
     pub fn new(public_key: Vec<u8>) -> Self {
         Self { public_key }
     }
-
-    /// The public key. This should be an OpenPGP Transferable Public Key,
-    /// but this is not guaranteed.
-    pub fn public_key(&self) -> &[u8] {
-        &self.public_key
-    }
 }
 
 impl BinEncodable for OPENPGPKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_vec(self.public_key())
+        encoder.emit_vec(&self.public_key)
     }
 }
 

@@ -680,7 +680,7 @@ impl<R> ClientStreamXfrState<R> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
             match r.data() {
-                RData::SOA(soa) => Some(soa.serial()),
+                RData::SOA(soa) => Some(soa.serial),
                 _ => None,
             }
         }

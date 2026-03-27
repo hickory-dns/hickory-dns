@@ -63,10 +63,16 @@ pub static HEX: Lazy<Encoding> = Lazy::new(|| {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct SSHFP {
-    algorithm: Algorithm,
-    fingerprint_type: FingerprintType,
-    fingerprint: Vec<u8>,
+    /// The SSH public key algorithm.
+    pub algorithm: Algorithm,
+
+    /// The fingerprint type to use.
+    pub fingerprint_type: FingerprintType,
+
+    /// The fingerprint of the public key.
+    pub fingerprint: Vec<u8>,
 }
 
 impl SSHFP {
@@ -87,21 +93,6 @@ impl SSHFP {
             fingerprint_type,
             fingerprint,
         }
-    }
-
-    /// The SSH public key algorithm.
-    pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
-    }
-
-    /// The fingerprint type to use.
-    pub fn fingerprint_type(&self) -> FingerprintType {
-        self.fingerprint_type
-    }
-
-    /// The fingerprint of the public key.
-    pub fn fingerprint(&self) -> &[u8] {
-        &self.fingerprint
     }
 }
 
@@ -240,9 +231,9 @@ impl From<FingerprintType> for u8 {
 
 impl BinEncodable for SSHFP {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u8(self.algorithm().into())?;
-        encoder.emit_u8(self.fingerprint_type().into())?;
-        encoder.emit_vec(self.fingerprint())
+        encoder.emit_u8(self.algorithm.into())?;
+        encoder.emit_u8(self.fingerprint_type.into())?;
+        encoder.emit_vec(&self.fingerprint)
     }
 }
 

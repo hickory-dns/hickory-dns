@@ -341,7 +341,7 @@ where
                                     debug_assert_eq!(r.record_type(), RecordType::SRV);
 
                                     // the search name becomes the srv.target
-                                    return (Cow::Owned(srv.target().clone()), ttl, true);
+                                    return (Cow::Owned(srv.target.clone()), ttl, true);
                                 }
                                 _ => (),
                             }

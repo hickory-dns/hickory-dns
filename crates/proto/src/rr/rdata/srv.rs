@@ -81,36 +81,8 @@ use crate::{
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[non_exhaustive]
 pub struct SRV {
-    priority: u16,
-    weight: u16,
-    port: u16,
-    target: Name,
-}
-
-impl SRV {
-    /// Creates a new SRV record data.
-    ///
-    /// # Arguments
-    ///
-    /// * `priority` - lower values have a higher priority and clients will attempt to use these
-    ///   first.
-    /// * `weight` - for servers with the same priority, higher weights will be chosen more often.
-    /// * `port` - the socket port number on which the service is listening.
-    /// * `target` - like CNAME, this is the target domain name to which the service is associated.
-    ///
-    /// # Return value
-    ///
-    /// The newly constructed SRV record data.
-    pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> Self {
-        Self {
-            priority,
-            weight,
-            port,
-            target,
-        }
-    }
-
     /// ```text
     ///  Priority
     /// The priority of this target host.  A client MUST attempt to
@@ -119,9 +91,7 @@ impl SRV {
     /// order defined by the weight field.  The range is 0-65535.  This
     /// is a 16 bit unsigned integer in network byte order.
     /// ```
-    pub fn priority(&self) -> u16 {
-        self.priority
-    }
+    pub priority: u16,
 
     /// ```text
     ///  Weight
@@ -160,20 +130,15 @@ impl SRV {
     /// are no unordered SRV RRs.  This process is repeated for each
     /// Priority.
     /// ```
-    pub fn weight(&self) -> u16 {
-        self.weight
-    }
+    pub weight: u16,
 
     /// ```text
     ///  Port
     /// The port on this target host of this service.  The range is 0-
     /// 65535.  This is a 16 bit unsigned integer in network byte order.
     /// This is often as specified in Assigned Numbers but need not be.
-    ///
     /// ```
-    pub fn port(&self) -> u16 {
-        self.port
-    }
+    pub port: u16,
 
     /// ```text
     ///  Target
@@ -187,8 +152,30 @@ impl SRV {
     /// A Target of "." means that the service is decidedly not
     /// available at this domain.
     /// ```
-    pub fn target(&self) -> &Name {
-        &self.target
+    pub target: Name,
+}
+
+impl SRV {
+    /// Creates a new SRV record data.
+    ///
+    /// # Arguments
+    ///
+    /// * `priority` - lower values have a higher priority and clients will attempt to use these
+    ///   first.
+    /// * `weight` - for servers with the same priority, higher weights will be chosen more often.
+    /// * `port` - the socket port number on which the service is listening.
+    /// * `target` - like CNAME, this is the target domain name to which the service is associated.
+    ///
+    /// # Return value
+    ///
+    /// The newly constructed SRV record data.
+    pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> Self {
+        Self {
+            priority,
+            weight,
+            port,
+            target,
+        }
     }
 }
 
@@ -214,10 +201,10 @@ impl BinEncodable for SRV {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
 
-        encoder.emit_u16(self.priority())?;
-        encoder.emit_u16(self.weight())?;
-        encoder.emit_u16(self.port())?;
-        self.target().emit(&mut encoder)?;
+        encoder.emit_u16(self.priority)?;
+        encoder.emit_u16(self.weight)?;
+        encoder.emit_u16(self.port)?;
+        self.target.emit(&mut encoder)?;
         Ok(())
     }
 }
