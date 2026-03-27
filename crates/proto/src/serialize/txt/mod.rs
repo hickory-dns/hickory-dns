@@ -22,9 +22,6 @@ use core::str::FromStr;
 mod errors;
 pub use errors::{LexerError, ParseError, ParseResult};
 
-mod parse_rdata;
-pub use parse_rdata::RDataParser;
-
 #[cfg(feature = "__dnssec")]
 pub mod trust_anchor;
 

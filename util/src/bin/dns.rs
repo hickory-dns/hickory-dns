@@ -46,7 +46,6 @@ use hickory_proto::{
 use hickory_proto::{
     op::DnsResponse,
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
-    serialize::txt::RDataParser,
 };
 
 /// A CLI interface for the hickory-client.

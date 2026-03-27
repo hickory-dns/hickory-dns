@@ -20,9 +20,7 @@ use std::{
 use crate::{
     rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
     serialize::txt::{
-        ParseError, ParseResult,
-        parse_rdata::RDataParser,
-        parse_ttl,
+        ParseError, ParseResult, parse_ttl,
         zone_lex::{Lexer, Token},
     },
 };
@@ -385,7 +383,7 @@ impl Context {
             .rtype
             .ok_or_else(|| ParseError::from("record type not specified"))?;
 
-        let rdata = RData::parse(
+        let rdata = RData::from_tokens(
             rtype,
             record_parts.iter().map(AsRef::as_ref),
             self.origin.as_ref(),
