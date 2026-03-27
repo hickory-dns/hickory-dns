@@ -63,15 +63,15 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
         warn!("unexpected flag values in caa (0 or 128): {}", flags);
     }
 
-    let raw_tag = tag_str.to_owned();
-    let raw_value = value_str.as_bytes().to_vec();
+    let tag = tag_str.to_owned();
+    let value = value_str.as_bytes().to_vec();
 
     // return the new CAA record
     Ok(CAA {
         issuer_critical,
         reserved_flags,
-        raw_tag,
-        raw_value,
+        tag,
+        value,
     })
 }
 

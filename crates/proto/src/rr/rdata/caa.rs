@@ -49,10 +49,10 @@ pub struct CAA {
     pub reserved_flags: u8,
 
     /// The property tag
-    pub raw_tag: String,
+    pub tag: String,
 
     /// The raw value of the CAA record
-    pub raw_value: Vec<u8>,
+    pub value: Vec<u8>,
 }
 
 impl CAA {
@@ -62,14 +62,14 @@ impl CAA {
         name: Option<Name>,
         options: Vec<KeyValue>,
     ) -> Self {
-        let raw_tag = tag.as_str().to_owned();
-        let raw_value = encode_issuer_value(name.as_ref(), &options);
+        let tag = tag.as_str().to_owned();
+        let value = encode_issuer_value(name.as_ref(), &options);
 
         Self {
             issuer_critical,
             reserved_flags: 0,
-            raw_tag,
-            raw_value,
+            tag,
+            value,
         }
     }
 
@@ -106,12 +106,12 @@ impl CAA {
     /// * `issuer_critical` - indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
     /// * `url` - Url where issuer errors should be reported
     pub fn new_iodef(issuer_critical: bool, url: Url) -> Self {
-        let raw_value = url.as_str().as_bytes().to_vec();
+        let value = url.as_str().as_bytes().to_vec();
         Self {
             issuer_critical,
             reserved_flags: 0,
-            raw_tag: "iodef".to_owned(),
-            raw_value,
+            tag: "iodef".to_owned(),
+            value,
         }
     }
 
@@ -132,12 +132,10 @@ impl CAA {
         name: Option<&Name>,
         key_values: &[KeyValue],
     ) -> ProtoResult<()> {
-        if !self.raw_tag.eq_ignore_ascii_case("issue")
-            && !self.raw_tag.eq_ignore_ascii_case("issuewild")
-        {
+        if !self.tag.eq_ignore_ascii_case("issue") && !self.tag.eq_ignore_ascii_case("issuewild") {
             return Err("CAA property tag is not 'issue' or 'issuewild'".into());
         }
-        self.raw_value = encode_issuer_value(name, key_values);
+        self.value = encode_issuer_value(name, key_values);
         Ok(())
     }
 
@@ -145,10 +143,10 @@ impl CAA {
     ///
     /// This returns an error if the tag is not `iodef`.
     pub fn set_iodef_value(&mut self, url: &Url) -> ProtoResult<()> {
-        if !self.raw_tag.eq_ignore_ascii_case("iodef") {
+        if !self.tag.eq_ignore_ascii_case("iodef") {
             return Err("CAA property tag is not 'iodef'".into());
         }
-        self.raw_value = url.as_str().as_bytes().to_vec();
+        self.value = url.as_str().as_bytes().to_vec();
         Ok(())
     }
 
@@ -157,22 +155,20 @@ impl CAA {
     /// This returns an error if the record's tag is not `issue` or `issuewild`, or if the value
     /// does not match the expected syntax.
     pub fn value_as_issue(&self) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
-        if !self.raw_tag.eq_ignore_ascii_case("issue")
-            && !self.raw_tag.eq_ignore_ascii_case("issuewild")
-        {
+        if !self.tag.eq_ignore_ascii_case("issue") && !self.tag.eq_ignore_ascii_case("issuewild") {
             return Err("CAA property tag is not 'issue' or 'issuewild'".into());
         }
-        read_issuer(&self.raw_value)
+        read_issuer(&self.value)
     }
 
     /// Get the value of an `iodef` CAA record.
     ///
     /// This returns an error if the record's tag is not `iodef`, or if the value is an invalid URL.
     pub fn value_as_iodef(&self) -> ProtoResult<Url> {
-        if !self.raw_tag.eq_ignore_ascii_case("iodef") {
+        if !self.tag.eq_ignore_ascii_case("iodef") {
             return Err("CAA property tag is not 'iodef'".into());
         }
-        read_iodef(&self.raw_value)
+        read_iodef(&self.value)
     }
 }
 
@@ -559,12 +555,12 @@ impl BinEncodable for CAA {
         encoder.emit(self.flags())?;
         // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
         let mut tag_buf = [0_u8; u8::MAX as usize];
-        let len = emit_tag(&mut tag_buf, &self.raw_tag)?;
+        let len = emit_tag(&mut tag_buf, &self.tag)?;
 
         // now write to the encoder
         encoder.emit(len)?;
         encoder.emit_vec(&tag_buf[0..len as usize])?;
-        encoder.emit_vec(&self.raw_value)?;
+        encoder.emit_vec(&self.value)?;
 
         Ok(())
     }
@@ -655,16 +651,16 @@ impl<'r> RecordDataDecodable<'r> for CAA {
             })?
             .unverified(/* used only as length safely */);
 
-        let raw_tag = read_tag(decoder, tag_len)?;
+        let tag = read_tag(decoder, tag_len)?;
 
-        let raw_value =
+        let value =
             decoder.read_vec(value_len as usize)?.unverified(/* stored as uninterpreted data */);
 
         Ok(CAA {
             issuer_critical,
             reserved_flags,
-            raw_tag,
-            raw_value,
+            tag,
+            value,
         })
     }
 }
@@ -693,8 +689,8 @@ impl fmt::Display for CAA {
             f,
             "{flags} {tag} \"{value}\"",
             flags = self.flags(),
-            tag = &self.raw_tag,
-            value = String::from_utf8_lossy(&self.raw_value)
+            tag = &self.tag,
+            value = String::from_utf8_lossy(&self.value)
         )
     }
 }
@@ -864,8 +860,8 @@ mod tests {
         test_encode_decode(CAA {
             issuer_critical: false,
             reserved_flags: 0,
-            raw_tag: "issue".to_string(),
-            raw_value: b"%%%%%".to_vec(),
+            tag: "issue".to_string(),
+            value: b"%%%%%".to_vec(),
         });
     }
 
@@ -889,8 +885,8 @@ mod tests {
         test_encode_decode(CAA {
             issuer_critical: false,
             reserved_flags: 0,
-            raw_tag: "iodef".to_string(),
-            raw_value: vec![0xff],
+            tag: "iodef".to_string(),
+            value: vec![0xff],
         });
     }
 
@@ -899,8 +895,8 @@ mod tests {
         test_encode_decode(CAA {
             issuer_critical: true,
             reserved_flags: 0,
-            raw_tag: "tbs".to_string(),
-            raw_value: b"Unknown".to_vec(),
+            tag: "tbs".to_string(),
+            value: b"Unknown".to_vec(),
         });
     }
 
@@ -1020,8 +1016,8 @@ mod tests {
         let unknown = CAA {
             issuer_critical: true,
             reserved_flags: 0,
-            raw_tag: "tbs".to_string(),
-            raw_value: b"Unknown".to_vec(),
+            tag: "tbs".to_string(),
+            value: b"Unknown".to_vec(),
         };
         assert_eq!(unknown.to_string(), "128 tbs \"Unknown\"");
     }
@@ -1037,12 +1033,12 @@ mod tests {
         let mut decoder = BinDecoder::new(MESSAGE);
         let caa = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap();
         assert!(!caa.issuer_critical);
-        assert_eq!(caa.raw_tag, "issue");
+        assert_eq!(caa.tag, "issue");
         match (caa.value_as_issue(), caa.value_as_iodef()) {
             (Err(_), Err(_)) => {}
             _ => panic!("wrong value type"),
         }
-        assert_eq!(caa.raw_value, &MESSAGE[7..]);
+        assert_eq!(caa.value, &MESSAGE[7..]);
     }
 
     #[test]
