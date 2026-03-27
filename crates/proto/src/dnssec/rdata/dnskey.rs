@@ -7,8 +7,8 @@
 
 //! public key record data for signing zone records
 
-use alloc::{borrow::ToOwned, sync::Arc, vec::Vec};
-use core::fmt;
+use alloc::{borrow::ToOwned, string::String, sync::Arc, vec::Vec};
+use core::{fmt, str::FromStr};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -20,9 +20,12 @@ use crate::{
     },
     error::ProtoResult,
     rr::{Name, RecordData, RecordDataDecodable, RecordType, record_data::RData},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
-        RestrictedMath,
+    serialize::{
+        binary::{
+            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
+            Restrict, RestrictedMath,
+        },
+        txt::ParseError,
     },
 };
 
@@ -129,6 +132,42 @@ impl DNSKEY {
             flags |= 0b0000_0000_1000_0000;
         }
         Self::with_flags(flags, public_key)
+    }
+
+    pub(crate) fn from_tokens<'i>(
+        mut tokens: impl Iterator<Item = &'i str>,
+    ) -> Result<Self, ParseError> {
+        let flags_str = tokens
+            .next()
+            .ok_or(ParseError::Message("flags not present"))?;
+        let protocol_str = tokens
+            .next()
+            .ok_or(ParseError::Message("protocol not present"))?;
+        let algorithm_str = tokens
+            .next()
+            .ok_or(ParseError::Message("algorithm not present"))?;
+
+        let flags = u16::from_str(flags_str)?;
+
+        let protocol = u8::from_str(protocol_str)?;
+
+        if protocol != 3 {
+            return Err(ParseError::Message("protocol field must be 3"));
+        }
+
+        let algorithm = Algorithm::from_u8(algorithm_str.parse()?);
+
+        let public_key_str = tokens.collect::<String>();
+        if public_key_str.is_empty() {
+            return Err(ParseError::Message("public key not present"));
+        }
+
+        let public_key = data_encoding::BASE64.decode(public_key_str.as_bytes())?;
+
+        Ok(Self::with_flags(
+            flags,
+            PublicKeyBuf::new(public_key, algorithm),
+        ))
     }
 
     /// Construct a new DNSKEY RData
@@ -494,6 +533,7 @@ impl fmt::Display for DNSKEY {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use alloc::string::ToString;
     #[cfg(feature = "std")]
     use std::println;
 
@@ -582,5 +622,109 @@ mod tests {
             let result = DNSKEY::calculate_key_tag_internal(&input_data);
             assert_eq!(result, exp_result);
         }
+    }
+
+    const ENCODED: &str = "aGVsbG8=";
+
+    #[test]
+    fn accepts_real_world_data() {
+        let trust_anchor = include_str!("../../../tests/test-data/root.key");
+
+        let mut did_parse = false;
+        for line in trust_anchor.lines() {
+            if line.trim_start().starts_with(';') {
+                // skip comments
+                continue;
+            }
+
+            // skip NAME TTL CLASS TYPE
+            let parts = line.split_whitespace().skip(4);
+            DNSKEY::from_tokens(parts).expect("could not parse");
+            did_parse = true;
+        }
+
+        assert!(did_parse);
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn it_works() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let public_key = signing_key.to_public_key().unwrap();
+
+        let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
+        let input = format!("256 3 13 {encoded}");
+        let expected = DNSKEY::new(
+            true,
+            false,
+            false,
+            PublicKeyBuf::new(
+                signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+                algorithm,
+            ),
+        );
+        assert_eq!(expected, parse_ok(&input),);
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn secure_entry_point() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        let pkcs8 = EcdsaSigningKey::generate_pkcs8(algorithm).unwrap();
+        let signing_key = EcdsaSigningKey::from_pkcs8(&pkcs8, algorithm).unwrap();
+        let public_key = signing_key.to_public_key().unwrap();
+
+        let encoded = data_encoding::BASE64.encode(public_key.public_bytes());
+        let input = format!("257 3 13 {encoded}");
+        let expected = DNSKEY::new(
+            true,
+            true,
+            false,
+            PublicKeyBuf::new(
+                signing_key.to_public_key().unwrap().public_bytes().to_vec(),
+                algorithm,
+            ),
+        );
+        assert_eq!(expected, parse_ok(&input),);
+    }
+
+    #[test]
+    fn incomplete() {
+        let cases = ["", "256", "256 3", "256 3 8"];
+        for case in cases {
+            let err = parse_err(case);
+            assert!(err.to_string().contains("not present"))
+        }
+    }
+
+    #[test]
+    fn reserved_flags() {
+        let public_key = PublicKeyBuf::new(b"hello".to_vec(), Algorithm::RSASHA256);
+        let expected = DNSKEY::with_flags(2, public_key);
+        assert_eq!(expected, parse_ok(&format!("2 3 8 {ENCODED}")));
+    }
+
+    #[test]
+    fn bad_protocol() {
+        let err = parse_err(&format!("256 0 8 {ENCODED}"));
+        assert!(err.to_string().contains("protocol field"))
+    }
+
+    #[test]
+    fn bad_public_key() {
+        let mut input = format!("256 3 8 {ENCODED}");
+        input.pop().unwrap(); // drop trailing '='
+        let err = parse_err(&input);
+        assert!(err.to_string().contains("data encoding error"))
+    }
+
+    fn parse_ok(input: &str) -> DNSKEY {
+        DNSKEY::from_tokens(input.split_whitespace()).expect("parsing failed")
+    }
+
+    fn parse_err(input: &str) -> ParseError {
+        DNSKEY::from_tokens(input.split_whitespace()).expect_err("parsing did not fail")
     }
 }
