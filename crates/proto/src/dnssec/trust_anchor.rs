@@ -17,18 +17,13 @@
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
 use alloc::{borrow::ToOwned, vec::Vec};
-#[cfg(feature = "text-parsing")]
 use core::str::FromStr;
-#[cfg(feature = "text-parsing")]
 use std::{fs, path::Path};
 
 use crate::dnssec::PublicKey;
-#[cfg(feature = "text-parsing")]
 use crate::serialize::txt::ParseError;
-#[cfg(feature = "text-parsing")]
 use crate::serialize::txt::trust_anchor::{self, Entry};
 
-#[cfg(feature = "text-parsing")]
 use super::Verifier;
 use super::{Algorithm, PublicKeyBuf};
 
@@ -45,7 +40,6 @@ pub struct TrustAnchors {
 
 impl TrustAnchors {
     /// loads a trust anchor from a file of DNSKEY records
-    #[cfg(feature = "text-parsing")]
     pub fn from_file(path: &Path) -> Result<Self, ParseError> {
         Self::from_str(&fs::read_to_string(path)?)
     }
@@ -93,7 +87,6 @@ impl TrustAnchors {
     }
 }
 
-#[cfg(feature = "text-parsing")]
 impl FromStr for TrustAnchors {
     type Err = ParseError;
 
@@ -144,7 +137,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "text-parsing")]
     fn can_load_trust_anchor_file() {
         let input = include_str!("../../tests/test-data/root.key");
 
