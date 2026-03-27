@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::rdata::{DNSSECRData, DS};
 use crate::rr::rdata::{
-    A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY, SMIMEA, SOA, SRV, TLSA,
+    A, AAAA, CAA, CERT, CSYNC, HINFO, MX, NAPTR, OPENPGPKEY, SMIMEA, SOA, SRV, SSHFP, TLSA,
 };
 use crate::{
     rr::{
@@ -93,7 +93,7 @@ impl RDataParser for RData {
             RecordType::SMIMEA => Self::SMIMEA(SMIMEA::from_tokens(tokens)?),
             RecordType::SOA => Self::SOA(SOA::from_tokens(tokens, origin)?),
             RecordType::SRV => Self::SRV(SRV::from_tokens(tokens, origin)?),
-            RecordType::SSHFP => Self::SSHFP(sshfp::parse(tokens)?),
+            RecordType::SSHFP => Self::SSHFP(SSHFP::from_tokens(tokens)?),
             RecordType::SVCB => svcb::parse(tokens).map(Self::SVCB)?,
             RecordType::TLSA => Self::TLSA(TLSA::from_tokens(tokens)?),
             RecordType::TXT => Self::TXT(txt::parse(tokens)?),
