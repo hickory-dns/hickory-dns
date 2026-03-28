@@ -229,6 +229,7 @@ async fn setup_client_forwarder(
     let mut builder = ForwardZoneHandler::builder_tokio(ForwardConfig {
         name_servers: vec![config],
         options: Some(ResolverOpts::default()),
+        ..Default::default()
     });
 
     if let Some(public_key) = public_key {

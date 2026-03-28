@@ -899,7 +899,7 @@ async fn test_update_forwarder() {
 
     let handler = ForwardZoneHandler::builder_tokio(ForwardConfig {
         name_servers: Vec::new(),
-        options: None,
+        ..Default::default()
     })
     .build()
     .unwrap();
