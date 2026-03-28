@@ -44,6 +44,35 @@ zone = "."
 ## zone_type: Primary, Secondary, External
 zone_type = "External"
 
+## allow_clients: restrict which client networks may query this zone. When set, only
+## clients from the listed networks are allowed; all others receive REFUSED. This is
+## particularly useful for recursive/forwarding zones to prevent open resolver abuse.
+##
+##    10.0.0.0/8         RFC 1918 private space
+##    172.16.0.0/12      RFC 1918 private space
+##    192.168.0.0/16     RFC 1918 private space
+##    100.64.0.0/10      RFC 6598 Carrier-Grade NAT
+##    127.0.0.0/8        Loopback
+##    169.254.0.0/16     RFC 3927 Link-local
+##    fc00::/7           RFC 4193 Unique Local Addresses
+##    fe80::/10          RFC 4291 Link-local
+##    ::1/128            v6 loopback
+allow_clients = [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "fc00::/7",
+    "fe80::/10",
+    "::1/128",
+]
+
+## deny_clients: deny specific client networks from querying this zone. Can be combined
+## with allow_clients to create exceptions — a more specific allow entry overrides a deny.
+#deny_clients = []
+
 [zones.stores]
 type = "recursor"
 roots = "default/root.zone"
