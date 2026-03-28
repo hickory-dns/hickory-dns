@@ -116,7 +116,7 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "sync"] }
 tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
-hickory-proto = { workspace = true, features = ["serde", "text-parsing"] }
+hickory-proto = { workspace = true, features = ["serde"] }
 hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["serde", "system-config", "tokio"], optional = true }
 metrics = { workspace = true, optional = true }

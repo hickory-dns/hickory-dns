@@ -36,7 +36,6 @@ dnssec-ring = ["dep:ring", "__dnssec"]
 __dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time", "std"]
 testing = ["std"]
 
-text-parsing = ["std"]
 default = ["std"]
 
 serde = ["dep:serde", "std", "url/serde"]

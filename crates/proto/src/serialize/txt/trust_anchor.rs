@@ -10,9 +10,7 @@ use crate::{
     dnssec::rdata::DNSKEY,
     rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
-        ParseError, ParseResult,
-        rdata_parsers::dnskey,
-        zone,
+        ParseError, ParseResult, parse_ttl,
         zone_lex::{Lexer, Token as LexToken},
     },
 };
@@ -57,7 +55,7 @@ impl<'a> Parser<'a> {
                                 class,
                             }
                         } else {
-                            let ttl = zone::Parser::parse_time(&data)?;
+                            let ttl = parse_ttl(&data)?;
                             State::Class { name, ttl }
                         }
                     } else {
@@ -145,7 +143,7 @@ impl<'a> Parser<'a> {
         class: DNSClass,
         records: &mut Vec<Entry>,
     ) -> ParseResult<()> {
-        let dnskey = dnskey::parse(rdata_parts.iter().map(AsRef::as_ref))?;
+        let dnskey = DNSKEY::from_tokens(rdata_parts.iter().map(AsRef::as_ref))?;
 
         let record = Record {
             name_labels: name,

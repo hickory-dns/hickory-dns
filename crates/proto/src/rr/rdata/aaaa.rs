@@ -23,9 +23,14 @@
 //!   resource record in network byte order (high-order byte first).
 //! ```
 
-use core::net::AddrParseError;
+use alloc::string::ToString;
 pub use core::net::Ipv6Addr;
-use core::{fmt, ops::Deref, str};
+use core::{
+    fmt,
+    net::AddrParseError,
+    ops::Deref,
+    str::{self, FromStr},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -33,7 +38,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType},
-    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
+    serialize::{
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
+        txt::ParseError,
+    },
 };
 
 /// The DNS AAAA record type, an IPv6 address
@@ -46,6 +54,17 @@ impl AAAA {
     #[allow(clippy::too_many_arguments)]
     pub const fn new(a: u16, b: u16, c: u16, d: u16, e: u16, f: u16, g: u16, h: u16) -> Self {
         Self(Ipv6Addr::new(a, b, c, d, e, f, g, h))
+    }
+
+    /// Parse the RData from a set of Tokens
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+    ) -> Result<Self, ParseError> {
+        let address: Ipv6Addr = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("ipv6 address".to_string()))
+            .and_then(|s| Ipv6Addr::from_str(s).map_err(Into::into))?;
+        Ok(address.into())
     }
 }
 
@@ -125,7 +144,7 @@ impl fmt::Display for AAAA {
     }
 }
 
-impl str::FromStr for AAAA {
+impl FromStr for AAAA {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<Self, AddrParseError> {
         Ipv6Addr::from_str(s).map(From::from)

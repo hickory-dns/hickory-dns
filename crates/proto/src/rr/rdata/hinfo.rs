@@ -7,7 +7,10 @@
 
 //! HINFO record for storing host information
 
-use alloc::{boxed::Box, string::String};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -16,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::*,
     rr::{RData, RecordData, RecordType},
-    serialize::binary::*,
+    serialize::{binary::*, txt::ParseError},
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987][rfc1035]
@@ -87,6 +90,26 @@ impl HINFO {
     /// The new HINFO record data.
     pub fn from_bytes(cpu: Box<[u8]>, os: Box<[u8]>) -> Self {
         Self { cpu, os }
+    }
+
+    /// Parse the RData from a set of Tokens
+    ///
+    /// ```text
+    /// IN HINFO DEC-2060 TOPS20
+    /// IN HINFO VAX-11/780 UNIX
+    /// ```
+    pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
+        mut tokens: I,
+    ) -> Result<Self, ParseError> {
+        let cpu = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("cpu".to_string()))
+            .map(ToString::to_string)?;
+        let os = tokens
+            .next()
+            .ok_or_else(|| ParseError::MissingToken("os".to_string()))
+            .map(ToString::to_string)?;
+        Ok(Self::new(cpu, os))
     }
 }
 
@@ -211,5 +234,22 @@ mod tests {
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = HINFO::read(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_parsing() {
+        // IN HINFO DEC-2060 TOPS20
+        assert_eq!(
+            HINFO::from_tokens(vec!["DEC-2060", "TOPS20"].into_iter())
+                .expect("failed to parse NAPTR"),
+            HINFO::new("DEC-2060".to_string(), "TOPS20".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_parsing_fails() {
+        // IN HINFO DEC-2060 TOPS20
+        assert!(HINFO::from_tokens(vec!["DEC-2060"].into_iter()).is_err());
+        assert!(HINFO::from_tokens(vec![].into_iter()).is_err());
     }
 }
