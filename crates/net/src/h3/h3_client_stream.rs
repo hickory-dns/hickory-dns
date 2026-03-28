@@ -12,6 +12,7 @@ use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures_util::stream::Stream;
@@ -20,6 +21,7 @@ use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
 use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
+use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
@@ -30,7 +32,7 @@ use crate::quic::connect_quic;
 use crate::runtime::{RuntimeProvider, Spawn};
 use crate::tls::client_config;
 use crate::udp::UdpSocket;
-use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream};
+use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
 use super::ALPN_H3;
 
@@ -55,6 +57,7 @@ impl H3ClientStream {
             bind_addr: None,
             set_headers: None,
             disable_grease: false,
+            connect_timeout: CONNECT_TIMEOUT,
         }
     }
 
@@ -297,6 +300,7 @@ pub struct H3ClientStreamBuilder {
     bind_addr: Option<SocketAddr>,
     set_headers: Option<Arc<dyn SetHeaders>>,
     disable_grease: bool,
+    connect_timeout: Duration,
 }
 
 impl H3ClientStreamBuilder {
@@ -320,6 +324,14 @@ impl H3ClientStreamBuilder {
     /// Sets whether to disable GREASE
     pub fn disable_grease(mut self, disable_grease: bool) -> Self {
         self.disable_grease = disable_grease;
+        self
+    }
+
+    /// Override the connect timeout (default: 2 seconds).
+    ///
+    /// This controls the QUIC connect and the HTTP/3 handshake timeouts.
+    pub fn connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
         self
     }
 
@@ -414,25 +426,34 @@ impl H3ClientStreamBuilder {
         server_name: Arc<str>,
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
-        let quic_connection = connect_quic(
-            name_server,
-            server_name.clone(),
-            ALPN_H3,
-            match self.crypto_config {
-                Some(crypto_config) => crypto_config,
-                None => client_config()?,
-            },
-            self.transport_config,
-            endpoint,
-        )
-        .await?;
+        let crypto_config = match self.crypto_config {
+            Some(crypto_config) => crypto_config,
+            None => client_config()?,
+        };
+        let disable_grease = self.disable_grease;
 
-        let h3_connection = h3_quinn::Connection::new(quic_connection);
-        let (mut driver, send_request) = h3::client::builder()
-            .send_grease(!self.disable_grease)
-            .build(h3_connection)
+        let future = async {
+            let quic_connection = connect_quic(
+                name_server,
+                server_name.clone(),
+                ALPN_H3,
+                crypto_config,
+                self.transport_config,
+                endpoint,
+            )
+            .await?;
+
+            let h3_connection = h3_quinn::Connection::new(quic_connection);
+            h3::client::builder()
+                .send_grease(!disable_grease)
+                .build(h3_connection)
+                .await
+                .map_err(|e| NetError::from(ProtoError::from(format!("h3 connection failed: {e}"))))
+        };
+
+        let (mut driver, send_request) = timeout(self.connect_timeout, future)
             .await
-            .map_err(|e| ProtoError::from(format!("h3 connection failed: {e}")))?;
+            .map_err(|_| NetError::Timeout)??;
 
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
 
