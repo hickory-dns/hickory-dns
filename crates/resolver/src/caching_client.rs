@@ -250,7 +250,7 @@ where
                 Ok(lookup) => client.cname(lookup, query),
                 Err(e) => client.cache(query, Err(e)),
             },
-            Ok(Records::Exists { message, min_ttl }) => client.cache(query, Ok((message, min_ttl))),
+            Ok(Records::Exists { message }) => client.cache(query, Ok(message)),
             Err(e) => client.cache(query, Err(e)),
         };
 
@@ -358,14 +358,9 @@ where
             // TODO: this needs to be enhanced for SRV
             let mut found_name = false;
             let mut found_cname_target = false;
-            let mut min_ttl = cname_ttl;
-
-            // Scan through all sections to determine what we found and calculate minimum TTL
+            // Scan through all sections to determine what we found.
             // We need this first pass to decide our strategy: return complete message vs filter
             for r in message.all_sections() {
-                // because this resolved potentially recursively, we want the min TTL from the chain
-                min_ttl = min_ttl.min(r.ttl());
-
                 // restrict to the RData type requested
                 if query.query_class() != r.dns_class() {
                     continue;
@@ -438,7 +433,7 @@ where
                 // Strip DNSSEC records if DO bit is not set.
                 message = message.maybe_strip_dnssec_records(options.edns_set_dnssec_ok);
 
-                return Ok(Records::Exists { message, min_ttl });
+                return Ok(Records::Exists { message });
             }
 
             // We didn't find the answer - need to continue following CNAME chain
@@ -508,15 +503,17 @@ where
         Ok(lookup)
     }
 
-    fn cache(
-        &self,
-        query: Query,
-        result: Result<(Message, u32), NetError>,
-    ) -> Result<Lookup, NetError> {
+    fn cache(&self, query: Query, result: Result<Message, NetError>) -> Result<Lookup, NetError> {
         let now = Instant::now();
         let result = match result {
-            Ok((message, min_ttl)) => {
-                let valid_until = now + Duration::from_secs(min_ttl.into());
+            Ok(mut message) => {
+                // Clamp record TTLs before building the Lookup so that the first
+                // response to the client reflects positive_min/max_ttl, not the
+                // raw upstream TTL.
+                let ttl = self
+                    .cache
+                    .clamp_positive_ttls(query.query_type(), &mut message);
+                let valid_until = now + ttl;
                 let lookup = Lookup::new(message.clone(), valid_until);
                 self.cache.insert(query, Ok(message), now);
                 Ok(lookup)
@@ -546,7 +543,7 @@ where
 
 enum Records<F> {
     /// The records exist, stored as a complete DNS Message
-    Exists { message: Message, min_ttl: u32 },
+    Exists { message: Message },
     /// Future lookup for recursive cname records
     CnameChain {
         next: F,
@@ -1681,15 +1678,10 @@ mod tests {
             DepthTracker::default(),
         );
 
-        if let Ok(records) = records {
-            if let Records::Exists { message, min_ttl } = records {
-                assert_eq!(min_ttl, 1);
-                assert!(!message.answers.is_empty());
-            } else {
-                panic!("records don't exist");
-            }
+        if let Ok(Records::Exists { message }) = records {
+            assert!(!message.answers.is_empty());
         } else {
-            panic!("error getting records");
+            panic!("expected Records::Exists");
         }
     }
 

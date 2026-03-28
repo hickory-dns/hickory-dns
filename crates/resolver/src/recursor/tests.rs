@@ -277,11 +277,13 @@ async fn name_server_cache_ttl_glue() -> Result<(), NetError> {
     let response = ttl_lookup(&recursor, &query_2_name).await?;
     assert!(validate_response(response, &query_2_name, target_2_ip_1));
 
-    // Query the names again after pausing for 2 * the glue record ttl, which should
-    // force the recursor to discard the cached zone and query again.  The TLD
-    // server will return a different nameserver on the second query which will
-    // in turn provide different answers to the A queries.
-    let _ = TokioTime::advance(Duration::from_secs((ns_ttl * 2) as u64)).await;
+    // Query the names again after pausing for 2 * the NS record (zone) ttl.
+    // The cache lifetime is derived from the NS record TTL, not the glue
+    // record TTL, so we must wait past zone_ttl for the entry to expire and
+    // force the recursor to re-query the TLD server.  The TLD server will
+    // return a different nameserver on the second query which will in turn
+    // provide different answers to the A queries.
+    let _ = TokioTime::advance(Duration::from_secs((zone_ttl * 2) as u64)).await;
 
     let response = ttl_lookup(&recursor, &query_1_name).await?;
     assert!(validate_response(response, &query_1_name, target_1_ip_2));
