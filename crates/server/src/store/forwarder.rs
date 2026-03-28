@@ -96,7 +96,11 @@ impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
         info!(%origin, "loading forwarder config");
 
         let name_servers = config.name_servers;
-        let mut options = config.options.unwrap_or_default();
+        let mut options = config.options.unwrap_or_else(|| {
+            let mut opts = ResolverOpts::default();
+            opts.cache_size = FORWARDER_DEFAULT_CACHE_SIZE;
+            opts
+        });
 
         // See RFC 1034, Section 4.3.2:
         // "If the data at the node is a CNAME, and QTYPE doesn't match
@@ -309,8 +313,14 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
     }
 }
 
+/// Default cache size for forwarder zones.
+///
+/// This is larger than the resolver's default of 32, since forwarders typically
+/// serve many clients and benefit from a larger cache to reduce upstream queries.
+const FORWARDER_DEFAULT_CACHE_SIZE: u64 = 10_000;
+
 /// Configuration for forwarder zones
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardConfig {
     /// upstream name_server configurations
