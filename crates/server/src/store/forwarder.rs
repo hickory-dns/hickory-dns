@@ -97,6 +97,7 @@ impl<P: ConnectionProvider> ForwardZoneHandlerBuilder<P> {
 
         let name_servers = config.name_servers;
         let mut options = config.options.unwrap_or_default();
+        options.cache_size = config.cache_size;
 
         // See RFC 1034, Section 4.3.2:
         // "If the data at the node is a CNAME, and QTYPE doesn't match
@@ -168,6 +169,7 @@ impl<P: ConnectionProvider> ForwardZoneHandler<P> {
         let forward_config = ForwardConfig {
             name_servers: resolver_config.name_servers().to_owned(),
             options: Some(options),
+            ..Default::default()
         };
         let mut builder = Self::builder_with_config(forward_config, runtime);
         if let Some(domain) = resolver_config.domain() {
@@ -309,6 +311,10 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
     }
 }
 
+fn default_cache_size() -> u64 {
+    10_000
+}
+
 /// Configuration for forwarder zones
 #[derive(Clone, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -317,4 +323,18 @@ pub struct ForwardConfig {
     pub name_servers: Vec<NameServerConfig>,
     /// Resolver options
     pub options: Option<ResolverOpts>,
+    /// Cache size for the forwarder (number of responses).
+    /// Defaults to 10,000. Overrides `cache_size` in `options` if both are set.
+    #[serde(default = "default_cache_size")]
+    pub cache_size: u64,
+}
+
+impl Default for ForwardConfig {
+    fn default() -> Self {
+        Self {
+            name_servers: vec![],
+            options: None,
+            cache_size: default_cache_size(),
+        }
+    }
 }
