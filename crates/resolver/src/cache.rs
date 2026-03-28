@@ -46,29 +46,51 @@ impl ResponseCache {
 
     /// Insert a response into the cache.
     pub fn insert(&self, query: Query, result: Result<Message, NetError>, now: Instant) {
-        let ttl = match &result {
-            Ok(message) => {
+        let (ttl, result) = match result {
+            Ok(mut message) => {
                 let (positive_min_ttl, positive_max_ttl) = self
                     .ttl_config
                     .positive_response_ttl_bounds(query.query_type())
                     .into_inner();
-                message
+                let ttl = message
                     .all_sections()
                     .map(|record| Duration::from_secs(record.ttl().into()))
                     .min()
                     .unwrap_or(positive_min_ttl)
-                    .clamp(positive_min_ttl, positive_max_ttl)
+                    .clamp(positive_min_ttl, positive_max_ttl);
+
+                // Clamp record TTLs so that `updated_ttl()` has the correct baseline to
+                // count down from. Without this, records whose original TTL is below the
+                // clamped value would saturate to 0 long before the cache entry expires.
+                let clamped_ttl_secs = u32::try_from(ttl.as_secs()).unwrap_or(MAX_TTL);
+
+                for record in message
+                    .answers
+                    .iter_mut()
+                    .chain(message.authorities.iter_mut())
+                    .chain(message.additionals.iter_mut())
+                {
+                    if record.ttl() < clamped_ttl_secs {
+                        record.set_ttl(clamped_ttl_secs);
+                    }
+                }
+
+                (ttl, Ok(message))
             }
             Err(NetError::Dns(DnsError::NoRecordsFound(no_records))) => {
                 let (negative_min_ttl, negative_max_ttl) = self
                     .ttl_config
                     .negative_response_ttl_bounds(query.query_type())
                     .into_inner();
-                if let Some(ttl) = no_records.negative_ttl {
+                let ttl = if let Some(ttl) = no_records.negative_ttl {
                     Duration::from_secs(u64::from(ttl)).clamp(negative_min_ttl, negative_max_ttl)
                 } else {
                     negative_min_ttl
-                }
+                };
+                (
+                    ttl,
+                    Err(NetError::Dns(DnsError::NoRecordsFound(no_records))),
+                )
             }
             Err(_) => return,
         };
@@ -501,6 +523,57 @@ mod tests {
         // The returned lookup should use the record's TTL, since it's
         // greater than the cache's minimum.
         assert_eq!(valid_until, now + Duration::from_secs(3));
+    }
+
+    #[test]
+    fn test_positive_min_ttl_clamps_record_ttls() {
+        // Regression test: records with TTLs below positive_min_ttl must have their
+        // TTLs raised in the cached message. Otherwise `updated_ttl()` subtracts
+        // elapsed time from the original (low) TTL, which saturates to 0 long before
+        // the cache entry expires.
+        let now = Instant::now();
+
+        let name = Name::from_str("www.example.com.").unwrap();
+        let query = Query::query(name.clone(), RecordType::A);
+
+        // Upstream record has TTL=60, but positive_min_ttl is 3600.
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_answer(Record::from_rdata(
+            name.clone(),
+            60,
+            RData::A(A::new(93, 184, 216, 34)),
+        ));
+
+        let ttls = TtlConfig::from(TtlBounds {
+            positive_min_ttl: Some(Duration::from_secs(3600)),
+            ..TtlBounds::default()
+        });
+        let cache = ResponseCache::new(1, ttls);
+
+        cache.insert(query.clone(), Ok(message), now);
+
+        // The cache stores the record with the clamped TTL (3600). At t=0 that is
+        // what clients receive.
+        let result = cache.get(&query, now).unwrap().unwrap();
+        assert_eq!(result.answers.first().unwrap().ttl(), 3600);
+
+        // At t=61 the returned TTL counts down from the cached 3600, not the
+        // upstream 60.
+        let result = cache
+            .get(&query, now + Duration::from_secs(61))
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.answers.first().unwrap().ttl(), 3539);
+
+        // At t=3599: still valid, TTL=1.
+        let result = cache
+            .get(&query, now + Duration::from_secs(3599))
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.answers.first().unwrap().ttl(), 1);
+
+        // At t=3601: cache miss — a new upstream lookup will be issued.
+        assert!(cache.get(&query, now + Duration::from_secs(3601)).is_none());
     }
 
     #[test]
