@@ -130,6 +130,14 @@ impl ResponseHandler for ResponseHandle {
             encode_fallback_servfail_response(id, &mut buffer)
         })?;
 
+        // Emit the response bytes as a trace event for DNSTAP capture.
+        tracing::event!(
+            target: "hickory_server::dnstap",
+            tracing::Level::TRACE,
+            kind = "response",
+            message_bytes = buffer.as_slice(),
+        );
+
         self.stream_handle
             .send(SerialMessage::new(buffer, self.dst))?;
 
