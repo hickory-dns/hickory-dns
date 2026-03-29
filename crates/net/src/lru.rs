@@ -12,6 +12,7 @@ use std::collections::{HashMap, hash_map};
 use lru_slab::LruSlab;
 
 /// A LRU cache'd hash map.
+#[derive(Debug)]
 pub struct LruCache<K: Hash, V> {
     // The LRU cache over the keys, determining which entries are stale.
     lru: LruSlab<K>,
@@ -89,5 +90,24 @@ impl<K: Clone + Eq + Hash, V> LruCache<K, V> {
         prior_value_from_removal
             .or(prior_value_from_insert)
             .map(|(_old_slot, old_value)| old_value)
+    }
+
+    /// Remove a value, returning it if it was present.
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        let (slot, value) = self.map.remove(key)?;
+        self.lru.remove(slot);
+        Some(value)
+    }
+
+    /// Clear the cache.
+    pub fn clear(&mut self) {
+        for (_key, (slot, _value)) in self.map.drain() {
+            self.lru.remove(slot);
+        }
+    }
+
+    /// Iterate over all values in the cache.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.map.iter().map(|(key, (_slot, value))| (key, value))
     }
 }
