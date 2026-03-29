@@ -9,6 +9,9 @@ pub mod client;
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
+#[cfg(feature = "__lru")]
+#[doc(hidden)]
+pub mod lru;
 
 mod error;
 pub use error::{DnsError, ForwardNSData, NetError, NoRecords};

@@ -26,12 +26,12 @@ use futures_util::{
     future::{self, FutureExt},
     stream::{self, Stream, StreamExt},
 };
-use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
 use crate::{
     error::{DnsError, NetError, NoRecords},
+    lru::LruCache,
     proto::{
         dnssec::{
             Proof, TrustAnchors, Verifier,
@@ -1555,7 +1555,7 @@ impl<'a> RrsetVerificationContext<'a> {
     }
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Hash, Eq, PartialEq)]
 struct ValidationCacheKey(u64);
 
 /// Verifies NSEC records

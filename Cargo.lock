@@ -945,7 +945,7 @@ dependencies = [
  "idna",
  "ipnet",
  "jni 0.22.4",
- "lru-cache",
+ "lru-slab",
  "parking_lot",
  "pin-project-lite",
  "quinn",
@@ -1008,7 +1008,6 @@ dependencies = [
  "ipconfig",
  "ipnet",
  "jni 0.22.4",
- "lru-cache",
  "metrics",
  "metrics-util",
  "moka",
@@ -1533,12 +1532,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "linked-hash-map"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1564,15 +1557,6 @@ name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
-
-[[package]]
-name = "lru-cache"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31e24f1ad8321ca0e8a1e0ac13f23cb668e6f5466c2c57319f6a5cf1cc8e3b1c"
-dependencies = [
- "linked-hash-map",
-]
 
 [[package]]
 name = "lru-slab"

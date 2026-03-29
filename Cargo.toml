@@ -101,7 +101,7 @@ ipnet = { version = "2.3.0", default-features = false }
 jni = "0.22.1"
 js-sys = "0.3.44"
 libc = "0.2"
-lru-cache = "0.1.2"
+lru-slab = "0.1.2"
 moka = "0.12"
 ndk-context = "0.1.1"
 once_cell = { version = "1.20.0", default-features = false, features = ["critical-section"] }
