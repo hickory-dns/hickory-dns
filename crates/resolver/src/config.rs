@@ -662,7 +662,7 @@ fn default_attempts() -> usize {
 }
 
 fn default_cache_size() -> u64 {
-    32
+    8_192
 }
 
 fn default_num_concurrent_reqs() -> usize {
