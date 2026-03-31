@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn request_info_clone() {
-        let query = Query::new();
+        let query = Query::root();
         let header = Metadata::new(10, MessageType::Query, OpCode::Query);
         let lower_query = query.into();
         let origin = RequestInfo::new(

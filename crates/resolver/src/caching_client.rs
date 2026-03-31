@@ -575,7 +575,7 @@ mod tests {
         let client = CachingClient::with_cache(cache, client, false);
 
         let error = block_on(CachingClient::inner_lookup(
-            Query::new(),
+            Query::root(),
             DnsRequestOptions::default(),
             client,
             vec![],
@@ -587,7 +587,7 @@ mod tests {
             panic!("wrong error received")
         };
 
-        assert_eq!(no_records.query, Box::new(Query::new()));
+        assert_eq!(no_records.query, Box::new(Query::root()));
         assert_eq!(no_records.negative_ttl, None);
     }
 
@@ -595,7 +595,7 @@ mod tests {
     fn test_from_cache() {
         subscribe();
         let cache = ResponseCache::new(1, TtlConfig::default());
-        let query = Query::new();
+        let query = Query::root();
         let mut message = Message::response(0, OpCode::Query);
         message.add_query(query.clone());
         message.add_answer(Record::from_rdata(
@@ -609,7 +609,7 @@ mod tests {
         let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
-            Query::new(),
+            Query::root(),
             DnsRequestOptions::default(),
             client,
             vec![],

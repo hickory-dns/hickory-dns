@@ -336,7 +336,7 @@ fn inner_lookup(
 async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestResponseHandler) {
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query: Query = Query::root();
     query.set_name(Name::from_ascii(query_name).unwrap());
     question.add_query(query);
     question.metadata.recursion_desired = true;
