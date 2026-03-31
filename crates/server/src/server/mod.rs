@@ -61,7 +61,6 @@ mod quic_handler;
 mod request_handler;
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
-pub(crate) use response_handler::encode_fallback_servfail_response;
 pub use response_handler::{ResponseHandle, ResponseHandler};
 mod timeout_stream;
 pub use timeout_stream::TimeoutStream;

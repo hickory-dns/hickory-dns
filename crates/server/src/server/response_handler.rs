@@ -9,13 +9,7 @@ use std::net::SocketAddr;
 
 use crate::{
     net::{BufDnsStreamHandle, DnsStreamHandle, NetError, xfer::Protocol},
-    proto::{
-        ProtoError,
-        op::{Header, HeaderCounts, MessageType, Metadata, OpCode, ResponseCode, SerialMessage},
-        rr::Record,
-        serialize::binary::BinEncodable,
-        serialize::binary::BinEncoder,
-    },
+    proto::{op::SerialMessage, rr::Record},
     server::ResponseInfo,
     zone_handler::MessageResponse,
 };
@@ -80,25 +74,4 @@ impl ResponseHandler for ResponseHandle {
 
         Ok(info)
     }
-}
-
-/// Clears the buffer, encodes a SERVFAIL response in it, and returns a matching
-/// ResponseInfo.
-pub(crate) fn encode_fallback_servfail_response(
-    id: u16,
-    buffer: &mut Vec<u8>,
-) -> Result<ResponseInfo, ProtoError> {
-    buffer.clear();
-    let mut encoder = BinEncoder::new(buffer);
-    encoder.set_max_size(512);
-
-    let mut metadata = Metadata::new(id, MessageType::Response, OpCode::Query);
-    metadata.response_code = ResponseCode::ServFail;
-    let header = Header {
-        metadata,
-        counts: HeaderCounts::default(),
-    };
-
-    header.emit(&mut encoder)?;
-    Ok(ResponseInfo::from(header))
 }
