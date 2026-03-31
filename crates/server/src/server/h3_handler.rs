@@ -177,7 +177,7 @@ impl ResponseHandler for H3ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode()?;
+        let (info, bytes) = response.encode(Protocol::H3)?;
         let bytes = Bytes::from(bytes);
         let response = http::response(Version::Http3, bytes.len())?;
 
