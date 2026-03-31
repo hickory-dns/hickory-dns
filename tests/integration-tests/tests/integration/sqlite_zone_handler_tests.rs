@@ -252,7 +252,7 @@ async fn test_authorize_update() {
 
     let mut message = Message::query();
     message.metadata.op_code = OpCode::Update;
-    message.add_query(Query::default());
+    message.add_query(Query::root());
 
     let bytes = message.to_bytes().unwrap();
     let request =
@@ -1106,7 +1106,7 @@ fn test_tsig_signer(key_name: Name) -> TSigner {
 
 #[cfg(feature = "__dnssec")]
 fn test_update_message(name: Name) -> Message {
-    let mut q = Query::default();
+    let mut q = Query::root();
     q.set_name(name.clone());
     q.set_query_class(DNSClass::IN);
     q.set_query_type(RecordType::SOA);

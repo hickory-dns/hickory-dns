@@ -80,9 +80,9 @@ pub struct Query {
     pub mdns_unicast_response: bool,
 }
 
-impl Default for Query {
+impl Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
-    fn default() -> Self {
+    pub fn root() -> Self {
         Self {
             name: Name::root(),
             query_type: RecordType::A,
@@ -90,13 +90,6 @@ impl Default for Query {
             #[cfg(feature = "mdns")]
             mdns_unicast_response: false,
         }
-    }
-}
-
-impl Query {
-    /// Return a default query with an empty name and A, IN for the query_type and query_class
-    pub fn root() -> Self {
-        Self::default()
     }
 
     /// Create a new query from name and type, class defaults to IN
@@ -266,7 +259,7 @@ mod tests {
             name: Name::from_ascii("WWW.example.com.").unwrap(),
             query_type: RecordType::AAAA,
             query_class: DNSClass::IN,
-            ..Query::default()
+            ..Query::root()
         };
 
         let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
