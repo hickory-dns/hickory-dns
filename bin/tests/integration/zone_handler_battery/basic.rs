@@ -10,7 +10,7 @@ use hickory_net::{
     xfer::Protocol,
 };
 use hickory_proto::{
-    op::{Message, MessageType, Metadata, OpCode, Query, ResponseCode},
+    op::{Message, MessageRequest, MessageType, Metadata, OpCode, Query, ResponseCode},
     rr::{
         Name, RData, RecordType,
         rdata::{A as A4, AAAA},
@@ -18,7 +18,7 @@ use hickory_proto::{
 };
 use hickory_server::{
     server::Request,
-    zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{LookupError, LookupOptions, ZoneHandler},
 };
 
 const TEST_METADATA: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);

@@ -13,7 +13,9 @@ use hickory_net::{
     xfer::Protocol,
 };
 use hickory_proto::{
-    op::{Message, MessageType, Metadata, OpCode, Query, ResponseCode, update_message},
+    op::{
+        Message, MessageRequest, MessageType, Metadata, OpCode, Query, ResponseCode, update_message,
+    },
     rr::{
         DNSClass, Name, RData, Record, RecordSet, RecordType, TSigner,
         rdata::{A as A4, AAAA, tsig::TsigAlgorithm},
@@ -23,7 +25,7 @@ use hickory_proto::{
 use hickory_server::{
     server::Request,
     store::sqlite::SqliteZoneHandler,
-    zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{LookupError, LookupOptions, ZoneHandler},
 };
 
 const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);

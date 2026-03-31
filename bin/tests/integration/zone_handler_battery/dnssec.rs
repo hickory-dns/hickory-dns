@@ -13,12 +13,12 @@ use hickory_proto::{
         Algorithm, Verifier,
         rdata::{DNSKEY, DNSSECRData, RRSIG},
     },
-    op::{MessageType, Metadata, OpCode, Query},
+    op::{MessageRequest, MessageType, Metadata, OpCode, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
 };
 use hickory_server::{
     server::Request,
-    zone_handler::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{DnssecZoneHandler, LookupOptions, ZoneHandler},
 };
 
 const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);

@@ -123,6 +123,7 @@ metrics = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+hickory-proto = { workspace = true, features = ["serde", "testing"] }
 test-support.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
