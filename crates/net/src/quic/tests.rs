@@ -111,7 +111,7 @@ async fn test_quic_stream() {
 
     // create a test message, send and then receive...
     let mut message = Message::query();
-    message.add_query(Query::query(
+    message.add_query(Query::new(
         Name::from_str("www.example.test.").unwrap(),
         RecordType::AAAA,
     ));

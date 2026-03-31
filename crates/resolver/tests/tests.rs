@@ -59,12 +59,12 @@ async fn test_shared_lookup() -> Result<(), ProtoError> {
 
     let mut futures = vec![
         pool.lookup(
-            Query::query(query_name.clone(), RecordType::A),
+            Query::new(query_name.clone(), RecordType::A),
             DnsRequestOptions::default(),
         )
         .first_answer(),
         pool.lookup(
-            Query::query(query_name.clone(), RecordType::A),
+            Query::new(query_name.clone(), RecordType::A),
             DnsRequestOptions::default(),
         )
         .first_answer(),

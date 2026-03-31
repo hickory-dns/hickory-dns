@@ -339,7 +339,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 continue;
             }
 
-            let cname_query = Query::query(name.0.clone(), query_type);
+            let cname_query = Query::new(name.0.clone(), query_type);
 
             let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
             if count > MAX_CNAME_LOOKUPS {
@@ -516,7 +516,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             let parent_zone = zone.base_name();
 
-            let query = Query::query(zone.clone(), RecordType::NS);
+            let query = Query::new(zone.clone(), RecordType::NS);
 
             // Query for nameserver records via the pool for the parent zone.
             let lookup_res = match self.response_cache.get(&query, request_time) {
@@ -595,7 +595,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 for record_type in [RecordType::A, RecordType::AAAA] {
                     if let Some(Ok(response)) = self
                         .response_cache
-                        .get(&Query::query(ns_data.0.clone(), record_type), request_time)
+                        .get(&Query::new(ns_data.0.clone(), record_type), request_time)
                     {
                         let ttl = self.add_glue_to_map(&mut glue_ips, response.all_sections());
                         if ttl < ns_pool_ttl {
@@ -772,7 +772,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         for (pool, query) in pool_queries.iter() {
             for rec_type in [RecordType::A, RecordType::AAAA] {
                 futures.push(Box::pin(
-                    pool.lookup(Query::query(query.clone(), rec_type), self.request_options)
+                    pool.lookup(Query::new(query.clone(), rec_type), self.request_options)
                         .into_future()
                         .map(|(first, _rest)| first),
                 ));

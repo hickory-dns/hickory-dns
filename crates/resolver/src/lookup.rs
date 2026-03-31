@@ -197,7 +197,7 @@ mod tests {
     fn test_extend_answers_preserves_sections() {
         // Create a message with records in different sections
         let mut message = Message::response(0, OpCode::Query);
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         message.add_query(query.clone());
 
         message.add_answers(vec![Record::from_rdata(
@@ -255,7 +255,7 @@ mod tests {
     fn test_append_preserves_sections() {
         // Create first lookup with records in all sections
         let mut message1 = Message::response(0, OpCode::Query);
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         message1.add_query(query.clone());
         message1.add_answers(vec![Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),

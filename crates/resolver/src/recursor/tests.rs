@@ -37,7 +37,7 @@ async fn recursor_connection_deduplication() -> Result<(), NetError> {
     // is used in two separate zones.
     for query in [query_name, dup_query_name] {
         let response = recursor
-            .resolve(Query::query(query, RecordType::A), Instant::now(), false)
+            .resolve(Query::new(query, RecordType::A), Instant::now(), false)
             .await?;
 
         assert_eq!(response.response_code, ResponseCode::NoError);
@@ -76,11 +76,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
     )?;
 
     let response = recursor
-        .resolve(
-            Query::query(query_name, RecordType::A),
-            Instant::now(),
-            false,
-        )
+        .resolve(Query::new(query_name, RecordType::A), Instant::now(), false)
         .await?;
 
     assert_eq!(response.response_code, ResponseCode::NoError);
@@ -102,7 +98,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
     // connection cache.
     let response = recursor
         .resolve(
-            Query::query(dup_query_name, RecordType::A),
+            Query::new(dup_query_name, RecordType::A),
             Instant::now(),
             false,
         )
@@ -462,7 +458,7 @@ async fn not_fully_qualified_domain_name_in_query() -> Result<(), NetError> {
 
     let name = Name::from_ascii("example.com")?;
     assert!(!name.is_fqdn());
-    let query = Query::query(name, RecordType::A);
+    let query = Query::new(name, RecordType::A);
     let res = recursor
         .resolve(query, Instant::now(), false)
         .await
@@ -519,7 +515,7 @@ async fn cache_negative_responses() -> Result<(), NetError> {
     for _ in 0..2 {
         let response = recursor
             .resolve(
-                Query::query(no_exist_name.clone(), RecordType::A),
+                Query::new(no_exist_name.clone(), RecordType::A),
                 Instant::now(),
                 false,
             )
@@ -718,7 +714,7 @@ async fn ttl_lookup(
 ) -> Result<Message, RecursorError> {
     recursor
         .resolve(
-            Query::query(name.clone(), RecordType::A),
+            Query::new(name.clone(), RecordType::A),
             TokioTime::Instant::now().into(),
             false,
         )
@@ -853,7 +849,7 @@ mod metrics {
                 for _ in 0..3 {
                     let response = recursor
                         .resolve(
-                            Query::query(query_name.clone(), RecordType::A),
+                            Query::new(query_name.clone(), RecordType::A),
                             Instant::now(),
                             false,
                         )

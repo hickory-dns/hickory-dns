@@ -491,7 +491,7 @@ mod tests {
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
         let mut request = Message::query();
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
@@ -526,7 +526,7 @@ mod tests {
         //
         // assert that the connection works for a second query
         let mut request = Message::query();
-        let query = Query::query(
+        let query = Query::new(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
         );
@@ -559,7 +559,7 @@ mod tests {
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
         let mut request = Message::query();
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
@@ -598,7 +598,7 @@ mod tests {
         //
         // assert that the connection works for a second query
         let mut request = Message::query();
-        let query = Query::query(
+        let query = Query::new(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
         );
@@ -631,7 +631,7 @@ mod tests {
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
         let mut request = Message::query();
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.metadata.recursion_desired = true;
         let mut edns = Edns::new();
@@ -672,7 +672,7 @@ mod tests {
         //
         // assert that the connection works for a second query
         let mut request = Message::query();
-        let query = Query::query(
+        let query = Query::new(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
         );
@@ -718,7 +718,7 @@ mod tests {
 
         // prepare request
         let mut request = Message::query();
-        let query = Query::query(
+        let query = Query::new(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
         );

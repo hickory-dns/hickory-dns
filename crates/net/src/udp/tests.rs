@@ -178,7 +178,7 @@ pub(super) async fn udp_client_stream_response_limit_test(
             // before looking at the fourth correct response.
             if idx < 3 {
                 message.queries.clear();
-                message.add_query(Query::query(
+                message.add_query(Query::new(
                     Name::from_str("wrong.name.").unwrap(),
                     RecordType::A,
                 ));
@@ -217,7 +217,7 @@ async fn udp_client_stream_test_inner(
 
     let mut query = Message::query();
     let query_name = Name::from_str("dead.beef.").unwrap();
-    query.add_query(Query::query(query_name.clone(), RecordType::NULL));
+    query.add_query(Query::new(query_name.clone(), RecordType::NULL));
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
 
     // Keep the server socket alive until the client is done, so that retry

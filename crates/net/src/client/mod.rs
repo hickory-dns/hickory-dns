@@ -159,7 +159,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         query_class: DNSClass,
         query_type: RecordType,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
-        let mut query = Query::query(name, query_type);
+        let mut query = Query::new(name, query_type);
         query.set_query_class(query_class);
         let mut options = DnsRequestOptions::default();
         options.use_edns = self.is_using_edns();

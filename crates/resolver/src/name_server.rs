@@ -466,7 +466,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
 
         match conn
             .send(DnsRequest::from_query(
-                Query::query(Name::root(), RecordType::NS),
+                Query::new(Name::root(), RecordType::NS),
                 DnsRequestOptions::default(),
             ))
             .first_answer()
@@ -913,7 +913,7 @@ mod tests {
         let response = name_server
             .send(
                 DnsRequest::from_query(
-                    Query::query(name.clone(), RecordType::A),
+                    Query::new(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 ),
                 ConnectionPolicy::default(),
@@ -947,7 +947,7 @@ mod tests {
             name_server
                 .send(
                     DnsRequest::from_query(
-                        Query::query(name.clone(), RecordType::A),
+                        Query::new(name.clone(), RecordType::A),
                         DnsRequestOptions::default(),
                     ),
                     ConnectionPolicy::default(),
@@ -1007,10 +1007,7 @@ mod tests {
         let ns = Arc::new(NameServer::new([], config, &cx.options, provider));
         let response = ns
             .send(
-                DnsRequest::from_query(
-                    Query::query(name.clone(), RecordType::NULL),
-                    request_options,
-                ),
+                DnsRequest::from_query(Query::new(name.clone(), RecordType::NULL), request_options),
                 ConnectionPolicy::default(),
                 &cx,
             )
@@ -1984,7 +1981,7 @@ mod resolver_metrics_tests {
                 let _ = name_server
                     .send(
                         DnsRequest::from_query(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default(),
                         ),
                         ConnectionPolicy::default(),
@@ -2029,7 +2026,7 @@ mod resolver_metrics_tests {
                 let _ = name_server
                     .send(
                         DnsRequest::from_query(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default(),
                         ),
                         ConnectionPolicy::default(),
@@ -2078,7 +2075,7 @@ mod resolver_metrics_tests {
                 let _ = name_server
                     .send(
                         DnsRequest::from_query(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default(),
                         ),
                         ConnectionPolicy::default(),

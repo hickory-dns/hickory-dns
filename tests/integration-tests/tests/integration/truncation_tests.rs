@@ -43,7 +43,7 @@ async fn test_truncation() {
     let max_payload = 512;
     let mut msg = Message::query();
     msg.add_query({
-        let mut query = Query::query(large_name(), RecordType::A);
+        let mut query = Query::new(large_name(), RecordType::A);
         query.set_query_class(DNSClass::IN);
         query
     });
