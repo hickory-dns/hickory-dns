@@ -134,6 +134,25 @@ impl MessageRequest {
     }
 }
 
+impl BinEncodable for MessageRequest {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
+        emit_message_parts(
+            &self.metadata,
+            // we emit the queries, not the raw bytes, in order to guarantee canonical form
+            //   in cases where that's necessary, like SIG0 validation
+            &mut self.queries.queries.iter(),
+            &mut self.answers.iter(),
+            &mut self.authorities.iter(),
+            &mut self.additionals.iter(),
+            self.edns.as_ref(),
+            self.signature.as_deref(),
+            encoder,
+        )?;
+
+        Ok(())
+    }
+}
+
 /// A set of Queries with the associated serialized data
 #[derive(Debug, PartialEq, Eq)]
 pub struct Queries {
@@ -244,25 +263,6 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
             )
         }
         Ok(self.length)
-    }
-}
-
-impl BinEncodable for MessageRequest {
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> Result<(), ProtoError> {
-        emit_message_parts(
-            &self.metadata,
-            // we emit the queries, not the raw bytes, in order to guarantee canonical form
-            //   in cases where that's necessary, like SIG0 validation
-            &mut self.queries.queries.iter(),
-            &mut self.answers.iter(),
-            &mut self.authorities.iter(),
-            &mut self.additionals.iter(),
-            self.edns.as_ref(),
-            self.signature.as_deref(),
-            encoder,
-        )?;
-
-        Ok(())
     }
 }
 
