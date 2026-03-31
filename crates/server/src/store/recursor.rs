@@ -21,10 +21,10 @@ use crate::{
     net::runtime::RuntimeProvider,
     proto::{
         op::Query,
-        rr::{LowerName, Name, RecordType, TSigResponseContext},
+        rr::{LowerName, Name, RecordType},
     },
     resolver::recursor::{RecursiveConfig, Recursor},
-    server::{Request, RequestInfo},
+    server::RequestInfo,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneType,
@@ -132,27 +132,6 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
             Err(error) => return LookupControlFlow::Continue(Err(LookupError::from(error))),
         };
         LookupControlFlow::Continue(Ok(AuthLookup::Response(response)))
-    }
-
-    async fn search(
-        &self,
-        request: &Request,
-        lookup_options: LookupOptions,
-    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
-        (
-            self.lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
-                lookup_options,
-            )
-            .await,
-            None,
-        )
     }
 
     async fn nsec_records(

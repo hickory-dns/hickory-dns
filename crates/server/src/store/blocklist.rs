@@ -430,27 +430,6 @@ impl ZoneHandler for BlocklistZoneHandler {
         }
     }
 
-    async fn search(
-        &self,
-        request: &Request,
-        lookup_options: LookupOptions,
-    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
-        (
-            self.lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
-                lookup_options,
-            )
-            .await,
-            None,
-        )
-    }
-
     async fn zone_transfer(
         &self,
         _request: &Request,
