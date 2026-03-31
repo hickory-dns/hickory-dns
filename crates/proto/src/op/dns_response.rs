@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoError,
     op::{Message, MessageType},
-    rr::{RData, RecordType, rdata::SOA, resource::RecordRef},
+    rr::{RData, RecordType, rdata::SOA, record::RecordRef},
 };
 
 // TODO: this needs to have the IP addr of the remote system...
