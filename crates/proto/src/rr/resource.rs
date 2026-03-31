@@ -73,10 +73,10 @@ const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 #[derive(Eq, Debug, Clone)]
 // TODO: make Record carry a lifetime for more efficient storage options in the future
 pub struct Record<R: RecordData = RData> {
-    name_labels: Name,
+    name: Name,
     dns_class: DNSClass,
     ttl: u32,
-    rdata: R,
+    data: R,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
     #[cfg(feature = "__dnssec")]
@@ -87,10 +87,10 @@ impl Record {
     #[cfg(test)]
     pub(crate) fn stub() -> Self {
         Self {
-            name_labels: Name::from_ascii(".").unwrap(),
+            name: Name::from_ascii(".").unwrap(),
             dns_class: DNSClass::IN,
             ttl: 0,
-            rdata: RData::Update0(RecordType::NULL),
+            data: RData::Update0(RecordType::NULL),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
             #[cfg(feature = "__dnssec")]
@@ -103,10 +103,10 @@ impl Record {
     /// Creates an update record with RDLENGTH=0
     pub fn update0(name: Name, ttl: u32, rr_type: RecordType) -> Self {
         Self {
-            name_labels: name,
+            name,
             dns_class: DNSClass::IN,
             ttl,
-            rdata: RData::Update0(rr_type),
+            data: RData::Update0(rr_type),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
             #[cfg(feature = "__dnssec")]
@@ -133,10 +133,10 @@ impl<R: RecordData> Record<R> {
     /// * `rdata` - record data to associate with the Record
     pub fn from_rdata(name: Name, ttl: u32, rdata: R) -> Self {
         Self {
-            name_labels: name,
+            name,
             dns_class: DNSClass::IN,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
             #[cfg(feature = "__dnssec")]
@@ -147,10 +147,10 @@ impl<R: RecordData> Record<R> {
     /// Converts this Record into a more specific version of RData
     pub fn map<N: RecordData>(self, f: impl FnOnce(R) -> Option<N>) -> Option<Record<N>> {
         let Self {
-            name_labels,
+            name,
             dns_class,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -158,10 +158,10 @@ impl<R: RecordData> Record<R> {
         } = self;
 
         Some(Record {
-            name_labels,
+            name,
             dns_class,
             ttl,
-            rdata: f(rdata)?,
+            data: f(rdata)?,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -172,23 +172,23 @@ impl<R: RecordData> Record<R> {
     /// Converts this Record into a generic version of RData
     pub fn into_record_of_rdata(self) -> Record<RData> {
         let Self {
-            name_labels,
+            name,
             dns_class,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
             proof,
         } = self;
 
-        let rdata: RData = RecordData::into_rdata(rdata);
+        let rdata = RecordData::into_rdata(rdata);
 
         Record {
-            name_labels,
+            name,
             dns_class,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -200,7 +200,7 @@ impl<R: RecordData> Record<R> {
     /// NAME            a domain name to which this resource record pertains.
     /// ```
     pub fn set_name(&mut self, name: Name) -> &mut Self {
-        self.name_labels = name;
+        self.name = name;
         self
     }
 
@@ -241,7 +241,7 @@ impl<R: RecordData> Record<R> {
     /// ```
     #[track_caller]
     pub fn set_data(&mut self, rdata: R) -> &mut Self {
-        self.rdata = rdata;
+        self.data = rdata;
         self
     }
 
@@ -263,13 +263,13 @@ impl<R: RecordData> Record<R> {
     /// Returns the name of the record
     #[inline]
     pub fn name(&self) -> &Name {
-        &self.name_labels
+        &self.name
     }
 
     /// Returns the type of the RecordData in the record
     #[inline]
     pub fn record_type(&self) -> RecordType {
-        self.rdata.record_type()
+        self.data.record_type()
     }
 
     /// Returns the DNSClass of the Record, generally IN fro internet
@@ -287,19 +287,19 @@ impl<R: RecordData> Record<R> {
     /// Returns the Record Data, i.e. the record information
     #[inline]
     pub fn data(&self) -> &R {
-        &self.rdata
+        &self.data
     }
 
     /// Returns a mutable reference to the Record Data
     #[inline]
     pub fn data_mut(&mut self) -> &mut R {
-        &mut self.rdata
+        &mut self.data
     }
 
     /// Returns the RData consuming the Record
     #[inline]
     pub fn into_data(self) -> R {
-        self.rdata
+        self.data
     }
 
     /// Consumes `Record` and returns its components
@@ -347,10 +347,10 @@ pub struct RecordParts<R: RecordData = RData> {
 impl<R: RecordData> From<Record<R>> for RecordParts<R> {
     fn from(record: Record<R>) -> Self {
         let Record {
-            name_labels,
+            name: name_labels,
             dns_class,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -372,7 +372,7 @@ impl<R: RecordData> From<Record<R>> for RecordParts<R> {
 
 impl<R: RecordData> BinEncodable for Record<R> {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.name_labels.emit(encoder)?;
+        self.name.emit(encoder)?;
         self.record_type().emit(encoder)?;
 
         #[cfg(not(feature = "mdns"))]
@@ -395,8 +395,8 @@ impl<R: RecordData> BinEncodable for Record<R> {
         // write the RData
         //   the None case is handled below by writing `0` for the length of the RData
         //   this is in turn read as `None` during the `read` operation.
-        if !self.rdata.is_update() {
-            self.rdata.emit(encoder)?;
+        if !self.data.is_update() {
+            self.data.emit(encoder)?;
         }
 
         // get the length written
@@ -488,10 +488,10 @@ impl<'r> BinDecodable<'r> for Record<RData> {
         };
 
         Ok(Self {
-            name_labels,
+            name: name_labels,
             dns_class: class,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -547,11 +547,11 @@ impl<R: RecordData> fmt::Display for Record<R> {
         write!(
             f,
             "{name} {ttl} {class} {ty} {rdata}",
-            name = self.name_labels,
+            name = self.name,
             ttl = self.ttl,
             class = self.dns_class,
             ty = self.record_type(),
-            rdata = self.rdata,
+            rdata = self.data,
         )?;
 
         Ok(())
@@ -572,9 +572,7 @@ impl<R: RecordData> PartialEq for Record<R> {
     /// ```
     fn eq(&self, other: &Self) -> bool {
         // self == other && // the same pointer
-        self.name_labels == other.name_labels
-            && self.dns_class == other.dns_class
-            && self.rdata == other.rdata
+        self.name == other.name && self.dns_class == other.dns_class && self.data == other.data
     }
 }
 
@@ -624,14 +622,14 @@ impl Ord for Record {
         //  conversion once somehow and store it separately. Or should the internal storage of all
         //  resource records be maintained in binary?
 
-        compare_or_equal!(self, other, name_labels);
+        compare_or_equal!(self, other, name);
         match self.record_type().cmp(&other.record_type()) {
             o @ Ordering::Less | o @ Ordering::Greater => return o,
             Ordering::Equal => {}
         }
         compare_or_equal!(self, other, dns_class);
         compare_or_equal!(self, other, ttl);
-        compare_or_equal!(self, other, rdata);
+        compare_or_equal!(self, other, data);
         Ordering::Equal
     }
 }
@@ -689,10 +687,10 @@ impl<'a> From<&'a Record> for Proven<&'a Record> {
 
 /// A Record where the RecordData type is already known
 pub struct RecordRef<'a, R: RecordData> {
-    name_labels: &'a Name,
+    name: &'a Name,
     dns_class: DNSClass,
     ttl: u32,
-    rdata: &'a R,
+    data: &'a R,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
     #[cfg(feature = "__dnssec")]
@@ -711,10 +709,10 @@ impl<R: RecordData> RecordRef<'_, R> {
     /// Allocates space for a Record with the same fields
     pub fn to_owned(&self) -> Record<R> {
         Record {
-            name_labels: self.name_labels.to_owned(),
+            name: self.name.to_owned(),
             dns_class: self.dns_class,
             ttl: self.ttl,
-            rdata: self.rdata.clone(),
+            data: self.data.clone(),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: self.mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -725,13 +723,13 @@ impl<R: RecordData> RecordRef<'_, R> {
     /// Returns the name of the record
     #[inline]
     pub fn name(&self) -> &Name {
-        self.name_labels
+        self.name
     }
 
     /// Returns the type of the RecordData in the record
     #[inline]
     pub fn record_type(&self) -> RecordType {
-        self.rdata.record_type()
+        self.data.record_type()
     }
 
     /// Returns the DNSClass of the Record, generally IN fro internet
@@ -749,7 +747,7 @@ impl<R: RecordData> RecordRef<'_, R> {
     /// Returns the Record Data, i.e. the record information
     #[inline]
     pub fn data(&self) -> &R {
-        self.rdata
+        self.data
     }
 
     /// Returns if the mDNS cache-flush bit is set or not
@@ -773,10 +771,10 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
 
     fn try_from(record: &'a Record) -> Result<Self, Self::Error> {
         let Record {
-            name_labels,
+            name,
             dns_class,
             ttl,
-            rdata,
+            data: rdata,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
@@ -786,10 +784,10 @@ impl<'a, R: RecordData> TryFrom<&'a Record> for RecordRef<'a, R> {
         match R::try_borrow(rdata) {
             None => Err(record),
             Some(rdata) => Ok(Self {
-                name_labels,
+                name,
                 dns_class: *dns_class,
                 ttl: *ttl,
-                rdata,
+                data: rdata,
                 #[cfg(feature = "mdns")]
                 mdns_cache_flush: *mdns_cache_flush,
                 #[cfg(feature = "__dnssec")]
