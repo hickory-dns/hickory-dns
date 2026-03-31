@@ -58,7 +58,7 @@ async fn test_search() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut query = Query::new();
+    let mut query = Query::root();
     query.set_name(origin.into());
     let request = Request::from_message(
         MessageRequest::mock(*TEST_METADATA, query),
@@ -89,7 +89,7 @@ async fn test_search_www() {
     let example = create_example();
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
-    let mut query = Query::new();
+    let mut query = Query::root();
     query.set_name(www_name);
     let request = Request::from_message(
         MessageRequest::mock(*TEST_METADATA, query),
