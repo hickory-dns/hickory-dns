@@ -15,7 +15,7 @@ pub mod rdata;
 pub mod record_data;
 pub mod record_type;
 pub(crate) mod record_type_set;
-pub mod resource;
+pub mod record;
 mod rr_key;
 mod rr_set;
 pub mod serial_number;
@@ -30,7 +30,7 @@ pub use self::domain::{IntoName, Name};
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::record_type_set::RecordTypeSet;
-pub use self::resource::Record;
+pub use self::record::Record;
 #[cfg(feature = "__dnssec")]
 pub use self::rr_set::RecordsAndRrsigsIter;
 pub use self::rr_set::{RecordSet, RecordSetParts, RrsetRecords};

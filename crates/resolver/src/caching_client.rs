@@ -31,7 +31,7 @@ use crate::{
                 LOCALHOST as LOCALHOST_usage, ONION, ResolverUsage,
             },
             rdata::{A, AAAA, CNAME, PTR},
-            resource::RecordRef,
+            record::RecordRef,
         },
     },
 };

@@ -23,7 +23,7 @@ use crate::proto::ProtoError;
 use crate::proto::dnssec::Proof;
 use crate::proto::op::{DnsResponse, Query, ResponseCode};
 use crate::proto::rr::RData;
-use crate::proto::rr::{Record, RecordType, rdata::SOA, resource::RecordRef};
+use crate::proto::rr::{Record, RecordType, rdata::SOA, record::RecordRef};
 use crate::proto::serialize::binary::DecodeError;
 
 /// The error type for network protocol errors (UDP, TCP, QUIC, H2, H3)
