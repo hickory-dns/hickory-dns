@@ -60,7 +60,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// * `query` - the query to lookup
     /// * `options` - options to use when constructing the message
     fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
-        debug!("querying: {} {:?}", query.name(), query.query_type());
+        debug!("querying: {} {:?}", query.name, query.query_type);
         self.send(DnsRequest::from_query(query, options))
     }
 }

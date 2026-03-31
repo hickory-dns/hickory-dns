@@ -62,12 +62,12 @@ impl Hosts {
             return None;
         }
 
-        let mut name = query.name().clone();
+        let mut name = query.name.clone();
         name.set_fqdn(true);
-        match query.query_type() {
+        match query.query_type {
             RecordType::A | RecordType::AAAA => {
                 let val = self.by_name.get(&name)?;
-                return match query.query_type() {
+                return match query.query_type {
                     RecordType::A => val.a.clone(),
                     RecordType::AAAA => val.aaaa.clone(),
                     _ => None,

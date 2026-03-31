@@ -45,7 +45,7 @@ impl Lookup {
 
     /// Return new instance with given rdata and the maximum TTL.
     pub fn from_rdata(query: Query, rdata: RData) -> Self {
-        let record = Record::from_rdata(query.name().clone(), MAX_TTL, rdata);
+        let record = Record::from_rdata(query.name.clone(), MAX_TTL, rdata);
         Self::new_with_max_ttl(query, [record])
     }
 

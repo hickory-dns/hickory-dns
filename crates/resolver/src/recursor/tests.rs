@@ -530,7 +530,7 @@ async fn cache_negative_responses() -> Result<(), NetError> {
             provider
                 .queries(&LEAF_IP)
                 .iter()
-                .filter(|x| x.name() == &no_exist_name && x.query_type() == RecordType::A)
+                .filter(|x| x.name == no_exist_name && x.query_type == RecordType::A)
                 .count(),
             1,
         );
@@ -676,8 +676,8 @@ fn ns_cache_test_fixture(
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
         move |destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
             let leaf_ns = leaf_ns.clone();
-            let query_name = msg.queries[0].name();
-            let query_type = msg.queries[0].query_type();
+            let query_name = &msg.queries[0].name;
+            let query_type = msg.queries[0].query_type;
 
             if !off_domain {
                 if destination == TLD_IP && *query_name == leaf_zone && query_type == RecordType::NS

@@ -18,7 +18,7 @@ use std::{
 /// This handler generates a valid A-record response to any query
 pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     msg.metadata.recursion_desired = false;
     msg.add_answer(Record::from_rdata(
@@ -34,7 +34,7 @@ pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option
 /// This handler responds to any messages with an incorrect transaction (query) id.
 pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     msg.metadata.id = if msg.metadata.id == 65535 {
         0
@@ -73,10 +73,10 @@ pub(crate) fn truncated_response_handler(
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     if name != Name::from_ascii("example.testing.").unwrap()
-        && msg.queries[0].query_type() != RecordType::TXT
+        && msg.queries[0].query_type != RecordType::TXT
     {
         msg.metadata.response_code = ResponseCode::NXDomain;
         return msg
@@ -122,8 +122,8 @@ pub(crate) fn truncated_response_handler(
 pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
     let query = msg.queries[0].clone();
-    let name = query.name().clone();
-    let q_type = query.query_type();
+    let name = query.name.clone();
+    let q_type = query.query_type;
 
     if name == Name::from_ascii("example.testing.").unwrap() {
         if !PACKET_LOSS_MARKER.load(Ordering::Relaxed) && q_type == RecordType::A {
@@ -164,7 +164,7 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
         mod_name = mod_name.append_label(new_label).unwrap();
     }
     queries[0].name = mod_name;
-    let name = queries[0].name().clone();
+    let name = queries[0].name.clone();
     msg.queries = queries;
 
     msg.metadata.authoritative = true;
@@ -185,7 +185,7 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
 /// This handler generates a large number of lengthy CNAME records to resolve
 pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     let Some(host) = name.iter().next() else {
         return Ok(None);
@@ -239,8 +239,8 @@ pub(crate) fn nsec3_nocover_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let query_name = msg.queries[0].name().clone();
-    let query_type = msg.queries[0].query_type();
+    let query_name = msg.queries[0].name.clone();
+    let query_type = msg.queries[0].query_type;
 
     let origin_name = Name::from_ascii("hickory-dns.testing.").unwrap();
     let correct_name = origin_name.prepend_label("subdomain-0")?;
@@ -466,7 +466,7 @@ pub(crate) fn nsec3_nocover_handler(
 /// responsive A record.
 pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     if name == Name::from_ascii("cname.example.testing.")? {
         msg.add_answer(Record::from_rdata(
@@ -517,8 +517,8 @@ pub(crate) fn parent_ns_in_authority_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
-    let q_type = msg.queries[0].query_type();
+    let name = msg.queries[0].name.clone();
+    let q_type = msg.queries[0].query_type;
 
     let zone = Name::from_ascii("example.testing.")?;
     let ns_name = Name::from_ascii("ns.external.testing.")?;
@@ -583,7 +583,7 @@ pub(crate) fn qr_not_response_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     msg.metadata.message_type = MessageType::Query;
     msg.metadata.recursion_desired = false;
@@ -604,7 +604,7 @@ pub(crate) fn qr_not_response_force_tcp_handler(
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     match transport {
         Transport::Udp => {

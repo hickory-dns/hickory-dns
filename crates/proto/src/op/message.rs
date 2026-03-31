@@ -196,7 +196,7 @@ impl Message {
             return self;
         }
 
-        let Some(query_type) = self.queries.first().map(|q| q.query_type()) else {
+        let Some(query_type) = self.queries.first().map(|q| q.query_type) else {
             return self; // No query, return unchanged
         };
 
