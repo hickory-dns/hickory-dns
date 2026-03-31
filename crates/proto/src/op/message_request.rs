@@ -142,20 +142,6 @@ pub struct Queries {
 }
 
 impl Queries {
-    /// Construct a mock Queries object for a given query for testing purposes
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new(query: Vec<LowerQuery>) -> Self {
-        let mut encoded = Vec::new();
-        let mut encoder = BinEncoder::new(&mut encoded);
-        for q in query.iter() {
-            q.emit(&mut encoder).unwrap();
-        }
-        Self {
-            queries: query,
-            original: encoded.into_boxed_slice(),
-        }
-    }
-
     /// Read queries from a decoder
     pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, DecodeError> {
         let queries_start = decoder.index();
@@ -172,24 +158,26 @@ impl Queries {
         Ok(Self { queries, original })
     }
 
-    /// return the number of queries in the request
-    pub fn len(&self) -> usize {
-        self.queries.len()
+    /// Construct a mock Queries object for a given query for testing purposes
+    #[cfg(any(test, feature = "testing"))]
+    pub fn new(query: Vec<LowerQuery>) -> Self {
+        let mut encoded = Vec::new();
+        let mut encoder = BinEncoder::new(&mut encoded);
+        for q in query.iter() {
+            q.emit(&mut encoder).unwrap();
+        }
+        Self {
+            queries: query,
+            original: encoded.into_boxed_slice(),
+        }
     }
 
-    /// Returns true if there are no queries
-    pub fn is_empty(&self) -> bool {
-        self.queries.is_empty()
-    }
-
-    /// Returns the queries from the request
-    pub fn queries(&self) -> &[LowerQuery] {
-        &self.queries
-    }
-
-    /// returns the bytes as they were seen from the Client
-    pub fn as_bytes(&self) -> &[u8] {
-        self.original.as_ref()
+    /// Construct an empty set of queries
+    pub fn empty() -> Self {
+        Self {
+            queries: Vec::new(),
+            original: (*b"").into(),
+        }
     }
 
     /// Helper for encoding the queries in a MessageRequest.
@@ -213,12 +201,24 @@ impl Queries {
         Ok(&self.queries[0])
     }
 
-    /// Construct an empty set of queries
-    pub fn empty() -> Self {
-        Self {
-            queries: Vec::new(),
-            original: (*b"").into(),
-        }
+    /// return the number of queries in the request
+    pub fn len(&self) -> usize {
+        self.queries.len()
+    }
+
+    /// Returns true if there are no queries
+    pub fn is_empty(&self) -> bool {
+        self.queries.is_empty()
+    }
+
+    /// returns the bytes as they were seen from the Client
+    pub fn as_bytes(&self) -> &[u8] {
+        self.original.as_ref()
+    }
+
+    /// Returns the queries from the request
+    pub fn queries(&self) -> &[LowerQuery] {
+        &self.queries
     }
 }
 
