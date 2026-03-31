@@ -153,7 +153,16 @@ fn test_8_1_4_unknown_opcodes() -> Result<(), Error> {
         ns.ipv4_addr(),
         RecordType::SOA, // The type will be ignored, since we are specifying +header-only.
         &FQDN::TEST_DOMAIN,
-    )?;
+    );
+
+    match ns.logs() {
+        Ok(logs) => println!("Server logs:\n{logs}"),
+        Err(error) => println!("Expected server logs to be available: {error}"),
+    }
+
+    let Ok(output) = output else {
+        panic!("Expected dig to succeed, but it failed with error:\n{output:?}");
+    };
 
     assert_eq!(output.status, DigStatus::NOTIMP);
     assert_eq!(output.opcode, "RESERVED15");
