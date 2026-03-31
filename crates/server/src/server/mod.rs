@@ -684,75 +684,6 @@ pub fn default_tls_server_config(
     Ok(config)
 }
 
-#[derive(Clone)]
-pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
-    pub(super) request_meta: Metadata,
-    queries: Vec<LowerQuery>,
-    pub(super) protocol: Protocol,
-    src_addr: SocketAddr,
-    handler: R,
-    #[cfg(feature = "metrics")]
-    metrics: ResponseHandlerMetrics,
-}
-
-#[async_trait::async_trait]
-impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
-    async fn send_response<'a>(
-        &mut self,
-        response: crate::zone_handler::MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> Result<ResponseInfo, NetError> {
-        let response_info = self.handler.send_response(response).await?;
-
-        let id = self.request_meta.id;
-        let rid = response_info.id;
-        if id != rid {
-            warn!("request id:{id} does not match response id:{rid}");
-            debug_assert_eq!(id, rid, "request id and response id should match");
-        }
-
-        let rflags = response_info.flags();
-        let answer_count = response_info.counts().answers;
-        let authority_count = response_info.counts().authorities;
-        let additional_count = response_info.counts().additionals;
-        let response_code = response_info.response_code;
-
-        info!(
-            "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
-            id = rid,
-            proto = self.protocol,
-            addr = self.src_addr.ip(),
-            port = self.src_addr.port(),
-            op = self.request_meta.op_code,
-            qflags = self.request_meta.flags(),
-            code = response_code,
-            answers = answer_count,
-            authorities = authority_count,
-            additionals = additional_count,
-            rflags = rflags
-        );
-        for query in self.queries.iter() {
-            info!(
-                "query:{query}:{qtype}:{class}",
-                query = query.name(),
-                qtype = query.query_type(),
-                class = query.query_class()
-            );
-        }
-
-        #[cfg(feature = "metrics")]
-        self.metrics.update(self, &response_info);
-
-        Ok(response_info)
-    }
-}
-
 struct ServerContext<T> {
     handler: T,
     access: AccessControl,
@@ -935,6 +866,75 @@ async fn error_response_handler(
 
     if let Err(error) = result {
         warn!(%error, "failed to return FormError to client");
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
+    pub(super) request_meta: Metadata,
+    queries: Vec<LowerQuery>,
+    pub(super) protocol: Protocol,
+    src_addr: SocketAddr,
+    handler: R,
+    #[cfg(feature = "metrics")]
+    metrics: ResponseHandlerMetrics,
+}
+
+#[async_trait::async_trait]
+impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
+    async fn send_response<'a>(
+        &mut self,
+        response: crate::zone_handler::MessageResponse<
+            '_,
+            'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+        >,
+    ) -> Result<ResponseInfo, NetError> {
+        let response_info = self.handler.send_response(response).await?;
+
+        let id = self.request_meta.id;
+        let rid = response_info.id;
+        if id != rid {
+            warn!("request id:{id} does not match response id:{rid}");
+            debug_assert_eq!(id, rid, "request id and response id should match");
+        }
+
+        let rflags = response_info.flags();
+        let answer_count = response_info.counts().answers;
+        let authority_count = response_info.counts().authorities;
+        let additional_count = response_info.counts().additionals;
+        let response_code = response_info.response_code;
+
+        info!(
+            "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
+            id = rid,
+            proto = self.protocol,
+            addr = self.src_addr.ip(),
+            port = self.src_addr.port(),
+            op = self.request_meta.op_code,
+            qflags = self.request_meta.flags(),
+            code = response_code,
+            answers = answer_count,
+            authorities = authority_count,
+            additionals = additional_count,
+            rflags = rflags
+        );
+        for query in self.queries.iter() {
+            info!(
+                "query:{query}:{qtype}:{class}",
+                query = query.name(),
+                qtype = query.query_type(),
+                class = query.query_class()
+            );
+        }
+
+        #[cfg(feature = "metrics")]
+        self.metrics.update(self, &response_info);
+
+        Ok(response_info)
     }
 }
 
