@@ -45,11 +45,14 @@ use crate::{
         xfer::Protocol,
     },
     proto::{
-        op::{Header, LowerQuery, MessageType, Metadata, ResponseCode, SerialMessage},
+        op::{
+            Header, LowerQuery, MessageRequest, MessageType, Metadata, Queries, ResponseCode,
+            SerialMessage,
+        },
         rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
     },
-    zone_handler::{MessageRequest, MessageResponseBuilder, Queries},
+    zone_handler::MessageResponseBuilder,
 };
 
 #[cfg(feature = "__https")]

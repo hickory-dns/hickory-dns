@@ -14,7 +14,7 @@ use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::{Edns, LowerQuery, Message};
-use hickory_proto::op::{MessageType, Metadata, OpCode, Query, ResponseCode};
+use hickory_proto::op::{MessageRequest, MessageType, Metadata, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::TSigner;
 #[cfg(feature = "__dnssec")]
@@ -32,9 +32,7 @@ use hickory_server::store::in_memory::InMemoryZoneHandler;
 use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
 #[cfg(feature = "__dnssec")]
 use hickory_server::zone_handler::MessageResponseBuilder;
-use hickory_server::zone_handler::{
-    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
-};
+use hickory_server::zone_handler::{AxfrPolicy, LookupError, LookupOptions, ZoneHandler, ZoneType};
 use test_support::subscribe;
 
 const TEST_METADATA: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);

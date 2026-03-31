@@ -12,14 +12,13 @@ use crate::{
     proto::{
         ProtoError,
         op::{
-            Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, ResponseCode,
-            emit_message_parts,
+            Edns, Header, HeaderCounts, MessageRequest, MessageType, Metadata, OpCode, Queries,
+            ResponseCode, emit_message_parts,
         },
         rr::{Record, rdata::TSIG},
         serialize::binary::{BinEncodable, BinEncoder},
     },
     server::ResponseInfo,
-    zone_handler::{Queries, message_request::MessageRequest},
 };
 
 /// A [`crate::proto::serialize::binary::BinEncodable`] message with borrowed data for

@@ -33,7 +33,6 @@ use crate::server::{Request, RequestInfo};
 
 mod auth_lookup;
 mod catalog;
-pub(crate) mod message_request;
 mod message_response;
 
 pub use self::auth_lookup::{
@@ -41,7 +40,6 @@ pub use self::auth_lookup::{
     ZoneTransfer,
 };
 pub use self::catalog::Catalog;
-pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 
 /// ZoneHandler implementations can be used with a `Catalog`

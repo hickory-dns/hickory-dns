@@ -5,9 +5,11 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::proto::{
-    ProtoError,
-    op::{Edns, EmitAndCount, Header, LowerQuery, Message, Metadata, emit_message_parts},
+use alloc::{boxed::Box, vec::Vec};
+
+use super::{Edns, EmitAndCount, Header, LowerQuery, Message, Metadata, emit_message_parts};
+use crate::{
+    error::ProtoError,
     rr::{Record, rdata::TSIG},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
@@ -66,7 +68,7 @@ pub struct MessageRequest {
 impl MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
-    pub(crate) fn read(decoder: &mut BinDecoder<'_>, header: Header) -> Result<Self, DecodeError> {
+    pub fn read(decoder: &mut BinDecoder<'_>, header: Header) -> Result<Self, DecodeError> {
         let Header {
             mut metadata,
             counts,
@@ -190,7 +192,8 @@ impl Queries {
         self.original.as_ref()
     }
 
-    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
+    /// Helper for encoding the queries in a MessageRequest.
+    pub fn as_emit_and_count(&self) -> impl EmitAndCount + '_ {
         QueriesEmitAndCount {
             length: self.queries.len(),
             // We don't generally support more than one query, but this will at least give us one
@@ -202,7 +205,7 @@ impl Queries {
 
     /// Validate that this set of Queries contains exactly one Query, and return a reference to the
     /// `LowerQuery` if so.
-    pub(crate) fn try_as_query(&self) -> Result<&LowerQuery, DecodeError> {
+    pub fn try_as_query(&self) -> Result<&LowerQuery, DecodeError> {
         let count = self.queries.len();
         if count != 1 {
             return Err(DecodeError::BadQueryCount(count));
@@ -211,7 +214,7 @@ impl Queries {
     }
 
     /// Construct an empty set of queries
-    pub(crate) fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             queries: Vec::new(),
             original: (*b"").into(),
@@ -219,7 +222,8 @@ impl Queries {
     }
 }
 
-pub(crate) struct QueriesEmitAndCount<'q> {
+/// A helper struct to emit the queries in a [`MessageRequest`].
+struct QueriesEmitAndCount<'q> {
     /// Number of queries in this segment
     length: usize,
     /// Use the first query, if it exists, to pre-populate the string compression cache

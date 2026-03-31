@@ -17,11 +17,13 @@ use crate::{
     net::{NetError, runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{Header, HeaderCounts, LowerQuery, MessageType, Metadata, ResponseCode},
+        op::{
+            Header, HeaderCounts, LowerQuery, MessageRequest, MessageType, Metadata, ResponseCode,
+        },
         serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
-    zone_handler::{LookupError, MessageRequest},
+    zone_handler::LookupError,
 };
 
 /// An incoming request to the DNS catalog
