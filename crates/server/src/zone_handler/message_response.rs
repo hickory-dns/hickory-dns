@@ -80,13 +80,15 @@ where
     pub(crate) fn encode(self) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
         let id = self.metadata.id;
         let mut bytes = Vec::with_capacity(512);
-        // mut block
-
         let mut encoder = BinEncoder::new(&mut bytes);
-        let info = self.destructive_emit(&mut encoder).or_else(|error| {
-            error!(%error, "error encoding message");
-            encode_fallback_servfail_response(id, &mut bytes)
-        })?;
+
+        let info = match self.destructive_emit(&mut encoder) {
+            Ok(info) => info,
+            Err(error) => {
+                error!(%error, "error encoding message");
+                encode_fallback_servfail_response(id, &mut bytes)?
+            }
+        };
 
         Ok((info, bytes))
     }
