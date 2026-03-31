@@ -1309,7 +1309,7 @@ mod tests {
         // Build the forwarded response
         let mut request_meta = Metadata::new(1234, MessageType::Query, OpCode::Query);
         request_meta.recursion_desired = true;
-        let query_lower = LowerQuery::query(query);
+        let query_lower = LowerQuery::from(query);
 
         let message = build_forwarded_response(
             Ok(auth_lookup),
