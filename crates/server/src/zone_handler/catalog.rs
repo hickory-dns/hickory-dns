@@ -880,9 +880,9 @@ async fn build_authoritative_response(
         } else {
             #[cfg(feature = "__dnssec")]
             {
-                let has_wildcard_match = answers.iter().any(|rr| match rr.data() {
+                let has_wildcard_match = answers.iter().any(|rr| match &rr.data {
                     RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
-                        rrsig.input().num_labels < rr.name().num_labels()
+                        rrsig.input().num_labels < rr.name.num_labels()
                     }
                     _ => false,
                 });
@@ -1101,7 +1101,7 @@ async fn build_forwarded_response(
                         // if we have another record (probably a dnssec record) that
                         // matches the query name, but wasn't included in the answers
                         // section, change the NXDomain response to NoError
-                        if *record.name() == **query.name() {
+                        if record.name == **query.name() {
                             debug!(
                                 query_name = %query.name(),
                                 ?record,

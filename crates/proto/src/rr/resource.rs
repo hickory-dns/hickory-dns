@@ -69,18 +69,45 @@ const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
+#[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Eq, Debug, Clone)]
 // TODO: make Record carry a lifetime for more efficient storage options in the future
 pub struct Record<R: RecordData = RData> {
-    name: Name,
-    dns_class: DNSClass,
-    ttl: u32,
-    data: R,
+    /// ```text
+    /// NAME            a domain name to which this resource record pertains.
+    /// ```
+    pub name: Name,
+    /// ```text
+    /// CLASS           two octets which specify the class of the data in the
+    ///                 RDATA field.
+    /// ```
+    pub dns_class: DNSClass,
+    /// ```text
+    /// TTL             a 32 bit unsigned integer that specifies the time
+    ///                 interval (in seconds) that the resource record may be
+    ///                 cached before it should be discarded.  Zero values are
+    ///                 interpreted to mean that the RR can only be used for the
+    ///                 transaction in progress, and should not be cached.
+    /// ```
+    pub ttl: u32,
+    /// ```text
+    /// RDATA           a variable length string of octets that describes the
+    ///                 resource.  The format of this information varies
+    ///                 according to the TYPE and CLASS of the resource record.
+    ///                 For example, the if the TYPE is A and the CLASS is IN,
+    ///                 the RDATA field is a 4 octet ARPA Internet address.
+    /// ```
+    pub data: R,
+    /// Whether the mDNS cache-flush bit is set
+    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
     #[cfg(feature = "mdns")]
-    mdns_cache_flush: bool,
+    pub mdns_cache_flush: bool,
+    /// The proof of DNSSEC validation for this record.
+    ///
+    /// This is only valid if some form of validation has occurred.
     #[cfg(feature = "__dnssec")]
-    proof: Proof,
+    pub proof: Proof,
 }
 
 impl Record {
@@ -196,110 +223,11 @@ impl<R: RecordData> Record<R> {
         }
     }
 
-    /// ```text
-    /// NAME            a domain name to which this resource record pertains.
-    /// ```
-    pub fn set_name(&mut self, name: Name) -> &mut Self {
-        self.name = name;
-        self
-    }
-
     /// Decrement the record TTL by `offset` seconds.  If offset is greater than the record TTL,
     /// the record TTL will be set to 0.
     pub fn decrement_ttl(&mut self, offset: u32) -> &mut Self {
         self.ttl = self.ttl.saturating_sub(offset);
         self
-    }
-
-    /// ```text
-    /// CLASS           two octets which specify the class of the data in the
-    ///                 RDATA field.
-    /// ```
-    pub fn set_dns_class(&mut self, dns_class: DNSClass) -> &mut Self {
-        self.dns_class = dns_class;
-        self
-    }
-
-    /// ```text
-    /// TTL             a 32 bit unsigned integer that specifies the time
-    ///                 interval (in seconds) that the resource record may be
-    ///                 cached before it should be discarded.  Zero values are
-    ///                 interpreted to mean that the RR can only be used for the
-    ///                 transaction in progress, and should not be cached.
-    /// ```
-    pub fn set_ttl(&mut self, ttl: u32) -> &mut Self {
-        self.ttl = ttl;
-        self
-    }
-
-    /// ```text
-    /// RDATA           a variable length string of octets that describes the
-    ///                 resource.  The format of this information varies
-    ///                 according to the TYPE and CLASS of the resource record.
-    ///                 For example, the if the TYPE is A and the CLASS is IN,
-    ///                 the RDATA field is a 4 octet ARPA Internet address.
-    /// ```
-    #[track_caller]
-    pub fn set_data(&mut self, rdata: R) -> &mut Self {
-        self.data = rdata;
-        self
-    }
-
-    /// Changes mDNS cache-flush bit
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
-    #[cfg(feature = "mdns")]
-    pub fn set_mdns_cache_flush(&mut self, flag: bool) -> &mut Self {
-        self.mdns_cache_flush = flag;
-        self
-    }
-
-    /// Set the DNSSEC Proof for this record, after it's been verified
-    #[cfg(feature = "__dnssec")]
-    pub fn set_proof(&mut self, proof: Proof) -> &mut Self {
-        self.proof = proof;
-        self
-    }
-
-    /// Returns the name of the record
-    #[inline]
-    pub fn name(&self) -> &Name {
-        &self.name
-    }
-
-    /// Returns the type of the RecordData in the record
-    #[inline]
-    pub fn record_type(&self) -> RecordType {
-        self.data.record_type()
-    }
-
-    /// Returns the DNSClass of the Record, generally IN fro internet
-    #[inline]
-    pub fn dns_class(&self) -> DNSClass {
-        self.dns_class
-    }
-
-    /// Returns the time-to-live of the record, for caching purposes
-    #[inline]
-    pub fn ttl(&self) -> u32 {
-        self.ttl
-    }
-
-    /// Returns the Record Data, i.e. the record information
-    #[inline]
-    pub fn data(&self) -> &R {
-        &self.data
-    }
-
-    /// Returns a mutable reference to the Record Data
-    #[inline]
-    pub fn data_mut(&mut self) -> &mut R {
-        &mut self.data
-    }
-
-    /// Returns the RData consuming the Record
-    #[inline]
-    pub fn into_data(self) -> R {
-        self.data
     }
 
     /// Consumes `Record` and returns its components
@@ -309,19 +237,10 @@ impl<R: RecordData> Record<R> {
         this.into()
     }
 
-    /// Returns if the mDNS cache-flush bit is set or not
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
-    #[cfg(feature = "mdns")]
+    /// Returns the type of the RecordData in the record
     #[inline]
-    pub fn mdns_cache_flush(&self) -> bool {
-        self.mdns_cache_flush
-    }
-
-    /// The Proof of DNSSEC validation for this record, this is only valid if some form of validation has occurred
-    #[cfg(feature = "__dnssec")]
-    #[inline]
-    pub fn proof(&self) -> Proof {
-        self.proof
+    pub fn record_type(&self) -> RecordType {
+        self.data.record_type()
     }
 }
 
@@ -381,7 +300,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
         #[cfg(feature = "mdns")]
         {
             if self.mdns_cache_flush {
-                encoder.emit_u16(u16::from(self.dns_class()) | MDNS_ENABLE_CACHE_FLUSH)?;
+                encoder.emit_u16(u16::from(self.dns_class) | MDNS_ENABLE_CACHE_FLUSH)?;
             } else {
                 self.dns_class.emit(encoder)?;
             }
@@ -672,7 +591,7 @@ impl PartialOrd<Self> for Record {
 #[cfg(feature = "__dnssec")]
 impl From<Record> for Proven<Record> {
     fn from(record: Record) -> Self {
-        let proof = record.proof();
+        let proof = record.proof;
         Self::new(proof, record)
     }
 }
@@ -680,7 +599,7 @@ impl From<Record> for Proven<Record> {
 #[cfg(feature = "__dnssec")]
 impl<'a> From<&'a Record> for Proven<&'a Record> {
     fn from(record: &'a Record) -> Self {
-        let proof = record.proof();
+        let proof = record.proof;
         Self::new(proof, record)
     }
 }
@@ -836,24 +755,23 @@ mod tests {
 
     #[test]
     fn test_order() {
-        let mut record = Record::from_rdata(
+        let record = Record::from_rdata(
             Name::from_str("www.example.com").unwrap(),
             5,
             RData::A(A::new(192, 168, 0, 1)),
         );
-        record.set_dns_class(DNSClass::IN);
 
         let mut greater_name = record.clone();
-        greater_name.set_name(Name::from_str("zzz.example.com").unwrap());
+        greater_name.name = Name::from_str("zzz.example.com").unwrap();
 
         let mut greater_type = record.clone().into_record_of_rdata();
-        greater_type.set_data(RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 0)));
+        greater_type.data = RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 0));
 
         let mut greater_class = record.clone();
-        greater_class.set_dns_class(DNSClass::NONE);
+        greater_class.dns_class = DNSClass::NONE;
 
         let mut greater_rdata = record.clone();
-        greater_rdata.set_data(RData::A(A::new(192, 168, 0, 255)));
+        greater_rdata.data = RData::A(A::new(192, 168, 0, 255));
 
         let compares = vec![
             (&record, &greater_name),
@@ -877,7 +795,7 @@ mod tests {
             size_of::<u16>() /* rr_type */;
 
         let mut record = Record::<RData>::stub();
-        record.set_mdns_cache_flush(true);
+        record.mdns_cache_flush = true;
 
         let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
         {
@@ -892,7 +810,7 @@ mod tests {
 
         let got = Record::<RData>::read(&mut decoder).unwrap();
 
-        assert_eq!(got.dns_class(), DNSClass::IN);
-        assert!(got.mdns_cache_flush());
+        assert_eq!(got.dns_class, DNSClass::IN);
+        assert!(got.mdns_cache_flush);
     }
 }

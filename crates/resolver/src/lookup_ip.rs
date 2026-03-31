@@ -10,7 +10,7 @@
 //! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
 use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::slice;
 use std::sync::Arc;
@@ -84,9 +84,9 @@ impl Iterator for LookupIpIter<'_> {
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.find_map(|record| match record.data() {
-            RData::A(ip) => Some(IpAddr::from(Ipv4Addr::from(*ip))),
-            RData::AAAA(ip) => Some(IpAddr::from(Ipv6Addr::from(*ip))),
+        self.0.find_map(|record| match record.data {
+            RData::A(ip) => Some(IpAddr::from(*ip)),
+            RData::AAAA(ip) => Some(IpAddr::from(*ip)),
             _ => None,
         })
     }
@@ -399,7 +399,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -420,7 +420,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
@@ -443,7 +443,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -458,7 +458,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
@@ -470,7 +470,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
@@ -482,7 +482,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
@@ -494,7 +494,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
@@ -517,7 +517,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![
                 IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
@@ -532,7 +532,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
@@ -544,7 +544,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
         );
@@ -556,7 +556,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
@@ -568,7 +568,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
@@ -590,7 +590,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
@@ -602,7 +602,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -614,7 +614,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -636,7 +636,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -648,7 +648,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
@@ -660,7 +660,7 @@ pub(crate) mod tests {
                 .unwrap()
                 .answers()
                 .iter()
-                .map(|r| r.data().ip_addr().unwrap())
+                .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );

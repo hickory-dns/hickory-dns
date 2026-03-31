@@ -60,7 +60,7 @@ async fn resolve_list(
                 lookup
                     .answers()
                     .iter()
-                    .filter_map(|record| match record.data() {
+                    .filter_map(|record| match &record.data {
                         RData::TXT(txt) => Some(txt.to_string()),
                         _ => None,
                     })

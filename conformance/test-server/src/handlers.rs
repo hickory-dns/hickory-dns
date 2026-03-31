@@ -270,7 +270,7 @@ pub(crate) fn nsec3_nocover_handler(
         }
         RecordType::A if query_name == correct_name => {
             for record in records {
-                if *record.name() != correct_name {
+                if record.name != correct_name {
                     continue;
                 }
 
@@ -321,7 +321,7 @@ pub(crate) fn nsec3_nocover_handler(
             for rec in records.iter().filter(|x| {
                 x.record_type() != RecordType::NSEC3 && x.record_type() != RecordType::RRSIG
             }) {
-                let hash = b32_hasher(rec.name());
+                let hash = b32_hasher(&rec.name);
                 if !names.contains(&hash) {
                     names.push(hash);
                 }
@@ -371,9 +371,9 @@ pub(crate) fn nsec3_nocover_handler(
             for record in records {
                 match record.record_type() {
                     RecordType::NSEC3 => {
-                        if *record.name() == nsec3_name
-                            || *record.name() == nsec3_closest_name
-                            || *record.name() == nsec3_wildcard_name
+                        if record.name == nsec3_name
+                            || record.name == nsec3_closest_name
+                            || record.name == nsec3_wildcard_name
                         {
                             msg.add_authority(record);
                         }
@@ -391,9 +391,9 @@ pub(crate) fn nsec3_nocover_handler(
                                 msg.add_authority(record);
                             }
                             RecordType::NSEC3 => {
-                                if *record.name() == nsec3_name
-                                    || *record.name() == nsec3_closest_name
-                                    || *record.name() == nsec3_wildcard_name
+                                if record.name == nsec3_name
+                                    || record.name == nsec3_closest_name
+                                    || record.name == nsec3_wildcard_name
                                 {
                                     msg.add_authority(record);
                                 }
@@ -441,7 +441,7 @@ pub(crate) fn nsec3_nocover_handler(
                             let Some(name) = nsec3_name.clone() else {
                                 continue;
                             };
-                            if name == *record.name() {
+                            if name == record.name {
                                 msg.add_additional(record);
                             }
                         }

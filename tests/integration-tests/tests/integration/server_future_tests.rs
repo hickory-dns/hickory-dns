@@ -319,11 +319,11 @@ async fn client_thread_www(future: impl Future<Output = Client<TokioRuntimeProvi
     assert!(response.metadata.authoritative);
 
     let record = &response.answers[0];
-    assert_eq!(record.name(), &name);
+    assert_eq!(record.name, name);
     assert_eq!(record.record_type(), RecordType::A);
-    assert_eq!(record.dns_class(), DNSClass::IN);
+    assert_eq!(record.dns_class, DNSClass::IN);
 
-    if let RData::A(address) = *record.data() {
+    if let RData::A(address) = record.data {
         assert_eq!(address, A::new(93, 184, 215, 14))
     } else {
         panic!();

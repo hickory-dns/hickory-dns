@@ -257,5 +257,5 @@ fn answered_a_1234(response: DnsResponse) -> bool {
     response
         .answers
         .iter()
-        .any(|record| matches!(record.data(), RData::A(a) if a.0 == Ipv4Addr::new(1, 2, 3, 4)))
+        .any(|record| matches!(record.data, RData::A(a) if a.0 == Ipv4Addr::new(1, 2, 3, 4)))
 }

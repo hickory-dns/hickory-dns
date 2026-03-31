@@ -248,14 +248,14 @@ async fn test_exclude_nsec(
 ) {
     let mut modified_response = original_response.clone();
     modified_response.authorities.retain(|record| {
-        record.name() != &nsec_owner_name || record.record_type() != RecordType::NSEC
+        record.name != nsec_owner_name || record.record_type() != RecordType::NSEC
     });
     assert!(
         modified_response.authorities.len() < original_response.authorities.len(),
         "failed to remove expected NSEC record at {nsec_owner_name}: {modified_response:?}"
     );
 
-    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers[0].data() else {
+    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = &dnskey_response.answers[0].data else {
         panic!("expected DNSKEY in DNSKEY response: {dnskey_response:#?}");
     };
 
@@ -543,11 +543,11 @@ fn example_zone_nsec_chain() {
             let record = iterator.next().unwrap();
             assert_eq!(iterator.next(), None);
 
-            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = record.data() else {
+            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
                 panic!("expected NSEC record: {record:#?}");
             };
 
-            Some((record.name().clone(), nsec.clone()))
+            Some((record.name.clone(), nsec.clone()))
         })
         .collect::<Vec<_>>();
     nsecs.sort_by(|(left_name, _), (right_name, _)| left_name.cmp(right_name));

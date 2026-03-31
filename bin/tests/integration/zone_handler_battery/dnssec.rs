@@ -68,7 +68,7 @@ pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 
     assert_eq!(soa_records.len(), 1);
 
-    let Some(RData::SOA(soa)) = soa_records.first().map(|r| r.data()) else {
+    let Some(RData::SOA(soa)) = soa_records.first().map(|r| &r.data) else {
         panic!("expected SOA record");
     };
 
@@ -106,7 +106,7 @@ pub fn test_ns(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     assert_eq!(
         ns_records
             .first()
-            .and_then(|r| match r.data() {
+            .and_then(|r| match &r.data {
                 RData::NS(ns) => Some(&ns.0),
                 _ => None,
             })
@@ -182,7 +182,7 @@ pub fn test_wildcard(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     assert!(
         cname_records
             .iter()
-            .all(|r| *r.name() == Name::from_str("www.wildcard.example.com.").unwrap())
+            .all(|r| r.name == Name::from_str("www.wildcard.example.com.").unwrap())
     );
 
     let rrsig_records: Vec<_> = other_records
@@ -221,7 +221,7 @@ pub fn test_wildcard_subdomain(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     assert!(
         cname_records
             .iter()
-            .all(|r| *r.name() == Name::from_str("subdomain.www.wildcard.example.com.").unwrap())
+            .all(|r| r.name == Name::from_str("subdomain.www.wildcard.example.com.").unwrap())
     );
 
     let rrsig_records: Vec<_> = other_records
@@ -347,7 +347,7 @@ pub fn test_nsec_nxdomain_wraps_end(handler: impl ZoneHandler, _: &[DNSKEY]) {
 }
 
 pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSKEY]) {
-    let record_name = records.first().unwrap().name();
+    let record_name = &records.first().unwrap().name;
     let record_type = records.first().unwrap().record_type();
     println!("record_name: {record_name}, type: {record_type}");
 
@@ -355,7 +355,7 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
     assert!(keys.iter().all(|key| {
         rrsig_records
             .iter()
-            .map(|rrsig| rrsig.data())
+            .map(|rrsig| &rrsig.data)
             .filter(|rrsig| rrsig.input().algorithm == key.algorithm())
             .filter(|rrsig| rrsig.input().key_tag == key.calculate_key_tag().unwrap())
             .filter(|rrsig| rrsig.input().type_covered == record_type)

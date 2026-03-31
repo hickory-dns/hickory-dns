@@ -134,11 +134,11 @@ async fn test_query(mut client: Client<TokioRuntimeProvider>) {
     );
 
     let record = &response.answers[0];
-    assert_eq!(record.name(), &name);
+    assert_eq!(record.name, name);
     assert_eq!(record.record_type(), RecordType::A);
-    assert_eq!(record.dns_class(), DNSClass::IN);
+    assert_eq!(record.dns_class, DNSClass::IN);
 
-    if let RData::A(address) = *record.data() {
+    if let RData::A(address) = record.data {
         assert_eq!(address, A::new(93, 184, 215, 14))
     } else {
         panic!();
@@ -445,11 +445,7 @@ async fn test_create() {
         .expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -465,8 +461,7 @@ async fn test_create() {
     assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    record.set_data(RData::A(A::new(101, 11, 101, 11)));
-
+    record.data = RData::A(A::new(101, 11, 101, 11));
     let result = client.create(record, origin).await.expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);
 }
@@ -501,11 +496,7 @@ async fn test_append() {
 
     // verify record contents
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -513,7 +504,7 @@ async fn test_append() {
     assert_eq!(result.answers[0], record);
 
     // will fail if already set and not the same value.
-    record.set_data(RData::A(A::new(101, 11, 101, 11)));
+    record.data = RData::A(A::new(101, 11, 101, 11));
 
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -522,11 +513,7 @@ async fn test_append() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -536,7 +523,7 @@ async fn test_append() {
         result
             .answers
             .iter()
-            .any(|rr| if let RData::A(ip) = *rr.data() {
+            .any(|rr| if let RData::A(ip) = rr.data {
                 ip == A::new(100, 10, 100, 10)
             } else {
                 false
@@ -546,8 +533,8 @@ async fn test_append() {
         result
             .answers
             .iter()
-            .any(|rr| if let RData::A(ip) = rr.data() {
-                *ip == A::new(101, 11, 101, 11)
+            .any(|rr| if let RData::A(ip) = rr.data {
+                ip == A::new(101, 11, 101, 11)
             } else {
                 false
             })
@@ -561,11 +548,7 @@ async fn test_append() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -594,7 +577,7 @@ async fn test_compare_and_swap() {
 
     let current = record;
     let mut new = current.clone();
-    new.set_data(RData::A(A::new(101, 11, 101, 11)));
+    new.data = RData::A(A::new(101, 11, 101, 11));
 
     let result = client
         .compare_and_swap(current.clone(), new.clone(), origin.clone())
@@ -603,7 +586,7 @@ async fn test_compare_and_swap() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
-        .query(new.name().clone(), new.dns_class(), new.record_type())
+        .query(new.name.clone(), new.dns_class, new.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -612,15 +595,15 @@ async fn test_compare_and_swap() {
         result
             .answers
             .iter()
-            .any(|rr| if let RData::A(ip) = rr.data() {
-                *ip == A::new(101, 11, 101, 11)
+            .any(|rr| if let RData::A(ip) = rr.data {
+                ip == A::new(101, 11, 101, 11)
             } else {
                 false
             })
     );
 
     // check the it fails if tried again.
-    new.set_data(RData::A(A::new(102, 12, 102, 12)));
+    new.data = RData::A(A::new(102, 12, 102, 12));
 
     let result = client
         .compare_and_swap(current, new.clone(), origin)
@@ -629,7 +612,7 @@ async fn test_compare_and_swap() {
     assert_eq!(result.metadata.response_code, ResponseCode::NXRRSet);
 
     let result = client
-        .query(new.name().clone(), new.dns_class(), new.record_type())
+        .query(new.name.clone(), new.dns_class, new.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -638,8 +621,8 @@ async fn test_compare_and_swap() {
         result
             .answers
             .iter()
-            .any(|rr| if let RData::A(ip) = rr.data() {
-                *ip == A::new(101, 11, 101, 11)
+            .any(|rr| if let RData::A(ip) = rr.data {
+                ip == A::new(101, 11, 101, 11)
             } else {
                 false
             })
@@ -674,7 +657,7 @@ async fn test_delete_by_rdata() {
         .expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
-    record.set_data(RData::A(A::new(101, 11, 101, 11)));
+    record.data = RData::A(A::new(101, 11, 101, 11));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .await
@@ -689,11 +672,7 @@ async fn test_delete_by_rdata() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -702,8 +681,8 @@ async fn test_delete_by_rdata() {
         result
             .answers
             .iter()
-            .any(|rr| if let RData::A(ip) = rr.data() {
-                *ip == A::new(100, 10, 100, 10)
+            .any(|rr| if let RData::A(ip) = rr.data {
+                ip == A::new(100, 10, 100, 10)
             } else {
                 false
             })
@@ -738,7 +717,7 @@ async fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
-    record.set_data(RData::A(A::new(101, 11, 101, 11)));
+    record.data = RData::A(A::new(101, 11, 101, 11));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .await
@@ -753,11 +732,7 @@ async fn test_delete_rrset() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
@@ -783,7 +758,7 @@ async fn test_delete_all() {
 
     // first check the must_exist option
     let result = client
-        .delete_all(record.name().clone(), origin.clone(), DNSClass::IN)
+        .delete_all(record.name.clone(), origin.clone(), DNSClass::IN)
         .await
         .expect("delete failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -795,7 +770,7 @@ async fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
-    record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
+    record.data = RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8));
     let result = client
         .create(record.clone(), origin.clone())
         .await
@@ -804,20 +779,20 @@ async fn test_delete_all() {
 
     // verify record contents
     let result = client
-        .delete_all(record.name().clone(), origin, DNSClass::IN)
+        .delete_all(record.name.clone(), origin, DNSClass::IN)
         .await
         .expect("delete failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let result = client
-        .query(record.name().clone(), record.dns_class(), RecordType::A)
+        .query(record.name.clone(), record.dns_class, RecordType::A)
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
     assert_eq!(result.answers.len(), 0);
 
     let result = client
-        .query(record.name().clone(), record.dns_class(), RecordType::AAAA)
+        .query(record.name.clone(), record.dns_class, RecordType::AAAA)
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);

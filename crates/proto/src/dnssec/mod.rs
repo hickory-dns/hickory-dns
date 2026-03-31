@@ -399,7 +399,7 @@ impl DnssecSummary {
     pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
         let mut all_secure = None;
         for record in records {
-            match record.proof() {
+            match &record.proof {
                 Proof::Secure => {
                     all_secure.get_or_insert(true);
                 }

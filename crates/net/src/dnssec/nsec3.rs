@@ -201,7 +201,7 @@ pub(super) fn verify_nsec3(
             // This would signal that we have a wildcard servicing our `query_name`.
             // `num_labels` will show how many labels are there
             // in the wildcard that services the `query_name`
-            let wildcard_num_labels = answers.iter().find_map(|record| match record.data() {
+            let wildcard_num_labels = answers.iter().find_map(|record| match &record.data {
                 RData::DNSSEC(DNSSECRData::RRSIG(data)) => Some(data.input().num_labels),
                 _ => None,
             });

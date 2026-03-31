@@ -109,7 +109,7 @@ impl ResponseCache {
             let (min_secs, max_secs) = self
                 .ttl_config
                 .positive_ttl_bounds_secs(record.record_type());
-            record.set_ttl(record.ttl().clamp(min_secs, max_secs));
+            record.ttl = record.ttl.clamp(min_secs, max_secs);
         }
 
         let (positive_min_ttl, positive_max_ttl) = self
@@ -123,7 +123,7 @@ impl ResponseCache {
         let min_ttl = message
             .all_sections()
             .filter(|r| r.record_type() == query_type)
-            .map(|r| Duration::from_secs(r.ttl().into()))
+            .map(|r| Duration::from_secs(r.ttl.into()))
             .min();
 
         min_ttl
@@ -584,7 +584,7 @@ mod tests {
         // The cache stores the record with the clamped TTL (3600). At t=0 that is
         // what clients receive.
         let result = cache.get(&query, now).unwrap().unwrap();
-        assert_eq!(result.answers.first().unwrap().ttl(), 3600);
+        assert_eq!(result.answers.first().unwrap().ttl, 3600);
 
         // At t=61 the returned TTL counts down from the cached 3600, not the
         // upstream 60.
@@ -592,14 +592,14 @@ mod tests {
             .get(&query, now + Duration::from_secs(61))
             .unwrap()
             .unwrap();
-        assert_eq!(result.answers.first().unwrap().ttl(), 3539);
+        assert_eq!(result.answers.first().unwrap().ttl, 3539);
 
         // At t=3599: still valid, TTL=1.
         let result = cache
             .get(&query, now + Duration::from_secs(3599))
             .unwrap()
             .unwrap();
-        assert_eq!(result.answers.first().unwrap().ttl(), 1);
+        assert_eq!(result.answers.first().unwrap().ttl, 1);
 
         // At t=3601: cache miss — a new upstream lookup will be issued.
         assert!(cache.get(&query, now + Duration::from_secs(3601)).is_none());
@@ -635,14 +635,14 @@ mod tests {
         // The cache stores the record with the clamped TTL (120), not the
         // upstream 3600.
         let result = cache.get(&query, now).unwrap().unwrap();
-        assert_eq!(result.answers.first().unwrap().ttl(), 120);
+        assert_eq!(result.answers.first().unwrap().ttl, 120);
 
         // At t=60 the returned TTL counts down from the cached 120.
         let result = cache
             .get(&query, now + Duration::from_secs(60))
             .unwrap()
             .unwrap();
-        assert_eq!(result.answers.first().unwrap().ttl(), 60);
+        assert_eq!(result.answers.first().unwrap().ttl, 60);
 
         // At t=121: cache miss.
         assert!(cache.get(&query, now + Duration::from_secs(121)).is_none());
@@ -692,7 +692,7 @@ mod tests {
             .unwrap()
             .unwrap();
         // AAAA answer TTL counts down from 3600.
-        assert_eq!(result.answers.first().unwrap().ttl(), 3470);
+        assert_eq!(result.answers.first().unwrap().ttl, 3470);
 
         // At t=3601: cache miss.
         assert!(cache.get(&query, now + Duration::from_secs(3601)).is_none());
@@ -868,7 +868,7 @@ mod tests {
         let result = cache.get(&query, now + Duration::from_secs(2)).unwrap();
         let cache_message = result.unwrap();
         let record = cache_message.answers.first().unwrap();
-        assert_eq!(record.ttl(), 8);
+        assert_eq!(record.ttl, 8);
     }
 
     #[test]
@@ -914,7 +914,7 @@ mod tests {
         let Some(soa) = no_records.soa.clone() else {
             panic!("no SOA in NoRecordsFound");
         };
-        assert_eq!(soa.ttl(), 10);
+        assert_eq!(soa.ttl, 10);
 
         let cache_err = cache
             .get(&query, now + Duration::from_secs(2))
@@ -932,9 +932,9 @@ mod tests {
         };
 
         assert_eq!(*negative_ttl, 8);
-        assert_eq!(soa.ttl(), 8);
-        assert_eq!(authorities[0].ttl(), 8);
-        assert_eq!(ns[0].ns.ttl(), 8);
+        assert_eq!(soa.ttl, 8);
+        assert_eq!(authorities[0].ttl, 8);
+        assert_eq!(ns[0].ns.ttl, 8);
 
         // Cache should be expired
         assert!(cache.get(&query, now + Duration::from_secs(11)).is_none());

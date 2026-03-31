@@ -126,8 +126,8 @@ impl DnsResponse {
         // TODO: should this ensure that the SOA zone matches the Queried Zone?
         self.authorities
             .iter()
-            .filter_map(|record| match record.data() {
-                RData::SOA(soa) => Some((record.ttl(), soa)),
+            .filter_map(|record| match &record.data {
+                RData::SOA(soa) => Some((record.ttl, soa)),
                 _ => None,
             })
             .next()
@@ -138,12 +138,12 @@ impl DnsResponse {
     pub fn contains_answer(&self) -> bool {
         for q in &self.queries {
             let found = match q.query_type() {
-                RecordType::ANY => self.all_sections().any(|r| r.name() == q.name()),
+                RecordType::ANY => self.all_sections().any(|r| &r.name == q.name()),
                 RecordType::SOA => {
                     // for SOA name must be part of the SOA zone
                     self.all_sections()
                         .filter(|r| r.record_type().is_soa())
-                        .any(|r| r.name().zone_of(q.name()))
+                        .any(|r| r.name.zone_of(q.name()))
                 }
                 q_type => {
                     if !self.answers.is_empty() {
@@ -151,7 +151,7 @@ impl DnsResponse {
                     } else {
                         self.all_sections()
                             .filter(|r| r.record_type() == q_type)
-                            .any(|r| r.name() == q.name())
+                            .any(|r| &r.name == q.name())
                     }
                 }
             };

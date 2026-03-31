@@ -83,7 +83,7 @@ impl CatalogMetrics {
 
         answers.for_each(|a| {
             self.response_metrics.record_type.increment(a.record_type());
-            self.response_metrics.dns_classes.increment(a.dns_class());
+            self.response_metrics.dns_classes.increment(a.dns_class);
         });
     }
 }

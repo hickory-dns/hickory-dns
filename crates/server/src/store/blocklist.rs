@@ -834,7 +834,7 @@ mod test {
         if !lookup.iter().all(|x| match x.record_type() {
             RecordType::TXT => {
                 if let Some(msg) = &msg {
-                    x.data().to_string() == *msg
+                    x.data.to_string() == *msg
                 } else {
                     false
                 }
@@ -844,14 +844,14 @@ mod test {
                     panic!("expected to validate record IPv6, but None was passed");
                 };
 
-                x.name() == &Name::from_str(query).unwrap() && x.data() == &RData::AAAA(rec_ip)
+                x.name == Name::from_str(query).unwrap() && x.data == RData::AAAA(rec_ip)
             }
             _ => {
                 let Some(rec_ip) = ipv4 else {
                     panic!("expected to validate record IPv4, but None was passed");
                 };
 
-                x.name() == &Name::from_str(query).unwrap() && x.data() == &RData::A(rec_ip)
+                x.name == Name::from_str(query).unwrap() && x.data == RData::A(rec_ip)
             }
         }) {
             panic!("{query} lookup data is incorrect.");

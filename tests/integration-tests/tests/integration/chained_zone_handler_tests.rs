@@ -366,7 +366,7 @@ async fn basic_test(catalog: &Catalog, query_name: &'static str, answer: A) {
     assert_eq!(result.metadata.message_type, MessageType::Response);
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
-    assert_eq!(answers.first().unwrap().data(), &RData::A(answer));
+    assert_eq!(answers.first().unwrap().data, RData::A(answer));
 }
 
 async fn error_test(catalog: &Catalog, query_name: &str, r_code: ResponseCode) {

@@ -81,11 +81,7 @@ async fn test_create() {
         .expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     let result = client
-        .query(
-            record.name().clone(),
-            record.dns_class(),
-            record.record_type(),
-        )
+        .query(record.name.clone(), record.dns_class, record.record_type())
         .await
         .expect("query failed");
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -101,7 +97,7 @@ async fn test_create() {
 
     // Similarly, trying to create the record again should fail if already set and
     // the update is not the same value.
-    record.set_data(RData::A(A::new(101, 11, 101, 11)));
+    record.data = RData::A(A::new(101, 11, 101, 11));
 
     let result = client.create(record, origin).await.expect("create failed");
     assert_eq!(result.metadata.response_code, ResponseCode::YXRRSet);

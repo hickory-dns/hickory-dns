@@ -94,12 +94,12 @@ fn record_equal(record1: &Record, record2: &Record) -> bool {
     }
 
     // if the record data matches, we're fine
-    if record1.data() == record2.data() {
+    if record1.data == record2.data {
         return true;
     }
 
     // custom rules to match..
-    match (record1.data(), record2.data()) {
+    match (&record1.data, &record2.data) {
         (RData::Update0(_), RData::OPT(opt)) | (RData::OPT(opt), RData::Update0(_)) => {
             if opt.as_ref().is_empty() {
                 return true;

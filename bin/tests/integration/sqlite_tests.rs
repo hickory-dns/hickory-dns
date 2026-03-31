@@ -44,7 +44,7 @@ fn create_test_journal() -> (Record, Journal) {
     journal.insert_record(0, &record).unwrap();
 
     // insert another...
-    record.set_data(RData::A(A::from(Ipv4Addr::new(127, 0, 1, 1))));
+    record.data = RData::A(A::from(Ipv4Addr::new(127, 0, 1, 1)));
     journal.insert_record(0, &record).unwrap();
 
     (record, journal)
@@ -59,7 +59,7 @@ fn test_insert_and_select_record() {
         .select_record(0)
         .expect("persistence error")
         .expect("none");
-    record.set_data(RData::A(A::from(Ipv4Addr::LOCALHOST)));
+    record.data = RData::A(A::from(Ipv4Addr::LOCALHOST));
     assert_eq!(journal_record, record);
 
     // test another
@@ -67,7 +67,7 @@ fn test_insert_and_select_record() {
         .select_record(row_id + 1)
         .expect("persistence error")
         .expect("none");
-    record.set_data(RData::A(A::from(Ipv4Addr::new(127, 0, 1, 1))));
+    record.data = RData::A(A::from(Ipv4Addr::new(127, 0, 1, 1)));
     assert_eq!(journal_record, record);
 
     // check that we get nothing for id over row_id
@@ -82,14 +82,10 @@ fn test_iterator() {
     let (mut record, journal) = create_test_journal();
 
     let mut iter = journal.iter();
+    record.data = RData::A(A::from(Ipv4Addr::LOCALHOST));
+    assert_eq!(iter.next().unwrap(), record);
 
-    assert_eq!(
-        record.set_data(RData::A(A::from(Ipv4Addr::LOCALHOST))),
-        &iter.next().unwrap()
-    );
-    assert_eq!(
-        record.set_data(RData::A(A::from(Ipv4Addr::new(127, 0, 1, 1)))),
-        &iter.next().unwrap()
-    );
+    record.data = RData::A(A::from(Ipv4Addr::new(127, 0, 1, 1)));
+    assert_eq!(iter.next().unwrap(), record,);
     assert_eq!(None, iter.next());
 }

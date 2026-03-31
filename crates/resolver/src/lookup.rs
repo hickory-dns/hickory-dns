@@ -165,14 +165,14 @@ mod tests {
             80,
             RData::A(A::new(127, 0, 0, 1)),
         );
-        a1.set_proof(Proof::Secure);
+        a1.proof = Proof::Secure;
 
         let mut a2 = Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
             80,
             RData::A(A::new(127, 0, 0, 2)),
         );
-        a2.set_proof(Proof::Insecure);
+        a2.proof = Proof::Insecure;
 
         let mut message = Message::response(0, OpCode::Query);
         message.add_query(Query::default());
@@ -238,14 +238,14 @@ mod tests {
         assert_eq!(lookup.additionals().len(), 1);
 
         // Verify the authority and additional records are intact
-        if let RData::NS(ns) = lookup.authorities()[0].data() {
+        if let RData::NS(ns) = &lookup.authorities()[0].data {
             assert_eq!(ns.0, Name::from_str("ns1.example.com.").unwrap());
         } else {
             panic!("Authority record should be NS");
         }
 
-        if let RData::A(a) = lookup.additionals()[0].data() {
-            assert_eq!(*a, A::new(192, 0, 2, 1));
+        if let RData::A(a) = lookup.additionals()[0].data {
+            assert_eq!(a, A::new(192, 0, 2, 1));
         } else {
             panic!("Additional record should be A");
         }
@@ -311,37 +311,37 @@ mod tests {
         assert_eq!(combined.additionals().len(), 2);
 
         // Verify answer records
-        if let RData::A(a) = combined.answers()[0].data() {
-            assert_eq!(*a, A::new(127, 0, 0, 1));
+        if let RData::A(a) = combined.answers()[0].data {
+            assert_eq!(a, A::new(127, 0, 0, 1));
         } else {
             panic!("First answer should be A");
         }
-        if let RData::A(a) = combined.answers()[1].data() {
-            assert_eq!(*a, A::new(127, 0, 0, 2));
+        if let RData::A(a) = combined.answers()[1].data {
+            assert_eq!(a, A::new(127, 0, 0, 2));
         } else {
             panic!("Second answer should be A");
         }
 
         // Verify authority records
-        if let RData::NS(ns) = combined.authorities()[0].data() {
+        if let RData::NS(ns) = &combined.authorities()[0].data {
             assert_eq!(ns.0, Name::from_str("ns1.example.com.").unwrap());
         } else {
             panic!("First authority should be NS");
         }
-        if let RData::NS(ns) = combined.authorities()[1].data() {
+        if let RData::NS(ns) = &combined.authorities()[1].data {
             assert_eq!(ns.0, Name::from_str("ns2.example.com.").unwrap());
         } else {
             panic!("Second authority should be NS");
         }
 
         // Verify additional records
-        if let RData::A(a) = combined.additionals()[0].data() {
-            assert_eq!(*a, A::new(192, 0, 2, 1));
+        if let RData::A(a) = combined.additionals()[0].data {
+            assert_eq!(a, A::new(192, 0, 2, 1));
         } else {
             panic!("First additional should be A");
         }
-        if let RData::A(a) = combined.additionals()[1].data() {
-            assert_eq!(*a, A::new(192, 0, 2, 2));
+        if let RData::A(a) = combined.additionals()[1].data {
+            assert_eq!(a, A::new(192, 0, 2, 2));
         } else {
             panic!("Second additional should be A");
         }

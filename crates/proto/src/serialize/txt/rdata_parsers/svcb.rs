@@ -364,7 +364,7 @@ mod tests {
             .expect("failed to parse record")
             .1;
         let record_set = records.into_iter().next().expect("no record found").1;
-        D::try_borrow(record_set.into_iter().next().unwrap().data())
+        D::try_borrow(&record_set.into_iter().next().unwrap().data)
             .expect("Not the correct record")
             .clone()
     }

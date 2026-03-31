@@ -223,9 +223,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|rr| match rr.data() {
+        let must_validate_nsec = answers.iter().any(|rr| match &rr.data {
             RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
-                rrsig.input().num_labels < rr.name().num_labels()
+                rrsig.input().num_labels < rr.name.num_labels()
             }
             _ => false,
         });
@@ -238,7 +238,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             && message
                 .authorities
                 .iter()
-                .all(|x| x.proof() == Proof::Insecure)
+                .all(|x| x.proof == Proof::Insecure)
         {
             return Ok(message);
         }
@@ -250,10 +250,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 if message
                     .authorities
                     .iter()
-                    .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
+                    .any(|r| r.name == rr.name && r.proof == Proof::Secure)
                 {
-                    match rr.data() {
-                        RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => Some((rr.name(), nsec3)),
+                    match &rr.data {
+                        RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => Some((&rr.name, nsec3)),
                         _ => None,
                     }
                 } else {
@@ -269,10 +269,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 if message
                     .authorities
                     .iter()
-                    .any(|r| r.name() == rr.name() && r.proof() == Proof::Secure)
+                    .any(|r| r.name == rr.name && r.proof == Proof::Secure)
                 {
-                    match rr.data() {
-                        RData::DNSSEC(DNSSECRData::NSEC(nsec)) => Some((rr.name(), nsec)),
+                    match &rr.data {
+                        RData::DNSSEC(DNSSECRData::NSEC(nsec)) => Some((&rr.name, nsec)),
                         _ => None,
                     }
                 } else {
@@ -299,7 +299,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 find_soa_name(&message),
                 message.response_code,
                 &message.answers,
-                nsecs.as_slice(),
+                &nsecs,
             ),
             (true, true, _) => {
                 warn!(
@@ -370,7 +370,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
                 ))
             })
-            .map(|rr| (rr.name().clone(), rr.record_type()))
+            .map(|rr| (rr.name.clone(), rr.record_type()))
         {
             rrset_types.insert(rrset);
         }
@@ -394,7 +394,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             let current_rrset;
             (current_rrset, records) = records
                 .into_iter()
-                .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name() == &name);
+                .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name == name);
 
             let current_rrsigs;
             (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
@@ -464,9 +464,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 rrsig_index: rrsig_idx,
             } = proof;
             for mut record in current_rrset {
-                record.set_proof(proof);
+                record.proof = proof;
                 if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                    record.set_ttl(ttl);
+                    record.ttl = ttl;
                 }
 
                 return_records.push(record);
@@ -476,9 +476,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             let mut current_rrsigs = current_rrsigs;
             if let Some(rrsig_idx) = rrsig_idx {
                 if let Some(rrsig) = current_rrsigs.get_mut(rrsig_idx) {
-                    rrsig.set_proof(proof);
+                    rrsig.proof = proof;
                     if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                        rrsig.set_ttl(ttl);
+                        rrsig.ttl = ttl;
                     }
                 } else {
                     warn!(
@@ -607,10 +607,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         // for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
         if ds_records
             .iter()
-            .filter(|ds| ds.proof().is_secure() || ds.proof().is_insecure())
-            .all(|ds| {
-                !ds.data().algorithm().is_supported() || !ds.data().digest_type().is_supported()
-            })
+            .filter(|ds| ds.proof.is_secure() || ds.proof.is_insecure())
+            .all(|ds| !ds.data.algorithm().is_supported() || !ds.data.digest_type().is_supported())
             && !ds_records.is_empty()
         {
             debug!(
@@ -651,7 +649,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 .iter()
                 .zip(dnskey_proofs.iter())
                 .filter(|(_, (proof, ..))| proof.is_secure())
-                .filter(|(r, _)| r.name() == signer_name)
+                .filter(|(r, _)| &r.name == signer_name)
                 .filter_map(|(r, (proof, ..))| {
                     RecordRef::<'_, DNSKEY>::try_from(*r)
                         .ok()
@@ -734,7 +732,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             match result {
                 Ok(response) => {
                     if response.all_sections().any(|record| {
-                        record.record_type() == RecordType::NS && record.name() == &ancestor
+                        record.record_type() == RecordType::NS && record.name == ancestor
                     }) {
                         break ancestor;
                     }
@@ -772,7 +770,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .answers
                     .iter()
                     .filter(|r| r.record_type() == RecordType::DS)
-                    .any(|r| r.proof().is_secure()) =>
+                    .any(|r| r.proof.is_secure()) =>
             {
                 // This is a secure DS RRset.
 
@@ -790,9 +788,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 for record in all_records {
                     // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other
                     // records.
-                    if (!record.data().algorithm().is_supported()
-                        || !record.data().digest_type().is_supported())
-                        && (record.proof().is_secure() || record.proof().is_insecure())
+                    if (!record.data.algorithm().is_supported()
+                        || !record.data.digest_type().is_supported())
+                        && (record.proof.is_secure() || record.proof.is_insecure())
                     {
                         all_unknown.get_or_insert(true);
                         continue;
@@ -1171,7 +1169,7 @@ fn verify_rrsig_with_keys(
 fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
     for record in &verified_message.authorities {
         if record.record_type() == RecordType::SOA {
-            return Some(record.name());
+            return Some(&record.name);
         }
     }
 
@@ -1203,23 +1201,20 @@ fn verify_dnskey(
 
     // DS check if covered by DS keys
     let mut key_authentication_attempts = 0;
-    for r in ds_records.iter().filter(|ds| ds.proof().is_secure()) {
-        if r.data().algorithm() != key_algorithm {
+    for r in ds_records.iter().filter(|ds| ds.proof.is_secure()) {
+        if r.data.algorithm() != key_algorithm {
             trace!(
                 "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
-                key_algorithm,
-                r.name(),
-                r.data(),
+                key_algorithm, r.name, r.data,
             );
 
             continue;
         }
 
-        if r.data().key_tag() != key_tag {
+        if r.data.key_tag() != key_tag {
             trace!(
                 "skipping DS record due to key tag mismatch, expected tag {key_tag}: ({}, {})",
-                r.name(),
-                r.data(),
+                r.name, r.data,
             );
 
             continue;
@@ -1238,15 +1233,15 @@ fn verify_dnskey(
             continue;
         }
 
-        if !r.data().covers(rr.name(), key_rdata).unwrap_or(false) {
+        if !r.data.covers(rr.name(), key_rdata).unwrap_or(false) {
             continue;
         }
 
         debug!(
             "validated dnskey ({}, {key_rdata}) with {} {}",
             rr.name(),
-            r.name(),
-            r.data(),
+            r.name,
+            r.data,
         );
 
         // If this key is valid, then it is secure
@@ -1510,8 +1505,7 @@ impl ValidationCache {
         self.inner.lock().insert(
             key,
             (
-                Instant::now()
-                    + Duration::from_secs(cx.rrset.record().ttl().into()).clamp(min, max),
+                Instant::now() + Duration::from_secs(cx.rrset.record().ttl.into()).clamp(min, max),
                 proof.clone(),
             ),
         );
@@ -1540,9 +1534,9 @@ impl<'a> RrsetVerificationContext<'a> {
         self.rrset.record_type.hash(&mut hasher);
 
         for rec in &self.rrset.records {
-            rec.name().hash(&mut hasher);
-            rec.dns_class().hash(&mut hasher);
-            rec.data().hash(&mut hasher);
+            rec.name.hash(&mut hasher);
+            rec.dns_class.hash(&mut hasher);
+            rec.data.hash(&mut hasher);
         }
 
         for rec in &self.rrsigs {
@@ -1705,24 +1699,24 @@ fn verify_nsec(
         answers
             .iter()
             .filter_map(|r| {
-                if r.proof() != Proof::Secure {
-                    debug!(name = ?r.name(), "ignoring RRSIG with insecure proof for wildcard_base_name");
+                if r.proof != Proof::Secure {
+                    debug!(name = ?r.name, "ignoring RRSIG with insecure proof for wildcard_base_name");
                     return None;
                 }
 
-                let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = r.data() else {
+                let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &r.data else {
                     return None;
                 };
 
                 let rrsig_labels = rrsig.input().num_labels;
-                if rrsig_labels >= r.name().num_labels() || rrsig_labels >= query.name().num_labels() {
-                    debug!(name = ?r.name(), labels = ?r.name().num_labels(), rrsig_labels, "ignoring RRSIG for wildcard base name rrsig_labels >= labels");
+                if rrsig_labels >= r.name.num_labels() || rrsig_labels >= query.name().num_labels() {
+                    debug!(name = ?r.name, labels = ?r.name.num_labels(), rrsig_labels, "ignoring RRSIG for wildcard base name rrsig_labels >= labels");
                     return None;
                 }
 
-                let trimmed_name = r.name().trim_to(rrsig_labels as usize);
+                let trimmed_name = r.name.trim_to(rrsig_labels as usize);
                 if !trimmed_name.zone_of(query.name()) {
-                    debug!(name = ?r.name(), query_name = ?query.name(), "ignoring RRSIG for wildcard base name: RRSIG wildcard labels not a parent of query name");
+                    debug!(name = ?r.name, query_name = ?query.name(), "ignoring RRSIG for wildcard base name: RRSIG wildcard labels not a parent of query name");
                     return None;
                 }
 
@@ -1878,8 +1872,8 @@ mod rrset {
     impl<'r> Rrset<'r> {
         pub(super) fn new(record: &'r Record) -> Self {
             Self {
-                name: record.name().clone(),
-                record_class: record.dns_class(),
+                name: record.name.clone(),
+                record_class: record.dns_class,
                 record_type: record.record_type(),
                 records: vec![record],
             }
@@ -1887,9 +1881,9 @@ mod rrset {
 
         /// Adds `record` to this RRset IFF it belongs to it
         pub(super) fn add(&mut self, record: &'r Record) {
-            if self.name == *record.name()
+            if self.name == record.name
                 && self.record_type == record.record_type()
-                && self.record_class == record.dns_class()
+                && self.record_class == record.dns_class
             {
                 self.records.push(record);
             }
@@ -2280,7 +2274,7 @@ mod test {
             3600,
             RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
         );
-        rrsig_record.set_proof(Proof::Secure);
+        rrsig_record.proof = Proof::Secure;
 
         let answers = [
             Record::from_rdata(
@@ -2361,7 +2355,7 @@ mod test {
             3600,
             RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
         );
-        rrsig_record.set_proof(Proof::Secure);
+        rrsig_record.proof = Proof::Secure;
 
         let answers = [
             Record::from_rdata(

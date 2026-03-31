@@ -89,11 +89,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for r in response.all_sections().filter(|r| r.record_type() == ty) {
         println!(
             "\t{name} {ttl} {class} {ty} {rdata}",
-            name = style(r.name()).blue(),
-            ttl = style(r.ttl()).blue(),
-            class = style(r.dns_class()).blue(),
+            name = style(&r.name).blue(),
+            ttl = style(r.ttl).blue(),
+            class = style(r.dns_class).blue(),
             ty = style(r.record_type()).blue(),
-            rdata = r.data()
+            rdata = r.data
         );
     }
 

@@ -497,15 +497,11 @@ mod test {
         });
 
         let mut response = request.clone().into_response();
-        response.add_answer(
-            Record::from_rdata(
-                name,
-                86400,
-                RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
-        );
+        response.add_answer(Record::from_rdata(
+            name,
+            86400,
+            RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+        ));
         (
             DnsRequest::new(request, DnsRequestOptions::default()),
             vec![response],
@@ -539,9 +535,7 @@ mod test {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         vec![
             soa.clone(),
@@ -549,23 +543,17 @@ mod test {
                 origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
             Record::from_rdata(
                 origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
             Record::from_rdata(
                 origin.clone(),
                 86400,
                 RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
             Record::from_rdata(
                 origin,
                 86400,
@@ -575,9 +563,7 @@ mod test {
                     )
                     .into(),
                 ),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
             soa,
         ]
     }

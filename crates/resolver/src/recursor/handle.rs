@@ -319,7 +319,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // Return early if there aren't any CNAME in the response.
         let has_cname = response
             .all_sections()
-            .any(|rec| matches!(rec.data(), CNAME(_)));
+            .any(|rec| matches!(rec.data, CNAME(_)));
         if !has_cname {
             return Ok(response);
         }
@@ -330,16 +330,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut cname_chain = vec![];
 
         for rec in response.all_sections() {
-            let CNAME(name) = rec.data() else {
+            let CNAME(name) = &rec.data else {
                 continue;
             };
 
             // Check if the response has data for the canonical name.
-            if response
-                .answers
-                .iter()
-                .any(|record| record.name() == &name.0)
-            {
+            if response.answers.iter().any(|record| record.name == name.0) {
                 continue;
             }
 
@@ -382,7 +378,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
 
                 #[cfg(feature = "__dnssec")]
-                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = r.data() {
+                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &r.data {
                     let type_covered = rrsig.input().type_covered;
                     if type_covered == query_type || type_covered == RecordType::CNAME {
                         return Some(r.to_owned());
@@ -448,7 +444,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         let answer_filter = |record: &Record| {
-            if !is_subzone(&zone, record.name()) {
+            if !is_subzone(&zone, &record.name) {
                 error!(
                     %record, %zone,
                     "dropping out of bailiwick record",
@@ -553,7 +549,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             let any_ns = response
                 .all_sections()
-                .any(|record| record.record_type() == RecordType::NS && record.name() == &zone);
+                .any(|record| record.record_type() == RecordType::NS && record.name == zone);
             if !any_ns {
                 // Not a zone cut, but there is a CNAME or other record at this name. Return the
                 // same pool of name servers as above in the error case, to try again with a
@@ -579,21 +575,21 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
 
             for zns in response.all_sections() {
-                let RData::NS(ns_data) = zns.data() else {
+                let RData::NS(ns_data) = &zns.data else {
                     continue;
                 };
 
-                if !is_subzone(&zone.base_name(), zns.name()) {
+                if !is_subzone(&zone.base_name(), &zns.name) {
                     warn!(
-                        name = ?zns.name(),
+                        name = ?zns.name,
                         parent = ?zone.base_name(),
                         "dropping out of bailiwick record",
                     );
                     continue;
                 }
 
-                if zns.ttl() < ns_pool_ttl {
-                    ns_pool_ttl = zns.ttl();
+                if zns.ttl < ns_pool_ttl {
+                    ns_pool_ttl = zns.ttl;
                 }
 
                 for record_type in [RecordType::A, RecordType::AAAA] {
@@ -704,23 +700,23 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut ttl = u32::MAX;
 
         for record in records {
-            let ip = match record.data() {
+            let ip = match &record.data {
                 RData::A(A(ipv4)) => (*ipv4).into(),
                 RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
                 _ => continue,
             };
             if self.name_server_filter.denied(ip) {
-                debug!(name = %record.name(), %ip, "ignoring address due to do_not_query");
+                debug!(name = %record.name, %ip, "ignoring address due to do_not_query");
                 continue;
             }
-            if record.ttl() < ttl {
-                ttl = record.ttl();
+            if record.ttl < ttl {
+                ttl = record.ttl;
             }
-            let ns_glue_ips = match glue_map.get_mut(record.name()) {
+            let ns_glue_ips = match glue_map.get_mut(&record.name) {
                 Some(ips) => ips,
                 None => {
-                    glue_map.insert(record.name().clone(), Vec::new());
-                    glue_map.get_mut(record.name()).unwrap()
+                    glue_map.insert(record.name.clone(), Vec::new());
+                    glue_map.get_mut(&record.name).unwrap()
                 }
             };
             if !ns_glue_ips.contains(&ip) {
@@ -793,14 +789,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         .answers
                         .into_iter()
                         .filter_map(|answer| {
-                            let ip = answer.data().ip_addr()?;
+                            let ip = answer.data.ip_addr()?;
 
                             if self.name_server_filter.denied(ip) {
                                 debug!(%ip, "append_ips_from_lookup: ignoring address due to do_not_query");
                                 None
                             } else {
-                                if answer.ttl() < ttl {
-                                    ttl = answer.ttl();
+                                if answer.ttl < ttl {
+                                    ttl = answer.ttl;
                                 }
                                 Some(ip)
                             }

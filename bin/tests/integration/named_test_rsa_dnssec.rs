@@ -216,7 +216,7 @@ async fn test_rrsig_ttl() {
         let expected_ttl = 86400;
         for answer in &response.answers {
             println!("{answer}");
-            assert_eq!(answer.ttl(), expected_ttl);
+            assert_eq!(answer.ttl, expected_ttl);
         }
         assert!(
             response
@@ -251,7 +251,7 @@ async fn test_rrsig_ttl() {
         let expected_ttl = 900;
         for answer in &response.answers {
             println!("{answer}");
-            assert_eq!(answer.ttl(), expected_ttl);
+            assert_eq!(answer.ttl, expected_ttl);
         }
         assert!(
             response
