@@ -5,6 +5,11 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
+use tracing::error;
+
+#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
+use crate::server::encode_fallback_servfail_response;
 use crate::{
     proto::{
         ProtoError,
@@ -69,6 +74,21 @@ where
     /// Set the message signature
     pub fn set_signature(&mut self, signature: Box<Record<TSIG>>) {
         self.signature = Some(signature);
+    }
+
+    #[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
+    pub(crate) fn encode(self) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
+        let id = self.metadata.id;
+        let mut bytes = Vec::with_capacity(512);
+        // mut block
+
+        let mut encoder = BinEncoder::new(&mut bytes);
+        let info = self.destructive_emit(&mut encoder).or_else(|error| {
+            error!(%error, "error encoding message");
+            encode_fallback_servfail_response(id, &mut bytes)
+        })?;
+
+        Ok((info, bytes))
     }
 
     /// Consumes self, and emits to the encoder.

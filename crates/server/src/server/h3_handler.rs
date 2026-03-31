@@ -13,13 +13,11 @@ use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use rustls::server::ResolvesServerCert;
 use tokio::{net, task::JoinSet};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, reap_tasks,
-    request_handler::RequestHandler,
-    response_handler::{ResponseHandler, encode_fallback_servfail_response},
-    sanitize_src_address,
+    ResponseInfo, ServerContext, reap_tasks, request_handler::RequestHandler,
+    response_handler::ResponseHandler, sanitize_src_address,
 };
 use crate::{
     net::{
@@ -28,7 +26,7 @@ use crate::{
         http::{self, Version},
         xfer::Protocol,
     },
-    proto::{rr::Record, serialize::binary::BinEncoder},
+    proto::rr::Record,
     zone_handler::MessageResponse,
 };
 
@@ -179,16 +177,7 @@ impl ResponseHandler for H3ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let id = response.metadata().id;
-        let mut bytes = Vec::with_capacity(512);
-        // mut block
-        let info = {
-            let mut encoder = BinEncoder::new(&mut bytes);
-            response.destructive_emit(&mut encoder).or_else(|error| {
-                error!(%error, "error encoding message");
-                encode_fallback_servfail_response(id, &mut bytes)
-            })?
-        };
+        let (info, bytes) = response.encode()?;
         let bytes = Bytes::from(bytes);
         let response = http::response(Version::Http3, bytes.len())?;
 
