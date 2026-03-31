@@ -11,11 +11,14 @@ use crate::{
     net::{udp::MAX_RECEIVE_BUFFER_SIZE, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{Edns, Metadata, ResponseCode, emit_message_parts},
+        op::{
+            Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, ResponseCode,
+            emit_message_parts,
+        },
         rr::{Record, rdata::TSIG},
-        serialize::binary::BinEncoder,
+        serialize::binary::{BinEncodable, BinEncoder},
     },
-    server::{ResponseInfo, encode_fallback_servfail_response},
+    server::ResponseInfo,
     zone_handler::{Queries, message_request::MessageRequest},
 };
 
@@ -93,15 +96,25 @@ where
             _ => u16::MAX,
         });
 
-        let info = match self.destructive_emit(&mut encoder) {
-            Ok(info) => info,
-            Err(error) => {
-                error!(%error, "error encoding message");
-                encode_fallback_servfail_response(id, &mut bytes)?
-            }
+        let error = match self.destructive_emit(&mut encoder) {
+            Ok(info) => return Ok((info, bytes)),
+            Err(error) => error,
         };
 
-        Ok((info, bytes))
+        error!(%error, "error encoding message");
+        bytes.clear();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        encoder.set_max_size(512);
+
+        let mut metadata = Metadata::new(id, MessageType::Response, OpCode::Query);
+        metadata.response_code = ResponseCode::ServFail;
+        let header = Header {
+            metadata,
+            counts: HeaderCounts::default(),
+        };
+
+        header.emit(&mut encoder)?;
+        Ok((ResponseInfo::from(header), bytes))
     }
 
     /// Consumes self, and emits to the encoder.
