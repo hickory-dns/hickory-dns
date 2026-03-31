@@ -175,7 +175,7 @@ mod tests {
         a2.proof = Proof::Insecure;
 
         let mut message = Message::response(0, OpCode::Query);
-        message.add_query(Query::default());
+        message.add_query(Query::root());
         message.add_answers([a1.clone(), a2.clone()]);
 
         let lookup = Lookup {
