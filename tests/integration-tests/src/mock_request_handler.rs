@@ -48,7 +48,7 @@ impl RequestHandler for MockHandler {
         request: &Request,
         mut response_handle: R,
     ) -> ResponseInfo {
-        let request_info = request.request_info().unwrap();
+        let request_info = request.request_info();
         if request_info.query.name() == &self.query_name
             && request_info.query.query_type() == self.query_type
         {

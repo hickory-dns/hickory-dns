@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use alloc::{boxed::Box, vec::Vec};
+use core::ops::Deref;
 
 use super::{Edns, EmitAndCount, Header, LowerQuery, Message, Metadata, emit_message_parts};
 use crate::{
@@ -69,11 +70,20 @@ impl MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
     pub fn read(decoder: &mut BinDecoder<'_>, header: Header) -> Result<Self, DecodeError> {
+        let queries = Queries::read(decoder, header.counts.queries as usize)?;
+        Self::read_with_queries(decoder, queries, header)
+    }
+
+    /// Reads a MessageRequest from the decoder, after the [`Queries`] have already been read.
+    pub fn read_with_queries(
+        decoder: &mut BinDecoder<'_>,
+        queries: Queries,
+        header: Header,
+    ) -> Result<Self, DecodeError> {
         let Header {
             mut metadata,
             counts,
         } = header;
-        let queries = Queries::read(decoder, counts.queries as usize)?;
         let (answers, _, _) =
             Message::read_records(decoder, counts.answers as usize, false, metadata.op_code)?;
         let (authorities, _, _) = Message::read_records(
@@ -109,7 +119,7 @@ impl MessageRequest {
     pub fn mock(metadata: Metadata, query: impl Into<LowerQuery>) -> Self {
         Self {
             metadata,
-            queries: Queries::new(vec![query.into()]),
+            queries: Queries::new(query.into()),
             answers: Vec::new(),
             authorities: Vec::new(),
             additionals: Vec::new(),
@@ -140,7 +150,7 @@ impl BinEncodable for MessageRequest {
             &self.metadata,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form
             //   in cases where that's necessary, like SIG0 validation
-            &mut self.queries.queries.iter(),
+            &mut [&self.queries.inner].into_iter(),
             &mut self.answers.iter(),
             &mut self.authorities.iter(),
             &mut self.additionals.iter(),
@@ -154,114 +164,83 @@ impl BinEncodable for MessageRequest {
 }
 
 /// A set of Queries with the associated serialized data
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Queries {
-    queries: Vec<LowerQuery>,
+    /// The parsed query data
+    inner: LowerQuery,
     original: Box<[u8]>,
 }
 
 impl Queries {
     /// Read queries from a decoder
     pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, DecodeError> {
-        let queries_start = decoder.index();
-        let mut queries = Vec::with_capacity(num_queries);
-        for _ in 0..num_queries {
-            queries.push(LowerQuery::read(decoder)?);
+        if num_queries != 1 {
+            // In the DNS, QDCOUNT Is (Usually) One
+            // <https://www.rfc-editor.org/rfc/rfc9619.html>
+            return Err(DecodeError::BadQueryCount(num_queries));
         }
 
+        let queries_start = decoder.index();
+        let inner = LowerQuery::read(decoder)?;
         let original = decoder
             .slice_from(queries_start)?
             .to_vec()
             .into_boxed_slice();
 
-        Ok(Self { queries, original })
+        Ok(Self { inner, original })
     }
 
     /// Construct a mock Queries object for a given query for testing purposes
     #[cfg(any(test, feature = "testing"))]
-    pub fn new(query: Vec<LowerQuery>) -> Self {
+    pub fn new(inner: LowerQuery) -> Self {
         let mut encoded = Vec::new();
         let mut encoder = BinEncoder::new(&mut encoded);
-        for q in query.iter() {
-            q.emit(&mut encoder).unwrap();
-        }
+        inner.emit(&mut encoder).unwrap();
+
         Self {
-            queries: query,
+            inner,
             original: encoded.into_boxed_slice(),
         }
     }
 
-    /// Construct an empty set of queries
-    pub fn empty() -> Self {
-        Self {
-            queries: Vec::new(),
-            original: (*b"").into(),
-        }
-    }
-
     /// Helper for encoding the queries in a MessageRequest.
-    pub fn as_emit_and_count(&self) -> impl EmitAndCount + '_ {
-        QueriesEmitAndCount {
-            length: self.queries.len(),
-            // We don't generally support more than one query, but this will at least give us one
-            // cache entry.
-            first_query: self.queries.first(),
-            cached_serialized: self.original.as_ref(),
-        }
-    }
-
-    /// Validate that this set of Queries contains exactly one Query, and return a reference to the
-    /// `LowerQuery` if so.
-    pub fn try_as_query(&self) -> Result<&LowerQuery, DecodeError> {
-        let count = self.queries.len();
-        if count != 1 {
-            return Err(DecodeError::BadQueryCount(count));
-        }
-        Ok(&self.queries[0])
-    }
-
-    /// return the number of queries in the request
-    pub fn len(&self) -> usize {
-        self.queries.len()
-    }
-
-    /// Returns true if there are no queries
-    pub fn is_empty(&self) -> bool {
-        self.queries.is_empty()
+    pub fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
+        QueriesEmitAndCount::Some(&self.original)
     }
 
     /// returns the bytes as they were seen from the Client
     pub fn as_bytes(&self) -> &[u8] {
         self.original.as_ref()
     }
+}
 
-    /// Returns the queries from the request
-    pub fn queries(&self) -> &[LowerQuery] {
-        &self.queries
+impl Deref for Queries {
+    type Target = LowerQuery;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
 /// A helper struct to emit the queries in a [`MessageRequest`].
-struct QueriesEmitAndCount<'q> {
-    /// Number of queries in this segment
-    length: usize,
-    /// Use the first query, if it exists, to pre-populate the string compression cache
-    first_query: Option<&'q LowerQuery>,
-    /// The cached rendering of the original (wire-format) queries
-    cached_serialized: &'q [u8],
+pub enum QueriesEmitAndCount<'q> {
+    /// Original query encoding
+    Some(&'q [u8]),
+    /// No queries to emit
+    None,
 }
 
 impl EmitAndCount for QueriesEmitAndCount<'_> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> Result<usize, ProtoError> {
+        let QueriesEmitAndCount::Some(original) = self else {
+            return Ok(0);
+        };
+
         let original_offset = encoder.offset();
-        encoder.emit_vec(self.cached_serialized)?;
-        if matches!(encoder.name_encoding(), NameEncoding::Compressed) && self.first_query.is_some()
-        {
-            encoder.store_label_pointer(
-                original_offset,
-                original_offset + self.cached_serialized.len(),
-            )
+        encoder.emit_vec(original)?;
+        if matches!(encoder.name_encoding(), NameEncoding::Compressed) {
+            encoder.store_label_pointer(original_offset, original_offset + original.len())
         }
-        Ok(self.length)
+        Ok(1)
     }
 }

@@ -222,6 +222,24 @@ impl ZoneHandler for TestZoneHandler {
         res
     }
 
+    async fn search(
+        &self,
+        request: &Request,
+        lookup_options: LookupOptions,
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
+        let request_info = request.request_info();
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                Some(&request_info),
+                lookup_options,
+            )
+            .await,
+            None,
+        )
+    }
+
     async fn consult(
         &self,
         name: &LowerName,

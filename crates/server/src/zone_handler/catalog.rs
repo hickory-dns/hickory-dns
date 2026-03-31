@@ -282,16 +282,7 @@ impl Catalog {
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
 
-        let Ok(request_info) = update.request_info() else {
-            warn!("invalid update request, zone count must be one");
-            return send_error_response(
-                update,
-                ResponseCode::FormErr,
-                response_edns,
-                response_handle,
-            )
-            .await;
-        };
+        let request_info = update.request_info();
         let ztype = request_info.query.query_type();
 
         if ztype != RecordType::SOA {
@@ -413,16 +404,7 @@ impl Catalog {
         now: u64,
         response_handle: R,
     ) -> ResponseInfo {
-        let Ok(request_info) = request.request_info() else {
-            // Wrong number of queries
-            return send_error_response(
-                request,
-                ResponseCode::FormErr,
-                response_edns,
-                response_handle,
-            )
-            .await;
-        };
+        let request_info = request.request_info();
         let handlers = self.find(request_info.query.name());
 
         let Some(handlers) = handlers else {

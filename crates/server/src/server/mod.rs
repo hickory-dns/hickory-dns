@@ -46,8 +46,8 @@ use crate::{
     },
     proto::{
         op::{
-            Header, LowerQuery, MessageRequest, MessageType, Metadata, Queries, ResponseCode,
-            SerialMessage,
+            Header, LowerQuery, MessageRequest, MessageType, Metadata, OpCode, Queries,
+            ResponseCode, SerialMessage,
         },
         rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
@@ -719,6 +719,37 @@ impl<T: RequestHandler> ServerContext<T> {
             return;
         };
 
+        if matches!(header.metadata.op_code, OpCode::Unknown(_)) {
+            error_response_handler(
+                protocol,
+                src_addr,
+                header,
+                None,
+                ResponseCode::NotImp,
+                "unsupported op code",
+                response_handler,
+            )
+            .await;
+            return;
+        }
+
+        let queries = match Queries::read(&mut decoder, header.counts.queries as usize) {
+            Ok(queries) => queries,
+            Err(error) => {
+                error_response_handler(
+                    protocol,
+                    src_addr,
+                    header,
+                    None,
+                    ResponseCode::FormErr,
+                    error,
+                    response_handler,
+                )
+                .await;
+                return;
+            }
+        };
+
         if !self.access.allow(src_addr.ip()) {
             info!(
                 "request:Refused src:{proto}://{addr}#{port}",
@@ -727,15 +758,11 @@ impl<T: RequestHandler> ServerContext<T> {
                 port = src_addr.port(),
             );
 
-            let queries = match Queries::read(&mut decoder, header.counts.queries as usize) {
-                Ok(queries) => queries,
-                Err(_) => Queries::empty(),
-            };
             error_response_handler(
                 protocol,
                 src_addr,
                 header,
-                queries,
+                Some(queries),
                 ResponseCode::Refused,
                 "request refused",
                 response_handler,
@@ -746,7 +773,8 @@ impl<T: RequestHandler> ServerContext<T> {
         }
 
         // Attempt to decode the message
-        let request = match MessageRequest::read(&mut decoder, header) {
+        let request = match MessageRequest::read_with_queries(&mut decoder, queries.clone(), header)
+        {
             Ok(message) => Request {
                 message,
                 raw: message_bytes,
@@ -754,14 +782,11 @@ impl<T: RequestHandler> ServerContext<T> {
                 protocol,
             },
             Err(error) => {
-                // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
-                let queries = Queries::empty();
-
                 error_response_handler(
                     protocol,
                     src_addr,
                     header,
-                    queries,
+                    Some(queries),
                     ResponseCode::FormErr,
                     error,
                     response_handler,
@@ -798,20 +823,19 @@ impl<T: RequestHandler> ServerContext<T> {
             op = qop_code,
             qflags = qflags
         );
-        for query in request.queries.queries().iter() {
-            debug!(
-                "query:{query}:{qtype}:{class}",
-                query = query.name(),
-                qtype = query.query_type(),
-                class = query.query_class()
-            );
-        }
+
+        let query = &*request.message.queries;
+        debug!(
+            "query:{query}:{qtype}:{class}",
+            query = query.name(),
+            qtype = query.query_type(),
+            class = query.query_class(),
+        );
 
         // The reporter will handle making sure to log the result of the request
-        let queries = request.queries.queries().to_vec();
         let reporter = ReportingResponseHandler {
             request_meta: request.metadata,
-            queries,
+            query: Some(query.clone()),
             protocol: request.protocol(),
             src_addr: request.src(),
             handler: response_handler,
@@ -830,7 +854,7 @@ async fn error_response_handler(
     protocol: Protocol,
     src_addr: SocketAddr,
     header: Header,
-    queries: Queries,
+    queries: Option<Queries>,
     response_code: ResponseCode,
     error: impl fmt::Display,
     response_handler: impl ResponseHandler,
@@ -851,7 +875,7 @@ async fn error_response_handler(
     // The reporter will handle making sure to log the result of the request
     let mut reporter = ReportingResponseHandler {
         request_meta: header.metadata,
-        queries: queries.queries().to_vec(),
+        query: queries.as_ref().map(|q| (**q).clone()),
         protocol,
         src_addr,
         handler: response_handler,
@@ -859,7 +883,11 @@ async fn error_response_handler(
         metrics: ResponseHandlerMetrics::default(),
     };
 
-    let response = MessageResponseBuilder::new(&queries, None);
+    let response = match queries.as_ref() {
+        Some(queries) => MessageResponseBuilder::new(queries, None),
+        None => MessageResponseBuilder::no_queries(None),
+    };
+
     let result = reporter
         .send_response(response.error_msg(&header, response_code))
         .await;
@@ -872,7 +900,7 @@ async fn error_response_handler(
 #[derive(Clone)]
 pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
     pub(super) request_meta: Metadata,
-    queries: Vec<LowerQuery>,
+    query: Option<LowerQuery>,
     pub(super) protocol: Protocol,
     src_addr: SocketAddr,
     handler: R,
@@ -922,12 +950,13 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             additionals = additional_count,
             rflags = rflags
         );
-        for query in self.queries.iter() {
+
+        if let Some(query) = &self.query {
             info!(
                 "query:{query}:{qtype}:{class}",
                 query = query.name(),
                 qtype = query.query_type(),
-                class = query.query_class()
+                class = query.query_class(),
             );
         }
 
