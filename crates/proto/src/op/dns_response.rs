@@ -254,7 +254,7 @@ mod tests {
     fn test_contains_answer() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NXDomain;
-        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_query(Query::new(Name::root(), RecordType::A));
         message.add_answer(Record::from_rdata(
             Name::root(),
             88640,
@@ -270,7 +270,7 @@ mod tests {
     fn contains_soa() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::query(an_example(), RecordType::SOA));
+        message.add_query(Query::new(an_example(), RecordType::SOA));
         message.add_authority(soa());
 
         let response = DnsResponse::from_message(message.into_response()).unwrap();
@@ -282,7 +282,7 @@ mod tests {
     fn contains_any() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::query(xx(), RecordType::ANY));
+        message.add_query(Query::new(xx(), RecordType::ANY));
         message.add_authority(ns1_record());
         message.add_additional(ns1_a());
 

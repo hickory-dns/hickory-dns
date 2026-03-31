@@ -119,7 +119,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     ) -> LookupControlFlow<AuthLookup> {
         debug!("recursive lookup: {} {}", name, rtype);
 
-        let query = Query::query(name.into(), rtype);
+        let query = Query::new(name.into(), rtype);
         let now = Instant::now();
 
         let result = self

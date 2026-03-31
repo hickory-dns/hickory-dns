@@ -1275,7 +1275,7 @@ mod tests {
     #[tokio::test]
     async fn test_build_forwarded_response_preserves_sections() {
         // Create a DNS message with records in all three sections
-        let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("example.com.").unwrap(), RecordType::A);
 
         // Create a Lookup from the query
         let mut lookup =
@@ -1367,7 +1367,7 @@ mod tests {
         );
 
         let metadata = Metadata::new(0, MessageType::Query, OpCode::Query);
-        let query = LowerQuery::from(Query::query(
+        let query = LowerQuery::from(Query::new(
             Name::from_str("www.sub.example.com.").unwrap(),
             RecordType::A,
         ));

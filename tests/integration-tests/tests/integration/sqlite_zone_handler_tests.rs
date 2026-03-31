@@ -525,7 +525,7 @@ async fn test_update() {
 
     let message_request = MessageRequest::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
-        Query::query(origin_name, RecordType::AXFR),
+        Query::new(origin_name, RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -797,7 +797,7 @@ async fn test_update_tsig_valid() {
     let origin_name = Name::from_str("example.com.").unwrap();
     let message_request = MessageRequest::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
-        Query::query(origin_name, RecordType::AXFR),
+        Query::new(origin_name, RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -1128,7 +1128,7 @@ async fn test_zone_signing() {
 
     let message_request = MessageRequest::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
-        Query::query(handler.origin().clone().into(), RecordType::AXFR),
+        Query::new(handler.origin().clone().into(), RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -1390,7 +1390,7 @@ async fn test_axfr_allow_all() {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_METADATA,
-            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+            Query::new(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
@@ -1421,7 +1421,7 @@ async fn test_axfr_deny_all() {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_METADATA,
-            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+            Query::new(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
@@ -1452,7 +1452,7 @@ async fn test_axfr_deny_unsigned() {
     let mut handler = create_example();
     handler.set_axfr_policy(AxfrPolicy::AllowSigned);
 
-    let query = LowerQuery::from(Query::query(
+    let query = LowerQuery::from(Query::new(
         Name::from_str("example.com.").unwrap(),
         RecordType::AXFR,
     ));
@@ -1491,7 +1491,7 @@ async fn test_axfr_allow_tsig_signed() {
     handler.set_axfr_policy(AxfrPolicy::AllowSigned);
     handler.set_tsig_signers(vec![signer.clone()]);
 
-    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR);
+    let query = Query::new(Name::from_str("example.com.").unwrap(), RecordType::AXFR);
     let mut message = Message::query();
     message.add_query(query);
 

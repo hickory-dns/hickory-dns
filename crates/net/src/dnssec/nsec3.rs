@@ -836,7 +836,7 @@ mod tests {
         // Based on RFC 5155 B.1 - Name Error
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
+                &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -872,7 +872,7 @@ mod tests {
         // Missing wildcard at the closest encloser
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
+                &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -901,7 +901,7 @@ mod tests {
         // No record matching the next closer name
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
+                &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -930,7 +930,7 @@ mod tests {
         // Invalid SOA
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.c.x.w.example.")?, A),
+                &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("x.w.example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -973,7 +973,7 @@ mod tests {
         // Based on RFC 5155 B.2 - No Data Error
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -996,7 +996,7 @@ mod tests {
         // Based on RFC 5155 B.2.1 - No Data Error, Empty Non-Terminal
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("y.w.example.")?, A),
+                &Query::new(Name::from_ascii("y.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1019,7 +1019,7 @@ mod tests {
         // NSEC Type map doesn't disprove the queried record type
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1042,7 +1042,7 @@ mod tests {
         // NSEC3 doesn't match the query name.
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1061,7 +1061,7 @@ mod tests {
         // NSEC3 covers the query name.
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1114,7 +1114,7 @@ mod tests {
         // Based on RFC 5155 B.4 - Wildcard Expansion
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
                 &answers,
@@ -1136,7 +1136,7 @@ mod tests {
 
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
                 &answers,
@@ -1157,7 +1157,7 @@ mod tests {
 
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
                 &answers,
@@ -1187,7 +1187,7 @@ mod tests {
         // Based on RFC 5155 B.5 - Wildcard No Data Error
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1226,7 +1226,7 @@ mod tests {
         // Missing an NSEC matching the closest encloser.
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1257,7 +1257,7 @@ mod tests {
         // No record covering the next-closer
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1288,7 +1288,7 @@ mod tests {
         // No record matching the wildcard at the closest encloser.
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -1319,7 +1319,7 @@ mod tests {
         // No SOA record
         assert_eq!(
             verify_nsec3(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 None,
                 ResponseCode::NoError,
                 &[],

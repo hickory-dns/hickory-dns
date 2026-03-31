@@ -218,13 +218,12 @@ impl<C: DnsHandle> LookupContext<C> {
 
     /// queries only for A records
     async fn ipv4_only(&self, name: Name) -> Result<Lookup, NetError> {
-        self.hosts_lookup(Query::query(name, RecordType::A)).await
+        self.hosts_lookup(Query::new(name, RecordType::A)).await
     }
 
     /// queries only for AAAA records
     async fn ipv6_only(&self, name: Name) -> Result<Lookup, NetError> {
-        self.hosts_lookup(Query::query(name, RecordType::AAAA))
-            .await
+        self.hosts_lookup(Query::new(name, RecordType::AAAA)).await
     }
 
     // TODO: this really needs to have a stream interface
@@ -249,8 +248,8 @@ impl<C: DnsHandle> LookupContext<C> {
         second_type: RecordType,
     ) -> Result<Lookup, NetError> {
         let joined_res = future::join(
-            self.hosts_lookup(Query::query(name.clone(), first_type)),
-            self.hosts_lookup(Query::query(name, second_type)),
+            self.hosts_lookup(Query::new(name.clone(), first_type)),
+            self.hosts_lookup(Query::new(name, second_type)),
         )
         .await;
 
@@ -291,13 +290,13 @@ impl<C: DnsHandle> LookupContext<C> {
         second_type: RecordType,
     ) -> Result<Lookup, NetError> {
         let res = self
-            .hosts_lookup(Query::query(name.clone(), first_type))
+            .hosts_lookup(Query::new(name.clone(), first_type))
             .await;
 
         match res {
             Ok(ips) if !ips.answers().is_empty() => Ok(ips),
             // no ips returned, NXDomain or Otherwise, doesn't matter
-            _ => self.hosts_lookup(Query::query(name, second_type)).await,
+            _ => self.hosts_lookup(Query::new(name, second_type)).await,
         }
     }
 
@@ -344,7 +343,7 @@ pub(crate) mod tests {
 
     pub(crate) fn v4_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
-        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_query(Query::new(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
@@ -358,7 +357,7 @@ pub(crate) mod tests {
 
     pub(crate) fn v6_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
-        message.add_query(Query::query(Name::root(), RecordType::AAAA));
+        message.add_query(Query::new(Name::root(), RecordType::AAAA));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,

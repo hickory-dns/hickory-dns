@@ -517,7 +517,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
         // Record should have TTL of 1 second.
         let mut message = Message::response(0, OpCode::Query);
         message.add_answer(Record::from_rdata(
@@ -563,7 +563,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
 
         // Upstream record has TTL=60, but positive_min_ttl is 3600.
         let mut message = Message::response(0, OpCode::Query);
@@ -614,7 +614,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
 
         // Upstream record has TTL=3600, but positive_max_ttl is 120.
         let mut message = Message::response(0, OpCode::Query);
@@ -656,7 +656,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("api.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::AAAA);
+        let query = Query::new(name.clone(), RecordType::AAAA);
 
         let mut message = Message::response(0, OpCode::Query);
         // Answer: AAAA record with TTL=120
@@ -703,7 +703,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
 
         // Configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig::from(TtlBounds {
@@ -735,7 +735,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
         // Record should have TTL of 62 seconds.
         let mut message = Message::response(0, OpCode::Query);
         message.add_answer(Record::from_rdata(
@@ -777,7 +777,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
 
         // Configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig::from(TtlBounds {
@@ -809,7 +809,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
         let mut message = Message::response(0, OpCode::Query);
         message.add_answer(Record::from_rdata(
             name.clone(),
@@ -829,7 +829,7 @@ mod tests {
         subscribe();
         let now = Instant::now();
 
-        let query = Query::query(
+        let query = Query::new(
             Name::from_str("www.example.com.").unwrap(),
             RecordType::AAAA,
         );
@@ -855,7 +855,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
         let mut message = Message::response(0, OpCode::Query);
         message.add_answer(Record::from_rdata(
             name.clone(),
@@ -878,7 +878,7 @@ mod tests {
         let name = Name::from_str("www.example.com.")?;
         let ns_name = Name::from_str("ns1.example.com")?;
         let zone_name = name.base_name();
-        let query = Query::query(name.clone(), RecordType::AAAA);
+        let query = Query::new(name.clone(), RecordType::AAAA);
 
         let mut norecs = NoRecords::new(query.clone(), ResponseCode::NXDomain);
         norecs.negative_ttl = Some(10);
@@ -946,7 +946,7 @@ mod tests {
         let now = Instant::now();
 
         let name = Name::from_str("www.example.com.").unwrap();
-        let query = Query::query(name.clone(), RecordType::A);
+        let query = Query::new(name.clone(), RecordType::A);
 
         // TTL of entry should be 1.
         let mut message = Message::response(0, OpCode::Query);
@@ -977,12 +977,12 @@ mod tests {
         let name = Name::from_str("www.example.com.").unwrap();
 
         // Store records with a TTL of 1 second.
-        let query_a = Query::query(name.clone(), RecordType::A);
+        let query_a = Query::new(name.clone(), RecordType::A);
         let rdata_a = RData::A(A::new(127, 0, 0, 1));
         let mut message_a = Message::response(0, OpCode::Query);
         message_a.add_answer(Record::from_rdata(name.clone(), 1, rdata_a.clone()));
 
-        let query_txt = Query::query(name.clone(), RecordType::TXT);
+        let query_txt = Query::new(name.clone(), RecordType::TXT);
         let rdata_txt = RData::TXT(TXT::new(vec!["data".to_string()]));
         let mut message_txt = Message::response(0, OpCode::Query);
         message_txt.add_answer(Record::from_rdata(name.clone(), 1, rdata_txt.clone()));

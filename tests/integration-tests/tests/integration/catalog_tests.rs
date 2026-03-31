@@ -554,7 +554,7 @@ async fn test_axfr_deny_all_sqlite() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(handler)]);
 
-    let query = Query::query(origin.into(), RecordType::AXFR);
+    let query = Query::new(origin.into(), RecordType::AXFR);
     let mut message = Message::query();
     message.add_query(query);
 
@@ -875,7 +875,7 @@ async fn test_update_forwarder() {
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
 
-    let query = Query::query(Name::root(), RecordType::SOA);
+    let query = Query::new(Name::root(), RecordType::SOA);
     let mut message = Message::new(0, MessageType::Query, OpCode::Update);
     message.add_query(query);
     message.add_answer(Record::from_rdata(
@@ -908,7 +908,7 @@ async fn test_empty_chain_query() {
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![]);
 
-    let query = Query::query(Name::root(), RecordType::SOA);
+    let query = Query::new(Name::root(), RecordType::SOA);
     let mut message = Message::new(0, MessageType::Query, OpCode::Query);
     message.add_query(query);
 
@@ -935,7 +935,7 @@ async fn test_empty_chain_update() {
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![]);
 
-    let query = Query::query(Name::root(), RecordType::SOA);
+    let query = Query::new(Name::root(), RecordType::SOA);
     let mut message = Message::new(0, MessageType::Query, OpCode::Update);
     message.add_query(query);
     message.add_answer(Record::from_rdata(
@@ -967,7 +967,7 @@ async fn test_empty_chain_axfr() {
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![]);
 
-    let query = Query::query(Name::root(), RecordType::AXFR);
+    let query = Query::new(Name::root(), RecordType::AXFR);
     let mut message = Message::new(0, MessageType::Query, OpCode::Query);
     message.add_query(query);
 

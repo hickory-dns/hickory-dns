@@ -76,7 +76,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let now = Instant::now();
-    let query = Query::query(name, ty);
+    let query = Query::new(name, ty);
     let response = recursor.resolve(query, now, false).await?;
 
     // report response, TODO: better display of errors
