@@ -40,7 +40,7 @@ use crate::{
         op::{
             DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode,
         },
-        rr::{Name, RData, Record, RecordType, SerialNumber, record::RecordRef},
+        rr::{Name, RData, Record, RecordRef, RecordType, SerialNumber},
     },
     runtime::{RuntimeProvider, Time},
     xfer::{FirstAnswer, dns_handle::DnsHandle},

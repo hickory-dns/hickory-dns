@@ -11,24 +11,24 @@ use core::fmt::{Debug, Display};
 
 use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, DecodeError, Restrict};
 
-pub mod dns_class;
+pub(crate) mod dns_class;
 pub use dns_class::DNSClass;
 
 pub mod domain;
-pub use domain::{IntoName, Name};
+pub use domain::{IntoName, Label, Name};
 
 mod lower_name;
 pub use lower_name::LowerName;
 
 pub mod rdata;
 
-pub mod record;
-pub use record::Record;
+pub(crate) mod record;
+pub use record::{Record, RecordRef};
 
-pub mod record_data;
+pub(crate) mod record_data;
 pub use record_data::RData;
 
-pub mod record_type;
+pub(crate) mod record_type;
 pub use record_type::RecordType;
 
 pub(crate) mod record_type_set;
@@ -42,7 +42,7 @@ mod rr_set;
 pub use rr_set::RecordsAndRrsigsIter;
 pub use rr_set::{RecordSet, RecordSetParts, RrsetRecords};
 
-pub mod serial_number;
+pub(crate) mod serial_number;
 pub use serial_number::SerialNumber;
 
 mod tsig;

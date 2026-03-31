@@ -102,7 +102,7 @@ use crate::proto::{
         rdata::{DNSSECRData, NSEC3},
     },
     op::{Query, ResponseCode},
-    rr::{Name, RData, Record, RecordType, domain::Label},
+    rr::{Label, Name, RData, Record, RecordType},
 };
 
 pub(super) fn verify_nsec3(
@@ -712,8 +712,9 @@ mod tests {
             rdata::{DNSSECRData, RRSIG as rdataRRSIG, SigInput},
         },
         rr::{
-            RData, SerialNumber, rdata,
-            record_type::RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
+            RData,
+            RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
+            SerialNumber, rdata,
         },
     };
 

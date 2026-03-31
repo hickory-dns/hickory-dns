@@ -206,7 +206,7 @@ impl FromStr for RecordType {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use hickory_proto::rr::record_type::RecordType;
+    /// use hickory_proto::rr::RecordType;
     ///
     /// let var: RecordType = RecordType::from_str("A").unwrap();
     /// assert_eq!(RecordType::A, var);
@@ -259,7 +259,7 @@ impl From<u16> for RecordType {
     /// Convert from `u16` to `RecordType`
     ///
     /// ```
-    /// use hickory_proto::rr::record_type::RecordType;
+    /// use hickory_proto::rr::RecordType;
     ///
     /// let var = RecordType::from(1);
     /// assert_eq!(RecordType::A, var);
@@ -333,7 +333,7 @@ impl BinDecodable<'_> for RecordType {
 /// Convert from `RecordType` to `&str`
 ///
 /// ```
-/// use hickory_proto::rr::record_type::RecordType;
+/// use hickory_proto::rr::RecordType;
 ///
 /// let var: &'static str = From::from(RecordType::A);
 /// assert_eq!("A", var);
@@ -390,7 +390,7 @@ impl From<RecordType> for &'static str {
 /// Convert from `RecordType` to `u16`
 ///
 /// ```
-/// use hickory_proto::rr::record_type::RecordType;
+/// use hickory_proto::rr::RecordType;
 ///
 /// let var: u16 = RecordType::A.into();
 /// assert_eq!(1, var);

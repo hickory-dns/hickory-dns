@@ -406,8 +406,7 @@ mod test {
     use super::*;
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::rdata::{NS, SOA};
-    use crate::proto::rr::record_type::RecordType;
-    use crate::proto::rr::{DNSClass, Name, RData, Record};
+    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType};
     use crate::proto::serialize::binary::BinEncodable;
     use crate::xfer::{DnsClientStream, StreamReceiver};
 

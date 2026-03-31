@@ -25,13 +25,12 @@ use crate::{
     proto::{
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
-            DNSClass, Name, RData, Record, RecordType,
+            DNSClass, Name, RData, Record, RecordRef, RecordType,
             domain::usage::{
                 DEFAULT, IN_ADDR_ARPA_127, INVALID, IP6_ARPA_1, LOCAL,
                 LOCALHOST as LOCALHOST_usage, ONION, ResolverUsage,
             },
             rdata::{A, AAAA, CNAME, PTR},
-            record::RecordRef,
         },
     },
 };

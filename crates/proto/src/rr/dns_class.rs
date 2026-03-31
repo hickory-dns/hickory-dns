@@ -50,7 +50,7 @@ impl FromStr for DNSClass {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use hickory_proto::rr::dns_class::DNSClass;
+    /// use hickory_proto::rr::DNSClass;
     ///
     /// let var: DNSClass = DNSClass::from_str("IN").unwrap();
     /// assert_eq!(DNSClass::IN, var);
@@ -98,7 +98,7 @@ impl BinDecodable<'_> for DNSClass {
 /// Convert from `DNSClass` to `&str`
 ///
 /// ```
-/// use hickory_proto::rr::dns_class::DNSClass;
+/// use hickory_proto::rr::DNSClass;
 ///
 /// let var: &'static str = DNSClass::IN.into();
 /// assert_eq!("IN", var);
@@ -120,7 +120,7 @@ impl From<DNSClass> for &'static str {
 /// Convert from `u16` to `DNSClass`
 ///
 /// ```
-/// use hickory_proto::rr::dns_class::DNSClass;
+/// use hickory_proto::rr::DNSClass;
 ///
 /// let var: DNSClass = 1u16.into();
 /// assert_eq!(DNSClass::IN, var);
@@ -141,7 +141,7 @@ impl From<u16> for DNSClass {
 /// Convert from `DNSClass` to `u16`
 ///
 /// ```
-/// use hickory_proto::rr::dns_class::DNSClass;
+/// use hickory_proto::rr::DNSClass;
 ///
 /// let var: u16 = DNSClass::IN.into();
 /// assert_eq!(1, var);
