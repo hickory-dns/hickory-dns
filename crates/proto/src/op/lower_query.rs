@@ -49,7 +49,7 @@ impl LowerQuery {
     ///                 can match more than one type of RR.
     /// ```
     pub fn query_type(&self) -> RecordType {
-        self.original.query_type()
+        self.original.query_type
     }
 
     /// ```text
@@ -57,7 +57,7 @@ impl LowerQuery {
     ///                 For example, the QCLASS field is IN for the Internet.
     /// ```
     pub fn query_class(&self) -> DNSClass {
-        self.original.query_class()
+        self.original.query_class
     }
 }
 
@@ -71,7 +71,7 @@ impl<'r> BinDecodable<'r> for LowerQuery {
 impl From<Query> for LowerQuery {
     fn from(query: Query) -> Self {
         Self {
-            name: LowerName::new(query.name()),
+            name: LowerName::new(&query.name),
             original: query,
         }
     }
@@ -88,9 +88,7 @@ impl Display for LowerQuery {
         write!(
             f,
             "name: {} type: {} class: {}",
-            self.name,
-            self.original.query_type(),
-            self.original.query_class()
+            self.name, self.original.query_type, self.original.query_class
         )
     }
 }

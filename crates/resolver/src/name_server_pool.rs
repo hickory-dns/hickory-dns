@@ -142,7 +142,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Runtime = P::RuntimeProvider;
 
     fn lookup(&self, query: Query, mut options: DnsRequestOptions) -> Self::Response {
-        debug!("querying: {} {:?}", query.name(), query.query_type());
+        debug!("querying: {} {:?}", query.name, query.query_type);
         options.case_randomization = self.state.cx.options.case_randomization;
         self.send(DnsRequest::from_query(query, options))
     }

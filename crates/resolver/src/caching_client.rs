@@ -132,8 +132,8 @@ where
         // localhost names to their configured caching DNS server(s).
         // ```
         // special use rules only apply to the IN Class
-        if query.query_class() == DNSClass::IN {
-            let usage = match query.name() {
+        if query.query_class == DNSClass::IN {
+            let usage = match &query.name {
                 n if LOCALHOST_usage.zone_of(n) => &*LOCALHOST_usage,
                 n if IN_ADDR_ARPA_127.zone_of(n) => &*LOCALHOST_usage,
                 n if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
@@ -144,7 +144,7 @@ where
             };
 
             match usage.resolver() {
-                ResolverUsage::Loopback => match query.query_type() {
+                ResolverUsage::Loopback => match query.query_type {
                     // TODO: look in hosts for these ips/names first...
                     RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),
                     RecordType::AAAA => return Ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())),
@@ -313,8 +313,8 @@ where
         let (search_name, was_cname, preserved_records) = {
             // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
             let (search_name, cname_ttl, was_cname) =
-                if query.query_type().is_any() || query.query_type().is_cname() {
-                    (Cow::Borrowed(query.name()), INITIAL_TTL, false)
+                if query.query_type.is_any() || query.query_type.is_cname() {
+                    (Cow::Borrowed(&query.name), INITIAL_TTL, false)
                 } else {
                     // Folds any cnames from the answers section, into the final cname in the answers section
                     //   this works by folding the last CNAME found into the final folded result.
@@ -323,7 +323,7 @@ where
                     //
                     // TODO: should this include the additionals?
                     response.answers.iter().fold(
-                        (Cow::Borrowed(query.name()), INITIAL_TTL, false),
+                        (Cow::Borrowed(&query.name), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
                             match &r.data {
                                 RData::CNAME(CNAME(cname)) => {
@@ -361,15 +361,14 @@ where
             // We need this first pass to decide our strategy: return complete message vs filter
             for r in message.all_sections() {
                 // restrict to the RData type requested
-                if query.query_class() != r.dns_class {
+                if query.query_class != r.dns_class {
                     continue;
                 }
 
                 // standard evaluation, it's an any type, or it's the requested type and the
                 // search_name matches
-                let type_matches =
-                    query.query_type().is_any() || query.query_type() == r.record_type();
-                let name_matches = search_name.as_ref() == &r.name || query.name() == &r.name;
+                let type_matches = query.query_type.is_any() || query.query_type == r.record_type();
+                let name_matches = search_name.as_ref() == &r.name || query.name == r.name;
                 if type_matches && name_matches {
                     found_name = true;
                     // Track if we found the CNAME target (not just the original name)
@@ -400,17 +399,17 @@ where
                         r.ttl = ttl;
 
                         // restrict to the RData type requested
-                        if query.query_class() != r.dns_class {
+                        if query.query_class != r.dns_class {
                             return None;
                         }
 
                         // standard evaluation, it's an any type, or it's the requested type
                         // and the search_name matches
-                        let query_type = query.query_type();
+                        let query_type = query.query_type;
                         let record_type = r.record_type();
                         let type_matches = query_type.is_any() || query_type == record_type;
                         let name_matches =
-                            search_name.as_ref() == &r.name || query.name() == &r.name;
+                            search_name.as_ref() == &r.name || query.name == r.name;
                         if type_matches && name_matches {
                             return Some(r);
                         }
@@ -443,7 +442,7 @@ where
                 r.ttl = cname_ttl.min(r.ttl);
 
                 // restrict to the RData type requested
-                if query.query_class() != r.dns_class {
+                if query.query_class != r.dns_class {
                     return None;
                 }
 
@@ -464,7 +463,7 @@ where
         //    for now, we'll make the API require the user to perform a follow up to the lookups.
         // It was a CNAME, but not included in the request...
         if was_cname && !depth.is_exhausted() {
-            let next_query = Query::query(search_name, query.query_type());
+            let next_query = Query::query(search_name, query.query_type);
             Ok(Records::CnameChain {
                 next: Box::pin(Self::inner_lookup(
                     next_query,
@@ -510,7 +509,7 @@ where
                 // raw upstream TTL.
                 let ttl = self
                     .cache
-                    .clamp_positive_ttls(query.query_type(), &mut message);
+                    .clamp_positive_ttls(query.query_type, &mut message);
                 let valid_until = now + ttl;
                 let lookup = Lookup::new(message.clone(), valid_until);
                 self.cache.insert(query, Ok(message), now);
@@ -599,7 +598,7 @@ mod tests {
         let mut message = Message::response(0, OpCode::Query);
         message.add_query(query.clone());
         message.add_answer(Record::from_rdata(
-            query.name().clone(),
+            query.name.clone(),
             u32::MAX,
             RData::A(A::new(127, 0, 0, 1)),
         ));
@@ -620,7 +619,7 @@ mod tests {
         assert_eq!(
             ips.answers(),
             &[Record::from_rdata(
-                query.name().clone(),
+                query.name.clone(),
                 u32::MAX,
                 RData::A(A::new(127, 0, 0, 1))
             )]
@@ -1705,7 +1704,7 @@ mod tests {
             assert_eq!(
                 lookup.answers(),
                 &[Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     MAX_TTL,
                     LOCALHOST_V4.clone()
                 )]
@@ -1720,7 +1719,7 @@ mod tests {
             assert_eq!(
                 lookup.answers(),
                 &[Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     MAX_TTL,
                     LOCALHOST_V6.clone()
                 )]
@@ -1735,7 +1734,7 @@ mod tests {
             assert_eq!(
                 lookup.answers(),
                 &[Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     MAX_TTL,
                     LOCALHOST.clone()
                 )]
@@ -1753,7 +1752,7 @@ mod tests {
             assert_eq!(
                 lookup.answers(),
                 &[Record::from_rdata(
-                    query.name().clone(),
+                    query.name.clone(),
                     MAX_TTL,
                     LOCALHOST.clone()
                 )]
