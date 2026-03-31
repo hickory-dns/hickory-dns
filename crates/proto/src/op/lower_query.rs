@@ -25,14 +25,6 @@ pub struct LowerQuery {
 }
 
 impl LowerQuery {
-    /// Create a new query from name and type, class defaults to IN
-    pub fn query(query: Query) -> Self {
-        Self {
-            name: LowerName::new(query.name()),
-            original: query,
-        }
-    }
-
     /// ```text
     /// QNAME           a domain name represented as a sequence of labels, where
     ///                 each label consists of a length octet followed by that
@@ -69,22 +61,25 @@ impl LowerQuery {
     }
 }
 
+impl<'r> BinDecodable<'r> for LowerQuery {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        let original = Query::read(decoder)?;
+        Ok(Self::from(original))
+    }
+}
+
 impl From<Query> for LowerQuery {
     fn from(query: Query) -> Self {
-        Self::query(query)
+        Self {
+            name: LowerName::new(query.name()),
+            original: query,
+        }
     }
 }
 
 impl BinEncodable for LowerQuery {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         self.original.emit(encoder)
-    }
-}
-
-impl<'r> BinDecodable<'r> for LowerQuery {
-    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let original = Query::read(decoder)?;
-        Ok(Self::query(original))
     }
 }
 
