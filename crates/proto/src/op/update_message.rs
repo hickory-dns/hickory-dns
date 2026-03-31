@@ -9,6 +9,7 @@
 
 use core::fmt::Debug;
 
+use super::{lower_query::LowerQuery, message_request::MessageRequest};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
     op::{Edns, OpCode, edns::DEFAULT_MAX_PAYLOAD_LEN},
@@ -17,6 +18,7 @@ use crate::{
 use crate::{
     op::{Message, Query},
     rr::{Record, rdata::TSIG},
+    serialize::binary::DecodeError,
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -590,4 +592,52 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     }
 
     message
+}
+
+/// A type which represents an MessageRequest for dynamic Update.
+pub trait UpdateRequest {
+    /// Id of the Message
+    fn id(&self) -> u16;
+
+    /// Zone being updated, this should be the query of a Message
+    fn zone(&self) -> Result<&LowerQuery, DecodeError>;
+
+    /// Prerequisites map to the Answer section of a Message
+    fn prerequisites(&self) -> &[Record];
+
+    /// Records to update map to the Authority section of a Message
+    fn updates(&self) -> &[Record];
+
+    /// Additional records
+    fn additionals(&self) -> &[Record];
+
+    /// Signature for verifying the Message
+    fn signature(&self) -> Option<&Record<TSIG>>;
+}
+
+impl UpdateRequest for MessageRequest {
+    fn id(&self) -> u16 {
+        self.metadata.id
+    }
+
+    fn zone(&self) -> Result<&LowerQuery, DecodeError> {
+        // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
+        self.queries.try_as_query()
+    }
+
+    fn prerequisites(&self) -> &[Record] {
+        &self.answers
+    }
+
+    fn updates(&self) -> &[Record] {
+        &self.authorities
+    }
+
+    fn additionals(&self) -> &[Record] {
+        &self.additionals
+    }
+
+    fn signature(&self) -> Option<&Record<TSIG>> {
+        self.signature.as_deref()
+    }
 }
