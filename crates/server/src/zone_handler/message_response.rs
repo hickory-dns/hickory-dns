@@ -151,20 +151,6 @@ impl<'q> MessageResponseBuilder<'q> {
     ///
     /// # Arguments
     ///
-    /// * `queries` - queries (from the Request) to associate with the Response
-    /// * `edns` - Optional Edns data to associate with the Response
-    pub fn new(queries: &'q Queries, edns: Option<&'q Edns>) -> Self {
-        MessageResponseBuilder {
-            queries,
-            signature: None,
-            edns,
-        }
-    }
-
-    /// Constructs a new response builder
-    ///
-    /// # Arguments
-    ///
     /// * `message` - original request message to associate with the response
     ///
     /// # Example
@@ -190,6 +176,20 @@ impl<'q> MessageResponseBuilder<'q> {
     /// ```
     pub fn from_message_request(message: &'q MessageRequest) -> Self {
         Self::new(&message.queries, None)
+    }
+
+    /// Constructs a new response builder
+    ///
+    /// # Arguments
+    ///
+    /// * `queries` - queries (from the Request) to associate with the Response
+    /// * `edns` - Optional Edns data to associate with the Response
+    pub fn new(queries: &'q Queries, edns: Option<&'q Edns>) -> Self {
+        MessageResponseBuilder {
+            queries,
+            signature: None,
+            edns,
+        }
     }
 
     /// Associate EDNS with the Response
