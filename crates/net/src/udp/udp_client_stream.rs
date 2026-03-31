@@ -294,7 +294,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                 && !response_queries.iter().all(|elem| {
                     request_queries
                         .iter()
-                        .any(|req_q| req_q == elem && req_q.name().eq_case(elem.name()))
+                        .any(|req_q| req_q == elem && req_q.name.eq_case(&elem.name))
                 })
             {
                 warn!(

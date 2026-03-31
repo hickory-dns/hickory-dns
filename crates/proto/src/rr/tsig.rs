@@ -258,7 +258,7 @@ impl TSigner {
             || message
                 .queries
                 .iter()
-                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
+                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type))
     }
 
     /// Verify the message is correctly signed

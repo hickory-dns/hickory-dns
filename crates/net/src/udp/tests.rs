@@ -238,8 +238,8 @@ async fn udp_client_stream_test_inner(
                 debug!("server received request {} from: {}", i, addr);
 
                 let request = Message::from_vec(&buffer[0..len]).expect("failed parse of request");
-                assert_eq!(*request.queries[0].name(), test_name_server.clone());
-                assert_eq!(request.queries[0].query_type(), RecordType::NULL);
+                assert_eq!(request.queries[0].name, test_name_server.clone());
+                assert_eq!(request.queries[0].query_type, RecordType::NULL);
 
                 for response_idx in 0..response_count {
                     let mut message = request.clone().into_response();

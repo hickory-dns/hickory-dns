@@ -129,43 +129,6 @@ impl Query {
         self.mdns_unicast_response = flag;
         self
     }
-
-    /// ```text
-    /// QNAME           a domain name represented as a sequence of labels, where
-    ///                 each label consists of a length octet followed by that
-    ///                 number of octets.  The domain name terminates with the
-    ///                 zero length octet for the null label of the root.  Note
-    ///                 that this field may be an odd number of octets; no
-    ///                 padding is used.
-    /// ```
-    pub fn name(&self) -> &Name {
-        &self.name
-    }
-
-    /// ```text
-    /// QTYPE           a two octet code which specifies the type of the query.
-    ///                 The values for this field include all codes valid for a
-    ///                 TYPE field, together with some more general codes which
-    ///                 can match more than one type of RR.
-    /// ```
-    pub fn query_type(&self) -> RecordType {
-        self.query_type
-    }
-
-    /// ```text
-    /// QCLASS          a two octet code that specifies the class of the query.
-    ///                 For example, the QCLASS field is IN for the Internet.
-    /// ```
-    pub fn query_class(&self) -> DNSClass {
-        self.query_class
-    }
-
-    /// Returns if the mDNS unicast-response bit is set or not
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
-    #[cfg(feature = "mdns")]
-    pub fn mdns_unicast_response(&self) -> bool {
-        self.mdns_unicast_response
-    }
 }
 
 impl BinEncodable for Query {
@@ -179,7 +142,7 @@ impl BinEncodable for Query {
         #[cfg(feature = "mdns")]
         {
             if self.mdns_unicast_response {
-                encoder.emit_u16(u16::from(self.query_class()) | MDNS_UNICAST_RESPONSE)?;
+                encoder.emit_u16(u16::from(self.query_class) | MDNS_UNICAST_RESPONSE)?;
             } else {
                 self.query_class.emit(encoder)?;
             }
@@ -295,7 +258,7 @@ mod tests {
 
         let got = Query::read(&mut decoder).unwrap();
 
-        assert_eq!(got.query_class(), DNSClass::IN);
-        assert!(got.mdns_unicast_response());
+        assert_eq!(got.query_class, DNSClass::IN);
+        assert!(got.mdns_unicast_response);
     }
 }

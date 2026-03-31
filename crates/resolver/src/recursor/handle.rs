@@ -231,9 +231,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // The subsequent lookup request for then ask the example.com. servers to resolve
         // A example.com.
 
-        let zone = match query.query_type() {
-            RecordType::DS => query.name().base_name(),
-            _ => query.name().clone(),
+        let zone = match query.query_type {
+            RecordType::DS => query.name.base_name(),
+            _ => query.name.clone(),
         };
 
         let (depth, ns) = match self
@@ -309,7 +309,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         mut depth: u8,
         cname_limit: Arc<AtomicU8>,
     ) -> Result<Message, RecursorError> {
-        let query_type = query.query_type();
+        let query_type = query.query_type;
 
         // Don't resolve CNAME lookups for a CNAME (or ANY) query
         if query_type == RecordType::CNAME || query_type == RecordType::ANY {
@@ -325,7 +325,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         depth += 1;
-        RecursorError::recursion_exceeded(self.recursion_limit, depth, query.name())?;
+        RecursorError::recursion_exceeded(self.recursion_limit, depth, &query.name)?;
 
         let mut cname_chain = vec![];
 

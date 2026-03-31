@@ -140,11 +140,11 @@ fn test_datagram() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
+    let udp_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
     let udp_response = DnsResponse::from_message(udp_message).unwrap();
 
-    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_record = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
     let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
@@ -180,7 +180,7 @@ fn test_datagram_stream_upgrades_on_truncation() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_record = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
     udp_message.metadata.truncation = true;
@@ -220,9 +220,9 @@ fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
-    let tcp_record1 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let tcp_record2 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 3));
+    let udp_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
+    let tcp_record1 = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_record2 = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 3));
 
     let mut udp_message = message(query.clone(), vec![udp_record], vec![], vec![]);
     udp_message.metadata.truncation = true;
@@ -267,7 +267,7 @@ fn test_datagram_fails_to_stream() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_record = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
     let io_error = io::Error::other("Some I/O Error");
     let udp_message: Result<DnsResponse, _> = Err(NetError::from(io_error));
 
@@ -306,7 +306,7 @@ fn test_tcp_fallback_only_on_truncated() {
     udp_message.metadata.response_code = ResponseCode::ServFail;
     let udp_response = DnsResponse::from_message(udp_message).unwrap();
 
-    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_record = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
     let tcp_response = DnsResponse::from_message(tcp_message).unwrap();
 
@@ -463,16 +463,13 @@ fn test_trust_nx_responses_fails() {
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     // NXDOMAIN responses are only trusted if there's a SOA record, so make sure we return one.
-    let soa_record = soa_record(
-        query.name().clone(),
-        Name::from_str("example.com.").unwrap(),
-    );
+    let soa_record = soa_record(query.name.clone(), Name::from_str("example.com.").unwrap());
     let mut nx_message = message(query.clone(), vec![], vec![soa_record], vec![]);
     nx_message.metadata.response_code = ResponseCode::NXDomain;
 
     let success_msg = message(
         query.clone(),
-        vec![v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2))],
+        vec![v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2))],
         vec![],
         vec![],
     );
@@ -512,15 +509,12 @@ fn test_noerror_doesnt_leak() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let soa_record = soa_record(
-        query.name().clone(),
-        Name::from_str("example.com.").unwrap(),
-    );
+    let soa_record = soa_record(query.name.clone(), Name::from_str("example.com.").unwrap());
     let udp_message = message(query.clone(), vec![], vec![soa_record], vec![]);
 
     let incorrect_success_msg = message(
         query.clone(),
-        vec![v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2))],
+        vec![v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2))],
         vec![],
         vec![],
     );
@@ -578,7 +572,7 @@ fn test_distrust_nx_responses() {
     );
 
     // Return a successful response on the fallback request.
-    let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let v4_record = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
     let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
     let fallback_nameserver = mock_udp_nameserver_trust_nx(
         vec![Ok(DnsResponse::from_message(success_message).unwrap()); RETRYABLE_ERRORS.len()],
@@ -615,8 +609,8 @@ fn test_user_provided_server_order() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let preferred_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
-    let secondary_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let preferred_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
+    let secondary_record = v4_record(query.name.clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let preferred_server_records = vec![preferred_record; 10];
     let secondary_server_records = vec![secondary_record; 10];
@@ -786,7 +780,7 @@ fn test_concurrent_requests_2_conns() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
+    let udp_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
@@ -826,7 +820,7 @@ fn test_concurrent_requests_more_than_conns() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
+    let udp_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
@@ -865,7 +859,7 @@ fn test_concurrent_requests_1_conn() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
+    let udp_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
@@ -904,7 +898,7 @@ fn test_concurrent_requests_0_conn() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::LOCALHOST);
+    let udp_record = v4_record(query.name.clone(), Ipv4Addr::LOCALHOST);
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 

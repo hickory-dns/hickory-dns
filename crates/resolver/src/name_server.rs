@@ -1023,7 +1023,7 @@ mod tests {
             .await
             .unwrap();
 
-        let response_query_name = response.queries.first().unwrap().name();
+        let response_query_name = &response.queries.first().unwrap().name;
         assert!(response_query_name.eq_case(&name));
     }
 

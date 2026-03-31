@@ -48,13 +48,13 @@ impl ResponseCache {
     pub fn insert(&self, query: Query, result: Result<Message, NetError>, now: Instant) {
         let (ttl, result) = match result {
             Ok(mut message) => {
-                let ttl = self.clamp_positive_ttls(query.query_type(), &mut message);
+                let ttl = self.clamp_positive_ttls(query.query_type, &mut message);
                 (ttl, Ok(message))
             }
             Err(NetError::Dns(DnsError::NoRecordsFound(no_records))) => {
                 let (negative_min_ttl, negative_max_ttl) = self
                     .ttl_config
-                    .negative_response_ttl_bounds(query.query_type())
+                    .negative_response_ttl_bounds(query.query_type)
                     .into_inner();
                 let ttl = if let Some(ttl) = no_records.negative_ttl {
                     Duration::from_secs(u64::from(ttl)).clamp(negative_min_ttl, negative_max_ttl)

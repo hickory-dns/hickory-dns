@@ -107,7 +107,7 @@ async fn test_server_unknown_type() {
 
     assert_eq!(client_result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(
-        client_result.queries.first().unwrap().query_type(),
+        client_result.queries.first().unwrap().query_type,
         RecordType::Unknown(65535)
     );
     assert!(client_result.answers.is_empty());

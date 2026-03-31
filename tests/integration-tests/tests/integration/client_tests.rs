@@ -129,7 +129,7 @@ async fn test_query(mut client: Client<TokioRuntimeProvider>) {
             .queries
             .first()
             .expect("expected query")
-            .name()
+            .name
             .eq_case(&name)
     );
 
@@ -177,7 +177,7 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
             .queries
             .first()
             .expect("expected query")
-            .name()
+            .name
             .eq_case(&name)
     );
 

@@ -345,7 +345,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         request_time: Instant,
         query_has_dnssec_ok: bool,
     ) -> Result<Message, RecursorError> {
-        if !query.name().is_fqdn() {
+        if !query.name.is_fqdn() {
             return Err(RecursorError::from(
                 "query's domain name must be fully qualified",
             ));
