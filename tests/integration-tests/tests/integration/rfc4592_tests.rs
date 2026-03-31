@@ -51,7 +51,7 @@ async fn wildcard_synthesis_1() {
         response
             .answers
             .iter()
-            .any(|record| record.record_type() == query_type && record.name() == &query_name)
+            .any(|record| record.record_type() == query_type && record.name == query_name)
     );
 }
 
@@ -108,7 +108,7 @@ async fn wildcard_synthesis_3() {
         response
             .answers
             .iter()
-            .any(|record| record.record_type() == query_type && record.name() == &query_name)
+            .any(|record| record.record_type() == query_type && record.name == query_name)
     );
 }
 
@@ -213,8 +213,7 @@ async fn no_synthesis_4() {
         response
             .authorities
             .iter()
-            .any(|record| record.record_type() == RecordType::NS
-                && record.name() == &delegation_name)
+            .any(|record| record.record_type() == RecordType::NS && record.name == delegation_name)
     );
 }
 

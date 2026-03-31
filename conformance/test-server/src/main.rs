@@ -240,8 +240,8 @@ mod test {
         );
 
         let response = query.await.unwrap();
-        if let RData::A(addr) = response.answers[0].data() {
-            assert_eq!(*addr, rdata::A::new(192, 0, 2, 1));
+        if let RData::A(addr) = response.answers[0].data {
+            assert_eq!(addr, rdata::A::new(192, 0, 2, 1));
         }
 
         let query = client.query(
@@ -251,8 +251,8 @@ mod test {
         );
 
         let response = query.await.unwrap();
-        if let RData::A(addr) = response.answers[0].data() {
-            assert_eq!(*addr, rdata::A::new(192, 0, 2, 1));
+        if let RData::A(addr) = response.answers[0].data {
+            assert_eq!(addr, rdata::A::new(192, 0, 2, 1));
         }
 
         Ok(())
@@ -288,8 +288,8 @@ mod test {
         );
 
         let response = query.await.unwrap();
-        if let RData::A(addr) = response.answers[0].data() {
-            assert_eq!(*addr, rdata::A::new(192, 0, 2, 1));
+        if let RData::A(addr) = response.answers[0].data {
+            assert_eq!(addr, rdata::A::new(192, 0, 2, 1));
         }
 
         Ok(())

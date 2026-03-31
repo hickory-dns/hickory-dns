@@ -290,8 +290,8 @@ impl DnsError {
                             .additionals
                             .iter()
                             .filter_map(|record| {
-                                if let RData::NS(ns_data) = ns.data() {
-                                    if *record.name() == **ns_data && matches!(record.data(), RData::A(_) | RData::AAAA(_)) {
+                                if let RData::NS(ns_data) = &ns.data {
+                                    if record.name == **ns_data && matches!(&record.data, RData::A(_) | RData::AAAA(_)) {
                                         return Some(Record::to_owned(record));
                                     }
                                 }

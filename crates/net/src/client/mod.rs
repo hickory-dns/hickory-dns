@@ -514,7 +514,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         record: Record,
         zone_origin: Name,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
-        assert!(zone_origin.zone_of(record.name()));
+        assert!(zone_origin.zone_of(&record.name));
         let message = update_message::delete_rrset(record, zone_origin, self.is_using_edns());
         ClientResponse(self.send(DnsRequest::from(message)))
     }
@@ -679,7 +679,7 @@ impl<R> ClientStreamXfrState<R> {
     fn process(&mut self, answers: &[Record]) -> Result<(), NetError> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
-            match r.data() {
+            match &r.data {
                 RData::SOA(soa) => Some(soa.serial),
                 _ => None,
             }

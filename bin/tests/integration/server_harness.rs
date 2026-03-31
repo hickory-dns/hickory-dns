@@ -233,8 +233,8 @@ pub async fn query_a<C: ClientHandle>(client: &mut C) {
     let response = query_message(client, name, RecordType::A).await.unwrap();
     let record = &response.answers[0];
 
-    if let RData::A(address) = record.data() {
-        assert_eq!(address, &A::new(127, 0, 0, 1))
+    if let RData::A(address) = record.data {
+        assert_eq!(address, A::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")
     }
@@ -258,7 +258,7 @@ pub async fn query_all_dnssec(client: Client<TokioRuntimeProvider>, algorithm: A
             PublicKey,
             rdata::{DNSKEY, RRSIG},
         },
-        rr::{Record, RecordData},
+        rr::RecordData,
     };
 
     let name = Name::from_str("example.com.").unwrap();
@@ -272,7 +272,7 @@ pub async fn query_all_dnssec(client: Client<TokioRuntimeProvider>, algorithm: A
     let dnskey = response
         .answers
         .iter()
-        .map(Record::data)
+        .map(|r| &r.data)
         .filter_map(DNSKEY::try_borrow)
         .find(|d| d.public_key().algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
@@ -284,7 +284,7 @@ pub async fn query_all_dnssec(client: Client<TokioRuntimeProvider>, algorithm: A
     let rrsig = response
         .answers
         .iter()
-        .map(Record::data)
+        .map(|r| &r.data)
         .filter_map(RRSIG::try_borrow)
         .filter(|rrsig| rrsig.input().algorithm == algorithm)
         .find(|rrsig| rrsig.input().type_covered == RecordType::DNSKEY);

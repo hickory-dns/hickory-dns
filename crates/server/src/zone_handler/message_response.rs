@@ -256,13 +256,12 @@ mod tests {
             let mut encoder = BinEncoder::new(&mut buf);
             encoder.set_max_size(512);
 
-            let answer = Record::from_rdata(
+            let mut answer = Record::from_rdata(
                 Name::from_str("www.example.com.").unwrap(),
                 0,
                 RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
-            )
-            .set_dns_class(DNSClass::NONE)
-            .clone();
+            );
+            answer.dns_class = DNSClass::NONE;
 
             let message = MessageResponse {
                 metadata: Metadata::new(10, MessageType::Response, OpCode::Query),
@@ -294,13 +293,12 @@ mod tests {
             let mut encoder = BinEncoder::new(&mut buf);
             encoder.set_max_size(512);
 
-            let answer = Record::from_rdata(
+            let mut answer = Record::from_rdata(
                 Name::from_str("www.example.com.").unwrap(),
                 0,
                 RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
-            )
-            .set_dns_class(DNSClass::NONE)
-            .clone();
+            );
+            answer.dns_class = DNSClass::NONE;
 
             let message = MessageResponse {
                 metadata: Metadata::new(10, MessageType::Response, OpCode::Query),

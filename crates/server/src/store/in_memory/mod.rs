@@ -99,12 +99,10 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
         // SOA must be present
         let soa = records
             .get(&RrKey::new(origin.clone().into(), RecordType::SOA))
-            .and_then(
-                |rrset| match rrset.records_without_rrsigs().next()?.data() {
-                    RData::SOA(soa) => Some(soa),
-                    _ => None,
-                },
-            )
+            .and_then(|rrset| match &rrset.records_without_rrsigs().next()?.data {
+                RData::SOA(soa) => Some(soa),
+                _ => None,
+            })
             .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
         let serial = soa.serial;
 
@@ -386,7 +384,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
                             }
                             _ => None,
                         })
-                        .map(|records| records.map(Record::data).cloned().collect::<Vec<_>>());
+                        .map(|records| records.map(|r| &r.data).cloned().collect::<Vec<_>>());
 
                     (rdatas, a_aaaa_ttl)
                 };
@@ -707,7 +705,7 @@ fn maybe_next_name(
         _ => return None,
     };
 
-    let name = match (record_set.records_without_rrsigs().next()?.data(), t) {
+    let name = match (&record_set.records_without_rrsigs().next()?.data, t) {
         (RData::ANAME(name), RecordType::ANAME) => name,
         (RData::NS(ns), RecordType::NS) => &ns.0,
         (RData::CNAME(name), RecordType::CNAME) => name,

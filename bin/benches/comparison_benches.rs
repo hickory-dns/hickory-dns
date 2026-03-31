@@ -114,8 +114,8 @@ fn bench<S: DnsRequestSender>(b: &mut Bencher, sender: S) {
     assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let record = &response.answers[0];
-    if let RData::A(address) = record.data() {
-        assert_eq!(address, &A(Ipv4Addr::LOCALHOST));
+    if let RData::A(address) = record.data {
+        assert_eq!(address, A(Ipv4Addr::LOCALHOST));
     } else {
         unreachable!();
     }

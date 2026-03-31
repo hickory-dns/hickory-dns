@@ -7,7 +7,7 @@ use hickory_net::{
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        DNSClass, LowerName, Name, RData, Record, RecordType,
+        LowerName, Name, RData, Record, RecordType,
         rdata::{
             A, AAAA, CNAME, NS, SOA,
             opt::{EdnsCode, EdnsOption, NSIDPayload},
@@ -47,9 +47,7 @@ fn create_records(records: &mut InMemoryZoneHandler) {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
@@ -58,9 +56,7 @@ fn create_records(records: &mut InMemoryZoneHandler) {
             origin.clone(),
             86400,
             RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
     records.upsert_mut(
@@ -68,16 +64,12 @@ fn create_records(records: &mut InMemoryZoneHandler) {
             origin.clone(),
             86400,
             RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
     records.upsert_mut(
-        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(94, 184, 216, 34))),
         0,
     );
     records.upsert_mut(
@@ -87,17 +79,13 @@ fn create_records(records: &mut InMemoryZoneHandler) {
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
     let www_name = Name::parse("www.test.com.", None).unwrap();
     records.upsert_mut(
-        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34))),
         0,
     );
     records.upsert_mut(
@@ -107,9 +95,7 @@ fn create_records(records: &mut InMemoryZoneHandler) {
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 }
@@ -175,8 +161,8 @@ async fn test_catalog_lookup() {
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        answers.first().unwrap().data(),
-        &RData::A(A::new(93, 184, 215, 14))
+        answers.first().unwrap().data,
+        RData::A(A::new(93, 184, 215, 14))
     );
 
     let authorities = result.authorities;
@@ -214,8 +200,8 @@ async fn test_catalog_lookup() {
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        answers.first().unwrap().data(),
-        &RData::A(A::new(94, 184, 216, 34))
+        answers.first().unwrap().data,
+        RData::A(A::new(94, 184, 216, 34))
     );
 }
 
@@ -265,8 +251,8 @@ async fn test_catalog_lookup_soa() {
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
-        answers.first().unwrap().data(),
-        &RData::SOA(SOA::new(
+        answers.first().unwrap().data,
+        RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
             2015082403,
@@ -284,13 +270,13 @@ async fn test_catalog_lookup_soa() {
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().record_type(), RecordType::NS);
     assert_eq!(
-        ns.first().unwrap().data(),
-        &RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+        ns.first().unwrap().data,
+        RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap()))
     );
     assert_eq!(ns.last().unwrap().record_type(), RecordType::NS);
     assert_eq!(
-        ns.last().unwrap().data(),
-        &RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+        ns.last().unwrap().data,
+        RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap()))
     );
 }
 
@@ -337,8 +323,8 @@ async fn test_catalog_nx_soa() {
     assert_eq!(authorities.len(), 1);
     assert_eq!(authorities.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
-        authorities.first().unwrap().data(),
-        &RData::SOA(SOA::new(
+        authorities.first().unwrap().data,
+        RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
             2015082403,
@@ -414,9 +400,7 @@ async fn test_axfr_allow_all() {
             1209600,
             3600,
         )),
-    )
-    .set_dns_class(DNSClass::IN)
-    .clone();
+    );
 
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
@@ -465,51 +449,37 @@ async fn test_axfr_allow_all() {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         Record::from_rdata(
             origin.clone().into(),
             86400,
             RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         Record::from_rdata(
             origin.clone().into(),
             86400,
             RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         Record::from_rdata(
             origin.clone().into(),
             86400,
             RData::A(A::new(94, 184, 216, 34)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         Record::from_rdata(
             origin.clone().into(),
             86400,
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
-        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34)))
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+        ),
+        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(94, 184, 216, 34))),
         Record::from_rdata(
             www_name,
             86400,
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         Record::from_rdata(
             origin.into(),
             3600,
@@ -522,9 +492,7 @@ async fn test_axfr_allow_all() {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
     ];
 
     expected_set.sort();
@@ -814,16 +782,16 @@ async fn test_cname_additionals() {
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
-        answers.first().unwrap().data(),
-        &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
+        answers.first().unwrap().data,
+        RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
     let additionals = result.additionals;
     assert!(!additionals.is_empty());
     assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        additionals.first().unwrap().data(),
-        &RData::A(A::new(93, 184, 215, 14))
+        additionals.first().unwrap().data,
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -868,8 +836,8 @@ async fn test_multiple_cname_additionals() {
     assert_eq!(answers.len(), 1);
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
-        answers.first().unwrap().data(),
-        &RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap()))
+        answers.first().unwrap().data,
+        RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap()))
     );
 
     // we should have the intermediate record
@@ -880,16 +848,16 @@ async fn test_multiple_cname_additionals() {
         RecordType::CNAME
     );
     assert_eq!(
-        additionals.first().unwrap().data(),
-        &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
+        additionals.first().unwrap().data,
+        RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
     // final record should be the actual
     assert!(!additionals.is_empty());
     assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
     assert_eq!(
-        additionals.last().unwrap().data(),
-        &RData::A(A::new(93, 184, 215, 14))
+        additionals.last().unwrap().data,
+        RData::A(A::new(93, 184, 215, 14))
     );
 }
 
@@ -1110,12 +1078,12 @@ mod dnssec {
                 .expect("result to contain one DNSKEY");
             assert_eq!(result.answers.len(), 2, "expect only one answer");
 
-            match dnskey.data() {
+            match &dnskey.data {
                 RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) => assert!(dnskey.zone_key()),
                 _ => panic!("expected DNSKEY RData: {dnskey}"),
             }
 
-            match rrsig.data() {
+            match &rrsig.data {
                 RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
                     assert_eq!(rrsig.input().type_covered, RecordType::DNSKEY)
                 }
@@ -1144,7 +1112,7 @@ mod dnssec {
                 .find(|e| e.record_type() == RecordType::NSEC3)
                 .expect("result to contain NSEC3");
 
-            let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = nsec3.data() else {
+            let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &nsec3.data else {
                 panic!("expected NSEC3 RData: {nsec3}");
             };
 
@@ -1183,7 +1151,7 @@ mod dnssec {
                 .find(|e| e.record_type() == RecordType::NSEC3PARAM)
                 .expect("result to contain one NSEC3PARAM");
 
-            let RData::DNSSEC(DNSSECRData::NSEC3PARAM(nsec3param)) = nsec3param.data() else {
+            let RData::DNSSEC(DNSSECRData::NSEC3PARAM(nsec3param)) = &nsec3param.data else {
                 panic!("expected NSEC3PARAM RData: {nsec3param}");
             };
 

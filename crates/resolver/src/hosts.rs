@@ -87,14 +87,14 @@ impl Hosts {
                     Some(lookup) => lookup
                         .answers()
                         .iter()
-                        .any(|r| r.data().ip_addr().map(|it| it == ip).unwrap_or_default()),
+                        .any(|r| r.data.ip_addr().map(|it| it == ip).unwrap_or_default()),
                     None => false,
                 },
                 IpAddr::V6(ip) => match v.aaaa.as_ref() {
                     Some(lookup) => lookup
                         .answers()
                         .iter()
-                        .any(|r| r.data().ip_addr().map(|it| it == ip).unwrap_or_default()),
+                        .any(|r| r.data.ip_addr().map(|it| it == ip).unwrap_or_default()),
                     None => false,
                 },
             })
@@ -338,7 +338,7 @@ mod tests {
             .unwrap()
             .answers()
             .to_vec();
-        answers.sort_by_key(|r| match r.data() {
+        answers.sort_by_key(|r| match &r.data {
             RData::PTR(ptr) => Some(ptr.0.clone()),
             _ => None,
         });

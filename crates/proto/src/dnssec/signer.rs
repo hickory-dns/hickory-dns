@@ -421,22 +421,20 @@ mod tests {
             signer_name: origin.clone(),
         };
 
-        let rrset = [
-            Record::from_rdata(
-                origin.clone(),
-                86400,
-                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
-            Record::from_rdata(
-                origin.clone(),
-                86400,
-                RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
-        ];
+        let mut a = Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+        );
+        a.dns_class = DNSClass::IN;
+
+        let mut b = Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
+        );
+        b.dns_class = DNSClass::IN;
+        let rrset = [a, b];
 
         let tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         let sig = signer.sign(&tbs).unwrap();
@@ -495,57 +493,46 @@ mod tests {
                 origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
             Record::from_rdata(
                 origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
         ];
 
         let tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();
         assert!(!tbs.as_ref().is_empty());
+
+        let mut a_ch = Record::from_rdata(
+            origin.clone(),
+            86400,
+            RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
+        );
+        a_ch.dns_class = DNSClass::CH;
 
         let rrset = [
             Record::from_rdata(
                 origin.clone(),
                 86400,
                 RData::CNAME(CNAME(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(), // different type
+            ), // different type
             Record::from_rdata(
                 Name::parse("www.example.com.", None).unwrap(),
                 86400,
                 RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(), // different name
+            ), // different name
+            a_ch, // different class
             Record::from_rdata(
                 origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::CH)
-            .clone(), // different class
-            Record::from_rdata(
-                origin.clone(),
-                86400,
-                RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
             Record::from_rdata(
                 origin.clone(),
                 86400,
                 RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-            )
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+            ),
         ];
 
         let filtered_tbs = TBS::from_input(&origin, DNSClass::IN, &input, rrset.iter()).unwrap();

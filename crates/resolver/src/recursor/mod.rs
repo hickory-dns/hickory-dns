@@ -31,7 +31,7 @@ use crate::metrics::recursor::RecursorMetrics;
 use crate::net::runtime::TokioRuntimeProvider;
 #[cfg(feature = "serde")]
 use crate::proto::{
-    rr::{RData, Record, RecordSet},
+    rr::{RData, RecordSet},
     serialize::txt::{ParseError, Parser},
 };
 use crate::{
@@ -116,7 +116,7 @@ impl<P: ConnectionProvider> Recursor<P> {
         let root_addrs = roots_zone
             .values()
             .flat_map(RecordSet::records_without_rrsigs)
-            .map(Record::data)
+            .map(|r| &r.data)
             .filter_map(RData::ip_addr) // we only want IPs
             .collect::<Vec<_>>();
 
@@ -470,7 +470,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
 
             let none_indeterminate = response
                 .all_sections()
-                .all(|record| !record.proof().is_indeterminate());
+                .all(|record| !record.proof.is_indeterminate());
 
             // if the cached response is a referral, or if any record is indeterminate, fall
             // through and perform DNSSEC validation

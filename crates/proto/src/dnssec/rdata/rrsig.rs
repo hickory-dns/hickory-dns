@@ -77,7 +77,7 @@ impl RRSIG {
     ///
     pub fn authenticated_ttl(&self, record: &Record, current_time: u32) -> u32 {
         record
-            .ttl()
+            .ttl
             .min(self.input.original_ttl)
             .min(self.input.sig_expiration.0.saturating_sub(current_time))
     }
@@ -172,7 +172,7 @@ mod tests {
             3600,
             RData::A(Ipv4Addr::new(93, 184, 216, 24).into()),
         );
-        a.set_dns_class(DNSClass::IN);
+        a.dns_class = DNSClass::IN;
         let mut rrset = RecordSet::from(a);
 
         for algorithm in ALGORITHMS {
@@ -190,12 +190,12 @@ mod tests {
             let rrsig = RRSIG(SIG { input, sig: vec![] });
             let mut rrsig_record =
                 Record::from_rdata(name.clone(), 3600, RData::DNSSEC(DNSSECRData::RRSIG(rrsig)));
-            rrsig_record.set_dns_class(DNSClass::IN);
+            rrsig_record.dns_class = DNSClass::IN;
             rrset.insert_rrsig(rrsig_record);
         }
 
         assert!(rrset.records_with_rrsigs().any(|r| {
-            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = &r.data {
                 sig.input.algorithm == Algorithm::ED25519
             } else {
                 false
@@ -203,7 +203,7 @@ mod tests {
         },));
 
         assert!(rrset.records_with_rrsigs().any(|r| {
-            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = &r.data {
                 sig.input.algorithm == Algorithm::ECDSAP384SHA384
             } else {
                 false
@@ -211,7 +211,7 @@ mod tests {
         }));
 
         assert!(rrset.records_with_rrsigs().any(|r| {
-            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = r.data() {
+            if let RData::DNSSEC(DNSSECRData::RRSIG(sig)) = &r.data {
                 sig.input.algorithm == Algorithm::ED25519
             } else {
                 false

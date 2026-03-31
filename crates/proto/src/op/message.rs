@@ -448,7 +448,7 @@ impl Message {
                 continue;
             }
 
-            match record.data() {
+            match record.data {
                 #[cfg(feature = "__dnssec")]
                 RData::DNSSEC(DNSSECRData::SIG(_)) => {
                     warn!(

@@ -277,7 +277,7 @@ where
                 message
                     .answers
                     .iter()
-                    .map(Record::ttl)
+                    .map(|r| r.ttl)
                     .min()
                     .unwrap_or(MAX_TTL)
                     .into(),
@@ -326,18 +326,18 @@ where
                     response.answers.iter().fold(
                         (Cow::Borrowed(query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
-                            match r.data() {
+                            match &r.data {
                                 RData::CNAME(CNAME(cname)) => {
                                     // take the minimum TTL of the cname_ttl and the next record in the chain
-                                    let ttl = cname_ttl.min(r.ttl());
+                                    let ttl = cname_ttl.min(r.ttl);
                                     debug_assert_eq!(r.record_type(), RecordType::CNAME);
-                                    if search_name.as_ref() == r.name() {
+                                    if search_name.as_ref() == &r.name {
                                         return (Cow::Owned(cname.clone()), ttl, true);
                                     }
                                 }
                                 RData::SRV(srv) => {
                                     // take the minimum TTL of the cname_ttl and the next record in the chain
-                                    let ttl = cname_ttl.min(r.ttl());
+                                    let ttl = cname_ttl.min(r.ttl);
                                     debug_assert_eq!(r.record_type(), RecordType::SRV);
 
                                     // the search name becomes the srv.target
@@ -362,7 +362,7 @@ where
             // We need this first pass to decide our strategy: return complete message vs filter
             for r in message.all_sections() {
                 // restrict to the RData type requested
-                if query.query_class() != r.dns_class() {
+                if query.query_class() != r.dns_class {
                     continue;
                 }
 
@@ -370,11 +370,11 @@ where
                 // search_name matches
                 let type_matches =
                     query.query_type().is_any() || query.query_type() == r.record_type();
-                let name_matches = search_name.as_ref() == r.name() || query.name() == r.name();
+                let name_matches = search_name.as_ref() == &r.name || query.name() == &r.name;
                 if type_matches && name_matches {
                     found_name = true;
                     // Track if we found the CNAME target (not just the original name)
-                    if was_cname && search_name.as_ref() == r.name() {
+                    if was_cname && search_name.as_ref() == &r.name {
                         found_cname_target = true;
                     }
                 }
@@ -396,12 +396,12 @@ where
                     // Don't include records from ADDITIONAL/AUTHORITY here - they're preserved as-is below
                     preserved_records.extend(message.all_sections().filter_map(|r| {
                         // because this resolved potentially recursively, we want the min TTL from the chain
-                        let ttl = cname_ttl.min(r.ttl());
+                        let ttl = cname_ttl.min(r.ttl);
                         let mut r = r.clone();
-                        r.set_ttl(ttl);
+                        r.ttl = ttl;
 
                         // restrict to the RData type requested
-                        if query.query_class() != r.dns_class() {
+                        if query.query_class() != r.dns_class {
                             return None;
                         }
 
@@ -411,7 +411,7 @@ where
                         let record_type = r.record_type();
                         let type_matches = query_type.is_any() || query_type == record_type;
                         let name_matches =
-                            search_name.as_ref() == r.name() || query.name() == r.name();
+                            search_name.as_ref() == &r.name || query.name() == &r.name;
                         if type_matches && name_matches {
                             return Some(r);
                         }
@@ -441,11 +441,10 @@ where
             // AUTHORITY and ADDITIONAL records stay with their original message and are not carried forward
             preserved_records.extend(message.take_all_sections().filter_map(|mut r| {
                 // because this resolved potentially recursively, we want the min TTL from the chain
-                let ttl = cname_ttl.min(r.ttl());
-                r.set_ttl(ttl);
+                r.ttl = cname_ttl.min(r.ttl);
 
                 // restrict to the RData type requested
-                if query.query_class() != r.dns_class() {
+                if query.query_class() != r.dns_class {
                     return None;
                 }
 
@@ -850,7 +849,7 @@ mod tests {
         let answers = ips
             .answers()
             .iter()
-            .map(|r| r.data().clone())
+            .map(|r| r.data.clone())
             .collect::<Vec<_>>();
         assert!(answers.contains(&RData::SRV(SRV::new(
             1,
@@ -866,7 +865,7 @@ mod tests {
         let additionals = ips
             .additionals()
             .iter()
-            .map(|r| r.data().clone())
+            .map(|r| r.data.clone())
             .collect::<Vec<_>>();
         assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
         assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
@@ -965,7 +964,7 @@ mod tests {
         let answers = ips
             .answers()
             .iter()
-            .map(|r| r.data().clone())
+            .map(|r| r.data.clone())
             .collect::<Vec<_>>();
         assert!(answers.contains(&RData::NS(NS(Name::from_str("www.example.com.").unwrap()))));
         assert!(answers.contains(&RData::CNAME(CNAME(
@@ -976,7 +975,7 @@ mod tests {
         let additionals = ips
             .additionals()
             .iter()
-            .map(|r| r.data().clone())
+            .map(|r| r.data.clone())
             .collect::<Vec<_>>();
         assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
         assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
@@ -1166,8 +1165,8 @@ mod tests {
             RecordType::A,
             "ANSWER should contain only the A record"
         );
-        match answers[0].data() {
-            RData::A(a) => assert_eq!(a, &A::new(192, 0, 2, 1), "A record should have correct IP"),
+        match answers[0].data {
+            RData::A(a) => assert_eq!(a, A::new(192, 0, 2, 1), "A record should have correct IP"),
             _ => panic!("wrong rdata type"),
         }
 
@@ -1196,10 +1195,10 @@ mod tests {
             RecordType::A,
             "ADDITIONAL should contain glue A record"
         );
-        match additionals[0].data() {
+        match additionals[0].data {
             RData::A(a) => assert_eq!(
                 a,
-                &A::new(192, 0, 2, 10),
+                A::new(192, 0, 2, 10),
                 "Glue record should have correct IP"
             ),
             _ => panic!("wrong rdata type"),
@@ -1426,12 +1425,12 @@ mod tests {
             "ANSWER should have only the final A record"
         );
         assert_eq!(answers[0].record_type(), RecordType::A);
-        match answers[0].data() {
-            RData::A(a) => assert_eq!(a, &A::new(192, 0, 2, 1), "Should have IP from Response 2"),
+        match answers[0].data {
+            RData::A(a) => assert_eq!(a, A::new(192, 0, 2, 1), "Should have IP from Response 2"),
             _ => panic!("wrong rdata type"),
         }
-        match answers[0].data() {
-            RData::A(a) => assert_eq!(a, &A::new(192, 0, 2, 1), "Should have IP from Response 2"),
+        match answers[0].data {
+            RData::A(a) => assert_eq!(a, A::new(192, 0, 2, 1), "Should have IP from Response 2"),
             _ => panic!("wrong rdata type"),
         }
 
@@ -1444,7 +1443,7 @@ mod tests {
         );
 
         // Check it's the NS from Response 2, not Response 1
-        match authorities[0].data() {
+        match &authorities[0].data {
             RData::NS(ns_name) => assert_eq!(
                 ns_name.0,
                 Name::from_str("ns-v4.example.com.").unwrap(),
@@ -1462,10 +1461,10 @@ mod tests {
         );
 
         // Check it's the IP from Response 2, not Response 1
-        match additionals[0].data() {
+        match additionals[0].data {
             RData::A(a) => assert_eq!(
                 a,
-                &A::new(192, 0, 2, 30),
+                A::new(192, 0, 2, 30),
                 "ADDITIONAL should have IP 192.0.2.30 from Response 2, NOT 192.0.2.20 from Response 1"
             ),
             _ => panic!("wrong rdata type"),
@@ -1613,7 +1612,7 @@ mod tests {
             "Should have 1 CNAME from Response 1"
         );
 
-        match cname_records[0].data() {
+        match &cname_records[0].data {
             RData::CNAME(cname_target) => assert_eq!(
                 cname_target.0,
                 Name::from_str("v4.example.com.").unwrap(),
@@ -1628,10 +1627,10 @@ mod tests {
             .filter(|r| r.record_type() == RecordType::A)
             .collect::<Vec<_>>();
         assert_eq!(a_records.len(), 1, "Should have 1 A record");
-        match a_records[0].data() {
+        match a_records[0].data {
             RData::A(a) => assert_eq!(
                 a,
-                &A::new(192, 0, 2, 1),
+                A::new(192, 0, 2, 1),
                 "A record should have IP from Response 2"
             ),
             _ => panic!("wrong rdata type"),

@@ -759,7 +759,7 @@ pub fn signed_bitmessage_to_buf(
         return Err(ProtoError::from("TSIG signature record not found"));
     };
 
-    let tsig = tsig_rr.data();
+    let tsig = &tsig_rr.data;
     metadata.id = tsig.oid;
 
     // Construct the TBS data.
@@ -780,7 +780,7 @@ pub fn signed_bitmessage_to_buf(
 
     if first_message {
         // Emit the TSIG pseudo-record when this is the first message.
-        tsig.emit_tsig_for_mac(&mut encoder, tsig_rr.name())?;
+        tsig.emit_tsig_for_mac(&mut encoder, &tsig_rr.name)?;
     } else {
         // Emit only time and fudge data for later messages.
         encoder.emit_u16((tsig.time >> 32) as u16)?;
@@ -802,7 +802,7 @@ pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record<TSIG> {
     );
 
     //   CLASS:  This MUST be ANY.
-    tsig.set_dns_class(DNSClass::ANY);
+    tsig.dns_class = DNSClass::ANY;
     tsig
 }
 

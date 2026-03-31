@@ -99,7 +99,7 @@ async fn test_zone_transfer() {
         bogus_record_count + 3
     );
 
-    let RData::SOA(soa) = result[0].answers[0].data() else {
+    let RData::SOA(soa) = &result[0].answers[0].data else {
         panic!("First answer was not an SOA record");
     };
 
@@ -137,8 +137,8 @@ async fn test_zone_transfer() {
 }
 
 fn assert_serial(r: &Record, expected: u32) {
-    let RData::SOA(soa) = r.data() else {
-        panic!("expected SOA record, got: {:?}", r.data())
+    let RData::SOA(soa) = &r.data else {
+        panic!("expected SOA record, got: {:?}", r.data)
     };
     assert_eq!(soa.serial, expected);
 }

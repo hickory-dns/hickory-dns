@@ -143,7 +143,7 @@ impl InnerInMemory {
                 continue;
             };
 
-            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = record.data() else {
+            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
                 continue;
             };
 
@@ -165,7 +165,7 @@ impl InnerInMemory {
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
 
         self.records.get(&rr_key).and_then(|rrset| {
-            match rrset.records_without_rrsigs().next()?.data() {
+            match &rrset.records_without_rrsigs().next()?.data {
                 RData::SOA(soa) => Some(soa),
                 _ => None,
             }
@@ -298,14 +298,14 @@ impl InnerInMemory {
             };
 
             for record in records {
-                new_answer.add_rdata(record.data().clone());
+                new_answer.add_rdata(record.data.clone());
             }
 
             #[cfg(feature = "__dnssec")]
             for rrsig in _rrsigs {
                 let mut rrsig = rrsig.clone();
-                if *rrsig.name() == *wildcard {
-                    rrsig.set_name(Name::from(name));
+                if rrsig.name == *wildcard {
+                    rrsig.name = Name::from(name);
                 }
                 new_answer.insert_rrsig(rrsig)
             }
@@ -399,7 +399,7 @@ impl InnerInMemory {
             return 0;
         };
 
-        let serial = if let RData::SOA(soa_rdata) = record.data_mut() {
+        let serial = if let RData::SOA(soa_rdata) = &mut record.data {
             soa_rdata.increment_serial();
             soa_rdata.serial
         } else {
@@ -423,11 +423,10 @@ impl InnerInMemory {
     ///
     /// true if the value was inserted, false otherwise
     pub(super) fn upsert(&mut self, record: Record, serial: u32, dns_class: DNSClass) -> bool {
-        if dns_class != record.dns_class() {
+        if dns_class != record.dns_class {
             warn!(
                 "mismatched dns_class on record insert, zone: {} record: {}",
-                dns_class,
-                record.dns_class()
+                dns_class, record.dns_class
             );
             return false;
         }
@@ -460,8 +459,8 @@ impl InnerInMemory {
         }
 
         // check that CNAME and ANAME is either not already present, or no other records are if it's a CNAME
-        let start_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MIN));
-        let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::MAX));
+        let start_range_key = RrKey::new((&record.name).into(), RecordType::Unknown(u16::MIN));
+        let end_range_key = RrKey::new((&record.name).into(), RecordType::Unknown(u16::MAX));
 
         let multiple_records_at_label_disallowed = self
             .records
@@ -481,10 +480,10 @@ impl InnerInMemory {
             return false;
         }
 
-        let rr_key = RrKey::new(record.name().into(), record.record_type());
+        let rr_key = RrKey::new((&record.name).into(), record.record_type());
         let records: &mut Arc<RecordSet> = self.records.entry(rr_key).or_insert_with(|| {
             Arc::new(RecordSet::new(
-                record.name().clone(),
+                record.name.clone(),
                 record.record_type(),
                 serial,
             ))

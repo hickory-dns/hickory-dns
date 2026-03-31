@@ -291,11 +291,11 @@ impl TSigner {
         first_message: bool,
     ) -> Result<(Vec<u8>, u64, Range<u64>), DnsSecError> {
         let (tbv, record) = signed_bitmessage_to_buf(message, previous_hash, first_message)?;
-        let tsig = record.data();
+        let tsig = record.data;
 
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key
-        if record.name() != &self.0.signer_name || tsig.algorithm != self.0.algorithm {
+        if record.name != self.0.signer_name || tsig.algorithm != self.0.algorithm {
             return Err(DnsSecError::TsigWrongKey);
         }
 
@@ -521,11 +521,11 @@ mod tests {
     fn test_sign_and_verify_message_tsig_reject_keyname() {
         let (mut question, signer) = get_message_and_signer();
 
-        let other_name: Name = Name::from_ascii("other_name.").unwrap();
+        let other_name = Name::from_ascii("other_name.").unwrap();
         let Some(mut signature) = question.take_signature() else {
             panic!("should have TSIG signed");
         };
-        signature.set_name(other_name);
+        signature.name = other_name;
         question.set_signature(signature);
 
         assert!(

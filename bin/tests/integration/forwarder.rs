@@ -32,7 +32,7 @@ async fn test_lookup() {
     assert!(
         lookup
             .iter()
-            .any(|record| matches!(record.data(), RData::A(_))),
+            .any(|record| matches!(record.data, RData::A(_))),
         "no addresses returned!"
     );
 }

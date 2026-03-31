@@ -66,9 +66,9 @@ impl TBS {
 
         // collect only the records for this rrset
         for record in records {
-            if dns_class == record.dns_class()
+            if dns_class == record.dns_class
                 && input.type_covered == record.record_type()
-                && name == record.name()
+                && name == &record.name
             {
                 rrset.push(record);
             }
@@ -122,7 +122,7 @@ impl TBS {
             let rdata_length_place = encoder.place::<u16>()?;
             //
             //                All names in the RDATA field are in canonical form (set above)
-            record.data().emit(&mut encoder)?;
+            record.data.emit(&mut encoder)?;
 
             let length = u16::try_from(encoder.len_since_place(&rdata_length_place))
                 .map_err(|_| ProtoError::from("RDATA length exceeds u16::MAX"))?;

@@ -96,7 +96,7 @@ impl RecordSet {
     pub fn set_dns_class(&mut self, dns_class: DNSClass) {
         self.dns_class = dns_class;
         for r in &mut self.records {
-            r.set_dns_class(dns_class);
+            r.dns_class = dns_class;
         }
     }
 
@@ -111,7 +111,7 @@ impl RecordSet {
     pub fn set_ttl(&mut self, ttl: u32) {
         self.ttl = ttl;
         for r in &mut self.records {
-            r.set_ttl(ttl);
+            r.ttl = ttl;
         }
     }
 
@@ -204,7 +204,7 @@ impl RecordSet {
 
         self.records
             .iter()
-            .find(|r| r.data() == rdata)
+            .find(|r| &r.data == rdata)
             .expect("insert failed")
     }
 
@@ -250,7 +250,7 @@ impl RecordSet {
     ///
     /// TODO: make a default add without serial number for basic usage
     pub fn insert(&mut self, record: Record, serial: u32) -> bool {
-        assert_eq!(record.name(), &self.name);
+        assert_eq!(&record.name, &self.name);
         assert_eq!(record.record_type(), self.record_type);
 
         // RFC 2136                       DNS Update                     April 1997
@@ -266,9 +266,9 @@ impl RecordSet {
                 assert!(self.records.len() <= 1);
 
                 if let Some(soa_record) = self.records.first() {
-                    match soa_record.data() {
+                    match &soa_record.data {
                         RData::SOA(existing_soa) => {
-                            if let RData::SOA(new_soa) = record.data() {
+                            if let RData::SOA(new_soa) = &record.data {
                                 if new_soa.serial <= existing_soa.serial {
                                     info!(
                                         "update ignored serial out of data: {:?} <= {:?}",
@@ -278,7 +278,7 @@ impl RecordSet {
                                 }
                             } else {
                                 // not panicking here, b/c this is a bad record from the client or something, ignore
-                                info!("wrong rdata for SOA update: {:?}", record.data());
+                                info!("wrong rdata for SOA update: {:?}", record.data);
                                 return false;
                             }
                         }
@@ -332,7 +332,7 @@ impl RecordSet {
             .records
             .iter()
             .enumerate()
-            .filter(|&(_, rr)| rr.data() == record.data())
+            .filter(|&(_, rr)| rr.data == record.data)
             .map(|(i, _)| i)
             .collect::<Vec<usize>>();
 
@@ -346,13 +346,13 @@ impl RecordSet {
             // TODO: this shouldn't really need a clone since there should only be one...
             self.records.push(record.clone());
             self.records.swap_remove(i);
-            self.ttl = record.ttl();
+            self.ttl = record.ttl;
             self.updated(serial);
             replaced = true;
         }
 
         if !replaced {
-            self.ttl = record.ttl();
+            self.ttl = record.ttl;
             self.updated(serial);
             self.records.push(record);
             true
@@ -375,7 +375,7 @@ impl RecordSet {
     ///
     /// True if a record was removed.
     pub fn remove(&mut self, record: &Record, serial: u32) -> bool {
-        assert_eq!(record.name(), &self.name);
+        assert_eq!(record.name, self.name);
         assert!(
             record.record_type() == self.record_type || record.record_type() == RecordType::ANY
         );
@@ -398,7 +398,7 @@ impl RecordSet {
 
         // remove the records
         let old_size = self.records.len();
-        self.records.retain(|rr| rr.data() != record.data());
+        self.records.retain(|rr| rr.data != record.data);
         let removed = self.records.len() < old_size;
 
         if removed {
@@ -460,10 +460,10 @@ impl From<RecordSet> for RecordSetParts {
 impl From<Record> for RecordSet {
     fn from(record: Record) -> Self {
         Self {
-            name: record.name().clone(),
+            name: record.name.clone(),
             record_type: record.record_type(),
-            dns_class: record.dns_class(),
-            ttl: record.ttl(),
+            dns_class: record.dns_class,
+            ttl: record.ttl,
             records: vec![record],
             rrsigs: vec![],
             serial: 0,
@@ -544,9 +544,7 @@ mod test {
             name.clone(),
             86400,
             RData::A(Ipv4Addr::new(93, 184, 216, 24).into()),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 1);
@@ -562,9 +560,7 @@ mod test {
             name,
             86400,
             RData::A(Ipv4Addr::new(93, 184, 216, 25).into()),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
         assert!(rr_set.insert(insert1.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 2);
         assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
@@ -590,9 +586,7 @@ mod test {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
         let same_serial = Record::from_rdata(
             name.clone(),
             3600,
@@ -605,9 +599,7 @@ mod test {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
         let new_serial = Record::from_rdata(
             name,
             3600,
@@ -620,9 +612,7 @@ mod test {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
@@ -649,12 +639,8 @@ mod test {
         let record_type = RecordType::CNAME;
         let mut rr_set = RecordSet::new(name.clone(), record_type, 0);
 
-        let insert = Record::from_rdata(name.clone(), 3600, RData::CNAME(CNAME(cname)))
-            .set_dns_class(DNSClass::IN)
-            .clone();
-        let new_record = Record::from_rdata(name, 3600, RData::CNAME(CNAME(new_cname)))
-            .set_dns_class(DNSClass::IN)
-            .clone();
+        let insert = Record::from_rdata(name.clone(), 3600, RData::CNAME(CNAME(cname)));
+        let new_record = Record::from_rdata(name, 3600, RData::CNAME(CNAME(new_cname)));
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(rr_set.records_without_rrsigs().any(|x| x == &insert));
@@ -675,16 +661,12 @@ mod test {
             name.clone(),
             86400,
             RData::A(Ipv4Addr::new(93, 184, 216, 24).into()),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
         let insert1 = Record::from_rdata(
             name,
             86400,
             RData::A(Ipv4Addr::new(93, 184, 216, 25).into()),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(rr_set.insert(insert1.clone(), 0));
@@ -714,9 +696,7 @@ mod test {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
@@ -733,16 +713,12 @@ mod test {
             name.clone(),
             86400,
             RData::NS(NS(Name::from_str("a.iana-servers.net.").unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
         let ns2 = Record::from_rdata(
             name,
             86400,
             RData::NS(NS(Name::from_str("b.iana-servers.net.").unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         assert!(rr_set.insert(ns1.clone(), 0));
         assert!(rr_set.insert(ns2.clone(), 0));

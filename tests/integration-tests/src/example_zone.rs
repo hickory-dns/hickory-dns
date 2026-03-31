@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
-use hickory_proto::rr::{DNSClass, Name, RData, Record};
+use hickory_proto::rr::{Name, RData, Record};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
@@ -31,9 +31,7 @@ pub fn create_example() -> InMemoryZoneHandler {
                 1209600,
                 3600,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
@@ -42,9 +40,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             origin.clone(),
             86400,
             RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
     records.upsert_mut(
@@ -52,9 +48,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             origin.clone(),
             86400,
             RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
@@ -70,17 +64,13 @@ pub fn create_example() -> InMemoryZoneHandler {
                  20:12:23Z davids $"
                     .to_string(),
             ])),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
     // example.com.		86400	IN	A	93.184.215.14
     records.upsert_mut(
-        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(93, 184, 215, 14)))
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+        Record::from_rdata(origin.clone(), 86400, RData::A(A::new(93, 184, 215, 14))),
         0,
     );
 
@@ -92,9 +82,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
@@ -121,17 +109,13 @@ pub fn create_example() -> InMemoryZoneHandler {
             www_name.clone(),
             86400,
             RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
     // www.example.com.	86400	IN	A	93.184.215.14
     records.upsert_mut(
-        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(93, 184, 215, 14)))
-            .set_dns_class(DNSClass::IN)
-            .clone(),
+        Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(93, 184, 215, 14))),
         0,
     );
 
@@ -143,9 +127,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             RData::AAAA(AAAA::new(
                 0x2606, 0x2800, 0x21f, 0xcb07, 0x6820, 0x80da, 0xaf6b, 0x8b2c,
             )),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
@@ -155,9 +137,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             Name::from_str("alias.example.com.").unwrap(),
             86400,
             RData::CNAME(CNAME(www_name)),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 
@@ -167,9 +147,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             Name::from_str("alias2.example.com.").unwrap(),
             86400,
             RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap())),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone(),
+        ),
         0,
     );
 

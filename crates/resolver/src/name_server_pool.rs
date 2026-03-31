@@ -200,7 +200,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             }
 
             let answer_filter = |record: &Record| {
-                let ip = match record.data() {
+                let ip = match &record.data {
                     RData::A(A(ipv4)) => (*ipv4).into(),
                     RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
                     _ => return true,

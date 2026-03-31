@@ -111,5 +111,5 @@ async fn test_ttl_wildcard() {
         .expect("A record not found in zone handler");
 
     assert_eq!(data.record_type(), RecordType::A);
-    assert_eq!(data.ttl(), 120);
+    assert_eq!(data.ttl, 120);
 }

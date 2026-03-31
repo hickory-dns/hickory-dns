@@ -74,9 +74,9 @@ pub fn test_create(mut handler: impl ZoneHandler, keys: &[TSigner]) {
             .into_iter()
             .next()
             .expect("A record not found in zone handler")
-            .data()
+            .data
         {
-            RData::A(ip) => assert_eq!(A4::new(127, 0, 0, 10), *ip),
+            RData::A(ip) => assert_eq!(A4::new(127, 0, 0, 10), ip),
             _ => panic!("wrong rdata type returned"),
         }
 
@@ -98,7 +98,7 @@ pub fn test_create_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         let record = Record::from_rdata(name.clone(), 8, RData::A(A4::new(100, 10, 100, 10)));
 
         let mut record2 = record.clone();
-        record2.set_data(RData::A(A4::new(100, 10, 100, 11)));
+        record2.data = RData::A(A4::new(100, 10, 100, 11));
         let record2 = record2;
 
         let mut rrset = RecordSet::from(record.clone());
@@ -178,7 +178,7 @@ pub fn test_append(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         // will fail if already set and not the same value.
         let mut record2 = record.clone();
-        record2.set_data(RData::A(A4::new(101, 11, 101, 11)));
+        record2.data = RData::A(A4::new(101, 11, 101, 11));
 
         let message = update_message::append(
             record2.clone().into(),
@@ -236,9 +236,9 @@ pub fn test_append_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         // will fail if already set and not the same value.
         let mut record2 = record.clone();
-        record2.set_data(RData::A(A4::new(101, 11, 101, 11)));
+        record2.data = RData::A(A4::new(101, 11, 101, 11));
         let mut record3 = record.clone();
-        record3.set_data(RData::A(A4::new(101, 11, 101, 12)));
+        record3.data = RData::A(A4::new(101, 11, 101, 12));
 
         // build the append set
         let mut rrset = RecordSet::from(record2.clone());
@@ -308,7 +308,7 @@ pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         let current = record;
         let mut new = current.clone();
-        new.set_data(RData::A(A4::new(101, 11, 101, 11)));
+        new.data = RData::A(A4::new(101, 11, 101, 11));
         let new = new;
 
         let message = update_message::compare_and_swap(
@@ -336,7 +336,7 @@ pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         // check the it fails if tried again.
         let mut not = new.clone();
-        not.set_data(RData::A(A4::new(102, 12, 102, 12)));
+        not.data = RData::A(A4::new(102, 12, 102, 12));
         let not = not;
 
         let message = update_message::compare_and_swap(
@@ -416,7 +416,7 @@ pub fn test_compare_and_swap_multi(mut handler: impl ZoneHandler, keys: &[TSigne
 
         // check the it fails if tried again.
         let mut not = new1.clone();
-        not.set_data(RData::A(A4::new(102, 12, 102, 12)));
+        not.data = RData::A(A4::new(102, 12, 102, 12));
         let not = not;
 
         let message = update_message::compare_and_swap(
@@ -465,7 +465,7 @@ pub fn test_delete_by_rdata(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         let mut record2 = record1.clone();
-        record2.set_data(RData::A(A4::new(101, 11, 101, 11)));
+        record2.data = RData::A(A4::new(101, 11, 101, 11));
         let message = update_message::append(
             record2.clone().into(),
             Name::from_str("example.com.").unwrap(),
@@ -536,8 +536,8 @@ pub fn test_delete_by_rdata_multi(mut handler: impl ZoneHandler, keys: &[TSigner
         // append a record
         let mut rrset = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
 
-        let record1 = rrset.new_record(record1.data()).clone();
-        let record3 = rrset.new_record(record3.data()).clone();
+        let record1 = rrset.new_record(&record1.data).clone();
+        let record3 = rrset.new_record(&record3.data).clone();
         let rrset = rrset;
 
         let message = update_message::append(
@@ -600,7 +600,7 @@ pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let mut record = record.clone();
-        record.set_data(RData::A(A4::new(101, 11, 101, 11)));
+        record.data = RData::A(A4::new(101, 11, 101, 11));
         let message = update_message::append(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
@@ -643,7 +643,7 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         // first check the must_exist option
         let message = update_message::delete_all(
-            record.name().clone(),
+            record.name.clone(),
             Name::from_str("example.com.").unwrap(),
             DNSClass::IN,
             true,
@@ -659,7 +659,7 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let mut record = record.clone();
-        record.set_data(RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8)));
+        record.data = RData::AAAA(AAAA::new(1, 2, 3, 4, 5, 6, 7, 8));
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
@@ -669,7 +669,7 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         // verify record contents
         let message = update_message::delete_all(
-            record.name().clone(),
+            record.name.clone(),
             Name::from_str("example.com.").unwrap(),
             DNSClass::IN,
             true,

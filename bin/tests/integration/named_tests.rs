@@ -272,7 +272,7 @@ async fn test_forward() {
         response
             .answers
             .iter()
-            .any(|record| matches!(record.data(), RData::A(_)))
+            .any(|record| matches!(record.data, RData::A(_)))
     );
 
     // just tests that multiple queries work
@@ -294,7 +294,7 @@ async fn test_forward() {
         response
             .answers
             .iter()
-            .any(|record| matches!(record.data(), RData::A(_)))
+            .any(|record| matches!(record.data, RData::A(_)))
     );
     assert!(!response.metadata.authoritative);
 }

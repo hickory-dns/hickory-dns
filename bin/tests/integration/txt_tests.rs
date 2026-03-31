@@ -109,10 +109,10 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 
     let soa_record = lookup.iter().next().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.record_type());
-    assert_eq!(&Name::from_str("isi.edu.").unwrap(), soa_record.name()); // i.e. the origin or domain
-    assert_eq!(60, soa_record.ttl());
-    assert_eq!(DNSClass::IN, soa_record.dns_class());
-    if let RData::SOA(soa) = soa_record.data() {
+    assert_eq!(Name::from_str("isi.edu.").unwrap(), soa_record.name); // i.e. the origin or domain
+    assert_eq!(60, soa_record.ttl);
+    assert_eq!(DNSClass::IN, soa_record.dns_class);
+    if let RData::SOA(soa) = soa_record.data {
         // this should all be lowercased
         assert_eq!(Name::from_str("venera.isi.edu.").unwrap(), soa.mname);
         assert_eq!(
@@ -141,9 +141,9 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    assert_eq!(&Name::from_str("tech.").unwrap(), lowercase_record.name());
-    assert_eq!(DNSClass::IN, lowercase_record.dns_class());
-    if let RData::SOA(lower_soa) = lowercase_record.data() {
+    assert_eq!(Name::from_str("tech.").unwrap(), lowercase_record.name);
+    assert_eq!(DNSClass::IN, lowercase_record.dns_class);
+    if let RData::SOA(lower_soa) = lowercase_record.data {
         assert_eq!(
             Name::from_str("ns0.centralnic.net.").unwrap(),
             lower_soa.mname
@@ -186,11 +186,11 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let compare = ns_records.iter().zip(compare);
 
     for (record, name) in compare {
-        assert_eq!(&Name::from_str("isi.edu.").unwrap(), record.name());
-        assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
-        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(Name::from_str("isi.edu.").unwrap(), record.name);
+        assert_eq!(60, record.ttl); // TODO: should this be minimum or expire?
+        assert_eq!(DNSClass::IN, record.dns_class);
         assert_eq!(RecordType::NS, record.record_type());
-        if let RData::NS(nsdname) = record.data() {
+        if let RData::NS(nsdname) = &record.data {
             assert_eq!(name, nsdname.0);
         } else {
             panic!("Not an NS record!!!") // valid panic, test code
@@ -220,11 +220,11 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let compare = mx_records.iter().zip(compare);
 
     for (record, (num, name)) in compare {
-        assert_eq!(&Name::from_str("isi.edu.").unwrap(), record.name());
-        assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
-        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(Name::from_str("isi.edu.").unwrap(), record.name);
+        assert_eq!(60, record.ttl); // TODO: should this be minimum or expire?
+        assert_eq!(DNSClass::IN, record.dns_class);
         assert_eq!(RecordType::MX, record.record_type());
-        if let RData::MX(rdata) = record.data() {
+        if let RData::MX(rdata) = &record.data {
             assert_eq!(num, rdata.preference);
             assert_eq!(name, rdata.exchange);
         } else {
@@ -246,12 +246,12 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    assert_eq!(&Name::from_str("a.isi.edu.").unwrap(), a_record.name());
-    assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
-    assert_eq!(DNSClass::IN, a_record.dns_class());
+    assert_eq!(Name::from_str("a.isi.edu.").unwrap(), a_record.name);
+    assert_eq!(60, a_record.ttl); // TODO: should this be minimum or expire?
+    assert_eq!(DNSClass::IN, a_record.dns_class);
     assert_eq!(RecordType::A, a_record.record_type());
-    if let RData::A(address) = a_record.data() {
-        assert_eq!(&A::new(26u8, 3u8, 0u8, 103u8), address);
+    if let RData::A(address) = a_record.data {
+        assert_eq!(A::new(26u8, 3u8, 0u8, 103u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
     }
@@ -270,12 +270,9 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    assert_eq!(
-        &Name::from_str("aaaa.isi.edu.").unwrap(),
-        aaaa_record.name()
-    );
-    if let RData::AAAA(address) = aaaa_record.data() {
-        assert_eq!(&AAAA::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
+    assert_eq!(Name::from_str("aaaa.isi.edu.").unwrap(), aaaa_record.name);
+    if let RData::AAAA(address) = aaaa_record.data {
+        assert_eq!(AAAA::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
     } else {
         panic!("Not a AAAA record!!!") // valid panic, test code
     }
@@ -294,13 +291,10 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    assert_eq!(
-        &Name::from_str("short.isi.edu.").unwrap(),
-        short_record.name()
-    );
-    assert_eq!(70, short_record.ttl());
-    if let RData::A(address) = short_record.data() {
-        assert_eq!(&A::new(26u8, 3u8, 0u8, 104u8), address);
+    assert_eq!(Name::from_str("short.isi.edu.").unwrap(), short_record.name);
+    assert_eq!(70, short_record.ttl);
+    if let RData::A(address) = short_record.data {
+        assert_eq!(A::new(26u8, 3u8, 0u8, 104u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
     }
@@ -345,7 +339,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let compare = txt_records.iter().zip(compare);
 
     for (record, vector) in compare {
-        if let RData::TXT(rdata) = record.data() {
+        if let RData::TXT(rdata) = &record.data {
             assert_eq!(&vector as &[Box<[u8]>], &*rdata.txt_data);
         } else {
             panic!("Not a TXT record!!!") // valid panic, test code
@@ -366,7 +360,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    if let RData::PTR(ptrdname) = ptr_record.data() {
+    if let RData::PTR(ptrdname) = ptr_record.data {
         assert_eq!(Name::from_str("a.isi.edu.").unwrap(), ptrdname.0);
     } else {
         panic!("Not a PTR record!!!") // valid panic, test code
@@ -388,7 +382,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    if let RData::SRV(rdata) = srv_record.data() {
+    if let RData::SRV(rdata) = srv_record.data {
         assert_eq!(rdata.priority, 1);
         assert_eq!(rdata.weight, 2);
         assert_eq!(rdata.port, 3);
@@ -412,11 +406,11 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .cloned()
         .unwrap();
     assert_eq!(
-        &Name::from_str("rust-❤️-🦀.isi.edu.").unwrap(),
-        idna_record.name()
+        Name::from_str("rust-❤️-🦀.isi.edu.").unwrap(),
+        idna_record.name
     );
-    if let RData::A(address) = idna_record.data() {
-        assert_eq!(&A::new(192u8, 0u8, 2u8, 1u8), address);
+    if let RData::A(address) = idna_record.data {
+        assert_eq!(A::new(192u8, 0u8, 2u8, 1u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
     }
@@ -435,7 +429,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .expect("nocerts not found");
-    if let RData::CAA(rdata) = caa_record.data() {
+    if let RData::CAA(rdata) = caa_record.data {
         assert!(!rdata.issuer_critical);
         rdata.value_as_issue().unwrap();
     } else {
@@ -461,7 +455,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .expect("smimea record not found");
-    if let RData::SMIMEA(rdata) = smimea_record.data() {
+    if let RData::SMIMEA(rdata) = smimea_record.data {
         assert_eq!(rdata.cert_usage, CertUsage::DaneEe);
         assert_eq!(rdata.selector, Selector::Full);
         assert_eq!(rdata.matching, Matching::Raw);
@@ -519,7 +513,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .expect("tlsa record not found");
-    if let RData::TLSA(rdata) = tlsa_record.data() {
+    if let RData::TLSA(rdata) = tlsa_record.data {
         assert_eq!(rdata.cert_usage, CertUsage::PkixTa);
         assert_eq!(rdata.selector, Selector::Full);
         assert_eq!(rdata.matching, Matching::Sha256);

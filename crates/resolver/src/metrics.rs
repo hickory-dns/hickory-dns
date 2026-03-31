@@ -288,7 +288,7 @@ pub mod recursor {
             match response
                 .answers
                 .iter()
-                .map(|record| record.proof())
+                .map(|record| record.proof)
                 .min()
                 .unwrap_or(Proof::Indeterminate)
             {

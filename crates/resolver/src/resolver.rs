@@ -215,7 +215,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             (Ok(name), _) => name,
             (Err(_), Some(ip_addr)) => {
                 // it was a valid IP, return that...
-                let query = Query::query(ip_addr.name().clone(), ip_addr.record_type());
+                let query = Query::query(ip_addr.name.clone(), ip_addr.record_type());
                 let lookup = Lookup::new_with_max_ttl(query, [ip_addr.clone()]);
                 return Ok(lookup.into());
             }
@@ -231,7 +231,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             self.client_cache.clone(),
             self.request_options(),
             hosts,
-            finally_ip_addr.map(Record::into_data),
+            finally_ip_addr.map(|r| r.data),
         )
         .await
     }
@@ -847,7 +847,7 @@ pub(crate) mod testing {
                 .as_lookup()
                 .message()
                 .all_sections()
-                .any(|record| record.proof().is_secure())
+                .any(|record| record.proof.is_secure())
         );
     }
 
@@ -874,7 +874,7 @@ pub(crate) mod testing {
                 .collect::<Vec<_>>()
         );
         for record in lookup_ip.as_lookup().message().all_sections() {
-            assert!(record.proof().is_insecure());
+            assert!(record.proof.is_insecure());
         }
     }
 
@@ -1466,7 +1466,7 @@ mod tests {
             .unwrap()
             .answers()
             .iter()
-            .map(|r| r.data().ip_addr().unwrap())
+            .map(|r| r.data.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );
@@ -1475,19 +1475,18 @@ mod tests {
     #[tokio::test]
     async fn test_lookup_slice() {
         assert_eq!(
-            Record::data(
-                &LookupFuture::lookup(
-                    vec![Name::root()],
-                    RecordType::A,
-                    DnsRequestOptions::default(),
-                    CachingClient::new(0, mock(vec![v4_message()]), false),
-                )
-                .await
-                .unwrap()
-                .answers()[0]
+            LookupFuture::lookup(
+                vec![Name::root()],
+                RecordType::A,
+                DnsRequestOptions::default(),
+                CachingClient::new(0, mock(vec![v4_message()]), false),
             )
-            .ip_addr()
-            .unwrap(),
+            .await
+            .unwrap()
+            .answers()[0]
+                .data
+                .ip_addr()
+                .unwrap(),
             Ipv4Addr::LOCALHOST
         );
     }
@@ -1505,7 +1504,7 @@ mod tests {
             .unwrap()
             .answers()
             .iter()
-            .map(|r| r.data().ip_addr().unwrap())
+            .map(|r| r.data.ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::LOCALHOST]
         );

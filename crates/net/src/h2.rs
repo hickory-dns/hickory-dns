@@ -530,7 +530,7 @@ mod tests {
             response
                 .answers
                 .iter()
-                .any(|record| matches!(record.data(), RData::A(_)))
+                .any(|record| matches!(record.data, RData::A(_)))
         );
 
         //
@@ -559,7 +559,7 @@ mod tests {
             response
                 .answers
                 .iter()
-                .any(|record| matches!(record.data(), RData::AAAA(_)))
+                .any(|record| matches!(record.data, RData::AAAA(_)))
         );
     }
 
@@ -603,7 +603,7 @@ mod tests {
             response
                 .answers
                 .iter()
-                .any(|record| matches!(record.data(), RData::A(_)))
+                .any(|record| matches!(record.data, RData::A(_)))
         );
 
         //
@@ -632,7 +632,7 @@ mod tests {
             response
                 .answers
                 .iter()
-                .any(|record| matches!(record.data(), RData::AAAA(_)))
+                .any(|record| matches!(record.data, RData::AAAA(_)))
         );
     }
 
@@ -675,7 +675,7 @@ mod tests {
             response
                 .answers
                 .iter()
-                .any(|record| matches!(record.data(), RData::A(_)))
+                .any(|record| matches!(record.data, RData::A(_)))
         );
 
         //
@@ -704,7 +704,7 @@ mod tests {
             response
                 .answers
                 .iter()
-                .any(|record| matches!(record.data(), RData::AAAA(_)))
+                .any(|record| matches!(record.data, RData::AAAA(_)))
         );
     }
 

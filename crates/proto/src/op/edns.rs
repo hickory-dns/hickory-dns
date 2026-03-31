@@ -162,12 +162,12 @@ impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
         assert!(value.record_type() == RecordType::OPT);
 
-        let rcode_high = ((value.ttl() & 0xFF00_0000u32) >> 24) as u8;
-        let version = ((value.ttl() & 0x00FF_0000u32) >> 16) as u8;
-        let flags = EdnsFlags::from((value.ttl() & 0x0000_FFFFu32) as u16);
-        let max_payload = u16::from(value.dns_class());
+        let rcode_high = ((value.ttl & 0xFF00_0000u32) >> 24) as u8;
+        let version = ((value.ttl & 0x00FF_0000u32) >> 16) as u8;
+        let flags = EdnsFlags::from((value.ttl & 0x0000_FFFFu32) as u16);
+        let max_payload = u16::from(value.dns_class);
 
-        let options = match value.data() {
+        let options = match &value.data {
             RData::Update0(..) | RData::NULL(..) => {
                 // NULL, there was no data in the OPT
                 OPT::default()
@@ -177,7 +177,7 @@ impl<'a> From<&'a Record> for Edns {
             }
             _ => {
                 // this should be a coding error, as opposed to a parsing error.
-                panic!("rr_type doesn't match the RData: {:?}", value.data()) // valid panic, never should happen
+                panic!("rr_type doesn't match the RData: {:?}", value.data) // valid panic, never should happen
             }
         };
 
@@ -205,9 +205,7 @@ impl<'a> From<&'a Edns> for Record {
         //  the original binary format.
         // maybe switch to: https://crates.io/crates/linked-hash-map/
         let mut record = Self::from_rdata(Name::root(), ttl, RData::OPT(value.options().clone()));
-
-        record.set_dns_class(DNSClass::for_opt(value.max_payload()));
-
+        record.dns_class = DNSClass::for_opt(value.max_payload());
         record
     }
 }

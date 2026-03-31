@@ -386,22 +386,22 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         //           if (zone_rrset<rrset.name, rrset.type> != rrset)
         //                return (NXRRSET)
         for require in pre_requisites {
-            let required_name = LowerName::from(require.name());
+            let required_name = LowerName::from(&require.name);
 
-            if require.ttl() != 0 {
+            if require.ttl != 0 {
                 warn!("ttl must be 0 for: {require:?}");
                 return Err(ResponseCode::FormErr);
             }
 
             let origin = self.origin();
-            if !origin.zone_of(&require.name().into()) {
-                warn!("{} is not a zone_of {origin}", require.name());
+            if !origin.zone_of(&(&require.name).into()) {
+                warn!("{} is not a zone_of {origin}", require.name);
                 return Err(ResponseCode::NotZone);
             }
 
-            match require.dns_class() {
+            match require.dns_class {
                 DNSClass::ANY => {
-                    if let RData::Update0(_) | RData::NULL(..) = require.data() {
+                    if let RData::Update0(_) | RData::NULL(..) = require.data {
                         match require.record_type() {
                             // ANY      ANY      empty    Name is in use
                             RecordType::ANY => {
@@ -440,7 +440,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                     }
                 }
                 DNSClass::NONE => {
-                    if let RData::Update0(_) | RData::NULL(..) = require.data() {
+                    if let RData::Update0(_) | RData::NULL(..) = require.data {
                         match require.record_type() {
                             // NONE     ANY      empty    Name is not in use
                             RecordType::ANY => {
@@ -633,11 +633,11 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         //           else
         //                return (FORMERR)
         for rr in records {
-            if !self.origin().zone_of(&rr.name().into()) {
+            if !self.origin().zone_of(&(&rr.name).into()) {
                 return Err(ResponseCode::NotZone);
             }
 
-            let class: DNSClass = rr.dns_class();
+            let class: DNSClass = rr.dns_class;
             if class == self.in_memory.class() {
                 match rr.record_type() {
                     RecordType::ANY | RecordType::AXFR | RecordType::IXFR => {
@@ -648,11 +648,11 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             } else {
                 match class {
                     DNSClass::ANY => {
-                        if rr.ttl() != 0 {
+                        if rr.ttl != 0 {
                             return Err(ResponseCode::FormErr);
                         }
 
-                        match rr.data() {
+                        match rr.data {
                             RData::Update0(_) | RData::NULL(..) => {}
                             _ => return Err(ResponseCode::FormErr),
                         }
@@ -665,7 +665,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                         }
                     }
                     DNSClass::NONE => {
-                        if rr.ttl() != 0 {
+                        if rr.ttl != 0 {
                             return Err(ResponseCode::FormErr);
                         }
                         match rr.record_type() {
@@ -761,10 +761,10 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         //                zone_rr<rr.name, rr.type, rr.data> = Nil
         //      return (NOERROR)
         for rr in records {
-            let rr_name = LowerName::from(rr.name());
+            let rr_name = LowerName::from(&rr.name);
             let rr_key = RrKey::new(rr_name.clone(), rr.record_type());
 
-            match rr.dns_class() {
+            match rr.dns_class {
                 class if class == self.in_memory.class() => {
                     // RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
                     //  the zone.  In case of duplicate RDATAs (which for SOA RRs is always
@@ -841,7 +841,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                             //   SOA or NS RRs will be deleted.
 
                             // ANY      rrset    empty    Delete an RRset
-                            if let RData::Update0(_) | RData::NULL(..) = rr.data() {
+                            if let RData::Update0(_) | RData::NULL(..) = rr.data {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
                                 info!("deleted rrset: {deleted:?}");
                                 updated = updated || deleted.is_some();
@@ -951,12 +951,12 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         let Some(tsigner) = self
             .tsig_signers
             .iter()
-            .find(|tsigner| tsigner.signer_name() == tsig.name())
+            .find(|tsigner| tsigner.signer_name() == &tsig.name)
         else {
             warn!("no TSIG key name matched: id {req_id}");
             return (
                 Err(ResponseCode::NotAuth),
-                TSigResponseContext::unknown_key(req_id, now, tsig.name().clone()),
+                TSigResponseContext::unknown_key(req_id, now, tsig.name.clone()),
             );
         };
 
@@ -980,7 +980,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
 
         (
             response,
-            TSigResponseContext::new(req_id, now, tsigner.clone(), tsig.data().mac.clone(), error),
+            TSigResponseContext::new(req_id, now, tsigner.clone(), tsig.data.mac.clone(), error),
         )
     }
 }
@@ -1264,7 +1264,7 @@ mod tests {
     use std::time::SystemTime;
 
     use crate::net::runtime::TokioRuntimeProvider;
-    use crate::proto::rr::{DNSClass, Name, RData, Record};
+    use crate::proto::rr::{Name, RData, Record};
     use crate::store::in_memory::{InMemoryZoneHandler, zone_from_path};
     use crate::store::sqlite::{Journal, SqliteZoneHandler};
     use crate::zone_handler::{AxfrPolicy, ZoneType};
@@ -1323,9 +1323,7 @@ mod tests {
             Name::from_str("serialtest.example.com.").unwrap(),
             0,
             RData::A(Ipv4Addr::new(192, 0, 2, 55).into()),
-        )
-        .set_dns_class(DNSClass::IN)
-        .clone();
+        );
 
         assert!(
             handler

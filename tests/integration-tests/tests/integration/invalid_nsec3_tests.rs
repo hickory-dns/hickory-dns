@@ -383,13 +383,13 @@ async fn test_exclude_nsec3(
     let mut modified_response = original_response.clone();
     modified_response
         .authorities
-        .retain(|record| record.name() != &nsec3_name);
+        .retain(|record| record.name != nsec3_name);
     assert!(
         modified_response.authorities.len() < original_response.authorities.len(),
         "failed to remove expected NSEC3 record and signature at {nsec3_owner_name}: {modified_response:?}"
     );
 
-    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = dnskey_response.answers[0].data() else {
+    let RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) = &dnskey_response.answers[0].data else {
         panic!("expected DNSKEY record: {dnskey_response:#?}");
     };
 

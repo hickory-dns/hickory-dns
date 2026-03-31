@@ -80,10 +80,10 @@ async fn test_cname_loop() {
     let records = lookup.iter().collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     let record = records[0];
-    assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
+    assert_eq!(record.name, Name::from_str("foo.example.com.").unwrap());
     assert_eq!(
-        record.data(),
-        &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
+        record.data,
+        RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
     assert!(
@@ -104,10 +104,10 @@ async fn test_cname_loop() {
     let records = lookup.iter().collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     let record = records[0];
-    assert_eq!(record.name(), &Name::from_str("bar.example.com.").unwrap());
+    assert_eq!(record.name, Name::from_str("bar.example.com.").unwrap());
     assert_eq!(
-        record.data(),
-        &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
+        record.data,
+        RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
     let additionals = lookup
@@ -116,10 +116,10 @@ async fn test_cname_loop() {
         .collect::<Vec<_>>();
     assert_eq!(additionals.len(), 1);
     let record = additionals[0];
-    assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
+    assert_eq!(record.name, Name::from_str("foo.example.com.").unwrap());
     assert_eq!(
-        record.data(),
-        &RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
+        record.data,
+        RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
 
     let lookup = auth
@@ -135,10 +135,10 @@ async fn test_cname_loop() {
     let records = lookup.iter().collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     let record = records[0];
-    assert_eq!(record.name(), &Name::from_str("baz.example.com.").unwrap());
+    assert_eq!(record.name, Name::from_str("baz.example.com.").unwrap());
     assert_eq!(
-        record.data(),
-        &RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap()))
+        record.data,
+        RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap()))
     );
 
     let additionals = lookup
@@ -147,15 +147,15 @@ async fn test_cname_loop() {
         .collect::<Vec<_>>();
     assert_eq!(additionals.len(), 2);
     let record = additionals[0];
-    assert_eq!(record.name(), &Name::from_str("boz.example.com.").unwrap());
+    assert_eq!(record.name, Name::from_str("boz.example.com.").unwrap());
     assert_eq!(
-        record.data(),
-        &RData::CNAME(CNAME(Name::from_str("biz.example.com.").unwrap()))
+        record.data,
+        RData::CNAME(CNAME(Name::from_str("biz.example.com.").unwrap()))
     );
     let record = additionals[1];
-    assert_eq!(record.name(), &Name::from_str("biz.example.com.").unwrap());
+    assert_eq!(record.name, Name::from_str("biz.example.com.").unwrap());
     assert_eq!(
-        record.data(),
-        &RData::CNAME(CNAME(Name::from_str("baz.example.com.").unwrap()))
+        record.data,
+        RData::CNAME(CNAME(Name::from_str("baz.example.com.").unwrap()))
     );
 }

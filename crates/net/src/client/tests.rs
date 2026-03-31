@@ -59,7 +59,7 @@ async fn readme_example() {
     //  In this case we are interested in A, IPv4 address
     let a_data = answers
         .iter()
-        .flat_map(|record| match record.data() {
+        .flat_map(|record| match record.data {
             RData::A(addr) => Some(addr),
             _ => None,
         })
@@ -326,7 +326,7 @@ async fn async_client() {
     let assert_a_records_match = |answers: &[Record], expected: &[A]| {
         let mut a_records = answers
             .iter()
-            .filter_map(|record| match record.data() {
+            .filter_map(|record| match &record.data {
                 RData::A(addr) => Some(*addr),
                 _ => None,
             })

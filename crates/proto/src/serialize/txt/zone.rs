@@ -495,11 +495,11 @@ impl Context {
         // move the rdata into record...
         name.set_fqdn(true);
         let mut record = Record::from_rdata(name, ttl, rdata);
-        record.set_dns_class(self.class);
+        record.dns_class = self.class;
 
         // add to the map
         let entry = self.records.entry(RrKey::new(
-            LowerName::new(record.name()),
+            LowerName::new(&record.name),
             record.record_type(),
         ));
         match (rtype, entry) {
