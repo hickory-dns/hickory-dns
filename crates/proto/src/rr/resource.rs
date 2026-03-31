@@ -230,62 +230,10 @@ impl<R: RecordData> Record<R> {
         self
     }
 
-    /// Consumes `Record` and returns its components
-    #[inline]
-    pub fn into_parts(self) -> RecordParts {
-        let this = self.into_record_of_rdata();
-        this.into()
-    }
-
     /// Returns the type of the RecordData in the record
     #[inline]
     pub fn record_type(&self) -> RecordType {
         self.data.record_type()
-    }
-}
-
-/// Consumes `Record` giving public access to fields of `Record` so they can
-/// be destructured and taken by value
-pub struct RecordParts<R: RecordData = RData> {
-    /// label names
-    pub name_labels: Name,
-    /// dns class
-    pub dns_class: DNSClass,
-    /// time to live
-    pub ttl: u32,
-    /// rdata
-    pub rdata: R,
-    /// mDNS cache flush
-    #[cfg(feature = "mdns")]
-    pub mdns_cache_flush: bool,
-    /// mDNS cache flush
-    #[cfg(feature = "__dnssec")]
-    pub proof: Proof,
-}
-
-impl<R: RecordData> From<Record<R>> for RecordParts<R> {
-    fn from(record: Record<R>) -> Self {
-        let Record {
-            name: name_labels,
-            dns_class,
-            ttl,
-            data: rdata,
-            #[cfg(feature = "mdns")]
-            mdns_cache_flush,
-            #[cfg(feature = "__dnssec")]
-            proof,
-        } = record;
-
-        Self {
-            name_labels,
-            dns_class,
-            ttl,
-            rdata,
-            #[cfg(feature = "mdns")]
-            mdns_cache_flush,
-            #[cfg(feature = "__dnssec")]
-            proof,
-        }
     }
 }
 
