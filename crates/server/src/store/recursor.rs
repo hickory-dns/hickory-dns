@@ -11,6 +11,8 @@
 
 use std::{io, path::Path, time::Instant};
 
+use tracing::{debug, info};
+
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
 use crate::resolver::{OpportunisticEncryptionStatePersistTask, config::OpportunisticEncryption};
 #[cfg(feature = "__dnssec")]
@@ -19,7 +21,7 @@ use crate::{
     net::runtime::RuntimeProvider,
     proto::{
         op::Query,
-        rr::{LowerName, Name, RecordType},
+        rr::{LowerName, Name, RecordType, TSigResponseContext},
     },
     resolver::recursor::{RecursiveConfig, Recursor},
     server::{Request, RequestInfo},
@@ -28,8 +30,6 @@ use crate::{
         ZoneType,
     },
 };
-use hickory_proto::rr::TSigResponseContext;
-use tracing::{debug, info};
 
 /// A zone handler that performs recursive resolutions.
 ///

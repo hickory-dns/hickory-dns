@@ -14,7 +14,7 @@ use bytes::Bytes;
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
-    net::{runtime::Time, xfer::Protocol},
+    net::{NetError, runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
         op::{Header, HeaderCounts, LowerQuery, MessageType, Metadata, ResponseCode},
@@ -80,7 +80,11 @@ impl Request {
             src: self.src,
             protocol: self.protocol,
             metadata: &self.message.metadata,
-            query: self.message.queries.try_as_query()?,
+            query: self
+                .message
+                .queries
+                .try_as_query()
+                .map_err(|e| LookupError::from(NetError::from(e)))?,
         })
     }
 

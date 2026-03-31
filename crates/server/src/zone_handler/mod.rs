@@ -368,9 +368,6 @@ impl<E: fmt::Display> LookupControlFlow<AuthLookup, E> {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum LookupError {
-    /// The query had an invalid number of queries
-    #[error("there should only be one query per request, got {0}")]
-    BadQueryCount(usize),
     /// A record at the same Name as the query exists, but not of the queried RecordType
     #[error("The name exists, but not for the record requested")]
     NameExists,
