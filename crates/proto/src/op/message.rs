@@ -787,7 +787,7 @@ mod tests {
         message.metadata.recursion_desired = true;
         message.metadata.recursion_available = true;
         message.metadata.response_code = ResponseCode::ServFail;
-        message.add_query(Query::new());
+        message.add_query(Query::root());
 
         test_emit_and_read(message);
     }

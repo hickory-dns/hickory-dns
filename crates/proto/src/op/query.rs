@@ -95,7 +95,7 @@ impl Default for Query {
 
 impl Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
-    pub fn new() -> Self {
+    pub fn root() -> Self {
         Self::default()
     }
 
@@ -286,7 +286,7 @@ mod tests {
         const QCLASS_OFFSET: usize = 1 /* empty name */ +
         size_of::<u16>() /* query_type */;
 
-        let mut query = Query::new();
+        let mut query = Query::root();
         query.set_mdns_unicast_response(true);
 
         let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);

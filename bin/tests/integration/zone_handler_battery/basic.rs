@@ -485,7 +485,7 @@ pub fn test_aname_chain(handler: impl ZoneHandler) {
 
 pub fn test_update_errors(handler: impl ZoneHandler) {
     let mut message = Message::query();
-    message.add_query(Query::new());
+    message.add_query(Query::root());
     let bytes = message.to_vec().unwrap();
     let request = Request::from_bytes(
         bytes,
