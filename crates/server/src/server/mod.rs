@@ -61,7 +61,6 @@ mod quic_handler;
 mod request_handler;
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
-#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
 pub(crate) use response_handler::encode_fallback_servfail_response;
 pub use response_handler::{ResponseHandle, ResponseHandler};
 mod timeout_stream;

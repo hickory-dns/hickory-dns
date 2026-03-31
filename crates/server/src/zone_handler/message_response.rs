@@ -5,19 +5,17 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
-use tracing::error;
+use tracing::{debug, error};
 
-#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
-use crate::server::encode_fallback_servfail_response;
 use crate::{
+    net::{udp::MAX_RECEIVE_BUFFER_SIZE, xfer::Protocol},
     proto::{
         ProtoError,
         op::{Edns, Metadata, ResponseCode, emit_message_parts},
         rr::{Record, rdata::TSIG},
         serialize::binary::BinEncoder,
     },
-    server::ResponseInfo,
+    server::{ResponseInfo, encode_fallback_servfail_response},
     zone_handler::{Queries, message_request::MessageRequest},
 };
 
@@ -76,11 +74,24 @@ where
         self.signature = Some(signature);
     }
 
-    #[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
-    pub(crate) fn encode(self) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
+    pub(crate) fn encode(self, protocol: Protocol) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
         let id = self.metadata.id;
+        debug!(
+            id,
+            response_code = %self.metadata.response_code,
+            "encoding response"
+        );
+
         let mut bytes = Vec::with_capacity(512);
         let mut encoder = BinEncoder::new(&mut bytes);
+        encoder.set_max_size(match protocol {
+            Protocol::Udp => match &self.edns {
+                Some(edns) => edns.max_payload(),
+                // No EDNS, use the recommended max from RFC 6891
+                None => MAX_RECEIVE_BUFFER_SIZE as u16,
+            },
+            _ => u16::MAX,
+        });
 
         let info = match self.destructive_emit(&mut encoder) {
             Ok(info) => info,

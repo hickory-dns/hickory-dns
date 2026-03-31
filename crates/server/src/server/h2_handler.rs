@@ -213,7 +213,7 @@ impl ResponseHandler for HttpsResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode()?;
+        let (info, bytes) = response.encode(Protocol::Https)?;
         let bytes = Bytes::from(bytes);
         let response = http::response(Version::Http2, bytes.len())?;
 
