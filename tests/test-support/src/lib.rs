@@ -182,7 +182,7 @@ impl MockNetworkHandler {
     pub fn new(responses: Vec<MockRecord>) -> Self {
         let mut hashed_responses = HashMap::<IpAddr, HashMap<Query, Message>>::new();
         for response in responses {
-            let query = Query::query(response.query_name.clone(), response.query_type);
+            let query = Query::new(response.query_name.clone(), response.query_type);
             let mut message = Message::response(0, OpCode::Query);
             message.add_query(query.clone());
             message.metadata.authoritative = true;

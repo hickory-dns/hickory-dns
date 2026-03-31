@@ -203,7 +203,7 @@ async fn test_rrsig_ttl() {
         tokio::spawn(bg);
 
         // query www.example.com. expected ttl is 86400.
-        let query = Query::query("www.example.com.".parse().unwrap(), RecordType::A);
+        let query = Query::new("www.example.com.".parse().unwrap(), RecordType::A);
         let response = client
             .lookup(query, options)
             .try_next()
@@ -238,7 +238,7 @@ async fn test_rrsig_ttl() {
         tokio::spawn(bg);
 
         // query shortlived.example.com. expected ttl is 900.
-        let query = Query::query("shortlived.example.com.".parse().unwrap(), RecordType::A);
+        let query = Query::new("shortlived.example.com.".parse().unwrap(), RecordType::A);
         let response = client
             .lookup(query, options)
             .try_next()

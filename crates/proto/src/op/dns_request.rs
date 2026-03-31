@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn from_query_default_includes_edns() {
-        let query = Query::query(Name::from_ascii("example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_ascii("example.com.").unwrap(), RecordType::A);
         let request = DnsRequest::from_query(query, DnsRequestOptions::default());
         assert!(request.edns.is_some());
         assert_eq!(request.max_payload(), DEFAULT_MAX_PAYLOAD_LEN);
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn from_query_edns_disabled_no_opt() {
-        let query = Query::query(Name::from_ascii("example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_ascii("example.com.").unwrap(), RecordType::A);
         let request = DnsRequest::from_query(
             query,
             DnsRequestOptions {

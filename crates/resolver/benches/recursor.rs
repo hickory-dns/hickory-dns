@@ -37,11 +37,7 @@ fn bench_cold_resolve(c: &mut Criterion) {
             |(recursor, query_name)| async move {
                 black_box(
                     recursor
-                        .resolve(
-                            Query::query(query_name, RecordType::A),
-                            Instant::now(),
-                            false,
-                        )
+                        .resolve(Query::new(query_name, RecordType::A), Instant::now(), false)
                         .await
                         .unwrap(),
                 )
@@ -67,11 +63,7 @@ fn bench_warm_resolve(c: &mut Criterion) {
             async move {
                 black_box(
                     recursor
-                        .resolve(
-                            Query::query(query_name, RecordType::A),
-                            Instant::now(),
-                            false,
-                        )
+                        .resolve(Query::new(query_name, RecordType::A), Instant::now(), false)
                         .await
                         .unwrap(),
                 )

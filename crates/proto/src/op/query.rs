@@ -83,18 +83,11 @@ pub struct Query {
 impl Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
     pub fn root() -> Self {
-        Self {
-            name: Name::root(),
-            query_type: RecordType::A,
-            query_class: DNSClass::IN,
-            #[cfg(feature = "mdns")]
-            mdns_unicast_response: false,
-        }
+        Self::new(Name::root(), RecordType::A)
     }
 
     /// Create a new query from name and type, class defaults to IN
-    #[allow(clippy::self_named_constructors)]
-    pub fn query(name: Name, query_type: RecordType) -> Self {
+    pub fn new(name: Name, query_type: RecordType) -> Self {
         Self {
             name,
             query_type,
