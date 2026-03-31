@@ -315,7 +315,7 @@ impl DnsError {
                     };
 
                     let negative_ttl = response.negative_ttl();
-                    let query = response.into_message().queries.drain(..).next().unwrap_or_default();
+                    let query = response.into_message().queries.drain(..).next().unwrap_or_else(Query::root);
 
                     Err(Self::NoRecordsFound(NoRecords {
                         query: Box::new(query),
