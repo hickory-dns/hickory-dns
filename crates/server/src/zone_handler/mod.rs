@@ -151,11 +151,7 @@ pub trait ZoneHandler: Send + Sync {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
-
+        let request_info = request.request_info();
         (
             self.lookup(
                 request_info.query.name(),

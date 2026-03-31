@@ -14,7 +14,7 @@ use bytes::Bytes;
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
-    net::{NetError, runtime::Time, xfer::Protocol},
+    net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
         op::{
@@ -23,7 +23,6 @@ use crate::{
         serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
-    zone_handler::LookupError,
 };
 
 /// An incoming request to the DNS catalog
@@ -77,17 +76,13 @@ impl Request {
     /// Return just the header and request information from the Request Message
     ///
     /// Returns an error if there is not exactly one query
-    pub fn request_info(&self) -> Result<RequestInfo<'_>, LookupError> {
-        Ok(RequestInfo {
+    pub fn request_info(&self) -> RequestInfo<'_> {
+        RequestInfo {
             src: self.src,
             protocol: self.protocol,
             metadata: &self.message.metadata,
-            query: self
-                .message
-                .queries
-                .try_as_query()
-                .map_err(|e| LookupError::from(NetError::from(e)))?,
-        })
+            query: &self.message.queries,
+        }
     }
 
     /// The IP address from which the request originated.

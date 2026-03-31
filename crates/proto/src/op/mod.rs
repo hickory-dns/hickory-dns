@@ -38,7 +38,7 @@ mod message;
 pub use message::{EmitAndCount, Message, emit_message_parts};
 
 mod message_request;
-pub use message_request::{MessageRequest, Queries};
+pub use message_request::{MessageRequest, Queries, QueriesEmitAndCount};
 
 mod op_code;
 pub use op_code::OpCode;

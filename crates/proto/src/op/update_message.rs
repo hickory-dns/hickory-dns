@@ -18,7 +18,6 @@ use crate::{
 use crate::{
     op::{Message, Query},
     rr::{Record, rdata::TSIG},
-    serialize::binary::DecodeError,
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -600,7 +599,7 @@ pub trait UpdateRequest {
     fn id(&self) -> u16;
 
     /// Zone being updated, this should be the query of a Message
-    fn zone(&self) -> Result<&LowerQuery, DecodeError>;
+    fn zone(&self) -> &LowerQuery;
 
     /// Prerequisites map to the Answer section of a Message
     fn prerequisites(&self) -> &[Record];
@@ -620,9 +619,9 @@ impl UpdateRequest for MessageRequest {
         self.metadata.id
     }
 
-    fn zone(&self) -> Result<&LowerQuery, DecodeError> {
+    fn zone(&self) -> &LowerQuery {
         // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
-        self.queries.try_as_query()
+        &self.queries
     }
 
     fn prerequisites(&self) -> &[Record] {
