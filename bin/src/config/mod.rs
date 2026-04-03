@@ -163,6 +163,9 @@ pub(crate) struct Config {
     /// UDP socket configuration options.
     #[serde(default)]
     pub(crate) udp_socket: UdpSocketConfig,
+    /// TCP socket configuration options.
+    #[serde(default)]
+    pub(crate) tcp_socket: TcpSocketConfig,
 }
 
 /// Configuration options for UDP sockets.
@@ -198,6 +201,38 @@ pub(crate) struct UdpSocketConfig {
     /// Defaults to 1.
     #[cfg(unix)]
     pub(crate) sockets: Option<usize>,
+}
+
+/// Configuration options for TCP sockets.
+///
+/// These settings control aspects of TCP listeners used by the DNS server.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TcpSocketConfig {
+    /// TCP listen backlog size.
+    ///
+    /// Controls the maximum number of pending connections queued by the kernel before
+    /// connections are refused. If not specified, defaults to 128.
+    ///
+    /// Higher values allow more connections to queue during traffic spikes.
+    /// Consider increasing this for high-TCP load deployments.
+    ///
+    /// On Linux the kernel `net.core.somaxconn` and `net.ipv[4|6].tcp_max_syn_backlog`
+    /// may also need adjustment to match.
+    #[serde(default = "default_tcp_listen_backlog")]
+    pub(crate) listen_backlog: i32,
+}
+
+impl Default for TcpSocketConfig {
+    fn default() -> Self {
+        Self {
+            listen_backlog: default_tcp_listen_backlog(),
+        }
+    }
+}
+
+fn default_tcp_listen_backlog() -> i32 {
+    128
 }
 
 impl Config {

@@ -12,6 +12,19 @@
 # send_buffer_size = 4194304  # 4MB
 # sockets = 1
 
+## TCP socket configuration
+## Under high connection rates, increasing the listen backlog can help prevent
+## connection drops when the server cannot accept connections fast enough.
+## This is particularly useful for recursive resolvers handling large query
+## volumes over TCP.
+##
+## Note: The kernel may cap the realized backlog size based on system limits
+## (e.g., net.core.somaxconn and net.ipv[4|6].tcp_max_syn_backlog on Linux).
+##
+## If not specified, defaults to 128.
+# [tcp_socket]
+# listen_backlog = 128
+
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
 [[zones]]
