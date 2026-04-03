@@ -247,20 +247,6 @@ struct PoolState<P: ConnectionProvider> {
     next: AtomicUsize,
 }
 
-/// Sorts servers by their decayed SRTT for query-statistics-based ordering.
-///
-/// Uses `sort_by_cached_key` to evaluate each server's decayed SRTT exactly
-/// once. This is critical because `decayed_srtt()` reads shared mutable state
-/// that can change between calls due to concurrent query completions, which
-/// would violate the total-order invariant required by `sort_by`.
-pub(crate) fn sort_servers_by_query_statistics<P: ConnectionProvider>(
-    servers: &mut [Arc<NameServer<P>>],
-) {
-    // Positive f64 bit patterns sort in the same order as their float values,
-    // so to_bits() is a valid u64 ordering key for non-negative SRTT values.
-    servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
-}
-
 impl<P: ConnectionProvider> PoolState<P> {
     async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
         let mut servers = self.servers.clone();
@@ -445,6 +431,20 @@ fn most_specific(previous: NetError, current: NetError) -> NetError {
     }
 
     previous
+}
+
+/// Sorts servers by their decayed SRTT for query-statistics-based ordering.
+///
+/// Uses `sort_by_cached_key` to evaluate each server's decayed SRTT exactly
+/// once. This is critical because `decayed_srtt()` reads shared mutable state
+/// that can change between calls due to concurrent query completions, which
+/// would violate the total-order invariant required by `sort_by`.
+pub(crate) fn sort_servers_by_query_statistics<P: ConnectionProvider>(
+    servers: &mut [Arc<NameServer<P>>],
+) {
+    // Positive f64 bit patterns sort in the same order as their float values,
+    // so to_bits() is a valid u64 ordering key for non-negative SRTT values.
+    servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
 }
 
 /// Context for a [`NameServerPool`]
