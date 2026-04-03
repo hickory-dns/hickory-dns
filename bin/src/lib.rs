@@ -36,7 +36,7 @@ use hickory_server::server::default_tls_server_config;
 use hickory_server::{server::Server, zone_handler::Catalog};
 
 mod config;
-use config::{Config, UdpSocketConfig};
+use config::{Config, TcpSocketConfig, UdpSocketConfig};
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
@@ -220,12 +220,14 @@ impl DnsServer {
                     .prometheus_listen_addr
                     .unwrap_or_else(|| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 9000))
             });
-            let listener =
-                build_tcp_listener(socket_addr.ip(), socket_addr.port()).map_err(|err| {
-                    format!(
-                        "failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}"
-                    )
-                })?;
+            let listener = build_tcp_listener(
+                socket_addr.ip(),
+                socket_addr.port(),
+                TcpSocketConfig::default(),
+            )
+            .map_err(|err| {
+                format!("failed to bind to Prometheus TCP socket address {socket_addr:?}: {err}")
+            })?;
             let local_addr = listener
                 .local_addr()
                 .map_err(|err| format!("failed to look up local address: {err}"))?;
@@ -294,6 +296,7 @@ impl DnsServer {
             deny_networks,
             allow_networks,
             udp_socket: udp_socket_config,
+            tcp_socket: tcp_socket_config,
         } = config;
 
         #[cfg(unix)]
@@ -366,6 +369,7 @@ impl DnsServer {
             #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
             ssl_keylog_enabled,
             udp_socket_config,
+            tcp_socket_config,
         };
 
         let listen_port = port.unwrap_or(listen_port);
@@ -500,6 +504,7 @@ struct ServerSetup<'a> {
     #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
     ssl_keylog_enabled: bool,
     udp_socket_config: UdpSocketConfig,
+    tcp_socket_config: TcpSocketConfig,
 }
 
 impl ServerSetup<'_> {
@@ -539,7 +544,7 @@ impl ServerSetup<'_> {
         for addr in &self.listen_addrs {
             info!("binding TCP to {addr:?}");
 
-            let tcp_listener = build_tcp_listener(*addr, port)
+            let tcp_listener = build_tcp_listener(*addr, port, self.tcp_socket_config)
                 .map_err(|err| format!("failed to bind to TCP socket address {addr:?}: {err}"))?;
 
             info!(
@@ -565,7 +570,7 @@ impl ServerSetup<'_> {
         for addr in &self.listen_addrs {
             info!("binding TLS to {addr:?}");
 
-            let tls_listener = build_tcp_listener(*addr, port)
+            let tls_listener = build_tcp_listener(*addr, port, self.tcp_socket_config)
                 .map_err(|err| format!("failed to bind to TLS socket address {addr:?}: {err}"))?;
 
             info!(
@@ -607,7 +612,7 @@ impl ServerSetup<'_> {
         for addr in &self.listen_addrs {
             info!("binding HTTPS to {addr:?}");
 
-            let https_listener = build_tcp_listener(*addr, port)
+            let https_listener = build_tcp_listener(*addr, port, self.tcp_socket_config)
                 .map_err(|err| format!("failed to bind to HTTPS socket address {addr:?}: {err}"))?;
 
             info!(
@@ -691,7 +696,11 @@ fn banner() {
 }
 
 /// Build a TcpListener for a given IP, port pair; IPv6 listeners will not accept v4 connections
-fn build_tcp_listener(ip: IpAddr, port: u16) -> Result<TcpListener, Error> {
+fn build_tcp_listener(
+    ip: IpAddr,
+    port: u16,
+    socket_config: TcpSocketConfig,
+) -> Result<TcpListener, Error> {
     let sock = if ip.is_ipv4() {
         Socket::new(Domain::IPV4, Type::STREAM, None)?
     } else {
@@ -706,8 +715,7 @@ fn build_tcp_listener(ip: IpAddr, port: u16) -> Result<TcpListener, Error> {
     let s_addr = SocketAddr::new(ip, port);
     sock.bind(&s_addr.into())?;
 
-    // this is a fairly typical backlog value, but we don't have any good data to support it as of yet
-    sock.listen(128)?;
+    sock.listen(socket_config.listen_backlog)?;
 
     TcpListener::from_std(sock.into())
 }
