@@ -44,7 +44,7 @@ dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-net/dnssec-aws-lc
 dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-net/dnssec-ring", "__dnssec"]
 __dnssec = []
 
-recursor = ["dep:async-recursion", "dep:lru-cache", "hickory-proto/text-parsing"]
+recursor = ["dep:async-recursion", "hickory-proto/text-parsing"]
 
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
@@ -63,8 +63,6 @@ futures-util = { workspace = true, default-features = false, features = [
 ] }
 metrics = { workspace = true, optional = true }
 ipnet = { workspace = true, features = ["serde"] }
-lru-cache = { workspace = true, optional = true }
-moka = { workspace = true, features = ["sync"] }
 once_cell.workspace = true
 parking_lot.workspace = true
 quinn = { workspace = true, optional = true, features = [
@@ -81,7 +79,7 @@ tracing.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-rustls = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
-hickory-net = { workspace = true }
+hickory-net = { workspace = true, features = ["__lru"] }
 hickory-proto = { workspace = true, features = ["access-control"] }
 webpki-roots = { workspace = true, optional = true }
 

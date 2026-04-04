@@ -7,13 +7,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use moka::{Expiry, sync::Cache};
+use parking_lot::Mutex;
 #[cfg(feature = "serde")]
 use serde::Deserialize;
 
 use crate::{
     config,
-    net::{DnsError, NetError, NoRecords},
+    net::{DnsError, NetError, NoRecords, lru::LruCache},
     proto::{
         op::{Message, Query},
         rr::RecordType,
@@ -21,9 +21,12 @@ use crate::{
 };
 
 /// A cache for DNS responses.
+///
+/// This implements `Clone` but will only perform a _shallow_ `Clone`, sharing
+/// the underlying cache.
 #[derive(Clone, Debug)]
 pub struct ResponseCache {
-    cache: Cache<Query, Entry>,
+    cache: Arc<Mutex<LruCache<Query, Entry>>>,
     ttl_config: Arc<TtlConfig>,
 }
 
@@ -36,10 +39,9 @@ impl ResponseCache {
     /// * `ttl_config` - minimum and maximum TTLs for cached records
     pub fn new(capacity: u64, ttl_config: TtlConfig) -> Self {
         Self {
-            cache: Cache::builder()
-                .max_capacity(capacity)
-                .expire_after(EntryExpiry)
-                .build(),
+            cache: Arc::new(Mutex::new(LruCache::new(
+                usize::try_from(capacity).unwrap_or(usize::MAX),
+            ))),
             ttl_config: Arc::new(ttl_config),
         }
     }
@@ -69,7 +71,7 @@ impl ResponseCache {
             Err(_) => return,
         };
         let valid_until = now + ttl;
-        self.cache.insert(
+        self.cache.lock().insert(
             query,
             Entry {
                 result: Arc::new(result),
@@ -81,10 +83,15 @@ impl ResponseCache {
 
     /// Try to retrieve a cached response with the given query.
     pub fn get(&self, query: &Query, now: Instant) -> Option<Result<Message, NetError>> {
-        let entry = self.cache.get(query)?;
-        if !entry.is_current(now) {
-            return None;
-        }
+        let entry = {
+            let mut cache = self.cache.lock();
+            let entry = cache.get_mut(query)?.clone();
+            if !entry.is_current(now) {
+                cache.remove(query);
+                return None;
+            }
+            entry
+        };
         Some(entry.updated_ttl(now))
     }
 
@@ -132,11 +139,11 @@ impl ResponseCache {
     }
 
     pub(crate) fn clear(&self) {
-        self.cache.invalidate_all();
+        self.cache.lock().clear();
     }
 
     pub(crate) fn clear_query(&self, query: &Query) {
-        self.cache.invalidate(query);
+        self.cache.lock().remove(query);
     }
 
     /// Returns the approximate number of entries in the cache.
@@ -146,12 +153,20 @@ impl ResponseCache {
         {
             // For tests, ensure pending tasks are processed before getting the count.
             // This allows unit tests of the respective cache size metrics to be
-            // written without flakyness. In a production context, we're happier
-            // to defer background work and to return an approximate count.
-            self.cache.run_pending_tasks();
+            // written without flakyness. In a production context, this will grow until
+            // the capacity, stale values only being pruned upon access or being at capacity.
+            let mut cache = self.cache.lock();
+            let now = Instant::now();
+            let stale = cache
+                .iter()
+                .filter_map(|(key, value)| Some(key.clone()).filter(|_| !value.is_current(now)))
+                .collect::<Vec<_>>();
+            for key in stale {
+                cache.remove(&key);
+            }
         }
 
-        self.cache.entry_count()
+        u64::try_from(self.cache.lock().len()).unwrap_or(u64::MAX)
     }
 }
 
@@ -254,31 +269,9 @@ impl Entry {
     }
 
     /// Returns the remaining time that this cache entry is valid for.
+    #[expect(dead_code)]
     fn ttl(&self, now: Instant) -> Duration {
         self.valid_until.saturating_duration_since(now)
-    }
-}
-
-struct EntryExpiry;
-
-impl Expiry<Query, Entry> for EntryExpiry {
-    fn expire_after_create(
-        &self,
-        _key: &Query,
-        value: &Entry,
-        created_at: Instant,
-    ) -> Option<Duration> {
-        Some(value.ttl(created_at))
-    }
-
-    fn expire_after_update(
-        &self,
-        _key: &Query,
-        value: &Entry,
-        updated_at: Instant,
-        _duration_until_expiry: Option<Duration>,
-    ) -> Option<Duration> {
-        Some(value.ttl(updated_at))
     }
 }
 
@@ -534,7 +527,7 @@ mod tests {
         let cache = ResponseCache::new(1, ttls);
 
         cache.insert(query.clone(), Ok(message), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The returned lookup should use the cache's minimum TTL, since the
         // query's TTL was below the minimum.
         assert_eq!(valid_until, now + Duration::from_secs(2));
@@ -548,7 +541,7 @@ mod tests {
         ));
 
         cache.insert(query.clone(), Ok(message), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The returned lookup should use the record's TTL, since it's
         // greater than the cache's minimum.
         assert_eq!(valid_until, now + Duration::from_secs(3));
@@ -716,7 +709,7 @@ mod tests {
         let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
         no_records.negative_ttl = Some(1);
         cache.insert(query.clone(), Err(no_records.into()), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The error's `valid_until` field should have been limited to 2 seconds.
         assert_eq!(valid_until, now + Duration::from_secs(2));
 
@@ -724,7 +717,7 @@ mod tests {
         let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
         no_records.negative_ttl = Some(3);
         cache.insert(query.clone(), Err(no_records.into()), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The error's `valid_until` field should not have been limited, as it was over the minimum
         // TTL.
         assert_eq!(valid_until, now + Duration::from_secs(3));
@@ -752,7 +745,7 @@ mod tests {
         let cache = ResponseCache::new(1, ttls);
 
         cache.insert(query.clone(), Ok(message), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The returned lookup should use the cache's minimum TTL, since the
         // query's TTL was above the maximum.
         assert_eq!(valid_until, now + Duration::from_secs(60));
@@ -766,7 +759,7 @@ mod tests {
         ));
 
         cache.insert(query.clone(), Ok(message), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The returned lookup should use the record's TTL, since it's
         // below than the cache's maximum.
         assert_eq!(valid_until, now + Duration::from_secs(59));
@@ -790,7 +783,7 @@ mod tests {
         let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
         no_records.negative_ttl = Some(62);
         cache.insert(query.clone(), Err(no_records.into()), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The error's `valid_until` field should have been limited to 60 seconds.
         assert_eq!(valid_until, now + Duration::from_secs(60));
 
@@ -798,7 +791,7 @@ mod tests {
         let mut no_records = NoRecords::new(query.clone(), ResponseCode::NoError);
         no_records.negative_ttl = Some(59);
         cache.insert(query.clone(), Err(no_records.into()), now);
-        let valid_until = cache.cache.get(&query).unwrap().valid_until;
+        let valid_until = cache.cache.lock().get_mut(&query).unwrap().valid_until;
         // The error's `valid_until` field should not have been limited, as it was under the maximum
         // TTL.
         assert_eq!(valid_until, now + Duration::from_secs(59));
@@ -1005,7 +998,7 @@ mod tests {
         // This should use the cache's default minimum TTL, since the record's TTL was below the
         // minimum.
         assert_eq!(
-            cache.cache.get(&query_a).unwrap().valid_until,
+            cache.cache.lock().get_mut(&query_a).unwrap().valid_until,
             now + Duration::from_secs(2)
         );
 
@@ -1013,7 +1006,7 @@ mod tests {
         // This should use the minimum for TTL records, since the record's TTL was below the
         // minimum.
         assert_eq!(
-            cache.cache.get(&query_txt).unwrap().valid_until,
+            cache.cache.lock().get_mut(&query_txt).unwrap().valid_until,
             now + Duration::from_secs(5)
         );
 
@@ -1027,14 +1020,14 @@ mod tests {
         cache.insert(query_a.clone(), Ok(message_a), now);
         // This should use the record's TTL, since it's greater than the default minimum TTL.
         assert_eq!(
-            cache.cache.get(&query_a).unwrap().valid_until,
+            cache.cache.lock().get_mut(&query_a).unwrap().valid_until,
             now + Duration::from_secs(7)
         );
 
         cache.insert(query_txt.clone(), Ok(message_txt), now);
         // This should use the record's TTL, since it's greater than the minimum TTL for TXT records.
         assert_eq!(
-            cache.cache.get(&query_txt).unwrap().valid_until,
+            cache.cache.lock().get_mut(&query_txt).unwrap().valid_until,
             now + Duration::from_secs(7)
         );
     }

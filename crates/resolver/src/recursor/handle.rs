@@ -10,7 +10,6 @@ use std::{
 
 use async_recursion::async_recursion;
 use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
-use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
 
@@ -25,7 +24,7 @@ use crate::{
     connection_provider::{ConnectionProvider, TlsConfig},
     name_server::NameServer,
     name_server_pool::{NameServerPool, NameServerTransportState, PoolContext},
-    net::DnsHandle,
+    net::{DnsHandle, lru::LruCache},
     proto::{
         access_control::{AccessControlSet, AccessControlSetBuilder},
         op::{DnsRequestOptions, Message, Query},
