@@ -12,7 +12,7 @@ use async_recursion::async_recursion;
 use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, trace, warn};
 
 use super::{DnssecPolicy, RecursorError, RecursorOptions, error::AuthorityData, is_subzone};
 #[cfg(feature = "metrics")]
@@ -445,7 +445,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let answer_filter = |record: &Record| {
             if !is_subzone(&zone, &record.name) {
-                error!(
+                debug!(
                     %record, %zone,
                     "dropping out of bailiwick record",
                 );
@@ -580,7 +580,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 };
 
                 if !is_subzone(&zone.base_name(), &zns.name) {
-                    warn!(
+                    debug!(
                         name = ?zns.name,
                         parent = ?zone.base_name(),
                         "dropping out of bailiwick record",
