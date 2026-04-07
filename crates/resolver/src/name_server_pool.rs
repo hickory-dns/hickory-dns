@@ -26,7 +26,9 @@ use parking_lot::Mutex;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use tracing::{debug, error, info};
+#[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
+use tracing::info;
+use tracing::{debug, error};
 
 #[cfg(any(feature = "__tls", feature = "__quic"))]
 use crate::config::OpportunisticEncryptionConfig;
@@ -165,7 +167,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                     debug!(%query, "query currently in progress - returning shared lookup");
                     (existing.clone(), false)
                 } else {
-                    info!(%query, "creating new shared lookup");
+                    debug!(%query, "creating new shared lookup");
 
                     let lookup = async move {
                         match state.try_send(request).await {
