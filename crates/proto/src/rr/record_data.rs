@@ -25,8 +25,8 @@ use crate::{
     rr::{
         Name, RecordData, RecordDataDecodable,
         rdata::{
-            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY,
-            OPT, PTR, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA, TSIG, TXT,
+            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, DNAME, HINFO, HTTPS, MX, NAPTR, NS, NULL,
+            OPENPGPKEY, OPT, PTR, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA, TSIG, TXT,
         },
         record_type::RecordType,
     },
@@ -209,6 +209,14 @@ pub enum RData {
     /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
     CSYNC(CSYNC),
+
+    /// [RFC 6672](https://tools.ietf.org/html/rfc6672) Delegation Name record
+    ///
+    /// ```text
+    /// The DNAME record provides redirection for a subtree of the domain
+    /// name tree in the DNS.
+    /// ```
+    DNAME(DNAME),
 
     /// ```text
     /// 3.3.2. HINFO RDATA format
@@ -857,6 +865,7 @@ impl RData {
             Self::CERT(..) => RecordType::CERT,
             Self::CNAME(..) => RecordType::CNAME,
             Self::CSYNC(..) => RecordType::CSYNC,
+            Self::DNAME(..) => RecordType::DNAME,
             Self::HINFO(..) => RecordType::HINFO,
             Self::HTTPS(..) => RecordType::HTTPS,
             Self::MX(..) => RecordType::MX,
@@ -930,6 +939,10 @@ impl RData {
             RecordType::CSYNC => {
                 trace!("reading CSYNC");
                 CSYNC::read_data(decoder, length).map(Self::CSYNC)
+            }
+            RecordType::DNAME => {
+                trace!("reading DNAME");
+                DNAME::read(decoder).map(Self::DNAME)
             }
             RecordType::HINFO => {
                 trace!("reading HINFO");
@@ -1068,6 +1081,7 @@ impl RData {
             RecordType::CERT => Self::CERT(CERT::from_tokens(tokens)?),
             RecordType::CNAME => Self::CNAME(CNAME(Name::from_tokens(tokens, origin)?)),
             RecordType::CSYNC => Self::CSYNC(CSYNC::from_tokens(tokens)?),
+            RecordType::DNAME => Self::DNAME(DNAME(Name::from_tokens(tokens, origin)?)),
             RecordType::HINFO => Self::HINFO(HINFO::from_tokens(tokens)?),
             RecordType::HTTPS => Self::HTTPS(HTTPS(SVCB::from_tokens(tokens)?)),
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
@@ -1205,6 +1219,7 @@ impl BinEncodable for RData {
             Self::CAA(caa) => caa.emit(encoder),
             Self::CERT(cert) => cert.emit(encoder),
             Self::CNAME(cname) => cname.emit(encoder),
+            Self::DNAME(dname) => dname.emit(encoder),
             Self::NS(ns) => ns.emit(encoder),
             Self::PTR(ptr) => ptr.emit(encoder),
             Self::CSYNC(csync) => csync.emit(encoder),
@@ -1264,6 +1279,7 @@ impl fmt::Display for RData {
             Self::CERT(cert) => w(f, cert),
             // to_lowercase for rfc4034 and rfc6840
             Self::CNAME(cname) => w(f, cname),
+            Self::DNAME(dname) => w(f, dname),
             Self::NS(ns) => w(f, ns),
             Self::PTR(ptr) => w(f, ptr),
             Self::CSYNC(csync) => w(f, csync),
@@ -1537,6 +1553,7 @@ mod tests {
             RData::CERT(..) => RecordType::CERT,
             RData::CNAME(..) => RecordType::CNAME,
             RData::CSYNC(..) => RecordType::CSYNC,
+            RData::DNAME(..) => RecordType::DNAME,
             RData::HINFO(..) => RecordType::HINFO,
             RData::HTTPS(..) => RecordType::HTTPS,
             RData::MX(..) => RecordType::MX,
