@@ -38,7 +38,6 @@ impl RecordSet {
     /// # Return value
     ///
     /// The newly created Resource Record Set
-    /// TODO: make all cloned params pass by value
     pub fn new(name: Name, record_type: RecordType, serial: u32) -> Self {
         Self {
             name,
@@ -63,7 +62,6 @@ impl RecordSet {
     /// # Return value
     ///
     /// The newly created Resource Record Set
-    /// TODO: make all cloned params pass by value
     pub fn with_ttl(name: Name, record_type: RecordType, ttl: u32) -> Self {
         Self {
             name,
