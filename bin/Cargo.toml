@@ -33,7 +33,7 @@ recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
-prometheus-metrics = ["metrics", "dep:http", "dep:hyper", "dep:hyper-util", "dep:metrics-exporter-prometheus", "dep:tokio-util"]
+prometheus-metrics = ["metrics", "dep:http", "dep:hyper", "dep:hyper-util", "dep:metrics-exporter-prometheus", "dep:tokio-util", "dep:tower", "dep:tower-http"]
 metrics = ["hickory-server/metrics", "hickory-resolver/metrics", "dep:metrics", "dep:metrics-process"]
 
 tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "hickory-resolver/tls-aws-lc-rs", "__tls"]
@@ -85,6 +85,8 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"]
 tokio = { workspace = true, features = ["time", "rt", "signal"] }
 tokio-util = { workspace = true, optional = true }
 toml.workspace = true
+tower = { workspace = true, features = ["util"], optional = true }
+tower-http = { workspace = true, features = ["compression-gzip"], optional = true }
 hex.workspace = true
 hickory-proto.workspace = true
 hickory-net.workspace = true
