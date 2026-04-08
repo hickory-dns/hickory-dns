@@ -550,6 +550,15 @@ pub struct ResolverOpts {
     /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
     #[cfg_attr(feature = "serde", serde(default = "default_num_concurrent_reqs"))]
     pub num_concurrent_reqs: usize,
+    /// Maximum number of active (in-flight) requests per multiplexed connection.
+    ///
+    /// This limits how many DNS queries can be simultaneously pending on a single
+    /// connection to an upstream nameserver. When the limit is reached, new requests
+    /// will return a busy error.
+    ///
+    /// Defaults to 32. Higher values allow more parallelism but consume more memory.
+    #[cfg_attr(feature = "serde", serde(default = "default_max_active_requests"))]
+    pub max_active_requests: usize,
     /// Preserve all intermediate records in the lookup response, such as CNAME records
     #[cfg_attr(feature = "serde", serde(default = "default_preserve_intermediates"))]
     pub preserve_intermediates: bool,
@@ -631,6 +640,7 @@ impl Default for ResolverOpts {
             positive_max_ttl: None,
             negative_max_ttl: None,
             num_concurrent_reqs: default_num_concurrent_reqs(),
+            max_active_requests: default_max_active_requests(),
 
             // Defaults to `true` to match the behavior of dig and nslookup.
             preserve_intermediates: default_preserve_intermediates(),
@@ -667,6 +677,10 @@ fn default_cache_size() -> u64 {
 
 fn default_num_concurrent_reqs() -> usize {
     2
+}
+
+fn default_max_active_requests() -> usize {
+    32
 }
 
 fn default_preserve_intermediates() -> bool {
