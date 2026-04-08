@@ -32,8 +32,6 @@ use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
 use crate::proto::rr::{TSigVerifier, TSigner};
 use crate::{DnsStreamHandle, error::NetError, runtime::Time};
 
-const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
-
 struct ActiveRequest {
     // the completion is the channel for a response to the original request
     completion: mpsc::Sender<Result<DnsResponse, NetError>>,
@@ -367,6 +365,8 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
         Poll::Pending
     }
 }
+
+const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 #[cfg(test)]
 mod test {
