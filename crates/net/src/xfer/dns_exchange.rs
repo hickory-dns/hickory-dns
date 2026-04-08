@@ -22,7 +22,7 @@ use crate::runtime::RuntimeProvider;
 use crate::runtime::Time;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
-    BufDnsRequestStreamHandle, CHANNEL_BUFFER_SIZE, DnsRequestSender, DnsResponseReceiver,
+    BufDnsRequestStreamHandle, DEFAULT_STREAM_BUFFER_SIZE, DnsRequestSender, DnsResponseReceiver,
     OneshotDnsRequest,
 };
 
@@ -51,7 +51,7 @@ impl<P: RuntimeProvider> DnsExchange<P> {
     pub fn from_stream<S: DnsRequestSender>(
         stream: S,
     ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
-        let (sender, outbound_messages) = mpsc::channel(CHANNEL_BUFFER_SIZE);
+        let (sender, outbound_messages) = mpsc::channel(DEFAULT_STREAM_BUFFER_SIZE);
         (
             Self {
                 sender: BufDnsRequestStreamHandle {

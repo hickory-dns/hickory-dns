@@ -554,8 +554,11 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            self.server
-                .register_listener(tcp_listener, self.tcp_request_timeout);
+            self.server.register_listener(
+                tcp_listener,
+                self.tcp_request_timeout,
+                self.tcp_socket_config.response_buffer_size,
+            );
         }
 
         Ok(())

@@ -95,16 +95,37 @@ impl<S: DnsTcpStream> TcpStream<S> {
         )
     }
 
-    /// Initializes a TcpStream.
+    /// Initializes a TcpStream with an established connection.
     ///
-    /// This is intended for use with a TcpListener and Incoming.
+    /// Uses the default buffer size (32) for the outbound message queue.
     ///
     /// # Arguments
     ///
     /// * `stream` - the established IO stream for communication
-    /// * `peer_addr` - sources address of the stream
+    /// * `peer_addr` - address of the remote peer
     pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
+        let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
+        (stream, message_sender)
+    }
+
+    /// Initializes a TcpStream with an established connection and explicit buffer size.
+    ///
+    /// Use this when you need a larger buffer to handle high message rates without
+    /// dropping messages due to backpressure.
+    ///
+    /// # Arguments
+    ///
+    /// * `stream` - the established IO stream for communication
+    /// * `peer_addr` - address of the remote peer
+    /// * `buffer_size` - maximum number of messages that can be queued for sending
+    pub fn from_stream_with_buffer_size(
+        stream: S,
+        peer_addr: SocketAddr,
+        buffer_size: usize,
+    ) -> (Self, BufDnsStreamHandle) {
+        let (message_sender, outbound_messages) =
+            BufDnsStreamHandle::with_buffer_size(peer_addr, buffer_size);
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
         (stream, message_sender)
     }

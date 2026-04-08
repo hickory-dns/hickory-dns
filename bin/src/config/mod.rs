@@ -221,18 +221,33 @@ pub(crate) struct TcpSocketConfig {
     /// may also need adjustment to match.
     #[serde(default = "default_tcp_listen_backlog")]
     pub(crate) listen_backlog: i32,
+
+    /// TCP response buffer size.
+    ///
+    /// Controls the maximum number of DNS responses that can be queued for
+    /// sending on a single TCP connection. Under high query rates, a larger
+    /// buffer prevents responses from being dropped due to backpressure.
+    ///
+    /// If not specified, defaults to 32.
+    #[serde(default = "default_tcp_response_buffer_size")]
+    pub(crate) response_buffer_size: usize,
 }
 
 impl Default for TcpSocketConfig {
     fn default() -> Self {
         Self {
             listen_backlog: default_tcp_listen_backlog(),
+            response_buffer_size: default_tcp_response_buffer_size(),
         }
     }
 }
 
 fn default_tcp_listen_backlog() -> i32 {
     128
+}
+
+fn default_tcp_response_buffer_size() -> usize {
+    32
 }
 
 impl Config {
