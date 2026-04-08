@@ -27,6 +27,7 @@ default = ["sqlite", "resolver", "rustls-platform-verifier"]
 # if enabled, the hickory-dns binary will print ascii-art on start, disable to reduce the binary size
 ascii-art = []
 
+systemd = ["dep:sd-notify"]
 blocklist = ["hickory-server/blocklist"]
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
@@ -96,6 +97,7 @@ metrics-process = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
+sd-notify = { workspace = true, optional = true }
 
 [dev-dependencies]
 bytes.workspace = true
@@ -117,4 +119,4 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec", "systemd"]
