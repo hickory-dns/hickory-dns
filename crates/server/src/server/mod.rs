@@ -116,9 +116,19 @@ impl<T: RequestHandler> Server<T> {
     ///   requests within this time period will be closed. In the future it should be
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
-    pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
-        self.join_set
-            .spawn(handle_tcp(listener, timeout, self.context.clone()));
+    /// * `response_buffer_size` - size of the buffer for outgoing responses per connection
+    pub fn register_listener(
+        &mut self,
+        listener: net::TcpListener,
+        timeout: Duration,
+        response_buffer_size: usize,
+    ) {
+        self.join_set.spawn(handle_tcp(
+            listener,
+            timeout,
+            response_buffer_size,
+            self.context.clone(),
+        ));
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -489,6 +499,7 @@ async fn handle_udp(
 async fn handle_tcp(
     listener: net::TcpListener,
     timeout: Duration,
+    response_buffer_size: usize,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("register tcp: {listener:?}");
@@ -525,8 +536,11 @@ async fn handle_tcp(
         inner_join_set.spawn(async move {
             debug!(%src_addr, "accepted TCP request");
             // take the created stream...
-            let (buf_stream, stream_handle) =
-                TcpStream::from_stream(AsyncIoTokioAsStd(tcp_stream), src_addr);
+            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
+                AsyncIoTokioAsStd(tcp_stream),
+                src_addr,
+                response_buffer_size,
+            );
             let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
 
             while let Some(message) = timeout_stream.next().await {
@@ -1089,6 +1103,7 @@ mod tests {
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Duration::from_secs(1),
+                32,
             );
 
             #[cfg(feature = "__tls")]

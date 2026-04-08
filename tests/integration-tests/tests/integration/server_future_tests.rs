@@ -354,7 +354,7 @@ async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBoo
 async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
     let mut server = Server::new(catalog);
-    server.register_listener(tcp_listener, Duration::from_secs(30));
+    server.register_listener(tcp_listener, Duration::from_secs(30), 32);
 
     while server_continue.load(Ordering::Relaxed) {
         tokio::time::sleep(Duration::from_millis(10)).await;

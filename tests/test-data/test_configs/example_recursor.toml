@@ -21,9 +21,13 @@
 ## Note: The kernel may cap the realized backlog size based on system limits
 ## (e.g., net.core.somaxconn and net.ipv[4|6].tcp_max_syn_backlog on Linux).
 ##
-## If not specified, defaults to 128.
+## listen_backlog: defaults to 128.
+## response_buffer_size: maximum number of responses that can be queued for
+##   sending on a single TCP connection. Increase this for high-throughput
+##   deployments to prevent responses from being dropped. Defaults to 32.
 # [tcp_socket]
 # listen_backlog = 128
+# response_buffer_size = 1024
 
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
