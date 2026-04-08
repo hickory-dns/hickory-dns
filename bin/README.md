@@ -70,11 +70,13 @@ When using dynamic DNS, zones will be automatically resigned on any record updat
    [rustls-platform-verifier].
 * `webpki-roots` - use the [webpki-roots] crate for TLS certificate verification.
 * `prometheus-metrics` - enable exposing [Prometheus] metrics for scraping.
+* `systemd` - enable [systemd] readiness (`READY=1`/`STOPPING=1`) and watchdog notifications.
 * `ascii-art` (enabled by default) - print project logo at start.
 
 [rustls-platform-verifier]: https://crates.io/crates/rustls-platform-verifier
 [webpki-roots]: https://crates.io/crates/webpki-roots
 [Prometheus]: https://prometheus.io/
+[systemd]: https://www.freedesktop.org/software/systemd/man/latest/sd_notify.html
 
 ## Running
 

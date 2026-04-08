@@ -18,9 +18,14 @@ use socket2::{Domain, Socket, Type};
 use tokio::net::{TcpListener, UdpSocket};
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
-#[cfg(feature = "metrics")]
+#[cfg(any(feature = "metrics", all(unix, feature = "systemd")))]
 use tokio::time::sleep;
-#[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+#[cfg(any(
+    feature = "__tls",
+    feature = "__https",
+    feature = "__quic",
+    all(unix, feature = "systemd"),
+))]
 use tracing::warn;
 use tracing::{error, info};
 
@@ -431,9 +436,34 @@ impl DnsServer {
         // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
         //  request handling. It would generally be the case that n <= m.
         info!("server starting up, awaiting connections...");
+
+        #[cfg(all(unix, feature = "systemd"))]
+        sd_notify::notify(&[sd_notify::NotifyState::Ready])
+            .map_err(|e| format!("sd_notify READY=1 failed: {e}"))?;
+
+        #[cfg(all(unix, feature = "systemd"))]
+        if let Some(timeout) = sd_notify::watchdog_enabled() {
+            let interval = timeout / 2;
+            let token = server.shutdown_token().clone();
+            tokio::spawn(async move {
+                loop {
+                    sleep(interval).await;
+                    if token.is_cancelled() {
+                        break;
+                    }
+                    if let Err(error) = sd_notify::notify(&[sd_notify::NotifyState::Watchdog]) {
+                        warn!(%error, "systemd watchdog ping failed");
+                    }
+                }
+            });
+            info!(?interval, "systemd watchdog enabled");
+        }
+
         match server.block_until_done().await {
             Ok(()) => {
                 // we're exiting for some reason...
+                #[cfg(all(unix, feature = "systemd"))]
+                sd_notify::notify(&[sd_notify::NotifyState::Stopping]).ok();
                 info!("Hickory DNS {} stopping", env!("CARGO_PKG_VERSION"));
             }
             Err(e) => {
