@@ -49,7 +49,7 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Pop one byte from the buffer
-    pub fn pop(&mut self) -> DecodeResult<Restrict<u8>> {
+    pub fn pop(&mut self) -> Result<Restrict<u8>, DecodeError> {
         if let Some((first, remaining)) = self.remaining.split_first() {
             self.remaining = remaining;
             return Ok(Restrict::new(*first));
@@ -108,7 +108,7 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// A String version of the character data
-    pub fn read_character_data(&mut self) -> DecodeResult<Restrict<&[u8]>> {
+    pub fn read_character_data(&mut self) -> Result<Restrict<&[u8]>, DecodeError> {
         let length = self.pop()?.unverified() as usize;
         self.read_slice(length)
     }
@@ -122,7 +122,7 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// The Vec of the specified length, otherwise an error
-    pub fn read_vec(&mut self, len: usize) -> DecodeResult<Restrict<Vec<u8>>> {
+    pub fn read_vec(&mut self, len: usize) -> Result<Restrict<Vec<u8>>, DecodeError> {
         self.read_slice(len).map(|s| s.map(ToOwned::to_owned))
     }
 
@@ -135,7 +135,7 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// The slice of the specified length, otherwise an error
-    pub fn read_slice(&mut self, len: usize) -> DecodeResult<Restrict<&'a [u8]>> {
+    pub fn read_slice(&mut self, len: usize) -> Result<Restrict<&'a [u8]>, DecodeError> {
         if len > self.remaining.len() {
             return Err(DecodeError::InsufficientBytes);
         }
@@ -145,7 +145,7 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Reads a slice from a previous index to the current
-    pub fn slice_from(&self, index: usize) -> DecodeResult<&'a [u8]> {
+    pub fn slice_from(&self, index: usize) -> Result<&'a [u8], DecodeError> {
         if index > self.index() {
             return Err(DecodeError::InvalidPreviousIndex);
         }
@@ -154,7 +154,7 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Reads a byte from the buffer, equivalent to `Self::pop()`
-    pub fn read_u8(&mut self) -> DecodeResult<Restrict<u8>> {
+    pub fn read_u8(&mut self) -> Result<Restrict<u8>, DecodeError> {
         self.pop()
     }
 
@@ -166,7 +166,7 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the u16 from the buffer
-    pub fn read_u16(&mut self) -> DecodeResult<Restrict<u16>> {
+    pub fn read_u16(&mut self) -> Result<Restrict<u16>, DecodeError> {
         Ok(self
             .read_slice(2)?
             .map(|s| u16::from_be_bytes([s[0], s[1]])))
@@ -180,7 +180,7 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the i32 from the buffer
-    pub fn read_i32(&mut self) -> DecodeResult<Restrict<i32>> {
+    pub fn read_i32(&mut self) -> Result<Restrict<i32>, DecodeError> {
         Ok(self.read_slice(4)?.map(|s| {
             assert!(s.len() == 4);
             i32::from_be_bytes([s[0], s[1], s[2], s[3]])
@@ -195,15 +195,13 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the u32 from the buffer
-    pub fn read_u32(&mut self) -> DecodeResult<Restrict<u32>> {
+    pub fn read_u32(&mut self) -> Result<Restrict<u32>, DecodeError> {
         Ok(self.read_slice(4)?.map(|s| {
             assert!(s.len() == 4);
             u32::from_be_bytes([s[0], s[1], s[2], s[3]])
         }))
     }
 }
-
-pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
 
 /// An error that can occur deep in a decoder
 /// This type is kept very small so that function that use it inline often
