@@ -35,153 +35,6 @@ pub struct BinDecoder<'a> {
     remaining: &'a [u8], // The unread section of the original buffer, so that reads do not cause a bounds check at the current seek offset
 }
 
-pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
-
-/// An error that can occur deep in a decoder
-/// This type is kept very small so that function that use it inline often
-#[derive(Clone, Debug, Error)]
-#[non_exhaustive]
-pub enum DecodeError {
-    /// DNS key protocol version doesn't have the expected version 3
-    #[cfg(feature = "__dnssec")]
-    #[error("dns key value unknown, must be 3: {0}")]
-    DnsKeyProtocolNot3(u8),
-
-    /// Reserved KEY flags are set
-    #[cfg(feature = "__dnssec")]
-    #[error("KEY flags reserved bits are set: {0:#06x}")]
-    KeyFlagsReserved(u16),
-
-    /// Extended KEY flags are not supported
-    #[cfg(feature = "__dnssec")]
-    #[error("extended KEY flags not supported")]
-    ExtendedKeyFlagsUnsupported(u16),
-
-    /// EDNS resource record label is not the root label, although required
-    #[error("edns resource record label must be the root label (.): {0}")]
-    EdnsNameNotRoot(Box<Name>),
-
-    /// The length of rdata read was not as expected
-    #[non_exhaustive]
-    #[error("incorrect rdata length read: {read} expected: {len}")]
-    IncorrectRDataLengthRead {
-        /// The amount of read data
-        read: usize,
-        /// The expected length of the data
-        len: usize,
-    },
-
-    /// Insufficient data in the buffer for a read operation
-    #[error("unexpected end of input reached")]
-    InsufficientBytes,
-
-    /// slice_from was called with an invalid index
-    #[error("the index passed to BinDecoder::slice_from must be greater than the decoder position")]
-    InvalidPreviousIndex,
-
-    /// Pointer points to an index within or after the current name
-    #[error("label points to data not prior to idx: {idx} ptr: {ptr}")]
-    PointerNotPriorToLabel {
-        /// index of the label containing this pointer
-        idx: usize,
-        /// location to which the pointer is directing
-        ptr: u16,
-    },
-
-    /// Label bytes exceeded the limit of 63
-    #[error("label bytes exceed 63: {0}")]
-    LabelBytesTooLong(usize),
-
-    /// An unrecognized label code was found
-    #[error("unrecognized label code: {0:b}")]
-    UnrecognizedLabelCode(u8),
-
-    /// A domain name was too long
-    #[error("name label data exceed 255: {0}")]
-    DomainNameTooLong(usize),
-
-    /// Overlapping labels
-    #[error("overlapping labels name {label} other {other}")]
-    LabelOverlapsWithOther {
-        /// Start of the label that is overlaps
-        label: usize,
-        /// Start of the other label
-        other: usize,
-    },
-
-    /// An unknown digest algorithm was found
-    #[error("unknown digest algorithm: {0}")]
-    UnknownDigestAlgorithm(u8),
-
-    /// An unknown dns class was found
-    #[error("dns class string unknown: {0}")]
-    UnknownDnsClassStr(String),
-
-    /// An unknown dns class value was found
-    #[error("dns class value unknown: {0}")]
-    UnknownDnsClassValue(u16),
-
-    /// An unknown record type string was found
-    #[error("record type string unknown: {0}")]
-    UnknownRecordTypeStr(String),
-
-    /// An unknown record type value was found
-    #[error("record type value unknown: {0}")]
-    UnknownRecordTypeValue(u16),
-
-    /// Unrecognized nsec3 flags were found
-    #[error("nsec3 flags should be 0b0000000*: {0:b}")]
-    UnrecognizedNsec3Flags(u8),
-
-    /// Unrecognized csync flags were found
-    #[error("csync flags should be 0b000000**: {0:b}")]
-    UnrecognizedCsyncFlags(u16),
-
-    /// An unknown algorithm type was found
-    #[error("unknown NSEC3 hash algorithm: {0}")]
-    UnknownNsec3HashAlgorithm(u8),
-
-    /// A record appeared after TSIG or SIG(0)
-    #[error("record after TSIG or SIG(0)")]
-    RecordAfterSig,
-
-    /// A record type was found outside the additional section
-    #[error("record type {0} only allowed in additional section")]
-    RecordNotInAdditionalSection(RecordType),
-
-    /// More than one EDNS record was found
-    #[error("more than one EDNS record")]
-    DuplicateEdns,
-
-    /// SvcParams were not in strictly increasing order
-    #[error("SvcParams out of order")]
-    SvcParamsOutOfOrder,
-
-    /// An SvcParam was expected to contain at least one value
-    #[error("SvcParam expects at least one value")]
-    SvcParamMissingValue,
-
-    /// NSEC or NSEC3 bitmap data was out of bounds
-    #[error("NSEC bitmap out of bounds")]
-    NsecBitmapOutOfBounds,
-
-    /// CAA tag was invalid (length or characters out of bounds)
-    #[error("CAA tag invalid")]
-    CaaTagInvalid,
-
-    /// NAPTR flags contained characters outside [a-zA-Z0-9]
-    #[error("NAPTR flags not in range [a-zA-Z0-9]")]
-    NaptrFlagsInvalid,
-
-    /// An unknown address family was found
-    #[error("unknown address family: {0:#x}")]
-    UnknownAddressFamily(u16),
-
-    /// Invalid UTF-8 data
-    #[error("invalid UTF-8: {0}")]
-    Utf8(#[from] alloc::string::FromUtf8Error),
-}
-
 impl<'a> BinDecoder<'a> {
     /// Creates a new BinDecoder
     ///
@@ -348,6 +201,153 @@ impl<'a> BinDecoder<'a> {
             u32::from_be_bytes([s[0], s[1], s[2], s[3]])
         }))
     }
+}
+
+pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
+
+/// An error that can occur deep in a decoder
+/// This type is kept very small so that function that use it inline often
+#[derive(Clone, Debug, Error)]
+#[non_exhaustive]
+pub enum DecodeError {
+    /// DNS key protocol version doesn't have the expected version 3
+    #[cfg(feature = "__dnssec")]
+    #[error("dns key value unknown, must be 3: {0}")]
+    DnsKeyProtocolNot3(u8),
+
+    /// Reserved KEY flags are set
+    #[cfg(feature = "__dnssec")]
+    #[error("KEY flags reserved bits are set: {0:#06x}")]
+    KeyFlagsReserved(u16),
+
+    /// Extended KEY flags are not supported
+    #[cfg(feature = "__dnssec")]
+    #[error("extended KEY flags not supported")]
+    ExtendedKeyFlagsUnsupported(u16),
+
+    /// EDNS resource record label is not the root label, although required
+    #[error("edns resource record label must be the root label (.): {0}")]
+    EdnsNameNotRoot(Box<Name>),
+
+    /// The length of rdata read was not as expected
+    #[non_exhaustive]
+    #[error("incorrect rdata length read: {read} expected: {len}")]
+    IncorrectRDataLengthRead {
+        /// The amount of read data
+        read: usize,
+        /// The expected length of the data
+        len: usize,
+    },
+
+    /// Insufficient data in the buffer for a read operation
+    #[error("unexpected end of input reached")]
+    InsufficientBytes,
+
+    /// slice_from was called with an invalid index
+    #[error("the index passed to BinDecoder::slice_from must be greater than the decoder position")]
+    InvalidPreviousIndex,
+
+    /// Pointer points to an index within or after the current name
+    #[error("label points to data not prior to idx: {idx} ptr: {ptr}")]
+    PointerNotPriorToLabel {
+        /// index of the label containing this pointer
+        idx: usize,
+        /// location to which the pointer is directing
+        ptr: u16,
+    },
+
+    /// Label bytes exceeded the limit of 63
+    #[error("label bytes exceed 63: {0}")]
+    LabelBytesTooLong(usize),
+
+    /// An unrecognized label code was found
+    #[error("unrecognized label code: {0:b}")]
+    UnrecognizedLabelCode(u8),
+
+    /// A domain name was too long
+    #[error("name label data exceed 255: {0}")]
+    DomainNameTooLong(usize),
+
+    /// Overlapping labels
+    #[error("overlapping labels name {label} other {other}")]
+    LabelOverlapsWithOther {
+        /// Start of the label that is overlaps
+        label: usize,
+        /// Start of the other label
+        other: usize,
+    },
+
+    /// An unknown digest algorithm was found
+    #[error("unknown digest algorithm: {0}")]
+    UnknownDigestAlgorithm(u8),
+
+    /// An unknown dns class was found
+    #[error("dns class string unknown: {0}")]
+    UnknownDnsClassStr(String),
+
+    /// An unknown dns class value was found
+    #[error("dns class value unknown: {0}")]
+    UnknownDnsClassValue(u16),
+
+    /// An unknown record type string was found
+    #[error("record type string unknown: {0}")]
+    UnknownRecordTypeStr(String),
+
+    /// An unknown record type value was found
+    #[error("record type value unknown: {0}")]
+    UnknownRecordTypeValue(u16),
+
+    /// Unrecognized nsec3 flags were found
+    #[error("nsec3 flags should be 0b0000000*: {0:b}")]
+    UnrecognizedNsec3Flags(u8),
+
+    /// Unrecognized csync flags were found
+    #[error("csync flags should be 0b000000**: {0:b}")]
+    UnrecognizedCsyncFlags(u16),
+
+    /// An unknown algorithm type was found
+    #[error("unknown NSEC3 hash algorithm: {0}")]
+    UnknownNsec3HashAlgorithm(u8),
+
+    /// A record appeared after TSIG or SIG(0)
+    #[error("record after TSIG or SIG(0)")]
+    RecordAfterSig,
+
+    /// A record type was found outside the additional section
+    #[error("record type {0} only allowed in additional section")]
+    RecordNotInAdditionalSection(RecordType),
+
+    /// More than one EDNS record was found
+    #[error("more than one EDNS record")]
+    DuplicateEdns,
+
+    /// SvcParams were not in strictly increasing order
+    #[error("SvcParams out of order")]
+    SvcParamsOutOfOrder,
+
+    /// An SvcParam was expected to contain at least one value
+    #[error("SvcParam expects at least one value")]
+    SvcParamMissingValue,
+
+    /// NSEC or NSEC3 bitmap data was out of bounds
+    #[error("NSEC bitmap out of bounds")]
+    NsecBitmapOutOfBounds,
+
+    /// CAA tag was invalid (length or characters out of bounds)
+    #[error("CAA tag invalid")]
+    CaaTagInvalid,
+
+    /// NAPTR flags contained characters outside [a-zA-Z0-9]
+    #[error("NAPTR flags not in range [a-zA-Z0-9]")]
+    NaptrFlagsInvalid,
+
+    /// An unknown address family was found
+    #[error("unknown address family: {0:#x}")]
+    UnknownAddressFamily(u16),
+
+    /// Invalid UTF-8 data
+    #[error("invalid UTF-8: {0}")]
+    Utf8(#[from] alloc::string::FromUtf8Error),
 }
 
 #[cfg(test)]
