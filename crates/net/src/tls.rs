@@ -38,11 +38,22 @@ pub type TlsClientStream<S> =
     TcpClientStream<AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// Create a new [`DnsExchange`] wrapped around a multiplexed [`TlsClientStream`]
+///
+/// # Arguments
+///
+/// * `remote_addr` - Address of the remote nameserver
+/// * `server_name` - TLS server name for certificate validation
+/// * `config` - TLS client configuration
+/// * `timeout` - Timeout for requests
+/// * `max_active_requests` - Optional limit on concurrent in-flight requests.
+///   If `None`, uses the default (32).
+/// * `provider` - Runtime provider for spawning background tasks
 pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     remote_addr: SocketAddr,
     server_name: ServerName<'static>,
     mut config: ClientConfig,
     timeout: Duration,
+    max_active_requests: Option<usize>,
     provider: P,
 ) -> Result<DnsExchange<P>, NetError> {
     // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
@@ -56,7 +67,10 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
         Arc::new(config),
     );
 
-    let multiplexer = DnsMultiplexer::new(future.await?, sender).with_timeout(timeout);
+    let mut multiplexer = DnsMultiplexer::new(future.await?, sender).with_timeout(timeout);
+    if let Some(max) = max_active_requests {
+        multiplexer = multiplexer.with_max_active_requests(max);
+    }
     let (exchange, bg) = DnsExchange::<P>::from_stream(multiplexer);
     provider.create_handle().spawn_bg(bg);
     Ok(exchange)

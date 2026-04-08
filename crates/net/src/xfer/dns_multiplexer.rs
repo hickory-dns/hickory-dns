@@ -92,13 +92,18 @@ pub struct DnsMultiplexer<S> {
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
     active_requests: HashMap<u16, ActiveRequest>,
+    max_active_requests: usize,
     #[cfg(feature = "__dnssec")]
     signer: Option<TSigner>,
     is_shutdown: bool,
 }
 
 impl<S: DnsClientStream> DnsMultiplexer<S> {
-    /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
+    /// Spawns a new DnsMultiplexer Stream.
+    ///
+    /// This uses a default timeout of 5 seconds for all requests unless changed with
+    /// [`Self::with_timeout()`]. At most 32 in-flight requests are allowed unless
+    /// changed with [`Self::with_max_active_requests()`].
     ///
     /// # Arguments
     ///
@@ -111,6 +116,7 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
             timeout_duration: Duration::from_secs(5),
             stream_handle,
             active_requests: HashMap::default(),
+            max_active_requests: 32,
             #[cfg(feature = "__dnssec")]
             signer: None,
             is_shutdown: false,
@@ -120,6 +126,16 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
     /// Change the default timeout of the DnsMultiplexer stream.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout_duration = timeout;
+        self
+    }
+
+    /// Set the maximum number of active (in-flight) requests.
+    ///
+    /// This limits how many DNS queries can be simultaneously pending on this
+    /// multiplexed connection. When the limit is reached, new requests will
+    /// return [`NetError::Busy`].
+    pub fn with_max_active_requests(mut self, max: usize) -> Self {
+        self.max_active_requests = max;
         self
     }
 
@@ -191,7 +207,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
             panic!("can not send messages after stream is shutdown")
         }
 
-        if self.active_requests.len() > CHANNEL_BUFFER_SIZE {
+        if self.active_requests.len() >= self.max_active_requests {
             return NetError::Busy.into();
         }
 
