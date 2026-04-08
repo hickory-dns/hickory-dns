@@ -1,14 +1,18 @@
 use std::future::{Ready, ready};
+use std::task::{Context, Poll};
 
 use http::header::CONTENT_TYPE;
-use hyper::{Request, Response, body::Incoming, service::Service};
+use hyper::{Request, Response, body::Incoming};
 use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::{conn::auto::Builder, graceful::GracefulShutdown},
+    service::TowerToHyperService,
 };
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 use tokio::{net::TcpListener, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
+use tower::{Service, ServiceBuilder};
+use tower_http::compression::CompressionLayer;
 use tracing::{debug, error};
 
 #[cfg(any(feature = "__tls", feature = "__quic"))]
@@ -61,7 +65,12 @@ impl PrometheusServer {
                     },
                 };
                 let io = TokioIo::new(stream);
-                let conn = builder.serve_connection_with_upgrades(io, service.clone());
+                let svc = TowerToHyperService::new(
+                    ServiceBuilder::new()
+                        .layer(CompressionLayer::new())
+                        .service(service.clone()),
+                );
+                let conn = builder.serve_connection_with_upgrades(io, svc);
                 let conn = shutdown.watch(conn.into_owned());
                 tokio::spawn(async move {
                     if let Err(error) = conn.await {
@@ -106,7 +115,11 @@ impl Service<Request<Incoming>> for PrometheusService {
     type Future =
         Ready<Result<Response<String>, Box<dyn std::error::Error + Send + Sync + 'static>>>;
 
-    fn call(&self, _req: Request<Incoming>) -> Self::Future {
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _req: Request<Incoming>) -> Self::Future {
         let response_builder =
             Response::builder().header(CONTENT_TYPE, "text/plain; version=0.0.4");
         match response_builder.body(self.handle.render()) {
