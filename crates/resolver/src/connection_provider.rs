@@ -102,6 +102,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 remote_addr,
                 config.bind_addr,
                 cx.options.timeout,
+                Some(cx.options.max_active_requests),
                 self.clone(),
             ))),
             #[cfg(feature = "__tls")]
@@ -118,6 +119,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     server_name,
                     cx.tls.clone(),
                     cx.options.timeout,
+                    Some(cx.options.max_active_requests),
                     self.clone(),
                 )))
             }
