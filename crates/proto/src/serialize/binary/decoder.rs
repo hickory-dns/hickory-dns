@@ -241,6 +241,10 @@ pub enum DecodeError {
     #[error("unexpected end of input reached")]
     InsufficientBytes,
 
+    /// Invalid record with data length 0 in non-update message
+    #[error("unexpected record with length 0 in non-update message")]
+    InvalidEmptyRecord,
+
     /// slice_from was called with an invalid index
     #[error("the index passed to BinDecoder::slice_from must be greater than the decoder position")]
     InvalidPreviousIndex,

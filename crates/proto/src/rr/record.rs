@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{Proof, Proven};
+#[cfg(test)]
+use crate::rr::rdata::A;
 use crate::{
     error::ProtoResult,
     rr::{Name, RData, RecordData, RecordType, dns_class::DNSClass},
@@ -117,7 +119,7 @@ impl Record {
             name: Name::from_ascii(".").unwrap(),
             dns_class: DNSClass::IN,
             ttl: 0,
-            data: RData::Update0(RecordType::NULL),
+            data: RData::A(A::new(0, 0, 0, 0)),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
             #[cfg(feature = "__dnssec")]
@@ -341,8 +343,8 @@ impl<'r> BinDecodable<'r> for Record<RData> {
                 len: u as usize,
             })?;
 
-        // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of pre-requisites
-        //   Null represents any data.
+        // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of pre-requisites.
+        // Null represents any data. The caller should validate whether this is allowed.
         let rdata = if rd_length == 0 {
             RData::Update0(record_type)
         } else {
