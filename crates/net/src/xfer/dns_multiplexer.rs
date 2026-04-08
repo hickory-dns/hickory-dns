@@ -24,8 +24,7 @@ use rand::RngExt;
 use tracing::debug;
 
 use super::{
-    BufDnsStreamHandle, CHANNEL_BUFFER_SIZE, DnsClientStream, DnsRequestSender, DnsResponseStream,
-    ignore_send,
+    BufDnsStreamHandle, DnsClientStream, DnsRequestSender, DnsResponseStream, ignore_send,
 };
 use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
 #[cfg(feature = "__dnssec")]
@@ -235,7 +234,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         // store a Timeout for this message before sending
         let timeout = S::Time::delay_for(self.timeout_duration);
 
-        let (complete, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
+        let (complete, receiver) = mpsc::channel(QUERY_RESPONSE_BUFFER_SIZE);
 
         // send the message
         let active_request = ActiveRequest::new(
@@ -367,6 +366,12 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
 }
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
+
+/// Buffer size for per-query response channels.
+///
+/// Each outgoing DNS query gets its own channel to receive responses. Standard
+/// DNS queries receive exactly one response so a small buffer is sufficient.
+const QUERY_RESPONSE_BUFFER_SIZE: usize = 8;
 
 #[cfg(test)]
 mod test {
