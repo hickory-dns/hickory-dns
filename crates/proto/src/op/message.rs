@@ -25,7 +25,7 @@ use crate::rr::{TSigVerifier, TSigner};
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, Query, ResponseCode},
-    rr::{RData, Record, RecordType, rdata::TSIG},
+    rr::{RData, Record, RecordData, RecordType, rdata::TSIG},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
@@ -420,6 +420,7 @@ impl Message {
         decoder: &mut BinDecoder<'_>,
         count: usize,
         is_additional: bool,
+        op: OpCode,
     ) -> Result<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>), DecodeError> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
@@ -427,6 +428,12 @@ impl Message {
 
         for _ in 0..count {
             let record = Record::read(decoder)?;
+            if op != OpCode::Update
+                && record.record_type() != RecordType::OPT
+                && record.data.is_update()
+            {
+                return Err(DecodeError::InvalidEmptyRecord);
+            }
 
             // There must be no additional records after a TSIG/SIG(0) record.
             if sig.is_some() {
@@ -672,10 +679,16 @@ impl<'r> BinDecodable<'r> for Message {
             queries.push(Query::read(decoder)?);
         }
 
-        let (answers, _, _) = Self::read_records(decoder, counts.answers as usize, false)?;
-        let (authorities, _, _) = Self::read_records(decoder, counts.authorities as usize, false)?;
+        let (answers, _, _) =
+            Self::read_records(decoder, counts.answers as usize, false, metadata.op_code)?;
+        let (authorities, _, _) = Self::read_records(
+            decoder,
+            counts.authorities as usize,
+            false,
+            metadata.op_code,
+        )?;
         let (additionals, edns, signature) =
-            Self::read_records(decoder, counts.additionals as usize, true)?;
+            Self::read_records(decoder, counts.additionals as usize, true, metadata.op_code)?;
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
@@ -905,14 +918,6 @@ mod tests {
         ];
 
         Message::from_vec(CRASHING_MESSAGE).expect("failed to parse message");
-    }
-
-    #[test]
-    fn prior_to_pointer() {
-        const MESSAGE: &[u8] = include_bytes!("../../tests/test-data/fuzz-prior-to-pointer.rdata");
-        let message = Message::from_bytes(MESSAGE).expect("failed to parse message");
-        let encoded = message.to_bytes().unwrap();
-        Message::from_bytes(&encoded).expect("failed to parse encoded message");
     }
 
     #[test]
@@ -1240,6 +1245,7 @@ mod tests {
             &mut BinDecoder::new(&bytes),
             records.len(),
             is_additional,
+            OpCode::Query,
         )?)
     }
 

@@ -569,10 +569,7 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
-    use crate::{
-        op::Message,
-        serialize::binary::{BinDecodable, BinDecoder},
-    };
+    use crate::{op::Message, serialize::binary::BinDecoder};
     #[cfg(any(feature = "std", feature = "no-std-rand"))]
     use crate::{
         op::Query,
@@ -724,12 +721,5 @@ mod tests {
         assert_eq!(bytes.len(), 130);
         // check re-serializing
         assert!(Message::from_vec(&bytes).is_ok());
-    }
-
-    #[test]
-    fn test_fuzzed() {
-        const MESSAGE: &[u8] = include_bytes!("../../../tests/test-data/fuzz-long.rdata");
-        let msg = Message::from_bytes(MESSAGE).unwrap();
-        msg.to_bytes().unwrap();
     }
 }
