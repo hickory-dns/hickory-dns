@@ -356,7 +356,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         // evaluate any cnames for additional inclusion
         let additionals_root_chain_type: Option<(_, _)> = answer
             .as_ref()
-            .and_then(|a| maybe_next_name(a, query_type))
+            .and_then(|a| maybe_next_name(a, query_type, name))
             .and_then(|(search_name, search_type)| {
                 inner
                     .additional_search(name, query_type, search_name, search_type, lookup_options)
@@ -688,6 +688,7 @@ impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler
 fn maybe_next_name(
     record_set: &RecordSet,
     query_type: RecordType,
+    query_name: &LowerName,
 ) -> Option<(LowerName, RecordType)> {
     let t = match (record_set.record_type(), query_type) {
         // ANAME is similar to CNAME,
@@ -701,11 +702,21 @@ fn maybe_next_name(
         (t @ RecordType::CNAME, _) => t,
         (t @ RecordType::MX, RecordType::MX) => t,
         (t @ RecordType::SRV, RecordType::SRV) => t,
+        // DNAME redirects the entire subtree (RFC 6672)
+        (RecordType::DNAME, _) => RecordType::DNAME,
         // other additional collectors can be added here can be added here
         _ => return None,
     };
 
-    let name = match (&record_set.records_without_rrsigs().next()?.data, t) {
+    let rdata = &record_set.records_without_rrsigs().next()?.data;
+
+    if let RData::DNAME(target) = rdata {
+        let query = Name::from(query_name);
+        let substituted = query.replace_suffix(record_set.name(), &target.0).ok()?;
+        return Some((LowerName::from(&substituted), RecordType::DNAME));
+    }
+
+    let name = match (rdata, t) {
         (RData::ANAME(name), RecordType::ANAME) => name,
         (RData::NS(ns), RecordType::NS) => &ns.0,
         (RData::CNAME(name), RecordType::CNAME) => name,

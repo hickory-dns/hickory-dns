@@ -191,6 +191,33 @@ impl Name {
         Ok(name)
     }
 
+    /// Performs DNAME substitution per [RFC 6672](https://tools.ietf.org/html/rfc6672).
+    ///
+    /// Given `self` as the query name, `owner` as the DNAME owner, and `target` as the DNAME
+    /// target: strips the `owner` suffix from `self` and appends `target`.
+    ///
+    /// Returns `Err` if the result would exceed the 255-octet DNS name limit (YXDOMAIN).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use hickory_proto::rr::domain::Name;
+    ///
+    /// let query = Name::from_str("a.b.example.com.").unwrap();
+    /// let owner = Name::from_str("example.com.").unwrap();
+    /// let target = Name::from_str("example.net.").unwrap();
+    /// let result = query.replace_suffix(&owner, &target).unwrap();
+    /// assert_eq!(result, Name::from_str("a.b.example.net.").unwrap());
+    /// ```
+    pub fn replace_suffix(&self, owner: &Self, target: &Self) -> Result<Self, ProtoError> {
+        let owner_labels = owner.num_labels() as usize;
+        let self_labels = self.num_labels() as usize;
+        let prefix_labels = self_labels - owner_labels;
+        let prefix = Self::from_labels(self.iter().take(prefix_labels))?;
+        prefix.append_domain(target)
+    }
+
     /// Creates a new Name from the specified labels
     ///
     /// # Arguments
@@ -2602,5 +2629,50 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort();
         assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn test_dname_substitute_multi_label_prefix() {
+        let query = Name::from_str("a.b.example.com.").unwrap();
+        let owner = Name::from_str("example.com.").unwrap();
+        let target = Name::from_str("example.net.").unwrap();
+        let result = query.replace_suffix(&owner, &target).unwrap();
+        assert_eq!(result, Name::from_str("a.b.example.net.").unwrap());
+    }
+
+    #[test]
+    fn test_dname_substitute_single_label_prefix() {
+        let query = Name::from_str("foo.example.com.").unwrap();
+        let owner = Name::from_str("example.com.").unwrap();
+        let target = Name::from_str("example.net.").unwrap();
+        let result = query.replace_suffix(&owner, &target).unwrap();
+        assert_eq!(result, Name::from_str("foo.example.net.").unwrap());
+    }
+
+    /// When query == owner, prefix is empty, result should be just the target
+    #[test]
+    fn test_dname_substitute_empty_prefix() {
+        let query = Name::from_str("example.com.").unwrap();
+        let owner = Name::from_str("example.com.").unwrap();
+        let target = Name::from_str("example.net.").unwrap();
+        let result = query.replace_suffix(&owner, &target).unwrap();
+        assert_eq!(result, Name::from_str("example.net.").unwrap());
+    }
+
+    /// Build a long prefix + long target that exceeds 255 octets
+    #[test]
+    fn test_dname_substitute_overflow() {
+        let long_label = "a".repeat(60);
+        let query = Name::from_str(&format!("{long_label}.example.com.")).unwrap();
+        let owner = Name::from_str("example.com.").unwrap();
+        let target = Name::from_str(&format!(
+            "{}.{}.{}.{}.com.",
+            "b".repeat(60),
+            "c".repeat(60),
+            "d".repeat(60),
+            "e".repeat(50)
+        ))
+        .unwrap();
+        assert!(query.replace_suffix(&owner, &target).is_err());
     }
 }

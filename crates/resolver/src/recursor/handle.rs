@@ -33,7 +33,7 @@ use crate::{
             Name, RData,
             RData::CNAME,
             Record, RecordType,
-            rdata::{A, AAAA, NS},
+            rdata::{self, A, AAAA, NS},
         },
     },
 };
@@ -177,6 +177,16 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
 
                 let response = self
+                    .resolve_dnames(
+                        response,
+                        query.clone(),
+                        request_time,
+                        query_has_dnssec_ok,
+                        depth,
+                        cname_limit.clone(),
+                    )
+                    .await?;
+                let response = self
                     .resolve_cnames(
                         response,
                         query.clone(),
@@ -269,6 +279,16 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         let response = self
+            .resolve_dnames(
+                response,
+                query.clone(),
+                request_time,
+                query_has_dnssec_ok,
+                depth,
+                cname_limit.clone(),
+            )
+            .await?;
+        let response = self
             .resolve_cnames(
                 response,
                 query.clone(),
@@ -296,6 +316,77 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
     pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
         &self.pool_context
+    }
+
+    /// Handle DNAME expansion for the current query (RFC 6672)
+    ///
+    /// If the response contains a DNAME record whose owner is a proper ancestor of the query
+    /// name, perform name substitution, synthesize a CNAME, and recursively resolve the
+    /// substituted name.
+    #[async_recursion]
+    async fn resolve_dnames(
+        &self,
+        mut response: Message,
+        query: Query,
+        now: Instant,
+        query_has_dnssec_ok: bool,
+        mut depth: u8,
+        cname_limit: Arc<AtomicU8>,
+    ) -> Result<Message, RecursorError> {
+        let query_type = query.query_type();
+
+        // Don't process DNAME for DNAME queries themselves
+        if query_type == RecordType::DNAME {
+            return Ok(response);
+        }
+
+        // Find a DNAME record in the response whose owner is an ancestor of the query name
+        let dname = response.all_sections().find_map(|rr| {
+            if let RData::DNAME(target) = &rr.data {
+                if rr.name.zone_of(query.name()) && rr.name != *query.name() {
+                    return Some((&rr.name, rr.ttl, &target.0));
+                }
+            }
+            None
+        });
+
+        let Some((owner, ttl, target)) = dname else {
+            return Ok(response);
+        };
+
+        // Perform DNAME substitution
+        let substituted = query.name().replace_suffix(owner, target).map_err(|_| {
+            RecursorError::from(format!(
+                "DNAME substitution overflow (YXDOMAIN) for {query}"
+            ))
+        })?;
+
+        depth += 1;
+        RecursorError::recursion_exceeded(self.recursion_limit, depth, query.name())?;
+
+        let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
+        if count > MAX_CNAME_LOOKUPS {
+            warn!(%query, "cname/dname limit exceeded for query");
+            return Err(RecursorError::MaxRecordLimitExceeded {
+                count: count as usize,
+                record_type: RecordType::DNAME,
+            });
+        }
+
+        // Synthesize a CNAME record from the original query name to the substituted name
+        response.answers.push(Record::from_rdata(
+            query.name,
+            ttl,
+            CNAME(rdata::CNAME(substituted.clone())),
+        ));
+
+        let new_query = Query::query(substituted, query_type);
+        let sub_response = self
+            .resolve(new_query, now, query_has_dnssec_ok, depth, cname_limit)
+            .await?;
+
+        response.answers.extend(sub_response.answers);
+        Ok(response)
     }
 
     /// Handle CNAME expansion for the current query

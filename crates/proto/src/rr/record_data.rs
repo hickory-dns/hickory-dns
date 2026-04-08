@@ -1388,6 +1388,12 @@ mod tests {
                 ],
             ),
             (
+                RData::DNAME(DNAME(Name::from_str("example.net.").unwrap())),
+                vec![
+                    7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'n', b'e', b't', 0,
+                ],
+            ),
+            (
                 RData::MX(MX::new(256, Name::from_str("n.").unwrap())),
                 vec![1, 0, 1, b'n', 0],
             ),

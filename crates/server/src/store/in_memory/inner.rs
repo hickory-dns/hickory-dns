@@ -247,9 +247,42 @@ impl InnerInMemory {
 
         // TODO: maybe unwrap this recursion.
         match lookup {
-            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
+            None => {
+                // Before trying wildcards, check for DNAME at ancestor names (RFC 6672)
+                match self.inner_lookup_dname(name, record_type) {
+                    Some(rrset) => Some(rrset),
+                    None => self.inner_lookup_wildcard(name, record_type, lookup_options),
+                }
+            }
             l => l.cloned(),
         }
+    }
+
+    /// Search ancestor names for a DNAME record (RFC 6672).
+    ///
+    /// DNAME provides subtree redirection: if a DNAME exists at an ancestor of the query name,
+    /// the query should be redirected via DNAME substitution. Returns the DNAME RecordSet if
+    /// found; the caller is responsible for synthesizing a CNAME and performing further
+    /// resolution.
+    fn inner_lookup_dname(
+        &self,
+        name: &LowerName,
+        record_type: RecordType,
+    ) -> Option<Arc<RecordSet>> {
+        // Don't do DNAME processing for direct DNAME queries or at the name itself
+        if record_type == RecordType::DNAME {
+            return None;
+        }
+
+        let mut search = name.base_name();
+        while !search.is_root() {
+            let key = RrKey::new(search.clone(), RecordType::DNAME);
+            if let Some(rrset) = self.records.get(&key) {
+                return Some(rrset.clone());
+            }
+            search = search.base_name();
+        }
+        None
     }
 
     fn inner_lookup_wildcard(
@@ -363,7 +396,7 @@ impl InnerInMemory {
                 }
 
                 let additional = self.inner_lookup(&search, *query_type, lookup_options);
-                names.insert(search);
+                names.insert(search.clone());
 
                 if let Some(additional) = additional {
                     // assuming no crazy long chains...
@@ -371,8 +404,8 @@ impl InnerInMemory {
                         additionals.push(additional.clone());
                     }
 
-                    next_name =
-                        maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
+                    next_name = maybe_next_name(&additional, *query_type, &search)
+                        .map(|(name, _search_type)| name);
                 }
             }
         }
@@ -458,7 +491,7 @@ impl InnerInMemory {
                 (upsert_type != check_type && occupied_type == check_type)
         }
 
-        // check that CNAME and ANAME is either not already present, or no other records are if it's a CNAME
+        // check that CNAME, ANAME, and DNAME do not conflict with other records
         let start_range_key = RrKey::new((&record.name).into(), RecordType::Unknown(u16::MIN));
         let end_range_key = RrKey::new((&record.name).into(), RecordType::Unknown(u16::MAX));
 
@@ -468,11 +501,15 @@ impl InnerInMemory {
             // remember CNAME can be the only record at a particular label
             .any(|(key, _)| {
                 !is_nsec(record.record_type(), key.record_type)
-                    && label_does_not_allow_multiple(
+                    && (label_does_not_allow_multiple(
                         record.record_type(),
                         key.record_type,
                         RecordType::CNAME,
-                    )
+                    ) || label_does_not_allow_multiple(
+                        record.record_type(),
+                        key.record_type,
+                        RecordType::DNAME,
+                    ))
             });
 
         if multiple_records_at_label_disallowed {
