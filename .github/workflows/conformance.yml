@@ -17,6 +17,7 @@ concurrency:
 jobs:
   everything:
     strategy:
+      fail-fast: false
       matrix:
         suite:
           - conformance-framework
