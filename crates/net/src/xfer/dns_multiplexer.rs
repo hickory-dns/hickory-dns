@@ -8,7 +8,6 @@
 //! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
 use core::{
-    marker::Unpin,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -18,8 +17,7 @@ use std::collections::{HashMap, hash_map::Entry};
 use futures_channel::mpsc;
 use futures_util::{
     FutureExt,
-    future::{BoxFuture, Future},
-    ready,
+    future::BoxFuture,
     stream::{Stream, StreamExt},
 };
 use rand::RngExt;
@@ -184,45 +182,6 @@ impl<S: DnsClientStream> DnsMultiplexer<S> {
             // complete the request, it's failed...
             active_request.complete_with_error(error.clone());
         }
-    }
-}
-
-/// A wrapper for a future DnsExchange connection
-#[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexerConnect<F, S>
-where
-    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    S: Stream<Item = Result<SerialMessage, NetError>> + Unpin,
-{
-    stream: F,
-    stream_handle: Option<BufDnsStreamHandle>,
-    timeout_duration: Duration,
-    #[cfg(feature = "__dnssec")]
-    signer: Option<TSigner>,
-}
-
-impl<F, S> Future for DnsMultiplexerConnect<F, S>
-where
-    F: Future<Output = Result<S, NetError>> + Send + Unpin + 'static,
-    S: DnsClientStream,
-{
-    type Output = Result<DnsMultiplexer<S>, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let stream: S = ready!(self.stream.poll_unpin(cx))?;
-
-        Poll::Ready(Ok(DnsMultiplexer {
-            stream,
-            timeout_duration: self.timeout_duration,
-            stream_handle: self
-                .stream_handle
-                .take()
-                .expect("must not poll after complete"),
-            active_requests: HashMap::new(),
-            #[cfg(feature = "__dnssec")]
-            signer: self.signer.clone(),
-            is_shutdown: false,
-        }))
     }
 }
 
@@ -399,6 +358,7 @@ mod test {
 
     use futures_util::{
         future::{self, BoxFuture},
+        ready,
         stream::TryStreamExt,
     };
     use test_support::subscribe;

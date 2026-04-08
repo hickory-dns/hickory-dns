@@ -36,7 +36,7 @@ pub mod dns_handle;
 pub use dns_handle::{DnsHandle, DnsStreamHandle};
 
 pub mod dns_multiplexer;
-pub use dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
+pub use dns_multiplexer::DnsMultiplexer;
 
 pub mod retry_dns_handle;
 pub use retry_dns_handle::RetryDnsHandle;
