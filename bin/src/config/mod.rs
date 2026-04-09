@@ -166,6 +166,9 @@ pub(crate) struct Config {
     /// TCP socket configuration options.
     #[serde(default)]
     pub(crate) tcp_socket: TcpSocketConfig,
+    /// DNSTAP configuration for structured DNS event logging
+    #[cfg(feature = "dnstap")]
+    pub(crate) dnstap: Option<DnstapSectionConfig>,
 }
 
 /// Configuration options for UDP sockets.
@@ -702,6 +705,128 @@ impl TlsCertConfig {
             .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
 
         Ok(Arc::new(SingleCertAndKey::from(certified_key)))
+    }
+}
+
+/// Configuration for DNSTAP structured DNS event logging
+#[cfg(feature = "dnstap")]
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DnstapSectionConfig {
+    /// Whether DNSTAP logging is enabled (default: false).
+    #[serde(default)]
+    pub(crate) enabled: bool,
+    /// TCP address to connect to (e.g. "127.0.0.1:6000")
+    pub(crate) tcp_address: Option<String>,
+    /// Unix socket path to connect to
+    #[cfg(unix)]
+    pub(crate) unix_path: Option<String>,
+    /// Whether to include server identity in DNSTAP messages (default: false).
+    /// If enabled and `identity` is not set, the system hostname is used.
+    #[serde(default)]
+    pub(crate) send_identity: bool,
+    /// Whether to include server version in DNSTAP messages (default: false).
+    /// If enabled and `version` is not set, the package name and version are used.
+    #[serde(default)]
+    pub(crate) send_version: bool,
+    /// DNS server identity string (overrides hostname when `send_identity` is true)
+    pub(crate) identity: Option<String>,
+    /// DNS server version string (overrides package version when `send_version` is true)
+    pub(crate) version: Option<String>,
+    /// Internal channel buffer size (default: 4096)
+    #[serde(default = "default_dnstap_buffer_size")]
+    pub(crate) buffer_size: usize,
+    /// Whether to log AUTH_QUERY messages (default: false).
+    #[serde(default)]
+    pub(crate) log_auth_query: bool,
+    /// Whether to log AUTH_RESPONSE messages (default: false).
+    #[serde(default)]
+    pub(crate) log_auth_response: bool,
+    /// Whether to log CLIENT_QUERY messages (default: false).
+    #[serde(default)]
+    pub(crate) log_client_query: bool,
+    /// Whether to log CLIENT_RESPONSE messages (default: false).
+    #[serde(default)]
+    pub(crate) log_client_response: bool,
+    /// Whether to log RESOLVER_QUERY messages (default: false).
+    #[serde(default)]
+    pub(crate) log_resolver_query: bool,
+    /// Whether to log RESOLVER_RESPONSE messages (default: false).
+    #[serde(default)]
+    pub(crate) log_resolver_response: bool,
+    /// Maximum reconnection backoff in seconds (default: 30).
+    #[serde(default = "default_dnstap_max_backoff_secs")]
+    pub(crate) max_backoff_secs: u64,
+}
+
+#[cfg(feature = "dnstap")]
+fn default_dnstap_buffer_size() -> usize {
+    4096
+}
+
+#[cfg(feature = "dnstap")]
+fn default_dnstap_max_backoff_secs() -> u64 {
+    30
+}
+
+#[cfg(feature = "dnstap")]
+impl DnstapSectionConfig {
+    /// Convert to a `DnstapConfig` for the server library.
+    pub(crate) fn into_dnstap_config(self) -> Result<hickory_dnstap::DnstapConfig, String> {
+        use hickory_dnstap::{DnstapConfig, DnstapEndpoint};
+
+        let endpoint = if let Some(ref addr) = self.tcp_address {
+            DnstapEndpoint::Tcp(
+                addr.parse()
+                    .map_err(|e| format!("invalid dnstap tcp_address: {e}"))?,
+            )
+        } else {
+            #[cfg(unix)]
+            if let Some(ref path) = self.unix_path {
+                DnstapEndpoint::Unix(path.into())
+            } else {
+                return Err("dnstap config must specify either tcp_address or unix_path".into());
+            }
+            #[cfg(not(unix))]
+            return Err("dnstap config must specify tcp_address".into());
+        };
+
+        Ok(DnstapConfig {
+            endpoint,
+            identity: if self.send_identity {
+                Some(
+                    self.identity
+                        .unwrap_or_else(|| {
+                            hostname::get()
+                                .map(|h| h.to_string_lossy().into_owned())
+                                .unwrap_or_default()
+                        })
+                        .into_bytes(),
+                )
+            } else {
+                None
+            },
+            version: if self.send_version {
+                Some(
+                    self.version
+                        .unwrap_or_else(|| {
+                            concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"))
+                                .to_string()
+                        })
+                        .into_bytes(),
+                )
+            } else {
+                None
+            },
+            buffer_size: self.buffer_size,
+            max_backoff: Duration::from_secs(self.max_backoff_secs),
+            log_auth_query: self.log_auth_query,
+            log_auth_response: self.log_auth_response,
+            log_client_query: self.log_client_query,
+            log_client_response: self.log_client_response,
+            log_resolver_query: self.log_resolver_query,
+            log_resolver_response: self.log_resolver_response,
+        })
     }
 }
 

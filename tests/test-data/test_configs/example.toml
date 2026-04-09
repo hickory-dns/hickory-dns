@@ -51,6 +51,31 @@
 ##  not appear there, even if does not appear in the allow list the request will be allowed.
 # allow_networks = ["127.0.0.0/8", "::1/128"]
 
+## DNSTAP: structured DNS event logging via Protocol Buffers and Frame Streams.
+##  Requires the "dnstap" feature. See https://dnstap.info/ for protocol details.
+##  Specify either tcp_address or unix_path as the endpoint for the DNSTAP collector.
+##  All message type logging options default to false; enable the ones you need.
+# [dnstap]
+# enabled = false
+# tcp_address = "127.0.0.1:6000"
+# unix_path = "/var/run/dnstap.sock"
+## send_identity: include server identity in DNSTAP messages (default: false).
+##  If identity is not set, the system hostname is used.
+# send_identity = false
+# identity = ""
+## send_version: include server version in DNSTAP messages (default: false).
+##  If version is not set, the package version is used.
+# send_version = false
+# version = ""
+# buffer_size = 4096
+# max_backoff_secs = 30
+# log_auth_query = false
+# log_auth_response = false
+# log_client_query = false
+# log_client_response = false
+# log_resolver_query = false
+# log_resolver_response = false
+
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
 [[zones]]
