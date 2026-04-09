@@ -25,7 +25,7 @@ use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{Instrument, debug, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::ResponseHandlerMetrics;
@@ -62,6 +62,7 @@ mod h3_handler;
 #[cfg(feature = "__quic")]
 mod quic_handler;
 mod request_handler;
+
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
@@ -441,6 +442,7 @@ async fn handle_udp(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registering udp: {:?}", socket);
+    let server_addr = socket.local_addr().ok();
 
     // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
     //   the address used is acquired from the inbound queries
@@ -484,7 +486,7 @@ async fn handle_udp(
         let cx = cx.clone();
         let stream_handle = stream_handle.with_remote_addr(src_addr);
         inner_join_set.spawn(async move {
-            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+            cx.handle_raw_request(message, Protocol::Udp, stream_handle, server_addr)
                 .await;
         });
 
@@ -506,6 +508,7 @@ async fn handle_tcp(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("register tcp: {listener:?}");
+    let server_addr = listener.local_addr().ok();
     let mut inner_join_set = JoinSet::new();
     loop {
         let (tcp_stream, src_addr) = tokio::select! {
@@ -557,7 +560,7 @@ async fn handle_tcp(
                 };
 
                 // we don't spawn here to limit clients from getting too many resources
-                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone(), server_addr)
                     .await;
             }
         });
@@ -580,6 +583,7 @@ async fn handle_tls(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?listener, "registered tls");
+    let server_addr = listener.local_addr().ok();
     let tls_acceptor = TlsAcceptor::from(tls_config);
 
     let mut inner_join_set = JoinSet::new();
@@ -647,7 +651,7 @@ async fn handle_tls(
                     }
                 };
 
-                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
+                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone(), server_addr)
                     .await;
             }
         });
@@ -696,12 +700,19 @@ impl<T: RequestHandler> ServerContext<T> {
         message: SerialMessage,
         protocol: Protocol,
         response_handler: BufDnsStreamHandle,
+        server_addr: Option<SocketAddr>,
     ) {
         let (message, src_addr) = message.into_parts();
         let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
 
-        self.handle_request(Bytes::from(message), src_addr, protocol, response_handler)
-            .await;
+        self.handle_request(
+            Bytes::from(message),
+            src_addr,
+            protocol,
+            response_handler,
+            server_addr,
+        )
+        .await;
     }
 
     async fn handle_request(
@@ -710,6 +721,7 @@ impl<T: RequestHandler> ServerContext<T> {
         src_addr: SocketAddr,
         protocol: Protocol,
         response_handler: impl ResponseHandler,
+        server_addr: Option<SocketAddr>,
     ) {
         let mut decoder = BinDecoder::new(&message_bytes);
         let Ok(header) = Header::read(&mut decoder) else {
@@ -832,6 +844,26 @@ impl<T: RequestHandler> ServerContext<T> {
             class = query.query_class(),
         );
 
+        let server_addr_str = server_addr.map(|a| a.to_string()).unwrap_or_default();
+        let dnstap_span = tracing::span!(
+            target: "hickory_server::dnstap",
+            tracing::Level::TRACE,
+            "dns.request",
+            src_addr = %src_addr,
+            protocol = %protocol,
+            server_addr = %server_addr_str,
+        );
+
+        {
+            let _guard = dnstap_span.enter();
+            tracing::event!(
+                target: "hickory_server::dnstap",
+                tracing::Level::TRACE,
+                kind = "query",
+                message_bytes = request.raw.as_ref(),
+            );
+        }
+
         // The reporter will handle making sure to log the result of the request
         let reporter = ReportingResponseHandler {
             request_meta: request.metadata,
@@ -845,6 +877,7 @@ impl<T: RequestHandler> ServerContext<T> {
 
         self.handler
             .handle_request::<_, TokioTime>(&request, reporter)
+            .instrument(dnstap_span)
             .await;
     }
 }
