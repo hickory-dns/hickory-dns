@@ -47,9 +47,34 @@
 //! log_client_query = true
 //! log_client_response = true
 //! ```
+//!
+//! # Metrics
+//!
+//! With the `metrics` feature enabled, [`DnstapClient`] exports
+//! `hickory_dnstap_events_sent_total` and `hickory_dnstap_events_dropped_total`
+//! through the `metrics` crate, labeled by `category` (auth, client, resolver,
+//! update) and `direction` (query, response). Dropped events are those that
+//! could not be enqueued because the internal queue was full, or that were
+//! lost with a failed connection write.
+//!
+//! `hickory_dnstap_queue_depth` and `hickory_dnstap_queue_bytes` show how much
+//! is waiting when the sender picks up work, which is what `buffer_size`
+//! should be sized against. Queue memory is also bounded by
+//! [`QUEUED_BYTES_PER_EVENT`].
 
 #![warn(clippy::dbg_macro, clippy::print_stdout, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+mod client;
+mod dnstap_message;
+mod framestream;
+#[cfg(feature = "metrics")]
+pub mod metrics;
+
+pub use client::{
+    DnstapClient, DnstapConfig, DnstapConnection, DnstapEndpoint, DnstapMessageType,
+    QUEUED_BYTES_PER_EVENT,
+};
 
 /// DNS transport protocol for the DNSTAP `socket_protocol` field.
 ///
