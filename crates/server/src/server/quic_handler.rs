@@ -125,7 +125,7 @@ pub(crate) async fn quic_handler(
         let stream = Arc::new(Mutex::new(request_stream));
         let responder = QuicResponseHandle(stream.clone());
 
-        cx.handle_request(request.freeze(), src_addr, Protocol::Quic, responder)
+        cx.handle_request(request.freeze(), src_addr, Protocol::Quic, responder, None)
             .await;
 
         max_requests -= 1;
