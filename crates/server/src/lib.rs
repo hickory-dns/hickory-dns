@@ -36,6 +36,8 @@ pub use hickory_proto as proto;
 pub use hickory_resolver as resolver;
 
 mod access;
+#[cfg(feature = "dnstap")]
+pub use hickory_dnstap as dnstap;
 #[cfg(feature = "metrics")]
 pub mod metrics;
 pub mod server;
