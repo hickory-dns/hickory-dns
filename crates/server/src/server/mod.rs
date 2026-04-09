@@ -326,9 +326,11 @@ impl<T: RequestHandler> Server<T> {
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
         let cx = self.context.clone();
+        let server_addr = socket.local_addr().ok();
 
         self.join_set.spawn(quic_handler::handle_quic_with_server(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
+            server_addr,
             cx,
         ));
         Ok(())
@@ -391,8 +393,10 @@ impl<T: RequestHandler> Server<T> {
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
+        let server_addr = socket.local_addr().ok();
         self.join_set.spawn(h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
+            server_addr,
             dns_hostname,
             self.context.clone(),
         ));
@@ -844,14 +848,15 @@ impl<T: RequestHandler> ServerContext<T> {
             class = query.query_class(),
         );
 
-        let server_addr_str = server_addr.map(|a| a.to_string()).unwrap_or_default();
+        // Field values are only evaluated when a subscriber is interested, so
+        // this does no work (and in particular no allocation) when DNSTAP is off.
         let dnstap_span = tracing::span!(
             target: "hickory_server::dnstap",
             tracing::Level::TRACE,
             "dns.request",
             src_addr = %src_addr,
             protocol = %protocol,
-            server_addr = %server_addr_str,
+            server_addr = %server_addr.map(|a| a.to_string()).unwrap_or_default(),
         );
 
         {
