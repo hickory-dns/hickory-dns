@@ -7,10 +7,20 @@
 //!
 //! # Architecture
 //!
-//! The implementation uses an async client ([`DnstapClient`]) with a background sender task
-//! connected via an mpsc channel. DNS handler code sends log messages through the channel
-//! without blocking request processing. The background task manages the Frame Streams
-//! connection to the collector, with automatic reconnection and exponential backoff on failure.
+//! There are two integration points, both built on the same background-sender pattern:
+//!
+//! - [`DnstapClient`] - direct API for code that builds and sends DNSTAP events itself.
+//!   Calling [`DnstapClient::new`] immediately spawns a background task.
+//!
+//! - [`DnstapLayer`] - a [`tracing_subscriber::Layer`] that captures DNS events from
+//!   `tracing` spans emitted by `hickory-server`. [`DnstapLayer::new`] returns the layer
+//!   plus a [`DnstapConnection`] handle; call [`DnstapConnection::start`] inside a Tokio
+//!   runtime to spawn the background task. The two-phase design lets the caller control
+//!   when the background task (and its startup log) fires relative to other server startup.
+//!
+//! In both cases the DNS hot path only does a non-blocking channel send. All protobuf
+//! encoding, Frame Streams framing, and collector I/O happen in the background task, which
+//! reconnects with exponential backoff on failure.
 //!
 //! # Supported transports
 //!
@@ -54,8 +64,10 @@
 mod client;
 mod dnstap_message;
 mod framestream;
+mod layer;
 
 pub use client::{DnstapClient, DnstapConfig, DnstapConnection, DnstapEndpoint, DnstapMessageType};
+pub use layer::DnstapLayer;
 
 /// DNS transport protocol for the DNSTAP `socket_protocol` field.
 ///

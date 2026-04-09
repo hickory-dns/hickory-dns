@@ -1170,6 +1170,7 @@ dependencies = [
  "h2",
  "h3",
  "h3-quinn",
+ "hickory-dnstap",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",

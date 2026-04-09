@@ -193,8 +193,14 @@ pub(crate) async fn h3_handler(
                 "Received request body"
             );
 
-            cx.handle_request(request, src_addr, Protocol::H3, H3ResponseHandle(stream))
-                .await
+            cx.handle_request(
+                request,
+                src_addr,
+                Protocol::H3,
+                H3ResponseHandle(stream),
+                None,
+            )
+            .await
         });
 
         max_requests -= 1;

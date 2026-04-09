@@ -23,6 +23,7 @@ See the [`hickory-dns`] binary crate for a complete application built using
 - Recursive resolver (experimental)
 - ANAME resolution, for zone mapping aliass to A and AAAA records
 - Additionals section generation for aliasing record types
+- DNSTAP structured event logging
 
 ## Cryptography provider
 
@@ -67,6 +68,7 @@ implemented.
 * `sqlite` - support maintaining zone data in a SQLite database. Required for dynamic DNS support.
 * `blocklist` - support configuring allow/deny blocklists.
 * `toml` - support for TOML configuration.
+* `dnstap` - support for DNSTAP structured DNS event logging. See <https://dnstap.info/>.
 * `metrics` - support exposing metrics using the [`metrics`] crate.
 * `rustls-platform-verifier` - use the system verifier for TLS with
   [rustls-platform-verifier].

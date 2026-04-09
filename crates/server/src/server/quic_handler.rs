@@ -172,6 +172,7 @@ pub(crate) async fn quic_handler(
                 src_addr,
                 Protocol::Quic,
                 QuicResponseHandle(request_stream),
+                None,
             )
             .await;
         });
