@@ -43,7 +43,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - uses: taiki-e/install-action@v2
         with:
@@ -82,7 +82,7 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: cargo install cargo-llvm-cov
         uses: baptiste0928/cargo-install@v3
@@ -129,7 +129,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - uses: taiki-e/install-action@v2
         with:
@@ -179,7 +179,7 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - uses: taiki-e/install-action@v2
         with:
@@ -216,7 +216,7 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - uses: taiki-e/install-action@v2
         with:
@@ -244,7 +244,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: target/bind cache
         uses: actions/cache@v5
@@ -264,7 +264,7 @@ jobs:
     steps:
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: Add aarch64-unknown-none target
         run: rustup target add aarch64-unknown-none
@@ -291,7 +291,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: Install cross
         run: just init-cross
