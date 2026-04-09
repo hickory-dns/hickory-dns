@@ -40,7 +40,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy, rustfmt
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       # Install the `docker-container` build driver. The GitHub Actions cache
       # backend is supported with this driver, but not the default `docker`
       # driver. Additionally, make `docker build` an alias to
