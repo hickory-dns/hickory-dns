@@ -974,6 +974,7 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "hex",
+ "hickory-dnstap",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",
