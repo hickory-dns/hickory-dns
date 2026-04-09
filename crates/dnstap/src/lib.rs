@@ -7,10 +7,20 @@
 //!
 //! # Architecture
 //!
-//! The implementation uses an async client (`DnstapClient`) with a background sender task
-//! connected via an mpsc channel. DNS handler code sends log messages through the channel
-//! without blocking request processing. The background task manages the Frame Streams
-//! connection to the collector, with automatic reconnection and exponential backoff on failure.
+//! There are two integration points, both built on the same background-sender pattern:
+//!
+//! - [`DnstapClient`] - direct API for code that builds and sends DNSTAP events itself.
+//!   Calling [`DnstapClient::new`] immediately spawns a background task.
+//!
+//! - [`DnstapLayer`] - a [`tracing_subscriber::Layer`] that captures DNS events from
+//!   `tracing` spans carrying the `hickory_server::dnstap` target. [`DnstapLayer::new`] returns the layer
+//!   plus a [`DnstapConnection`] handle; call [`DnstapConnection::start`] inside a Tokio
+//!   runtime to spawn the background task. The two-phase design lets the caller control
+//!   when the background task (and its startup log) fires relative to other server startup.
+//!
+//! In both cases the DNS hot path only does a non-blocking channel send. All protobuf
+//! encoding, Frame Streams framing, and collector I/O happen in the background task, which
+//! reconnects with exponential backoff on failure.
 //!
 //! # Supported transports
 //!
@@ -20,7 +30,7 @@
 //! # Per-message-type logging
 //!
 //! Following the Unbound-style model, each combination of message category and direction
-//! can be independently enabled or disabled. The six supported message types are:
+//! can be independently enabled or disabled. The eight supported message types are:
 //!
 //! | Config option            | Description                          |
 //! |--------------------------|--------------------------------------|
@@ -30,8 +40,15 @@
 //! | `log_client_response`    | Client responses sent                |
 //! | `log_resolver_query`     | Outbound resolver queries            |
 //! | `log_resolver_response`  | Inbound resolver responses           |
+//! | `log_update_query`       | Dynamic update requests received     |
+//! | `log_update_response`    | Dynamic update responses sent        |
 //!
 //! All default to `false`.
+//!
+//! Note on upstream traffic: outbound recursor hops and their responses are
+//! recorded as `log_resolver_*` events; forwarded requests are not emitted, and
+//! the forwarder-specific FQ/FR message types are not generated. Authoritative
+//! response frames carry the answering zone as the bailiwick (`query_zone`).
 //!
 //! # Configuration example
 //!
@@ -50,7 +67,7 @@
 //!
 //! # Metrics
 //!
-//! With the `metrics` feature enabled, [`DnstapClient`] exports
+//! With the `metrics` feature enabled, the layer and [`DnstapClient`] export
 //! `hickory_dnstap_events_sent_total` and `hickory_dnstap_events_dropped_total`
 //! through the `metrics` crate, labeled by `category` (auth, client, resolver,
 //! update) and `direction` (query, response). Dropped events are those that
@@ -68,6 +85,7 @@
 mod client;
 mod dnstap_message;
 mod framestream;
+mod layer;
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
@@ -75,12 +93,13 @@ pub use client::{
     DnstapClient, DnstapConfig, DnstapConnection, DnstapEndpoint, DnstapMessageType,
     QUEUED_BYTES_PER_EVENT,
 };
+pub use layer::DnstapLayer;
 
 /// DNS transport protocol for the DNSTAP `socket_protocol` field.
 ///
 /// This is a simplified protocol enum that decouples the DNSTAP crate from
 /// the server's internal `Protocol` type and its feature-gated variants.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DnsTransport {
     /// DNS over UDP (RFC 1035).
     Udp,
