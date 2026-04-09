@@ -59,6 +59,37 @@ directory = "/var/named"
 ## The UDP receive buffer size of the server.
 # udp_receive_buffer_size = 1232
 
+## DNSTAP: structured DNS event logging via Protocol Buffers and Frame Streams.
+##  Requires the "dnstap" feature. See https://dnstap.info/ for protocol details.
+##  Specify either tcp_address or unix_path as the endpoint for the DNSTAP collector.
+##  All message type logging options default to false.
+# [dnstap]
+# enabled = false
+# tcp_address = "127.0.0.1:6000"
+# unix_path = "/var/run/dnstap.sock"
+## send_identity: include server identity in DNSTAP messages (default: false).
+##  If identity is not set, the system hostname is used.
+# send_identity = false
+# identity = ""
+## send_version: include server version in DNSTAP messages (default: false).
+##  If version is not set, the package name and version are used.
+# send_version = false
+# version = ""
+## buffer_size: how many events can wait for the collector before new ones
+##  are dropped (default: 4096). Consider increasing this on high traffic servers.
+##  Queue memory is also bounded by QUEUED_BYTES_PER_EVENT.
+# buffer_size = 4096
+## max_backoff_secs: maximum reconnection backoff in seconds (default: 30).
+# max_backoff_secs = 30
+# log_auth_query = false
+# log_auth_response = false
+# log_client_query = false
+# log_client_response = false
+# log_resolver_query = false
+# log_resolver_response = false
+# log_update_query = false
+# log_update_response = false
+
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
 [[zones]]
