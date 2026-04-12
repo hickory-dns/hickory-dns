@@ -29,6 +29,7 @@ ascii-art = []
 
 systemd = ["dep:sd-notify"]
 blocklist = ["hickory-server/blocklist"]
+dnstap = ["hickory-server/dnstap", "dep:hickory-dnstap"]
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
@@ -81,7 +82,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 tokio = { workspace = true, features = ["time", "rt", "signal"] }
 tokio-util = { workspace = true, optional = true }
 toml.workspace = true
@@ -92,6 +93,7 @@ hickory-proto.workspace = true
 hickory-net.workspace = true
 hickory-resolver.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
+hickory-dnstap = { workspace = true, optional = true }
 hostname.workspace = true
 metrics = { workspace = true, optional = true }
 metrics-exporter-prometheus = { workspace = true, optional = true }

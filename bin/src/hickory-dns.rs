@@ -30,7 +30,7 @@
 use clap::Parser;
 use tokio::runtime;
 use tracing::{Level, info};
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 use hickory_dns::DnsServer;
 
@@ -56,21 +56,6 @@ fn run() -> Result<(), String> {
         _ => Level::INFO,
     };
 
-    // Setup tracing for logging based on input
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(level.into())
-                .from_env()
-                .map_err(|err| {
-                    format!("failed to parse environment variable for tracing: {err}")
-                })?,
-        )
-        .init();
-
-    info!("Hickory DNS {} starting...", env!("CARGO_PKG_VERSION"));
-
     let mut runtime = runtime::Builder::new_multi_thread();
     runtime.enable_all().thread_name("hickory-server-runtime");
     if let Some(workers) = args.workers {
@@ -80,5 +65,31 @@ fn run() -> Result<(), String> {
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
-    runtime.block_on(args.run())
+    // Create the DNSTAP layer (channel only — the background task is spawned
+    // later inside `run()` so its log output appears after startup messages).
+    #[cfg(feature = "dnstap")]
+    let (dnstap_layer, dnstap_connection) = args.create_dnstap_layer()?;
+
+    // Setup tracing for logging based on input.
+    // The EnvFilter is attached to the fmt layer only (per-layer filtering)
+    // so that it does not block TRACE-level DNSTAP events from reaching the
+    // DnstapLayer.
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env()
+        .map_err(|err| format!("failed to parse environment variable for tracing: {err}"))?;
+    let registry = tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_filter(env_filter));
+
+    #[cfg(feature = "dnstap")]
+    let registry = registry.with(dnstap_layer);
+
+    registry.init();
+
+    info!("Hickory DNS {} starting...", env!("CARGO_PKG_VERSION"));
+
+    runtime.block_on(args.run(
+        #[cfg(feature = "dnstap")]
+        dnstap_connection,
+    ))
 }
