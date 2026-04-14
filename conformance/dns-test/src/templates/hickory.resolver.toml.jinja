@@ -15,3 +15,8 @@ dnssec_policy = "ValidationDisabled"
 {% endif %}
 allow_server = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 case_randomization = {{ case_randomization }}
+
+# Avoid TTL=0 cache entries that expire on the same Instant they are inserted,
+# which causes flaky cache-hit assertions in conformance tests.
+[zones.stores.cache_policy.default]
+positive_min_ttl = 1
