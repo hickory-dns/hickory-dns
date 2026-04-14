@@ -205,15 +205,16 @@ fn cname_lookup_limit_test() -> Result<(), Error> {
         &target_fqdn,
     );
 
+    let logs = resolver.logs().unwrap();
     match res {
         Ok(res) => {
             assert!(res.status.is_servfail());
             assert_eq!(res.answer.len(), 0);
         }
-        Err(e) => panic!("error {e:?}; resolver logs: {}", resolver.logs().unwrap()),
+        Err(e) => panic!("error {e:?}; resolver logs: {logs}"),
     }
 
-    assert!(resolver.logs().unwrap().contains("cname limit exceeded"));
+    assert!(logs.contains("cname limit exceeded"), "{logs}");
 
     Ok(())
 }
