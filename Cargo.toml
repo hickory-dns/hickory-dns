@@ -13,7 +13,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.26.0-beta.3"
+version = "0.26.0-beta.4"
 authors = ["The contributors to Hickory DNS"]
 edition = "2021"
 rust-version = "1.88"
@@ -26,10 +26,10 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
-hickory-net = { version = "0.26.0-alpha.1", path = "crates/net", default-features = false }
-hickory-resolver = { version = "0.26.0-alpha.1", path = "crates/resolver", default-features = false }
-hickory-server = { version = "0.26.0-alpha.1", path = "crates/server", default-features = false }
-hickory-proto = { version = "0.26.0-alpha.1", path = "crates/proto", default-features = false, features = ["std"] }
+hickory-net = { version = "=0.26.0-beta.4", path = "crates/net", default-features = false }
+hickory-resolver = { version = "=0.26.0-beta.4", path = "crates/resolver", default-features = false }
+hickory-server = { version = "=0.26.0-beta.4", path = "crates/server", default-features = false }
+hickory-proto = { version = "=0.26.0-beta.4", path = "crates/proto", default-features = false, features = ["std"] }
 test-support.path = "tests/test-support"
 
 
