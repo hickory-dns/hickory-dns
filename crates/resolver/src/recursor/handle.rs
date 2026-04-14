@@ -294,10 +294,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         Ok(response)
     }
 
-    pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
-        &self.pool_context
-    }
-
     /// Handle CNAME expansion for the current query
     #[async_recursion]
     async fn resolve_cnames(
@@ -812,6 +808,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         Ok((ttl, depth))
+    }
+
+    pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
+        &self.pool_context
     }
 }
 
