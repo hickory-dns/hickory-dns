@@ -495,6 +495,7 @@ impl FromStr for DigOutput {
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
         const ADDITIONAL_HEADER: &str = ";; ADDITIONAL SECTION:";
+        const COMMUNICATIONS_ERROR_PREFIX: &str = ";; communications error to";
 
         fn not_found(prefix: &str) -> String {
             format!("`{prefix}` line was not found")
@@ -643,6 +644,8 @@ impl FromStr for DigOutput {
                 }
 
                 additional = Some(records);
+            } else if line.starts_with(COMMUNICATIONS_ERROR_PREFIX) {
+                eprintln!("Warning: communications error from dig:\n{}", line.trim());
             }
         }
 
