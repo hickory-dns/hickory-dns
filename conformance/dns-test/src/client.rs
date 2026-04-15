@@ -71,6 +71,7 @@ impl Client {
         let ednsflag = settings.ednsflag();
         let opcodeflag = settings.opcodeflag();
         let tlscaflag = settings.tlscaflag();
+        let retryflag = settings.retryflag();
 
         let mut command_and_args = vec![
             "dig",
@@ -91,6 +92,7 @@ impl Client {
             settings.ignoreflag(),
             settings.nsidflag(),
             settings.expireflag(),
+            retryflag.as_str(),
         ];
 
         let edns_option_flag = settings.ednsoptionflag();
@@ -150,6 +152,7 @@ pub struct DigSettings<'a> {
     nsid: bool,
     expire: bool,
     subnet_zero: bool,
+    retries: u8,
 }
 
 impl Default for DigSettings<'_> {
@@ -176,6 +179,7 @@ impl Default for DigSettings<'_> {
             nsid: false,
             expire: false,
             subnet_zero: false,
+            retries: 2,
         }
     }
 }
@@ -447,6 +451,16 @@ impl<'a> DigSettings<'a> {
             true => Some("+subnet=0"),
             false => None,
         }
+    }
+
+    /// Sets the number of times to retry queries (not counting the initial query).
+    pub fn retries(&mut self, retries: u8) -> &mut Self {
+        self.retries = retries;
+        self
+    }
+
+    fn retryflag(&self) -> String {
+        format!("+retry={}", self.retries)
     }
 }
 
