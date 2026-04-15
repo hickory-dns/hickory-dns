@@ -5,7 +5,7 @@ use dns_test::{
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer, Running, Sign},
     record::{A, CNAME, RRSIG, Record, RecordType},
-    zone_file::SignSettings,
+    zone_file::{Nsec, SignSettings},
 };
 
 #[test]
@@ -723,8 +723,18 @@ fn setup_cname_cross_zone() -> Result<(Network, Vec<NameServer<Running>>, Resolv
 }
 
 #[test]
+#[ignore = "hickory returns bogus"]
+fn insecure_cname_secure_nodata_nsec() -> Result<(), Error> {
+    insecure_cname_secure_nodata(SignSettings::default().nsec(Nsec::_1))
+}
+
+#[test]
 #[ignore = "hickory crashes during NSEC3 verification"]
-fn insecure_cname_secure_nodata() -> Result<(), Error> {
+fn insecure_cname_secure_nodata_nsec3() -> Result<(), Error> {
+    insecure_cname_secure_nodata(SignSettings::default())
+}
+
+fn insecure_cname_secure_nodata(sign_settings: SignSettings) -> Result<(), Error> {
     let network = Network::new()?;
 
     let alias_zone_fqdn = FQDN::TEST_TLD.push_label("alias-zone");
@@ -752,11 +762,11 @@ fn insecure_cname_secure_nodata() -> Result<(), Error> {
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     root_ns.referral_nameserver(&tld_ns);
 
-    let leaf_ns = leaf_ns.sign(SignSettings::default())?;
+    let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
     tld_ns.add(leaf_ns.ds().ksk.clone());
-    let tld_ns = tld_ns.sign(SignSettings::default())?;
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
     root_ns.add(tld_ns.ds().ksk.clone());
-    let root_ns = root_ns.sign(SignSettings::default())?;
+    let root_ns = root_ns.sign(sign_settings)?;
 
     let _alias_ns = alias_ns.start()?;
     let _leaf_ns = leaf_ns.start()?;
