@@ -721,3 +721,73 @@ fn setup_cname_cross_zone() -> Result<(Network, Vec<NameServer<Running>>, Resolv
 
     Ok((network, nameservers, resolver, client))
 }
+
+#[test]
+#[ignore = "hickory crashes during NSEC3 verification"]
+fn insecure_cname_secure_nodata() -> Result<(), Error> {
+    let network = Network::new()?;
+
+    let alias_zone_fqdn = FQDN::TEST_TLD.push_label("alias-zone");
+    let alias_name_fqdn = alias_zone_fqdn.push_label("alias-name");
+    let record_name_fqdn = FQDN::TEST_DOMAIN.push_label("record");
+
+    let mut alias_ns = NameServer::new(&PEER, alias_zone_fqdn, &network)?;
+    alias_ns.add(CNAME {
+        fqdn: alias_name_fqdn.clone(),
+        ttl: 86400,
+        target: record_name_fqdn.clone(),
+    });
+
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    leaf_ns.add(A {
+        fqdn: record_name_fqdn,
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(10, 0, 0, 1),
+    });
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&alias_ns);
+    tld_ns.referral_nameserver(&leaf_ns);
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+
+    let leaf_ns = leaf_ns.sign(SignSettings::default())?;
+    tld_ns.add(leaf_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(SignSettings::default())?;
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(SignSettings::default())?;
+
+    let _alias_ns = alias_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let root_ns = root_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .trust_anchor(root_ns.trust_anchor().unwrap())
+        .start()?;
+    let client = Client::new(&network)?;
+
+    let settings = *DigSettings::default().recurse().dnssec().authentic_data();
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::CAA,
+        &alias_name_fqdn,
+    )?;
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(
+        output
+            .answer
+            .iter()
+            .any(|record| matches!(record, Record::CNAME(_)))
+    );
+    assert!(
+        !output
+            .answer
+            .iter()
+            .any(|record| matches!(record, Record::CAA(_)))
+    );
+
+    Ok(())
+}
