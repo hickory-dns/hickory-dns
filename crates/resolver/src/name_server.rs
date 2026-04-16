@@ -1930,7 +1930,7 @@ mod opportunistic_enc_tests {
         provider: &MockProvider,
     ) -> Result<(), NetError> {
         let name_server = NameServer::new(
-            [].into_iter(),
+            [],
             NameServerConfig::opportunistic_encryption(ns_ip),
             &ResolverOpts::default(),
             provider.clone(),

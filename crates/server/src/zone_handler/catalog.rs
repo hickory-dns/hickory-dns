@@ -1206,11 +1206,11 @@ async fn build_forwarded_response(
         // the future to reduce the number of network transactions that a CD=1 query needs.
         match &mut answers {
             Answer::Normal(answers) => match DnssecSummary::from_records(answers.iter()) {
-                DnssecSummary::Secure => {
-                    if request_meta.authentic_data || lookup_options.dnssec_ok {
-                        trace!("setting ad header");
-                        response_meta.authentic_data = true;
-                    }
+                DnssecSummary::Secure
+                    if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
+                {
+                    trace!("setting ad header");
+                    response_meta.authentic_data = true;
                 }
                 DnssecSummary::Bogus if !request_meta.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
@@ -1220,11 +1220,11 @@ async fn build_forwarded_response(
                 _ => {}
             },
             Answer::NoRecords(soa) => match DnssecSummary::from_records(authorities.iter()) {
-                DnssecSummary::Secure => {
-                    if request_meta.authentic_data || lookup_options.dnssec_ok {
-                        trace!("setting ad header");
-                        response_meta.authentic_data = true;
-                    }
+                DnssecSummary::Secure
+                    if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
+                {
+                    trace!("setting ad header");
+                    response_meta.authentic_data = true;
                 }
                 DnssecSummary::Bogus if !request_meta.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;

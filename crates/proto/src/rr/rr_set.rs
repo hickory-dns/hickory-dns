@@ -408,11 +408,9 @@ impl RecordSet {
 
         match record.record_type() {
             // never delete the last NS record
-            RecordType::NS => {
-                if self.records.len() <= 1 {
-                    info!("ignoring delete of last NS record: {:?}", record);
-                    return false;
-                }
+            RecordType::NS if self.records.len() <= 1 => {
+                info!("ignoring delete of last NS record: {:?}", record);
+                return false;
             }
             // never delete SOA
             RecordType::SOA => {
