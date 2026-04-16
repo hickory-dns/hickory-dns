@@ -370,13 +370,12 @@ pub(crate) fn nsec3_nocover_handler(
 
             for record in records {
                 match record.record_type() {
-                    RecordType::NSEC3 => {
-                        if record.name == nsec3_name
+                    RecordType::NSEC3
+                        if (record.name == nsec3_name
                             || record.name == nsec3_closest_name
-                            || record.name == nsec3_wildcard_name
-                        {
-                            msg.add_authority(record);
-                        }
+                            || record.name == nsec3_wildcard_name) =>
+                    {
+                        msg.add_authority(record);
                     }
                     RecordType::SOA => {
                         msg.add_authority(record);
@@ -390,13 +389,12 @@ pub(crate) fn nsec3_nocover_handler(
                             RecordType::SOA => {
                                 msg.add_authority(record);
                             }
-                            RecordType::NSEC3 => {
-                                if record.name == nsec3_name
+                            RecordType::NSEC3
+                                if (record.name == nsec3_name
                                     || record.name == nsec3_closest_name
-                                    || record.name == nsec3_wildcard_name
-                                {
-                                    msg.add_authority(record);
-                                }
+                                    || record.name == nsec3_wildcard_name) =>
+                            {
+                                msg.add_authority(record);
                             }
                             _ => {}
                         }
