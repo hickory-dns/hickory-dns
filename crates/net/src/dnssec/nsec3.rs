@@ -599,8 +599,14 @@ impl<'a> Context<'a> {
     }
 
     fn encloser_candidates(&self) -> EncloserCandidates<'a> {
+        // The query name must be a descendant of the zone name for encloser candidate enumeration
+        // to make sense. When CNAME chasing crosses zone boundaries, the query name might not be
+        // within this zone at all.
         EncloserCandidates {
-            cur: Some(self.query.name().clone()),
+            cur: match self.soa {
+                Some(soa) if soa.zone_of(self.query.name()) => Some(self.query.name().clone()),
+                _ => None,
+            },
             soa: self.soa,
         }
     }
@@ -681,7 +687,6 @@ impl Iterator for EncloserCandidates<'_> {
 
         if &cur != soa {
             let next = cur.base_name();
-            // TODO: can `query_name` *not* be a sub-name of `soa_name`?
             debug_assert_ne!(next, Name::root());
             self.cur = Some(next);
         }
