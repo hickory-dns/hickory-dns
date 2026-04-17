@@ -279,24 +279,63 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             })
             .collect::<Vec<_>>();
 
+        // When a response includes CNAME records (like from CNAME chasing across
+        // zones), the NSEC/NSEC3 records in the authority section prove properties
+        // about the final target name in the CNAME chain, not the original query
+        // name. Follow the CNAME chain to find the appropriate name.
+        let (nsec_query, target_answers);
+        let nsec_answers = {
+            let mut name = query.name();
+            loop {
+                let target = message.answers.iter().find_map(|record| {
+                    if &record.name != name {
+                        return None;
+                    }
+                    match &record.data {
+                        RData::CNAME(cname) => Some(&cname.0),
+                        _ => None,
+                    }
+                });
+
+                match target {
+                    Some(target) => name = target,
+                    None => break,
+                }
+            }
+
+            if name != query.name() {
+                nsec_query = Query::query(name.clone(), query.query_type());
+                target_answers = message
+                    .answers
+                    .iter()
+                    .filter(|r| r.name == *nsec_query.name())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                &target_answers
+            } else {
+                nsec_query = query.clone();
+                &message.answers
+            }
+        };
+
         // Both NSEC and NSEC3 records cannot coexist during
         // transition periods, as per RFC 5515 10.4.3 and
         // 10.5.2
         let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty(), must_validate_nsec) {
             (true, false, _) => verify_nsec3(
-                &query,
+                &nsec_query,
                 find_soa_name(&message),
                 message.response_code,
-                &message.answers,
+                nsec_answers,
                 &nsec3s,
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
             ),
             (false, true, _) => verify_nsec(
-                &query,
+                &nsec_query,
                 find_soa_name(&message),
                 message.response_code,
-                &message.answers,
+                nsec_answers,
                 &nsecs,
             ),
             (true, true, _) => {
