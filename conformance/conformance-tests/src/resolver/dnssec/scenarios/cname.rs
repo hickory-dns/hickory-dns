@@ -785,6 +785,10 @@ fn insecure_cname_secure_nodata(sign_settings: SignSettings) -> Result<(), Error
         RecordType::CAA,
         &alias_name_fqdn,
     )?;
+
+    let logs = resolver.logs().unwrap();
+    println!("Logs:\n{logs}");
+
     assert_eq!(output.status, DigStatus::NOERROR);
     assert!(
         output
