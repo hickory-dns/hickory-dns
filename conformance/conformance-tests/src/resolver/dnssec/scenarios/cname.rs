@@ -723,13 +723,11 @@ fn setup_cname_cross_zone() -> Result<(Network, Vec<NameServer<Running>>, Resolv
 }
 
 #[test]
-#[ignore = "hickory returns bogus"]
 fn insecure_cname_secure_nodata_nsec() -> Result<(), Error> {
     insecure_cname_secure_nodata(SignSettings::default().nsec(Nsec::_1))
 }
 
 #[test]
-#[ignore = "hickory crashes during NSEC3 verification"]
 fn insecure_cname_secure_nodata_nsec3() -> Result<(), Error> {
     insecure_cname_secure_nodata(SignSettings::default())
 }
