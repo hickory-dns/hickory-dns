@@ -354,7 +354,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // to the original queried name, or included or not included in the original
             // response.  Resolve will either pull the intermediates out of the cache or query
             // the appropriate nameservers if necessary.
-            let response = match self
+            let cname_response = match self
                 .resolve(
                     cname_query,
                     now,
@@ -365,6 +365,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .await
             {
                 Ok(cname_r) => cname_r,
+                // NODATA or NXDOMAIN at the CNAME target is not a fatal error:
+                // we still return the original response containing the CNAME.
+                Err(e) if e.is_no_records_found() || e.is_nx_domain() => continue,
                 Err(e) => {
                     return Err(e);
                 }
@@ -372,7 +375,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             // Here, we're looking for either the terminal record type (matching the
             // original query, or another CNAME.
-            cname_chain.extend(response.answers.iter().filter_map(|r| {
+            cname_chain.extend(cname_response.answers.iter().filter_map(|r| {
                 if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
                     return Some(r.to_owned());
                 }
