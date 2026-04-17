@@ -681,8 +681,9 @@ impl Iterator for EncloserCandidates<'_> {
 
         if &cur != soa {
             let next = cur.base_name();
-            // TODO: can `query_name` *not* be a sub-name of `soa_name`?
-            debug_assert_ne!(next, Name::root());
+            if next == Name::root() {
+                return Some(cur);
+            }
             self.cur = Some(next);
         }
 
