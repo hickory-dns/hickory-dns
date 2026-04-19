@@ -197,7 +197,9 @@ pub trait ZoneHandler: Send + Sync {
 
     /// Returns the zone handler metrics label.
     #[cfg(feature = "metrics")]
-    fn metrics_label(&self) -> &'static str;
+    fn metrics_label(&self) -> &'static str {
+        ""
+    }
 }
 
 /// Extension to ZoneHandler to allow for DNSSEC features
