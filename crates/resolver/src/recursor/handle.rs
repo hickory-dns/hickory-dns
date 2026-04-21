@@ -337,6 +337,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         RecursorError::recursion_exceeded(self.recursion_limit, depth, &query.name)?;
 
         let mut cname_chain = vec![];
+        let mut cname_chain_authorities = vec![];
 
         let mut effective_qname = &query.name;
         let mut name_history = vec![effective_qname];
@@ -407,6 +408,19 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     answers.extend(response.answers);
                     answers.extend(negative_response_answers.iter().cloned());
                     authority_data.answers = Some(Arc::from(answers));
+
+                    let negative_response_authorities =
+                        authority_data.authorities.as_deref().unwrap_or_default();
+                    let mut authorities = Vec::with_capacity(
+                        response.authorities.len()
+                            + cname_chain_authorities.len()
+                            + negative_response_authorities.len(),
+                    );
+                    authorities.extend(response.authorities);
+                    authorities.extend(cname_chain_authorities);
+                    authorities.extend(negative_response_authorities.iter().cloned());
+                    authority_data.authorities = Some(Arc::from(authorities));
+
                     return Err(RecursorError::Negative(authority_data));
                 }
                 Err(e) => {
@@ -431,13 +445,44 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
                 None
             }));
+            cname_chain_authorities.extend(response.authorities);
 
             break;
         }
 
-        if !cname_chain.is_empty() {
-            response.answers.extend(cname_chain);
-        }
+        response.answers.extend(cname_chain);
+        response.authorities.extend(cname_chain_authorities);
+
+        // Drop referral-related records from response.
+        //
+        // As noted in the definition of "Referrals" from RFC 8499, responses with CNAME records may
+        // include a referral to another zone closer to the CNAME's target, along with glue records.
+        // The recursor should not include these in its final response.
+        let name_server_names = response
+            .authorities
+            .iter()
+            .flat_map(|record| match &record.data {
+                RData::NS(NS(name)) => Some(name.clone()),
+                _ => None,
+            })
+            .collect::<HashSet<_>>();
+        response.authorities.retain(|record| match &record.data {
+            rdata
+                if rdata.record_type() == RecordType::NS
+                    || rdata.record_type() == RecordType::DS =>
+            {
+                false
+            }
+            #[cfg(feature = "__dnssec")]
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                rrsig.input().type_covered != RecordType::NS
+                    && rrsig.input().type_covered != RecordType::DS
+            }
+            _ => true,
+        });
+        response
+            .additionals
+            .retain(|record| !name_server_names.contains(&record.name));
 
         order_cname_chain(&mut response.answers, &query.name);
 
@@ -1079,8 +1124,6 @@ mod for_dnssec {
                 Err(e) => return Err(NetError::from(e)),
             };
 
-            // `DnssecDnsHandle` will only look at the answer section of the message so
-            // we can put "stubs" in the other fields
             let mut msg = Message::query();
 
             msg.add_answers(response.answers.iter().cloned());
