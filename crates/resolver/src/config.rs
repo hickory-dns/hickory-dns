@@ -39,7 +39,7 @@ use tracing::{debug, info};
 use crate::name_server_pool::NameServerTransportState;
 #[cfg(any(feature = "__https", feature = "__h3"))]
 use crate::net::http::DEFAULT_DNS_QUERY_PATH;
-use crate::net::xfer::Protocol;
+use crate::net::xfer::{CONNECT_TIMEOUT, Protocol};
 use crate::proto::access_control::{AccessControlSet, AccessControlSetBuilder};
 use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
 use crate::proto::rr::Name;
@@ -606,6 +606,16 @@ pub struct ResolverOpts {
     /// See [DnsRequestOptions::edns_payload_len][crate::proto::op::DnsRequestOptions::edns_payload_len].
     #[cfg_attr(feature = "serde", serde(default = "default_edns_payload_len"))]
     pub edns_payload_len: u16,
+    /// Per-connection timeout for TCP/TLS/QUIC connect attempts.
+    ///
+    /// This controls how long a single connection attempt (TCP SYN + TLS/QUIC handshake) is
+    /// allowed to take before being abandoned, allowing the pool to move on to the next server.
+    /// Defaults to 2s.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_connect_timeout", with = "duration")
+    )]
+    pub connect_timeout: Duration,
 }
 
 impl ResolverOpts {
@@ -655,6 +665,7 @@ impl Default for ResolverOpts {
             allow_answers: vec![],
             deny_answers: vec![],
             edns_payload_len: default_edns_payload_len(),
+            connect_timeout: default_connect_timeout(),
         }
     }
 }
@@ -665,6 +676,10 @@ fn default_ndots() -> usize {
 
 fn default_timeout() -> Duration {
     Duration::from_secs(5)
+}
+
+fn default_connect_timeout() -> Duration {
+    CONNECT_TIMEOUT
 }
 
 fn default_attempts() -> usize {
@@ -1142,5 +1157,6 @@ mod tests {
         assert_eq!(code.os_port_selection, json.os_port_selection);
         assert_eq!(code.case_randomization, json.case_randomization);
         assert_eq!(code.trust_anchor, json.trust_anchor);
+        assert_eq!(code.connect_timeout, json.connect_timeout);
     }
 }
