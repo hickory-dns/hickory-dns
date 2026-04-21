@@ -572,7 +572,6 @@ fn signed_wildcard_cname_positive() -> Result<(), Error> {
 /// Tests how a non-validating resolver handles DNSSEC records when following a CNAME alias at a
 /// wildcard name, and getting a negative response.
 #[test]
-#[ignore = "hickory does not include CNAME chain in response"]
 fn signed_wildcard_cname_negative() -> Result<(), Error> {
     let (_network, _nameservers, resolver, client) = setup_signed_zone()?;
     let output = client.dig(
