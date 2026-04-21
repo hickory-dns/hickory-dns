@@ -139,6 +139,7 @@ impl From<NetError> for RecursorError {
                 soa: no_records.soa,
                 no_records_found: true,
                 nx_domain,
+                answers: None,
                 authorities: no_records.authorities,
             }),
         }
@@ -203,6 +204,8 @@ pub struct AuthorityData {
     pub no_records_found: bool,
     /// IS nx domain?
     pub nx_domain: bool,
+    /// Answer records
+    pub answers: Option<Arc<[Record]>>,
     /// Authority records
     pub authorities: Option<Arc<[Record]>>,
 }
