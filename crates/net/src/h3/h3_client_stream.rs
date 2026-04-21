@@ -327,7 +327,7 @@ impl H3ClientStreamBuilder {
         self
     }
 
-    /// Override the connect timeout (default: 5 seconds).
+    /// Override the connect timeout (default: 2 seconds).
     ///
     /// This controls the QUIC connect and the HTTP/3 handshake timeouts.
     pub fn connect_timeout(mut self, timeout: Duration) -> Self {
