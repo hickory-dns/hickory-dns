@@ -390,6 +390,25 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 .await
             {
                 Ok(cname_r) => cname_r,
+                Err(RecursorError::Negative(mut authority_data)) => {
+                    // Drop borrows from `response` so we can take ownership of its other fields.
+                    drop(name_history);
+                    drop(_in_flight);
+
+                    // Add records from CNAME chain to negative response.
+                    let negative_response_answers =
+                        authority_data.answers.as_deref().unwrap_or_default();
+                    let mut answers = Vec::with_capacity(
+                        cname_chain.len()
+                            + response.answers.len()
+                            + negative_response_answers.len(),
+                    );
+                    answers.extend(cname_chain);
+                    answers.extend(response.answers);
+                    answers.extend(negative_response_answers.iter().cloned());
+                    authority_data.answers = Some(Arc::from(answers));
+                    return Err(RecursorError::Negative(authority_data));
+                }
                 Err(e) => {
                     return Err(e);
                 }
@@ -544,6 +563,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 soa: None,
                 no_records_found: false,
                 nx_domain: true,
+                answers: None,
                 authorities: None,
             }));
         }
