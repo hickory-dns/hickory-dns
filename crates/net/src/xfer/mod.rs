@@ -464,8 +464,9 @@ impl Display for Protocol {
     }
 }
 
+/// Default per-connection timeout for TCP/TLS/QUIC connect attempts.
 #[allow(unused)] // May be unused depending on features
-pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Default buffer size for outbound DNS message streams.
 ///

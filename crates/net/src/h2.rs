@@ -182,7 +182,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         self.set_headers.replace(headers);
     }
 
-    /// Override the connect timeout (default: 5 seconds).
+    /// Override the connect timeout (default: 2 seconds).
     ///
     /// This controls both the TCP connect and the HTTP/2 handshake timeouts.
     pub fn connect_timeout(mut self, timeout: Duration) -> Self {
