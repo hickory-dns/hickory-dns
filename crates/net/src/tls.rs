@@ -45,6 +45,7 @@ pub type TlsClientStream<S> =
 /// * `server_name` - TLS server name for certificate validation
 /// * `config` - TLS client configuration
 /// * `timeout` - Timeout for requests
+/// * `connect_timeout` - Timeout for the TCP connect step
 /// * `max_active_requests` - Optional limit on concurrent in-flight requests.
 ///   If `None`, uses the default (32).
 /// * `provider` - Runtime provider for spawning background tasks
@@ -53,6 +54,7 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     server_name: ServerName<'static>,
     mut config: ClientConfig,
     timeout: Duration,
+    connect_timeout: Duration,
     max_active_requests: Option<usize>,
     provider: P,
 ) -> Result<DnsExchange<P>, NetError> {
@@ -60,7 +62,7 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     config.enable_sni = false;
 
     let stream = provider
-        .connect_tcp(remote_addr, None, Some(timeout))
+        .connect_tcp(remote_addr, None, Some(connect_timeout))
         .await?;
     let (future, sender) = tls_client_connect_with_future(
         stream,
