@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 #[cfg(test)]
 use anyhow::Context;
@@ -16,24 +16,25 @@ mod zone_file;
 async fn main() -> Result<()> {
     let args = Args::parse();
     let transport = args.transport;
-    let handler = match args.handler {
-        Handler::Bailiwick => handlers::bailiwick_handler,
-        Handler::Base => handlers::base_handler,
-        Handler::BadCase => handlers::bad_case_handler,
-        Handler::BadTxid => handlers::bad_txid_handler,
-        Handler::CnameLoop => handlers::cname_loop_handler,
-        Handler::EmptyResponse => handlers::empty_response_handler,
-        Handler::Nsec3Nocover => handlers::nsec3_nocover_handler,
-        Handler::ParentNsInAuthority => handlers::parent_ns_in_authority_handler,
-        Handler::PacketLoss => handlers::packet_loss_handler,
-        Handler::TruncatedResponse => handlers::truncated_response_handler,
-        Handler::QrNotResponse => handlers::qr_not_response_handler,
-        Handler::QrNotResponseForceTcp => handlers::qr_not_response_force_tcp_handler,
+    let handler: Arc<dyn HandlerFn> = match args.handler {
+        Handler::Bailiwick => Arc::new(handlers::bailiwick_handler),
+        Handler::Base => Arc::new(handlers::base_handler),
+        Handler::BadCase => Arc::new(handlers::bad_case_handler),
+        Handler::BadTxid => Arc::new(handlers::bad_txid_handler),
+        Handler::CnameLoop => Arc::new(handlers::cname_loop_handler),
+        Handler::EmptyResponse => Arc::new(handlers::empty_response_handler),
+        Handler::Nsec3Nocover => Arc::new(handlers::nsec3_nocover_handler),
+        Handler::ParentNsInAuthority => Arc::new(handlers::parent_ns_in_authority_handler),
+        Handler::PacketLoss => Arc::new(handlers::packet_loss_handler),
+        Handler::TruncatedResponse => Arc::new(handlers::truncated_response_handler),
+        Handler::QrNotResponse => Arc::new(handlers::qr_not_response_handler),
+        Handler::QrNotResponseForceTcp => Arc::new(handlers::qr_not_response_force_tcp_handler),
     };
 
     let mut handles = vec![];
     if transport == TransportArg::Tcp || transport == TransportArg::Both {
         let tcp = TcpServer::new(([0, 0, 0, 0], args.port).into()).await?;
+        let handler = handler.clone();
         handles.push(tokio::task::spawn(async move { tcp.run(handler).await }));
     }
     if transport == TransportArg::Udp || transport == TransportArg::Both {
@@ -93,7 +94,7 @@ impl UdpServer {
         })
     }
 
-    async fn run(self, handler: HandlerFn) -> Result<()> {
+    async fn run(self, handler: Arc<dyn HandlerFn>) -> Result<()> {
         loop {
             let mut read_buf = [0u8; 4096];
             let (len, to) = match self.udp.recv_from(&mut read_buf).await {
@@ -148,9 +149,10 @@ impl TcpServer {
         })
     }
 
-    async fn run(self, handler: HandlerFn) -> Result<()> {
+    async fn run(self, handler: Arc<dyn HandlerFn>) -> Result<()> {
         loop {
             let (stream, peer) = self.tcp.accept().await?;
+            let handler = handler.clone();
             tokio::task::spawn(async move {
                 let (mut stream, mut sender) =
                     TcpStream::from_stream(AsyncIoTokioAsStd(stream), peer);
@@ -202,13 +204,19 @@ enum Transport {
     Udp,
 }
 
-type HandlerFn = fn(&[u8], Transport) -> Result<Option<Vec<u8>>>;
+trait HandlerFn: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static {}
+
+impl<T> HandlerFn for T where
+    T: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static
+{
+}
 
 #[cfg(test)]
 mod test {
     use std::{
         net::{Ipv4Addr, Ipv6Addr, SocketAddr},
         str::FromStr,
+        sync::Arc,
     };
 
     use anyhow::Result;
@@ -246,7 +254,7 @@ mod test {
     async fn multiple_tcp_msg() -> Result<()> {
         let tcp = super::TcpServer::new((Ipv4Addr::LOCALHOST, 0).into()).await?;
         let tcp_peer = tcp.addr()?;
-        let _handle = tokio::task::spawn(tcp.run(base_handler));
+        let _handle = tokio::task::spawn(tcp.run(Arc::new(base_handler)));
 
         let (future, sender) =
             TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
@@ -284,7 +292,7 @@ mod test {
             Transport::Tcp => {
                 let tcp = super::TcpServer::new(socket).await?;
                 let tcp_peer = tcp.addr()?;
-                let _handle = tokio::task::spawn(tcp.run(base_handler));
+                let _handle = tokio::task::spawn(tcp.run(Arc::new(base_handler)));
                 let (future, sender) =
                     TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
                 let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
@@ -294,7 +302,7 @@ mod test {
             Transport::Udp => {
                 let udp = super::UdpServer::new(socket).await?;
                 let udp_peer = udp.addr()?;
-                let _handle = tokio::task::spawn(udp.run(base_handler));
+                let _handle = tokio::task::spawn(udp.run(Arc::new(base_handler)));
                 let conn = UdpClientStream::builder(udp_peer, TokioRuntimeProvider::new()).build();
                 let (client, bg) = Client::from_sender(conn);
                 let _handle = tokio::task::spawn(bg);
