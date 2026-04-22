@@ -1,4 +1,7 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 #[cfg(test)]
 use anyhow::Context;
@@ -7,7 +10,10 @@ use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
 use futures::{StreamExt, future};
 use hickory_net::{DnsStreamHandle, runtime::iocompat::AsyncIoTokioAsStd, tcp::TcpStream};
-use hickory_proto::op::{Message, SerialMessage};
+use hickory_proto::{
+    op::{Message, SerialMessage},
+    rr::{Name, RecordType},
+};
 use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
@@ -30,6 +36,15 @@ async fn main() -> Result<()> {
         HandlerArg::TruncatedResponse => Arc::new(handlers::truncated_response_handler),
         HandlerArg::QrNotResponse => Arc::new(handlers::qr_not_response_handler),
         HandlerArg::QrNotResponseForceTcp => Arc::new(handlers::qr_not_response_force_tcp_handler),
+        HandlerArg::DropRrset {
+            ip_address,
+            name,
+            record_type,
+        } => Arc::new(handlers::DropRrsetHandler::new(
+            ip_address,
+            name,
+            record_type,
+        )),
     };
 
     let mut handles = vec![];
@@ -82,6 +97,11 @@ enum HandlerArg {
     TruncatedResponse,
     QrNotResponse,
     QrNotResponseForceTcp,
+    DropRrset {
+        ip_address: IpAddr,
+        name: Name,
+        record_type: RecordType,
+    },
 }
 
 struct UdpServer {
