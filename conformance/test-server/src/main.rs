@@ -3,6 +3,7 @@ use std::{net::SocketAddr, sync::Arc};
 #[cfg(test)]
 use anyhow::Context;
 use anyhow::Result;
+use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
 use futures::{StreamExt, future};
 use hickory_net::{DnsStreamHandle, runtime::iocompat::AsyncIoTokioAsStd, tcp::TcpStream};
@@ -16,19 +17,19 @@ mod zone_file;
 async fn main() -> Result<()> {
     let args = Args::parse();
     let transport = args.transport;
-    let handler: Arc<dyn HandlerFn> = match args.handler {
-        Handler::Bailiwick => Arc::new(handlers::bailiwick_handler),
-        Handler::Base => Arc::new(handlers::base_handler),
-        Handler::BadCase => Arc::new(handlers::bad_case_handler),
-        Handler::BadTxid => Arc::new(handlers::bad_txid_handler),
-        Handler::CnameLoop => Arc::new(handlers::cname_loop_handler),
-        Handler::EmptyResponse => Arc::new(handlers::empty_response_handler),
-        Handler::Nsec3Nocover => Arc::new(handlers::nsec3_nocover_handler),
-        Handler::ParentNsInAuthority => Arc::new(handlers::parent_ns_in_authority_handler),
-        Handler::PacketLoss => Arc::new(handlers::packet_loss_handler),
-        Handler::TruncatedResponse => Arc::new(handlers::truncated_response_handler),
-        Handler::QrNotResponse => Arc::new(handlers::qr_not_response_handler),
-        Handler::QrNotResponseForceTcp => Arc::new(handlers::qr_not_response_force_tcp_handler),
+    let handler: Arc<dyn Handler> = match args.handler {
+        HandlerArg::Bailiwick => Arc::new(handlers::bailiwick_handler),
+        HandlerArg::Base => Arc::new(handlers::base_handler),
+        HandlerArg::BadCase => Arc::new(handlers::bad_case_handler),
+        HandlerArg::BadTxid => Arc::new(handlers::bad_txid_handler),
+        HandlerArg::CnameLoop => Arc::new(handlers::cname_loop_handler),
+        HandlerArg::EmptyResponse => Arc::new(handlers::empty_response_handler),
+        HandlerArg::Nsec3Nocover => Arc::new(handlers::nsec3_nocover_handler),
+        HandlerArg::ParentNsInAuthority => Arc::new(handlers::parent_ns_in_authority_handler),
+        HandlerArg::PacketLoss => Arc::new(handlers::packet_loss_handler),
+        HandlerArg::TruncatedResponse => Arc::new(handlers::truncated_response_handler),
+        HandlerArg::QrNotResponse => Arc::new(handlers::qr_not_response_handler),
+        HandlerArg::QrNotResponseForceTcp => Arc::new(handlers::qr_not_response_force_tcp_handler),
     };
 
     let mut handles = vec![];
@@ -56,7 +57,7 @@ struct Args {
     #[clap(default_value = "both", long = "transport")]
     transport: TransportArg,
     #[clap(subcommand)]
-    handler: Handler,
+    handler: HandlerArg,
 }
 
 #[derive(Clone, PartialEq, Eq, ValueEnum)]
@@ -68,7 +69,7 @@ enum TransportArg {
 
 #[derive(Clone, Subcommand)]
 #[clap(rename_all = "snake_case")]
-enum Handler {
+enum HandlerArg {
     Bailiwick,
     Base,
     BadCase,
@@ -94,7 +95,7 @@ impl UdpServer {
         })
     }
 
-    async fn run(self, handler: Arc<dyn HandlerFn>) -> Result<()> {
+    async fn run(self, handler: Arc<dyn Handler>) -> Result<()> {
         loop {
             let mut read_buf = [0u8; 4096];
             let (len, to) = match self.udp.recv_from(&mut read_buf).await {
@@ -110,7 +111,7 @@ impl UdpServer {
                 Message::from_vec(&read_buf),
             );
 
-            match handler(&read_buf[0..len], Transport::Udp) {
+            match handler.handle(&read_buf[0..len], Transport::Udp).await {
                 Ok(Some(resp)) => {
                     println!(
                         "handler response to udp/{to}: {:?}",
@@ -149,7 +150,7 @@ impl TcpServer {
         })
     }
 
-    async fn run(self, handler: Arc<dyn HandlerFn>) -> Result<()> {
+    async fn run(self, handler: Arc<dyn Handler>) -> Result<()> {
         loop {
             let (stream, peer) = self.tcp.accept().await?;
             let handler = handler.clone();
@@ -163,7 +164,7 @@ impl TcpServer {
                         Message::from_vec(msg.bytes())
                     );
 
-                    let resp = match handler(msg.bytes(), Transport::Tcp) {
+                    let resp = match handler.handle(msg.bytes(), Transport::Tcp).await {
                         Ok(Some(resp)) => resp,
                         Ok(None) => {
                             println!("no response returned from handler for request from {peer}");
@@ -204,11 +205,19 @@ enum Transport {
     Udp,
 }
 
-trait HandlerFn: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static {}
+#[async_trait]
+trait Handler: Send + Sync {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>>;
+}
 
-impl<T> HandlerFn for T where
-    T: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static
+#[async_trait]
+impl<T> Handler for T
+where
+    T: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static,
 {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+        self(bytes, transport)
+    }
 }
 
 #[cfg(test)]
