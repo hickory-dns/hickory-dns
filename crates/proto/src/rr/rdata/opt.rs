@@ -168,7 +168,7 @@ use crate::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Default, Debug, Clone, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone)]
 #[non_exhaustive]
 pub struct EdnsOptions {
     /// List of code and record type tuples
