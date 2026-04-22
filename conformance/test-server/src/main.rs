@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 #[cfg(test)]
 use anyhow::Context;
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand, ValueEnum};
 use futures::{StreamExt, future};
 use hickory_net::{DnsStreamHandle, runtime::iocompat::AsyncIoTokioAsStd, tcp::TcpStream};
 use hickory_proto::op::{Message, SerialMessage};
@@ -16,30 +16,27 @@ mod zone_file;
 async fn main() -> Result<()> {
     let args = Args::parse();
     let transport = args.transport;
-    let handler = match &args.handler[..] {
-        "bailiwick" => handlers::bailiwick_handler,
-        "base" => handlers::base_handler,
-        "bad_case" => handlers::bad_case_handler,
-        "bad_txid" => handlers::bad_txid_handler,
-        "cname_loop" => handlers::cname_loop_handler,
-        "empty_response" => handlers::empty_response_handler,
-        "nsec3_nocover" => handlers::nsec3_nocover_handler,
-        "parent_ns_in_authority" => handlers::parent_ns_in_authority_handler,
-        "packet_loss" => handlers::packet_loss_handler,
-        "truncated_response" => handlers::truncated_response_handler,
-        "qr_not_response" => handlers::qr_not_response_handler,
-        "qr_not_response_force_tcp" => handlers::qr_not_response_force_tcp_handler,
-        _ => {
-            return Err(anyhow::Error::msg("unknown handler"));
-        }
+    let handler = match args.handler {
+        Handler::Bailiwick => handlers::bailiwick_handler,
+        Handler::Base => handlers::base_handler,
+        Handler::BadCase => handlers::bad_case_handler,
+        Handler::BadTxid => handlers::bad_txid_handler,
+        Handler::CnameLoop => handlers::cname_loop_handler,
+        Handler::EmptyResponse => handlers::empty_response_handler,
+        Handler::Nsec3Nocover => handlers::nsec3_nocover_handler,
+        Handler::ParentNsInAuthority => handlers::parent_ns_in_authority_handler,
+        Handler::PacketLoss => handlers::packet_loss_handler,
+        Handler::TruncatedResponse => handlers::truncated_response_handler,
+        Handler::QrNotResponse => handlers::qr_not_response_handler,
+        Handler::QrNotResponseForceTcp => handlers::qr_not_response_force_tcp_handler,
     };
 
     let mut handles = vec![];
-    if transport == "tcp" || transport == "both" {
+    if transport == TransportArg::Tcp || transport == TransportArg::Both {
         let tcp = TcpServer::new(([0, 0, 0, 0], args.port).into()).await?;
         handles.push(tokio::task::spawn(async move { tcp.run(handler).await }));
     }
-    if transport == "udp" || transport == "both" {
+    if transport == TransportArg::Udp || transport == TransportArg::Both {
         let udp = UdpServer::new(([0, 0, 0, 0], args.port).into()).await?;
         handles.push(tokio::task::spawn(async move { udp.run(handler).await }));
     }
@@ -53,12 +50,36 @@ async fn main() -> Result<()> {
 #[derive(Parser)]
 #[clap(name = "Message responder test DNS server")]
 struct Args {
-    #[clap(default_value = "base", long = "handler")]
-    handler: String,
     #[clap(default_value = "53", long = "port")]
     port: u16,
     #[clap(default_value = "both", long = "transport")]
-    transport: String,
+    transport: TransportArg,
+    #[clap(subcommand)]
+    handler: Handler,
+}
+
+#[derive(Clone, PartialEq, Eq, ValueEnum)]
+enum TransportArg {
+    Tcp,
+    Udp,
+    Both,
+}
+
+#[derive(Clone, Subcommand)]
+#[clap(rename_all = "snake_case")]
+enum Handler {
+    Bailiwick,
+    Base,
+    BadCase,
+    BadTxid,
+    CnameLoop,
+    EmptyResponse,
+    Nsec3Nocover,
+    ParentNsInAuthority,
+    PacketLoss,
+    TruncatedResponse,
+    QrNotResponse,
+    QrNotResponseForceTcp,
 }
 
 struct UdpServer {
