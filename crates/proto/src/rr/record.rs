@@ -19,6 +19,7 @@ use crate::dnssec::{Proof, Proven};
 use crate::rr::rdata::A;
 use crate::{
     error::ProtoResult,
+    op::Edns,
     rr::{Name, RData, RecordData, RecordType, dns_class::DNSClass},
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
@@ -239,64 +240,20 @@ impl<R: RecordData> Record<R> {
     }
 }
 
-impl<R: RecordData> BinEncodable for Record<R> {
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        self.name.emit(encoder)?;
-        self.record_type().emit(encoder)?;
-
-        #[cfg(not(feature = "mdns"))]
-        self.dns_class.emit(encoder)?;
-
-        #[cfg(feature = "mdns")]
-        {
-            if self.mdns_cache_flush {
-                (u16::from(self.dns_class) | MDNS_ENABLE_CACHE_FLUSH).emit(encoder)?;
-            } else {
-                self.dns_class.emit(encoder)?;
-            }
-        }
-
-        self.ttl.emit(encoder)?;
-
-        // place the RData length
-        let place = encoder.place::<u16>()?;
-
-        // write the RData
-        //   the None case is handled below by writing `0` for the length of the RData
-        //   this is in turn read as `None` during the `read` operation.
-        if !self.data.is_update() {
-            self.data.emit(encoder)?;
-        }
-
-        // get the length written
-        let len = encoder.len_since_place(&place);
-        assert!(len <= u16::MAX as usize);
-
-        // replace the location with the length
-        place.replace(encoder, len as u16)?;
-        Ok(())
-    }
-}
-
-impl<'r> BinDecodable<'r> for Record<RData> {
-    /// parse a resource record line example:
-    ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
-    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        // NAME            an owner name, i.e., the name of the node to which this
-        //                 resource record pertains.
-        let name_labels: Name = Name::read(decoder)?;
-
-        // TYPE            two octets containing one of the RR TYPE codes.
-        let record_type: RecordType = RecordType::read(decoder)?;
-
+impl Record<RData> {
+    fn decode(
+        name: Name,
+        record_type: RecordType,
+        decoder: &mut BinDecoder<'_>,
+    ) -> Result<Self, DecodeError> {
         #[cfg(feature = "mdns")]
         let mut mdns_cache_flush = false;
 
         // CLASS           two octets containing one of the RR CLASS codes.
         let class: DNSClass = if record_type == RecordType::OPT {
             // verify that the OPT record is Root
-            if !name_labels.is_root() {
-                return Err(DecodeError::EdnsNameNotRoot(Box::new(name_labels)));
+            if !name.is_root() {
+                return Err(DecodeError::EdnsNameNotRoot(Box::new(name)));
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
@@ -345,7 +302,7 @@ impl<'r> BinDecodable<'r> for Record<RData> {
 
         // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of pre-requisites.
         // Null represents any data. The caller should validate whether this is allowed.
-        let rdata = if rd_length == 0 {
+        let data = if rd_length == 0 {
             RData::Update0(record_type)
         } else {
             // RDATA           a variable length string of octets that describes the
@@ -357,15 +314,62 @@ impl<'r> BinDecodable<'r> for Record<RData> {
         };
 
         Ok(Self {
-            name: name_labels,
+            name,
             dns_class: class,
             ttl,
-            data: rdata,
+            data,
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
             #[cfg(feature = "__dnssec")]
             proof: Proof::default(),
         })
+    }
+}
+
+impl BinDecodable<'_> for Record<RData> {
+    fn read(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
+        let name = Name::read(decoder)?;
+        let record_type = RecordType::read(decoder)?;
+        Self::decode(name, record_type, decoder)
+    }
+}
+
+impl<R: RecordData> BinEncodable for Record<R> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        self.name.emit(encoder)?;
+        self.record_type().emit(encoder)?;
+
+        #[cfg(not(feature = "mdns"))]
+        self.dns_class.emit(encoder)?;
+
+        #[cfg(feature = "mdns")]
+        {
+            if self.mdns_cache_flush {
+                (u16::from(self.dns_class) | MDNS_ENABLE_CACHE_FLUSH).emit(encoder)?;
+            } else {
+                self.dns_class.emit(encoder)?;
+            }
+        }
+
+        self.ttl.emit(encoder)?;
+
+        // place the RData length
+        let place = encoder.place::<u16>()?;
+
+        // write the RData
+        //   the None case is handled below by writing `0` for the length of the RData
+        //   this is in turn read as `None` during the `read` operation.
+        if !self.data.is_update() {
+            self.data.emit(encoder)?;
+        }
+
+        // get the length written
+        let len = encoder.len_since_place(&place);
+        assert!(len <= u16::MAX as usize);
+
+        // replace the location with the length
+        place.replace(encoder, len as u16)?;
+        Ok(())
     }
 }
 
@@ -538,6 +542,29 @@ impl PartialOrd<Self> for Record {
     }
 }
 
+#[expect(clippy::large_enum_variant)]
+#[derive(Debug, PartialEq)]
+pub(crate) enum RecordKind {
+    Record(Record<RData>),
+    Opt(Edns),
+}
+
+impl<'r> BinDecodable<'r> for RecordKind {
+    /// parse a resource record line example:
+    ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        // NAME            an owner name, i.e., the name of the node to which this
+        //                 resource record pertains.
+        let name = Name::read(decoder)?;
+
+        // TYPE            two octets containing one of the RR TYPE codes.
+        Ok(match RecordType::read(decoder)? {
+            RecordType::OPT => Self::Opt(Edns::decode(name, decoder)?),
+            record_type => Self::Record(Record::decode(name, record_type, decoder)?),
+        })
+    }
+}
+
 #[cfg(feature = "__dnssec")]
 impl From<Record> for Proven<Record> {
     fn from(record: Record) -> Self {
@@ -698,9 +725,9 @@ mod tests {
 
         let mut decoder = BinDecoder::new(&vec_bytes);
 
-        let got = Record::read(&mut decoder).unwrap();
+        let got = RecordKind::read(&mut decoder).unwrap();
 
-        assert_eq!(got, record);
+        assert_eq!(got, RecordKind::Record(record));
     }
 
     #[test]
@@ -758,7 +785,9 @@ mod tests {
 
         let mut decoder = BinDecoder::new(&vec_bytes);
 
-        let got = Record::<RData>::read(&mut decoder).unwrap();
+        let RecordKind::Record(got) = RecordKind::read(&mut decoder).unwrap() else {
+            panic!("expected a RecordKind::Record");
+        };
 
         assert_eq!(got.dns_class, DNSClass::IN);
         assert!(got.mdns_cache_flush);

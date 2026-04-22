@@ -25,7 +25,7 @@ use crate::rr::{TSigVerifier, TSigner};
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, Query, ResponseCode},
-    rr::{RData, Record, RecordData, RecordType, rdata::TSIG},
+    rr::{RData, Record, RecordData, RecordType, rdata::TSIG, record::RecordKind},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
@@ -432,7 +432,20 @@ impl Message {
         let mut sig = None;
 
         for _ in 0..count {
-            let record = Record::read(decoder)?;
+            let record = match RecordKind::read(decoder)? {
+                RecordKind::Record(record) => record,
+                RecordKind::Opt(_) if !is_additional => {
+                    return Err(DecodeError::RecordNotInAdditionalSection(RecordType::OPT));
+                }
+                RecordKind::Opt(new) => match edns.is_some() {
+                    true => return Err(DecodeError::DuplicateEdns),
+                    false => {
+                        edns = Some(new);
+                        continue;
+                    }
+                },
+            };
+
             if op != OpCode::Update
                 && record.record_type() != RecordType::OPT
                 && record.data.is_update()
@@ -478,12 +491,6 @@ impl Message {
                             })
                             .unwrap(/* match arm ensures correct type */),
                     ))
-                }
-                RData::Update0(RecordType::OPT) | RData::OPT(_) => {
-                    if edns.is_some() {
-                        return Err(DecodeError::DuplicateEdns);
-                    }
-                    edns = Some((&record).into());
                 }
                 _ => {
                     records.push(record);
@@ -603,9 +610,13 @@ where
         // need to commit the error code
         edns.extended_rcode = metadata.response_code.high();
 
-        let count = count_was_truncated(encoder.emit_iter([&Record::from(&edns)]))?;
-        additional_count.0 += count.0;
-        additional_count.1 |= count.1;
+        let result = 0u8
+            .emit(encoder) // Name::root
+            .and_then(|_| RecordType::OPT.emit(encoder))
+            .and_then(|_| edns.emit(encoder));
+        let (count, truncated) = count_was_truncated(result.map(|()| 1))?;
+        additional_count.0 += count;
+        additional_count.1 |= truncated;
     } else if metadata.response_code.high() > 0 {
         warn!(
             "response code: {} for request: {} requires EDNS but none available",

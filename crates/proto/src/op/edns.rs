@@ -7,6 +7,7 @@
 
 //! Extended DNS options
 
+use alloc::boxed::Box;
 use core::fmt;
 
 #[cfg(feature = "serde")]
@@ -17,13 +18,13 @@ use crate::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
     rr::{
-        DNSClass, Name, RData, Record, RecordType,
+        DNSClass, Name, RecordDataDecodable,
         rdata::{
             EdnsOptions,
             opt::{EdnsCode, EdnsOption},
         },
     },
-    serialize::binary::{BinEncodable, BinEncoder},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 /// Edns implements the higher level concepts for working with extended dns as it is used to create or be
@@ -44,6 +45,29 @@ pub struct Edns {
 }
 
 impl Edns {
+    pub(crate) fn decode(name: Name, decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
+        if !name.is_root() {
+            return Err(DecodeError::EdnsNameNotRoot(Box::new(name)));
+        }
+
+        let udp_payload_size = decoder.read_u16()?.unverified();
+        let extended_rcode = decoder.read_u8()?.unverified();
+        let version = decoder.read_u8()?.unverified();
+        let flags = EdnsFlags::from(decoder.read_u16()?.unverified());
+
+        // RDLENGTH        an unsigned 16 bit integer that specifies the length in
+        //                octets of the RDATA field.
+        let rd_length = decoder.read_u16()?;
+        let options = EdnsOptions::read_data(decoder, rd_length)?;
+        Ok(Self {
+            udp_payload_size,
+            extended_rcode,
+            version,
+            flags,
+            options,
+        })
+    }
+
     /// Creates a new extended DNS object.
     #[deprecated(since = "0.26.1", note = "use `Edns::default()` instead")]
     pub fn new() -> Self {
@@ -169,64 +193,9 @@ impl Edns {
     }
 }
 
-// FIXME: this should be a TryFrom
-impl<'a> From<&'a Record> for Edns {
-    fn from(value: &'a Record) -> Self {
-        assert!(value.record_type() == RecordType::OPT);
-
-        let extended_rcode = ((value.ttl & 0xFF00_0000u32) >> 24) as u8;
-        let version = ((value.ttl & 0x00FF_0000u32) >> 16) as u8;
-        let flags = EdnsFlags::from((value.ttl & 0x0000_FFFFu32) as u16);
-        let udp_payload_size = u16::from(value.dns_class);
-
-        let options = match &value.data {
-            RData::Update0(..) | RData::NULL(..) => {
-                // NULL, there was no data in the OPT
-                EdnsOptions::default()
-            }
-            RData::OPT(option_data) => {
-                option_data.clone() // TODO: Edns should just refer to this, have the same lifetime as the Record
-            }
-            _ => {
-                // this should be a coding error, as opposed to a parsing error.
-                panic!("rr_type doesn't match the RData: {:?}", value.data) // valid panic, never should happen
-            }
-        };
-
-        Self {
-            udp_payload_size,
-            extended_rcode,
-            version,
-            flags,
-            options,
-        }
-    }
-}
-
-impl<'a> From<&'a Edns> for Record {
-    /// This returns a Resource Record that is formatted for Edns(0).
-    /// Note: the rcode_high value is only part of the rcode, the rest is part of the base
-    fn from(value: &'a Edns) -> Self {
-        // rebuild the TTL field
-        let mut ttl: u32 = u32::from(value.extended_rcode) << 24;
-        ttl |= u32::from(value.version) << 16;
-        ttl |= u32::from(u16::from(value.flags));
-
-        // now for each option, write out the option array
-        //  also, since this is a hash, there is no guarantee that ordering will be preserved from
-        //  the original binary format.
-        // maybe switch to: https://crates.io/crates/linked-hash-map/
-        let mut record = Self::from_rdata(Name::root(), ttl, RData::OPT(value.options.clone()));
-        record.dns_class = DNSClass::for_opt(value.udp_payload_size);
-        record
-    }
-}
-
 impl BinEncodable for Edns {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        0u8.emit(encoder)?; // Name::root
-        RecordType::OPT.emit(encoder)?; //self.rr_type.emit(encoder)?;
-        DNSClass::for_opt(self.udp_payload_size).emit(encoder)?; // self.dns_class.emit(encoder)?;
+        DNSClass::for_opt(self.udp_payload_size).emit(encoder)?;
 
         // rebuild the TTL field
         let mut ttl = u32::from(self.extended_rcode) << 24;
@@ -330,8 +299,9 @@ mod tests {
         edns.options
             .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
-        let record = Record::from(&edns);
-        let edns_decode = Edns::from(&record);
+        let bytes = edns.to_bytes().expect("failed to encode");
+        let edns_decode =
+            Edns::decode(Name::root(), &mut BinDecoder::new(&bytes)).expect("failed to decode");
 
         assert_eq!(edns.flags.dnssec_ok, edns_decode.flags.dnssec_ok);
         assert_eq!(edns.flags.z, edns_decode.flags.z);
