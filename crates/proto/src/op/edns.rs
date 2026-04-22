@@ -31,15 +31,16 @@ use crate::{
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Edns {
-    // max payload size, minimum of 512, (from RR CLASS)
-    udp_payload_size: u16,
-    // high 8 bits that make up the 12 bit total field when included with the 4bit rcode from the
-    //  header (from TTL)
-    extended_rcode: u8,
-    // Indicates the implementation level of the setter. (from TTL)
-    version: u8,
-    flags: EdnsFlags,
-    options: EdnsOptions,
+    /// Max payload size, minimum of 512, (from RR CLASS)
+    pub udp_payload_size: u16,
+    /// High 8 bits that make up the 12 bit total result code
+    pub extended_rcode: u8,
+    /// Indicates the implementation level of the setter
+    pub version: u8,
+    /// Flags for EDNS (currently only DNSSEC OK)
+    pub flags: EdnsFlags,
+    /// Options for EDNS, these are the variable length portion of the OPT record
+    pub options: EdnsOptions,
 }
 
 impl Edns {
