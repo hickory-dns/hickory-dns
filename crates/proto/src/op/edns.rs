@@ -240,7 +240,7 @@ impl fmt::Display for Edns {
 impl Default for Edns {
     fn default() -> Self {
         Self {
-            udp_payload_size: 512,
+            udp_payload_size: DEFAULT_MAX_PAYLOAD_LEN,
             extended_rcode: 0,
             version: 0,
             flags: EdnsFlags::default(),
