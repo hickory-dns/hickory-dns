@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
 
         let flags = edns.flags_mut();
         flags.dnssec_ok = true;

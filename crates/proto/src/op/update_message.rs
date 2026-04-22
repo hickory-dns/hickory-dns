@@ -9,15 +9,14 @@
 
 use core::fmt::Debug;
 
-use super::{lower_query::LowerQuery, message_request::MessageRequest};
+use crate::{
+    op::{LowerQuery, Message, MessageRequest, Query},
+    rr::{Record, rdata::TSIG},
+};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
-    op::{Edns, OpCode, edns::DEFAULT_MAX_PAYLOAD_LEN},
+    op::{OpCode, edns::DEFAULT_MAX_PAYLOAD_LEN},
     rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
-};
-use crate::{
-    op::{Message, Query},
-    rr::{Record, rdata::TSIG},
 };
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -192,7 +191,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     if use_edns {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -263,7 +262,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     if use_edns {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -355,7 +354,7 @@ pub fn compare_and_swap(
     if use_edns {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -413,7 +412,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     if use_edns {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -472,7 +471,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     if use_edns {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -540,7 +539,7 @@ pub fn delete_all(
     if use_edns {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }
@@ -585,7 +584,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     {
         message
             .edns
-            .get_or_insert_with(Edns::new)
+            .get_or_insert_default()
             .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
             .set_version(0);
     }

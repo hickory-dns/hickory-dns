@@ -73,7 +73,7 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         let response_edns = if let Some(req_edns) = request.edns.as_ref() {
-            resp_edns = Edns::new();
+            resp_edns = Edns::default();
 
             // check our version against the request
             // TODO: what version are we?

@@ -49,7 +49,7 @@ async fn test_truncation() {
     });
     msg.metadata.recursion_desired = true;
     msg.edns = Some({
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_max_payload(max_payload).set_version(0);
         edns
     });

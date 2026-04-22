@@ -12,7 +12,7 @@ use core::ops::{Deref, DerefMut};
 use core::time::Duration;
 
 #[cfg(feature = "std")]
-use super::{DEFAULT_RETRY_FLOOR, Edns};
+use super::DEFAULT_RETRY_FLOOR;
 use super::{Message, Query, edns::DEFAULT_MAX_PAYLOAD_LEN};
 
 /// A set of options for expressing options to how requests should be treated
@@ -94,7 +94,7 @@ impl DnsRequest {
         if options.use_edns {
             message
                 .edns
-                .get_or_insert_with(Edns::new)
+                .get_or_insert_default()
                 .set_max_payload(options.edns_payload_len)
                 .set_dnssec_ok(options.edns_set_dnssec_ok);
         }

@@ -850,7 +850,7 @@ async fn test_update_tsig_valid() {
     // The catalog handles this in normal operation, but we're testing at the level of the
     // SqliteZoneHandler and so have to do this ourselves. Provide a response EDNS
     // with an option to ensure the response signature handles this correctly.
-    let mut edns = Edns::new();
+    let mut edns = Edns::default();
     edns.options_mut().insert(EdnsOption::NSID(
         NSIDPayload::new([0xC0, 0xFF, 0xEE]).unwrap(),
     ));

@@ -515,7 +515,7 @@ mod tests {
         let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_version(0);
         edns.set_max_payload(1232);
         request.edns = Some(edns);
@@ -553,7 +553,7 @@ mod tests {
         );
         request.add_query(query);
         request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_version(0);
         edns.set_max_payload(1232);
         request.edns = Some(edns);
@@ -583,7 +583,7 @@ mod tests {
         let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_version(0);
         edns.set_max_payload(1232);
         request.edns = Some(edns);
@@ -625,7 +625,7 @@ mod tests {
         );
         request.add_query(query);
         request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_version(0);
         edns.set_max_payload(1232);
         request.edns = Some(edns);
@@ -655,7 +655,7 @@ mod tests {
         let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
         request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_version(0);
         edns.set_max_payload(1232);
         request.edns = Some(edns);
@@ -699,7 +699,7 @@ mod tests {
         );
         request.add_query(query);
         request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
+        let mut edns = Edns::default();
         edns.set_version(0);
         edns.set_max_payload(1232);
         request.edns = Some(edns);

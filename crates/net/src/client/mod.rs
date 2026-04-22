@@ -34,8 +34,8 @@ use crate::{
     proto::{
         ProtoError,
         op::{
-            DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message,
-            OpCode, Query, update_message,
+            DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, DnsRequestOptions, DnsResponse, Message, OpCode,
+            Query, update_message,
         },
         rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
     },
@@ -252,7 +252,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         if self.is_using_edns() {
             message
                 .edns
-                .get_or_insert_with(Edns::new)
+                .get_or_insert_default()
                 .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
                 .set_version(0);
         }
