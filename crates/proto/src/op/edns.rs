@@ -31,25 +31,24 @@ use crate::{
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Edns {
+    // max payload size, minimum of 512, (from RR CLASS)
+    udp_payload_size: u16,
     // high 8 bits that make up the 12 bit total field when included with the 4bit rcode from the
     //  header (from TTL)
-    rcode_high: u8,
+    extended_rcode: u8,
     // Indicates the implementation level of the setter. (from TTL)
     version: u8,
     flags: EdnsFlags,
-    // max payload size, minimum of 512, (from RR CLASS)
-    max_payload: u16,
-
     options: EdnsOptions,
 }
 
 impl Default for Edns {
     fn default() -> Self {
         Self {
-            rcode_high: 0,
+            udp_payload_size: 512,
+            extended_rcode: 0,
             version: 0,
             flags: EdnsFlags::default(),
-            max_payload: 512,
             options: EdnsOptions::default(),
         }
     }
@@ -63,7 +62,7 @@ impl Edns {
 
     /// The high order bytes for the response code in the DNS Message
     pub fn rcode_high(&self) -> u8 {
-        self.rcode_high
+        self.extended_rcode
     }
 
     /// Returns the EDNS version
@@ -83,7 +82,7 @@ impl Edns {
 
     /// Maximum supported size of the DNS payload
     pub fn max_payload(&self) -> u16 {
-        self.max_payload
+        self.udp_payload_size
     }
 
     /// Returns the Option associated with the code
@@ -103,7 +102,7 @@ impl Edns {
 
     /// Set the high order bits for the result code.
     pub fn set_rcode_high(&mut self, rcode_high: u8) -> &mut Self {
-        self.rcode_high = rcode_high;
+        self.extended_rcode = rcode_high;
         self
     }
 
@@ -152,7 +151,7 @@ impl Edns {
     /// Set the maximum payload which can be supported
     /// From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`
     pub fn set_max_payload(&mut self, max_payload: u16) -> &mut Self {
-        self.max_payload = max_payload.max(512);
+        self.udp_payload_size = max_payload.max(512);
         self
     }
 }
@@ -162,10 +161,10 @@ impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
         assert!(value.record_type() == RecordType::OPT);
 
-        let rcode_high = ((value.ttl & 0xFF00_0000u32) >> 24) as u8;
+        let extended_rcode = ((value.ttl & 0xFF00_0000u32) >> 24) as u8;
         let version = ((value.ttl & 0x00FF_0000u32) >> 16) as u8;
         let flags = EdnsFlags::from((value.ttl & 0x0000_FFFFu32) as u16);
-        let max_payload = u16::from(value.dns_class);
+        let udp_payload_size = u16::from(value.dns_class);
 
         let options = match &value.data {
             RData::Update0(..) | RData::NULL(..) => {
@@ -182,10 +181,10 @@ impl<'a> From<&'a Record> for Edns {
         };
 
         Self {
-            rcode_high,
+            udp_payload_size,
+            extended_rcode,
             version,
             flags,
-            max_payload,
             options,
         }
     }
@@ -239,7 +238,7 @@ impl fmt::Display for Edns {
         let version = self.version;
         let dnssec_ok = self.flags.dnssec_ok;
         let z_flags = self.flags.z;
-        let max_payload = self.max_payload;
+        let max_payload = self.udp_payload_size;
 
         write!(
             f,
