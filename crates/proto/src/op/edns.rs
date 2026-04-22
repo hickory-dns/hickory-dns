@@ -42,18 +42,6 @@ pub struct Edns {
     options: EdnsOptions,
 }
 
-impl Default for Edns {
-    fn default() -> Self {
-        Self {
-            udp_payload_size: 512,
-            extended_rcode: 0,
-            version: 0,
-            flags: EdnsFlags::default(),
-            options: EdnsOptions::default(),
-        }
-    }
-}
-
 impl Edns {
     /// Creates a new extended DNS object.
     pub fn new() -> Self {
@@ -245,6 +233,18 @@ impl fmt::Display for Edns {
             "version: {version} dnssec_ok: {dnssec_ok} z_flags: {z_flags} max_payload: {max_payload} opts: {opts_len}",
             opts_len = self.options().as_ref().len()
         )
+    }
+}
+
+impl Default for Edns {
+    fn default() -> Self {
+        Self {
+            udp_payload_size: 512,
+            extended_rcode: 0,
+            version: 0,
+            flags: EdnsFlags::default(),
+            options: EdnsOptions::default(),
+        }
     }
 }
 
