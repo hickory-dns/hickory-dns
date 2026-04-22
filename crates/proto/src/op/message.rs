@@ -756,7 +756,7 @@ mod tests {
 
     use crate::rr::rdata::A;
     #[cfg(feature = "std")]
-    use crate::rr::rdata::OPT;
+    use crate::rr::rdata::EdnsOptions;
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
     #[cfg(feature = "__dnssec")]
@@ -953,7 +953,7 @@ mod tests {
             Record::from_rdata(
                 Name::new(),
                 0,
-                RData::OPT(OPT::new(vec![(
+                RData::OPT(EdnsOptions::new(vec![(
                     EdnsCode::Subnet,
                     EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
                 )])),
@@ -1000,7 +1000,7 @@ mod tests {
             Record::from_rdata(
                 Name::new(),
                 0,
-                RData::OPT(OPT::new(vec![(
+                RData::OPT(EdnsOptions::new(vec![(
                     EdnsCode::Subnet,
                     EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
                 )])),
@@ -1026,7 +1026,7 @@ mod tests {
         let opt_record = Record::from_rdata(
             Name::new(),
             0,
-            RData::OPT(OPT::new(vec![(
+            RData::OPT(EdnsOptions::new(vec![(
                 EdnsCode::Subnet,
                 EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
             )])),
@@ -1053,7 +1053,7 @@ mod tests {
         let opt_record = Record::from_rdata(
             Name::new(),
             0,
-            RData::OPT(OPT::new(vec![(
+            RData::OPT(EdnsOptions::new(vec![(
                 EdnsCode::Subnet,
                 EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
             )])),
@@ -1082,7 +1082,7 @@ mod tests {
         let opt_record = Record::from_rdata(
             Name::new(),
             0,
-            RData::OPT(OPT::new(vec![(
+            RData::OPT(EdnsOptions::new(vec![(
                 EdnsCode::Subnet,
                 EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
             )])),

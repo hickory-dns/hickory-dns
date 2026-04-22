@@ -19,7 +19,7 @@ use crate::{
     rr::{
         DNSClass, Name, RData, Record, RecordType,
         rdata::{
-            OPT,
+            EdnsOptions,
             opt::{EdnsCode, EdnsOption},
         },
     },
@@ -40,7 +40,7 @@ pub struct Edns {
     // max payload size, minimum of 512, (from RR CLASS)
     max_payload: u16,
 
-    options: OPT,
+    options: EdnsOptions,
 }
 
 impl Default for Edns {
@@ -50,7 +50,7 @@ impl Default for Edns {
             version: 0,
             flags: EdnsFlags::default(),
             max_payload: 512,
-            options: OPT::default(),
+            options: EdnsOptions::default(),
         }
     }
 }
@@ -92,12 +92,12 @@ impl Edns {
     }
 
     /// Returns the options portion of EDNS
-    pub fn options(&self) -> &OPT {
+    pub fn options(&self) -> &EdnsOptions {
         &self.options
     }
 
     /// Returns a mutable options portion of EDNS
-    pub fn options_mut(&mut self) -> &mut OPT {
+    pub fn options_mut(&mut self) -> &mut EdnsOptions {
         &mut self.options
     }
 
@@ -170,7 +170,7 @@ impl<'a> From<&'a Record> for Edns {
         let options = match &value.data {
             RData::Update0(..) | RData::NULL(..) => {
                 // NULL, there was no data in the OPT
-                OPT::default()
+                EdnsOptions::default()
             }
             RData::OPT(option_data) => {
                 option_data.clone() // TODO: Edns should just refer to this, have the same lifetime as the Record
