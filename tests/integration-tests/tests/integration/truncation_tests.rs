@@ -48,10 +48,9 @@ async fn test_truncation() {
         query
     });
     msg.metadata.recursion_desired = true;
-    msg.edns = Some({
-        let mut edns = Edns::default();
-        edns.set_max_payload(max_payload).set_version(0);
-        edns
+    msg.edns = Some(Edns {
+        udp_payload_size: max_payload,
+        ..Edns::default()
     });
 
     let result = client

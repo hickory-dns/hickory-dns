@@ -147,10 +147,6 @@ async fn test_query(mut client: Client<TokioRuntimeProvider>) {
 
 async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
     let name = Name::from_ascii("WWW.example.com.").unwrap();
-    let mut edns = Edns::default();
-    // garbage subnet value, but lets check
-    edns.options_mut()
-        .insert(EdnsOption::Subnet("1.2.0.0/16".parse().unwrap()));
 
     // TODO: write builder
     let mut msg = Message::query();
@@ -161,7 +157,10 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
         query
     });
 
-    edns.set_max_payload(1232).set_version(0);
+    let mut edns = Edns::default();
+    // garbage subnet value, but lets check
+    edns.options_mut()
+        .insert(EdnsOption::Subnet("1.2.0.0/16".parse().unwrap()));
     msg.edns = Some(edns);
 
     let response = client

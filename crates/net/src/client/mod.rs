@@ -33,10 +33,7 @@ use crate::{
     error::NetError,
     proto::{
         ProtoError,
-        op::{
-            DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, DnsRequestOptions, DnsResponse, Message, OpCode,
-            Query, update_message,
-        },
+        op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, OpCode, Query, update_message},
         rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
     },
     runtime::RuntimeProvider,
@@ -250,11 +247,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         // Extended dns
         if self.is_using_edns() {
-            message
-                .edns
-                .get_or_insert_default()
-                .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-                .set_version(0);
+            message.edns.get_or_insert_default();
         }
 
         // add the query
