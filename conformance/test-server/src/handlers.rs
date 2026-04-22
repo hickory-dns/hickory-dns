@@ -1,16 +1,25 @@
-use crate::{Transport, zone_file};
+use crate::{Handler, Transport, zone_file};
 use anyhow::{Context, Error, Result};
+use async_trait::async_trait;
 use data_encoding::BASE32_DNSSEC;
+use hickory_net::{
+    client::Client,
+    runtime::TokioRuntimeProvider,
+    tcp::TcpClientStream,
+    xfer::{DnsHandle, FirstAnswer},
+};
 use hickory_proto::{
     dnssec::{
         Nsec3HashAlgorithm,
-        rdata::{NSEC3, NSEC3PARAM, RRSIG},
+        rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
-    op::{Message, MessageType, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, Message, MessageType, ResponseCode},
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
     env,
+    net::IpAddr,
+    ops::DerefMut,
     path::Path,
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
@@ -626,6 +635,75 @@ pub(crate) fn qr_not_response_force_tcp_handler(
             .map(Some)
             .with_context(|| "qr_not_response_force_tcp handler: could not serialize Message")
         }
+    }
+}
+
+/// This handler proxies requests to another server, and drops a specific record set from responses.
+pub(crate) struct DropRrsetHandler {
+    ip_address: IpAddr,
+    name: Name,
+    record_type: RecordType,
+}
+
+impl DropRrsetHandler {
+    pub(crate) fn new(ip_address: IpAddr, name: Name, record_type: RecordType) -> Self {
+        Self {
+            ip_address,
+            name,
+            record_type,
+        }
+    }
+}
+
+#[async_trait]
+impl Handler for DropRrsetHandler {
+    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+        let (future, sender) = TcpClientStream::new(
+            (self.ip_address, 53).into(),
+            None,
+            None,
+            TokioRuntimeProvider::new(),
+        );
+        let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
+        tokio::task::spawn(bg);
+
+        let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+        let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
+        let id = query_request.id;
+
+        let mut response = client
+            .send(query_request)
+            .first_answer()
+            .await
+            .context("error sending proxied query")?;
+
+        let Message {
+            answers,
+            authorities,
+            additionals,
+            ..
+        } = response.deref_mut();
+        for section in [answers, authorities, additionals] {
+            section.retain(|record| {
+                if record.name != self.name {
+                    return true;
+                }
+                if record.record_type() == self.record_type {
+                    return false;
+                }
+                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &record.data {
+                    if rrsig.input().type_covered == self.record_type {
+                        return false;
+                    }
+                }
+                true
+            });
+        }
+
+        response.metadata.id = id;
+        Ok(Some(
+            response.to_vec().context("error serializing response")?,
+        ))
     }
 }
 
