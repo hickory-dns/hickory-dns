@@ -333,7 +333,7 @@ impl Implementation {
             },
             Self::TestServer {
                 handler, transport, ..
-            } => &format!("test-server --handler {handler} --transport {transport}")[..],
+            } => &format!("test-server --transport {transport} {handler}")[..],
         };
 
         vec![
