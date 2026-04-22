@@ -56,7 +56,7 @@ where
             .edns
             .as_ref()
             .expect("edns not here")
-            .flags()
+            .flags
             .dnssec_ok
     );
 

@@ -17,10 +17,7 @@ use hickory_net::{NetError, client::ClientHandle, xfer::Protocol};
 #[cfg(feature = "__dnssec")]
 use hickory_net::{client::Client, runtime::TokioRuntimeProvider, xfer::DnsHandle};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::{
-    dnssec::Algorithm,
-    op::{DnsRequest, Edns},
-};
+use hickory_proto::{dnssec::Algorithm, op::DnsRequest};
 use hickory_proto::{
     op::{DnsResponse, ResponseCode},
     rr::{DNSClass, Name, RData, RecordType, rdata::A},
@@ -320,8 +317,8 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
 
     fn send(&self, mut request: DnsRequest) -> Self::Response {
         // mutable block
-        let edns = request.edns.get_or_insert_with(Edns::new);
-        edns.set_dnssec_ok(true);
+        let edns = request.edns.get_or_insert_default();
+        edns.flags.dnssec_ok = true;
 
         println!("sending message");
         self.client.send(request)

@@ -722,7 +722,7 @@ fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
     let mut question_edns = Edns::default();
     if request_nsid {
         question_edns
-            .options_mut()
+            .options
             .insert(EdnsOption::NSID(NSIDPayload::new([]).unwrap()));
     }
 

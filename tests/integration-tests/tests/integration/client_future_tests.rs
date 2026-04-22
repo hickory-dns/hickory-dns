@@ -180,7 +180,7 @@ async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
 
     let mut edns = Edns::default();
     // garbage subnet value, but lets check
-    edns.options_mut()
+    edns.options
         .insert(EdnsOption::Subnet("1.2.0.0/16".parse().unwrap()));
     msg.edns = Some(edns);
 

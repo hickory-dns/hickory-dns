@@ -810,7 +810,7 @@ impl<T: RequestHandler> ServerContext<T> {
             .message
             .edns
             .as_ref()
-            .is_some_and(|edns| edns.flags().dnssec_ok);
+            .is_some_and(|edns| edns.flags.dnssec_ok);
 
         debug!(
             "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op} qflags:{qflags}",

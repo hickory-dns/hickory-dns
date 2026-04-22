@@ -88,7 +88,7 @@ where
         let mut encoder = BinEncoder::new(&mut bytes);
         encoder.set_max_size(match protocol {
             Protocol::Udp => match &self.edns {
-                Some(edns) => edns.max_payload(),
+                Some(edns) => edns.udp_payload_size,
                 // No EDNS, use the recommended max from RFC 6891
                 None => MAX_RECEIVE_BUFFER_SIZE as u16,
             },

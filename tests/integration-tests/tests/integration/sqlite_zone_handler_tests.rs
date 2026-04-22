@@ -851,7 +851,7 @@ async fn test_update_tsig_valid() {
     // SqliteZoneHandler and so have to do this ourselves. Provide a response EDNS
     // with an option to ensure the response signature handles this correctly.
     let mut edns = Edns::default();
-    edns.options_mut().insert(EdnsOption::NSID(
+    edns.options.insert(EdnsOption::NSID(
         NSIDPayload::new([0xC0, 0xFF, 0xEE]).unwrap(),
     ));
     let response = MessageResponseBuilder::new(&request.queries, Some(&edns));

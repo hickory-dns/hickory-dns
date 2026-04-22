@@ -159,7 +159,7 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
 
     let mut edns = Edns::default();
     // garbage subnet value, but lets check
-    edns.options_mut()
+    edns.options
         .insert(EdnsOption::Subnet("1.2.0.0/16".parse().unwrap()));
     msg.edns = Some(edns);
 
@@ -232,7 +232,7 @@ async fn test_secure_query_example(mut client: DnssecClient) {
             .edns
             .as_ref()
             .expect("edns not here")
-            .flags()
+            .flags
             .dnssec_ok
     );
 

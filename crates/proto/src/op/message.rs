@@ -368,15 +368,20 @@ impl Message {
     ///
     /// the max payload value as it's defined in the EDNS OPT pseudo-RR.
     pub fn max_payload(&self) -> u16 {
-        let max_size = self.edns.as_ref().map_or(512, Edns::max_payload);
-        if max_size < 512 { 512 } else { max_size }
+        match self.edns.as_ref() {
+            Some(edns) => Ord::max(512, edns.udp_payload_size),
+            None => 512,
+        }
     }
 
     /// # Return value
     ///
     /// the version as defined in the EDNS record
     pub fn version(&self) -> u8 {
-        self.edns.as_ref().map_or(0, Edns::version)
+        match self.edns.as_ref() {
+            Some(edns) => edns.version,
+            None => 0,
+        }
     }
 
     /// # Return value
@@ -596,7 +601,7 @@ where
 
     if let Some(mut edns) = edns.cloned() {
         // need to commit the error code
-        edns.set_rcode_high(metadata.response_code.high());
+        edns.extended_rcode = metadata.response_code.high();
 
         let count = count_was_truncated(encoder.emit_iter([&Record::from(&edns)]))?;
         additional_count.0 += count.0;
@@ -692,8 +697,7 @@ impl<'r> BinDecodable<'r> for Message {
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
-            let high_response_code = edns.rcode_high();
-            metadata.merge_response_code(high_response_code);
+            metadata.merge_response_code(edns.extended_rcode);
         }
 
         Ok(Self {
