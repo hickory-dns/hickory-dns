@@ -4,7 +4,7 @@ use core::str::FromStr;
 use core::{array, fmt};
 use std::borrow::Cow;
 use std::fmt::Write;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::{any, mem};
 
 use crate::{DEFAULT_TTL, Error, FQDN};
@@ -57,13 +57,14 @@ macro_rules! record_types {
 }
 
 record_types!(
-    A, AAAA, CAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT
+    A, AAAA, CAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT, HINFO
 );
 
 #[derive(Debug, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Record {
     A(A),
+    AAAA(AAAA),
     CAA(CAA),
     CNAME(CNAME),
     DNSKEY(DNSKEY),
@@ -75,6 +76,8 @@ pub enum Record {
     RRSIG(RRSIG),
     SOA(SOA),
     TXT(TXT),
+    MX(MX),
+    HINFO(HINFO),
     Unknown(UnknownRdata),
 }
 
@@ -102,6 +105,12 @@ impl From<A> for Record {
     }
 }
 
+impl From<AAAA> for Record {
+    fn from(v: AAAA) -> Self {
+        Self::AAAA(v)
+    }
+}
+
 impl From<CNAME> for Record {
     fn from(v: CNAME) -> Self {
         Self::CNAME(v)
@@ -123,6 +132,18 @@ impl From<RRSIG> for Record {
 impl From<SOA> for Record {
     fn from(v: SOA) -> Self {
         Self::SOA(v)
+    }
+}
+
+impl From<MX> for Record {
+    fn from(v: MX) -> Self {
+        Self::MX(v)
+    }
+}
+
+impl From<HINFO> for Record {
+    fn from(v: HINFO) -> Self {
+        Self::HINFO(v)
     }
 }
 
@@ -241,6 +262,7 @@ impl FromStr for Record {
 
         let record = match record_type {
             "A" => Self::A(input.parse()?),
+            "AAAA" => Self::AAAA(input.parse()?),
             "CAA" => Self::CAA(input.parse()?),
             "CNAME" => Self::CNAME(input.parse()?),
             "DNSKEY" => Self::DNSKEY(input.parse()?),
@@ -252,6 +274,8 @@ impl FromStr for Record {
             "RRSIG" => Self::RRSIG(input.parse()?),
             "SOA" => Self::SOA(input.parse()?),
             "TXT" => Self::TXT(input.parse()?),
+            "MX" => Self::MX(input.parse()?),
+            "HINFO" => Self::HINFO(input.parse()?),
             _ => {
                 if record_type.starts_with("TYPE") {
                     Self::Unknown(input.parse()?)
@@ -269,6 +293,7 @@ impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::A(a) => write!(f, "{a}"),
+            Self::AAAA(aaaa) => write!(f, "{aaaa}"),
             Self::CAA(caa) => write!(f, "{caa}"),
             Self::CNAME(cname) => write!(f, "{cname}"),
             Self::DS(ds) => write!(f, "{ds}"),
@@ -280,6 +305,8 @@ impl fmt::Display for Record {
             Self::RRSIG(rrsig) => write!(f, "{rrsig}"),
             Self::SOA(soa) => write!(f, "{soa}"),
             Self::TXT(txt) => write!(f, "{txt}"),
+            Self::MX(mx) => write!(f, "{mx}"),
+            Self::HINFO(hinfo) => write!(f, "{hinfo}"),
             Self::Unknown(other) => write!(f, "{other}"),
         }
     }
@@ -331,6 +358,55 @@ impl fmt::Display for A {
 
         let record_type = unqualified_type_name::<Self>();
         write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{ipv4_addr}")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AAAA {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub ipv6_addr: Ipv6Addr,
+}
+
+impl FromStr for AAAA {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self, Error> {
+        let mut columns = input.split_whitespace();
+
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(ipv6_addr),
+            None,
+        ] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            ipv6_addr: ipv6_addr.parse()?,
+        })
+    }
+}
+
+impl fmt::Display for AAAA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            ipv6_addr,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{ipv6_addr}")
     }
 }
 
@@ -1260,6 +1336,112 @@ impl fmt::Display for CAA {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone)]
+pub struct MX {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub preference: u16,
+    pub exchange: FQDN,
+}
+
+impl FromStr for MX {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let mut columns = input.split_whitespace();
+
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(preference),
+            Some(exchange),
+            None,
+        ] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 6 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            preference: preference.parse()?,
+            exchange: exchange.parse()?,
+        })
+    }
+}
+
+impl fmt::Display for MX {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            fqdn,
+            ttl,
+            preference,
+            exchange,
+        } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(
+            f,
+            "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{preference} {exchange}"
+        )
+    }
+}
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone)]
+pub struct HINFO {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub cpu: String,
+    pub os: String,
+}
+
+impl FromStr for HINFO {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self, Error> {
+        let mut columns = input.split_whitespace();
+
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(cpu),
+            Some(os),
+            None,
+        ] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 6 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            cpu: cpu.to_owned(),
+            os: os.to_owned(),
+        })
+    }
+}
+
+impl fmt::Display for HINFO {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self { fqdn, ttl, cpu, os } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{cpu} {os}")
+    }
+}
+
 /// A record of unknown type.
 #[derive(Debug, Clone)]
 pub struct UnknownRdata {
@@ -1394,6 +1576,29 @@ mod tests {
 
         let output = a.to_string();
         assert_eq!(A_INPUT, output);
+
+        Ok(())
+    }
+
+    const AAAA_INPUT: &str = "a.root-servers.net.	586327	IN	AAAA	2001:503:ba3e::2:30";
+
+    #[test]
+    fn aaaa() -> Result<(), Error> {
+        let aaaa @ AAAA {
+            fqdn,
+            ttl,
+            ipv6_addr,
+        } = &AAAA_INPUT.parse()?;
+
+        assert_eq!("a.root-servers.net.", fqdn.as_str());
+        assert_eq!(586327, *ttl);
+        assert_eq!(
+            Ipv6Addr::new(0x2001, 0x503, 0xba3e, 0, 0, 0, 2, 0x30),
+            *ipv6_addr
+        );
+
+        let output = aaaa.to_string();
+        assert_eq!(AAAA_INPUT, output);
 
         Ok(())
     }
@@ -1743,6 +1948,23 @@ mod tests {
         Ok(())
     }
 
+    const HINFO_INPUT: &str = "ai.example.	0	IN	HINFO	KLH-10 ITS";
+
+    #[test]
+    fn hinfo() -> Result<(), Error> {
+        let hinfo: HINFO = HINFO_INPUT.parse()?;
+
+        assert_eq!("ai.example.", hinfo.fqdn.as_str());
+        assert_eq!(0, hinfo.ttl);
+        assert_eq!("KLH-10", hinfo.cpu);
+        assert_eq!("ITS", hinfo.os);
+
+        let output = hinfo.to_string();
+        assert_eq!(HINFO_INPUT, output);
+
+        Ok(())
+    }
+
     const CAA_INPUT: &str = "certs.example.com.	86400	IN	CAA	0 issue ca1.example.net";
 
     #[test]
@@ -1767,9 +1989,32 @@ mod tests {
         Ok(())
     }
 
+    const MX_INPUT: &str = "ietf.org.	60	IN	MX	0 mail2.ietf.org.";
+
+    #[test]
+    fn mx() -> Result<(), Error> {
+        let mx @ MX {
+            fqdn,
+            ttl,
+            preference,
+            exchange,
+        } = &MX_INPUT.parse()?;
+
+        assert_eq!(FQDN("ietf.org.").unwrap(), *fqdn);
+        assert_eq!(60, *ttl);
+        assert_eq!(0, *preference);
+        assert_eq!(FQDN("mail2.ietf.org.").unwrap(), *exchange);
+
+        let output = mx.to_string();
+        assert_eq!(MX_INPUT, output);
+
+        Ok(())
+    }
+
     #[test]
     fn any() -> Result<(), Error> {
         assert!(matches!(A_INPUT.parse()?, Record::A(..)));
+        assert!(matches!(AAAA_INPUT.parse()?, Record::AAAA(..)));
         assert!(matches!(CAA_INPUT.parse()?, Record::CAA(..)));
         assert!(matches!(DNSKEY_INPUT.parse()?, Record::DNSKEY(..)));
         assert!(matches!(DS_INPUT.parse()?, Record::DS(..)));
@@ -1780,6 +2025,8 @@ mod tests {
         assert!(matches!(RRSIG_INPUT.parse()?, Record::RRSIG(..)));
         assert!(matches!(SOA_INPUT.parse()?, Record::SOA(..)));
         assert!(matches!(TXT_INPUT.parse()?, Record::TXT(..)));
+        assert!(matches!(HINFO_INPUT.parse()?, Record::HINFO(..)));
+        assert!(matches!(MX_INPUT.parse()?, Record::MX(..)));
 
         Ok(())
     }
