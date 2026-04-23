@@ -45,7 +45,7 @@ fn parent_ns_in_authority_does_not_prevent_resolution() -> Result<(), Error> {
     // Use the custom handler that returns parent NS records for subdomain NS
     // queries, mimicking twtrdns.net behavior.
     let example_ns = NameServer::new(
-        &Implementation::test_server("parent_ns_in_authority", "udp"),
+        &Implementation::test_server("parent_ns_in_authority", Vec::new(), "udp"),
         FQDN("example.testing.")?,
         &network,
     )?;
