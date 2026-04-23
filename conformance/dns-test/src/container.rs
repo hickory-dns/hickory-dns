@@ -118,6 +118,7 @@ impl From<Implementation> for Image {
             Implementation::Pdns => Self::Pdns,
             Implementation::TestServer {
                 handler,
+                handler_args: _,
                 repo,
                 transport,
             } => Self::TestServer {

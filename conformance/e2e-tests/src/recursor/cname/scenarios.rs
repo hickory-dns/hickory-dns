@@ -175,7 +175,7 @@ fn cname_lookup_limit_test() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("cname_loop", "both"),
+        &Implementation::test_server("cname_loop", Vec::new(), "both"),
         FQDN::TEST_TLD,
         &network,
     )?;

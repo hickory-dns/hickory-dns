@@ -71,7 +71,7 @@ fn nsec3_does_not_cover() -> Result<(), Error> {
     let sign_settings = SignSettings::default();
 
     let mut leaf_ns = NameServer::new(
-        &Implementation::test_server("nsec3_nocover", "both"),
+        &Implementation::test_server("nsec3_nocover", Vec::new(), "both"),
         FQDN::TEST_DOMAIN,
         &network,
     )?;
