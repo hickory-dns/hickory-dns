@@ -173,6 +173,7 @@ impl Graph {
 pub struct NameServerBuilder {
     zone: FQDN,
     nameserver_fqdn: Option<FQDN>,
+    rname_fqdn: Option<FQDN>,
     implementation: Implementation,
     network: Network,
     pki: Option<Rc<Pki>>,
@@ -190,6 +191,7 @@ impl NameServerBuilder {
         let Self {
             zone,
             nameserver_fqdn,
+            rname_fqdn,
             implementation,
             network,
             pki,
@@ -197,7 +199,7 @@ impl NameServerBuilder {
 
         let ns_count = ns_count();
         let nameserver = nameserver_fqdn.unwrap_or_else(|| primary_ns(ns_count, &zone));
-        let admin = admin_ns(ns_count, &zone);
+        let admin = rname_fqdn.unwrap_or_else(|| admin_ns(ns_count, &zone));
 
         let image = implementation.clone().into();
         let container = Container::run(&image, &network)?;
@@ -229,6 +231,12 @@ impl NameServerBuilder {
     /// Override the FQDN of the name server.
     pub fn nameserver_fqdn(mut self, nameserver_fqdn: FQDN) -> Self {
         self.nameserver_fqdn = Some(nameserver_fqdn);
+        self
+    }
+
+    /// Override the mailbox of the person responsible for this zone.
+    pub fn rname_fqdn(mut self, rname_fqdn: FQDN) -> Self {
+        self.rname_fqdn = Some(rname_fqdn);
         self
     }
 
@@ -304,6 +312,7 @@ impl NameServer<Stopped> {
         NameServerBuilder {
             zone,
             nameserver_fqdn: None,
+            rname_fqdn: None,
             implementation,
             network,
             pki: None,
