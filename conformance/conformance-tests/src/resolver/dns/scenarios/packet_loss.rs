@@ -17,7 +17,7 @@ fn packet_loss_udp() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("packet_loss", "udp"),
+        &Implementation::test_server("packet_loss", Vec::new(), "udp"),
         FQDN::TEST_TLD,
         &network,
     )?;

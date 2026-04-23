@@ -76,6 +76,7 @@ pub enum Implementation {
     EdeDotCom,
     TestServer {
         handler: String,
+        handler_args: Vec<String>,
         repo: Repository<'static>,
         transport: String,
     },
@@ -102,10 +103,15 @@ impl Implementation {
     }
 
     /// Returns the latest dns-test local revision
-    pub fn test_server(handler: &'static str, transport: &'static str) -> Self {
+    pub fn test_server(
+        handler: &'static str,
+        handler_args: Vec<String>,
+        transport: &'static str,
+    ) -> Self {
         Self::TestServer {
             repo: Repository(crate::repo_root()),
             handler: String::from(handler),
+            handler_args,
             transport: String::from(transport),
         }
     }
@@ -332,8 +338,14 @@ impl Implementation {
                 Role::Resolver | Role::Forwarder => "unbound -d",
             },
             Self::TestServer {
-                handler, transport, ..
-            } => &format!("test-server --transport {transport} {handler}")[..],
+                handler,
+                handler_args,
+                transport,
+                ..
+            } => &format!(
+                "test-server --transport {transport} {handler} {}",
+                handler_args.join(" ")
+            )[..],
         };
 
         vec![

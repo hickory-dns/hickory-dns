@@ -19,7 +19,7 @@ fn tx_id_validation_test() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("bad_txid", "udp"),
+        &Implementation::test_server("bad_txid", Vec::new(), "udp"),
         FQDN::TEST_TLD,
         &network,
     )?;
@@ -73,7 +73,7 @@ fn case_randomization_enabled() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("bad_case", "udp"),
+        &Implementation::test_server("bad_case", Vec::new(), "udp"),
         FQDN::TEST_TLD,
         &network,
     )?;
@@ -130,7 +130,7 @@ fn case_randomization_disabled() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("bad_case", "udp"),
+        &Implementation::test_server("bad_case", Vec::new(), "udp"),
         FQDN::TEST_TLD,
         &network,
     )?;
@@ -252,7 +252,7 @@ fn out_of_bailiwick_rejection() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("bailiwick", "udp"),
+        &Implementation::test_server("bailiwick", Vec::new(), "udp"),
         FQDN::TEST_TLD.push_label("valid"),
         &network,
     )?;
@@ -322,7 +322,7 @@ fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("bailiwick", "udp"),
+        &Implementation::test_server("bailiwick", Vec::new(), "udp"),
         FQDN::TEST_TLD.push_label("example"),
         &network,
     )?;
@@ -395,7 +395,7 @@ fn qr_validation_test_impl(handler: &'static str, proto: &'static str) -> Result
     let network = Network::new()?;
 
     let leaf_ns = NameServer::new(
-        &Implementation::test_server(handler, proto),
+        &Implementation::test_server(handler, Vec::new(), proto),
         FQDN::TEST_TLD,
         &network,
     )?;
