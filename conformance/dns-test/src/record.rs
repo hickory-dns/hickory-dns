@@ -923,6 +923,7 @@ pub struct NSEC3PARAM {
     pub hash_alg: u8,
     pub flags: u8,
     pub iterations: u16,
+    pub salt: Vec<u8>,
 }
 
 impl FromStr for NSEC3PARAM {
@@ -939,7 +940,7 @@ impl FromStr for NSEC3PARAM {
             Some(hash_alg),
             Some(flags),
             Some(iterations),
-            Some(dash),
+            Some(salt_or_dash),
             None,
         ] = array::from_fn(|_| columns.next())
         else {
@@ -949,9 +950,11 @@ impl FromStr for NSEC3PARAM {
         check_record_type::<Self>(record_type)?;
         check_class(class)?;
 
-        if dash != "-" {
-            todo!("salt is not implemented")
-        }
+        let salt = if salt_or_dash == "-" {
+            Vec::new()
+        } else {
+            hex::decode(salt_or_dash)?
+        };
 
         Ok(Self {
             zone: zone.parse()?,
@@ -959,6 +962,7 @@ impl FromStr for NSEC3PARAM {
             hash_alg: hash_alg.parse()?,
             flags: flags.parse()?,
             iterations: iterations.parse()?,
+            salt,
         })
     }
 }
@@ -971,13 +975,19 @@ impl fmt::Display for NSEC3PARAM {
             hash_alg,
             flags,
             iterations,
+            salt,
         } = self;
 
         let record_type = unqualified_type_name::<Self>();
         write!(
             f,
-            "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{hash_alg} {flags} {iterations} -"
-        )
+            "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{hash_alg} {flags} {iterations} "
+        )?;
+        if salt.is_empty() {
+            f.write_str("-")
+        } else {
+            write!(f, "{}", hex::encode(salt))
+        }
     }
 }
 
@@ -1896,6 +1906,7 @@ mod tests {
             hash_alg,
             flags,
             iterations,
+            salt,
         } = &NSEC3PARAM_INPUT.parse()?;
 
         assert_eq!(FQDN("com.")?, *zone);
@@ -1903,9 +1914,34 @@ mod tests {
         assert_eq!(1, *hash_alg);
         assert_eq!(0, *flags);
         assert_eq!(0, *iterations);
+        assert_eq!(b"".as_slice(), salt);
 
         let output = nsec3param.to_string();
         assert_eq!(NSEC3PARAM_INPUT, output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn nsec3param_salt() -> Result<(), Error> {
+        let input = "com.	86238	IN	NSEC3PARAM	1 0 0 aabbccdd";
+        let nsec3param @ NSEC3PARAM {
+            zone,
+            ttl,
+            hash_alg,
+            flags,
+            iterations,
+            salt,
+        } = &input.parse()?;
+
+        assert_eq!(FQDN("com.")?, *zone);
+        assert_eq!(86238, *ttl);
+        assert_eq!(1, *hash_alg);
+        assert_eq!(0, *flags);
+        assert_eq!(0, *iterations);
+        assert_eq!(b"\xaa\xbb\xcc\xdd".as_slice(), salt);
+
+        assert_eq!(input, nsec3param.to_string());
 
         Ok(())
     }
