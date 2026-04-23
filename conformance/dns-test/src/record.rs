@@ -249,6 +249,50 @@ impl Record {
             _ => Err(self),
         }
     }
+
+    /// Returns the name of the resource record.
+    pub fn name(&self) -> &FQDN {
+        match self {
+            Self::A(a) => &a.fqdn,
+            Self::AAAA(aaaa) => &aaaa.fqdn,
+            Self::CAA(caa) => &caa.fqdn,
+            Self::CNAME(cname) => &cname.fqdn,
+            Self::DNSKEY(dnskey) => &dnskey.zone,
+            Self::DS(ds) => &ds.zone,
+            Self::NS(ns) => &ns.zone,
+            Self::NSEC(nsec) => &nsec.fqdn,
+            Self::NSEC3(nsec3) => &nsec3.fqdn,
+            Self::NSEC3PARAM(nsec3_param) => &nsec3_param.zone,
+            Self::RRSIG(rrsig) => &rrsig.fqdn,
+            Self::SOA(soa) => &soa.zone,
+            Self::TXT(txt) => &txt.fqdn,
+            Self::MX(mx) => &mx.fqdn,
+            Self::HINFO(hinfo) => &hinfo.fqdn,
+            Self::Unknown(unknown_rdata) => &unknown_rdata.fqdn,
+        }
+    }
+
+    /// Returns the record type of the resource record.
+    pub fn record_type(&self) -> RecordType {
+        match self {
+            Self::A(_) => RecordType::A,
+            Self::AAAA(_) => RecordType::AAAA,
+            Self::CAA(_) => RecordType::CAA,
+            Self::CNAME(_) => RecordType::CNAME,
+            Self::DNSKEY(_) => RecordType::DNSKEY,
+            Self::DS(_) => RecordType::DS,
+            Self::NS(_) => RecordType::NS,
+            Self::NSEC(_) => RecordType::NSEC,
+            Self::NSEC3(_) => RecordType::NSEC3,
+            Self::NSEC3PARAM(_) => RecordType::NSEC3PARAM,
+            Self::RRSIG(_) => RecordType::RRSIG,
+            Self::SOA(_) => RecordType::SOA,
+            Self::TXT(_) => RecordType::TXT,
+            Self::MX(_) => RecordType::MX,
+            Self::HINFO(_) => RecordType::HINFO,
+            Self::Unknown(unknown_rdata) => RecordType::Unknown(unknown_rdata.r#type),
+        }
+    }
 }
 
 impl FromStr for Record {
