@@ -483,7 +483,6 @@ impl ZoneHandler for BlocklistZoneHandler {
         None
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "blocklist"
     }
