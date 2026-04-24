@@ -1164,7 +1164,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
         self.in_memory.nx_proof_kind()
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "sqlite"
     }

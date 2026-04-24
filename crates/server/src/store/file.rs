@@ -226,7 +226,6 @@ impl ZoneHandler for FileZoneHandler {
         self.in_memory.nx_proof_kind()
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "file"
     }

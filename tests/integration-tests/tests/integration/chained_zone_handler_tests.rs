@@ -257,7 +257,6 @@ impl ZoneHandler for TestZoneHandler {
         (res, None)
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "test"
     }
