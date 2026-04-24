@@ -165,39 +165,140 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         #[cfg(feature = "metrics")]
         let _guard = self.metrics.new_inflight_query();
 
+        let (response, depth, _cache_hit) = self
+            .resolve_inner(query.clone(), request_time, depth)
+            .await?;
+
+        let response = self
+            .resolve_cnames(response, query, request_time, depth, cname_limit)
+            .await?;
+
+        // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
+        // explicitly requested
+        let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
+
+        #[cfg(feature = "metrics")]
+        {
+            let duration = request_time.elapsed();
+            if _cache_hit {
+                self.metrics.cache_hit_duration.record(duration);
+            } else {
+                self.metrics.cache_miss_duration.record(duration);
+            }
+            self.metrics
+                .cache_size
+                .set(self.response_cache.entry_count() as f64);
+        }
+
+        Ok(result)
+    }
+
+    /// Handle CNAME expansion for the current query.
+    ///
+    /// Iteratively walks the CNAME chain by querying each unresolved target via
+    /// `resolve_inner` and appending the chain records back into the response,
+    /// then re-scanning until no new CNAME targets appear.
+    async fn resolve_cnames(
+        &self,
+        mut response: Message,
+        query: Query,
+        now: Instant,
+        mut depth: u8,
+        cname_limit: Arc<AtomicU8>,
+    ) -> Result<Message, RecursorError> {
+        let query_type = query.query_type();
+
+        // Don't resolve CNAME lookups for a CNAME (or ANY) query
+        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
+            return Ok(response);
+        }
+
+        let mut pending = Vec::new();
+        loop {
+            // Collect CNAME targets in the current response that don't already
+            // have a record at the canonical name.
+            for rec in response.all_sections() {
+                let CNAME(name) = &rec.data else {
+                    continue;
+                };
+
+                // Check if the response has data for the canonical name.
+                if response.answers.iter().any(|record| record.name == name.0) {
+                    continue;
+                }
+
+                if !pending.contains(&name.0) {
+                    pending.push(name.0.clone());
+                }
+            }
+
+            if pending.is_empty() {
+                return Ok(response);
+            }
+
+            depth += 1;
+            RecursorError::recursion_exceeded(self.recursion_limit, depth, query.name())?;
+
+            let mut cname_chain = vec![];
+            for target in pending.drain(..) {
+                let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
+                if count > MAX_CNAME_LOOKUPS {
+                    warn!("cname limit exceeded for query {query}");
+                    return Err(RecursorError::MaxRecordLimitExceeded {
+                        count: count as usize,
+                        record_type: RecordType::CNAME,
+                    });
+                }
+
+                let cname_query = Query::query(target, query_type);
+
+                // Note that we aren't worried about whether the intermediates are local or remote
+                // to the original queried name, or included or not included in the original
+                // response. `resolve_inner()` will either pull the intermediates out of the cache or
+                // query the appropriate nameservers if necessary.
+                let (cname_response, new_depth, _) =
+                    self.resolve_inner(cname_query, now, depth).await?;
+                depth = new_depth;
+
+                // Here, we're looking for either the terminal record type (matching the
+                // original query, or another CNAME.
+                cname_chain.extend(cname_response.answers.iter().filter_map(|r| {
+                    if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
+                        return Some(r.to_owned());
+                    }
+
+                    #[cfg(feature = "__dnssec")]
+                    if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &r.data {
+                        let type_covered = rrsig.input().type_covered;
+                        if type_covered == query_type || type_covered == RecordType::CNAME {
+                            return Some(r.to_owned());
+                        }
+                    }
+
+                    None
+                }));
+            }
+
+            response.answers.extend(cname_chain);
+        }
+    }
+
+    /// Resolve a single query without expanding CNAMEs or stripping DNSSEC records.
+    ///
+    /// Returns the response message, the (possibly updated) recursion depth, and
+    /// whether the response was served from the cache as an authoritative answer.
+    async fn resolve_inner(
+        &self,
+        query: Query,
+        request_time: Instant,
+        depth: u8,
+    ) -> Result<(Message, u8, bool), RecursorError> {
         if let Some(result) = self.response_cache.get(&query, request_time) {
             let response = result?;
             if response.authoritative {
                 #[cfg(feature = "metrics")]
-                {
-                    self.metrics.cache_hit_counter.increment(1);
-                    self.metrics
-                        .cache_size
-                        .set(self.response_cache.entry_count() as f64);
-                }
-
-                let response = self
-                    .resolve_cnames(
-                        response,
-                        query.clone(),
-                        request_time,
-                        query_has_dnssec_ok,
-                        depth,
-                        cname_limit,
-                    )
-                    .await?;
-
-                let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
-                #[cfg(feature = "metrics")]
-                {
-                    self.metrics
-                        .cache_hit_duration
-                        .record(request_time.elapsed());
-                    self.metrics
-                        .cache_size
-                        .set(self.response_cache.entry_count() as f64);
-                }
-                return Ok(result);
+                self.metrics.cache_hit_counter.increment(1);
+                return Ok((response, depth, true));
             }
         }
 
@@ -268,132 +369,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
         };
 
-        let response = self
-            .resolve_cnames(
-                response,
-                query.clone(),
-                request_time,
-                query_has_dnssec_ok,
-                depth,
-                cname_limit,
-            )
-            .await?;
-
-        // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
-        // explicitly requested
-        let response = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
-        #[cfg(feature = "metrics")]
-        {
-            self.metrics
-                .cache_miss_duration
-                .record(request_time.elapsed());
-            self.metrics
-                .cache_size
-                .set(self.response_cache.entry_count() as f64);
-        }
-        Ok(response)
-    }
-
-    pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
-        &self.pool_context
-    }
-
-    /// Handle CNAME expansion for the current query
-    #[async_recursion]
-    async fn resolve_cnames(
-        &self,
-        mut response: Message,
-        query: Query,
-        now: Instant,
-        query_has_dnssec_ok: bool,
-        mut depth: u8,
-        cname_limit: Arc<AtomicU8>,
-    ) -> Result<Message, RecursorError> {
-        let query_type = query.query_type();
-
-        // Don't resolve CNAME lookups for a CNAME (or ANY) query
-        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
-            return Ok(response);
-        }
-
-        // Return early if there aren't any CNAME in the response.
-        let has_cname = response
-            .all_sections()
-            .any(|rec| matches!(rec.data, CNAME(_)));
-        if !has_cname {
-            return Ok(response);
-        }
-
-        depth += 1;
-        RecursorError::recursion_exceeded(self.recursion_limit, depth, query.name())?;
-
-        let mut cname_chain = vec![];
-
-        for rec in response.all_sections() {
-            let CNAME(name) = &rec.data else {
-                continue;
-            };
-
-            // Check if the response has data for the canonical name.
-            if response.answers.iter().any(|record| record.name == name.0) {
-                continue;
-            }
-
-            let cname_query = Query::query(name.0.clone(), query_type);
-
-            let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
-            if count > MAX_CNAME_LOOKUPS {
-                warn!("cname limit exceeded for query {query}");
-                return Err(RecursorError::MaxRecordLimitExceeded {
-                    count: count as usize,
-                    record_type: RecordType::CNAME,
-                });
-            }
-
-            // Note that we aren't worried about whether the intermediates are local or remote
-            // to the original queried name, or included or not included in the original
-            // response.  Resolve will either pull the intermediates out of the cache or query
-            // the appropriate nameservers if necessary.
-            let response = match self
-                .resolve(
-                    cname_query,
-                    now,
-                    query_has_dnssec_ok,
-                    depth,
-                    cname_limit.clone(),
-                )
-                .await
-            {
-                Ok(cname_r) => cname_r,
-                Err(e) => {
-                    return Err(e);
-                }
-            };
-
-            // Here, we're looking for either the terminal record type (matching the
-            // original query, or another CNAME.
-            cname_chain.extend(response.answers.iter().filter_map(|r| {
-                if r.record_type() == query_type || r.record_type() == RecordType::CNAME {
-                    return Some(r.to_owned());
-                }
-
-                #[cfg(feature = "__dnssec")]
-                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &r.data {
-                    let type_covered = rrsig.input().type_covered;
-                    if type_covered == query_type || type_covered == RecordType::CNAME {
-                        return Some(r.to_owned());
-                    }
-                }
-
-                None
-            }));
-        }
-
-        if !cname_chain.is_empty() {
-            response.answers.extend(cname_chain);
-        }
-
-        Ok(response)
+        Ok((response, depth, false))
     }
 
     /// Retrieve a response from the cache, filtering out non-authoritative responses.
@@ -812,6 +788,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         Ok((ttl, depth))
+    }
+
+    pub(crate) fn pool_context(&self) -> &Arc<PoolContext> {
+        &self.pool_context
     }
 }
 
