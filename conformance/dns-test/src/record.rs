@@ -153,6 +153,12 @@ impl From<HINFO> for Record {
     }
 }
 
+impl From<TXT> for Record {
+    fn from(v: TXT) -> Self {
+        Self::TXT(v)
+    }
+}
+
 impl Record {
     pub fn as_rrsig_mut(&mut self) -> Option<&mut RRSIG> {
         if let Self::RRSIG(rrsig) = self {

@@ -11,6 +11,7 @@ use dns_test::{
 
 mod rfc_4035_appendix_b;
 mod rfc_5155_appendix_b;
+mod rfc_7129_section_5_4;
 
 /// This runs multiple tests to confirm that validation fails when specific records are excluded.
 ///
