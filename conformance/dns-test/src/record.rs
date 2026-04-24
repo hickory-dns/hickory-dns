@@ -14,7 +14,7 @@ const CLASS: &str = "IN"; // "internet"
 macro_rules! record_types {
     ($($variant:ident),*) => {
         #[allow(clippy::upper_case_acronyms)]
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Debug, PartialEq, Clone, Copy)]
         pub enum RecordType {
             $($variant),*,
             Unknown(u16),
@@ -84,6 +84,12 @@ pub enum Record {
 impl From<NSEC3> for Record {
     fn from(v: NSEC3) -> Self {
         Self::NSEC3(v)
+    }
+}
+
+impl From<NSEC3PARAM> for Record {
+    fn from(v: NSEC3PARAM) -> Self {
+        Self::NSEC3PARAM(v)
     }
 }
 
