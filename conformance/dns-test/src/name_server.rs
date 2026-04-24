@@ -724,6 +724,10 @@ impl<S> NameServer<S> {
         &self.zone_file
     }
 
+    pub fn zone_file_mut(&mut self) -> &mut ZoneFile {
+        &mut self.zone_file
+    }
+
     pub fn zone(&self) -> &FQDN {
         self.zone_file.origin()
     }
