@@ -719,6 +719,11 @@ impl<T: RequestHandler> ServerContext<T> {
             return;
         };
 
+        if header.metadata.message_type == MessageType::Response {
+            // Don't process response messages to avoid DoS attacks from reflection.
+            return;
+        }
+
         if matches!(header.metadata.op_code, OpCode::Unknown(_)) {
             error_response_handler(
                 protocol,
@@ -796,11 +801,6 @@ impl<T: RequestHandler> ServerContext<T> {
                 return;
             }
         };
-
-        if request.message.metadata.message_type == MessageType::Response {
-            // Don't process response messages to avoid DoS attacks from reflection.
-            return;
-        }
 
         let id = request.message.metadata.id;
         let qflags = request.message.metadata.flags();
