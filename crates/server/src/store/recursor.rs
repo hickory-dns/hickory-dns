@@ -160,7 +160,6 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
         None
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "recursive"
     }

@@ -206,7 +206,6 @@ pub trait ZoneHandler: Send + Sync {
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 
     /// Returns the zone handler metrics label.
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str;
 }
 

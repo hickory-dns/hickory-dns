@@ -282,7 +282,6 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         None
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "forwarder"
     }
