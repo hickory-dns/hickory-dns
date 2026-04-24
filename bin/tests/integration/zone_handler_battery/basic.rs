@@ -738,6 +738,112 @@ pub fn test_wildcard_chain(handler: impl ZoneHandler) {
     }
 }
 
+pub fn test_wildcard_a(handler: impl ZoneHandler) {
+    // check direct lookup
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_METADATA,
+            Query::query(
+                Name::from_str("*.awildcard.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
+        .0
+        .unwrap();
+
+    let record = lookup
+        .into_iter()
+        .next()
+        .expect("A record not found in zone handler");
+
+    match &record.data {
+        RData::A(a) => {
+            assert_eq!(Ipv4Addr::new(127, 0, 0, 4), a.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
+
+    // check wildcard lookup
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_METADATA,
+            Query::query(
+                Name::from_str("www.awildcard.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
+        .0
+        .expect("lookup of www.awildcard.example.com. failed");
+
+    let record = lookup
+        .into_iter()
+        .next()
+        .inspect(|r| {
+            assert_eq!(
+                r.name,
+                Name::from_str("www.awildcard.example.com.").unwrap()
+            );
+        })
+        .expect("A record not found in zone handler");
+
+    match &record.data {
+        RData::A(a) => {
+            assert_eq!(Ipv4Addr::new(127, 0, 0, 4), a.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
+}
+
+pub fn test_wildcard_a_subdomain(handler: impl ZoneHandler) {
+    // check wildcard lookup
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_METADATA,
+            Query::query(
+                Name::from_str("subdomain.www.awildcard.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        ),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
+        .0
+        .expect("lookup of subdomain.www.awildcard.example.com. failed");
+
+    let record = lookup
+        .into_iter()
+        .next()
+        .inspect(|r| {
+            assert_eq!(
+                r.name,
+                Name::from_str("subdomain.www.awildcard.example.com.").unwrap()
+            );
+        })
+        .expect("A record not found in zone handler");
+
+    match &record.data {
+        RData::A(a) => {
+            assert_eq!(Ipv4Addr::new(127, 0, 0, 4), a.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
+}
+
 pub fn test_srv(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
@@ -856,6 +962,8 @@ macro_rules! basic_battery {
                     test_wildcard,
                     test_wildcard_subdomain,
                     test_wildcard_chain,
+                    test_wildcard_a,
+                    test_wildcard_a_subdomain,
                     test_srv,
                     test_invalid_lookup,
                 );
