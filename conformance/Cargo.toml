@@ -1,5 +1,6 @@
 [workspace]
-members = ["compatibility-tests", "conformance-tests", "dns-test", "e2e-tests", "ede-dot-com", "test-server"]
+members = ["compatibility-tests", "conformance-tests", "dns-test", "e2e-tests", "ede-dot-com"]
+exclude = ["test-server"]
 resolver = "2"
 
 [workspace.lints.rust]

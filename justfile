@@ -32,34 +32,34 @@ std: (default "--no-default-features" "--ignore=\\{hickory-proto\\}")
     cargo {{MSRV}} test --locked --package hickory-proto --no-default-features --features="std"
 
 # Check, build, and test all crates with tls-aws-lc-rs enabled
-tls-aws-lc-rs: (default "--features=tls-aws-lc-rs" "--ignore=\\{hickory-proto,test-support\\}")
+tls-aws-lc-rs: (default "--features=tls-aws-lc-rs" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with https-aws-lc-rs enabled
-https-aws-lc-rs: (default "--features=https-aws-lc-rs" "--ignore=\\{hickory-proto,test-support\\}")
+https-aws-lc-rs: (default "--features=https-aws-lc-rs" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with quic-aws-lc-rs enabled
-quic-aws-lc-rs: (default "--features=quic-aws-lc-rs" "--ignore=\\{hickory-proto,test-support\\}")
+quic-aws-lc-rs: (default "--features=quic-aws-lc-rs" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with h3-aws-lc-rs enabled
-h3-aws-lc-rs: (default "--features=h3-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support\\}")
+h3-aws-lc-rs: (default "--features=h3-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support,test-server\\}")
 
 # Check, build, and test all crates with tls-ring enabled
-tls-ring: (default "--features=tls-ring" "--ignore=\\{hickory-proto,test-support\\}")
+tls-ring: (default "--features=tls-ring" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with https-ring enabled
-https-ring: (default "--features=https-ring" "--ignore=\\{hickory-proto,test-support\\}")
+https-ring: (default "--features=https-ring" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with quic-ring enabled
-quic-ring: (default "--features=quic-ring" "--ignore=\\{hickory-proto,test-support\\}")
+quic-ring: (default "--features=quic-ring" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with h3-ring enabled
-h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support\\}")
+h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support,test-server\\}")
 
 # Check, build, and test all crates with dnssec-aws-lc-rs enabled
-dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{test-support\\}")
+dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{test-support,test-server\\}")
 
 # Check, build, and test all crates with dnssec-ring enabled
-dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{test-support\\}")
+dnssec-ring: (default "--features=dnssec-ring" "--ignore=\\{test-support,test-server\\}")
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
@@ -75,7 +75,7 @@ test feature='' ignore='':
     cargo ws exec {{ignore}} cargo {{MSRV}} test --locked --all-targets {{feature}}
 
 doc feature='':
-    cargo ws exec --ignore=hickory-dns cargo {{MSRV}} test --locked --doc {{feature}}
+    cargo ws exec "--ignore={hickory-dns,test-server}" cargo {{MSRV}} test --locked --doc {{feature}}
 
 test-docs:
     RUSTDOCFLAGS="-Dwarnings" cargo ws exec cargo doc --locked --all-features --no-deps --document-private-items
