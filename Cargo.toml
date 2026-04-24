@@ -9,6 +9,7 @@ members = [
     "util",
     "tests/integration-tests",
     "tests/test-support",
+    "conformance/test-server",
 ]
 exclude = ["fuzz"]
 
