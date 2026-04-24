@@ -29,6 +29,8 @@ server          SRV     1 1 443 alias
 
 *.wildcard      CNAME   www
 
+*.awildcard     A       127.0.0.4
+
 no-service 86400 IN MX 0 .
 
 $INCLUDE include.example.com.zone
