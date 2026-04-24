@@ -9,6 +9,7 @@ use dns_test::{
     zone_file::SignSettings,
 };
 
+mod rfc_4035_appendix_b;
 mod rfc_5155_appendix_b;
 
 /// This runs multiple tests to confirm that validation fails when specific records are excluded.
@@ -128,13 +129,12 @@ fn test_record_removal_validation_failure(
             .start()?;
         let response = client.dig(dig_settings, resolver.ipv4_addr(), query_type, &query_name)?;
 
-        println!("{}", resolver.logs()?);
-
         assert_eq!(
             response.status,
             DigStatus::SERVFAIL,
             "did not get SERVFAIL when excluding {knockout_name} {knockout_type} from \
-            responses\n{response:#?}"
+            responses\n{}\n{response:#?}",
+            resolver.logs()?
         );
     }
 
