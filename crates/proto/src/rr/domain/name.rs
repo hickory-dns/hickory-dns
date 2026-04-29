@@ -1150,7 +1150,8 @@ impl BinEncodable for Name {
         } else {
             self
         };
-        let compression = matches!(encoder.name_encoding(), NameEncoding::Compressed);
+        let compression = matches!(encoder.name_encoding(), NameEncoding::Compressed)
+            && encoder.compressed_name_count < COMPRESSED_NAME_LIMIT;
 
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
         // lookup the label in the BinEncoder
@@ -1173,6 +1174,7 @@ impl BinEncodable for Name {
         // now search for other labels already stored matching from the beginning label, strip then to the end
         //   if it's not found, then store this as a new label
         if compression {
+            encoder.compressed_name_count += 1;
             for label_idx in &labels_written {
                 match encoder.get_label_pointer(*label_idx, last_index) {
                     Some(loc) if loc & 0xC000 == 0 => {
@@ -1214,6 +1216,12 @@ impl BinEncodable for Name {
         Ok(())
     }
 }
+
+/// Maximum number of names for which name compression will be attempted per message.
+///
+/// This limit matches that from Unbound, see
+/// <https://nlnetlabs.nl/downloads/unbound/patch_CVE-2024-8508.diff>.
+const COMPRESSED_NAME_LIMIT: usize = 120;
 
 impl<'r> BinDecodable<'r> for Name {
     /// parses the chain of labels
