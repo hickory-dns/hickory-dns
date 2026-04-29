@@ -3,8 +3,11 @@
 
 extern crate test;
 
-use hickory_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
-use hickory_proto::rr::Record;
+use hickory_proto::op::{
+    Header, HeaderCounts, Message, MessageType, Metadata, OpCode, ResponseCode,
+};
+use hickory_proto::rr::rdata::PTR;
+use hickory_proto::rr::{Name, RData, Record, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 use test::Bencher;
@@ -91,6 +94,31 @@ fn bench_emit_message_no_reservation(b: &mut Bencher) {
         let mut byte_vec: Vec<u8> = Vec::with_capacity(0);
         let mut encoder = BinEncoder::new(&mut byte_vec);
         message.emit(&mut encoder)
+    })
+}
+
+#[bench]
+fn bench_emit_message_cve_2024_8508(b: &mut Bencher) {
+    let mut message = Message::response(10, OpCode::Update);
+    for i in 0..20 {
+        for j in 0..10 {
+            for k in 0..10 {
+                let record = Record::from_rdata(
+                    Name::parse(&format!("l{i}.l{j}.l{k}.example."), None).unwrap(),
+                    86400,
+                    RData::PTR(PTR(
+                        Name::parse(&format!("l{i}.l{j}.l{k}.test."), None).unwrap()
+                    )),
+                );
+                message.add_answer(record);
+            }
+        }
+    }
+    let mut buffer = Vec::with_capacity(u16::MAX as usize);
+    b.iter(|| {
+        let mut encoder = BinEncoder::new(&mut buffer);
+        message.emit(&mut encoder).unwrap();
+        buffer.clear();
     })
 }
 
