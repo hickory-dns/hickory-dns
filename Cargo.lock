@@ -1088,7 +1088,6 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "webpki-roots",
 ]
 
 [[package]]
@@ -1139,7 +1138,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "webpki-roots",
 ]
 
 [[package]]
@@ -2708,7 +2706,6 @@ dependencies = [
  "futures-util",
  "hickory-net",
  "hickory-proto",
- "hickory-resolver",
  "metrics",
  "metrics-util",
  "tokio",
