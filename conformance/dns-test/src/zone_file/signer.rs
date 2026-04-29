@@ -396,11 +396,11 @@ impl<'a> Signer<'a> {
                     opt_out,
                 } = &self.settings.nsec
                 {
-                    args.push("-3".to_string());
-
                     if *iterations > 0 {
                         args.push(format!("-H {iterations}"));
                     }
+
+                    args.push("-3".to_string());
 
                     if let Some(salt) = salt {
                         args.push(salt.to_string());
