@@ -622,26 +622,30 @@ impl Name {
         let last_index = encoder.offset();
         // now search for other labels already stored matching from the beginning label, strip then to the end
         //   if it's not found, then store this as a new label
-        for label_idx in &labels_written {
-            match encoder.get_label_pointer(*label_idx, last_index) {
-                // if writing canonical and already found, continue
-                Some(_) if canonical => continue,
-                Some(loc) if !canonical => {
-                    // reset back to the beginning of this label, and then write the pointer...
-                    encoder.set_offset(*label_idx);
-                    encoder.trim();
-
-                    // write out the pointer marker
-                    //  or'd with the location which shouldn't be larger than this 2^14 or 16k
-                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
-
-                    // we found a pointer don't write more, break
-                    return Ok(());
+        if ! canonical {
+            for label_idx in &labels_written {
+                match encoder.get_label_pointer(*label_idx, last_index) {
+                    Some(loc) if loc & 0xC000 == 0 => {
+                        // reset back to the beginning of this label, and then write the pointer...
+                        encoder.set_offset(*label_idx);
+                        encoder.trim();
+                        // write out the pointer marker
+                        //  or'd with the location which is less than 2^14
+                        encoder.emit_u16(0xC000u16 | loc)?;
+                        // we found a pointer don't write more, break
+                        return Ok(());
+                    }
+                    _ => {
+                        // no existing label exists, store this new one.
+                        encoder.store_label_pointer(*label_idx, last_index);
+                    }
                 }
-                _ => {
-                    // no existing label exists, store this new one.
-                    encoder.store_label_pointer(*label_idx, last_index);
-                }
+            }
+        } else {
+            // Compression is disabled for either this name or the entire message. Just attempt to
+            // store the label pointers, in case they'll be used by an eligible RData type later.
+            for label_idx in &labels_written {
+                encoder.store_label_pointer(*label_idx, last_index);
             }
         }
 
