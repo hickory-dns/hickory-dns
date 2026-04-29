@@ -97,6 +97,8 @@ pub struct BinEncoder<'a> {
     name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
     canonical_names: bool,
+    /// Number of names encoded with compression enabled.
+    pub(crate) compressed_name_count: usize,
 }
 
 impl<'a> BinEncoder<'a> {
@@ -136,6 +138,7 @@ impl<'a> BinEncoder<'a> {
             name_pointers: Vec::new(),
             mode,
             canonical_names: false,
+            compressed_name_count: 0,
         }
     }
 

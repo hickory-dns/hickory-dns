@@ -622,7 +622,10 @@ impl Name {
         let last_index = encoder.offset();
         // now search for other labels already stored matching from the beginning label, strip then to the end
         //   if it's not found, then store this as a new label
-        if ! canonical {
+        if ! canonical
+            && encoder.compressed_name_count < COMPRESSED_NAME_LIMIT
+        {
+            encoder.compressed_name_count += 1;
             for label_idx in &labels_written {
                 match encoder.get_label_pointer(*label_idx, last_index) {
                     Some(loc) if loc & 0xC000 == 0 => {
@@ -1101,6 +1104,12 @@ impl BinEncodable for Name {
         self.emit_as_canonical(encoder, is_canonical_names)
     }
 }
+
+/// Maximum number of names for which name compression will be attempted per message.
+///
+/// This limit matches that from Unbound, see
+/// <https://nlnetlabs.nl/downloads/unbound/patch_CVE-2024-8508.diff>.
+const COMPRESSED_NAME_LIMIT: usize = 120;
 
 impl<'r> BinDecodable<'r> for Name {
     /// parses the chain of labels
