@@ -297,7 +297,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         self.server_srtt.record(winner_rtt + CANCEL_PENALTY);
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "tokio"))]
     pub(crate) fn test_record_failure(&self) {
         self.server_srtt.record_failure();
     }
