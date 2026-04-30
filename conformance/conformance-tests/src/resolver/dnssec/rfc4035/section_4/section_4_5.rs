@@ -45,8 +45,13 @@ fn caches_dnssec_records() -> Result<(), Error> {
     // second query is cached so no communication between the resolver and the nameserver is
     // expected
     let ns_addr = ns.ipv4_addr();
-    for Capture { direction, .. } in captures {
-        assert_ne!(ns_addr, direction.peer_addr());
+    for capture @ Capture { direction, .. } in captures.iter() {
+        assert_ne!(
+            ns_addr,
+            direction.peer_addr(),
+            "{capture:#?}\n{}",
+            resolver.logs()?
+        );
     }
 
     Ok(())
@@ -83,8 +88,13 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
     // second query is cached so no communication between the resolver and the nameserver is
     // expected
     let ns_addr = ns.ipv4_addr();
-    for Capture { direction, .. } in captures {
-        assert_ne!(ns_addr, direction.peer_addr());
+    for capture @ Capture { direction, .. } in captures.iter() {
+        assert_ne!(
+            ns_addr,
+            direction.peer_addr(),
+            "{capture:#?}\n{}",
+            resolver.logs()?
+        );
     }
 
     Ok(())
@@ -132,8 +142,12 @@ fn caches_intermediate_records() -> Result<(), Error> {
         .iter()
         .map(|ns| ns.ipv4_addr())
         .collect::<Vec<_>>();
-    for Capture { direction, .. } in captures {
-        assert!(!ns_addrs.contains(&direction.peer_addr()));
+    for capture @ Capture { direction, .. } in captures.iter() {
+        assert!(
+            !ns_addrs.contains(&direction.peer_addr()),
+            "{capture:#?}\n{}",
+            resolver.logs()?
+        );
     }
 
     Ok(())
