@@ -1,7 +1,7 @@
-/// These scenarios use a single test network with the following records:
-///
-/// example.testing:
-///  www.example.testing IN A 192.0.2.1
+//! These scenarios use a single test network with the following records:
+//!
+//! example.testing:
+//!  www.example.testing IN A 192.0.2.1
 use std::{net::Ipv4Addr, thread, time::Duration};
 
 use dns_test::{

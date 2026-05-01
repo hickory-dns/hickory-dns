@@ -1,4 +1,4 @@
-/// These scenarios use the TestServer which returns invalid answers that should be dropped
+//! These scenarios use the TestServer which returns invalid answers that should be dropped
 use std::{fs, net::Ipv4Addr, thread, time::Duration};
 
 use dns_test::{
