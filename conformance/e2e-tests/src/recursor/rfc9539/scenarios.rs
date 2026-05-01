@@ -1,4 +1,4 @@
-/// These scenarios test RFC 9539 opportunistic encryption
+//! These scenarios test RFC 9539 opportunistic encryption
 use std::time::Duration;
 
 use dns_test::client::{Client, DigSettings};
