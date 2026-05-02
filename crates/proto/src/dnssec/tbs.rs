@@ -84,7 +84,7 @@ impl TBS {
         let mut encoder = BinEncoder::new(&mut buf);
         // Encode records using DNSSEC canonical form. This affects how names inside RDATA are
         // encoded.
-        encoder.set_canonical_form(true);
+        encoder.canonical_form = true;
         // Disable name compression. Encoding of other fields may switch to use lowercase names
         // as well.
         encoder.name_encoding = NameEncoding::Uncompressed;
