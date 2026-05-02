@@ -320,7 +320,7 @@ impl Verifier for KEY {
 
 impl BinEncodable for KEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(self.flags())?;
+        self.flags().emit(encoder)?;
         u8::from(self.protocol).emit(encoder)?;
         self.algorithm().emit(encoder)?;
         encoder.emit_slice(self.public_key())?;

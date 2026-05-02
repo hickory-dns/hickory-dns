@@ -433,7 +433,7 @@ impl BinEncodable for SigInput {
         encoder.emit_u32(self.original_ttl)?;
         encoder.emit_u32(self.sig_expiration.0)?;
         encoder.emit_u32(self.sig_inception.0)?;
-        encoder.emit_u16(self.key_tag)?;
+        self.key_tag.emit(&mut encoder)?;
         self.signer_name.emit(&mut encoder)?;
         Ok(())
     }

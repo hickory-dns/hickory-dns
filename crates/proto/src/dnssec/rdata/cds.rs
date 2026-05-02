@@ -98,7 +98,7 @@ impl From<CDS> for RData {
 
 impl BinEncodable for CDS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(self.key_tag())?;
+        self.key_tag().emit(encoder)?;
         match self.algorithm() {
             Some(algorithm) => algorithm.emit(encoder)?,
             None => 0u8.emit(encoder)?,

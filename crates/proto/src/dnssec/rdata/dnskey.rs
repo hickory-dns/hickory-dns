@@ -399,7 +399,7 @@ impl From<DNSKEY> for RData {
 
 impl BinEncodable for DNSKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(self.flags())?;
+        self.flags().emit(encoder)?;
         3u8.emit(encoder)?; // always 3 for now
         self.public_key.algorithm().emit(encoder)?;
         encoder.emit_slice(self.public_key.public_bytes())

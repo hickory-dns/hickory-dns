@@ -253,8 +253,8 @@ impl BinEncodable for OPT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         for (edns_code, edns_option) in self.as_ref().iter() {
-            encoder.emit_u16(u16::from(*edns_code))?;
-            encoder.emit_u16(edns_option.len())?;
+            u16::from(*edns_code).emit(&mut encoder)?;
+            edns_option.len().emit(&mut encoder)?;
             edns_option.emit(&mut encoder)?
         }
         Ok(())
@@ -679,7 +679,7 @@ impl BinEncodable for ClientSubnet {
 
         match address {
             IpAddr::V4(ip) => {
-                encoder.emit_u16(1)?; // FAMILY: IPv4
+                1u16.emit(encoder)?; // FAMILY: IPv4
                 source_prefix.emit(encoder)?;
                 scope_prefix.emit(encoder)?;
                 let octets = ip.octets();
@@ -693,7 +693,7 @@ impl BinEncodable for ClientSubnet {
                 }
             }
             IpAddr::V6(ip) => {
-                encoder.emit_u16(2)?; // FAMILY: IPv6
+                2u16.emit(encoder)?; // FAMILY: IPv6
                 source_prefix.emit(encoder)?;
                 scope_prefix.emit(encoder)?;
                 let octets = ip.octets();

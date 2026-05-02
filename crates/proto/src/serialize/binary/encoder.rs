@@ -292,11 +292,6 @@ impl<'a> BinEncoder<'a> {
         self.emit_slice(data)
     }
 
-    /// Writes a u16 in network byte order to the buffer
-    pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
-        self.emit_slice(&data.to_be_bytes())
-    }
-
     /// Writes an i32 in network byte order to the buffer
     pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
         self.emit_slice(&data.to_be_bytes())

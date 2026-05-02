@@ -1184,7 +1184,7 @@ impl BinEncodable for Name {
 
                         // write out the pointer marker
                         //  or'd with the location which is less than 2^14
-                        encoder.emit_u16(0xC000u16 | loc)?;
+                        (0xC000u16 | loc).emit(encoder)?;
 
                         // we found a pointer don't write more, break
                         return Ok(());

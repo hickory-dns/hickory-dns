@@ -231,9 +231,9 @@ impl BinEncodable for SRV {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
 
-        encoder.emit_u16(self.priority)?;
-        encoder.emit_u16(self.weight)?;
-        encoder.emit_u16(self.port)?;
+        self.priority.emit(&mut encoder)?;
+        self.weight.emit(&mut encoder)?;
+        self.port.emit(&mut encoder)?;
         self.target.emit(&mut encoder)?;
         Ok(())
     }
