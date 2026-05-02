@@ -363,26 +363,6 @@ impl<'a> BinEncoder<'a> {
         self.write_slice(data)
     }
 
-    /// Emits all the elements of an Iterator to the encoder
-    pub fn emit_all<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
-        &mut self,
-        mut iter: I,
-    ) -> ProtoResult<usize> {
-        self.emit_iter(&mut iter)
-    }
-
-    // TODO: dedup with above emit_all
-    /// Emits all the elements of an Iterator to the encoder
-    pub fn emit_all_refs<'r, 'e, I, E>(&mut self, iter: I) -> ProtoResult<usize>
-    where
-        'e: 'r,
-        I: Iterator<Item = &'r &'e E>,
-        E: 'r + 'e + BinEncodable,
-    {
-        let mut iter = iter.cloned();
-        self.emit_iter(&mut iter)
-    }
-
     /// emits all items in the iterator, return the number emitted
     pub fn emit_iter<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
         &mut self,

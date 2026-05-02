@@ -559,7 +559,7 @@ pub trait EmitAndCount {
 
 impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
-        encoder.emit_all(self)
+        encoder.emit_iter(self)
     }
 }
 
@@ -598,7 +598,7 @@ where
         // need to commit the error code
         edns.set_rcode_high(metadata.response_code.high());
 
-        let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(&edns))))?;
+        let count = count_was_truncated(encoder.emit_iter(&mut iter::once(&Record::from(&edns))))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
     } else if metadata.response_code.high() > 0 {
@@ -612,7 +612,7 @@ where
     //  then the TSIG record should not be encoded and the edns record (if it exists) is
     //  already part of the additionals section.
     let count = match signature {
-        Some(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
+        Some(rec) => count_was_truncated(encoder.emit_iter(&mut iter::once(rec)))?,
         None => (0, false),
     };
     additional_count.0 += count.0;
@@ -1240,7 +1240,7 @@ mod tests {
     ) -> ProtoResult<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>)> {
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
-        encoder.emit_all(records.iter())?;
+        encoder.emit_iter(&mut records.iter())?;
         Ok(Message::read_records(
             &mut BinDecoder::new(&bytes),
             records.len(),
