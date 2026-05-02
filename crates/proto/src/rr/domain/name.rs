@@ -1167,10 +1167,10 @@ impl BinEncodable for Name {
                 return Err(DecodeError::LabelBytesTooLong(label.len()).into());
             }
 
-            labels_written.push(encoder.offset());
+            labels_written.push(encoder.offset);
             encoder.emit_character_data(label)?;
         }
-        let last_index = encoder.offset();
+        let last_index = encoder.offset;
         // now search for other labels already stored matching from the beginning label, strip then to the end
         //   if it's not found, then store this as a new label
         if compression {
@@ -1179,7 +1179,7 @@ impl BinEncodable for Name {
                 match encoder.get_label_pointer(*label_idx, last_index) {
                     Some(loc) if loc & 0xC000 == 0 => {
                         // reset back to the beginning of this label, and then write the pointer...
-                        encoder.set_offset(*label_idx);
+                        encoder.offset = *label_idx;
                         encoder.trim();
 
                         // write out the pointer marker

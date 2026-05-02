@@ -94,7 +94,7 @@ mod private {
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
-    offset: usize,
+    pub(crate) offset: usize,
     buffer: private::MaximalBuf<'a>,
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
@@ -161,16 +161,6 @@ impl<'a> BinEncoder<'a> {
     /// Returns `true` if the buffer is empty
     pub fn is_empty(&self) -> bool {
         self.buffer.buffer().is_empty()
-    }
-
-    /// Returns the current offset into the buffer
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
-
-    /// sets the current offset to the new offset
-    pub fn set_offset(&mut self, offset: usize) {
-        self.offset = offset;
     }
 
     /// Returns a guard type that uses a different name encoding mode.
@@ -344,7 +334,7 @@ impl<'a> BinEncoder<'a> {
         let mut count = 0;
         for i in iter {
             let rollback = Rollback {
-                offset: self.offset(),
+                offset: self.offset,
                 pointers: self.name_pointers.len(),
             };
 
@@ -513,7 +503,7 @@ pub(crate) struct Rollback {
 impl Rollback {
     pub(crate) fn rollback(self, encoder: &mut BinEncoder<'_>) {
         let Self { offset, pointers } = self;
-        encoder.set_offset(offset);
+        encoder.offset = offset;
         encoder.name_pointers.truncate(pointers);
     }
 }
