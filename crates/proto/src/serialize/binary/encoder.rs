@@ -278,18 +278,9 @@ impl<'a> BinEncoder<'a> {
             });
         }
 
-        self.emit_character_data_unrestricted(char_data)
-    }
-
-    /// Emit character data of unrestricted length
-    ///
-    /// Although character strings are typically restricted to being no longer than 255 characters,
-    /// some modern standards allow longer strings to be encoded.
-    pub fn emit_character_data_unrestricted<S: AsRef<[u8]>>(&mut self, data: S) -> ProtoResult<()> {
         // first the length is written
-        let data = data.as_ref();
-        (data.len() as u8).emit(self)?;
-        self.emit_slice(data)
+        (char_bytes.len() as u8).emit(self)?;
+        self.emit_slice(char_bytes)
     }
 
     /// Writes the byte slice to the stream
