@@ -99,7 +99,7 @@ pub struct BinEncoder<'a> {
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     /// Whether the encoder should use the DNSSEC canonical form for RDATA.
-    canonical_form: bool,
+    pub canonical_form: bool,
     /// How names should be encoded.
     pub name_encoding: NameEncoding,
     /// Number of names encoded with compression enabled.
@@ -173,16 +173,6 @@ impl<'a> BinEncoder<'a> {
         self.offset = offset;
     }
 
-    /// If set to true, then records will be written into the buffer in DNSSEC canonical form
-    pub fn set_canonical_form(&mut self, canonical_form: bool) {
-        self.canonical_form = canonical_form;
-    }
-
-    /// Returns true if the encoder is writing in DNSSEC canonical form
-    pub fn is_canonical_form(&self) -> bool {
-        self.canonical_form
-    }
-
     /// Returns a guard type that uses a different name encoding mode.
     pub fn with_name_encoding<'e>(
         &'e mut self,
@@ -207,7 +197,7 @@ impl<'a> BinEncoder<'a> {
     ) -> ModalEncoder<'a, 'e> {
         let previous_name_encoding = self.name_encoding;
 
-        match (rdata_encoding, self.is_canonical_form()) {
+        match (rdata_encoding, self.canonical_form) {
             (RDataEncoding::StandardRecord, true) | (RDataEncoding::Canonical, true) => {
                 self.name_encoding = NameEncoding::UncompressedLowercase
             }
