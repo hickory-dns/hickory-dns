@@ -90,7 +90,7 @@ fn read_i32() {
 
 #[test]
 fn emit_i32() {
-    test_emit_data_set(get_i32_data(), |e, d| e.emit_i32(d));
+    test_emit_data_set(get_i32_data(), |e, d| d.emit(e));
 }
 
 #[allow(clippy::unreadable_literal)]
