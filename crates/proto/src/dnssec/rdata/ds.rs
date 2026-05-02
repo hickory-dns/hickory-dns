@@ -282,7 +282,7 @@ impl BinEncodable for DS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.key_tag())?;
         self.algorithm().emit(encoder)?;
-        encoder.emit(self.digest_type().into())?;
+        u8::from(self.digest_type()).emit(encoder)?;
         encoder.emit_slice(self.digest())?;
 
         Ok(())

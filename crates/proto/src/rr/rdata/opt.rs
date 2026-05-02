@@ -680,8 +680,8 @@ impl BinEncodable for ClientSubnet {
         match address {
             IpAddr::V4(ip) => {
                 encoder.emit_u16(1)?; // FAMILY: IPv4
-                encoder.emit_u8(source_prefix)?;
-                encoder.emit_u8(scope_prefix)?;
+                source_prefix.emit(encoder)?;
+                scope_prefix.emit(encoder)?;
                 let octets = ip.octets();
                 let addr_len = addr_len as usize;
                 if addr_len <= octets.len() {
@@ -694,8 +694,8 @@ impl BinEncodable for ClientSubnet {
             }
             IpAddr::V6(ip) => {
                 encoder.emit_u16(2)?; // FAMILY: IPv6
-                encoder.emit_u8(source_prefix)?;
-                encoder.emit_u8(scope_prefix)?;
+                source_prefix.emit(encoder)?;
+                scope_prefix.emit(encoder)?;
                 let octets = ip.octets();
                 let addr_len = addr_len as usize;
                 if addr_len <= octets.len() {

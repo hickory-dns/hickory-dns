@@ -206,7 +206,7 @@ impl Iterator for SupportedAlgorithmsIter<'_> {
 impl BinEncodable for SupportedAlgorithms {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         for a in self.iter() {
-            encoder.emit_u8(a.into())?;
+            u8::from(a).emit(encoder)?;
         }
         Ok(())
     }

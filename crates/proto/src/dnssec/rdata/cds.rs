@@ -101,12 +101,10 @@ impl BinEncodable for CDS {
         encoder.emit_u16(self.key_tag())?;
         match self.algorithm() {
             Some(algorithm) => algorithm.emit(encoder)?,
-            None => encoder.emit_u8(0)?,
+            None => 0u8.emit(encoder)?,
         }
-        encoder.emit(self.digest_type().into())?;
-        encoder.emit_slice(self.digest())?;
-
-        Ok(())
+        u8::from(self.digest_type()).emit(encoder)?;
+        encoder.emit_slice(self.digest())
     }
 }
 

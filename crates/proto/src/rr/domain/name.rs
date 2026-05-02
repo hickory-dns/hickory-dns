@@ -1205,7 +1205,7 @@ impl BinEncodable for Name {
 
         // if we're getting here, then we didn't write out a pointer and are ending the name
         // the end of the list of names
-        encoder.emit(0)?;
+        0u8.emit(encoder)?;
 
         // the entire name needs to be less than 256.
         let length = encoder.len() - buf_len;

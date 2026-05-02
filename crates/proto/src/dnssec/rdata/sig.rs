@@ -429,7 +429,7 @@ impl BinEncodable for SigInput {
         // specifically for outputting the RData for an RRSIG, with signer_name in canonical form
         self.type_covered.emit(&mut encoder)?;
         self.algorithm.emit(&mut encoder)?;
-        encoder.emit(self.num_labels)?;
+        self.num_labels.emit(&mut encoder)?;
         encoder.emit_u32(self.original_ttl)?;
         encoder.emit_u32(self.sig_expiration.0)?;
         encoder.emit_u32(self.sig_inception.0)?;

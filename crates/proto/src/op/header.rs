@@ -78,7 +78,7 @@ impl BinEncodable for Header {
         q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
         q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
         q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
-        encoder.emit(q_opcd_a_t_r)?;
+        q_opcd_a_t_r.emit(encoder)?;
 
         // IsRecursionAvailable, Triple 0's, ResponseCode
         let mut r_z_ad_cd_rcod = if self.recursion_available {
@@ -97,7 +97,7 @@ impl BinEncodable for Header {
             0b0000_0000
         };
         r_z_ad_cd_rcod |= self.response_code.low();
-        encoder.emit(r_z_ad_cd_rcod)?;
+        r_z_ad_cd_rcod.emit(encoder)?;
 
         encoder.emit_u16(self.counts.queries)?;
         encoder.emit_u16(self.counts.answers)?;

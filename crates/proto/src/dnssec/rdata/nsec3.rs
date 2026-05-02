@@ -286,12 +286,12 @@ impl NSEC3 {
 
 impl BinEncodable for NSEC3 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit(self.hash_algorithm().into())?;
-        encoder.emit(self.flags())?;
+        u8::from(self.hash_algorithm).emit(encoder)?;
+        self.flags().emit(encoder)?;
         encoder.emit_u16(self.iterations())?;
-        encoder.emit(self.salt().len() as u8)?;
+        (self.salt().len() as u8).emit(encoder)?;
         encoder.emit_slice(self.salt())?;
-        encoder.emit(self.next_hashed_owner_name().len() as u8)?;
+        (self.next_hashed_owner_name().len() as u8).emit(encoder)?;
         encoder.emit_slice(self.next_hashed_owner_name())?;
         self.type_bit_maps.emit(encoder)?;
 
