@@ -300,8 +300,8 @@ impl DNSKEY {
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
-            let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            encoder.set_name_encoding(NameEncoding::UncompressedLowercase);
+            let mut encoder = BinEncoder::new(&mut buf);
+            encoder.name_encoding = NameEncoding::UncompressedLowercase;
             if let Err(e) = name
                 .to_lowercase()
                 .emit(&mut encoder)

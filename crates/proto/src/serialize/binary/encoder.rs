@@ -8,6 +8,7 @@
 use alloc::vec::Vec;
 use core::{
     marker::PhantomData,
+    mem,
     ops::{Deref, DerefMut},
 };
 
@@ -100,7 +101,7 @@ pub struct BinEncoder<'a> {
     /// Whether the encoder should use the DNSSEC canonical form for RDATA.
     canonical_form: bool,
     /// How names should be encoded.
-    name_encoding: NameEncoding,
+    pub name_encoding: NameEncoding,
     /// Number of names encoded with compression enabled.
     pub(crate) compressed_name_count: usize,
 }
@@ -182,27 +183,13 @@ impl<'a> BinEncoder<'a> {
         self.canonical_form
     }
 
-    /// Select how names are encoded
-    pub fn set_name_encoding(&mut self, name_encoding: NameEncoding) {
-        self.name_encoding = name_encoding;
-    }
-
-    /// Returns the current name encoding mode
-    pub fn name_encoding(&self) -> NameEncoding {
-        self.name_encoding
-    }
-
     /// Returns a guard type that uses a different name encoding mode.
     pub fn with_name_encoding<'e>(
         &'e mut self,
         name_encoding: NameEncoding,
     ) -> ModalEncoder<'a, 'e> {
-        let previous_name_encoding = self.name_encoding();
-
-        self.set_name_encoding(name_encoding);
-
         ModalEncoder {
-            previous_name_encoding,
+            previous_name_encoding: mem::replace(&mut self.name_encoding, name_encoding),
             inner: self,
         }
     }
@@ -218,16 +205,16 @@ impl<'a> BinEncoder<'a> {
         &'e mut self,
         rdata_encoding: RDataEncoding,
     ) -> ModalEncoder<'a, 'e> {
-        let previous_name_encoding = self.name_encoding();
+        let previous_name_encoding = self.name_encoding;
 
         match (rdata_encoding, self.is_canonical_form()) {
             (RDataEncoding::StandardRecord, true) | (RDataEncoding::Canonical, true) => {
-                self.set_name_encoding(NameEncoding::UncompressedLowercase)
+                self.name_encoding = NameEncoding::UncompressedLowercase
             }
             (RDataEncoding::StandardRecord, false) => {}
             (RDataEncoding::Canonical, false)
             | (RDataEncoding::Other, true)
-            | (RDataEncoding::Other, false) => self.set_name_encoding(NameEncoding::Uncompressed),
+            | (RDataEncoding::Other, false) => self.name_encoding = NameEncoding::Uncompressed,
         }
 
         ModalEncoder {
@@ -478,7 +465,7 @@ impl DerefMut for ModalEncoder<'_, '_> {
 
 impl Drop for ModalEncoder<'_, '_> {
     fn drop(&mut self) {
-        self.inner.set_name_encoding(self.previous_name_encoding);
+        self.inner.name_encoding = self.previous_name_encoding;
     }
 }
 
