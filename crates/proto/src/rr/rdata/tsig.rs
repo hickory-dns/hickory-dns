@@ -267,10 +267,10 @@ impl TSIG {
 
         key_name.emit(&mut encoder)?;
         DNSClass::ANY.emit(&mut encoder)?;
-        encoder.emit_u32(0)?; // TTL
+        0u32.emit(&mut encoder)?; // TTL
         self.algorithm.emit(&mut encoder)?;
         ((self.time >> 32) as u16).emit(&mut encoder)?;
-        encoder.emit_u32(self.time as u32)?;
+        (self.time as u32).emit(&mut encoder)?;
         self.fudge.emit(&mut encoder)?;
 
         match self.error {
@@ -331,7 +331,7 @@ impl BinEncodable for TSIG {
             }
         }
 
-        encoder.emit_u32(self.time as u32)?; // this cast is supposed to truncate
+        (self.time as u32).emit(&mut encoder)?; // this cast is supposed to truncate
         self.fudge.emit(&mut encoder)?;
 
         match u16::try_from(self.mac.len()) {
@@ -811,7 +811,7 @@ pub fn signed_bitmessage_to_buf(
     } else {
         // Emit only time and fudge data for later messages.
         ((tsig.time >> 32) as u16).emit(&mut encoder)?;
-        encoder.emit_u32(tsig.time as u32)?;
+        (tsig.time as u32).emit(&mut encoder)?;
         tsig.fudge.emit(&mut encoder)?;
     }
 

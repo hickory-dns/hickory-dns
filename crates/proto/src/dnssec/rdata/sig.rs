@@ -430,9 +430,9 @@ impl BinEncodable for SigInput {
         self.type_covered.emit(&mut encoder)?;
         self.algorithm.emit(&mut encoder)?;
         self.num_labels.emit(&mut encoder)?;
-        encoder.emit_u32(self.original_ttl)?;
-        encoder.emit_u32(self.sig_expiration.0)?;
-        encoder.emit_u32(self.sig_inception.0)?;
+        self.original_ttl.emit(&mut encoder)?;
+        self.sig_expiration.0.emit(&mut encoder)?;
+        self.sig_inception.0.emit(&mut encoder)?;
         self.key_tag.emit(&mut encoder)?;
         self.signer_name.emit(&mut encoder)?;
         Ok(())

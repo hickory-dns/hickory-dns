@@ -116,7 +116,7 @@ impl TBS {
             dns_class.emit(&mut encoder)?;
             //
             //                OrigTTL is the value from the RRSIG Original TTL field
-            encoder.emit_u32(input.original_ttl)?;
+            input.original_ttl.emit(&mut encoder)?;
             //
             //                RDATA length
             let rdata_length_place = encoder.place::<u16>()?;
