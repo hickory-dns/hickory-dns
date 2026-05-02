@@ -87,7 +87,7 @@ impl TBS {
         encoder.set_canonical_form(true);
         // Disable name compression. Encoding of other fields may switch to use lowercase names
         // as well.
-        encoder.set_name_encoding(NameEncoding::Uncompressed);
+        encoder.name_encoding = NameEncoding::Uncompressed;
 
         //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
         //

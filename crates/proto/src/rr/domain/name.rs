@@ -1144,13 +1144,13 @@ enum ParseState {
 impl BinEncodable for Name {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let name;
-        let name_ref = if matches!(encoder.name_encoding(), NameEncoding::UncompressedLowercase) {
+        let name_ref = if matches!(encoder.name_encoding, NameEncoding::UncompressedLowercase) {
             name = self.to_lowercase();
             &name
         } else {
             self
         };
-        let compression = matches!(encoder.name_encoding(), NameEncoding::Compressed)
+        let compression = matches!(encoder.name_encoding, NameEncoding::Compressed)
             && encoder.compressed_name_count < COMPRESSED_NAME_LIMIT;
 
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
