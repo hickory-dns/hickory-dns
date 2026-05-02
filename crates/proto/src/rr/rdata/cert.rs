@@ -500,7 +500,7 @@ impl BinEncodable for CERT {
         encoder.emit_u16(self.cert_type.into())?;
         encoder.emit_u16(self.key_tag)?;
         encoder.emit_u8(self.algorithm.into())?;
-        encoder.emit_vec(&self.cert_data)?;
+        encoder.write_slice(&self.cert_data)?;
 
         Ok(())
     }

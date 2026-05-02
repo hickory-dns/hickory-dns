@@ -91,6 +91,6 @@ impl BinDecodable<'_> for u32 {
 
 impl BinEncodable for Vec<u8> {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_vec(self)
+        encoder.write_slice(self)
     }
 }
