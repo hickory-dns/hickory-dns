@@ -352,15 +352,11 @@ impl<'a> BinEncoder<'a> {
         self.write_slice(&data.to_be_bytes())
     }
 
-    fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
+    /// Writes the byte slice to the stream
+    pub fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
         self.buffer.write(self.offset, data)?;
         self.offset += data.len();
         Ok(())
-    }
-
-    /// Writes the byte slice to the stream
-    pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
-        self.write_slice(data)
     }
 
     /// emits all items in the iterator, return the number emitted

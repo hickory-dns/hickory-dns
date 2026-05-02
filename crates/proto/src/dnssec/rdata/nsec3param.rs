@@ -176,7 +176,7 @@ impl BinEncodable for NSEC3PARAM {
         encoder.emit(self.flags())?;
         encoder.emit_u16(self.iterations())?;
         encoder.emit(self.salt().len() as u8)?;
-        encoder.emit_vec(self.salt())?;
+        encoder.write_slice(self.salt())?;
 
         Ok(())
     }

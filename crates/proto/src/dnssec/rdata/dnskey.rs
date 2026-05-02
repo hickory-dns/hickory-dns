@@ -402,7 +402,7 @@ impl BinEncodable for DNSKEY {
         encoder.emit_u16(self.flags())?;
         encoder.emit(3)?; // always 3 for now
         self.public_key.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key.public_bytes())?;
+        encoder.write_slice(self.public_key.public_bytes())?;
 
         Ok(())
     }

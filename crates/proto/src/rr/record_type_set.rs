@@ -78,7 +78,7 @@ impl fmt::Debug for RecordTypeSet {
 impl BinEncodable for RecordTypeSet {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         if let Some(encoded_bytes) = &self.original_encoding {
-            return encoder.emit_vec(encoded_bytes);
+            return encoder.write_slice(encoded_bytes);
         }
 
         let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();

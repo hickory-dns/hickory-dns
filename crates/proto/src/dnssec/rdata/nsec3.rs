@@ -290,9 +290,9 @@ impl BinEncodable for NSEC3 {
         encoder.emit(self.flags())?;
         encoder.emit_u16(self.iterations())?;
         encoder.emit(self.salt().len() as u8)?;
-        encoder.emit_vec(self.salt())?;
+        encoder.write_slice(self.salt())?;
         encoder.emit(self.next_hashed_owner_name().len() as u8)?;
-        encoder.emit_vec(self.next_hashed_owner_name())?;
+        encoder.write_slice(self.next_hashed_owner_name())?;
         self.type_bit_maps.emit(encoder)?;
 
         Ok(())

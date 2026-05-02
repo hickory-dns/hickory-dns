@@ -323,7 +323,7 @@ impl BinEncodable for KEY {
         encoder.emit_u16(self.flags())?;
         encoder.emit(u8::from(self.protocol))?;
         self.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key())?;
+        encoder.write_slice(self.public_key())?;
 
         Ok(())
     }
