@@ -135,7 +135,7 @@ impl BinEncodable for Query {
         #[cfg(feature = "mdns")]
         {
             if self.mdns_unicast_response {
-                encoder.emit_u16(u16::from(self.query_class) | MDNS_UNICAST_RESPONSE)?;
+                (u16::from(self.query_class) | MDNS_UNICAST_RESPONSE).emit(encoder)?;
             } else {
                 self.query_class.emit(encoder)?;
             }

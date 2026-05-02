@@ -98,7 +98,7 @@ impl BinEncodable for MX {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::StandardRecord);
 
-        encoder.emit_u16(self.preference)?;
+        self.preference.emit(&mut encoder)?;
         self.exchange.emit(&mut encoder)?;
 
         Ok(())

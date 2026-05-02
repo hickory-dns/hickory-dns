@@ -250,7 +250,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
         #[cfg(feature = "mdns")]
         {
             if self.mdns_cache_flush {
-                encoder.emit_u16(u16::from(self.dns_class) | MDNS_ENABLE_CACHE_FLUSH)?;
+                (u16::from(self.dns_class) | MDNS_ENABLE_CACHE_FLUSH).emit(encoder)?;
             } else {
                 self.dns_class.emit(encoder)?;
             }

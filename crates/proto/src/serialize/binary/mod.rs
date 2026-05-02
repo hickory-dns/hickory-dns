@@ -61,7 +61,7 @@ impl BinEncodable for u8 {
 
 impl BinEncodable for u16 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(*self)
+        encoder.emit_slice(&self.to_be_bytes())
     }
 }
 

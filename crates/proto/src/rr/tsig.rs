@@ -42,7 +42,7 @@ use crate::op::{Message, OpCode};
 use crate::rr::Record;
 use crate::rr::{Name, RecordType};
 #[cfg(feature = "__dnssec")]
-use crate::serialize::binary::BinEncoder;
+use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Context for a TSIG response, used to construct a TSIG response signer
 pub struct TSigResponseContext {
@@ -353,7 +353,7 @@ impl TSigner {
         let mut encoder = BinEncoder::new(&mut tbs_buf);
 
         debug_assert!(previous_mac.len() <= u16::MAX as usize); // Shouldn't happen for supported algorithms.
-        encoder.emit_u16(previous_mac.len() as u16)?;
+        (previous_mac.len() as u16).emit(&mut encoder)?;
         encoder.emit_slice(previous_mac)?;
         encoder.emit_slice(encoded_response)?;
         stub_tsig.emit_tsig_for_mac(&mut encoder, self.signer_name())?;

@@ -65,7 +65,7 @@ fn read_u16() {
 
 #[test]
 fn emit_u16() {
-    test_emit_data_set(get_u16_data(), |e, d| e.emit_u16(d));
+    test_emit_data_set(get_u16_data(), |e, d| d.emit(e));
 }
 
 fn get_i32_data() -> Vec<(i32, Vec<u8>)> {

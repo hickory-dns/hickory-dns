@@ -174,7 +174,7 @@ impl BinEncodable for NSEC3PARAM {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         u8::from(self.hash_algorithm).emit(encoder)?;
         self.flags().emit(encoder)?;
-        encoder.emit_u16(self.iterations())?;
+        self.iterations().emit(encoder)?;
         (self.salt().len() as u8).emit(encoder)?;
         encoder.emit_slice(self.salt())?;
 

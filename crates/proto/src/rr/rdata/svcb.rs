@@ -609,7 +609,7 @@ impl BinEncodable for SvcParamKey {
     // a 2 octet field containing the SvcParamKey as an integer in
     //      network byte order.  (See Section 14.3.2 for the defined values.)
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16((*self).into())
+        u16::from(*self).emit(encoder)
     }
 }
 
@@ -831,7 +831,7 @@ impl BinEncodable for SvcParamValue {
             Self::Mandatory(mandatory) => mandatory.emit(encoder)?,
             Self::Alpn(alpn) => alpn.emit(encoder)?,
             Self::NoDefaultAlpn => (),
-            Self::Port(port) => encoder.emit_u16(*port)?,
+            Self::Port(port) => port.emit(encoder)?,
             Self::Ipv4Hint(ip_hint) => ip_hint.emit(encoder)?,
             Self::EchConfigList(ech_config) => ech_config.emit(encoder)?,
             Self::Ipv6Hint(ip_hint) => ip_hint.emit(encoder)?,

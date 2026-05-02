@@ -90,14 +90,14 @@ impl BinEncodable for AAAA {
         let segments = self.segments();
 
         // TODO: this might be more efficient as a single write of the array
-        encoder.emit_u16(segments[0])?;
-        encoder.emit_u16(segments[1])?;
-        encoder.emit_u16(segments[2])?;
-        encoder.emit_u16(segments[3])?;
-        encoder.emit_u16(segments[4])?;
-        encoder.emit_u16(segments[5])?;
-        encoder.emit_u16(segments[6])?;
-        encoder.emit_u16(segments[7])?;
+        segments[0].emit(encoder)?;
+        segments[1].emit(encoder)?;
+        segments[2].emit(encoder)?;
+        segments[3].emit(encoder)?;
+        segments[4].emit(encoder)?;
+        segments[5].emit(encoder)?;
+        segments[6].emit(encoder)?;
+        segments[7].emit(encoder)?;
         Ok(())
     }
 }

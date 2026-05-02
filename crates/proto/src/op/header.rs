@@ -66,7 +66,7 @@ pub struct Header {
 impl BinEncodable for Header {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         // Id
-        encoder.emit_u16(self.id)?;
+        self.id.emit(encoder)?;
 
         // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
         let mut q_opcd_a_t_r = if let MessageType::Response = self.message_type {
@@ -99,10 +99,10 @@ impl BinEncodable for Header {
         r_z_ad_cd_rcod |= self.response_code.low();
         r_z_ad_cd_rcod.emit(encoder)?;
 
-        encoder.emit_u16(self.counts.queries)?;
-        encoder.emit_u16(self.counts.answers)?;
-        encoder.emit_u16(self.counts.authorities)?;
-        encoder.emit_u16(self.counts.additionals)?;
+        self.counts.queries.emit(encoder)?;
+        self.counts.answers.emit(encoder)?;
+        self.counts.authorities.emit(encoder)?;
+        self.counts.additionals.emit(encoder)?;
 
         Ok(())
     }
