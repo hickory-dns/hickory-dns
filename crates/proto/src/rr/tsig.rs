@@ -354,8 +354,8 @@ impl TSigner {
 
         debug_assert!(previous_mac.len() <= u16::MAX as usize); // Shouldn't happen for supported algorithms.
         encoder.emit_u16(previous_mac.len() as u16)?;
-        encoder.write_slice(previous_mac)?;
-        encoder.write_slice(encoded_response)?;
+        encoder.emit_slice(previous_mac)?;
+        encoder.emit_slice(encoded_response)?;
         stub_tsig.emit_tsig_for_mac(&mut encoder, self.signer_name())?;
 
         Ok(tbs_buf)

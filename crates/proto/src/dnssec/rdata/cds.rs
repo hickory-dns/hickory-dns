@@ -104,7 +104,7 @@ impl BinEncodable for CDS {
             None => encoder.emit_u8(0)?,
         }
         encoder.emit(self.digest_type().into())?;
-        encoder.write_slice(self.digest())?;
+        encoder.emit_slice(self.digest())?;
 
         Ok(())
     }

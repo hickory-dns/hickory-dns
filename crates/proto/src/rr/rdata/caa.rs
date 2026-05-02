@@ -614,8 +614,8 @@ impl BinEncodable for CAA {
 
         // now write to the encoder
         encoder.emit(len)?;
-        encoder.write_slice(&tag_buf[0..len as usize])?;
-        encoder.write_slice(&self.value)?;
+        encoder.emit_slice(&tag_buf[0..len as usize])?;
+        encoder.emit_slice(&self.value)?;
 
         Ok(())
     }

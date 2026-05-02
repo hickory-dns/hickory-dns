@@ -1193,7 +1193,7 @@ impl BinEncodable for EchConfigList {
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.write_slice(&self.0)?;
+        encoder.emit_slice(&self.0)?;
 
         Ok(())
     }
@@ -1364,7 +1364,7 @@ impl<'r> BinDecodable<'r> for Unknown {
 
 impl BinEncodable for Unknown {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.write_slice(&self.0)?;
+        encoder.emit_slice(&self.0)?;
 
         Ok(())
     }

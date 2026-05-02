@@ -279,7 +279,7 @@ impl BinEncodable for SSHFP {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u8(self.algorithm.into())?;
         encoder.emit_u8(self.fingerprint_type.into())?;
-        encoder.write_slice(&self.fingerprint)
+        encoder.emit_slice(&self.fingerprint)
     }
 }
 

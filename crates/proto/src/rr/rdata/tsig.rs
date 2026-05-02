@@ -277,7 +277,7 @@ impl TSIG {
             Some(err) => u16::from(err),
         })?;
         encoder.emit_u16(self.other.len() as u16)?;
-        encoder.write_slice(&self.other)?;
+        encoder.emit_slice(&self.other)?;
         Ok(())
     }
 
@@ -331,7 +331,7 @@ impl BinEncodable for TSIG {
                 .try_into()
                 .map_err(|_| ProtoError::from("invalid mac, longer than 65535 B in TSIG"))?,
         )?;
-        encoder.write_slice(&self.mac)?;
+        encoder.emit_slice(&self.mac)?;
         encoder.emit_u16(self.oid)?;
         encoder.emit_u16(match self.error {
             None => 0,
@@ -340,7 +340,7 @@ impl BinEncodable for TSIG {
         encoder.emit_u16(self.other.len().try_into().map_err(|_| {
             ProtoError::from("invalid other_buffer, longer than 65535 B in TSIG")
         })?)?;
-        encoder.write_slice(&self.other)?;
+        encoder.emit_slice(&self.other)?;
         Ok(())
     }
 }
@@ -779,14 +779,14 @@ pub fn signed_bitmessage_to_buf(
     // Prepend the previous hash if provided.
     if let Some(previous_hash) = previous_hash {
         encoder.emit_u16(previous_hash.len() as u16)?;
-        encoder.write_slice(previous_hash)?;
+        encoder.emit_slice(previous_hash)?;
     }
 
     // Emit the header we modified to remove the TSIG additional record.
     Header { metadata, counts }.emit(&mut encoder)?;
 
     // Emit all the message data between the header and the TSIG record.
-    encoder.write_slice(&message[start_data..end_data])?;
+    encoder.emit_slice(&message[start_data..end_data])?;
 
     if first_message {
         // Emit the TSIG pseudo-record when this is the first message.
