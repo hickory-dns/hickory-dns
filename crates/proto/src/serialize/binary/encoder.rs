@@ -292,11 +292,6 @@ impl<'a> BinEncoder<'a> {
         self.emit_slice(data)
     }
 
-    /// Writes an u32 in network byte order to the buffer
-    pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
-        self.emit_slice(&data.to_be_bytes())
-    }
-
     /// Writes the byte slice to the stream
     pub fn emit_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
         self.buffer.write(self.offset, data)?;

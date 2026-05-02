@@ -252,11 +252,11 @@ impl BinEncodable for SOA {
 
         self.mname.emit(&mut encoder)?;
         self.rname.emit(&mut encoder)?;
-        encoder.emit_u32(self.serial)?;
+        self.serial.emit(&mut encoder)?;
         self.refresh.emit(&mut encoder)?;
         self.retry.emit(&mut encoder)?;
         self.expire.emit(&mut encoder)?;
-        encoder.emit_u32(self.minimum)
+        self.minimum.emit(&mut encoder)
     }
 }
 

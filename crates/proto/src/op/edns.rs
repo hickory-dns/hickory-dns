@@ -221,7 +221,7 @@ impl BinEncodable for Edns {
         ttl |= u32::from(self.version()) << 16;
         ttl |= u32::from(u16::from(self.flags));
 
-        encoder.emit_u32(ttl)?;
+        ttl.emit(encoder)?;
 
         // write the opts as rdata...
         let place = encoder.place::<u16>()?;

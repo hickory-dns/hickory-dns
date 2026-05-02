@@ -85,7 +85,7 @@ impl<'r> BinDecodable<'r> for i32 {
 
 impl BinEncodable for u32 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u32(*self)
+        encoder.emit_slice(&self.to_be_bytes())
     }
 }
 

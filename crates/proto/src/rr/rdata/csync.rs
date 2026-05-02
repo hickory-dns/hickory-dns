@@ -196,7 +196,7 @@ impl CSYNC {
 
 impl BinEncodable for CSYNC {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u32(self.soa_serial)?;
+        self.soa_serial.emit(encoder)?;
         self.flags().emit(encoder)?;
         self.type_bit_maps.emit(encoder)?;
 
