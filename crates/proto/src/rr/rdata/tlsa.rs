@@ -433,7 +433,7 @@ impl BinEncodable for TLSA {
         encoder.emit_u8(self.cert_usage.into())?;
         encoder.emit_u8(self.selector.into())?;
         encoder.emit_u8(self.matching.into())?;
-        encoder.write_slice(&self.cert_data)?;
+        encoder.emit_slice(&self.cert_data)?;
         Ok(())
     }
 }

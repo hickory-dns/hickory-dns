@@ -251,7 +251,7 @@ impl BinEncodable for SIG {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
         self.input.emit(&mut encoder)?;
-        encoder.write_slice(&self.sig)?;
+        encoder.emit_slice(&self.sig)?;
         Ok(())
     }
 }

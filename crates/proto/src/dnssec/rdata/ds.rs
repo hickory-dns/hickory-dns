@@ -283,7 +283,7 @@ impl BinEncodable for DS {
         encoder.emit_u16(self.key_tag())?;
         self.algorithm().emit(encoder)?;
         encoder.emit(self.digest_type().into())?;
-        encoder.write_slice(self.digest())?;
+        encoder.emit_slice(self.digest())?;
 
         Ok(())
     }

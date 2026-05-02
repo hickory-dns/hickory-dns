@@ -329,7 +329,7 @@ impl<'a> BinEncoder<'a> {
         // first the length is written
         let data = data.as_ref();
         self.emit(data.len() as u8)?;
-        self.write_slice(data)
+        self.emit_slice(data)
     }
 
     /// Emit one byte into the buffer
@@ -339,21 +339,21 @@ impl<'a> BinEncoder<'a> {
 
     /// Writes a u16 in network byte order to the buffer
     pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
-        self.write_slice(&data.to_be_bytes())
+        self.emit_slice(&data.to_be_bytes())
     }
 
     /// Writes an i32 in network byte order to the buffer
     pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
-        self.write_slice(&data.to_be_bytes())
+        self.emit_slice(&data.to_be_bytes())
     }
 
     /// Writes an u32 in network byte order to the buffer
     pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
-        self.write_slice(&data.to_be_bytes())
+        self.emit_slice(&data.to_be_bytes())
     }
 
     /// Writes the byte slice to the stream
-    pub fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
+    pub fn emit_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
         self.buffer.write(self.offset, data)?;
         self.offset += data.len();
         Ok(())

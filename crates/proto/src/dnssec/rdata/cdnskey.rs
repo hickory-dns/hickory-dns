@@ -137,7 +137,7 @@ impl BinEncodable for CDNSKEY {
             Some(algorithm) => algorithm.emit(encoder)?,
             None => encoder.emit_u8(0)?,
         }
-        encoder.write_slice(&self.public_key)?;
+        encoder.emit_slice(&self.public_key)?;
 
         Ok(())
     }

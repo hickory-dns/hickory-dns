@@ -76,7 +76,7 @@ impl OPENPGPKEY {
 
 impl BinEncodable for OPENPGPKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.write_slice(&self.public_key)
+        encoder.emit_slice(&self.public_key)
     }
 }
 

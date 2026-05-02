@@ -237,7 +237,7 @@ impl EmitAndCount for QueriesEmitAndCount<'_> {
         };
 
         let original_offset = encoder.offset();
-        encoder.write_slice(original)?;
+        encoder.emit_slice(original)?;
         if matches!(encoder.name_encoding(), NameEncoding::Compressed) {
             encoder.store_label_pointer(original_offset, original_offset + original.len())
         }

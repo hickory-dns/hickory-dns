@@ -519,8 +519,8 @@ impl BinEncodable for EdnsOption {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(algorithms) => algorithms.emit(encoder),
             EdnsOption::Subnet(subnet) => subnet.emit(encoder),
-            EdnsOption::NSID(payload) => encoder.write_slice(payload.as_ref()),
-            EdnsOption::Unknown(_, data) => encoder.write_slice(data), // gah, clone needed or make a crazy api.
+            EdnsOption::NSID(payload) => encoder.emit_slice(payload.as_ref()),
+            EdnsOption::Unknown(_, data) => encoder.emit_slice(data), // gah, clone needed or make a crazy api.
         }
     }
 }
@@ -685,7 +685,7 @@ impl BinEncodable for ClientSubnet {
                 let octets = ip.octets();
                 let addr_len = addr_len as usize;
                 if addr_len <= octets.len() {
-                    encoder.write_slice(&octets[0..addr_len])?
+                    encoder.emit_slice(&octets[0..addr_len])?
                 } else {
                     return Err(ProtoError::Message(
                         "Invalid addr length for encode EcsOption",
@@ -699,7 +699,7 @@ impl BinEncodable for ClientSubnet {
                 let octets = ip.octets();
                 let addr_len = addr_len as usize;
                 if addr_len <= octets.len() {
-                    encoder.write_slice(&octets[0..addr_len])?
+                    encoder.emit_slice(&octets[0..addr_len])?
                 } else {
                     return Err(ProtoError::Message(
                         "Invalid addr length for encode EcsOption",
