@@ -370,7 +370,11 @@ impl<'a> BinEncoder<'a> {
     ) -> ProtoResult<usize> {
         let mut count = 0;
         for i in iter {
-            let rollback = self.set_rollback();
+            let rollback = Rollback {
+                offset: self.offset(),
+                pointers: self.name_pointers.len(),
+            };
+
             if let Err(e) = i.emit(self) {
                 return Err(match &e {
                     ProtoError::MaxBufferSizeExceeded(_) => {
@@ -405,13 +409,6 @@ impl<'a> BinEncoder<'a> {
     /// calculates the length of data written since the place was creating
     pub fn len_since_place<T: EncodedSize>(&self, place: &Place<T>) -> usize {
         (self.offset - place.start_index) - T::LEN
-    }
-
-    fn set_rollback(&self) -> Rollback {
-        Rollback {
-            offset: self.offset(),
-            pointers: self.name_pointers.len(),
-        }
     }
 }
 
