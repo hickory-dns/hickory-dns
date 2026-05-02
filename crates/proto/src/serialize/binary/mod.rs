@@ -53,6 +53,12 @@ pub trait BinDecodable<'r>: Sized {
     }
 }
 
+impl BinEncodable for u8 {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_slice(&[*self])
+    }
+}
+
 impl BinEncodable for u16 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(*self)

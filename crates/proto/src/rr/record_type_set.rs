@@ -104,11 +104,11 @@ impl BinEncodable for RecordTypeSet {
 
         // output bitmaps
         for (window, bitmap) in hash {
-            encoder.emit(window)?;
+            window.emit(encoder)?;
             // the hashset should never be larger that 255 based on above logic.
-            encoder.emit(bitmap.len() as u8)?;
+            (bitmap.len() as u8).emit(encoder)?;
             for bits in bitmap {
-                encoder.emit(bits)?;
+                bits.emit(encoder)?;
             }
         }
 

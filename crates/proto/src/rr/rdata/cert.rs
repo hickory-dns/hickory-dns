@@ -499,7 +499,7 @@ impl BinEncodable for CERT {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         encoder.emit_u16(self.cert_type.into())?;
         encoder.emit_u16(self.key_tag)?;
-        encoder.emit_u8(self.algorithm.into())?;
+        u8::from(self.algorithm).emit(&mut encoder)?;
         encoder.emit_slice(&self.cert_data)?;
 
         Ok(())

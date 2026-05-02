@@ -91,13 +91,7 @@ impl RecordData for A {
 
 impl BinEncodable for A {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        let segments = self.octets();
-
-        encoder.emit(segments[0])?;
-        encoder.emit(segments[1])?;
-        encoder.emit(segments[2])?;
-        encoder.emit(segments[3])?;
-        Ok(())
+        encoder.emit_slice(&self.octets())
     }
 }
 

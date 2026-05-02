@@ -62,11 +62,7 @@ impl NULL {
 
 impl BinEncodable for NULL {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        for b in &self.anything {
-            encoder.emit(*b)?;
-        }
-
-        Ok(())
+        encoder.emit_slice(&self.anything)
     }
 }
 

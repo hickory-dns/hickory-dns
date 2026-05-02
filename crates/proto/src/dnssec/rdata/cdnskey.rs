@@ -132,10 +132,10 @@ impl From<CDNSKEY> for RData {
 impl BinEncodable for CDNSKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(self.flags())?;
-        encoder.emit(3)?;
+        3u8.emit(encoder)?;
         match self.algorithm() {
             Some(algorithm) => algorithm.emit(encoder)?,
-            None => encoder.emit_u8(0)?,
+            None => 0u8.emit(encoder)?,
         }
         encoder.emit_slice(&self.public_key)?;
 

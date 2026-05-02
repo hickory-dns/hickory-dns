@@ -257,13 +257,6 @@ impl<'a> BinEncoder<'a> {
         None
     }
 
-    /// Emit one byte into the buffer
-    pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
-        self.buffer.write(self.offset, &[b])?;
-        self.offset += 1;
-        Ok(())
-    }
-
     /// matches description from above.
     ///
     /// ```
@@ -295,13 +288,8 @@ impl<'a> BinEncoder<'a> {
     pub fn emit_character_data_unrestricted<S: AsRef<[u8]>>(&mut self, data: S) -> ProtoResult<()> {
         // first the length is written
         let data = data.as_ref();
-        self.emit(data.len() as u8)?;
+        (data.len() as u8).emit(self)?;
         self.emit_slice(data)
-    }
-
-    /// Emit one byte into the buffer
-    pub fn emit_u8(&mut self, data: u8) -> ProtoResult<()> {
-        self.emit(data)
     }
 
     /// Writes a u16 in network byte order to the buffer
@@ -556,10 +544,10 @@ mod tests {
             let place = encoder.place::<u16>().unwrap();
             assert_eq!(encoder.len_since_place(&place), 0);
 
-            encoder.emit(42_u8).expect("failed 0");
+            42u8.emit(&mut encoder).expect("failed 0");
             assert_eq!(encoder.len_since_place(&place), 1);
 
-            encoder.emit(48_u8).expect("failed 1");
+            48u8.emit(&mut encoder).expect("failed 1");
             assert_eq!(encoder.len_since_place(&place), 2);
 
             place
@@ -582,12 +570,12 @@ mod tests {
         let mut encoder = BinEncoder::new(&mut buf);
 
         encoder.set_max_size(5);
-        encoder.emit(0).expect("failed to write");
-        encoder.emit(1).expect("failed to write");
-        encoder.emit(2).expect("failed to write");
-        encoder.emit(3).expect("failed to write");
-        encoder.emit(4).expect("failed to write");
-        let error = encoder.emit(5).unwrap_err();
+        0u8.emit(&mut encoder).expect("failed to write");
+        1u8.emit(&mut encoder).expect("failed to write");
+        2u8.emit(&mut encoder).expect("failed to write");
+        3u8.emit(&mut encoder).expect("failed to write");
+        4u8.emit(&mut encoder).expect("failed to write");
+        let error = 5u8.emit(&mut encoder).unwrap_err();
 
         match error {
             ProtoError::MaxBufferSizeExceeded(_) => (),
@@ -599,9 +587,8 @@ mod tests {
     fn test_max_size_0() {
         let mut buf = vec![];
         let mut encoder = BinEncoder::new(&mut buf);
-
         encoder.set_max_size(0);
-        let error = encoder.emit(0).unwrap_err();
+        let error = 0u8.emit(&mut encoder).unwrap_err();
 
         match error {
             ProtoError::MaxBufferSizeExceeded(_) => (),

@@ -277,8 +277,8 @@ impl From<FingerprintType> for u8 {
 
 impl BinEncodable for SSHFP {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u8(self.algorithm.into())?;
-        encoder.emit_u8(self.fingerprint_type.into())?;
+        u8::from(self.algorithm).emit(encoder)?;
+        u8::from(self.fingerprint_type).emit(encoder)?;
         encoder.emit_slice(&self.fingerprint)
     }
 }
