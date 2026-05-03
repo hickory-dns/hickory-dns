@@ -535,6 +535,130 @@ async fn cache_negative_responses() -> Result<(), NetError> {
     Ok(())
 }
 
+/// Regression test for a bug where the recursor incorrectly applies RFC 8020 NXDOMAIN
+/// inference during NS hostname resolution.
+///
+/// When resolving an out-of-bailiwick NS hostname like `e.ns.nflxso.testing.`, the
+/// recursor walks intermediate labels and queries `ns.nflxso.testing. NS` at the
+/// `nflxso.testing.` authoritative server. If that server returns NXDOMAIN — which is
+/// a zone misconfiguration (it should return NODATA for an empty non-terminal) but is
+/// common in the wild — the recursor concludes via RFC 8020 that `e.ns.nflxso.testing.`
+/// cannot exist. It then abandons resolution without ever issuing `e.ns.nflxso.testing. A`,
+/// leaving the NS pool for `dradis.netflix.testing.` empty and producing `NoConnections`.
+///
+/// This mirrors a real-world failure: `android13.prod.cloud.netflix.com` fails to resolve
+/// because `netflix.com`'s `dradis.netflix.com.` zone is delegated to `e.ns.nflxso.net.`
+/// and `f.ns.nflxso.net.`, but `ns.nflxso.net.` returns NXDOMAIN when queried as NS.
+///
+/// Expected behaviour: when the `nflxso.testing.` zone is already known, the recursor
+/// should query `e.ns.nflxso.testing. A` directly rather than abandoning resolution on
+/// an NXDOMAIN for an intermediate label.
+#[tokio::test]
+#[ignore = "known bug: NXDOMAIN on intermediate NS label incorrectly prevents NS hostname resolution via RFC 8020 inference"]
+async fn ns_hostname_nxdomain_empty_non_terminal() -> Result<(), NetError> {
+    subscribe();
+
+    // Separate IPs so they don't collide with the module-level constants.
+    let netflix_ip: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 6, 1));
+    let nflxso_ip: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 7, 1));
+    let dradis_ip: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 8, 1)); // = resolved IP of e.ns.nflxso.testing.
+    let result_ip: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 1, 1, 1));
+
+    // Zone hierarchy:
+    //   testing.                         → ns at TLD_IP
+    //   netflix.testing.                 → ns.netflix.testing. at netflix_ip
+    //   nflxso.testing.                  → ns.nflxso.testing. at nflxso_ip (with glue)
+    //   dradis.netflix.testing.          → delegated to e.ns.nflxso.testing. (no glue)
+    //   e.ns.nflxso.testing. A           = dradis_ip  (correct answer, but recursor never asks)
+    //   ns.nflxso.testing. NS            = NXDOMAIN   (empty non-terminal; triggers the bug)
+    //   host.dradis.netflix.testing. A   = result_ip  (served at dradis_ip)
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let netflix_zone = Name::from_ascii("netflix.testing.")?;
+    let netflix_ns = Name::from_ascii("ns.netflix.testing.")?;
+    let nflxso_zone = Name::from_ascii("nflxso.testing.")?;
+    let nflxso_ns = Name::from_ascii("ns.nflxso.testing.")?;
+    let dradis_zone = Name::from_ascii("dradis.netflix.testing.")?;
+    let e_ns_nflxso = Name::from_ascii("e.ns.nflxso.testing.")?;
+    let host_dradis = Name::from_ascii("host.dradis.netflix.testing.")?;
+
+    // Clone for the mutation closure (Name is not Copy).
+    let nflxso_ns_for_mutation = nflxso_ns.clone();
+
+    let responses = vec![
+        // Root → testing.
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        // TLD → netflix.testing. (glue for in-bailiwick ns.netflix.testing.)
+        MockRecord::ns(TLD_IP, &netflix_zone, &netflix_ns),
+        MockRecord::a(TLD_IP, &netflix_ns, netflix_ip)
+            .with_query_name(&netflix_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        // TLD → nflxso.testing. (glue for in-bailiwick ns.nflxso.testing.)
+        MockRecord::ns(TLD_IP, &nflxso_zone, &nflxso_ns),
+        MockRecord::a(TLD_IP, &nflxso_ns, nflxso_ip)
+            .with_query_name(&nflxso_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        // netflix.testing. → dradis.netflix.testing. delegated to e.ns.nflxso.testing.
+        // No glue: e.ns.nflxso.testing. is out-of-bailiwick for netflix.testing.
+        MockRecord::ns(netflix_ip, &dradis_zone, &e_ns_nflxso),
+        // nflxso.testing. → e.ns.nflxso.testing. A = dradis_ip (the NS address we need to find)
+        MockRecord::a(nflxso_ip, &e_ns_nflxso, dradis_ip),
+        // nflxso.testing. → ns.nflxso.testing. NS query: register a SOA so the handler has
+        // something to return; the mutation below overwrites the response code to NXDOMAIN.
+        // (The zone is misconfigured: ns.nflxso.testing. is an empty non-terminal that should
+        // return NODATA but returns NXDOMAIN instead.)
+        MockRecord::soa(nflxso_ip, &nflxso_zone, &nflxso_zone, &nflxso_ns)
+            .with_query_name(&nflxso_ns)
+            .with_query_type(RecordType::NS),
+        // Dradis zone (served at dradis_ip = resolved address of e.ns.nflxso.testing.)
+        MockRecord::a(dradis_ip, &host_dradis, result_ip),
+    ];
+
+    let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+        move |destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+            if destination == nflxso_ip
+                && msg.queries[0].name == nflxso_ns_for_mutation
+                && msg.queries[0].query_type == RecordType::NS
+            {
+                // Simulate the empty-non-terminal misbehaviour: the zone returns NXDOMAIN
+                // for ns.nflxso.testing. even though e.ns.nflxso.testing. exists beneath it.
+                msg.metadata.response_code = ResponseCode::NXDomain;
+            }
+        },
+    ));
+
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ..RecursorOptions::default()
+        },
+        MockProvider::new(handler),
+    )?;
+
+    let response = recursor
+        .resolve(
+            Query::new(host_dradis.clone(), RecordType::A),
+            Instant::now(),
+            false,
+        )
+        .await?;
+
+    assert_eq!(response.response_code, ResponseCode::NoError);
+    assert_eq!(
+        response.answers,
+        [Record::from_rdata(host_dradis, 3600, result_ip.into())]
+    );
+
+    Ok(())
+}
+
 #[test]
 fn is_subzone_test() {
     use core::str::FromStr;
