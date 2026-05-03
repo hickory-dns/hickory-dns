@@ -554,7 +554,6 @@ async fn cache_negative_responses() -> Result<(), NetError> {
 /// should query `e.ns.nflxso.testing. A` directly rather than abandoning resolution on
 /// an NXDOMAIN for an intermediate label.
 #[tokio::test]
-#[ignore = "known bug: NXDOMAIN on intermediate NS label incorrectly prevents NS hostname resolution via RFC 8020 inference"]
 async fn ns_hostname_nxdomain_empty_non_terminal() -> Result<(), NetError> {
     subscribe();
 

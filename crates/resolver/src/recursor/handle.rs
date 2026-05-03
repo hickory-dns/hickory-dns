@@ -533,8 +533,23 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             let response = match lookup_res {
                 Ok(response) => response,
-                // Short-circuit on NXDOMAIN, per RFC 8020.
-                Err(e) if e.is_nx_domain() => return Err(e),
+                // RFC 8020 NXDOMAIN inference is unreliable for intermediate labels:
+                // zones in the wild commonly return NXDOMAIN for empty non-terminals
+                // (e.g. ns.nflxso.net. NS → NXDOMAIN even though e.ns.nflxso.net. exists).
+                // If we've already discovered a deeper zone, stop the walk and return that
+                // pool — the caller can query the target name against it and get an
+                // authoritative answer. Only propagate NXDOMAIN when we have nothing
+                // better than the root pool to fall back on.
+                Err(e) if e.is_nx_domain() => {
+                    if nameserver_pool.zone().is_some_and(|z| !z.is_root()) {
+                        debug!(
+                            ?zone,
+                            "NXDOMAIN at intermediate label; using deeper known zone"
+                        );
+                        break;
+                    }
+                    return Err(e);
+                }
                 // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
                 // encounter them again.
                 Err(e) if e.is_timeout() => return Err(e),
