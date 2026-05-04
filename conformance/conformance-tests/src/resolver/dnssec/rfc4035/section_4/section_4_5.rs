@@ -23,13 +23,9 @@ fn caches_dnssec_records() -> Result<(), Error> {
     let client = Client::new(network)?;
     let settings = *DigSettings::default().dnssec().recurse().retries(0);
 
-    // query twice; eavesdrop second query
-    let mut tshark = None;
-    for i in 0..2 {
-        if i == 1 {
-            tshark = Some(resolver.eavesdrop_udp()?);
-        }
-
+    // When using BIND, try to work around nondeterminism by making more priming requests.
+    let iterations = if dns_test::SUBJECT.is_bind() { 5 } else { 1 };
+    for _ in 0..iterations {
         let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
         let [answer, rrsig] = ans.answer.try_into().unwrap();
 
@@ -37,7 +33,14 @@ fn caches_dnssec_records() -> Result<(), Error> {
         assert!(matches!(rrsig, Record::RRSIG(_)));
     }
 
-    let mut tshark = tshark.unwrap();
+    let mut tshark = resolver.eavesdrop_udp()?;
+
+    let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
+    let [answer, rrsig] = ans.answer.try_into().unwrap();
+
+    assert!(matches!(answer, Record::SOA(_)));
+    assert!(matches!(rrsig, Record::RRSIG(_)));
+
     tshark.wait_for_capture()?;
 
     let captures = tshark.terminate()?;
@@ -117,16 +120,20 @@ fn caches_intermediate_records() -> Result<(), Error> {
     let client = Client::new(resolver.network())?;
     let settings = *DigSettings::default().recurse().authentic_data().retries(0);
 
-    let output = client.dig(settings, resolver_addr, RecordType::A, &leaf_fqdn)?;
+    // When using BIND, try to work around nondeterminism by making more priming requests.
+    let iterations = if dns_test::SUBJECT.is_bind() { 5 } else { 1 };
+    for _ in 0..iterations {
+        let output = client.dig(settings, resolver_addr, RecordType::A, &leaf_fqdn)?;
 
-    assert!(output.status.is_noerror());
-    assert!(output.flags.authenticated_data);
+        assert!(output.status.is_noerror());
+        assert!(output.flags.authenticated_data);
 
-    let [a] = output.answer.try_into().unwrap();
-    let a = a.try_into_a().unwrap();
+        let [a] = output.answer.try_into().unwrap();
+        let a = a.try_into_a().unwrap();
 
-    assert_eq!(leaf_fqdn, a.fqdn);
-    assert_eq!(leaf_ipv4_addr, a.ipv4_addr);
+        assert_eq!(leaf_fqdn, a.fqdn);
+        assert_eq!(leaf_ipv4_addr, a.ipv4_addr);
+    }
 
     let mut tshark = resolver.eavesdrop_udp()?;
 
