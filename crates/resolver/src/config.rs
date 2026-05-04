@@ -720,12 +720,12 @@ pub enum LookupIpStrategy {
     Ipv6Only,
     /// Query for A and AAAA in parallel, ordering A before AAAA
     Ipv4AndIpv6,
-    /// Query for AAAA and A in parallel, ordering AAAA before A
+    /// Query for AAAA and A in parallel, ordering AAAA before A (default)
     #[default]
     Ipv6AndIpv4,
     /// Query for Ipv6 if that fails, query for Ipv4
     Ipv6thenIpv4,
-    /// Query for Ipv4 if that fails, query for Ipv6 (default)
+    /// Query for Ipv4 if that fails, query for Ipv6
     Ipv4thenIpv6,
 }
 
