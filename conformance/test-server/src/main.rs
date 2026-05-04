@@ -18,10 +18,10 @@ use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
 use handlers::{
-    DropRrsetHandler, bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
-    cname_loop_handler, empty_response_handler, nsec3_nocover_handler, packet_loss_handler,
-    parent_ns_in_authority_handler, qr_not_response_force_tcp_handler, qr_not_response_handler,
-    truncated_response_handler,
+    BogusNoDataInsteadOfCname, DropRrsetHandler, bad_case_handler, bad_txid_handler,
+    bailiwick_handler, base_handler, cname_loop_handler, empty_response_handler,
+    nsec3_nocover_handler, packet_loss_handler, parent_ns_in_authority_handler,
+    qr_not_response_force_tcp_handler, qr_not_response_handler, truncated_response_handler,
 };
 mod zone_file;
 
@@ -85,6 +85,9 @@ enum HandlerArg {
         name: Name,
         record_type: RecordType,
     },
+    BogusNoDataInsteadOfCname {
+        ip_address: IpAddr,
+    },
 }
 
 impl HandlerArg {
@@ -107,11 +110,14 @@ impl HandlerArg {
                 name,
                 record_type,
             } => DROP_HANDLER.get_or_init(|| DropRrsetHandler::new(ip_address, name, record_type)),
+            Self::BogusNoDataInsteadOfCname { ip_address } => BOGUS_NO_DATA_CNAME_HANDLER
+                .get_or_init(|| BogusNoDataInsteadOfCname::new(ip_address)),
         }
     }
 }
 
 static DROP_HANDLER: OnceLock<DropRrsetHandler> = OnceLock::new();
+static BOGUS_NO_DATA_CNAME_HANDLER: OnceLock<BogusNoDataInsteadOfCname> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,

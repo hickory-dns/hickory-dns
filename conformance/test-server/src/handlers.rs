@@ -1,5 +1,5 @@
 use crate::{Handler, Transport, zone_file};
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Error, Result, anyhow};
 use async_trait::async_trait;
 use data_encoding::BASE32_DNSSEC;
 use hickory_net::{
@@ -13,13 +13,13 @@ use hickory_proto::{
         Nsec3HashAlgorithm,
         rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
-    op::{DnsRequest, DnsRequestOptions, Message, MessageType, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, Message, MessageType, Query, ResponseCode},
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
     env,
     net::IpAddr,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     path::Path,
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
@@ -699,6 +699,104 @@ impl Handler for DropRrsetHandler {
                 true
             });
         }
+
+        response.metadata.id = id;
+        Ok(Some(
+            response.to_vec().context("error serializing response")?,
+        ))
+    }
+}
+
+/// This handler proxies requests to another server, and reassembles a bogus no data response
+/// in place of a positive CNAME response.
+pub(crate) struct BogusNoDataInsteadOfCname {
+    ip_address: IpAddr,
+}
+
+impl BogusNoDataInsteadOfCname {
+    pub(crate) fn new(ip_address: IpAddr) -> Self {
+        Self { ip_address }
+    }
+}
+
+#[async_trait]
+impl Handler for BogusNoDataInsteadOfCname {
+    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+        let (future, sender) = TcpClientStream::new(
+            (self.ip_address, 53).into(),
+            None,
+            None,
+            TokioRuntimeProvider::new(),
+        );
+        let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
+        tokio::task::spawn(bg);
+
+        let query_message = Message::from_vec(bytes).context("erorr parsing query into message")?;
+        let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
+        let id = query_request.id;
+
+        let positive_cname_query_name = Name::parse("alias.hickory-dns.testing.", None).unwrap();
+
+        let mut response = if query_request.queries[0].name == positive_cname_query_name {
+            // This query was chosen so that the NSEC/NSEC3 record covering the query name will be
+            // the same as the NSEC/NSEC3 record that matches the name "alias.hickory-dns.testing.".
+            let negative_query = Query::new(
+                Name::parse("alias9.hickory-dns.testing.", None).unwrap(),
+                RecordType::A,
+            );
+            let mut options = DnsRequestOptions::default();
+            options.use_edns = true;
+            options.edns_set_dnssec_ok = true;
+            let request = DnsRequest::from_query(negative_query, options);
+            let mut response = client
+                .send(request)
+                .first_answer()
+                .await
+                .context("error sending proxied query")?;
+
+            // Confirm that the expected NSEC/NSEC3 records are present.
+            let nsec_name = Name::parse("alias.hickory-dns.testing.", None).unwrap();
+            let nsec3_name = Name::parse(
+                "2k7lm9hea6p5c02c1uftiabk7mmq98qc.hickory-dns.testing.",
+                None,
+            )
+            .unwrap();
+            let nsec_present = response
+                .authorities
+                .iter()
+                .any(|record| record.record_type() == RecordType::NSEC && record.name == nsec_name);
+            let nsec3_present = response.authorities.iter().any(|record| {
+                record.record_type() == RecordType::NSEC3 && record.name == nsec3_name
+            });
+            let dnssec_ok = query_request
+                .edns
+                .as_ref()
+                .is_some_and(|edns| edns.flags().dnssec_ok);
+            if dnssec_ok && !nsec_present && !nsec3_present {
+                return Err(anyhow!(
+                    "Expected NSEC/NSEC3 records missing\n{:#?}",
+                    response.deref()
+                ));
+            }
+
+            if response.response_code != ResponseCode::NXDomain {
+                return Err(anyhow!("Unexpected response code"));
+            }
+
+            // Overwrite the response code as if this were a no data response, even though a CNAME
+            // record exists.
+            response.metadata.response_code = ResponseCode::NoError;
+            // Overwrite the query with the client's original query.
+            response.queries = query_request.queries.clone();
+            response
+        } else {
+            // Proxy any other queries.
+            client
+                .send(query_request)
+                .first_answer()
+                .await
+                .context("error sending proxied query")?
+        };
 
         response.metadata.id = id;
         Ok(Some(
