@@ -1071,6 +1071,21 @@ async fn build_forwarded_response(
                 additionals,
             }
         }
+        Ok(AuthLookup::Response(message)) => {
+            // Extract each section from the Message to preserve section structure.
+            ResponseParts {
+                answers: AuthLookup::answers(LookupRecords::Section(message.answers.clone()), None),
+                soa: None,
+                authorities: AuthLookup::answers(
+                    LookupRecords::Section(message.authorities.clone()),
+                    None,
+                ),
+                additionals: AuthLookup::answers(
+                    LookupRecords::Section(message.additionals.clone()),
+                    None,
+                ),
+            }
+        }
         Ok(l) => ResponseParts {
             answers: l,
             soa: None,
