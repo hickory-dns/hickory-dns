@@ -873,6 +873,14 @@ async fn build_forwarded_response(
                 response_meta.response_code = ResponseCode::NXDomain;
             }
 
+            let answers = match e.answers() {
+                Some(answers) => AuthLookup::answers(
+                    LookupRecords::Section(answers.iter().cloned().collect()),
+                    None,
+                ),
+                None => AuthLookup::default(),
+            };
+
             // Collect all of the authority records, except the SOA
             let authorities = if let Some(authorities) = e.authorities() {
                 let authorities = authorities
@@ -906,12 +914,14 @@ async fn build_forwarded_response(
                 let soa = soa.into_record_of_rdata();
 
                 ResponseParts {
+                    answers,
                     soa: Some(soa),
                     authorities,
                     ..ResponseParts::default()
                 }
             } else {
                 ResponseParts {
+                    answers,
                     authorities,
                     ..ResponseParts::default()
                 }
