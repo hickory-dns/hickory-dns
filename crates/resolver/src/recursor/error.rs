@@ -218,6 +218,7 @@ impl From<AuthorityData> for NoRecords {
 
         let mut new = Self::new(data.query, response_code);
         new.soa = data.soa;
+        new.answers = data.answers;
         new.authorities = data.authorities;
         new
     }
