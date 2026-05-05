@@ -149,7 +149,6 @@ fn no_data_error_empty_non_terminal() -> Result<(), Error> {
 
 /// Based on RFC 5155 section B.4.
 #[test]
-#[ignore = "hickory recursor does not include NSEC3 records proving wildcard expansion"]
 fn wildcard_expansion() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_ns = build_zone(&network)?;
