@@ -592,6 +592,7 @@ impl DnsError {
             soa: response.soa().as_ref().map(|soa| Box::new(soa.to_owned())),
             ns: (!referral_name_servers.is_empty()).then(|| Arc::from(referral_name_servers)),
             negative_ttl: response.negative_ttl(),
+            answers: (!response.answers.is_empty()).then(|| Arc::from(response.answers.to_owned())),
             authorities: (!response.authorities.is_empty())
                 .then(|| Arc::from(response.authorities.to_owned())),
             query: Box::new(
@@ -656,6 +657,8 @@ pub struct NoRecords {
     /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
     ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
     pub response_code: ResponseCode,
+    /// Answer section records from the response. These may be necessary for a CNAME chain.
+    pub answers: Option<Arc<[Record]>>,
     /// Authority records from the query. These are important to preserve for DNSSEC validation.
     pub authorities: Option<Arc<[Record]>>,
 }
@@ -669,6 +672,7 @@ impl NoRecords {
             ns: None,
             negative_ttl: None,
             response_code,
+            answers: None,
             authorities: None,
         }
     }
