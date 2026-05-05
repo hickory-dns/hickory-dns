@@ -17,7 +17,7 @@ fn unknown_type_transparency() -> Result<(), Error> {
 
     let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::Unknown(UnknownRdata {
-        zone: FQDN::TEST_DOMAIN,
+        fqdn: FQDN::TEST_DOMAIN,
         ttl: 86400,
         r#type: 1234,
         rdata: [0xde, 0xad, 0xbe, 0xef].to_vec(),
@@ -48,7 +48,7 @@ fn unknown_type_transparency() -> Result<(), Error> {
     let Record::Unknown(record) = answer else {
         panic!("unexpected record type: {answer:?}");
     };
-    assert_eq!(record.zone, FQDN::TEST_DOMAIN);
+    assert_eq!(record.fqdn, FQDN::TEST_DOMAIN);
     assert_eq!(record.r#type, 1234);
     assert_eq!(record.rdata, [0xde, 0xad, 0xbe, 0xef]);
 
@@ -67,7 +67,7 @@ fn caa_issue_empty_value_dnssec() -> Result<(), Error> {
 
     let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
     leaf_ns.add(Record::CAA(CAA {
-        zone: FQDN::TEST_DOMAIN,
+        fqdn: FQDN::TEST_DOMAIN,
         ttl: 86400,
         flags: 0,
         tag: "issue".to_string(),
@@ -105,7 +105,7 @@ fn caa_issue_empty_value_dnssec() -> Result<(), Error> {
         .filter_map(|record| record.try_into_caa().ok())
         .next()
         .expect("did not find CAA record in response");
-    assert_eq!(caa.zone, FQDN::TEST_DOMAIN);
+    assert_eq!(caa.fqdn, FQDN::TEST_DOMAIN);
     assert_eq!(caa.flags, 0);
     assert_eq!(caa.tag, "issue");
     assert_eq!(caa.value, "");

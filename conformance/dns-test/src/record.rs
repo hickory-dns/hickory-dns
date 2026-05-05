@@ -1065,7 +1065,7 @@ impl fmt::Display for SoaSettings {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone)]
 pub struct TXT {
-    pub zone: FQDN,
+    pub fqdn: FQDN,
     pub ttl: u32,
     pub character_strings: Vec<String>,
 }
@@ -1075,7 +1075,7 @@ impl FromStr for TXT {
 
     fn from_str(input: &str) -> Result<Self, Error> {
         let mut rest = input;
-        let [Some(zone), Some(ttl), Some(class), Some(record_type)] = array::from_fn(|_| {
+        let [Some(fqdn), Some(ttl), Some(class), Some(record_type)] = array::from_fn(|_| {
             if let Some((left, right)) = rest.split_once(|c| char::is_ascii_whitespace(&c)) {
                 rest = right.trim();
                 Some(left)
@@ -1159,7 +1159,7 @@ impl FromStr for TXT {
         }
 
         Ok(Self {
-            zone: zone.parse()?,
+            fqdn: fqdn.parse()?,
             ttl: ttl.parse()?,
             character_strings,
         })
@@ -1169,13 +1169,13 @@ impl FromStr for TXT {
 impl fmt::Display for TXT {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            zone,
+            fqdn,
             ttl,
             character_strings,
         } = self;
 
         let record_type = unqualified_type_name::<Self>();
-        write!(f, "{zone}\t{ttl}\t{CLASS}\t{record_type}")?;
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}")?;
         let mut is_first = true;
         for string in character_strings.iter() {
             if is_first {
@@ -1192,7 +1192,7 @@ impl fmt::Display for TXT {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone)]
 pub struct CAA {
-    pub zone: FQDN,
+    pub fqdn: FQDN,
     pub ttl: u32,
     pub flags: u8,
     pub tag: String,
@@ -1206,7 +1206,7 @@ impl FromStr for CAA {
         let mut columns = input.split_whitespace();
 
         let [
-            Some(zone),
+            Some(fqdn),
             Some(ttl),
             Some(class),
             Some(record_type),
@@ -1229,7 +1229,7 @@ impl FromStr for CAA {
         };
 
         Ok(Self {
-            zone: zone.parse()?,
+            fqdn: fqdn.parse()?,
             ttl: ttl.parse()?,
             flags: flags.parse()?,
             tag: tag.to_string(),
@@ -1241,7 +1241,7 @@ impl FromStr for CAA {
 impl fmt::Display for CAA {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
-            zone,
+            fqdn,
             ttl,
             flags,
             tag,
@@ -1249,7 +1249,7 @@ impl fmt::Display for CAA {
         } = self;
 
         let record_type = unqualified_type_name::<Self>();
-        write!(f, "{zone}\t{ttl}\t{CLASS}\t{record_type}\t{flags} {tag} ")?;
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{flags} {tag} ")?;
         if value.is_empty() {
             write!(f, "\"\"")?;
         } else {
@@ -1263,7 +1263,7 @@ impl fmt::Display for CAA {
 /// A record of unknown type.
 #[derive(Debug, Clone)]
 pub struct UnknownRdata {
-    pub zone: FQDN,
+    pub fqdn: FQDN,
     pub ttl: u32,
     pub r#type: u16,
     pub rdata: Vec<u8>,
@@ -1276,7 +1276,7 @@ impl FromStr for UnknownRdata {
         let mut columns = input.split_ascii_whitespace();
 
         let [
-            Some(zone),
+            Some(fqdn),
             Some(ttl),
             Some(class),
             Some(record_type),
@@ -1309,7 +1309,7 @@ impl FromStr for UnknownRdata {
 
         Ok({
             Self {
-                zone: zone.parse()?,
+                fqdn: fqdn.parse()?,
                 ttl: ttl.parse()?,
                 r#type,
                 rdata,
@@ -1321,13 +1321,13 @@ impl FromStr for UnknownRdata {
 impl fmt::Display for UnknownRdata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            zone,
+            fqdn,
             ttl,
             r#type,
             rdata,
         } = self;
 
-        write!(f, "{zone}\t{ttl}\t{CLASS}\tTYPE{type}\t\\# {}", rdata.len())?;
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\tTYPE{type}\t\\# {}", rdata.len())?;
         for byte in rdata {
             write!(f, " {byte:02x}")?;
         }
@@ -1730,7 +1730,7 @@ mod tests {
     fn txt() -> Result<(), Error> {
         let txt: TXT = TXT_INPUT.parse()?;
 
-        assert_eq!("example.testing.", txt.zone.as_str());
+        assert_eq!("example.testing.", txt.fqdn.as_str());
         assert_eq!(0, txt.ttl);
         assert_eq!(
             vec!["protocol=TCP".to_owned(), "counter=0".to_owned()],
@@ -1748,14 +1748,14 @@ mod tests {
     #[test]
     fn caa() -> Result<(), Error> {
         let caa @ CAA {
-            zone,
+            fqdn,
             ttl,
             flags,
             tag,
             value,
         } = &CAA_INPUT.parse()?;
 
-        assert_eq!(FQDN("certs.example.com.").unwrap(), *zone);
+        assert_eq!(FQDN("certs.example.com.").unwrap(), *fqdn);
         assert_eq!(86400, *ttl);
         assert_eq!(0, *flags);
         assert_eq!("issue", tag);
