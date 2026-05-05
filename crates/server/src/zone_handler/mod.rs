@@ -432,6 +432,22 @@ impl LookupError {
         }
     }
 
+    /// Return answer records
+    pub fn answers(&self) -> Option<Arc<[Record]>> {
+        match self {
+            Self::NetError(NetError::Dns(DnsError::NoRecordsFound(NoRecords {
+                answers, ..
+            }))) => answers.clone(),
+            #[cfg(feature = "recursor")]
+            Self::RecursiveError(RecursorError::Negative(fwd)) => fwd.answers.clone(),
+            #[cfg(feature = "recursor")]
+            Self::RecursiveError(RecursorError::Net(NetError::Dns(DnsError::NoRecordsFound(
+                NoRecords { answers, .. },
+            )))) => answers.clone(),
+            _ => None,
+        }
+    }
+
     /// Return authority records
     pub fn authorities(&self) -> Option<Arc<[Record]>> {
         match self {
