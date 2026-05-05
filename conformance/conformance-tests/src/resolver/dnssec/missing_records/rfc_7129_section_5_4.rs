@@ -10,7 +10,6 @@ use dns_test::{
 use crate::resolver::dnssec::missing_records::test_record_removal_validation_failure;
 
 #[test]
-#[ignore = "hickory does not include all NSEC records from CNAME chasing"]
 fn wildcard_cname() -> Result<(), Error> {
     if SUBJECT.is_unbound() {
         // Excluding NSEC records from this response doesn't cause failures in Unbound. The RFCs are

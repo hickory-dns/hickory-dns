@@ -898,7 +898,6 @@ fn secure_cname_secure_nodata(
 }
 
 #[test]
-#[ignore = "hickory drops NSEC and NSEC3 records"]
 fn secure_cname_nsec_secure_positive_wildcard_expanded_nsec3() -> Result<(), Error> {
     secure_cname_secure_positive_wildcard_expanded(
         SignSettings::default().nsec(Nsec::_1),
@@ -907,7 +906,6 @@ fn secure_cname_nsec_secure_positive_wildcard_expanded_nsec3() -> Result<(), Err
 }
 
 #[test]
-#[ignore = "hickory drops NSEC and NSEC3 records"]
 fn secure_cname_nsec3_secure_positive_wildcard_expanded_nsec() -> Result<(), Error> {
     secure_cname_secure_positive_wildcard_expanded(
         SignSettings::default(),
