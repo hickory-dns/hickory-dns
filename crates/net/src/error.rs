@@ -163,6 +163,10 @@ pub enum NetError {
         /// The type of the offending record.
         record_type: RecordType,
     },
+
+    /// Received a truncated response
+    #[error("response was truncated")]
+    Truncated,
 }
 
 impl NetError {
@@ -312,6 +316,7 @@ impl NetError {
             Self::RustlsError(_) => "tls",
             Self::QueryCaseMismatch => "query_case_mismatch",
             Self::ForeignClassRecord { .. } => "foreign_class_record",
+            Self::Truncated => "truncated",
 
             // Don't report these because the format is arbitrary, and in the case of Msg, dynamic.
             Self::Message(_) | Self::Msg(_) => "message",
