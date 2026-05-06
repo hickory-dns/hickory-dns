@@ -384,7 +384,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     Ok(response) if response.truncation => {
                         debug!("truncated response received, retrying over TCP");
                         policy.disable_udp = true;
-                        err = NetError::from("received truncated response");
+                        err = NetError::Truncated;
                         servers.push_front(server);
                         continue;
                     }
