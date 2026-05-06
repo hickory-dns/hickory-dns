@@ -7,7 +7,7 @@
 
 //! LookupIp result from a resolution of ipv4 and ipv6 records with a Resolver.
 //!
-//! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
+//! At its heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
 use std::future::Future;
 use std::net::IpAddr;
@@ -30,7 +30,7 @@ use crate::hosts::Hosts;
 use crate::lookup::Lookup;
 use crate::net::NetError;
 use crate::net::xfer::DnsHandle;
-use crate::proto::op::{DnsRequestOptions, Query};
+use crate::proto::op::{DnsRequestOptions, Message, Query};
 use crate::proto::rr::{Name, RData, Record, RecordType};
 
 /// Result of a DNS query when querying for A or AAAA records.
@@ -77,6 +77,16 @@ impl From<LookupIp> for Lookup {
     }
 }
 
+impl IntoIterator for LookupIp {
+    type Item = IpAddr;
+    type IntoIter = LookupIpIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let message = Message::from(self.0);
+        LookupIpIntoIter(message.answers.into_iter())
+    }
+}
+
 /// Borrowed view of set of IPs returned from a LookupIp
 pub struct LookupIpIter<'a>(slice::Iter<'a, Record>);
 
@@ -84,11 +94,18 @@ impl Iterator for LookupIpIter<'_> {
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.find_map(|record| match record.data {
-            RData::A(ip) => Some(IpAddr::from(*ip)),
-            RData::AAAA(ip) => Some(IpAddr::from(*ip)),
-            _ => None,
-        })
+        self.0.find_map(|record| record.data.ip_addr())
+    }
+}
+
+/// Owned iterator over the IP addresses returned from a LookupIp.
+pub struct LookupIpIntoIter(std::vec::IntoIter<Record>);
+
+impl Iterator for LookupIpIntoIter {
+    type Item = IpAddr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.find_map(|record| record.data.ip_addr())
     }
 }
 
@@ -313,7 +330,9 @@ impl<C: DnsHandle> LookupContext<C> {
 #[cfg(test)]
 pub(crate) mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use std::str::FromStr;
     use std::sync::{Arc, Mutex};
+    use std::thread;
 
     use futures_executor::block_on;
     use futures_util::future;
@@ -324,6 +343,7 @@ pub(crate) mod tests {
     use crate::net::runtime::TokioRuntimeProvider;
     use crate::net::xfer::DnsHandle;
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
+    use crate::proto::rr::rdata::NS;
     use crate::proto::rr::{Name, RData, Record};
 
     #[derive(Clone)]
@@ -382,6 +402,71 @@ pub(crate) mod tests {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
+    }
+
+    fn assert_static<T: 'static>() {}
+
+    #[test]
+    fn test_iterator_static() {
+        assert_static::<LookupIpIntoIter>();
+    }
+
+    #[test]
+    fn test_lookup_ip_into_iter_returns_ip_addresses() {
+        let mut message = Message::query();
+        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_answers(vec![
+            Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::A(Ipv4Addr::new(192, 0, 2, 1).into()),
+            ),
+            Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::NS(NS(Name::from_str("ns.example.").unwrap())),
+            ),
+            Record::from_rdata(Name::root(), 86400, RData::AAAA(Ipv6Addr::LOCALHOST.into())),
+        ]);
+
+        let lookup = LookupIp::from(Lookup::new(message, Instant::now()));
+
+        assert_eq!(
+            lookup.into_iter().collect::<Vec<_>>(),
+            vec![
+                IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)),
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_lookup_ip_into_iter_can_move_across_threads() {
+        let mut message = Message::query();
+        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_answers(vec![
+            Record::from_rdata(
+                Name::root(),
+                86400,
+                RData::A(Ipv4Addr::new(192, 0, 2, 1).into()),
+            ),
+            Record::from_rdata(Name::root(), 86400, RData::AAAA(Ipv6Addr::LOCALHOST.into())),
+        ]);
+
+        let lookup = LookupIp::from(Lookup::new(message, Instant::now()));
+        let iter = lookup.into_iter();
+
+        let ips = thread::spawn(move || iter.collect::<Vec<_>>())
+            .join()
+            .unwrap();
+
+        assert_eq!(
+            ips,
+            vec![
+                IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)),
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
+            ]
+        );
     }
 
     #[test]
