@@ -49,6 +49,17 @@ pub enum NetError {
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
 
+    /// An upstream response contained a record whose class did not match the IN query class.
+    #[error("foreign class record in response: {record_name} {record_class} {record_type}")]
+    ForeignClassRecord {
+        /// The name of the offending record.
+        record_name: Name,
+        /// The class of the offending record.
+        record_class: DNSClass,
+        /// The type of the offending record.
+        record_type: RecordType,
+    },
+
     /// An HTTP/2 related error
     #[error("H2 error: {0}")]
     #[cfg(feature = "__https")]
@@ -58,26 +69,6 @@ pub enum NetError {
     #[error("H3 error: {0}")]
     #[cfg(feature = "__h3")]
     H3(Arc<h3::error::StreamError>),
-
-    /// An error with an arbitrary message, referenced as &'static str
-    #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
-
-    /// Unable to parse header value as number
-    #[error("unable to parse number: {0}")]
-    ParseInt(#[from] ParseIntError),
-
-    /// No connections available
-    #[error("no connections available")]
-    NoConnections,
-
-    /// Protocol error from higher layers
-    #[error("protocol error: {0}")]
-    Proto(#[from] ProtoError),
 
     // foreign
     /// An error got returned from IO
@@ -89,14 +80,40 @@ pub enum NetError {
     #[error("JNI error: {0}")]
     Jni(Arc<dyn Error + Send + Sync>),
 
-    /// A request was too large
-    #[cfg(any(feature = "__https", feature = "__h3"))]
-    #[error("request too large")]
-    RequestTooLarge,
+    /// An error with an arbitrary message, referenced as &'static str
+    #[error("{0}")]
+    Message(&'static str),
 
-    /// A request timed out
-    #[error("request timed out")]
-    Timeout,
+    /// An error with an arbitrary message, stored as String
+    #[error("{0}")]
+    Msg(String),
+
+    /// No connections available
+    #[error("no connections available")]
+    NoConnections,
+
+    /// Unable to parse header value as number
+    #[error("unable to parse number: {0}")]
+    ParseInt(#[from] ParseIntError),
+
+    /// Protocol error from higher layers
+    #[error("protocol error: {0}")]
+    Proto(#[from] ProtoError),
+
+    /// Case randomization is enabled, and a server did not echo a query name back with the same
+    /// case.
+    #[error("case of query name in response did not match")]
+    QueryCaseMismatch,
+
+    /// A quic message id should always be 0
+    #[cfg(feature = "__quic")]
+    #[error("quic messages should always be 0, got: {0}")]
+    QuicMessageIdNot0(u16),
+
+    /// A Quinn (QUIC) configuration error occurred
+    #[cfg(feature = "__quic")]
+    #[error("error constructing quic configuration: {0}")]
+    QuinnConfigError(#[from] quinn::ConfigError),
 
     /// A Quinn (Quic) connection error occurred
     #[cfg(feature = "__quic")]
@@ -108,11 +125,6 @@ pub enum NetError {
     #[error("error with quic connection: {0}")]
     QuinnConnection(#[from] quinn::ConnectionError),
 
-    /// A Quinn (QUIC) write error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error writing to quic connection: {0}")]
-    QuinnWriteError(#[from] quinn::WriteError),
-
     /// A Quinn (QUIC) read error occurred
     #[cfg(feature = "__quic")]
     #[error("error writing to quic read: {0}")]
@@ -122,11 +134,6 @@ pub enum NetError {
     #[cfg(feature = "__quic")]
     #[error("referenced a closed QUIC stream: {0}")]
     QuinnStreamError(#[from] quinn::ClosedStream),
-
-    /// A Quinn (QUIC) configuration error occurred
-    #[cfg(feature = "__quic")]
-    #[error("error constructing quic configuration: {0}")]
-    QuinnConfigError(#[from] quinn::ConfigError),
 
     /// QUIC TLS config must include an AES-128-GCM cipher suite
     #[cfg(feature = "__quic")]
@@ -138,31 +145,24 @@ pub enum NetError {
     #[error("an unknown quic stream was used")]
     QuinnUnknownStreamError,
 
-    /// A quic message id should always be 0
+    /// A Quinn (QUIC) write error occurred
     #[cfg(feature = "__quic")]
-    #[error("quic messages should always be 0, got: {0}")]
-    QuicMessageIdNot0(u16),
+    #[error("error writing to quic connection: {0}")]
+    QuinnWriteError(#[from] quinn::WriteError),
+
+    /// A request was too large
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("request too large")]
+    RequestTooLarge,
 
     /// A Rustls error occurred
     #[cfg(feature = "__tls")]
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
 
-    /// Case randomization is enabled, and a server did not echo a query name back with the same
-    /// case.
-    #[error("case of query name in response did not match")]
-    QueryCaseMismatch,
-
-    /// An upstream response contained a record whose class did not match the IN query class.
-    #[error("foreign class record in response: {record_name} {record_class} {record_type}")]
-    ForeignClassRecord {
-        /// The name of the offending record.
-        record_name: Name,
-        /// The class of the offending record.
-        record_class: DNSClass,
-        /// The type of the offending record.
-        record_type: RecordType,
-    },
+    /// A request timed out
+    #[error("request timed out")]
+    Timeout,
 
     /// Received a truncated response
     #[error("response was truncated; TCP already tried or no other transport available")]
