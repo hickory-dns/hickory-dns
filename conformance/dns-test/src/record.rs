@@ -57,7 +57,7 @@ macro_rules! record_types {
 }
 
 record_types!(
-    A, AAAA, CAA, CNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT
+    A, AAAA, CAA, CNAME, DNAME, DNSKEY, DS, MX, NS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SOA, TXT
 );
 
 #[derive(Debug, Clone)]
@@ -66,6 +66,7 @@ pub enum Record {
     A(A),
     CAA(CAA),
     CNAME(CNAME),
+    DNAME(DNAME),
     DNSKEY(DNSKEY),
     DS(DS),
     NS(NS),
@@ -105,6 +106,12 @@ impl From<A> for Record {
 impl From<CNAME> for Record {
     fn from(v: CNAME) -> Self {
         Self::CNAME(v)
+    }
+}
+
+impl From<DNAME> for Record {
+    fn from(v: DNAME) -> Self {
+        Self::DNAME(v)
     }
 }
 
@@ -151,6 +158,14 @@ impl Record {
         }
     }
 
+    pub fn try_into_dname(self) -> Result<DNAME, Self> {
+        if let Self::DNAME(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
     pub fn try_into_rrsig(self) -> Result<RRSIG, Self> {
         if let Self::RRSIG(v) = self {
             Ok(v)
@@ -190,6 +205,15 @@ impl Record {
 
     pub fn cname(fqdn: FQDN, target: FQDN) -> Self {
         CNAME {
+            fqdn,
+            target,
+            ttl: DEFAULT_TTL,
+        }
+        .into()
+    }
+
+    pub fn dname(fqdn: FQDN, target: FQDN) -> Self {
+        DNAME {
             fqdn,
             target,
             ttl: DEFAULT_TTL,
@@ -243,6 +267,7 @@ impl FromStr for Record {
             "A" => Self::A(input.parse()?),
             "CAA" => Self::CAA(input.parse()?),
             "CNAME" => Self::CNAME(input.parse()?),
+            "DNAME" => Self::DNAME(input.parse()?),
             "DNSKEY" => Self::DNSKEY(input.parse()?),
             "DS" => Self::DS(input.parse()?),
             "NS" => Self::NS(input.parse()?),
@@ -271,6 +296,7 @@ impl fmt::Display for Record {
             Self::A(a) => write!(f, "{a}"),
             Self::CAA(caa) => write!(f, "{caa}"),
             Self::CNAME(cname) => write!(f, "{cname}"),
+            Self::DNAME(dname) => write!(f, "{dname}"),
             Self::DS(ds) => write!(f, "{ds}"),
             Self::DNSKEY(dnskey) => write!(f, "{dnskey}"),
             Self::NS(ns) => write!(f, "{ns}"),
@@ -371,6 +397,51 @@ impl FromStr for CNAME {
 }
 
 impl fmt::Display for CNAME {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { fqdn, ttl, target } = self;
+
+        let record_type = unqualified_type_name::<Self>();
+        write!(f, "{fqdn}\t{ttl}\t{CLASS}\t{record_type}\t{target}")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DNAME {
+    pub fqdn: FQDN,
+    pub ttl: u32,
+    pub target: FQDN,
+}
+
+impl FromStr for DNAME {
+    type Err = Error;
+
+    fn from_str(input: &str) -> Result<Self, Error> {
+        let mut columns = input.split_whitespace();
+
+        let [
+            Some(fqdn),
+            Some(ttl),
+            Some(class),
+            Some(record_type),
+            Some(target),
+            None,
+        ] = array::from_fn(|_| columns.next())
+        else {
+            return Err("expected 5 columns".into());
+        };
+
+        check_record_type::<Self>(record_type)?;
+        check_class(class)?;
+
+        Ok(Self {
+            fqdn: fqdn.parse()?,
+            ttl: ttl.parse()?,
+            target: target.parse()?,
+        })
+    }
+}
+
+impl fmt::Display for DNAME {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { fqdn, ttl, target } = self;
 
@@ -1415,6 +1486,22 @@ mod tests {
         Ok(())
     }
 
+    const DNAME_INPUT: &str = "example.com.	3600	IN	DNAME	example.net.";
+
+    #[test]
+    fn dname() -> Result<(), Error> {
+        let dname @ DNAME { fqdn, ttl, target } = &DNAME_INPUT.parse()?;
+
+        assert_eq!("example.com.", fqdn.as_str());
+        assert_eq!(3600, *ttl);
+        assert_eq!("example.net.", target.as_str());
+
+        let output = dname.to_string();
+        assert_eq!(DNAME_INPUT, output);
+
+        Ok(())
+    }
+
     // dig DNSKEY .
     const DNSKEY_INPUT: &str = ".	1116	IN	DNSKEY	257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=";
 
@@ -1771,6 +1858,7 @@ mod tests {
     fn any() -> Result<(), Error> {
         assert!(matches!(A_INPUT.parse()?, Record::A(..)));
         assert!(matches!(CAA_INPUT.parse()?, Record::CAA(..)));
+        assert!(matches!(DNAME_INPUT.parse()?, Record::DNAME(..)));
         assert!(matches!(DNSKEY_INPUT.parse()?, Record::DNSKEY(..)));
         assert!(matches!(DS_INPUT.parse()?, Record::DS(..)));
         assert!(matches!(NS_INPUT.parse()?, Record::NS(..)));

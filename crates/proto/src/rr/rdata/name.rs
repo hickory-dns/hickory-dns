@@ -98,6 +98,7 @@ name_rdata!(CNAME, RDataEncoding::StandardRecord);
 name_rdata!(NS, RDataEncoding::StandardRecord);
 name_rdata!(PTR, RDataEncoding::StandardRecord);
 name_rdata!(ANAME, RDataEncoding::Other);
+name_rdata!(DNAME, RDataEncoding::Other);
 
 #[cfg(test)]
 mod tests {
