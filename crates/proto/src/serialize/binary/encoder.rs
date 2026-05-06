@@ -291,9 +291,9 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// emits all items in the iterator, return the number emitted
-    pub fn emit_iter<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
+    pub fn emit_iter<'e>(
         &mut self,
-        iter: &mut I,
+        iter: impl IntoIterator<Item = &'e (impl BinEncodable + 'e)>,
     ) -> ProtoResult<usize> {
         let mut count = 0;
         for i in iter {
