@@ -152,7 +152,7 @@ impl AccessControlSet {
         if self.allows_all() {
             return false;
         }
-        match ip {
+        match ip.to_canonical() {
             IpAddr::V4(ip) => {
                 self.v4_allow.get_spm(&ip.into()).is_none()
                     && self.v4_deny.get_spm(&ip.into()).is_some()
@@ -341,5 +341,51 @@ mod tests {
         );
         assert!(!acs.denied([0xfec0, 0, 0, 0, 0, 0, 0, 1].into()));
         assert!(!acs.denied([10, 0, 0, 1].into()));
+    }
+
+    // `::ffff:a.b.c.d` (RFC 4291 §2.5.5.2 IPv4-mapped IPv6) names the IPv4 node
+    // `a.b.c.d` on a dual-stack kernel. It must match the same v4 deny prefix.
+    #[test]
+    fn v4_mapped_v6_matches_v4_deny() {
+        let acs = AccessControlSetBuilder::new("v4 mapped deny")
+            .deny(
+                [
+                    "127.0.0.0/8".parse().unwrap(),
+                    "10.0.0.0/8".parse().unwrap(),
+                    "192.168.0.0/16".parse().unwrap(),
+                ]
+                .iter(),
+            )
+            .build()
+            .unwrap();
+
+        assert!(acs.denied("127.0.0.1".parse().unwrap()));
+        assert!(acs.denied("10.2.3.4".parse().unwrap()));
+        assert!(acs.denied("192.168.1.1".parse().unwrap()));
+
+        assert!(acs.denied("::ffff:127.0.0.1".parse().unwrap()));
+        assert!(acs.denied("::ffff:10.2.3.4".parse().unwrap()));
+        assert!(acs.denied("::ffff:192.168.1.1".parse().unwrap()));
+
+        assert!(!acs.denied("8.8.8.8".parse().unwrap()));
+        assert!(!acs.denied("::ffff:8.8.8.8".parse().unwrap()));
+        assert!(!acs.denied("2001:db8::1".parse().unwrap()));
+    }
+
+    // The v4-mapped form must also pick up v4 allow-list overrides, otherwise
+    // canonicalising would deny mapped traffic the operator explicitly allowed.
+    #[test]
+    fn v4_mapped_v6_honours_v4_allow_override() {
+        let acs = AccessControlSetBuilder::new("v4 mapped allow override")
+            .deny(["10.0.0.0/8".parse().unwrap()].iter())
+            .allow(["10.1.2.3/32".parse().unwrap()].iter())
+            .build()
+            .unwrap();
+
+        assert!(acs.denied("10.2.3.4".parse().unwrap()));
+        assert!(!acs.denied("10.1.2.3".parse().unwrap()));
+
+        assert!(acs.denied("::ffff:10.2.3.4".parse().unwrap()));
+        assert!(!acs.denied("::ffff:10.1.2.3".parse().unwrap()));
     }
 }
