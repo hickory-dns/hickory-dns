@@ -145,6 +145,12 @@ impl Lookup {
     }
 }
 
+impl From<Lookup> for Message {
+    fn from(lookup: Lookup) -> Self {
+        lookup.message
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
