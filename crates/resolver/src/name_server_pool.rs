@@ -381,6 +381,10 @@ impl<P: ConnectionProvider> PoolState<P> {
             while let Some((server, result)) = requests.next().await {
                 completed.push(server.ip());
                 let e = match result {
+                    Ok(response) if response.truncation && policy.disable_udp => {
+                        debug!("truncated response received and UDP already disabled, giving up");
+                        NetError::Truncated
+                    }
                     Ok(response) if response.truncation => {
                         debug!("truncated response received, retrying over TCP");
                         policy.disable_udp = true;
@@ -1013,8 +1017,7 @@ mod tests {
     use super::*;
     use crate::config::{NameServerConfig, ResolverConfig, ServerOrderingStrategy};
     use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
-    use crate::net::xfer::Protocol;
-    use crate::net::xfer::{DnsHandle, FirstAnswer};
+    use crate::net::xfer::{DnsHandle, FirstAnswer, Protocol};
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::{DNSClass, Name, RecordType};
 
@@ -1787,5 +1790,190 @@ mod tests {
         Authority,
         Additional,
         None,
+    }
+
+    /// When a TCP-only server returns a truncated response, the pool should
+    /// return `NetError::Truncated` rather than retrying indefinitely.
+    ///
+    /// The first attempt sees truncation with `disable_udp = false` and sets
+    /// `disable_udp = true` for a retry. The second attempt sees truncation
+    /// with `disable_udp = true` and returns the error immediately.
+    #[tokio::test]
+    async fn test_truncated_tcp_only_no_infinite_retry() {
+        subscribe();
+
+        let server_ip = IpAddr::from([10, 0, 0, 1]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = vec![MockRecord::a(server_ip, &query_name, server_ip)];
+        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+                msg.metadata.truncation = true;
+            },
+        ));
+        let provider = MockProvider::new(handler);
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let pool = NameServerPool::from_nameservers(
+            vec![Arc::new(NameServer::new(
+                [].into_iter(),
+                NameServerConfig::tcp(server_ip),
+                &opts,
+                provider.clone(),
+            ))],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        let result = pool
+            .lookup(
+                Query::new(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await;
+
+        assert!(
+            matches!(result, Err(NetError::Truncated)),
+            "expected Truncated error, got: {result:?}"
+        );
+
+        // The server should have been queried at most twice: once to discover
+        // truncation and once more after disabling UDP (which is a no-op for
+        // a TCP-only server, but triggers the truncation-after-retry path).
+        let queries = provider.queries(&server_ip);
+        assert!(
+            queries.len() <= 2,
+            "TCP-only server should not be retried more than once, got {} queries",
+            queries.len()
+        );
+    }
+
+    /// When a UDP+TCP server returns truncated on UDP, the pool retries over
+    /// TCP. If TCP also returns truncated, the pool should return
+    /// `NetError::Truncated` instead of retrying again.
+    #[tokio::test]
+    async fn test_truncated_udp_then_tcp_no_infinite_retry() {
+        subscribe();
+
+        let server_ip = IpAddr::from([10, 0, 0, 1]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = vec![MockRecord::a(server_ip, &query_name, server_ip)];
+        // Always set truncation regardless of protocol.
+        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+                msg.metadata.truncation = true;
+            },
+        ));
+        let provider = MockProvider::new(handler);
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let pool = NameServerPool::from_nameservers(
+            vec![Arc::new(NameServer::new(
+                [].into_iter(),
+                NameServerConfig::udp_and_tcp(server_ip),
+                &opts,
+                provider.clone(),
+            ))],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        let result = pool
+            .lookup(
+                Query::new(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await;
+
+        assert!(
+            matches!(result, Err(NetError::Truncated)),
+            "expected Truncated error, got: {result:?}"
+        );
+
+        // Exactly 2 queries: one over UDP (truncated), one over TCP (truncated).
+        let queries = provider.queries(&server_ip);
+        assert!(
+            queries.len() <= 2,
+            "server should not be retried more than once after TCP truncation, got {} queries",
+            queries.len()
+        );
+    }
+
+    /// With multiple servers all returning truncated, the pool should give up
+    /// after the first server's TCP retry returns truncated, not cycle through
+    /// all servers repeatedly.
+    #[tokio::test]
+    async fn test_truncated_multiple_servers_no_retry_storm() {
+        subscribe();
+
+        let server1_ip = IpAddr::from([10, 0, 0, 1]);
+        let server2_ip = IpAddr::from([10, 0, 0, 2]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = vec![
+            MockRecord::a(server1_ip, &query_name, server1_ip),
+            MockRecord::a(server2_ip, &query_name, server2_ip),
+        ];
+        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+                msg.metadata.truncation = true;
+            },
+        ));
+        let provider = MockProvider::new(handler);
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let pool = NameServerPool::from_nameservers(
+            vec![
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp_and_tcp(server1_ip),
+                    &opts,
+                    provider.clone(),
+                )),
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp_and_tcp(server2_ip),
+                    &opts,
+                    provider.clone(),
+                )),
+            ],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        let result = pool
+            .lookup(
+                Query::new(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await;
+
+        assert!(
+            matches!(result, Err(NetError::Truncated)),
+            "expected Truncated error, got: {result:?}"
+        );
+
+        let total_queries =
+            provider.queries(&server1_ip).len() + provider.queries(&server2_ip).len();
+        assert!(
+            total_queries <= 3,
+            "total queries across all servers should be bounded, got {total_queries}"
+        );
     }
 }

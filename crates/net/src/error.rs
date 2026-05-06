@@ -165,7 +165,7 @@ pub enum NetError {
     },
 
     /// Received a truncated response
-    #[error("response was truncated")]
+    #[error("response was truncated; TCP already tried or no other transport available")]
     Truncated,
 }
 
