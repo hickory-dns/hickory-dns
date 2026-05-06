@@ -56,7 +56,7 @@ impl AccessControl {
     /// Ok if access is granted, Err otherwise
     #[must_use]
     pub(crate) fn allow(&self, ip: IpAddr) -> bool {
-        match ip {
+        match ip.to_canonical() {
             IpAddr::V4(v4) => {
                 let v4 = Ipv4Net::from(v4);
 
@@ -180,5 +180,39 @@ mod tests {
 
         // but all other networks should be allowed
         assert!(access.allow("10.0.0.1".parse().unwrap()));
+    }
+
+    // A dual-stack listener delivers a v4 client as `::ffff:a.b.c.d`. That
+    // source must still hit the v4 deny prefix the operator configured.
+    #[test]
+    fn test_v4_mapped_v6_matches_v4_deny() {
+        let mut access = AccessControl::default();
+        access.insert_deny(["192.168.0.0/16".parse().unwrap()]);
+        access.insert_deny(["10.0.0.0/8".parse().unwrap()]);
+
+        assert!(!access.allow("192.168.1.1".parse().unwrap()));
+        assert!(!access.allow("10.2.3.4".parse().unwrap()));
+
+        assert!(!access.allow("::ffff:192.168.1.1".parse().unwrap()));
+        assert!(!access.allow("::ffff:10.2.3.4".parse().unwrap()));
+
+        assert!(access.allow("8.8.8.8".parse().unwrap()));
+        assert!(access.allow("::ffff:8.8.8.8".parse().unwrap()));
+        assert!(access.allow("2001:db8::1".parse().unwrap()));
+    }
+
+    // Allow-list overrides must follow the same canonicalisation so a v4
+    // exception applies to the matching `::ffff:` source too.
+    #[test]
+    fn test_v4_mapped_v6_honours_v4_allow_override() {
+        let mut access = AccessControl::default();
+        access.insert_deny(["10.0.0.0/8".parse().unwrap()]);
+        access.insert_allow(["10.1.2.3/32".parse().unwrap()]);
+
+        assert!(!access.allow("10.2.3.4".parse().unwrap()));
+        assert!(access.allow("10.1.2.3".parse().unwrap()));
+
+        assert!(!access.allow("::ffff:10.2.3.4".parse().unwrap()));
+        assert!(access.allow("::ffff:10.1.2.3".parse().unwrap()));
     }
 }
