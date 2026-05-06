@@ -10,6 +10,7 @@
 //! At its heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
 use std::future::Future;
+use std::iter::FusedIterator;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::slice;
@@ -98,6 +99,8 @@ impl Iterator for LookupIpIter<'_> {
     }
 }
 
+impl FusedIterator for LookupIpIter<'_> {}
+
 /// Owned iterator over the IP addresses returned from a LookupIp.
 pub struct LookupIpIntoIter(std::vec::IntoIter<Record>);
 
@@ -108,6 +111,8 @@ impl Iterator for LookupIpIntoIter {
         self.0.find_map(|record| record.data.ip_addr())
     }
 }
+
+impl FusedIterator for LookupIpIntoIter {}
 
 /// The Future returned from [crate::Resolver] when performing an A or AAAA lookup.
 ///
