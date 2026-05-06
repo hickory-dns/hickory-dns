@@ -1028,15 +1028,24 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .enumerate()
             .filter_map(|(i, rrsig)| {
                 let rrsig = rrsig.try_borrow::<RRSIG>()?;
-                let query =
-                    Query::query(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
-
                 if i > MAX_RRSIGS_PER_RRSET {
                     warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
                     return None;
                 }
 
-                // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
+                // RFC 4035 §5.3.1: signer must be an ancestor of (or equal to) the RRset owner
+                if !rrsig.data().input().signer_name.zone_of(rrset.name()) {
+                    warn!(
+                        signer_name = %rrsig.data().input().signer_name,
+                        rrset_name = %rrset.name(),
+                        "RRSIG signer name is not in the same zone as the RRset; skipping",
+                    );
+                    return None;
+                }
+
+                let query =
+                    Query::query(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
+
                 // Break verification cycle
                 if query.name() == original_query.name()
                     && query.query_type() == original_query.query_type()
@@ -1477,7 +1486,7 @@ impl RrsigValidity {
             rrsig.dns_class() == rrset.dns_class() &&
 
             // "The RRSIG RR's Signer's Name field MUST be the name of the zone that contains the RRset"
-            // TODO(^) the zone name is in the SOA record, which is not accessible from here
+            sig_input.signer_name.zone_of(rrset.name()) &&
 
             // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
             sig_input.type_covered == rrset.record_type() &&
@@ -2020,7 +2029,7 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use super::{find_nsec_covering_record, no_closer_matches, verify_nsec};
+    use super::{RrsigValidity, find_nsec_covering_record, no_closer_matches, verify_nsec};
     use crate::{
         dnssec::{
             DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
@@ -2029,8 +2038,11 @@ mod test {
         proto::{
             ProtoError,
             dnssec::{
-                Algorithm,
-                rdata::{DNSSECRData, NSEC as rdataNSEC, RRSIG as rdataRRSIG, SigInput},
+                Algorithm, PublicKeyBuf,
+                rdata::{
+                    DNSKEY as rdataDNSKEY, DNSSECRData, NSEC as rdataNSEC, RRSIG as rdataRRSIG,
+                    SigInput,
+                },
             },
             op::{Query, ResponseCode},
             rr::{
@@ -2938,6 +2950,106 @@ mod test {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn rrsig_off_tree_signer_rejected() {
+        subscribe();
+        let (rrset, rrsig_rec, dnskey_rec) =
+            make_rrsig_check_inputs("www.victim.hack.", "evil.hack.");
+        let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
+        let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+        assert!(matches!(
+            RrsigValidity::check(rrsig_ref, &rrset, dnskey_ref, 1000),
+            RrsigValidity::WrongRrsig
+        ));
+    }
+
+    #[test]
+    fn rrsig_zone_signer_accepted() {
+        subscribe();
+        let (rrset, rrsig_rec, dnskey_rec) =
+            make_rrsig_check_inputs("www.victim.hack.", "victim.hack.");
+        let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
+        let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+        assert!(matches!(
+            RrsigValidity::check(rrsig_ref, &rrset, dnskey_ref, 1000),
+            RrsigValidity::ValidRrsig
+        ));
+    }
+
+    #[test]
+    fn rrsig_apex_self_signed_accepted() {
+        subscribe();
+        let (rrset, rrsig_rec, dnskey_rec) =
+            make_rrsig_check_inputs("victim.hack.", "victim.hack.");
+        let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
+        let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+        assert!(matches!(
+            RrsigValidity::check(rrsig_ref, &rrset, dnskey_ref, 1000),
+            RrsigValidity::ValidRrsig
+        ));
+    }
+
+    #[test]
+    fn rrsig_parent_signer_accepted() {
+        subscribe();
+        let (rrset, rrsig_rec, dnskey_rec) = make_rrsig_check_inputs("victim.hack.", "hack.");
+        let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
+        let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+        assert!(matches!(
+            RrsigValidity::check(rrsig_ref, &rrset, dnskey_ref, 1000),
+            RrsigValidity::ValidRrsig
+        ));
+    }
+
+    #[test]
+    fn rrsig_child_cannot_sign_parent() {
+        subscribe();
+        let (rrset, rrsig_rec, dnskey_rec) = make_rrsig_check_inputs("hack.", "victim.hack.");
+        let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
+        let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+        assert!(matches!(
+            RrsigValidity::check(rrsig_ref, &rrset, dnskey_ref, 1000),
+            RrsigValidity::WrongRrsig
+        ));
+    }
+
+    /// Build a matching (rrset, rrsig_record, dnskey_record) triplet for testing
+    /// `RrsigValidity::check()`. The RRSIG and DNSKEY have consistent key tags,
+    /// algorithms, and time windows so that only the signer-name/zone relationship
+    /// determines the outcome.
+    fn make_rrsig_check_inputs(rrset_name: &str, signer_name: &str) -> (RecordSet, Record, Record) {
+        let rrset_name = Name::from_ascii(rrset_name).unwrap();
+        let signer_name = Name::from_ascii(signer_name).unwrap();
+
+        let dnskey = rdataDNSKEY::new(
+            true,  // zone_key
+            true,  // secure_entry_point
+            false, // revoke
+            PublicKeyBuf::new(vec![0u8; 32], Algorithm::ED25519),
+        );
+        let key_tag = dnskey.calculate_key_tag().unwrap();
+
+        let sig_input = SigInput {
+            type_covered: A,
+            algorithm: Algorithm::ED25519,
+            num_labels: rrset_name.num_labels(),
+            original_ttl: 300,
+            sig_expiration: SerialNumber::new(1_000_000),
+            sig_inception: SerialNumber::new(0),
+            key_tag,
+            signer_name: signer_name.clone(),
+        };
+        let rrsig = rdataRRSIG::from_sig(sig_input, vec![0u8; 64]);
+
+        let rrset = RecordSet::new(rrset_name.clone(), A, 0);
+        let rrsig_record =
+            Record::from_rdata(rrset_name, 300, RData::DNSSEC(DNSSECRData::RRSIG(rrsig)));
+        let dnskey_record =
+            Record::from_rdata(signer_name, 300, RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)));
+
+        (rrset, rrsig_record, dnskey_record)
     }
 
     #[test]
