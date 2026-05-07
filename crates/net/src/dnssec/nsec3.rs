@@ -436,10 +436,6 @@ fn validate_nodata_response(
                         "servicing wildcard with closest encloser proof",
                     )
                 }
-                (None, Some(_), Some(_)) if Some(&cx.query.name.base_name()) == cx.soa => (
-                    Proof::Secure,
-                    "servicing wildcard without closest encloser proof, but query parent name == SOA",
-                ),
                 (None, None, None) if Some(&cx.query.name) == cx.soa => {
                     (Proof::Bogus, "apex NODATA with no NSEC3 matching H(QNAME)")
                 }
