@@ -73,6 +73,10 @@ pub enum RecursorError {
         /// Number of queries that were made
         count: usize,
     },
+
+    /// The per-request upstream-query budget was exhausted before resolution completed.
+    #[error("per-request query budget exceeded")]
+    QueryBudgetExceeded,
 }
 
 impl RecursorError {
@@ -187,6 +191,7 @@ impl Clone for RecursorError {
             Net(net) => Net(net.clone()),
             Timeout => Self::Timeout,
             RecursionLimitExceeded { count } => RecursionLimitExceeded { count: *count },
+            QueryBudgetExceeded => QueryBudgetExceeded,
         }
     }
 }

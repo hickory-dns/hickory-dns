@@ -559,3 +559,161 @@ fn nxns_glueless_referral_width_is_capped() -> Result<(), Error> {
 
     Ok(())
 }
+
+/// NXNSAttack-class amplification, in nested form.
+///
+/// Builds a chain of glueless wide referrals at each delegation level.
+/// Without a global cap on work per req. this produces O(BRANCH^DEPTH) upstream
+/// queries even when each individual level is bounded by the per-delegation
+/// width cap.
+///
+/// Topology (BRANCH = MAX_GLUELESS_FOLLOW = 5, DEPTH = 3):
+///   attacker.testing.: trap.attacker.testing. delegated to BRANCH glueless
+///                      targets nX.l1.testing.
+///   l1.testing.:       each nX.l1.testing. is a zone cut whose NS RRs are
+///                      BRANCH glueless targets nX_Y.l2.testing.
+///   l2.testing.:       each nX_Y.l2.testing. is a zone cut whose NS RRs
+///                      are BRANCH glueless targets nX_Y_Z.l3.testing.
+///   l3.testing.:       each nX_Y_Z.l3.testing. resolves to an A record.
+///
+/// Without mitigation the recursor ends up issuing roughly BRANCH^DEPTH * 3
+/// upstream queries (NS + A + AAAA per L3 leaf) plus zone-walk overhead.
+#[test]
+fn nxns_nested_referrals_exceed_per_request_budget() -> Result<(), Error> {
+    const BRANCH: usize = 5;
+    // Small slack above MAX_QUERIES_PER_REQUEST = 200 to avoid flakes.
+    const BUDGET_CEILING: usize = 220;
+
+    let attacker_zone = FQDN("attacker.testing.")?;
+    let l1_zone = FQDN("l1.testing.")?;
+    let l2_zone = FQDN("l2.testing.")?;
+    let l3_zone = FQDN("l3.testing.")?;
+    let trap_fqdn = FQDN("trap.attacker.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(&Implementation::test_peer(), FQDN::TEST_TLD, &network)?;
+    let mut attacker_ns = NameServer::new(
+        &Implementation::test_peer(),
+        attacker_zone.clone(),
+        &network,
+    )?;
+    let mut l1_ns = NameServer::new(&Implementation::test_peer(), l1_zone.clone(), &network)?;
+    let mut l2_ns = NameServer::new(&Implementation::test_peer(), l2_zone.clone(), &network)?;
+    let mut l3_ns = NameServer::new(&Implementation::test_peer(), l3_zone.clone(), &network)?;
+
+    root_ns.referral(
+        FQDN::TEST_TLD,
+        FQDN("primary.tld-server.testing.")?,
+        tld_ns.ipv4_addr(),
+    );
+    tld_ns.referral(
+        attacker_zone.clone(),
+        FQDN("ns.attacker.testing.")?,
+        attacker_ns.ipv4_addr(),
+    );
+    tld_ns.referral(l1_zone.clone(), FQDN("ns.l1.testing.")?, l1_ns.ipv4_addr());
+    tld_ns.referral(l2_zone.clone(), FQDN("ns.l2.testing.")?, l2_ns.ipv4_addr());
+    tld_ns.referral(l3_zone.clone(), FQDN("ns.l3.testing.")?, l3_ns.ipv4_addr());
+
+    // attacker zone: trap.attacker.testing. delegated to BRANCH glueless L1 targets.
+    for x in 1..=BRANCH {
+        attacker_ns.add(Record::ns(
+            trap_fqdn.clone(),
+            FQDN(format!("n{x}.l1.testing."))?,
+        ));
+    }
+
+    // L1 zone: each nX.l1.testing. is a zone cut with BRANCH glueless L2 NS records.
+    for x in 1..=BRANCH {
+        let cut = FQDN(format!("n{x}.l1.testing."))?;
+        for y in 1..=BRANCH {
+            l1_ns.add(Record::ns(
+                cut.clone(),
+                FQDN(format!("n{x}_{y}.l2.testing."))?,
+            ));
+        }
+    }
+
+    // L2 zone: each nX_Y.l2.testing. is a zone cut with BRANCH glueless L3 NS records.
+    for x in 1..=BRANCH {
+        for y in 1..=BRANCH {
+            let cut = FQDN(format!("n{x}_{y}.l2.testing."))?;
+            for z in 1..=BRANCH {
+                l2_ns.add(Record::ns(
+                    cut.clone(),
+                    FQDN(format!("n{x}_{y}_{z}.l3.testing."))?,
+                ));
+            }
+        }
+    }
+
+    // L3 zone: terminal A records. Use TEST-NET-1 so the recursor's name_server_filter
+    // rejects them, producing a fast "no connections available" SERVFAIL once the
+    // fan-out finishes.
+    let mut idx = 1;
+    for x in 1..=BRANCH {
+        for y in 1..=BRANCH {
+            for z in 1..=BRANCH {
+                l3_ns.add(Record::a(
+                    FQDN(format!("n{x}_{y}_{z}.l3.testing."))?,
+                    Ipv4Addr::new(192, 0, 2, idx),
+                ));
+                idx = idx.wrapping_add(1);
+            }
+        }
+    }
+
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .start_with_subject(&Implementation::hickory())?;
+
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _attacker_ns = attacker_ns.start()?;
+    let _l1_ns = l1_ns.start()?;
+    let _l2_ns = l2_ns.start()?;
+    let _l3_ns = l3_ns.start()?;
+
+    // Eavesdrop on the resolver itself to measure total upstream work.
+    let tshark = resolver.eavesdrop_udp()?;
+
+    let res = Client::new(resolver.network())?.dig(
+        *DigSettings::default().recurse().timeout(60),
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &trap_fqdn,
+    );
+
+    // Give tshark a moment to flush its capture pipeline before we kill it.
+    // Without this, the count is occasionally short by a handful of packets.
+    thread::sleep(Duration::from_secs(1));
+
+    let upstream_queries = tshark
+        .terminate()?
+        .iter()
+        .filter_map(|c| {
+            if !matches!(c.direction, Direction::Outgoing { .. }) {
+                return None;
+            }
+            let qname = c.message.qname()?;
+            (qname.ends_with(".testing") || qname == "testing").then_some(())
+        })
+        .count();
+
+    match res {
+        Ok(res) => assert!(
+            res.status.is_servfail(),
+            "expected SERVFAIL, got {:?}",
+            res.status
+        ),
+        Err(e) => panic!("dig error {e:?} resolver logs: {}", resolver.logs()?),
+    }
+
+    assert!(
+        upstream_queries <= BUDGET_CEILING,
+        "recursor issued {upstream_queries} upstream queries for one client query (expected <= {BUDGET_CEILING})"
+    );
+
+    Ok(())
+}

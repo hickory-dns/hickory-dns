@@ -10,7 +10,9 @@ use std::{
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
 use tokio::time as TokioTime;
 
-use super::{Recursor, RecursorError, RecursorMode, RecursorOptions, is_subzone};
+use super::{
+    Recursor, RecursorError, RecursorMode, RecursorOptions, handle::RequestLimits, is_subzone,
+};
 use crate::{
     cache::TtlConfig,
     config::ResolverOpts,
@@ -673,7 +675,7 @@ async fn get_zone_name(
     match recursor.mode {
         RecursorMode::NonValidating { ref handle } => {
             let ns_pool = handle
-                .ns_pool_for_name(query.clone(), Instant::now(), 0)
+                .ns_pool_for_name(query.clone(), Instant::now(), 0, &RequestLimits::new())
                 .await?
                 .1;
             Ok(ns_pool.zone().cloned())
