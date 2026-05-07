@@ -16,7 +16,7 @@ use std::{
 use std::{
     collections::HashSet,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
-    sync::{Arc, atomic::AtomicU8},
+    sync::Arc,
     time::Instant,
 };
 
@@ -61,7 +61,7 @@ mod error;
 pub use error::{AuthorityData, RecursorError};
 
 mod handle;
-use handle::RecursorDnsHandle;
+use handle::{RecursorDnsHandle, RequestLimits};
 
 #[cfg(test)]
 mod tests;
@@ -359,7 +359,7 @@ impl<P: ConnectionProvider> Recursor<P> {
                         request_time,
                         query_has_dnssec_ok,
                         0,
-                        Arc::new(AtomicU8::new(0)),
+                        &RequestLimits::new(),
                     )
                     .await
             }
