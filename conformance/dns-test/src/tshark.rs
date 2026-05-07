@@ -326,6 +326,22 @@ impl Message {
             .ok()
     }
 
+    pub fn qname(&self) -> Option<&str> {
+        self.first_query()?.get("dns.qry.name")?.as_str()
+    }
+
+    pub fn qtype(&self) -> Option<u16> {
+        self.first_query()?
+            .get("dns.qry.type")?
+            .as_str()?
+            .parse()
+            .ok()
+    }
+
+    fn first_query(&self) -> Option<&serde_json::Value> {
+        self.inner.get("Queries")?.as_object()?.values().next()
+    }
+
     pub fn as_value(&self) -> &serde_json::Value {
         &self.inner
     }

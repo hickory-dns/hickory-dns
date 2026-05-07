@@ -157,10 +157,7 @@ fn can_validate_ns_query_case_randomization() -> Result<(), Error> {
         if destination != client.ipv4_addr() {
             continue;
         }
-        let message_value = capture.message.as_value().as_object().unwrap();
-        let queries = message_value.get("Queries").unwrap().as_object().unwrap();
-        let query = queries.values().next().unwrap().as_object().unwrap();
-        assert_eq!(query.get("dns.qry.name").unwrap(), "hickory-dns.testing");
+        assert_eq!(capture.message.qname().unwrap(), "hickory-dns.testing");
         saw_response = true;
     }
     assert!(saw_response);
