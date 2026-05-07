@@ -51,6 +51,41 @@ pub type TlsClientStream<S> =
 pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     remote_addr: SocketAddr,
     server_name: ServerName<'static>,
+    config: ClientConfig,
+    timeout: Duration,
+    max_active_requests: Option<usize>,
+    provider: P,
+) -> Result<DnsExchange<P>, NetError> {
+    tls_exchange_with_bind_addr(
+        remote_addr,
+        None,
+        server_name,
+        config,
+        timeout,
+        max_active_requests,
+        provider,
+    )
+    .await
+}
+
+/// Create a new [`DnsExchange`] wrapped around a multiplexed [`TlsClientStream`],
+/// optionally binding the underlying TCP socket to a local address.
+///
+/// # Arguments
+///
+/// * `remote_addr` - Address of the remote nameserver
+/// * `bind_addr` - Local address to bind the outgoing TCP socket to. When `None`, the OS picks.
+/// * `server_name` - TLS server name for certificate validation
+/// * `config` - TLS client configuration
+/// * `timeout` - Timeout for requests
+/// * `max_active_requests` - Optional limit on concurrent in-flight requests.
+///   If `None`, uses the default (32).
+/// * `provider` - Runtime provider for spawning background tasks
+#[allow(clippy::too_many_arguments)]
+pub async fn tls_exchange_with_bind_addr<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
+    remote_addr: SocketAddr,
+    bind_addr: Option<SocketAddr>,
+    server_name: ServerName<'static>,
     mut config: ClientConfig,
     timeout: Duration,
     max_active_requests: Option<usize>,
@@ -60,7 +95,7 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     config.enable_sni = false;
 
     let stream = provider
-        .connect_tcp(remote_addr, None, Some(timeout))
+        .connect_tcp(remote_addr, bind_addr, Some(timeout))
         .await?;
     let (future, sender) = tls_client_connect_with_future(
         stream,
