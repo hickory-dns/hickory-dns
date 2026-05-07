@@ -647,10 +647,10 @@ fn find_covering_record<'a>(
             record.base32_hashed_name < *target_base32_hashed_name
                 && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
         } else {
-            // Wraparound case: target must be less than the hashed owner name or greater than the
+            // Wraparound case: target must be greater than the hashed owner name or less than the
             // next hashed owner name.
-            record.base32_hashed_name > *target_base32_hashed_name
-                || target_hashed_name > record.nsec3_data.next_hashed_owner_name()
+            *target_base32_hashed_name > record.base32_hashed_name
+                || target_hashed_name < record.nsec3_data.next_hashed_owner_name()
         }
     })
 }
@@ -711,7 +711,7 @@ struct Nsec3RecordPair<'a> {
 
 #[cfg(test)]
 mod tests {
-    use core::str::FromStr;
+    use core::{slice, str::FromStr};
 
     use super::*;
     use crate::proto::{
@@ -728,6 +728,8 @@ mod tests {
     };
 
     use test_support::subscribe;
+
+    use data_encoding::BASE32_DNSSEC;
 
     #[test]
     fn test_hash() {
@@ -854,14 +856,16 @@ mod tests {
                     .as_ref(),
                     // Matches the closest encloser (x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("x.w.example"))?,
                         hash("ai.example."),
                         [MX, RRSIG],
                     )
                     .as_ref(),
                     // Covers the wildcard at the closest encloser (*.x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("a"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("a.example"))?,
                         hash("x.w.example."),
                         [DS, NS, RRSIG],
                     )
@@ -890,7 +894,8 @@ mod tests {
                     .as_ref(),
                     // Matches the closest encloser (x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("x.w.example"))?,
                         hash("ai.example."),
                         [MX, RRSIG],
                     )
@@ -912,14 +917,16 @@ mod tests {
                 &[
                     // Matches the closest encloser (x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("x.w.example"))?,
                         hash("ai.example."),
                         [MX, RRSIG],
                     )
                     .as_ref(),
                     // Covers the wildcard at the closest encloser (*.x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("a"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("a.example"))?,
                         hash("x.w.example."),
                         [DS, NS, RRSIG],
                     )
@@ -948,14 +955,16 @@ mod tests {
                     .as_ref(),
                     // Matches the closest encloser (x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("x.w"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("x.w.example"))?,
                         hash("ai.example."),
                         [MX, RRSIG],
                     )
                     .as_ref(),
                     // Covers the wildcard at the closest encloser (*.x.w.example.)
                     Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("a"))?,
+                        Name::from_ascii("example.")?
+                            .prepend_label(hash_with_base32("a.example"))?,
                         hash("x.w.example."),
                         [DS, NS, RRSIG],
                     )
@@ -1495,6 +1504,66 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn nsec3_covering_mutual_exclusion() {
+        // Mock up an NSEC3 ring with only two records.
+        let record_1_hash = [0x55; 20];
+        let record_2_hash = [0xBB; 20];
+        let record_1_label = Label::from_ascii(&BASE32_DNSSEC.encode(&record_1_hash)).unwrap();
+        let record_2_label = Label::from_ascii(&BASE32_DNSSEC.encode(&record_2_hash)).unwrap();
+        let record_1_rdata = NSEC3::new(
+            Nsec3HashAlgorithm::SHA1,
+            false,
+            0,
+            Vec::new(),
+            record_2_hash.to_vec(),
+            [],
+        );
+        let record_2_rdata = NSEC3::new(
+            Nsec3HashAlgorithm::SHA1,
+            false,
+            0,
+            Vec::new(),
+            record_1_hash.to_vec(),
+            [],
+        );
+
+        let record_1_pair = Nsec3RecordPair {
+            base32_hashed_name: record_1_label,
+            nsec3_data: &record_1_rdata,
+        };
+        let record_2_pair = Nsec3RecordPair {
+            base32_hashed_name: record_2_label,
+            nsec3_data: &record_2_rdata,
+        };
+
+        // Each hash should be covered by only one of the two NSEC3 records.
+        for query_hash in [[0x44; 20], [0x88; 20], [0xDD; 20]] {
+            let query_label = Label::from_ascii(&BASE32_DNSSEC.encode(&query_hash)).unwrap();
+            let covered_by_1 =
+                find_covering_record(slice::from_ref(&record_1_pair), &query_hash, &query_label);
+            let covered_by_2 =
+                find_covering_record(slice::from_ref(&record_2_pair), &query_hash, &query_label);
+            let covered_by = covered_by_1
+                .iter()
+                .chain(covered_by_2.iter())
+                .map(|pair| {
+                    (
+                        pair.base32_hashed_name.clone(),
+                        pair.nsec3_data
+                            .next_hashed_owner_name_base32()
+                            .unwrap()
+                            .clone(),
+                    )
+                })
+                .collect::<Vec<_>>();
+            assert!(
+                covered_by_1.is_some() ^ covered_by_2.is_some(),
+                "{query_label} is covered by {covered_by:?}"
+            );
+        }
     }
 
     #[derive(Debug)]
