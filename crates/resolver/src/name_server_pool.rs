@@ -197,6 +197,29 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             let response = lookup.await;
             let mut response = response?;
 
+            for record in response
+                .answers
+                .iter()
+                .chain(response.authorities.iter())
+                .chain(response.additionals.iter())
+            {
+                if record.dns_class == query.query_class {
+                    continue;
+                }
+                error!(
+                    %query,
+                    record_name = %record.name,
+                    record_class = %record.dns_class,
+                    record_type = %record.record_type(),
+                    "rejecting response: record class does not match query class",
+                );
+                return Err(NetError::ForeignClassRecord {
+                    record_name: record.name.clone(),
+                    record_class: record.dns_class,
+                    record_type: record.record_type(),
+                });
+            }
+
             if acs.allows_all() {
                 return Ok(response);
             }
@@ -990,9 +1013,10 @@ mod tests {
     use super::*;
     use crate::config::{NameServerConfig, ResolverConfig, ServerOrderingStrategy};
     use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
+    use crate::net::xfer::Protocol;
     use crate::net::xfer::{DnsHandle, FirstAnswer};
-    use crate::proto::op::{DnsRequestOptions, Query};
-    use crate::proto::rr::{Name, RecordType};
+    use crate::proto::op::{DnsRequestOptions, Message, Query};
+    use crate::proto::rr::{DNSClass, Name, RecordType};
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
@@ -1487,5 +1511,133 @@ mod tests {
 
         stop.store(true, Ordering::Relaxed);
         writer.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_pool_foreign_class_records() {
+        subscribe();
+
+        struct TestCase {
+            name: &'static str,
+            section: ForeignSection,
+            class: Option<DNSClass>,
+            expect_err: bool,
+        }
+
+        let cases = [
+            TestCase {
+                name: "foreign class CH in answers is rejected",
+                section: ForeignSection::Answer,
+                class: Some(DNSClass::CH),
+                expect_err: true,
+            },
+            TestCase {
+                name: "foreign class CH in authorities is rejected",
+                section: ForeignSection::Authority,
+                class: Some(DNSClass::CH),
+                expect_err: true,
+            },
+            TestCase {
+                name: "foreign class HS in additionals is rejected",
+                section: ForeignSection::Additional,
+                class: Some(DNSClass::HS),
+                expect_err: true,
+            },
+            TestCase {
+                name: "clean IN-only response passes through",
+                section: ForeignSection::None,
+                class: None,
+                expect_err: false,
+            },
+        ];
+
+        for case in cases {
+            let result = run_foreign_class_lookup(case.section, case.class).await;
+            match (case.expect_err, result) {
+                (true, Err(NetError::ForeignClassRecord { record_class, .. })) => {
+                    assert_eq!(
+                        Some(record_class),
+                        case.class,
+                        "{}: unexpected record_class",
+                        case.name
+                    );
+                }
+                (true, other) => {
+                    panic!(
+                        "{}: expected ForeignClassRecord error, got {other:?}",
+                        case.name
+                    )
+                }
+                (false, Ok(response)) => assert!(
+                    !response.answers.is_empty(),
+                    "{}: expected non-empty answer",
+                    case.name
+                ),
+                (false, Err(e)) => panic!("{}: expected success, got error {e:?}", case.name),
+            }
+        }
+    }
+
+    async fn run_foreign_class_lookup(
+        section: ForeignSection,
+        class: Option<DNSClass>,
+    ) -> Result<DnsResponse, NetError> {
+        let server_ip = IpAddr::from([10, 0, 0, 1]);
+        let query_name = Name::from_str("example.com.")?;
+        let target_name = query_name.clone();
+
+        let handler =
+            MockNetworkHandler::new(vec![MockRecord::a(server_ip, &query_name, server_ip)])
+                .with_mutation(Box::new(
+                    move |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+                        let Some(class) = class else { return };
+                        if msg.queries.first().map(|q| &q.name) != Some(&target_name) {
+                            return;
+                        }
+                        let mut record = Record::from_rdata(
+                            target_name.clone(),
+                            300,
+                            RData::A(A([6, 6, 6, 6].into())),
+                        );
+                        record.dns_class = class;
+                        match section {
+                            ForeignSection::Answer => {
+                                msg.add_answer(record);
+                            }
+                            ForeignSection::Authority => {
+                                msg.add_authority(record);
+                            }
+                            ForeignSection::Additional => {
+                                msg.add_additional(record);
+                            }
+                            ForeignSection::None => {}
+                        }
+                    },
+                ));
+
+        let pool = NameServerPool::from_nameservers(
+            vec![Arc::new(NameServer::new(
+                [].into_iter(),
+                NameServerConfig::udp(server_ip),
+                &ResolverOpts::default(),
+                MockProvider::new(handler),
+            ))],
+            Arc::new(PoolContext::new(ResolverOpts::default(), TlsConfig::new()?)),
+        );
+
+        pool.lookup(
+            Query::query(query_name, RecordType::A),
+            DnsRequestOptions::default(),
+        )
+        .first_answer()
+        .await
+    }
+
+    #[derive(Clone, Copy)]
+    enum ForeignSection {
+        Answer,
+        Authority,
+        Additional,
+        None,
     }
 }

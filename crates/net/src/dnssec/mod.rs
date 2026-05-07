@@ -194,6 +194,31 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             Err(err) => return Err(err),
         };
 
+        // Reject foreign-class records in answers/authorities/additionals.
+        // We only issue IN-class queries.
+        for record in message
+            .answers
+            .iter()
+            .chain(message.authorities.iter())
+            .chain(message.additionals.iter())
+        {
+            if record.dns_class == query.query_class {
+                continue;
+            }
+            error!(
+                %query,
+                record_name = %record.name,
+                record_class = %record.dns_class,
+                record_type = %record.record_type(),
+                "rejecting response: record class does not match query class",
+            );
+            return Err(NetError::ForeignClassRecord {
+                record_name: record.name.clone(),
+                record_class: record.dns_class,
+                record_type: record.record_type(),
+            });
+        }
+
         debug!(
             "validating message_response: {}, with {} trust_anchors",
             message.id,
@@ -419,7 +444,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             rrset.set_records(current_rrset);
             rrset.set_rrsigs(current_rrsigs);
 
-            // TODO: support non-IN classes?
             debug!(
                 "verifying: {name} record_type: {record_type}, rrsigs: {rrsig_len}",
                 rrsig_len = rrsigs.len()
