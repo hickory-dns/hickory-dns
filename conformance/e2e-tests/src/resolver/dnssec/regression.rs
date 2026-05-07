@@ -112,12 +112,7 @@ fn infinite_recursion_with_unsigned_ds_record() -> Result<(), Error> {
             continue;
         };
 
-        let message = capture.message.as_value().as_object().unwrap();
-        let queries = message.get("Queries").unwrap().as_object().unwrap();
-        let query = queries.values().next().unwrap().as_object().unwrap();
-
-        // These are represented as a &str but contain the numeric record type.
-        if query.get("dns.qry.type").unwrap() == "43" {
+        if capture.message.qtype() == Some(43) {
             ds_count += 1;
         }
     }
