@@ -23,7 +23,7 @@ use crate::proto::ProtoError;
 use crate::proto::dnssec::Proof;
 use crate::proto::op::{DnsResponse, Query, ResponseCode};
 use crate::proto::rr::RData;
-use crate::proto::rr::{Record, RecordRef, RecordType, rdata::SOA};
+use crate::proto::rr::{DNSClass, Name, Record, RecordRef, RecordType, rdata::SOA};
 use crate::proto::serialize::binary::DecodeError;
 
 /// The error type for network protocol errors (UDP, TCP, QUIC, H2, H3)
@@ -140,6 +140,17 @@ pub enum NetError {
     /// case.
     #[error("case of query name in response did not match")]
     QueryCaseMismatch,
+
+    /// An upstream response contained a record whose class did not match the IN query class.
+    #[error("foreign class record in response: {record_name} {record_class} {record_type}")]
+    ForeignClassRecord {
+        /// The name of the offending record.
+        record_name: Name,
+        /// The class of the offending record.
+        record_class: DNSClass,
+        /// The type of the offending record.
+        record_type: RecordType,
+    },
 }
 
 impl NetError {
@@ -284,6 +295,7 @@ impl NetError {
             #[cfg(feature = "__tls")]
             Self::RustlsError(_) => "tls",
             Self::QueryCaseMismatch => "query_case_mismatch",
+            Self::ForeignClassRecord { .. } => "foreign_class_record",
 
             // Don't report these because the format is arbitrary, and in the case of Msg, dynamic.
             Self::Message(_) | Self::Msg(_) => "message",
