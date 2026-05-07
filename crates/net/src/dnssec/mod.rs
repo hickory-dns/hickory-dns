@@ -1461,7 +1461,7 @@ impl ValidationCache {
     fn new(capacity: usize) -> Self {
         Self {
             inner: Arc::new(Mutex::new(LruCache::new(capacity))),
-            negative_ttl: None,
+            negative_ttl: Some(Duration::from_secs(1)..=BOGUS_CACHE_TTL),
             positive_ttl: None,
         }
     }
@@ -1868,6 +1868,12 @@ pub(super) fn proof_log_yield(
     proof
 }
 
+/// Maximum cache lifetime for an RRset with BOGUS validation.
+///
+/// RFC 4035 §4.7 requires implementations to assign a small TTL since the wire TTL
+/// is attacker-influenced and RFC 9520 §3.2 caps cached resolution failures at 300s.
+pub const BOGUS_CACHE_TTL: Duration = Duration::from_secs(60);
+
 /// The maximum number of key tag collisions to accept when:
 ///
 /// 1) Retrieving DNSKEY records for a zone
@@ -1885,9 +1891,14 @@ const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
 
 #[cfg(test)]
 mod test {
+    use std::time::{Duration, Instant};
+
     use super::{no_closer_matches, verify_nsec};
     use crate::{
-        dnssec::Proof,
+        dnssec::{
+            DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
+            ValidationCache,
+        },
         proto::{
             ProtoError,
             dnssec::{
@@ -1896,7 +1907,7 @@ mod test {
             },
             op::{Query, ResponseCode},
             rr::{
-                Name, RData, Record,
+                Name, RData, Record, RecordSet,
                 RecordType::{A, AAAA, DNSKEY, MX, NS, NSEC, RRSIG, SOA, TXT},
                 SerialNumber, rdata,
             },
@@ -2501,5 +2512,53 @@ mod test {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn validation_cache_clamps_bogus_ttl() {
+        // RFC 4035 §4.7:
+        //   Since RRsets that fail to validate do not have trustworthy TTLs,
+        //   the implementation MUST assign a TTL.  This TTL SHOULD be small,
+        //   in order to mitigate the effect of caching the results of an
+        //   attack.
+
+        let name = Name::from_ascii("bogus.example.").unwrap();
+        let query = Query::query(name.clone(), A);
+
+        let mut rrset = RecordSet::new(name.clone(), A, 0);
+        let record = Record::from_rdata(name, 3600, RData::A(rdata::A::new(10, 0, 0, 1)));
+        rrset.set_records(vec![record]);
+
+        let cx = RrsetVerificationContext {
+            query: &query,
+            rrset: &rrset,
+            options: DnsRequestOptions::default(),
+            current_time: 0,
+        };
+
+        let cache = ValidationCache::new(8);
+        let before = Instant::now();
+        cache.insert(
+            Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::Msg("forced bogus".into()),
+            )),
+            cx.key(),
+            &cx,
+        );
+
+        let stored_until = cache
+            .inner
+            .lock()
+            .get_mut(&cx.key())
+            .expect("entry just inserted")
+            .0;
+        let lifetime = stored_until.duration_since(before);
+        assert!(
+            // RFC 4035 §3.2:
+            //   resolution failures MUST NOT be cached for longer than 5 minutes.
+            lifetime <= Duration::from_secs(60 * 5),
+            "Bogus validation cached for {lifetime:?}, must be <= 5m",
+        );
     }
 }
