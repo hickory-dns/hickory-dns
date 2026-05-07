@@ -440,10 +440,9 @@ fn validate_nodata_response(
                     Proof::Secure,
                     "servicing wildcard without closest encloser proof, but query parent name == SOA",
                 ),
-                (None, None, None) if Some(&cx.query.name) == cx.soa => (
-                    Proof::Secure,
-                    "no servicing wildcard, but query name == SOA",
-                ),
+                (None, None, None) if Some(&cx.query.name) == cx.soa => {
+                    (Proof::Bogus, "apex NODATA with no NSEC3 matching H(QNAME)")
+                }
                 _ => (Proof::Bogus, "no valid servicing wildcard proof"),
             }
         }
@@ -1069,6 +1068,25 @@ mod tests {
                     Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
                     hash("a.example."),
                     [A, SOA, DNSKEY, RRSIG],
+                )
+                .as_ref(),],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // Apex NODATA without an NSEC3 matching H(QNAME).
+        assert_eq!(
+            verify_nsec3(
+                &Query::new(Name::from_ascii("example.")?, MX),
+                Some(&Name::from_ascii("example.")?),
+                ResponseCode::NoError,
+                &[],
+                &[Nsec3Pair::new(
+                    Name::from_ascii("example.")?.prepend_label(hash_with_base32("ns1.example"))?,
+                    hash("x.y.w.example."),
+                    [A, RRSIG],
                 )
                 .as_ref(),],
                 200,
