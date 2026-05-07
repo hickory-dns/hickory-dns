@@ -6,6 +6,7 @@ use dns_test::{
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
     record::{Record, RecordType},
+    tshark::Direction,
     zone_file::Root,
 };
 
@@ -430,5 +431,131 @@ fn qr_validation_test_impl(handler: &'static str, proto: &'static str) -> Result
     }
 
     assert!(resolver_logs.contains("response received with incorrect QR flag"));
+    Ok(())
+}
+
+/// Test mitigations for NXNSAttack-class amplification via referrall width.
+///
+/// A referral whose NS targets are out-of-bailiwick and have no glue causes the
+/// recursor to fan out one A and one AAAA lookup per target. Without a per-delegation
+/// width cap on glueless follow-up, the upstream query count to the third-party
+/// authoritative scales linearly with the referral width, turning the recursor
+/// into a reflection amplifier.
+///
+/// Topology:
+///   root --> testing. (tld) --> attacker.testing. and victim.testing.
+///   attacker.testing.: serves a glueless NS RRset of N targets in victim.testing.
+///   victim.testing.:   authoritative; serves an A record (and NODATA for AAAA)
+///                      at every nsX.victim.testing.
+///
+/// One client query for trap.attacker.testing. should produce at most a small,
+/// constant number of nsX.victim.testing. lookups at the victim authoritative,
+/// independent of the referral width.
+#[test]
+fn nxns_glueless_referral_width_is_capped() -> Result<(), Error> {
+    const N: usize = 20;
+    // Per allowed target, the recursor issues an NS lookup (zone-walk for
+    // ns_pool_for_name) plus A and AAAA lookups: 3 queries per target.
+    // Cap is MAX_GLUELESS_FOLLOW (5) targets * 3 queries.
+    const MAX_VICTIM_QUERIES: usize = 15;
+
+    let attacker_zone = FQDN("attacker.testing.")?;
+    let victim_zone = FQDN("victim.testing.")?;
+    let trap_fqdn = FQDN("trap.attacker.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(&Implementation::test_peer(), FQDN::TEST_TLD, &network)?;
+    let mut attacker_ns = NameServer::new(
+        &Implementation::test_peer(),
+        attacker_zone.clone(),
+        &network,
+    )?;
+    let mut victim_ns =
+        NameServer::new(&Implementation::test_peer(), victim_zone.clone(), &network)?;
+
+    for i in 1..=N {
+        victim_ns.add(Record::a(
+            FQDN(format!("ns{i}.victim.testing."))?,
+            Ipv4Addr::new(192, 0, 2, (i % 254 + 1) as u8),
+        ));
+    }
+    root_ns.referral(
+        FQDN::TEST_TLD,
+        FQDN("primary.tld-server.testing.")?,
+        tld_ns.ipv4_addr(),
+    );
+    tld_ns.referral(
+        attacker_zone.clone(),
+        FQDN("ns.attacker.testing.")?,
+        attacker_ns.ipv4_addr(),
+    );
+    tld_ns.referral(
+        victim_zone.clone(),
+        FQDN("ns.victim.testing.")?,
+        victim_ns.ipv4_addr(),
+    );
+
+    // Attacker zone delegates trap.attacker.testing. to N glueless out-of-bailiwick
+    // targets in victim.testing.
+    for i in 1..=N {
+        attacker_ns.add(Record::ns(
+            trap_fqdn.clone(),
+            FQDN(format!("ns{i}.victim.testing."))?,
+        ));
+    }
+
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .start_with_subject(&Implementation::hickory())?;
+
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _attacker_ns = attacker_ns.start()?;
+    let victim_ns_running = victim_ns.start()?;
+
+    thread::sleep(Duration::from_secs(2));
+
+    // We snoop on the victim NS with tshark to quantify the reflected query volume.
+    let tshark = victim_ns_running.eavesdrop_udp()?;
+
+    let res = Client::new(resolver.network())?.dig(
+        *DigSettings::default().recurse().timeout(15),
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &trap_fqdn,
+    );
+
+    // Give tshark a moment to flush its capture pipeline before we kill it.
+    // Without this, the count is occasionally short by a handful of packets.
+    thread::sleep(Duration::from_secs(1));
+
+    let victim_target_hits = tshark
+        .terminate()?
+        .iter()
+        .filter_map(|c| {
+            if !matches!(c.direction, Direction::Incoming { .. }) {
+                return None;
+            }
+            let qname = c.message.qname()?;
+            let qname = qname.strip_suffix('.').unwrap_or(qname);
+            (qname.starts_with("ns") && qname.ends_with(".victim.testing")).then_some(())
+        })
+        .count();
+
+    match res {
+        Ok(res) => assert!(
+            res.status.is_servfail(),
+            "expected SERVFAIL, got {:?}",
+            res.status
+        ),
+        Err(e) => panic!("dig error {e:?} resolver logs: {}", resolver.logs()?),
+    }
+
+    assert!(
+        victim_target_hits <= MAX_VICTIM_QUERIES,
+        "recursor sent {victim_target_hits} nsX.victim.testing. lookups (expected <= {MAX_VICTIM_QUERIES}); referral width was {N}"
+    );
+
     Ok(())
 }
