@@ -717,3 +717,54 @@ fn nxns_nested_referrals_exceed_per_request_budget() -> Result<(), Error> {
 
     Ok(())
 }
+
+/// Verify that an upstream answer containing a foreign-class record alongside a
+/// legitimate IN record is rejected.
+#[test]
+fn foreign_class_record_rejected() -> Result<(), Error> {
+    let target_fqdn = FQDN("www.example.testing.")?;
+
+    let network = Network::new()?;
+
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("foreign_class", vec![], "udp"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    root_ns.referral(
+        FQDN::TEST_TLD,
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .start_with_subject(&Implementation::hickory())?;
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let res = Client::new(resolver.network())?.dig(
+        *DigSettings::default().recurse().timeout(7),
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &target_fqdn,
+    );
+
+    match res {
+        Ok(res) => {
+            assert!(res.status.is_servfail());
+            assert_eq!(res.answer.len(), 0);
+        }
+        Err(e) => panic!("error {e:?} resolver logs: {}", resolver.logs()?),
+    }
+
+    assert!(
+        resolver
+            .logs()?
+            .contains("rejecting response: record class does not match query class")
+    );
+
+    Ok(())
+}
