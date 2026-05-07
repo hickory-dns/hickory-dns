@@ -642,7 +642,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         depth,
                         request_time,
                         nameserver_pool.clone(),
-                        need_ips_for_names.iter(),
+                        need_ips_for_names.iter().take(MAX_GLUELESS_FOLLOW),
                         &mut config_group,
                     )
                     .await?;
@@ -924,6 +924,9 @@ fn name_server_config(
 /// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion
 /// depth limit
 const MAX_CNAME_LOOKUPS: u8 = 64;
+
+/// Maximum number of glueless NS targets to chase per delegation point.
+const MAX_GLUELESS_FOLLOW: usize = 5;
 
 #[cfg(test)]
 mod tests {
