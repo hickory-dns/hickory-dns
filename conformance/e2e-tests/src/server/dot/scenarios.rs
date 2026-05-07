@@ -128,20 +128,8 @@ fn pdns_opportunistic_dot_success() -> Result<(), Error> {
     Ok(())
 }
 
-// Perform serde_json::Value acrobatics to extract the qry name and rr type from capture's first query.
 fn query_name_and_type(c: &Capture) -> (&str, u16) {
-    let message_map = c.message.as_value().as_object().unwrap();
-    let queries_map = message_map.get("Queries").unwrap().as_object().unwrap();
-    let first_query = queries_map.values().next().unwrap().as_object().unwrap();
-    let name = first_query.get("dns.qry.name").unwrap().as_str().unwrap();
-    let r#type = first_query
-        .get("dns.qry.type")
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .parse::<u16>()
-        .unwrap();
-    (name, r#type)
+    (c.message.qname().unwrap(), c.message.qtype().unwrap())
 }
 
 // Custom config based on `pdns.resolver.conf.jinja` that sets the 'max_busy_dot_probes'

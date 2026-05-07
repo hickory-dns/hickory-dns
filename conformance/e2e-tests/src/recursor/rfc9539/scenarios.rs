@@ -210,21 +210,8 @@ fn hickory_opportunistic_probe_failure() -> Result<(), Error> {
     Ok(())
 }
 
-// Perform serde_json::Value acrobatics to extract the qry name and rr type from capture's first query.
 fn query_name_and_type(c: &Capture) -> Option<(&str, u16)> {
-    let message_map = c.message.as_value().as_object().unwrap();
-
-    let queries_map = message_map.get("Queries")?.as_object().unwrap();
-    let first_query = queries_map.values().next().unwrap().as_object().unwrap();
-    let name = first_query.get("dns.qry.name").unwrap().as_str().unwrap();
-    let r#type = first_query
-        .get("dns.qry.type")
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .parse::<u16>()
-        .unwrap();
-    Some((name, r#type))
+    Some((c.message.qname()?, c.message.qtype()?))
 }
 
 static HICKORY_RECURSOR_PROBE_CONFIG: &str = r#"
