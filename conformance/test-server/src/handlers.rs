@@ -14,7 +14,7 @@ use hickory_proto::{
         rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
     op::{DnsRequest, DnsRequestOptions, Message, MessageType, ResponseCode},
-    rr::{RData, Record, RecordType, domain::Name, rdata},
+    rr::{DNSClass, RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
     env,
@@ -837,6 +837,33 @@ impl Handler for DropRrsetHandler {
             response.to_vec().context("error serializing response")?,
         ))
     }
+}
+
+/// This handler returns a legitimate IN A response with a single foreign-class
+/// (CH) record appended in the answer section, simulating an on-path attacker
+/// smuggling attacker-chosen rdata under the same (qname, qtype).
+pub(crate) fn foreign_class_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.into_response();
+    let name = msg.queries[0].name.clone();
+
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
+    msg.add_answer(Record::from_rdata(
+        name.clone(),
+        300,
+        RData::A(rdata::A([192, 0, 2, 1].into())),
+    ));
+
+    let mut foreign = Record::from_rdata(name, 300, RData::A(rdata::A([6, 6, 6, 6].into())));
+    foreign.dns_class = DNSClass::CH;
+    msg.add_answer(foreign);
+
+    msg.to_vec()
+        .map(Some)
+        .with_context(|| "foreign class handler: could not serialize Message")
 }
 
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
