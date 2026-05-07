@@ -19,6 +19,8 @@ use crate::{
         rr::RecordType,
     },
 };
+#[cfg(feature = "__dnssec")]
+use crate::{net::dnssec::BOGUS_CACHE_TTL, proto::dnssec::DnssecSummary};
 
 /// A cache for DNS responses.
 #[derive(Clone, Debug)]
@@ -100,6 +102,12 @@ impl ResponseCache {
         query_type: RecordType,
         message: &mut Message,
     ) -> Duration {
+        #[cfg(feature = "__dnssec")]
+        let bogus = matches!(
+            DnssecSummary::from_records(message.all_sections()),
+            DnssecSummary::Bogus,
+        );
+
         for record in message
             .answers
             .iter_mut()
@@ -127,9 +135,18 @@ impl ResponseCache {
             .map(|r| Duration::from_secs(r.ttl.into()))
             .min();
 
-        min_ttl
+        let ttl = min_ttl
             .unwrap_or(positive_min_ttl)
-            .clamp(positive_min_ttl, positive_max_ttl)
+            .clamp(positive_min_ttl, positive_max_ttl);
+
+        // Cap the cache lifetime independently of operator-configured min/max
+        // bounds for bogus DNSSEC responses.
+        // RFC 4035 §4.7 requires implementations to assign a small TTL
+        // since the wire TTL is attacker-influenced
+        #[cfg(feature = "__dnssec")]
+        let ttl = if bogus { ttl.min(BOGUS_CACHE_TTL) } else { ttl };
+
+        ttl
     }
 
     pub(crate) fn clear(&self) {
@@ -493,6 +510,8 @@ mod tests {
             },
         },
     };
+    #[cfg(feature = "__dnssec")]
+    use hickory_proto::dnssec::Proof;
     use test_support::subscribe;
 
     #[test]
@@ -648,6 +667,51 @@ mod tests {
 
         // At t=121: cache miss.
         assert!(cache.get(&query, now + Duration::from_secs(121)).is_none());
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn test_bogus_record_clamps_cache_ttl() {
+        // RFC 4035 §4.7:
+        //   Since RRsets that fail to validate do not have trustworthy TTLs,
+        //   the implementation MUST assign a TTL.  This TTL SHOULD be small,
+        //   in order to mitigate the effect of caching the results of an
+        //   attack.
+        //
+        // We test against both the default TtlConfig and a config with a long
+        // positive_min_ttl: the latter exercises the case where an operator's
+        // floor for legitimate responses must not re-inflate the lifetime of
+        // an attacker-influenced Bogus verdict.
+        let configs = [
+            TtlConfig::default(),
+            TtlConfig::from(TtlBounds {
+                positive_min_ttl: Some(Duration::from_secs(3600)),
+                ..TtlBounds::default()
+            }),
+        ];
+
+        for ttls in configs {
+            let now = Instant::now();
+            let name = Name::from_str("bogus.example.com.").unwrap();
+            let query = Query::new(name.clone(), RecordType::A);
+
+            let mut message = Message::response(0, OpCode::Query);
+            let mut record = Record::from_rdata(name.clone(), 3600, RData::A(A::new(10, 0, 0, 1)));
+            record.proof = Proof::Bogus;
+            message.add_answer(record);
+
+            let cache = ResponseCache::new(1, ttls);
+            cache.insert(query.clone(), Ok(message), now);
+
+            let valid_until = cache.cache.get(&query).unwrap().valid_until;
+            assert!(
+                // RFC 4035 §3.2:
+                //   resolution failures MUST NOT be cached for longer than 5 minutes.
+                valid_until <= now + Duration::from_secs(60 * 5),
+                "Bogus answer cached for {:?}, must be <= 5m",
+                valid_until.duration_since(now),
+            );
+        }
     }
 
     #[test]
