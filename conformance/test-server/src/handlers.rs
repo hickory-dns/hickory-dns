@@ -14,7 +14,7 @@ use hickory_proto::{
         rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
     op::{DnsRequest, DnsRequestOptions, Message, MessageType, Query, ResponseCode},
-    rr::{RData, Record, RecordType, domain::Name, rdata},
+    rr::{DNSClass, RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
     env,
@@ -924,6 +924,28 @@ impl Handler for BogusNoDataInsteadOfCname {
         response.metadata.id = id;
         Ok(Some(encode_response(&response, max_message_size)?))
     }
+}
+
+/// This handler returns a legitimate IN A response with a single foreign-class
+/// (CH) record appended in the answer section, simulating an on-path attacker
+/// smuggling attacker-chosen rdata under the same (qname, qtype).
+pub(crate) fn foreign_class_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
+    let name = msg.queries[0].name.clone();
+
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
+    msg.add_answer(Record::from_rdata(
+        name.clone(),
+        300,
+        RData::A(rdata::A([192, 0, 2, 1].into())),
+    ));
+
+    let mut foreign = Record::from_rdata(name, 300, RData::A(rdata::A([6, 6, 6, 6].into())));
+    foreign.dns_class = DNSClass::CH;
+    msg.add_answer(foreign);
+
+    Ok(msg)
 }
 
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);

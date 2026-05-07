@@ -20,9 +20,9 @@ mod handlers;
 use handlers::{
     BogusNoDataInsteadOfCname, DropRrsetHandler, bad_case_handler, bad_txid_handler,
     bailiwick_handler, base_handler, cname_loop_handler, empty_response_handler,
-    nsec3_apex_nodata_handler, nsec3_nocover_handler, nxdomain_with_ns_authority_handler,
-    packet_loss_handler, parent_ns_in_authority_handler, qr_not_response_force_tcp_handler,
-    qr_not_response_handler, truncated_response_handler,
+    foreign_class_handler, nsec3_apex_nodata_handler, nsec3_nocover_handler,
+    nxdomain_with_ns_authority_handler, packet_loss_handler, parent_ns_in_authority_handler,
+    qr_not_response_force_tcp_handler, qr_not_response_handler, truncated_response_handler,
 };
 mod zone_file;
 
@@ -75,6 +75,7 @@ enum HandlerArg {
     BadTxid,
     CnameLoop,
     EmptyResponse,
+    ForeignClass,
     Nsec3ApexNodata,
     Nsec3Nocover,
     NxdomainWithNsAuthority,
@@ -102,6 +103,7 @@ impl HandlerArg {
             Self::BadTxid => &(bad_txid_handler as HandlerMessageFnPtr),
             Self::CnameLoop => &(cname_loop_handler as HandlerMessageFnPtr),
             Self::EmptyResponse => &(empty_response_handler as HandlerMessageFnPtr),
+            Self::ForeignClass => &(foreign_class_handler as HandlerMessageFnPtr),
             Self::Nsec3ApexNodata => &(nsec3_apex_nodata_handler as HandlerMessageFnPtr),
             Self::Nsec3Nocover => &(nsec3_nocover_handler as HandlerMessageFnPtr),
             Self::NxdomainWithNsAuthority => {
