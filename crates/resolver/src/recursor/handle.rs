@@ -166,7 +166,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         request_time: Instant,
         query_has_dnssec_ok: bool,
         depth: u8,
-        cname_limit: Arc<AtomicU8>,
+        limits: &RequestLimits,
     ) -> Result<Message, RecursorError> {
         #[cfg(feature = "metrics")]
         let _guard = self.metrics.new_inflight_query();
@@ -189,7 +189,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         request_time,
                         query_has_dnssec_ok,
                         depth,
-                        cname_limit,
+                        limits,
                     )
                     .await?;
 
@@ -243,7 +243,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         let (depth, ns) = match self
-            .ns_pool_for_name(zone.clone(), request_time, depth)
+            .ns_pool_for_name(zone.clone(), request_time, depth, limits)
             .await
         {
             Ok((depth, ns)) => (depth, ns),
@@ -269,7 +269,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let response = match cached_response {
             Some(result) => result?,
             None => {
-                self.lookup(query.clone(), zone.clone(), ns, request_time)
+                self.lookup(query.clone(), zone.clone(), ns, request_time, limits)
                     .await?
             }
         };
@@ -281,7 +281,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 request_time,
                 query_has_dnssec_ok,
                 depth,
-                cname_limit,
+                limits,
             )
             .await?;
 
@@ -313,7 +313,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         now: Instant,
         query_has_dnssec_ok: bool,
         mut depth: u8,
-        cname_limit: Arc<AtomicU8>,
+        limits: &RequestLimits,
     ) -> Result<Message, RecursorError> {
         let query_type = query.query_type;
 
@@ -347,7 +347,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             let cname_query = Query::new(name.0.clone(), query_type);
 
-            let count = cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
+            let count = limits.cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
             if count > MAX_CNAME_LOOKUPS {
                 warn!("cname limit exceeded for query {query}");
                 return Err(RecursorError::MaxRecordLimitExceeded {
@@ -361,13 +361,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // response.  Resolve will either pull the intermediates out of the cache or query
             // the appropriate nameservers if necessary.
             let response = match self
-                .resolve(
-                    cname_query,
-                    now,
-                    query_has_dnssec_ok,
-                    depth,
-                    cname_limit.clone(),
-                )
+                .resolve(cname_query, now, query_has_dnssec_ok, depth, limits)
                 .await
             {
                 Ok(cname_r) => cname_r,
@@ -428,7 +422,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         zone: Name,
         ns: NameServerPool<P>,
         now: Instant,
+        limits: &RequestLimits,
     ) -> Result<Message, RecursorError> {
+        limits.try_charge_query(&query)?;
+
         let mut response = ns.lookup(query.clone(), self.request_options);
 
         #[cfg(feature = "metrics")]
@@ -496,6 +493,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         query_name: Name,
         request_time: Instant,
         mut depth: u8,
+        limits: &RequestLimits,
     ) -> Result<(u8, NameServerPool<P>), RecursorError> {
         // Iterate through zones from TLD down to the query name (not including root)
         let num_labels = query_name.num_labels();
@@ -532,8 +530,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
                 Some(Err(e)) => Err(e.into()),
                 None => {
-                    self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
-                        .await
+                    self.lookup(
+                        query,
+                        parent_zone,
+                        nameserver_pool.clone(),
+                        request_time,
+                        limits,
+                    )
+                    .await
                 }
             };
 
@@ -644,6 +648,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         nameserver_pool.clone(),
                         need_ips_for_names.iter().take(MAX_GLUELESS_FOLLOW),
                         &mut config_group,
+                        limits,
                     )
                     .await?;
 
@@ -738,6 +743,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         ttl
     }
 
+    #[expect(clippy::too_many_arguments)] // TODO: consider extracting lookup context struct.
     async fn append_ips_from_lookup<'a, I: Iterator<Item = &'a NS>>(
         &self,
         zone: &Name,
@@ -746,6 +752,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         nameserver_pool: NameServerPool<P>,
         nameservers: I,
         config: &mut Vec<NameServerConfig>,
+        limits: &RequestLimits,
     ) -> Result<(u32, u8), RecursorError> {
         let mut pool_queries = vec![];
 
@@ -758,7 +765,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // depth as a fixed base for the nameserver lookups
             let nameserver_pool = if !is_subzone(zone, &record_name) {
                 match self
-                    .ns_pool_for_name(record_name.clone(), request_time, depth)
+                    .ns_pool_for_name(record_name.clone(), request_time, depth, limits)
                     .await
                 {
                     Ok((_, pool)) => pool.with_zone(zone.clone()),
@@ -780,10 +787,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let mut futures = FuturesUnordered::new();
 
-        for (pool, query) in pool_queries.iter() {
+        for (pool, query_name) in pool_queries.iter() {
             for rec_type in [RecordType::A, RecordType::AAAA] {
+                let query = Query::new(query_name.clone(), rec_type);
+                limits.try_charge_query(&query)?;
                 futures.push(Box::pin(
-                    pool.lookup(Query::new(query.clone(), rec_type), self.request_options)
+                    pool.lookup(query, self.request_options)
                         .into_future()
                         .map(|(first, _rest)| first),
                 ));
@@ -826,6 +835,34 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 }
 
+pub(crate) struct RequestLimits {
+    req_query_count: AtomicU8,
+    cname_limit: AtomicU8,
+}
+
+impl RequestLimits {
+    pub(crate) fn new() -> Self {
+        Self {
+            req_query_count: AtomicU8::new(0),
+            cname_limit: AtomicU8::new(0),
+        }
+    }
+
+    fn try_charge_query(&self, query: &Query) -> Result<(), RecursorError> {
+        if self
+            .req_query_count
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
+                (n < MAX_QUERIES_PER_REQUEST).then(|| n + 1)
+            })
+            .is_err()
+        {
+            warn!(?query, "per-request query budget exceeded");
+            return Err(RecursorError::QueryBudgetExceeded);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(feature = "__dnssec")]
 mod for_dnssec {
     use futures_util::{
@@ -863,8 +900,8 @@ mod for_dnssec {
                 // request the DNSSEC records; we'll strip them if not needed on the caller side
                 let do_bit = true;
 
-                let future =
-                    this.resolve(query, Instant::now(), do_bit, 0, Arc::new(AtomicU8::new(0)));
+                let limits = RequestLimits::new();
+                let future = this.resolve(query, Instant::now(), do_bit, 0, &limits);
                 let response = match future.await {
                     Ok(response) => response,
                     Err(e) => return Err(NetError::from(e)),
@@ -927,6 +964,9 @@ const MAX_CNAME_LOOKUPS: u8 = 64;
 
 /// Maximum number of glueless NS targets to chase per delegation point.
 const MAX_GLUELESS_FOLLOW: usize = 5;
+
+/// Maximum number of upstream queries the recursor will issue for a single client query.
+const MAX_QUERIES_PER_REQUEST: u8 = 200;
 
 #[cfg(test)]
 mod tests {
