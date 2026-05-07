@@ -1,0 +1,76 @@
+use std::net::Ipv4Addr;
+
+use dns_test::{
+    Error, FQDN, Implementation, Network, PEER, Resolver,
+    client::{Client, DigSettings, DigStatus},
+    name_server::NameServer,
+    record::{A, RecordType},
+    zone_file::SignSettings,
+};
+
+#[test]
+fn apex_nodata_without_matching_nsec3() -> Result<(), Error> {
+    let network = Network::new()?;
+    let sign_settings = SignSettings::default();
+
+    let mut leaf_ns = NameServer::new(
+        &Implementation::test_server("nsec3_apex_nodata", Vec::new(), "both"),
+        FQDN::TEST_DOMAIN,
+        &network,
+    )?;
+
+    for i in 0..4 {
+        leaf_ns.add(A {
+            fqdn: FQDN::TEST_DOMAIN.push_label(&format!("subdomain-{i}")),
+            ttl: 86400,
+            ipv4_addr: Ipv4Addr::LOCALHOST,
+        });
+    }
+
+    let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&leaf_ns);
+    tld_ns.add(leaf_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings)?;
+    let root_hint = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let _leaf_ns = leaf_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _root_ns = root_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+    let dig_settings = *DigSettings::default().recurse().dnssec().tcp();
+
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::TEST_DOMAIN.push_label("subdomain-0"),
+    )?;
+    assert_eq!(response.status, DigStatus::NOERROR);
+    assert!(response.flags.authenticated_data);
+
+    // Apex NODATA without an NSEC3 matching H(QNAME): the test server returns
+    // NOERROR/ANSWER:0 with a non-apex NSEC3 in the authority section. RFC 5155
+    // §8.5 requires an NSEC3 RR whose hashed owner equals H(QNAME). A conformant
+    // validating resolver must SERVFAIL.
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::MX,
+        &FQDN::TEST_DOMAIN,
+    )?;
+    assert_eq!(response.status, DigStatus::SERVFAIL);
+
+    Ok(())
+}

@@ -469,7 +469,139 @@ pub(crate) fn nsec3_nocover_handler(
         .with_context(|| "nsec3 no cover handler: could not serialize Message")
 }
 
-/// This handler generates a response with a an out-of-bailiwick record included.  There are two
+/// This handler simulates a misbehaving authoritative for an apex NODATA response.
+///  * DNSKEY queries - return the correct records
+///  * SOA queries - return the correct records
+///  * A query for subdomain-0.hickory-dns.testing. - Return correct A + RRSIG RRset.
+///  * MX query for hickory-dns.testing. - Return NOERROR with SOA + a non-apex NSEC3
+///    (and their RRSIGs) in the authority section. RFC 5155 §8.5 requires the NSEC3
+///    matching H(QNAME); the substituted record does not match the apex hash, so a
+///    conformant validating resolver must SERVFAIL.
+pub(crate) fn nsec3_apex_nodata_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>> {
+    let mut msg = Message::from_vec(bytes)?.into_response();
+    let query_name = msg.queries[0].name.clone();
+    let query_type = msg.queries[0].query_type;
+
+    let origin_name = Name::from_ascii("hickory-dns.testing.")?;
+    let correct_name = origin_name.prepend_label("subdomain-0")?;
+
+    let records = zone_file::parse_zone_file(Path::new(
+        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
+    ))
+    .map_err(|e| {
+        Error::msg(format!(
+            "nsec3_apex_nodata handler: unable to load zone file: {e:?}"
+        ))
+    })?;
+
+    match query_type {
+        RecordType::DNSKEY | RecordType::SOA => {
+            msg.add_answers(records.into_iter().filter(|x| match x.record_type() {
+                RecordType::DNSKEY | RecordType::SOA => x.record_type() == query_type,
+                RecordType::RRSIG => {
+                    let Some(rrsig) = x.try_borrow::<RRSIG>() else {
+                        return false;
+                    };
+                    rrsig.data().input().type_covered == query_type
+                }
+                _ => false,
+            }));
+        }
+        RecordType::A if query_name == correct_name => {
+            for record in records {
+                if record.name != correct_name {
+                    continue;
+                }
+
+                if record.record_type() == RecordType::A {
+                    msg.add_answer(record.clone());
+                } else if record.record_type() == RecordType::RRSIG {
+                    let Some(rrsig) = record.try_borrow::<RRSIG>() else {
+                        continue;
+                    };
+
+                    if rrsig.data().input().type_covered == RecordType::A {
+                        msg.add_answer(record.clone());
+                    }
+                }
+            }
+        }
+        RecordType::MX if query_name == origin_name => {
+            let Some(params_rec) = records
+                .iter()
+                .find(|x| x.record_type() == RecordType::NSEC3PARAM)
+                .cloned()
+            else {
+                return Err(Error::msg("Could not get nsec3param record"));
+            };
+
+            let Some(params_inner) = params_rec.try_borrow::<NSEC3PARAM>() else {
+                return Err(Error::msg("Could not get nsec3param record data"));
+            };
+
+            let apex_hash = BASE32_DNSSEC.encode(
+                Nsec3HashAlgorithm::SHA1
+                    .hash(
+                        params_inner.data().salt(),
+                        &origin_name,
+                        params_inner.data().iterations(),
+                    )?
+                    .as_ref(),
+            );
+
+            // Pick the first NSEC3 whose hashed-owner label is NOT H(apex). This is
+            // the malformed apex NODATA: no NSEC3 in the response matches H(QNAME).
+            let Some(decoy_nsec3) = records.iter().find(|x| {
+                if x.record_type() != RecordType::NSEC3 {
+                    return false;
+                }
+                let Some(label) = x.name.iter().next() else {
+                    return false;
+                };
+                label != apex_hash.as_bytes()
+            }) else {
+                return Err(Error::msg(
+                    "no non-apex NSEC3 available in zone for apex NODATA test",
+                ));
+            };
+            let decoy_name = decoy_nsec3.name.clone();
+
+            for record in records {
+                match record.record_type() {
+                    RecordType::SOA => msg.add_authority(record),
+                    RecordType::NSEC3 if record.name == decoy_name => msg.add_authority(record),
+                    RecordType::RRSIG => {
+                        let Some(rrsig) = record.try_borrow::<RRSIG>() else {
+                            continue;
+                        };
+                        match rrsig.data().input().type_covered {
+                            RecordType::SOA => msg.add_authority(record),
+                            RecordType::NSEC3 if record.name == decoy_name => {
+                                msg.add_authority(record)
+                            }
+                            _ => continue,
+                        }
+                    }
+                    _ => continue,
+                };
+            }
+        }
+        _ => {}
+    }
+
+    msg.metadata.recursion_desired = true;
+    msg.metadata.recursion_available = true;
+    msg.metadata.authoritative = true;
+    msg.metadata.authentic_data = true;
+    msg.to_vec()
+        .map(Some)
+        .with_context(|| "nsec3 apex nodata handler: could not serialize Message")
+}
+
+/// This handler generates a response with an out-of-bailiwick record included.  There are two
 /// variations: a CNAME test that returns an out of bailiwick response for that is part of a CNAME
 /// chain, and a default case that returns a superfluous out of bailiwick record along with a
 /// responsive A record.
