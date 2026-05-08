@@ -21,7 +21,7 @@ use hickory_proto::{
     op::{Message, OpCode, Query, ResponseCode},
     rr::{
         Name, RData, Record, RecordType,
-        rdata::{A, NS, SOA},
+        rdata::{A, NS, SOA, TXT},
     },
     serialize::binary::BinDecodable,
 };
@@ -137,6 +137,18 @@ impl MockRecord {
             record_name: rr_name.clone(),
             record_data: RData::SOA(SOA::new(mname.clone(), rname.clone(), 1, 1, 1, 1, 1)),
             section: MockResponseSection::Authority,
+        }
+    }
+
+    pub fn txt(server: IpAddr, rr_name: &Name, txt_data: Vec<String>) -> Self {
+        Self {
+            ns: server,
+            query_name: rr_name.clone(),
+            query_type: RecordType::TXT,
+            ttl: 0,
+            record_name: rr_name.clone(),
+            record_data: RData::TXT(TXT::new(txt_data)),
+            section: MockResponseSection::Answer,
         }
     }
 
