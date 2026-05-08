@@ -138,6 +138,20 @@ impl NSEC {
     pub fn type_set(&self) -> &RecordTypeSet {
         &self.type_bit_maps
     }
+
+    /// Returns true if this NSEC is an ancestor delegation.
+    ///
+    /// Per [RFC 6840 §4.1], such an NSEC sits on the parent side of a zone cut
+    /// (its bitmap has `NS` set with `SOA` clear, or asserts a `DNAME` at the
+    /// owner) and authenticates only the absence of `DS` at its owner, not the
+    /// absence of any name below the cut, nor any other type at the owner.
+    ///
+    /// [RFC 6840 §4.1]: https://www.rfc-editor.org/rfc/rfc6840#section-4.1
+    pub fn is_ancestor_delegation(&self) -> bool {
+        let types = &self.type_bit_maps;
+        types.contains(RecordType::DNAME)
+            || (types.contains(RecordType::NS) && !types.contains(RecordType::SOA))
+    }
 }
 
 impl BinEncodable for NSEC {
