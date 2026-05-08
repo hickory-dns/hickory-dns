@@ -47,6 +47,17 @@ async fn main() -> Result<()> {
             name,
             record_type,
         )),
+        HandlerArg::ServfailRrset {
+            ip_address,
+            name,
+            record_type,
+            count,
+        } => Arc::new(handlers::ServfailRrsetHandler::new(
+            ip_address,
+            name,
+            record_type,
+            count,
+        )),
     };
 
     let mut handles = vec![];
@@ -105,6 +116,12 @@ enum HandlerArg {
         ip_address: IpAddr,
         name: Name,
         record_type: RecordType,
+    },
+    ServfailRrset {
+        ip_address: IpAddr,
+        name: Name,
+        record_type: RecordType,
+        count: u32,
     },
 }
 
