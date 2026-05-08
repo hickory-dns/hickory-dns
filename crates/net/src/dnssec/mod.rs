@@ -1820,13 +1820,28 @@ fn verify_nsec(
         );
     };
 
+    // RFC 4035 §3.1.3.2 / §5.4 / RFC 8020 §3.1: a next-domain below the
+    // query name puts the query name on the path from owner to next, so
+    // it exists as an empty non-terminal. NODATA is correct, NXDOMAIN
+    // contradicts the proof. Skip the wrap-around NSEC (next is the
+    // apex) and wildcard expansion (have_answer needs the full
+    // closest-encloser proof).
+    let covering_next = covering_nsec_data.next_domain_name();
+    if !have_answer && Some(covering_next) != soa_name && query.name.zone_of(covering_next) {
+        return if response_code == ResponseCode::NXDomain {
+            nsec1_yield(Proof::Bogus, "NXDOMAIN at proven empty non-terminal")
+        } else {
+            nsec1_yield(Proof::Secure, "empty non-terminal NODATA")
+        };
+    }
+
     // Identify the names that exist (including names of empty non terminals) that are parents of
     // the query name. Pick the longest such name, because wildcard synthesis would start looking
     // for a wildcard record there.
     for seed_name in [covering_nsec_name, covering_nsec_data.next_domain_name()] {
         let mut candidate_name = seed_name.clone();
         while candidate_name.num_labels() > next_closest_encloser.num_labels() {
-            if candidate_name.zone_of(&query.name) {
+            if candidate_name != query.name && candidate_name.zone_of(&query.name) {
                 next_closest_encloser = candidate_name;
                 break;
             }
@@ -2346,6 +2361,234 @@ mod test {
                     &Name::from_ascii("insecure-deleg.")?,
                     &rdataNSEC::new(Name::from_ascii("next.")?, [NS, RRSIG, NSEC],),
                 )],
+            ),
+            Proof::Secure
+        );
+
+        Ok(())
+    }
+
+    // RFC 4035 §3.1.3.2 / §5.4 / RFC 8020 §3.1: an NSEC whose Next Domain
+    // Name is a strict descendant of the query name proves that the query
+    // name exists as an empty non-terminal (ENT). Such an NSEC must not
+    // authenticate NXDOMAIN at the query name. The correct rcode is
+    // NOERROR/NODATA.
+    #[test]
+    fn nsec_invalid_empty_non_terminal_nxdomain() -> Result<(), ProtoError> {
+        subscribe();
+
+        // Single-label ENT covered by the apex NSEC.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[(
+                    &Name::from_ascii("poc.")?,
+                    &rdataNSEC::new(
+                        Name::from_ascii("a.b.poc.")?,
+                        [NS, SOA, TXT, RRSIG, NSEC, DNSKEY],
+                    ),
+                )],
+            ),
+            Proof::Bogus
+        );
+
+        // Deeper ENT covered by a mid-zone NSEC.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("y.z.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[(
+                    &Name::from_ascii("z.poc.")?,
+                    &rdataNSEC::new(Name::from_ascii("x.y.z.poc.")?, [TXT, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Bogus
+        );
+
+        // Single-label ENT covered by a non-apex NSEC.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[(
+                    &Name::from_ascii("a.poc.")?,
+                    &rdataNSEC::new(Name::from_ascii("c.b.poc.")?, [TXT, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Bogus
+        );
+
+        // Same proof shape with rcode=NoError is the legitimate ENT NODATA
+        // response per RFC 8020 §3.1 and must validate.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NoError,
+                &[],
+                &[(
+                    &Name::from_ascii("poc.")?,
+                    &rdataNSEC::new(
+                        Name::from_ascii("a.b.poc.")?,
+                        [NS, SOA, TXT, RRSIG, NSEC, DNSKEY],
+                    ),
+                )],
+            ),
+            Proof::Secure
+        );
+
+        // Deeper ENT NODATA companion.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("y.z.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NoError,
+                &[],
+                &[(
+                    &Name::from_ascii("z.poc.")?,
+                    &rdataNSEC::new(Name::from_ascii("x.y.z.poc.")?, [TXT, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Secure
+        );
+
+        // True NXDOMAIN with a sibling next-domain must remain Secure.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    (
+                        &Name::from_ascii("a.poc.")?,
+                        &rdataNSEC::new(Name::from_ascii("c.poc.")?, [TXT, RRSIG, NSEC],),
+                    ),
+                    // Apex NSEC covering `*.poc.` to rule out a wildcard.
+                    (
+                        &Name::from_ascii("poc.")?,
+                        &rdataNSEC::new(
+                            Name::from_ascii("a.poc.")?,
+                            [NS, SOA, RRSIG, NSEC, DNSKEY],
+                        ),
+                    ),
+                ],
+            ),
+            Proof::Secure
+        );
+
+        // Ancestor-delegation NSEC (NS set, SOA clear) at `a.poc.` marks an
+        // insecure delegation at a sibling of the ENT. Its signer is the
+        // parent zone `poc.`, and a next-domain of `c.b.poc.` proves that
+        // `b.poc.` exists as an ENT in `poc.`. RFC 6840 §4.1 only forbids
+        // using this NSEC to deny names below the cut at `a.poc.`; using it
+        // to prove ENT existence at the sibling `b.poc.` is legitimate.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NoError,
+                &[],
+                &[(
+                    &Name::from_ascii("a.poc.")?,
+                    &rdataNSEC::new(Name::from_ascii("c.b.poc.")?, [NS, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Secure
+        );
+
+        // Same shape under NXDOMAIN: the rcode contradicts the proof that
+        // `b.poc.` exists, so the validator must reject as Bogus regardless
+        // of the covering NSEC's ancestor-delegation flag.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[(
+                    &Name::from_ascii("a.poc.")?,
+                    &rdataNSEC::new(Name::from_ascii("c.b.poc.")?, [NS, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Bogus
+        );
+
+        // A NoError response with answer records must not short-circuit to
+        // Secure based on an ENT-shaped NSEC alone. Wildcard expansion
+        // requires the full closest-encloser proof.
+        let input = SigInput {
+            type_covered: TXT,
+            algorithm: Algorithm::ED25519,
+            num_labels: 2,
+            original_ttl: 3600,
+            sig_expiration: SerialNumber::new(0),
+            sig_inception: SerialNumber::new(0),
+            key_tag: 0,
+            signer_name: Name::root(),
+        };
+        let rrsig = rdataRRSIG::from_sig(input, vec![]);
+        let mut rrsig_record = Record::from_rdata(
+            Name::from_ascii("b.poc.")?,
+            3600,
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+        );
+        rrsig_record.proof = Proof::Secure;
+        let answers = [
+            Record::from_rdata(
+                Name::from_ascii("b.poc.")?,
+                3600,
+                RData::TXT(rdata::TXT::new(vec!["forged".to_string()])),
+            ),
+            rrsig_record,
+        ];
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("b.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NoError,
+                &answers,
+                &[(
+                    &Name::from_ascii("poc.")?,
+                    &rdataNSEC::new(
+                        Name::from_ascii("a.b.poc.")?,
+                        [NS, SOA, TXT, RRSIG, NSEC, DNSKEY],
+                    ),
+                )],
+            ),
+            Proof::Bogus
+        );
+
+        // Wrap-around NSEC where next-domain is the SOA owner. The SOA is
+        // an ancestor of every name in the zone, so this case must be
+        // excluded from the ENT check.
+        assert_eq!(
+            verify_nsec(
+                &Query::new(Name::from_ascii("zzz.poc.")?, TXT),
+                Some(&Name::from_ascii("poc.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    (
+                        &Name::from_ascii("last.poc.")?,
+                        &rdataNSEC::new(Name::from_ascii("poc.")?, [TXT, RRSIG, NSEC],),
+                    ),
+                    // Apex NSEC covering `*.poc.` to rule out a wildcard.
+                    (
+                        &Name::from_ascii("poc.")?,
+                        &rdataNSEC::new(
+                            Name::from_ascii("a.poc.")?,
+                            [NS, SOA, RRSIG, NSEC, DNSKEY],
+                        ),
+                    ),
+                ],
             ),
             Proof::Secure
         );
