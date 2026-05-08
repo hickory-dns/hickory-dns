@@ -18,8 +18,8 @@ use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
 use handlers::{
-    BogusNoDataInsteadOfCname, DropRrsetHandler, bad_case_handler, bad_txid_handler,
-    bailiwick_handler, base_handler, cname_loop_handler, empty_response_handler,
+    BogusNoDataInsteadOfCname, DropRrsetHandler, ServfailRrsetHandler, bad_case_handler,
+    bad_txid_handler, bailiwick_handler, base_handler, cname_loop_handler, empty_response_handler,
     foreign_class_handler, nsec3_apex_nodata_handler, nsec3_nocover_handler,
     nxdomain_with_ns_authority_handler, packet_loss_handler, parent_ns_in_authority_handler,
     qr_not_response_force_tcp_handler, qr_not_response_handler, truncated_response_handler,
@@ -92,6 +92,12 @@ enum HandlerArg {
     BogusNoDataInsteadOfCname {
         ip_address: IpAddr,
     },
+    ServfailRrset {
+        ip_address: IpAddr,
+        name: Name,
+        record_type: RecordType,
+        count: u32,
+    },
 }
 
 impl HandlerArg {
@@ -123,12 +129,20 @@ impl HandlerArg {
             } => DROP_HANDLER.get_or_init(|| DropRrsetHandler::new(ip_address, name, record_type)),
             Self::BogusNoDataInsteadOfCname { ip_address } => BOGUS_NO_DATA_CNAME_HANDLER
                 .get_or_init(|| BogusNoDataInsteadOfCname::new(ip_address)),
+            Self::ServfailRrset {
+                ip_address,
+                name,
+                record_type,
+                count,
+            } => SERVFAIL_HANDLER
+                .get_or_init(|| ServfailRrsetHandler::new(ip_address, name, record_type, count)),
         }
     }
 }
 
 static DROP_HANDLER: OnceLock<DropRrsetHandler> = OnceLock::new();
 static BOGUS_NO_DATA_CNAME_HANDLER: OnceLock<BogusNoDataInsteadOfCname> = OnceLock::new();
+static SERVFAIL_HANDLER: OnceLock<ServfailRrsetHandler> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,

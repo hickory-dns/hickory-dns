@@ -13,7 +13,7 @@ use hickory_proto::{
         Nsec3HashAlgorithm,
         rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
-    op::{DnsRequest, DnsRequestOptions, Message, MessageType, Query, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, MessageType, Query, ResponseCode},
     rr::{DNSClass, RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
@@ -21,7 +21,7 @@ use std::{
     net::IpAddr,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::atomic::{AtomicBool, AtomicU8, Ordering},
+    sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering},
 };
 
 /// This handler generates a valid A-record response to any query
@@ -781,25 +781,9 @@ impl DropRrsetHandler {
 #[async_trait]
 impl Handler for DropRrsetHandler {
     async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
-        let (future, sender) = TcpClientStream::new(
-            (self.ip_address, 53).into(),
-            None,
-            None,
-            TokioRuntimeProvider::new(),
-        );
-        let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
-        tokio::task::spawn(bg);
-
         let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
         let max_message_size = max_message_size(&query_message, transport);
-        let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
-        let id = query_request.id;
-
-        let mut response = client
-            .send(query_request)
-            .first_answer()
-            .await
-            .context("error sending proxied query")?;
+        let mut response = proxy_query(self.ip_address, query_message).await?;
 
         let Message {
             answers,
@@ -824,7 +808,6 @@ impl Handler for DropRrsetHandler {
             });
         }
 
-        response.metadata.id = id;
         Ok(Some(encode_response(&response, max_message_size)?))
     }
 }
@@ -851,7 +834,7 @@ impl Handler for BogusNoDataInsteadOfCname {
             TokioRuntimeProvider::new(),
         );
         let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
-        tokio::task::spawn(bg);
+        tokio::spawn(bg);
 
         let query_message = Message::from_vec(bytes).context("erorr parsing query into message")?;
         let max_message_size = max_message_size(&query_message, transport);
@@ -946,6 +929,82 @@ pub(crate) fn foreign_class_handler(request: Message, _transport: Transport) -> 
     msg.add_answer(foreign);
 
     Ok(msg)
+}
+
+/// A handler returns SERVFAIL for some queries, and proxies the rest.
+///
+/// It returns SERVFAIL for the first `count` queries matching a specific (name, record type) pair.
+/// Subsequent matching queries are forwarded unchanged. This simulates a transient parent-side
+/// failure on a specific RRset.
+pub(crate) struct ServfailRrsetHandler {
+    ip_address: IpAddr,
+    name: Name,
+    record_type: RecordType,
+    remaining: AtomicU32,
+}
+
+impl ServfailRrsetHandler {
+    pub(crate) fn new(ip_address: IpAddr, name: Name, record_type: RecordType, count: u32) -> Self {
+        Self {
+            ip_address,
+            name,
+            record_type,
+            remaining: AtomicU32::new(count),
+        }
+    }
+}
+
+#[async_trait]
+impl Handler for ServfailRrsetHandler {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+        let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+        let max_message_size = max_message_size(&query_message, transport);
+
+        let matches_target = query_message
+            .queries
+            .iter()
+            .any(|q| q.name == self.name && q.query_type == self.record_type);
+
+        if matches_target
+            && self
+                .remaining
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |c| c.checked_sub(1))
+                .is_ok()
+        {
+            let mut response = query_message.into_response();
+            response.metadata.response_code = ResponseCode::ServFail;
+            response.metadata.authoritative = false;
+            response.metadata.recursion_available = false;
+            return Ok(Some(encode_response(&response, max_message_size)?));
+        }
+
+        let response = proxy_query(self.ip_address, query_message).await?;
+        Ok(Some(encode_response(&response, max_message_size)?))
+    }
+}
+
+/// Forwards a query over TCP and returns the response with the original id restored.
+async fn proxy_query(ip_address: IpAddr, query_message: Message) -> Result<DnsResponse> {
+    let (future, sender) = TcpClientStream::new(
+        (ip_address, 53).into(),
+        None,
+        None,
+        TokioRuntimeProvider::new(),
+    );
+    let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
+    tokio::spawn(bg);
+
+    let id = query_message.id;
+    let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
+
+    let mut response = client
+        .send(query_request)
+        .first_answer()
+        .await
+        .context("error sending proxied query")?;
+
+    response.metadata.id = id;
+    Ok(response)
 }
 
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);

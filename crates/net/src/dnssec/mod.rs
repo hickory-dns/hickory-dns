@@ -762,7 +762,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     ));
                 }
             }
-            Err(_) => {}
+            Err(net) => {
+                return Err(ProofError::new(
+                    Proof::Bogus,
+                    ProofErrorKind::Net {
+                        query: Query::new(zone.clone(), RecordType::DS),
+                        net,
+                    },
+                ));
+            }
         }
 
         Err(ProofError::ds_should_exist(zone))
