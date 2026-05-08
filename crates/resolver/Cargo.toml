@@ -95,6 +95,7 @@ ndk-context = { workspace = true, optional = true }
 system-configuration = { workspace = true, optional = true }
 
 [dev-dependencies]
+async-trait.workspace = true
 criterion = { workspace = true }
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
 hickory-proto = { workspace = true }
