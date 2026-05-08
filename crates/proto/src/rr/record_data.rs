@@ -1064,6 +1064,7 @@ impl RData {
             RecordType::CERT => Self::CERT(CERT::from_tokens(tokens)?),
             RecordType::CNAME => Self::CNAME(CNAME(Name::from_tokens(tokens, origin)?)),
             RecordType::CSYNC => Self::CSYNC(CSYNC::from_tokens(tokens)?),
+            RecordType::DNAME => return Err(ParseError::UnsupportedRecordType(record_type)),
             RecordType::HINFO => Self::HINFO(HINFO::from_tokens(tokens)?),
             RecordType::HTTPS => Self::HTTPS(HTTPS(SVCB::from_tokens(tokens)?)),
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
