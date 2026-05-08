@@ -321,6 +321,10 @@ fn validate_nodata_response(
                 Proof::Bogus,
                 format_args!("nsec3 type map covers {query_type} or CNAME"),
             );
+        } else if query_type != RecordType::DS && query_record.nsec3_data.is_ancestor_delegation() {
+            // RFC 6840 §4.1: a parent-side NSEC3 at the cut only authenticates
+            // the absence of DS at that owner, it cannot deny other types there.
+            return cx.proof(Proof::Bogus, "direct match is an ancestor-delegation NSEC3");
         } else {
             return cx.proof(
                 Proof::Secure,
@@ -533,11 +537,16 @@ impl<'a> Context<'a> {
             .collect::<Vec<_>>();
 
         // Find the longest candidate name, if any, with a matching NSEC3 record and get the record.
+        //
+        // Per RFC 5155 §8.3 / RFC 6840 §4.1, an ancestor-delegation NSEC3
+        // (parent-side at a zone cut) cannot serve as a closest-encloser match.
+        // It does not authenticate names below the cut.
         let Some(closest_encloser_matching_record) =
             closest_encloser_candidates.iter().find_map(|candidate| {
-                self.nsec3s
-                    .iter()
-                    .find(|nsec| nsec.base32_hashed_name == candidate.base32_hashed_name)
+                self.nsec3s.iter().find(|nsec| {
+                    nsec.base32_hashed_name == candidate.base32_hashed_name
+                        && !nsec.nsec3_data.is_ancestor_delegation()
+                })
             })
         else {
             return ClosestEncloserProofInfo::default();
@@ -713,7 +722,7 @@ mod tests {
         },
         rr::{
             RData,
-            RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
+            RecordType::{A, AAAA, DNAME, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
             SerialNumber, rdata,
         },
     };
@@ -1367,6 +1376,122 @@ mod tests {
                 500,
             ),
             Proof::Bogus
+        );
+
+        Ok(())
+    }
+
+    // RFC 6840 §4.1 / RFC 5155 §8.3: an ancestor-delegation NSEC3 (a parent-side
+    // record at a zone cut, with NS set and SOA clear, or with DNAME set) MUST
+    // NOT be used to prove nonexistence of any name strictly below the cut, nor
+    // of any type other than DS at the cut owner itself.
+    #[test]
+    fn nsec3_invalid_ancestor_delegation_nxdomain() -> Result<(), ProtoError> {
+        subscribe();
+
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("www.deleg.signed.")?, A),
+                Some(&Name::from_ascii("signed.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    // Parent-side NSEC3 at the cut: matches H(deleg.signed.) and
+                    // also covers the next-closer H(www.deleg.signed.) since its
+                    // interval is [H(deleg.signed.), H(*.signed.)).
+                    Nsec3Pair::new(
+                        Name::from_ascii("signed.")?
+                            .prepend_label(hash_with_base32("deleg.signed"))?,
+                        hash("*.signed."),
+                        [NS, DS, RRSIG],
+                    )
+                    .as_ref(),
+                    // Apex NSEC3, owned by H(signed.), covers the wildcard
+                    // H(*.deleg.signed.) since its interval is
+                    // [H(signed.), H(ns1.signed.)).
+                    Nsec3Pair::new(
+                        Name::from_ascii("signed.")?.prepend_label(hash_with_base32("signed"))?,
+                        hash("ns1.signed."),
+                        [NS, SOA, RRSIG, NSEC3PARAM, DNSKEY],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // NODATA at the cut owner itself: the same parent-side NSEC3 must not
+        // authenticate the absence of any type other than DS at `deleg.signed.`.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("deleg.signed.")?, AAAA),
+                Some(&Name::from_ascii("signed.")?),
+                ResponseCode::NoError,
+                &[],
+                &[Nsec3Pair::new(
+                    Name::from_ascii("signed.")?.prepend_label(hash_with_base32("deleg.signed"))?,
+                    hash("*.signed."),
+                    [NS, DS, RRSIG],
+                )
+                .as_ref(),],
+                200,
+                500,
+            ),
+            Proof::Bogus,
+        );
+
+        // RFC 5155 §8.6 exemption: the parent-side NSEC3 at the cut DOES
+        // authenticate the absence of DS at that owner. This is the one
+        // legitimate use of an ancestor-delegation NSEC3 and must continue to
+        // validate.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("deleg.signed.")?, DS),
+                Some(&Name::from_ascii("signed.")?),
+                ResponseCode::NoError,
+                &[],
+                &[Nsec3Pair::new(
+                    Name::from_ascii("signed.")?.prepend_label(hash_with_base32("deleg.signed"))?,
+                    hash("*.signed."),
+                    [NS, RRSIG],
+                )
+                .as_ref(),],
+                200,
+                500,
+            ),
+            Proof::Secure,
+        );
+
+        // RFC 6840 §4.1 also covers the case of an NSEC3 whose bitmap asserts
+        // a DNAME at the owner: such an NSEC3 is an ancestor delegation and
+        // must not prove nonexistence of names below.
+        assert_eq!(
+            verify_nsec3(
+                &Query::query(Name::from_ascii("www.deleg.signed.")?, A),
+                Some(&Name::from_ascii("signed.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    Nsec3Pair::new(
+                        Name::from_ascii("signed.")?
+                            .prepend_label(hash_with_base32("deleg.signed"))?,
+                        hash("*.signed."),
+                        [DNAME, RRSIG],
+                    )
+                    .as_ref(),
+                    Nsec3Pair::new(
+                        Name::from_ascii("signed.")?.prepend_label(hash_with_base32("signed"))?,
+                        hash("ns1.signed."),
+                        [NS, SOA, RRSIG, NSEC3PARAM, DNSKEY],
+                    )
+                    .as_ref(),
+                ],
+                200,
+                500,
+            ),
+            Proof::Bogus,
         );
 
         Ok(())
