@@ -1656,10 +1656,13 @@ fn verify_nsec(
     // For a no data response with a directly matching NSEC record, we just need to verify the NSEC
     // type set does not contain the query type or CNAME.
     if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
-        return if nsec_data.type_set().contains(query.query_type())
-            || nsec_data.type_set().contains(RecordType::CNAME)
-        {
+        let types = nsec_data.type_set();
+        return if types.contains(query.query_type()) || types.contains(RecordType::CNAME) {
             nsec1_yield(Proof::Bogus, "direct match, record type should be present")
+        } else if query.query_type() != RecordType::DS && nsec_data.is_ancestor_delegation() {
+            // RFC 6840 §4.1: a parent-side NSEC at the cut only authenticates the
+            // absence of DS at that owner; it cannot deny other types there.
+            nsec1_yield(Proof::Bogus, "direct match is an ancestor-delegation NSEC")
         } else if response_code == ResponseCode::NoError && !have_answer {
             nsec1_yield(Proof::Secure, "direct match")
         } else {
@@ -1855,6 +1858,12 @@ fn find_nsec_covering_record<'a>(
     nsecs: &[(&'a Name, &'a NSEC)],
 ) -> Option<(&'a Name, &'a NSEC)> {
     nsecs.iter().copied().find(|(nsec_name, nsec_data)| {
+        // RFC 6840 §4.1: a parent-side NSEC at the cut MUST NOT be used to
+        // assume nonexistence of any name below the cut.
+        if nsec_data.is_ancestor_delegation() && nsec_name.zone_of(test_name) {
+            return false;
+        }
+
         let next_domain_name = nsec_data.next_domain_name();
 
         test_name > nsec_name
@@ -1916,7 +1925,7 @@ mod test {
             op::{Query, ResponseCode},
             rr::{
                 Name, RData, Record, RecordSet,
-                RecordType::{A, AAAA, DNSKEY, MX, NS, NSEC, RRSIG, SOA, TXT},
+                RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC, RRSIG, SOA, TXT},
                 SerialNumber, rdata,
             },
         },
@@ -2132,6 +2141,77 @@ mod test {
                 ],
             ),
             Proof::Bogus
+        );
+
+        Ok(())
+    }
+
+    // RFC 6840 §4.1: an ancestor-delegation NSEC at a zone cut (parent-side, with NS set
+    // and SOA clear) MUST NOT be used to prove nonexistence of any name strictly below
+    // that cut. The signer is the parent and the only authenticated denial it can carry is
+    // for DS at the cut owner itself.
+    #[test]
+    fn nsec_invalid_ancestor_delegation_nxdomain() -> Result<(), ProtoError> {
+        subscribe();
+
+        assert_eq!(
+            verify_nsec(
+                &Query::query(Name::from_ascii("www.deleg.")?, A),
+                Some(&Name::root()),
+                ResponseCode::NXDomain,
+                &[],
+                &[
+                    // Parent-side ancestor-delegation NSEC at the zone cut.
+                    (
+                        &Name::from_ascii("deleg.")?,
+                        &rdataNSEC::new(Name::from_ascii("honest.")?, [NS, DS, RRSIG, NSEC],),
+                    ),
+                    // Root NSEC covering `*.` (the slot where a wildcard at the
+                    // root would live), used here to attempt to prove that no
+                    // wildcard at the parent could synthesize the answer.
+                    (
+                        &Name::root(),
+                        &rdataNSEC::new(
+                            Name::from_ascii("deleg.")?,
+                            [NS, SOA, RRSIG, NSEC, DNSKEY],
+                        ),
+                    ),
+                ],
+            ),
+            Proof::Bogus
+        );
+
+        // NODATA at the cut owner itself: the same parent-side NSEC must not
+        // authenticate the absence of any type other than DS at `deleg.`.
+        assert_eq!(
+            verify_nsec(
+                &Query::query(Name::from_ascii("deleg.")?, A),
+                Some(&Name::root()),
+                ResponseCode::NoError,
+                &[],
+                &[(
+                    &Name::from_ascii("deleg.")?,
+                    &rdataNSEC::new(Name::from_ascii("honest.")?, [NS, DS, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Bogus
+        );
+
+        // RFC 6840 §4.1 exception: the parent-side NSEC at the cut DOES
+        // authenticate the absence of DS at the cut owner. This is the only
+        // legitimate use of this NSEC and must continue to validate.
+        assert_eq!(
+            verify_nsec(
+                &Query::query(Name::from_ascii("insecure-deleg.")?, DS),
+                Some(&Name::root()),
+                ResponseCode::NoError,
+                &[],
+                &[(
+                    &Name::from_ascii("insecure-deleg.")?,
+                    &rdataNSEC::new(Name::from_ascii("next.")?, [NS, RRSIG, NSEC],),
+                )],
+            ),
+            Proof::Secure
         );
 
         Ok(())
