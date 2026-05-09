@@ -291,6 +291,14 @@ impl Hash for Label {
     where
         H: Hasher,
     {
+        // Hash the length of the label by hashing a slice of ZSTs. Doing this ensures we use
+        // `Hasher::write_length_prefix()`, which has different domain separation behavior.
+        // Constructing a slice of ZSTs lets us use this method via existing standard library
+        // implementations, without needing to rely on nightly features. This does not allocate,
+        // since `()` is a ZST.
+        let vec = vec![(); self.len()];
+        vec.hash(state);
+        // Hash the label contents in canonical form.
         for b in self.borrow() as &[u8] {
             state.write_u8(b.to_ascii_lowercase());
         }
