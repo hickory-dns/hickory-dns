@@ -1127,6 +1127,7 @@ impl PartialEq<Self> for Name {
 impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.is_fqdn.hash(state);
+        self.label_ends.hash(state);
         // Note: case-insensitive like `PartialEq`
         self.iter()
             .flatten()
@@ -2568,18 +2569,31 @@ mod tests {
     #[test]
     #[cfg(feature = "std")]
     fn test_hash() {
-        // verify that two identical names with and without the trailing dot hashes to the same value
-        let mut hasher = DefaultHasher::new();
+        // verify that two identical names with and without the trailing dot don't hash to the same
+        // value
         let with_dot = Name::from_utf8("com.").unwrap();
-        with_dot.hash(&mut hasher);
-        let hash_with_dot = hasher.finish();
+        let hash_with_dot = hash(&with_dot);
 
-        let mut hasher = DefaultHasher::new();
         let without_dot = Name::from_utf8("com").unwrap();
-        without_dot.hash(&mut hasher);
-        let hash_without_dot = hasher.finish();
+        let hash_without_dot = hash(&without_dot);
         assert_ne!(with_dot, without_dot);
         assert_ne!(hash_with_dot, hash_without_dot);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_name_hash_label_boundaries() {
+        let ab_c = Name::parse("ab.c.", None).unwrap();
+        let a_bc = Name::parse("a.bc.", None).unwrap();
+        assert_ne!(ab_c, a_bc);
+        assert_ne!(hash(&ab_c), hash(&a_bc));
+    }
+
+    #[cfg(feature = "std")]
+    fn hash(name: &Name) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish()
     }
 
     #[test]
