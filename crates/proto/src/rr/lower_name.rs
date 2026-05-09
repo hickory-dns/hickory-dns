@@ -166,8 +166,9 @@ impl Hash for LowerName {
     where
         H: Hasher,
     {
+        self.0.is_fqdn().hash(state);
         for label in &self.0 {
-            state.write(label);
+            label.hash(state);
         }
     }
 }
@@ -315,20 +316,60 @@ impl<'de> Deserialize<'de> for LowerName {
     }
 }
 
-#[test]
-fn test_name_lowername_roundtrip() {
-    // Test that roundtrip conversions from Name <-> LowerName <-> Name are
-    // equal and preserve is_fqdn.
-    let fqdn_name = Name::from_ascii("example.com.").unwrap();
-    let relative_name = Name::from_ascii("example.com").unwrap();
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "std")]
+    use core::hash::{Hash, Hasher};
+    #[cfg(feature = "std")]
+    use std::hash::DefaultHasher;
 
-    let fqdn_lname = LowerName::from(fqdn_name.clone());
-    let relative_lname = LowerName::from(relative_name.clone());
+    use crate::rr::{LowerName, Name};
 
-    let fqdn_rt_name: Name = fqdn_lname.into();
-    let relative_rt_name: Name = relative_lname.into();
+    #[test]
+    fn test_name_lowername_roundtrip() {
+        // Test that roundtrip conversions from Name <-> LowerName <-> Name are
+        // equal and preserve is_fqdn.
+        let fqdn_name = Name::from_ascii("example.com.").unwrap();
+        let relative_name = Name::from_ascii("example.com").unwrap();
 
-    assert_eq!(fqdn_name, fqdn_rt_name);
-    assert_eq!(relative_name, relative_rt_name);
-    assert!(fqdn_rt_name != relative_rt_name);
+        let fqdn_lname = LowerName::from(fqdn_name.clone());
+        let relative_lname = LowerName::from(relative_name.clone());
+
+        let fqdn_rt_name: Name = fqdn_lname.into();
+        let relative_rt_name: Name = relative_lname.into();
+
+        assert_eq!(fqdn_name, fqdn_rt_name);
+        assert_eq!(relative_name, relative_rt_name);
+        assert!(fqdn_rt_name != relative_rt_name);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_hash_fqdn() {
+        // verify that two identical names with and without the trailing dot don't hash to the same
+        // value
+        let with_dot = LowerName::from(Name::from_utf8("com.").unwrap());
+        let hash_with_dot = hash(&with_dot);
+
+        let without_dot = LowerName::from(Name::from_utf8("com").unwrap());
+        let hash_without_dot = hash(&without_dot);
+        assert_ne!(with_dot, without_dot);
+        assert_ne!(hash_with_dot, hash_without_dot);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_hash_label_boundaries() {
+        let ab_c = LowerName::from(Name::parse("ab.c.", None).unwrap());
+        let a_bc = LowerName::from(Name::parse("a.bc.", None).unwrap());
+        assert_ne!(ab_c, a_bc);
+        assert_ne!(hash(&ab_c), hash(&a_bc));
+    }
+
+    #[cfg(feature = "std")]
+    fn hash(name: &LowerName) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish()
+    }
 }
