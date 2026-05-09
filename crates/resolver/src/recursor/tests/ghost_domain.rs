@@ -45,7 +45,6 @@ use test_support::{
 use crate::recursor::{DnssecPolicy, Recursor, RecursorOptions};
 
 #[tokio::test]
-#[ignore]
 async fn test_ghost_domain() {
     subscribe();
 
