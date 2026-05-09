@@ -1702,12 +1702,18 @@ impl<'a> RrsetVerificationContext<'a> {
             rec.data.hash(&mut hasher);
         }
 
-        ValidationCacheKey(hasher.finish())
+        ValidationCacheKey(hasher.finish(), self.query.clone())
     }
 }
 
-#[derive(Hash, Eq, PartialEq)]
-struct ValidationCacheKey(u64);
+#[derive(Eq, PartialEq)]
+struct ValidationCacheKey(u64, Query);
+
+impl Hash for ValidationCacheKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
 
 /// Verifies NSEC records
 ///
