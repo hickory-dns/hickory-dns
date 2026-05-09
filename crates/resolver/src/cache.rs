@@ -48,6 +48,24 @@ impl ResponseCache {
 
     /// Insert a response into the cache.
     pub fn insert(&self, query: Query, result: Result<Message, NetError>, now: Instant) {
+        self.upsert_clamped_ttl(query, result, now, false)
+    }
+
+    /// Inserts a message into the cache, but may clamp the TTL of the entry to that of the existing
+    /// entry, if any.
+    ///
+    /// If `clamp_valid_until` is true, the cache expiration time of any existing entry will not be
+    /// extended when the entry's contents are replaced. This is used in a mitigation for ghost
+    /// domain attacks, where queries for an apex NS RRset keep a cache entry warm, without ever
+    /// checking the referral in the parent zone. This can be eliminated once authoritative
+    /// responses and referral responses are cached separately.
+    pub(super) fn upsert_clamped_ttl(
+        &self,
+        query: Query,
+        result: Result<Message, NetError>,
+        now: Instant,
+        clamp_valid_until: bool,
+    ) {
         let (ttl, result) = match result {
             Ok(mut message) => {
                 let ttl = self.clamp_positive_ttls(query.query_type(), &mut message);
@@ -71,14 +89,24 @@ impl ResponseCache {
             Err(_) => return,
         };
         let valid_until = now + ttl;
-        self.cache.insert(
-            query,
-            Entry {
+        if clamp_valid_until {
+            self.cache.entry(query).and_upsert_with(|entry_opt| Entry {
                 result: Arc::new(result),
                 original_time: now,
-                valid_until,
-            },
-        );
+                valid_until: entry_opt.map_or(valid_until, |entry| {
+                    entry.value().valid_until.min(valid_until)
+                }),
+            });
+        } else {
+            self.cache.insert(
+                query,
+                Entry {
+                    result: Arc::new(result),
+                    original_time: now,
+                    valid_until,
+                },
+            );
+        }
     }
 
     /// Try to retrieve a cached response with the given query.

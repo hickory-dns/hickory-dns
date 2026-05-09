@@ -437,7 +437,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             Some(Ok(r)) => r,
             Some(Err(error)) => {
                 warn!(?query, %error, "lookup error");
-                self.response_cache.insert(query, Err(error.clone()), now);
+                // Ghost domain attack mitigation: see below
+                let query_type_is_ns = query.query_type == RecordType::NS;
+                self.response_cache.upsert_clamped_ttl(
+                    query,
+                    Err(error.clone()),
+                    now,
+                    query_type_is_ns,
+                );
                 return Err(RecursorError::from(error));
             }
             None => {
@@ -482,7 +489,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         let message = response.into_message();
-        self.response_cache.insert(query, Ok(message.clone()), now);
+        // Ghost domain attack mitigation: Since we use NS queries to probe for referrals, and we
+        // use NS answers to determine which server to connect to, use a different code path for
+        // these queries. This lets us avoid extending the cache TTL of responses without consulting
+        // the parent zone to check if the referral has changed. This workaround can be removed once
+        // we handle caching of referrals and zone cuts differently.
+        let query_type_is_ns = query.query_type == RecordType::NS;
+        self.response_cache
+            .upsert_clamped_ttl(query, Ok(message.clone()), now, query_type_is_ns);
         Ok(message)
     }
 
