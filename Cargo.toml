@@ -35,7 +35,7 @@ test-support.path = "tests/test-support"
 
 # logging
 tracing = { version = "0.1.30", default-features = false }
-tracing-subscriber = { version = "0.3", default-features = false }
+tracing-subscriber = { version = "0.3.10", default-features = false }
 thiserror = { version = "2", default-features = false }
 
 # metrics
@@ -57,7 +57,7 @@ futures-channel = { version = "0.3.5", default-features = false }
 futures-executor = { version = "0.3.5", default-features = false }
 futures-io = { version = "0.3.5", default-features = false }
 futures-util = { version = "0.3.5", default-features = false }
-tokio = "1.21"
+tokio = "1.36"
 tokio-util = "0.7.9"
 parking_lot = "0.12"
 pin-project-lite = "0.2"
@@ -100,7 +100,7 @@ hex = "0.4"
 hostname = "0.4"
 idna = { version = "1.0.3", default-features = false, features = ["alloc", "compiled_data"] }
 ipconfig = "0.3.0"
-ipnet = { version = "2.3.0", default-features = false }
+ipnet = { version = "2.11.0", default-features = false }
 jni = "0.22.1"
 js-sys = "0.3.44"
 libc = "0.2"
@@ -108,7 +108,7 @@ lru-cache = "0.1.2"
 moka = "0.12"
 ndk-context = "0.1.1"
 once_cell = { version = "1.20.0", default-features = false, features = ["critical-section"] }
-prefix-trie = "0.8"
+prefix-trie = "0.8.4"
 rand = { version = "0.10.0", default-features = false, features = ["alloc"] }
 regex = { version = "1.3.4", default-features = false }
 resolv-conf = "0.7.0"
@@ -125,7 +125,7 @@ toml = "1.0.1"
 tower = { version = "0.5", default-features = false }
 tower-http = { version = "0.6", default-features = false }
 url = { version = "2.5.4", default-features = false }
-wasm-bindgen-crate = { version = "0.2.58", package = "wasm-bindgen" }
+wasm-bindgen-crate = { version = "0.2.107", package = "wasm-bindgen" }
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
