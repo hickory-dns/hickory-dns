@@ -13,8 +13,6 @@ use alloc::boxed::Box;
 use alloc::string::String;
 #[cfg(feature = "wasm-bindgen")]
 use alloc::string::ToString;
-#[cfg(target_os = "android")]
-use alloc::sync::Arc;
 use core::num::ParseIntError;
 
 use thiserror::Error;
@@ -96,11 +94,6 @@ pub enum ProtoError {
     /// An int parsing error
     #[error("error parsing int")]
     ParseInt(#[from] ParseIntError),
-
-    /// A JNI call error
-    #[cfg(target_os = "android")]
-    #[error("JNI call error: {0}")]
-    Jni(Arc<jni::errors::Error>),
 }
 
 impl From<String> for ProtoError {
@@ -112,13 +105,6 @@ impl From<String> for ProtoError {
 impl From<&'static str> for ProtoError {
     fn from(msg: &'static str) -> Self {
         Self::Message(msg)
-    }
-}
-
-#[cfg(target_os = "android")]
-impl From<jni::errors::Error> for ProtoError {
-    fn from(e: jni::errors::Error) -> Self {
-        ProtoError::Jni(Arc::new(e))
     }
 }
 

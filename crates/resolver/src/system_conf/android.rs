@@ -1,12 +1,14 @@
+use std::net::IpAddr;
+use std::sync::Arc;
+
 use jni::objects::{IntoAuto as _, JByteArray, JList, JObject, JValue};
 use jni::{jni_sig, jni_str};
-use std::net::IpAddr;
 use tracing::{trace, warn};
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
-use crate::proto::ProtoError;
+use crate::net::NetError;
 
-pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
+pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), NetError> {
     let ctx = ndk_context::android_context();
     let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) };
     vm.attach_current_thread(|env| {
@@ -92,4 +94,5 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
             Default::default(),
         ))
     })
+    .map_err(|e: jni::errors::Error| NetError::Jni(Arc::new(e)))
 }

@@ -9,6 +9,8 @@
 
 #![deny(missing_docs)]
 
+#[cfg(target_os = "android")]
+use core::error::Error;
 use core::num::ParseIntError;
 use std::io;
 use std::sync::Arc;
@@ -81,6 +83,11 @@ pub enum NetError {
     /// An error got returned from IO
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
+
+    /// Error from JNI calls on Android
+    #[cfg(target_os = "android")]
+    #[error("JNI error: {0}")]
+    Jni(Arc<dyn Error + Send + Sync>),
 
     /// A request timed out
     #[error("request timed out")]
