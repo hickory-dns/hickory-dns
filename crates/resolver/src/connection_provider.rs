@@ -32,7 +32,7 @@ use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{client_config, default_provider, tls_exchange_with_bind_addr};
+use crate::net::tls::{client_config, default_provider, tls_exchange};
 use crate::{
     config::{ConnectionConfig, ProtocolConfig},
     name_server_pool::PoolContext,
@@ -115,7 +115,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 };
 
                 let server_name = server_name.to_owned();
-                Ok(Box::pin(tls_exchange_with_bind_addr(
+                Ok(Box::pin(tls_exchange(
                     remote_addr,
                     config.bind_addr,
                     server_name,
