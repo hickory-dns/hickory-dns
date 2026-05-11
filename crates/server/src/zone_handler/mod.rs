@@ -33,7 +33,6 @@ use crate::server::{Request, RequestInfo};
 
 mod auth_lookup;
 mod catalog;
-pub(crate) mod message_request;
 mod message_response;
 
 pub use self::auth_lookup::{
@@ -41,7 +40,6 @@ pub use self::auth_lookup::{
     ZoneTransfer,
 };
 pub use self::catalog::Catalog;
-pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 
 /// ZoneHandler implementations can be used with a `Catalog`
@@ -152,7 +150,19 @@ pub trait ZoneHandler: Send + Sync {
         &self,
         request: &Request,
         lookup_options: LookupOptions,
-    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>);
+    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
+        let request_info = request.request_info();
+        (
+            self.lookup(
+                request_info.query.name(),
+                request_info.query.query_type(),
+                Some(&request_info),
+                lookup_options,
+            )
+            .await,
+            None,
+        )
+    }
 
     /// Return the NSEC records based on the given name
     ///
@@ -196,7 +206,6 @@ pub trait ZoneHandler: Send + Sync {
     fn nx_proof_kind(&self) -> Option<&NxProofKind>;
 
     /// Returns the zone handler metrics label.
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str;
 }
 
@@ -368,9 +377,6 @@ impl<E: fmt::Display> LookupControlFlow<AuthLookup, E> {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum LookupError {
-    /// The query had an invalid number of queries
-    #[error("there should only be one query per request, got {0}")]
-    BadQueryCount(usize),
     /// A record at the same Name as the query exists, but not of the queried RecordType
     #[error("The name exists, but not for the record requested")]
     NameExists,

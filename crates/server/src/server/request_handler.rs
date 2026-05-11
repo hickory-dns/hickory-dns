@@ -17,11 +17,12 @@ use crate::{
     net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{Header, HeaderCounts, LowerQuery, MessageType, Metadata, ResponseCode},
+        op::{
+            Header, HeaderCounts, LowerQuery, MessageRequest, MessageType, Metadata, ResponseCode,
+        },
         serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
-    zone_handler::{LookupError, MessageRequest},
 };
 
 /// An incoming request to the DNS catalog
@@ -75,13 +76,13 @@ impl Request {
     /// Return just the header and request information from the Request Message
     ///
     /// Returns an error if there is not exactly one query
-    pub fn request_info(&self) -> Result<RequestInfo<'_>, LookupError> {
-        Ok(RequestInfo {
+    pub fn request_info(&self) -> RequestInfo<'_> {
+        RequestInfo {
             src: self.src,
             protocol: self.protocol,
             metadata: &self.message.metadata,
-            query: self.message.queries.try_as_query()?,
-        })
+            query: &self.message.queries,
+        }
     }
 
     /// The IP address from which the request originated.
@@ -209,7 +210,7 @@ mod tests {
 
     #[test]
     fn request_info_clone() {
-        let query = Query::new();
+        let query = Query::root();
         let header = Metadata::new(10, MessageType::Query, OpCode::Query);
         let lower_query = query.into();
         let origin = RequestInfo::new(

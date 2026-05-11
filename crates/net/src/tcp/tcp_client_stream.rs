@@ -43,22 +43,25 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     ///
     /// * `remote_addr` - Address of the remote nameserver
     /// * `bind_addr` - Optional local address to bind to
-    /// * `timeout` - Timeout for requests
+    /// * `connect_timeout` - Timeout for establishing the TCP connection
+    /// * `request_timeout` - Timeout for individual DNS requests
     /// * `max_active_requests` - Optional limit on concurrent in-flight requests.
     ///   If `None`, uses the default (32).
     /// * `provider` - Runtime provider for spawning background tasks
     pub async fn exchange<P: RuntimeProvider<Tcp = S>>(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
-        timeout: Duration,
+        connect_timeout: Duration,
+        request_timeout: Duration,
         max_active_requests: Option<usize>,
         provider: P,
     ) -> Result<DnsExchange<P>, NetError> {
         let mut handle = provider.create_handle();
-        let (future, sender) = Self::new(remote_addr, bind_addr, Some(timeout), provider);
+        let (future, sender) = Self::new(remote_addr, bind_addr, Some(connect_timeout), provider);
 
         // TODO: need config for Signer...
-        let mut multiplexer = DnsMultiplexer::new(future.await?, sender).with_timeout(timeout);
+        let mut multiplexer =
+            DnsMultiplexer::new(future.await?, sender).with_timeout(request_timeout);
         if let Some(max) = max_active_requests {
             multiplexer = multiplexer.with_max_active_requests(max);
         }

@@ -253,8 +253,8 @@ impl BinEncodable for OPT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         for (edns_code, edns_option) in self.as_ref().iter() {
-            encoder.emit_u16(u16::from(*edns_code))?;
-            encoder.emit_u16(edns_option.len())?;
+            u16::from(*edns_code).emit(&mut encoder)?;
+            edns_option.len().emit(&mut encoder)?;
             edns_option.emit(&mut encoder)?
         }
         Ok(())
@@ -519,8 +519,8 @@ impl BinEncodable for EdnsOption {
             #[cfg(feature = "__dnssec")]
             EdnsOption::DAU(algorithms) => algorithms.emit(encoder),
             EdnsOption::Subnet(subnet) => subnet.emit(encoder),
-            EdnsOption::NSID(payload) => encoder.emit_vec(payload.as_ref()),
-            EdnsOption::Unknown(_, data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
+            EdnsOption::NSID(payload) => encoder.emit_slice(payload.as_ref()),
+            EdnsOption::Unknown(_, data) => encoder.emit_slice(data), // gah, clone needed or make a crazy api.
         }
     }
 }
@@ -679,13 +679,13 @@ impl BinEncodable for ClientSubnet {
 
         match address {
             IpAddr::V4(ip) => {
-                encoder.emit_u16(1)?; // FAMILY: IPv4
-                encoder.emit_u8(source_prefix)?;
-                encoder.emit_u8(scope_prefix)?;
+                1u16.emit(encoder)?; // FAMILY: IPv4
+                source_prefix.emit(encoder)?;
+                scope_prefix.emit(encoder)?;
                 let octets = ip.octets();
                 let addr_len = addr_len as usize;
                 if addr_len <= octets.len() {
-                    encoder.emit_vec(&octets[0..addr_len])?
+                    encoder.emit_slice(&octets[0..addr_len])?
                 } else {
                     return Err(ProtoError::Message(
                         "Invalid addr length for encode EcsOption",
@@ -693,13 +693,13 @@ impl BinEncodable for ClientSubnet {
                 }
             }
             IpAddr::V6(ip) => {
-                encoder.emit_u16(2)?; // FAMILY: IPv6
-                encoder.emit_u8(source_prefix)?;
-                encoder.emit_u8(scope_prefix)?;
+                2u16.emit(encoder)?; // FAMILY: IPv6
+                source_prefix.emit(encoder)?;
+                scope_prefix.emit(encoder)?;
                 let octets = ip.octets();
                 let addr_len = addr_len as usize;
                 if addr_len <= octets.len() {
-                    encoder.emit_vec(&octets[0..addr_len])?
+                    encoder.emit_slice(&octets[0..addr_len])?
                 } else {
                     return Err(ProtoError::Message(
                         "Invalid addr length for encode EcsOption",

@@ -251,7 +251,7 @@ impl BinEncodable for SIG {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Canonical);
         self.input.emit(&mut encoder)?;
-        encoder.emit_vec(&self.sig)?;
+        encoder.emit_slice(&self.sig)?;
         Ok(())
     }
 }
@@ -429,11 +429,11 @@ impl BinEncodable for SigInput {
         // specifically for outputting the RData for an RRSIG, with signer_name in canonical form
         self.type_covered.emit(&mut encoder)?;
         self.algorithm.emit(&mut encoder)?;
-        encoder.emit(self.num_labels)?;
-        encoder.emit_u32(self.original_ttl)?;
-        encoder.emit_u32(self.sig_expiration.0)?;
-        encoder.emit_u32(self.sig_inception.0)?;
-        encoder.emit_u16(self.key_tag)?;
+        self.num_labels.emit(&mut encoder)?;
+        self.original_ttl.emit(&mut encoder)?;
+        self.sig_expiration.0.emit(&mut encoder)?;
+        self.sig_inception.0.emit(&mut encoder)?;
+        self.key_tag.emit(&mut encoder)?;
         self.signer_name.emit(&mut encoder)?;
         Ok(())
     }

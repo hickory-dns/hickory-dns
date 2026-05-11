@@ -42,7 +42,7 @@ use crate::op::{Message, OpCode};
 use crate::rr::Record;
 use crate::rr::{Name, RecordType};
 #[cfg(feature = "__dnssec")]
-use crate::serialize::binary::BinEncoder;
+use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Context for a TSIG response, used to construct a TSIG response signer
 pub struct TSigResponseContext {
@@ -258,7 +258,7 @@ impl TSigner {
             || message
                 .queries
                 .iter()
-                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
+                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type))
     }
 
     /// Verify the message is correctly signed
@@ -353,9 +353,9 @@ impl TSigner {
         let mut encoder = BinEncoder::new(&mut tbs_buf);
 
         debug_assert!(previous_mac.len() <= u16::MAX as usize); // Shouldn't happen for supported algorithms.
-        encoder.emit_u16(previous_mac.len() as u16)?;
-        encoder.emit_vec(previous_mac)?;
-        encoder.emit_vec(encoded_response)?;
+        (previous_mac.len() as u16).emit(&mut encoder)?;
+        encoder.emit_slice(previous_mac)?;
+        encoder.emit_slice(encoded_response)?;
         stub_tsig.emit_tsig_for_mac(&mut encoder, self.signer_name())?;
 
         Ok(tbs_buf)
@@ -463,7 +463,7 @@ mod tests {
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let key_name: Name = Name::from_ascii("key_name.").unwrap();
         let mut question = Message::query();
-        let mut query: Query = Query::new();
+        let mut query: Query = Query::root();
         query.set_name(origin);
         question.add_query(query);
 
@@ -493,7 +493,7 @@ mod tests {
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let key_name: Name = Name::from_ascii("key_name.").unwrap();
         let mut question = Message::query();
-        let mut query: Query = Query::new();
+        let mut query: Query = Query::root();
         query.set_name(origin);
         question.add_query(query);
 
@@ -539,7 +539,7 @@ mod tests {
     fn test_sign_and_verify_message_tsig_reject_invalid_mac() {
         let (mut question, signer) = get_message_and_signer();
 
-        let mut query: Query = Query::new();
+        let mut query: Query = Query::root();
         let origin: Name = Name::parse("example.net.", None).unwrap();
         query.set_name(origin);
         question.add_query(query);

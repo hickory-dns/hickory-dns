@@ -53,9 +53,15 @@ pub trait BinDecodable<'r>: Sized {
     }
 }
 
+impl BinEncodable for u8 {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_slice(&[*self])
+    }
+}
+
 impl BinEncodable for u16 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(*self)
+        encoder.emit_slice(&self.to_be_bytes())
     }
 }
 
@@ -67,7 +73,7 @@ impl BinDecodable<'_> for u16 {
 
 impl BinEncodable for i32 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_i32(*self)
+        encoder.emit_slice(&self.to_be_bytes())
     }
 }
 
@@ -79,7 +85,7 @@ impl<'r> BinDecodable<'r> for i32 {
 
 impl BinEncodable for u32 {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u32(*self)
+        encoder.emit_slice(&self.to_be_bytes())
     }
 }
 
@@ -91,6 +97,6 @@ impl BinDecodable<'_> for u32 {
 
 impl BinEncodable for Vec<u8> {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_vec(self)
+        encoder.emit_slice(self)
     }
 }

@@ -7,19 +7,9 @@
 
 use std::net::SocketAddr;
 
-use tracing::{debug, error, trace};
-
 use crate::{
-    net::{
-        BufDnsStreamHandle, DnsStreamHandle, NetError, udp::MAX_RECEIVE_BUFFER_SIZE, xfer::Protocol,
-    },
-    proto::{
-        ProtoError,
-        op::{Header, HeaderCounts, MessageType, Metadata, OpCode, ResponseCode, SerialMessage},
-        rr::Record,
-        serialize::binary::BinEncodable,
-        serialize::binary::BinEncoder,
-    },
+    net::{BufDnsStreamHandle, DnsStreamHandle, NetError, xfer::Protocol},
+    proto::{op::SerialMessage, rr::Record},
     server::ResponseInfo,
     zone_handler::MessageResponse,
 };
@@ -62,32 +52,6 @@ impl ResponseHandle {
             protocol,
         }
     }
-
-    /// Selects an appropriate maximum serialized size for the given response.
-    fn max_size_for_response<'a>(
-        &self,
-        response: &MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> u16 {
-        match self.protocol {
-            Protocol::Udp => {
-                // Use EDNS, if available.
-                if let Some(edns) = response.edns() {
-                    edns.max_payload()
-                } else {
-                    // No EDNS, use the recommended max from RFC6891.
-                    MAX_RECEIVE_BUFFER_SIZE as u16
-                }
-            }
-            _ => u16::MAX,
-        }
-    }
 }
 
 #[async_trait::async_trait]
@@ -104,56 +68,10 @@ impl ResponseHandler for ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let id = response.metadata().id;
-        debug!(
-            id,
-            response_code = %response.metadata().response_code,
-            "sending response",
-        );
-        let mut buffer = Vec::with_capacity(512);
-        let encode_result = {
-            let mut encoder = BinEncoder::new(&mut buffer);
-
-            // Set an appropriate maximum on the encoder.
-            let max_size = self.max_size_for_response(&response);
-            trace!(
-                "setting response max size: {max_size} for protocol: {:?}",
-                self.protocol
-            );
-            encoder.set_max_size(max_size);
-
-            response.destructive_emit(&mut encoder)
-        };
-
-        let info = encode_result.or_else(|error| {
-            error!(%error, "error encoding message");
-            encode_fallback_servfail_response(id, &mut buffer)
-        })?;
-
+        let (info, buffer) = response.encode(self.protocol)?;
         self.stream_handle
             .send(SerialMessage::new(buffer, self.dst))?;
 
         Ok(info)
     }
-}
-
-/// Clears the buffer, encodes a SERVFAIL response in it, and returns a matching
-/// ResponseInfo.
-pub(crate) fn encode_fallback_servfail_response(
-    id: u16,
-    buffer: &mut Vec<u8>,
-) -> Result<ResponseInfo, ProtoError> {
-    buffer.clear();
-    let mut encoder = BinEncoder::new(buffer);
-    encoder.set_max_size(512);
-
-    let mut metadata = Metadata::new(id, MessageType::Response, OpCode::Query);
-    metadata.response_code = ResponseCode::ServFail;
-    let header = Header {
-        metadata,
-        counts: HeaderCounts::default(),
-    };
-
-    header.emit(&mut encoder)?;
-    Ok(ResponseInfo::from(header))
 }

@@ -13,12 +13,12 @@ use hickory_proto::{
         Algorithm, Verifier,
         rdata::{DNSKEY, DNSSECRData, RRSIG},
     },
-    op::{MessageType, Metadata, OpCode, Query},
+    op::{MessageRequest, MessageType, Metadata, OpCode, Query},
     rr::{DNSClass, Name, RData, Record, RecordType},
 };
 use hickory_server::{
     server::Request,
-    zone_handler::{DnssecZoneHandler, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{DnssecZoneHandler, LookupOptions, ZoneHandler},
 };
 
 const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
@@ -27,7 +27,7 @@ pub fn test_a_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
-            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+            Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
@@ -128,7 +128,7 @@ pub fn test_aname_lookup(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
-            Query::query(
+            Query::new(
                 Name::from_str("aname-chain.example.com.").unwrap(),
                 RecordType::A,
             ),
@@ -161,7 +161,7 @@ pub fn test_wildcard(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
-            Query::query(
+            Query::new(
                 Name::from_str("www.wildcard.example.com.").unwrap(),
                 RecordType::CNAME,
             ),
@@ -200,7 +200,7 @@ pub fn test_wildcard_subdomain(handler: impl ZoneHandler, keys: &[DNSKEY]) {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_HEADER,
-            Query::query(
+            Query::new(
                 Name::from_str("subdomain.www.wildcard.example.com.").unwrap(),
                 RecordType::CNAME,
             ),

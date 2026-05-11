@@ -11,6 +11,8 @@
 
 use std::{io, path::Path, time::Instant};
 
+use tracing::{debug, info};
+
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
 use crate::resolver::{OpportunisticEncryptionStatePersistTask, config::OpportunisticEncryption};
 #[cfg(feature = "__dnssec")]
@@ -22,14 +24,12 @@ use crate::{
         rr::{LowerName, Name, RecordType},
     },
     resolver::recursor::{RecursiveConfig, Recursor},
-    server::{Request, RequestInfo},
+    server::RequestInfo,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneType,
     },
 };
-use hickory_proto::rr::TSigResponseContext;
-use tracing::{debug, info};
 
 /// A zone handler that performs recursive resolutions.
 ///
@@ -119,7 +119,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     ) -> LookupControlFlow<AuthLookup> {
         debug!("recursive lookup: {} {}", name, rtype);
 
-        let query = Query::query(name.into(), rtype);
+        let query = Query::new(name.into(), rtype);
         let now = Instant::now();
 
         let result = self
@@ -132,27 +132,6 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
             Err(error) => return LookupControlFlow::Continue(Err(LookupError::from(error))),
         };
         LookupControlFlow::Continue(Ok(AuthLookup::Response(response)))
-    }
-
-    async fn search(
-        &self,
-        request: &Request,
-        lookup_options: LookupOptions,
-    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
-        (
-            self.lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
-                lookup_options,
-            )
-            .await,
-            None,
-        )
     }
 
     async fn nsec_records(
@@ -181,7 +160,6 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
         None
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "recursive"
     }

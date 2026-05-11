@@ -9,6 +9,7 @@
 
 use core::fmt::Debug;
 
+use super::{lower_query::LowerQuery, message_request::MessageRequest};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
     op::{Edns, OpCode, edns::DEFAULT_MAX_PAYLOAD_LEN},
@@ -171,7 +172,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin)
         .set_query_class(rrset.dns_class())
         .set_query_type(RecordType::SOA);
@@ -239,7 +240,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin)
         .set_query_class(rrset.dns_class())
         .set_query_type(RecordType::SOA);
@@ -323,7 +324,7 @@ pub fn compare_and_swap(
     assert!(zone_origin.zone_of(new.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin)
         .set_query_class(new.dns_class())
         .set_query_type(RecordType::SOA);
@@ -391,7 +392,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin)
         .set_query_class(rrset.dns_class())
         .set_query_type(RecordType::SOA);
@@ -448,7 +449,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     assert!(zone_origin.zone_of(&record.name));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin)
         .set_query_class(record.dns_class)
         .set_query_type(RecordType::SOA);
@@ -514,7 +515,7 @@ pub fn delete_all(
     assert!(zone_origin.zone_of(&name_of_records));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin)
         .set_query_class(dns_class)
         .set_query_type(RecordType::SOA);
@@ -561,7 +562,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
         assert_eq!(zone_origin, soa.mname);
     }
 
-    let mut zone: Query = Query::new();
+    let mut zone: Query = Query::root();
     zone.set_name(zone_origin).set_query_class(DNSClass::IN);
     if last_soa.is_some() {
         zone.set_query_type(RecordType::IXFR);
@@ -590,4 +591,52 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     }
 
     message
+}
+
+/// A type which represents an MessageRequest for dynamic Update.
+pub trait UpdateRequest {
+    /// Id of the Message
+    fn id(&self) -> u16;
+
+    /// Zone being updated, this should be the query of a Message
+    fn zone(&self) -> &LowerQuery;
+
+    /// Prerequisites map to the Answer section of a Message
+    fn prerequisites(&self) -> &[Record];
+
+    /// Records to update map to the Authority section of a Message
+    fn updates(&self) -> &[Record];
+
+    /// Additional records
+    fn additionals(&self) -> &[Record];
+
+    /// Signature for verifying the Message
+    fn signature(&self) -> Option<&Record<TSIG>>;
+}
+
+impl UpdateRequest for MessageRequest {
+    fn id(&self) -> u16 {
+        self.metadata.id
+    }
+
+    fn zone(&self) -> &LowerQuery {
+        // RFC 2136 says "the Zone Section is allowed to contain exactly one record."
+        &self.queries
+    }
+
+    fn prerequisites(&self) -> &[Record] {
+        &self.answers
+    }
+
+    fn updates(&self) -> &[Record] {
+        &self.authorities
+    }
+
+    fn additionals(&self) -> &[Record] {
+        &self.additionals
+    }
+
+    fn signature(&self) -> Option<&Record<TSIG>> {
+        self.signature.as_deref()
+    }
 }

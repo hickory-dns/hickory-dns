@@ -18,13 +18,11 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::TlsAcceptor;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 use super::{
     ResponseInfo, ServerContext, default_tls_server_config, is_unrecoverable_socket_error,
-    reap_tasks,
-    request_handler::RequestHandler,
-    response_handler::{ResponseHandler, encode_fallback_servfail_response},
+    reap_tasks, request_handler::RequestHandler, response_handler::ResponseHandler,
     sanitize_src_address,
 };
 use crate::{
@@ -33,7 +31,7 @@ use crate::{
         http::{self, Version},
         xfer::Protocol,
     },
-    proto::{rr::Record, serialize::binary::BinEncoder},
+    proto::rr::Record,
     zone_handler::MessageResponse,
 };
 
@@ -215,16 +213,7 @@ impl ResponseHandler for HttpsResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let id = response.metadata().id;
-        let mut bytes = Vec::with_capacity(512);
-        // mut block
-        let info = {
-            let mut encoder = BinEncoder::new(&mut bytes);
-            response.destructive_emit(&mut encoder).or_else(|error| {
-                error!(%error, "error encoding message");
-                encode_fallback_servfail_response(id, &mut bytes)
-            })?
-        };
+        let (info, bytes) = response.encode(Protocol::Https)?;
         let bytes = Bytes::from(bytes);
         let response = http::response(Version::Http2, bytes.len())?;
 

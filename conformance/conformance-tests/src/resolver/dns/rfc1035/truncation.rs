@@ -110,7 +110,7 @@ fn setup(transport: &'static str) -> Result<(Resolver, Client, Graph), Error> {
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("truncated_response", transport),
+        &Implementation::test_server("truncated_response", Vec::new(), transport),
         FQDN::TEST_TLD,
         &network,
     )?;

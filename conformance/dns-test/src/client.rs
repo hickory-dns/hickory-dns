@@ -67,33 +67,35 @@ impl Client {
         record_type: RecordType,
         fqdn: &FQDN,
     ) -> Result<DigOutput, Error> {
-        let timeoutflag = &settings.timeoutflag();
-        let ednsflag = settings.ednsflag();
-        let opcodeflag = settings.opcodeflag();
-        let tlscaflag = settings.tlscaflag();
+        let timeout_flag = &settings.timeout_flag();
+        let edns_flag = settings.edns_flag();
+        let opcode_flag = settings.opcode_flag();
+        let tls_ca_flag = settings.tls_ca_flag();
+        let retry_flag = settings.retry_flag();
 
         let mut command_and_args = vec![
             "dig",
-            settings.rdflag(),
-            settings.do_bit(),
-            settings.adflag(),
-            settings.cdflag(),
-            timeoutflag.as_str(),
-            ednsflag.as_str(),
-            settings.zflag(),
-            opcodeflag.as_str(),
+            settings.rd_flag(),
+            settings.do_bit_flag(),
+            settings.ad_flag(),
+            settings.cd_flag(),
+            timeout_flag.as_str(),
+            edns_flag.as_str(),
+            settings.z_flag(),
+            opcode_flag.as_str(),
             settings.header_only_flag(),
-            settings.tcpflag(),
-            settings.tlsflag(),
-            tlscaflag.as_str(),
-            settings.cookieflag(),
-            settings.ednsnegflag(),
-            settings.ignoreflag(),
-            settings.nsidflag(),
-            settings.expireflag(),
+            settings.tcp_flag(),
+            settings.tls_flag(),
+            tls_ca_flag.as_str(),
+            settings.cookie_flag(),
+            settings.ednsneg_flag(),
+            settings.ignore_flag(),
+            settings.nsid_flag(),
+            settings.expire_flag(),
+            retry_flag.as_str(),
         ];
 
-        let edns_option_flag = settings.ednsoptionflag();
+        let edns_option_flag = settings.edns_option_flag();
         if let Some(edns_option_flag) = edns_option_flag.as_ref() {
             command_and_args.push(edns_option_flag.as_str());
         }
@@ -101,11 +103,11 @@ impl Client {
         if let Some(edns_flags) = edns_flags.as_ref() {
             command_and_args.push(edns_flags.as_str());
         }
-        let bufsize_flag = settings.bufsizeflag();
+        let bufsize_flag = settings.bufsize_flag();
         if let Some(bufsize_flag) = bufsize_flag.as_ref() {
             command_and_args.push(bufsize_flag);
         }
-        if let Some(subnetflag) = settings.subnetflag() {
+        if let Some(subnetflag) = settings.subnet_flag() {
             command_and_args.push(subnetflag);
         }
 
@@ -125,8 +127,8 @@ impl Client {
 
 #[derive(Clone, Copy)]
 pub struct DigSettings<'a> {
-    adflag: bool,
-    cdflag: bool,
+    ad_flag: bool,
+    cd_flag: bool,
     dnssec: bool,
     tls: bool,
     tls_ca: Option<&'a str>,
@@ -137,7 +139,7 @@ pub struct DigSettings<'a> {
     /// `None` indicates EDNS should not be used, while Some indicates EDNS should be used, with
     /// the given version number.
     edns: Option<u8>,
-    zflag: bool,
+    z_flag: bool,
     opcode: u8,
     header_only: bool,
     tcp: bool,
@@ -150,20 +152,21 @@ pub struct DigSettings<'a> {
     nsid: bool,
     expire: bool,
     subnet_zero: bool,
+    retries: u8,
 }
 
 impl Default for DigSettings<'_> {
     fn default() -> Self {
         Self {
-            adflag: false,
-            cdflag: false,
+            ad_flag: false,
+            cd_flag: false,
             dnssec: false,
             tls: false,
             tls_ca: None,
             recurse: false,
             timeout: None,
             edns: Some(0),
-            zflag: false,
+            z_flag: false,
             opcode: 0,
             header_only: false,
             tcp: false,
@@ -176,6 +179,7 @@ impl Default for DigSettings<'_> {
             nsid: false,
             expire: false,
             subnet_zero: false,
+            retries: 2,
         }
     }
 }
@@ -183,12 +187,12 @@ impl Default for DigSettings<'_> {
 impl<'a> DigSettings<'a> {
     /// Sets the AD bit in the query
     pub fn authentic_data(&mut self) -> &mut Self {
-        self.adflag = true;
+        self.ad_flag = true;
         self
     }
 
-    fn adflag(&self) -> &'static str {
-        match self.adflag {
+    fn ad_flag(&self) -> &'static str {
+        match self.ad_flag {
             true => "+adflag",
             false => "+noadflag",
         }
@@ -196,12 +200,12 @@ impl<'a> DigSettings<'a> {
 
     /// Sets the CD bit in the query
     pub fn checking_disabled(&mut self) -> &mut Self {
-        self.cdflag = true;
+        self.cd_flag = true;
         self
     }
 
-    fn cdflag(&self) -> &'static str {
-        match self.cdflag {
+    fn cd_flag(&self) -> &'static str {
+        match self.cd_flag {
             true => "+cdflag",
             false => "+nocdflag",
         }
@@ -213,13 +217,20 @@ impl<'a> DigSettings<'a> {
         self
     }
 
+    fn do_bit_flag(&self) -> &'static str {
+        match self.dnssec {
+            true => "+dnssec",
+            false => "+nodnssec",
+        }
+    }
+
     /// Enables TLS for the query
     pub fn tls(&mut self) -> &mut Self {
         self.tls = true;
         self
     }
 
-    fn tlsflag(&self) -> &'static str {
+    fn tls_flag(&self) -> &'static str {
         match self.tls {
             true => "+tls",
             false => "+notls",
@@ -232,17 +243,10 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn tlscaflag(&self) -> String {
+    fn tls_ca_flag(&self) -> String {
         match &self.tls_ca {
             Some(ca) => format!("+tls-ca={ca}"),
             None => "+notls-ca".to_string(),
-        }
-    }
-
-    fn do_bit(&self) -> &'static str {
-        match self.dnssec {
-            true => "+dnssec",
-            false => "+nodnssec",
         }
     }
 
@@ -252,7 +256,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn rdflag(&self) -> &'static str {
+    fn rd_flag(&self) -> &'static str {
         match self.recurse {
             true => "+recurse",
             false => "+norecurse",
@@ -265,7 +269,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn timeoutflag(&self) -> String {
+    fn timeout_flag(&self) -> String {
         match self.timeout {
             Some(timeout) => format!("+timeout={timeout}"),
             None => "+timeout=5".into(),
@@ -278,7 +282,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn ednsflag(&self) -> String {
+    fn edns_flag(&self) -> String {
         match self.edns {
             Some(version) => format!("+edns={version}"),
             None => "+noedns".into(),
@@ -287,12 +291,12 @@ impl<'a> DigSettings<'a> {
 
     /// Set the reserved "Z" flag.
     pub fn set_z_flag(&mut self) -> &mut Self {
-        self.zflag = true;
+        self.z_flag = true;
         self
     }
 
-    fn zflag(&self) -> &'static str {
-        match self.zflag {
+    fn z_flag(&self) -> &'static str {
+        match self.z_flag {
             true => "+zflag",
             false => "+nozflag",
         }
@@ -305,7 +309,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn opcodeflag(&self) -> String {
+    fn opcode_flag(&self) -> String {
         format!("+opcode={}", self.opcode)
     }
 
@@ -328,7 +332,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn tcpflag(&self) -> &'static str {
+    fn tcp_flag(&self) -> &'static str {
         match self.tcp {
             true => "+tcp",
             false => "+notcp",
@@ -341,7 +345,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn cookieflag(&self) -> &'static str {
+    fn cookie_flag(&self) -> &'static str {
         // Only use "+cookie" when EDNS is enabled (the default). Otherwise, "+cookie" overrides
         // "+noedns".
         if self.edns.is_some() && self.cookie {
@@ -357,7 +361,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn ednsnegflag(&self) -> &'static str {
+    fn ednsneg_flag(&self) -> &'static str {
         match self.ednsneg {
             true => "+ednsneg",
             false => "+noednsneg",
@@ -373,7 +377,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn ednsoptionflag(&self) -> Option<String> {
+    fn edns_option_flag(&self) -> Option<String> {
         Some(format!("+ednsopt={}", self.extra_edns_option?))
     }
 
@@ -393,7 +397,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn ignoreflag(&self) -> &'static str {
+    fn ignore_flag(&self) -> &'static str {
         match self.ignore_truncation {
             true => "+ignore",
             false => "+noignore",
@@ -406,7 +410,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn bufsizeflag(&self) -> Option<String> {
+    fn bufsize_flag(&self) -> Option<String> {
         Some(format!("+bufsize={}", self.bufsize?))
     }
 
@@ -416,7 +420,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn nsidflag(&self) -> &'static str {
+    fn nsid_flag(&self) -> &'static str {
         match self.nsid {
             true => "+nsid",
             false => "+nonsid",
@@ -429,7 +433,7 @@ impl<'a> DigSettings<'a> {
         self
     }
 
-    fn expireflag(&self) -> &'static str {
+    fn expire_flag(&self) -> &'static str {
         match self.expire {
             true => "+expire",
             false => "+noexpire",
@@ -442,11 +446,21 @@ impl<'a> DigSettings<'a> {
     }
 
     /// Send the EDNS client subnet option, with the subnet 0.0.0.0/0.
-    fn subnetflag(&self) -> Option<&'static str> {
+    fn subnet_flag(&self) -> Option<&'static str> {
         match self.subnet_zero {
             true => Some("+subnet=0"),
             false => None,
         }
+    }
+
+    /// Sets the number of times to retry queries (not counting the initial query).
+    pub fn retries(&mut self, retries: u8) -> &mut Self {
+        self.retries = retries;
+        self
+    }
+
+    fn retry_flag(&self) -> String {
+        format!("+retry={}", self.retries)
     }
 }
 
@@ -481,6 +495,7 @@ impl FromStr for DigOutput {
         const ANSWER_HEADER: &str = ";; ANSWER SECTION:";
         const AUTHORITY_HEADER: &str = ";; AUTHORITY SECTION:";
         const ADDITIONAL_HEADER: &str = ";; ADDITIONAL SECTION:";
+        const COMMUNICATIONS_ERROR_PREFIX: &str = ";; communications error to";
 
         fn not_found(prefix: &str) -> String {
             format!("`{prefix}` line was not found")
@@ -629,6 +644,8 @@ impl FromStr for DigOutput {
                 }
 
                 additional = Some(records);
+            } else if line.starts_with(COMMUNICATIONS_ERROR_PREFIX) {
+                eprintln!("Warning: communications error from dig:\n{}", line.trim());
             }
         }
 
@@ -732,6 +749,7 @@ impl FromStr for DigFlags {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DigStatus {
     BADVERS,
+    FORMERR,
     NOERROR,
     NOTIMP,
     NXDOMAIN,
@@ -762,6 +780,7 @@ impl FromStr for DigStatus {
     fn from_str(input: &str) -> Result<Self, Error> {
         let status = match input {
             "BADVERS" => Self::BADVERS,
+            "FORMERR" => Self::FORMERR,
             "NOERROR" => Self::NOERROR,
             "NOTIMP" => Self::NOTIMP,
             "NXDOMAIN" => Self::NXDOMAIN,

@@ -212,7 +212,7 @@ impl<'a> From<&'a Edns> for Record {
 
 impl BinEncodable for Edns {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit(0)?; // Name::root
+        0u8.emit(encoder)?; // Name::root
         RecordType::OPT.emit(encoder)?; //self.rr_type.emit(encoder)?;
         DNSClass::for_opt(self.max_payload()).emit(encoder)?; // self.dns_class.emit(encoder)?;
 
@@ -221,7 +221,7 @@ impl BinEncodable for Edns {
         ttl |= u32::from(self.version()) << 16;
         ttl |= u32::from(u16::from(self.flags));
 
-        encoder.emit_u32(ttl)?;
+        ttl.emit(encoder)?;
 
         // write the opts as rdata...
         let place = encoder.place::<u16>()?;

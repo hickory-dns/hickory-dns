@@ -133,7 +133,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
 // Type alias for TTL unit tests to use tokio's time pause/advance
 #[cfg(not(feature = "tokio"))]
-type TtlInstant = std::time::Instant;
+type TtlInstant = Instant;
 #[cfg(feature = "tokio")]
 type TtlInstant = tokio::time::Instant;
 
@@ -142,7 +142,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     type Runtime = P::RuntimeProvider;
 
     fn lookup(&self, query: Query, mut options: DnsRequestOptions) -> Self::Response {
-        debug!("querying: {} {:?}", query.name(), query.query_type());
+        debug!("querying: {} {:?}", query.name, query.query_type);
         options.case_randomization = self.state.cx.options.case_randomization;
         self.send(DnsRequest::from_query(query, options))
     }
@@ -1027,7 +1027,7 @@ mod tests {
                 io_loop
                     .block_on(
                         pool.lookup(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default()
                         )
                         .first_answer()
@@ -1043,7 +1043,7 @@ mod tests {
                 io_loop
                     .block_on(
                         pool.lookup(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default()
                         )
                         .first_answer()
@@ -1078,7 +1078,7 @@ mod tests {
         // first lookup
         let response = pool
             .lookup(
-                Query::query(name.clone(), RecordType::A),
+                Query::new(name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
             .first_answer()
@@ -1095,7 +1095,7 @@ mod tests {
         // first lookup
         let response = pool
             .lookup(
-                Query::query(name, RecordType::AAAA),
+                Query::new(name, RecordType::AAAA),
                 DnsRequestOptions::default(),
             )
             .first_answer()
@@ -1160,7 +1160,7 @@ mod tests {
         // server and get the answer from the second server.
         let response = pool
             .lookup(
-                Query::query(query_name.clone(), RecordType::A),
+                Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
             .first_answer()
@@ -1217,7 +1217,7 @@ mod tests {
         // Perform a lookup - the first server will timeout, second will succeed.
         let _response = pool
             .lookup(
-                Query::query(query_name.clone(), RecordType::A),
+                Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
             .first_answer()
@@ -1348,7 +1348,7 @@ mod tests {
         // The good server wins the race; the unreachable server's future is cancelled.
         let _response = pool
             .lookup(
-                Query::query(query_name.clone(), RecordType::A),
+                Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
             .first_answer()
@@ -1422,6 +1422,154 @@ mod tests {
         ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
             if self.pending_ips.contains(&server_addr.ip()) {
                 Box::pin(future::pending())
+            } else {
+                self.inner.bind_udp(local_addr, server_addr)
+            }
+        }
+    }
+
+    /// Regression test: when the top-ranked servers are unreachable and block for the
+    /// connect timeout duration, the pool must still have enough deadline budget remaining
+    /// to try additional servers.
+    ///
+    /// With `connect_timeout` defaulting to 2s, a batch of slow-to-fail servers consumes
+    /// at most 2s of the 5s deadline, leaving 3s for the remaining servers.
+    #[tokio::test]
+    async fn test_connect_timeout_leaves_budget_for_remaining_servers() {
+        subscribe();
+
+        let slow_ip_1 = IpAddr::from([10, 0, 0, 1]);
+        let slow_ip_2 = IpAddr::from([10, 0, 0, 2]);
+        let good_ip = IpAddr::from([10, 0, 0, 3]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let handler = MockNetworkHandler::new(responses);
+        let mock_provider = MockProvider::new(handler);
+
+        // The slow IPs will delay for 1.5s before returning TimedOut.
+        // With num_concurrent_reqs=2, both slow servers are tried in the first batch.
+        // With connect_timeout = 2s (default) and pool deadline = 5s,
+        // the slow servers consume ~1.5s, leaving ~3.5s for the good server.
+        let provider = SlowTimeoutProvider::new(
+            mock_provider,
+            vec![slow_ip_1, slow_ip_2],
+            Duration::from_millis(1500),
+        );
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 2,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let pool = NameServerPool::from_nameservers(
+            vec![
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp(slow_ip_1),
+                    &opts,
+                    provider.clone(),
+                )),
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp(slow_ip_2),
+                    &opts,
+                    provider.clone(),
+                )),
+                Arc::new(NameServer::new(
+                    [].into_iter(),
+                    NameServerConfig::udp(good_ip),
+                    &opts,
+                    provider.clone(),
+                )),
+            ],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        let start = Instant::now();
+        let response = pool
+            .lookup(
+                Query::new(query_name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .expect("pool should fall through slow servers and reach the good server");
+
+        let elapsed = start.elapsed();
+
+        assert!(
+            !response.answers.is_empty(),
+            "expected A record in response"
+        );
+
+        // The lookup should complete well within the 5s deadline.
+        // It should take ~1.5s (slow batch) + a small amount for the good server.
+        assert!(
+            elapsed < Duration::from_secs(4),
+            "lookup took {elapsed:?}, which suggests the pool didn't fall through in time"
+        );
+    }
+
+    /// A [`RuntimeProvider`] wrapper where specified IPs delay for a configured duration
+    /// before returning `io::ErrorKind::TimedOut`. This simulates a SYN-drop scenario
+    /// where the TCP connect blocks until the connect timeout fires.
+    #[derive(Clone)]
+    struct SlowTimeoutProvider {
+        inner: MockProvider,
+        slow_ips: Arc<HashSet<IpAddr>>,
+        delay: Duration,
+    }
+
+    impl SlowTimeoutProvider {
+        fn new(inner: MockProvider, slow_ips: Vec<IpAddr>, delay: Duration) -> Self {
+            Self {
+                inner,
+                slow_ips: Arc::new(slow_ips.into_iter().collect()),
+                delay,
+            }
+        }
+    }
+
+    impl RuntimeProvider for SlowTimeoutProvider {
+        type Handle = TokioHandle;
+        type Timer = TokioTime;
+        type Udp = MockUdpSocket;
+        type Tcp = MockTcpStream;
+
+        fn create_handle(&self) -> Self::Handle {
+            self.inner.create_handle()
+        }
+
+        fn connect_tcp(
+            &self,
+            server_addr: SocketAddr,
+            bind_addr: Option<SocketAddr>,
+            timeout: Option<Duration>,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, io::Error>> + Send>> {
+            if self.slow_ips.contains(&server_addr.ip()) {
+                let delay = self.delay;
+                Box::pin(async move {
+                    tokio::time::sleep(delay).await;
+                    Err(io::Error::from(io::ErrorKind::TimedOut))
+                })
+            } else {
+                self.inner.connect_tcp(server_addr, bind_addr, timeout)
+            }
+        }
+
+        fn bind_udp(
+            &self,
+            local_addr: SocketAddr,
+            server_addr: SocketAddr,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
+            if self.slow_ips.contains(&server_addr.ip()) {
+                let delay = self.delay;
+                Box::pin(async move {
+                    tokio::time::sleep(delay).await;
+                    Err(io::Error::from(io::ErrorKind::TimedOut))
+                })
             } else {
                 self.inner.bind_udp(local_addr, server_addr)
             }

@@ -35,13 +35,183 @@ pub struct BinDecoder<'a> {
     remaining: &'a [u8], // The unread section of the original buffer, so that reads do not cause a bounds check at the current seek offset
 }
 
-pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
+impl<'a> BinDecoder<'a> {
+    /// Creates a new BinDecoder
+    ///
+    /// # Arguments
+    ///
+    /// * `buffer` - buffer from which all data will be read
+    pub fn new(buffer: &'a [u8]) -> Self {
+        BinDecoder {
+            buffer,
+            remaining: buffer,
+        }
+    }
+
+    /// Pop one byte from the buffer
+    pub fn pop(&mut self) -> Result<Restrict<u8>, DecodeError> {
+        if let Some((first, remaining)) = self.remaining.split_first() {
+            self.remaining = remaining;
+            return Ok(Restrict::new(*first));
+        }
+        Err(DecodeError::InsufficientBytes)
+    }
+
+    /// Returns the number of bytes in the buffer
+    ///
+    /// ```
+    /// use hickory_proto::serialize::binary::BinDecoder;
+    ///
+    /// let deadbeef = b"deadbeef";
+    /// let mut decoder = BinDecoder::new(deadbeef);
+    /// assert_eq!(decoder.len(), 8);
+    /// decoder.read_slice(7).unwrap();
+    /// assert_eq!(decoder.len(), 1);
+    /// ```
+    pub fn len(&self) -> usize {
+        self.remaining.len()
+    }
+
+    /// Returns `true` if the buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Peed one byte forward, without moving the current index forward
+    pub fn peek(&self) -> Option<Restrict<u8>> {
+        Some(Restrict::new(*self.remaining.first()?))
+    }
+
+    /// Returns the current index in the buffer
+    pub fn index(&self) -> usize {
+        self.buffer.len() - self.remaining.len()
+    }
+
+    /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
+    ///  to the value passed in
+    pub fn clone(&self, index_at: u16) -> Self {
+        BinDecoder {
+            buffer: self.buffer,
+            remaining: &self.buffer[index_at as usize..],
+        }
+    }
+
+    /// Reads a String from the buffer
+    ///
+    /// ```text
+    /// <character-string> is a single
+    /// length octet followed by that number of characters.  <character-string>
+    /// is treated as binary information, and can be up to 256 characters in
+    /// length (including the length octet).
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// A String version of the character data
+    pub fn read_character_data(&mut self) -> Result<Restrict<&[u8]>, DecodeError> {
+        let length = self.pop()?.unverified() as usize;
+        self.read_slice(length)
+    }
+
+    /// Reads a Vec out of the buffer
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The Vec of the specified length, otherwise an error
+    pub fn read_vec(&mut self, len: usize) -> Result<Restrict<Vec<u8>>, DecodeError> {
+        self.read_slice(len).map(|s| s.map(ToOwned::to_owned))
+    }
+
+    /// Reads a slice out of the buffer, without allocating
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The slice of the specified length, otherwise an error
+    pub fn read_slice(&mut self, len: usize) -> Result<Restrict<&'a [u8]>, DecodeError> {
+        if len > self.remaining.len() {
+            return Err(DecodeError::InsufficientBytes);
+        }
+        let (read, remaining) = self.remaining.split_at(len);
+        self.remaining = remaining;
+        Ok(Restrict::new(read))
+    }
+
+    /// Reads a slice from a previous index to the current
+    pub fn slice_from(&self, index: usize) -> Result<&'a [u8], DecodeError> {
+        if index > self.index() {
+            return Err(DecodeError::InvalidPreviousIndex);
+        }
+
+        Ok(&self.buffer[index..self.index()])
+    }
+
+    /// Reads a byte from the buffer, equivalent to `Self::pop()`
+    pub fn read_u8(&mut self) -> Result<Restrict<u8>, DecodeError> {
+        self.pop()
+    }
+
+    /// Reads the next 2 bytes into u16
+    ///
+    /// This performs a byte-by-byte manipulation, there
+    ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
+    ///
+    /// # Return
+    ///
+    /// Return the u16 from the buffer
+    pub fn read_u16(&mut self) -> Result<Restrict<u16>, DecodeError> {
+        Ok(self
+            .read_slice(2)?
+            .map(|s| u16::from_be_bytes([s[0], s[1]])))
+    }
+
+    /// Reads the next four bytes into i32.
+    ///
+    /// This performs a byte-by-byte manipulation, there
+    ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
+    ///
+    /// # Return
+    ///
+    /// Return the i32 from the buffer
+    pub fn read_i32(&mut self) -> Result<Restrict<i32>, DecodeError> {
+        Ok(self.read_slice(4)?.map(|s| {
+            assert!(s.len() == 4);
+            i32::from_be_bytes([s[0], s[1], s[2], s[3]])
+        }))
+    }
+
+    /// Reads the next four bytes into u32.
+    ///
+    /// This performs a byte-by-byte manipulation, there
+    ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
+    ///
+    /// # Return
+    ///
+    /// Return the u32 from the buffer
+    pub fn read_u32(&mut self) -> Result<Restrict<u32>, DecodeError> {
+        Ok(self.read_slice(4)?.map(|s| {
+            assert!(s.len() == 4);
+            u32::from_be_bytes([s[0], s[1], s[2], s[3]])
+        }))
+    }
+}
 
 /// An error that can occur deep in a decoder
 /// This type is kept very small so that function that use it inline often
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum DecodeError {
+    /// The query had an invalid number of queries
+    #[error("there should only be one query per request, got {0}")]
+    BadQueryCount(usize),
+
     /// DNS key protocol version doesn't have the expected version 3
     #[cfg(feature = "__dnssec")]
     #[error("dns key value unknown, must be 3: {0}")]
@@ -74,6 +244,10 @@ pub enum DecodeError {
     /// Insufficient data in the buffer for a read operation
     #[error("unexpected end of input reached")]
     InsufficientBytes,
+
+    /// Invalid record with data length 0 in non-update message
+    #[error("unexpected record with length 0 in non-update message")]
+    InvalidEmptyRecord,
 
     /// slice_from was called with an invalid index
     #[error("the index passed to BinDecoder::slice_from must be greater than the decoder position")]
@@ -180,174 +354,6 @@ pub enum DecodeError {
     /// Invalid UTF-8 data
     #[error("invalid UTF-8: {0}")]
     Utf8(#[from] alloc::string::FromUtf8Error),
-}
-
-impl<'a> BinDecoder<'a> {
-    /// Creates a new BinDecoder
-    ///
-    /// # Arguments
-    ///
-    /// * `buffer` - buffer from which all data will be read
-    pub fn new(buffer: &'a [u8]) -> Self {
-        BinDecoder {
-            buffer,
-            remaining: buffer,
-        }
-    }
-
-    /// Pop one byte from the buffer
-    pub fn pop(&mut self) -> DecodeResult<Restrict<u8>> {
-        if let Some((first, remaining)) = self.remaining.split_first() {
-            self.remaining = remaining;
-            return Ok(Restrict::new(*first));
-        }
-        Err(DecodeError::InsufficientBytes)
-    }
-
-    /// Returns the number of bytes in the buffer
-    ///
-    /// ```
-    /// use hickory_proto::serialize::binary::BinDecoder;
-    ///
-    /// let deadbeef = b"deadbeef";
-    /// let mut decoder = BinDecoder::new(deadbeef);
-    /// assert_eq!(decoder.len(), 8);
-    /// decoder.read_slice(7).unwrap();
-    /// assert_eq!(decoder.len(), 1);
-    /// ```
-    pub fn len(&self) -> usize {
-        self.remaining.len()
-    }
-
-    /// Returns `true` if the buffer is empty
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Peed one byte forward, without moving the current index forward
-    pub fn peek(&self) -> Option<Restrict<u8>> {
-        Some(Restrict::new(*self.remaining.first()?))
-    }
-
-    /// Returns the current index in the buffer
-    pub fn index(&self) -> usize {
-        self.buffer.len() - self.remaining.len()
-    }
-
-    /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
-    ///  to the value passed in
-    pub fn clone(&self, index_at: u16) -> Self {
-        BinDecoder {
-            buffer: self.buffer,
-            remaining: &self.buffer[index_at as usize..],
-        }
-    }
-
-    /// Reads a String from the buffer
-    ///
-    /// ```text
-    /// <character-string> is a single
-    /// length octet followed by that number of characters.  <character-string>
-    /// is treated as binary information, and can be up to 256 characters in
-    /// length (including the length octet).
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// A String version of the character data
-    pub fn read_character_data(&mut self) -> DecodeResult<Restrict<&[u8]>> {
-        let length = self.pop()?.unverified() as usize;
-        self.read_slice(length)
-    }
-
-    /// Reads a Vec out of the buffer
-    ///
-    /// # Arguments
-    ///
-    /// * `len` - number of bytes to read from the buffer
-    ///
-    /// # Returns
-    ///
-    /// The Vec of the specified length, otherwise an error
-    pub fn read_vec(&mut self, len: usize) -> DecodeResult<Restrict<Vec<u8>>> {
-        self.read_slice(len).map(|s| s.map(ToOwned::to_owned))
-    }
-
-    /// Reads a slice out of the buffer, without allocating
-    ///
-    /// # Arguments
-    ///
-    /// * `len` - number of bytes to read from the buffer
-    ///
-    /// # Returns
-    ///
-    /// The slice of the specified length, otherwise an error
-    pub fn read_slice(&mut self, len: usize) -> DecodeResult<Restrict<&'a [u8]>> {
-        if len > self.remaining.len() {
-            return Err(DecodeError::InsufficientBytes);
-        }
-        let (read, remaining) = self.remaining.split_at(len);
-        self.remaining = remaining;
-        Ok(Restrict::new(read))
-    }
-
-    /// Reads a slice from a previous index to the current
-    pub fn slice_from(&self, index: usize) -> DecodeResult<&'a [u8]> {
-        if index > self.index() {
-            return Err(DecodeError::InvalidPreviousIndex);
-        }
-
-        Ok(&self.buffer[index..self.index()])
-    }
-
-    /// Reads a byte from the buffer, equivalent to `Self::pop()`
-    pub fn read_u8(&mut self) -> DecodeResult<Restrict<u8>> {
-        self.pop()
-    }
-
-    /// Reads the next 2 bytes into u16
-    ///
-    /// This performs a byte-by-byte manipulation, there
-    ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
-    ///
-    /// # Return
-    ///
-    /// Return the u16 from the buffer
-    pub fn read_u16(&mut self) -> DecodeResult<Restrict<u16>> {
-        Ok(self
-            .read_slice(2)?
-            .map(|s| u16::from_be_bytes([s[0], s[1]])))
-    }
-
-    /// Reads the next four bytes into i32.
-    ///
-    /// This performs a byte-by-byte manipulation, there
-    ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
-    ///
-    /// # Return
-    ///
-    /// Return the i32 from the buffer
-    pub fn read_i32(&mut self) -> DecodeResult<Restrict<i32>> {
-        Ok(self.read_slice(4)?.map(|s| {
-            assert!(s.len() == 4);
-            i32::from_be_bytes([s[0], s[1], s[2], s[3]])
-        }))
-    }
-
-    /// Reads the next four bytes into u32.
-    ///
-    /// This performs a byte-by-byte manipulation, there
-    ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
-    ///
-    /// # Return
-    ///
-    /// Return the u32 from the buffer
-    pub fn read_u32(&mut self) -> DecodeResult<Restrict<u32>> {
-        Ok(self.read_slice(4)?.map(|s| {
-            assert!(s.len() == 4);
-            u32::from_be_bytes([s[0], s[1], s[2], s[3]])
-        }))
-    }
 }
 
 #[cfg(test)]

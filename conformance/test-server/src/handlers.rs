@@ -1,16 +1,25 @@
-use crate::{Transport, zone_file};
+use crate::{Handler, Transport, zone_file};
 use anyhow::{Context, Error, Result};
+use async_trait::async_trait;
 use data_encoding::BASE32_DNSSEC;
+use hickory_net::{
+    client::Client,
+    runtime::TokioRuntimeProvider,
+    tcp::TcpClientStream,
+    xfer::{DnsHandle, FirstAnswer},
+};
 use hickory_proto::{
     dnssec::{
         Nsec3HashAlgorithm,
-        rdata::{NSEC3, NSEC3PARAM, RRSIG},
+        rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
-    op::{Message, MessageType, ResponseCode},
+    op::{DnsRequest, DnsRequestOptions, Message, MessageType, ResponseCode},
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
 use std::{
     env,
+    net::IpAddr,
+    ops::DerefMut,
     path::Path,
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
@@ -18,7 +27,7 @@ use std::{
 /// This handler generates a valid A-record response to any query
 pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     msg.metadata.recursion_desired = false;
     msg.add_answer(Record::from_rdata(
@@ -34,7 +43,7 @@ pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option
 /// This handler responds to any messages with an incorrect transaction (query) id.
 pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     msg.metadata.id = if msg.metadata.id == 65535 {
         0
@@ -73,10 +82,10 @@ pub(crate) fn truncated_response_handler(
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     if name != Name::from_ascii("example.testing.").unwrap()
-        && msg.queries[0].query_type() != RecordType::TXT
+        && msg.queries[0].query_type != RecordType::TXT
     {
         msg.metadata.response_code = ResponseCode::NXDomain;
         return msg
@@ -122,8 +131,8 @@ pub(crate) fn truncated_response_handler(
 pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
     let query = msg.queries[0].clone();
-    let name = query.name().clone();
-    let q_type = query.query_type();
+    let name = query.name.clone();
+    let q_type = query.query_type;
 
     if name == Name::from_ascii("example.testing.").unwrap() {
         if !PACKET_LOSS_MARKER.load(Ordering::Relaxed) && q_type == RecordType::A {
@@ -164,7 +173,7 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
         mod_name = mod_name.append_label(new_label).unwrap();
     }
     queries[0].name = mod_name;
-    let name = queries[0].name().clone();
+    let name = queries[0].name.clone();
     msg.queries = queries;
 
     msg.metadata.authoritative = true;
@@ -185,7 +194,7 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
 /// This handler generates a large number of lengthy CNAME records to resolve
 pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     let Some(host) = name.iter().next() else {
         return Ok(None);
@@ -239,8 +248,8 @@ pub(crate) fn nsec3_nocover_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let query_name = msg.queries[0].name().clone();
-    let query_type = msg.queries[0].query_type();
+    let query_name = msg.queries[0].name.clone();
+    let query_type = msg.queries[0].query_type;
 
     let origin_name = Name::from_ascii("hickory-dns.testing.").unwrap();
     let correct_name = origin_name.prepend_label("subdomain-0")?;
@@ -370,13 +379,12 @@ pub(crate) fn nsec3_nocover_handler(
 
             for record in records {
                 match record.record_type() {
-                    RecordType::NSEC3 => {
-                        if record.name == nsec3_name
+                    RecordType::NSEC3
+                        if (record.name == nsec3_name
                             || record.name == nsec3_closest_name
-                            || record.name == nsec3_wildcard_name
-                        {
-                            msg.add_authority(record);
-                        }
+                            || record.name == nsec3_wildcard_name) =>
+                    {
+                        msg.add_authority(record);
                     }
                     RecordType::SOA => {
                         msg.add_authority(record);
@@ -390,13 +398,12 @@ pub(crate) fn nsec3_nocover_handler(
                             RecordType::SOA => {
                                 msg.add_authority(record);
                             }
-                            RecordType::NSEC3 => {
-                                if record.name == nsec3_name
+                            RecordType::NSEC3
+                                if (record.name == nsec3_name
                                     || record.name == nsec3_closest_name
-                                    || record.name == nsec3_wildcard_name
-                                {
-                                    msg.add_authority(record);
-                                }
+                                    || record.name == nsec3_wildcard_name) =>
+                            {
+                                msg.add_authority(record);
                             }
                             _ => {}
                         }
@@ -468,7 +475,7 @@ pub(crate) fn nsec3_nocover_handler(
 /// responsive A record.
 pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     if name == Name::from_ascii("cname.example.testing.")? {
         msg.add_answer(Record::from_rdata(
@@ -519,8 +526,8 @@ pub(crate) fn parent_ns_in_authority_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
-    let q_type = msg.queries[0].query_type();
+    let name = msg.queries[0].name.clone();
+    let q_type = msg.queries[0].query_type;
 
     let zone = Name::from_ascii("example.testing.")?;
     let ns_name = Name::from_ascii("ns.external.testing.")?;
@@ -585,7 +592,7 @@ pub(crate) fn qr_not_response_handler(
     _transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     msg.metadata.message_type = MessageType::Query;
     msg.metadata.recursion_desired = false;
@@ -606,7 +613,7 @@ pub(crate) fn qr_not_response_force_tcp_handler(
     transport: Transport,
 ) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
-    let name = msg.queries[0].name().clone();
+    let name = msg.queries[0].name.clone();
 
     match transport {
         Transport::Udp => {
@@ -628,6 +635,75 @@ pub(crate) fn qr_not_response_force_tcp_handler(
             .map(Some)
             .with_context(|| "qr_not_response_force_tcp handler: could not serialize Message")
         }
+    }
+}
+
+/// This handler proxies requests to another server, and drops a specific record set from responses.
+pub(crate) struct DropRrsetHandler {
+    ip_address: IpAddr,
+    name: Name,
+    record_type: RecordType,
+}
+
+impl DropRrsetHandler {
+    pub(crate) fn new(ip_address: IpAddr, name: Name, record_type: RecordType) -> Self {
+        Self {
+            ip_address,
+            name,
+            record_type,
+        }
+    }
+}
+
+#[async_trait]
+impl Handler for DropRrsetHandler {
+    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+        let (future, sender) = TcpClientStream::new(
+            (self.ip_address, 53).into(),
+            None,
+            None,
+            TokioRuntimeProvider::new(),
+        );
+        let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
+        tokio::task::spawn(bg);
+
+        let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+        let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
+        let id = query_request.id;
+
+        let mut response = client
+            .send(query_request)
+            .first_answer()
+            .await
+            .context("error sending proxied query")?;
+
+        let Message {
+            answers,
+            authorities,
+            additionals,
+            ..
+        } = response.deref_mut();
+        for section in [answers, authorities, additionals] {
+            section.retain(|record| {
+                if record.name != self.name {
+                    return true;
+                }
+                if record.record_type() == self.record_type {
+                    return false;
+                }
+                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &record.data {
+                    if rrsig.input().type_covered == self.record_type {
+                        return false;
+                    }
+                }
+                true
+            });
+        }
+
+        response.metadata.id = id;
+        Ok(Some(
+            response.to_vec().context("error serializing response")?,
+        ))
     }
 }
 

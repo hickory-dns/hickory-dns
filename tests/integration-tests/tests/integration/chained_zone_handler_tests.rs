@@ -227,10 +227,7 @@ impl ZoneHandler for TestZoneHandler {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
+        let request_info = request.request_info();
         (
             self.lookup(
                 request_info.query.name(),
@@ -257,7 +254,6 @@ impl ZoneHandler for TestZoneHandler {
         (res, None)
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "test"
     }
@@ -336,7 +332,7 @@ fn inner_lookup(
 async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestResponseHandler) {
     let mut question = Message::query();
 
-    let mut query: Query = Query::new();
+    let mut query: Query = Query::root();
     query.set_name(Name::from_ascii(query_name).unwrap());
     question.add_query(query);
     question.metadata.recursion_desired = true;

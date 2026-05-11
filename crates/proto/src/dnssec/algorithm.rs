@@ -207,7 +207,7 @@ impl Algorithm {
 
 impl BinEncodable for Algorithm {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit(u8::from(*self))
+        u8::from(*self).emit(encoder)
     }
 }
 

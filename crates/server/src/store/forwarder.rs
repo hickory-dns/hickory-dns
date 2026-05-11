@@ -20,12 +20,12 @@ use tracing::{debug, info};
 use crate::{dnssec::NxProofKind, proto::dnssec::TrustAnchors, zone_handler::Nsec3QueryInfo};
 use crate::{
     net::runtime::TokioRuntimeProvider,
-    proto::rr::{LowerName, Name, RecordType, TSigResponseContext},
+    proto::rr::{LowerName, Name, RecordType},
     resolver::{
         ConnectionProvider, Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
     },
-    server::{Request, RequestInfo},
+    server::RequestInfo,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneType,
@@ -256,27 +256,6 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         }
     }
 
-    async fn search(
-        &self,
-        request: &Request,
-        lookup_options: LookupOptions,
-    ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
-        (
-            self.lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
-                lookup_options,
-            )
-            .await,
-            None,
-        )
-    }
-
     async fn nsec_records(
         &self,
         _name: &LowerName,
@@ -303,7 +282,6 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         None
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "forwarder"
     }

@@ -65,7 +65,7 @@ fn read_u16() {
 
 #[test]
 fn emit_u16() {
-    test_emit_data_set(get_u16_data(), |e, d| e.emit_u16(d));
+    test_emit_data_set(get_u16_data(), |e, d| d.emit(e));
 }
 
 fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
@@ -90,7 +90,7 @@ fn read_i32() {
 
 #[test]
 fn emit_i32() {
-    test_emit_data_set(get_i32_data(), |e, d| e.emit_i32(d));
+    test_emit_data_set(get_i32_data(), |e, d| d.emit(e));
 }
 
 #[allow(clippy::unreadable_literal)]
@@ -116,7 +116,7 @@ fn read_u32() {
 
 #[test]
 fn emit_u32() {
-    test_emit_data_set(get_u32_data(), |e, d| e.emit_u32(d));
+    test_emit_data_set(get_u32_data(), |e, d| d.emit(e));
 }
 
 #[cfg_attr(not(feature = "std"), expect(clippy::unused_enumerate_index))]

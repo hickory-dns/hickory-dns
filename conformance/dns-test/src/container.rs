@@ -118,6 +118,7 @@ impl From<Implementation> for Image {
             Implementation::Pdns => Self::Pdns,
             Implementation::TestServer {
                 handler,
+                handler_args: _,
                 repo,
                 transport,
             } => Self::TestServer {
@@ -169,6 +170,9 @@ impl Container {
                 // the `--load` flag may be necessary, in order to load the resulting image as a
                 // local Docker image.
                 command.env("DOCKER_BUILDKIT", "1");
+                // Disable terminal redrawing, since the progress output may be interleaved with
+                // other output.
+                command.env("BUILDKIT_PROGRESS", "plain");
 
                 if let Image::Hickory {
                     crypto_provider, ..

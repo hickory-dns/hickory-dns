@@ -300,8 +300,8 @@ impl DNSKEY {
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
-            let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
-            encoder.set_name_encoding(NameEncoding::UncompressedLowercase);
+            let mut encoder = BinEncoder::new(&mut buf);
+            encoder.name_encoding = NameEncoding::UncompressedLowercase;
             if let Err(e) = name
                 .to_lowercase()
                 .emit(&mut encoder)
@@ -399,12 +399,10 @@ impl From<DNSKEY> for RData {
 
 impl BinEncodable for DNSKEY {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(self.flags())?;
-        encoder.emit(3)?; // always 3 for now
+        self.flags().emit(encoder)?;
+        3u8.emit(encoder)?; // always 3 for now
         self.public_key.algorithm().emit(encoder)?;
-        encoder.emit_vec(self.public_key.public_bytes())?;
-
-        Ok(())
+        encoder.emit_slice(self.public_key.public_bytes())
     }
 }
 

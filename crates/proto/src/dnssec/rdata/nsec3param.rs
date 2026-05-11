@@ -172,11 +172,11 @@ impl NSEC3PARAM {
 
 impl BinEncodable for NSEC3PARAM {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit(self.hash_algorithm().into())?;
-        encoder.emit(self.flags())?;
-        encoder.emit_u16(self.iterations())?;
-        encoder.emit(self.salt().len() as u8)?;
-        encoder.emit_vec(self.salt())?;
+        u8::from(self.hash_algorithm).emit(encoder)?;
+        self.flags().emit(encoder)?;
+        self.iterations().emit(encoder)?;
+        (self.salt().len() as u8).emit(encoder)?;
+        encoder.emit_slice(self.salt())?;
 
         Ok(())
     }

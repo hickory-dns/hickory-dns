@@ -107,7 +107,7 @@ async fn test_server_unknown_type() {
 
     assert_eq!(client_result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(
-        client_result.queries.first().unwrap().query_type(),
+        client_result.queries.first().unwrap().query_type,
         RecordType::Unknown(65535)
     );
     assert!(client_result.answers.is_empty());
@@ -142,8 +142,8 @@ async fn test_server_form_error_on_multiple_queries() {
     let client = lazy_udp_client(ipaddr).await;
 
     // build the message
-    let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-    let query_aaaa = Query::query(
+    let query_a = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let query_aaaa = Query::new(
         Name::from_str("www.example.com.").unwrap(),
         RecordType::AAAA,
     );
@@ -182,7 +182,7 @@ async fn test_server_no_response_on_response() {
     let client = lazy_udp_client(ipaddr).await;
 
     // build the message
-    let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let query_a = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let mut message = Message::response(10, OpCode::Query);
     message.add_query(query_a);
 
@@ -403,7 +403,7 @@ async fn edns_multiple_opt_rr() {
     let server = tokio::spawn(server_thread_udp(udp_socket, Arc::clone(&server_continue)));
 
     let mut message = Message::query();
-    message.add_query(Query::query(Name::root(), RecordType::NS));
+    message.add_query(Query::new(Name::root(), RecordType::NS));
     message.add_additional(Record::from_rdata(
         Name::root(),
         0,

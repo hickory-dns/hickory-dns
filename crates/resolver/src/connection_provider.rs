@@ -32,7 +32,7 @@ use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{client_config, default_provider, tls_exchange};
+use crate::net::tls::{client_config, default_provider, tls_exchange_with_bind_addr};
 use crate::{
     config::{ConnectionConfig, ProtocolConfig},
     name_server_pool::PoolContext,
@@ -101,6 +101,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             (ProtocolConfig::Tcp, _) => Ok(Box::pin(TcpClientStream::exchange(
                 remote_addr,
                 config.bind_addr,
+                cx.options.connect_timeout,
                 cx.options.timeout,
                 Some(cx.options.max_active_requests),
                 self.clone(),
@@ -114,23 +115,31 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 };
 
                 let server_name = server_name.to_owned();
-                Ok(Box::pin(tls_exchange(
+                Ok(Box::pin(tls_exchange_with_bind_addr(
                     remote_addr,
+                    config.bind_addr,
                     server_name,
                     cx.tls.clone(),
                     cx.options.timeout,
+                    cx.options.connect_timeout,
                     Some(cx.options.max_active_requests),
                     self.clone(),
                 )))
             }
             #[cfg(feature = "__https")]
-            (ProtocolConfig::Https { server_name, path }, _) => Ok(Box::pin(
-                HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone()).exchange(
+            (ProtocolConfig::Https { server_name, path }, _) => {
+                let mut builder =
+                    HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
+                        .connect_timeout(cx.options.connect_timeout);
+                if let Some(bind_addr) = config.bind_addr {
+                    builder.bind_addr(bind_addr);
+                }
+                Ok(Box::pin(builder.exchange(
                     remote_addr,
                     server_name.clone(),
                     path.clone(),
-                ),
-            )),
+                )))
+            }
 
             #[cfg(feature = "__quic")]
             (ProtocolConfig::Quic { server_name }, Some(binder)) => {
@@ -142,6 +151,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 Ok(Box::pin(
                     QuicClientStream::builder()
                         .crypto_config(cx.tls.clone())
+                        .connect_timeout(cx.options.connect_timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -168,6 +178,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     H3ClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
+                        .connect_timeout(cx.options.connect_timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,

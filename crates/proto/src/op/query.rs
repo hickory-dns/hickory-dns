@@ -80,28 +80,14 @@ pub struct Query {
     pub mdns_unicast_response: bool,
 }
 
-impl Default for Query {
-    /// Return a default query with an empty name and A, IN for the query_type and query_class
-    fn default() -> Self {
-        Self {
-            name: Name::root(),
-            query_type: RecordType::A,
-            query_class: DNSClass::IN,
-            #[cfg(feature = "mdns")]
-            mdns_unicast_response: false,
-        }
-    }
-}
-
 impl Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
-    pub fn new() -> Self {
-        Self::default()
+    pub fn root() -> Self {
+        Self::new(Name::root(), RecordType::A)
     }
 
     /// Create a new query from name and type, class defaults to IN
-    #[allow(clippy::self_named_constructors)]
-    pub fn query(name: Name, query_type: RecordType) -> Self {
+    pub fn new(name: Name, query_type: RecordType) -> Self {
         Self {
             name,
             query_type,
@@ -136,43 +122,6 @@ impl Query {
         self.mdns_unicast_response = flag;
         self
     }
-
-    /// ```text
-    /// QNAME           a domain name represented as a sequence of labels, where
-    ///                 each label consists of a length octet followed by that
-    ///                 number of octets.  The domain name terminates with the
-    ///                 zero length octet for the null label of the root.  Note
-    ///                 that this field may be an odd number of octets; no
-    ///                 padding is used.
-    /// ```
-    pub fn name(&self) -> &Name {
-        &self.name
-    }
-
-    /// ```text
-    /// QTYPE           a two octet code which specifies the type of the query.
-    ///                 The values for this field include all codes valid for a
-    ///                 TYPE field, together with some more general codes which
-    ///                 can match more than one type of RR.
-    /// ```
-    pub fn query_type(&self) -> RecordType {
-        self.query_type
-    }
-
-    /// ```text
-    /// QCLASS          a two octet code that specifies the class of the query.
-    ///                 For example, the QCLASS field is IN for the Internet.
-    /// ```
-    pub fn query_class(&self) -> DNSClass {
-        self.query_class
-    }
-
-    /// Returns if the mDNS unicast-response bit is set or not
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
-    #[cfg(feature = "mdns")]
-    pub fn mdns_unicast_response(&self) -> bool {
-        self.mdns_unicast_response
-    }
 }
 
 impl BinEncodable for Query {
@@ -186,7 +135,7 @@ impl BinEncodable for Query {
         #[cfg(feature = "mdns")]
         {
             if self.mdns_unicast_response {
-                encoder.emit_u16(u16::from(self.query_class()) | MDNS_UNICAST_RESPONSE)?;
+                (u16::from(self.query_class) | MDNS_UNICAST_RESPONSE).emit(encoder)?;
             } else {
                 self.query_class.emit(encoder)?;
             }
@@ -256,48 +205,53 @@ impl Display for Query {
     }
 }
 
-#[test]
-fn test_read_and_emit() {
-    let expect = Query {
-        name: Name::from_ascii("WWW.example.com.").unwrap(),
-        query_type: RecordType::AAAA,
-        query_class: DNSClass::IN,
-        ..Query::default()
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
-    {
-        let mut encoder = BinEncoder::new(&mut byte_vec);
-        expect.emit(&mut encoder).unwrap();
+    #[test]
+    fn test_read_and_emit() {
+        let expect = Query {
+            name: Name::from_ascii("WWW.example.com.").unwrap(),
+            query_type: RecordType::AAAA,
+            query_class: DNSClass::IN,
+            ..Query::root()
+        };
+
+        let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut byte_vec);
+            expect.emit(&mut encoder).unwrap();
+        }
+
+        let mut decoder = BinDecoder::new(&byte_vec);
+        let got = Query::read(&mut decoder).unwrap();
+        assert_eq!(got, expect);
     }
 
-    let mut decoder = BinDecoder::new(&byte_vec);
-    let got = Query::read(&mut decoder).unwrap();
-    assert_eq!(got, expect);
-}
-
-#[cfg(feature = "mdns")]
-#[test]
-fn test_mdns_unicast_response_bit_handling() {
-    const QCLASS_OFFSET: usize = 1 /* empty name */ +
+    #[cfg(feature = "mdns")]
+    #[test]
+    fn test_mdns_unicast_response_bit_handling() {
+        const QCLASS_OFFSET: usize = 1 /* empty name */ +
         size_of::<u16>() /* query_type */;
 
-    let mut query = Query::new();
-    query.set_mdns_unicast_response(true);
+        let mut query = Query::root();
+        query.set_mdns_unicast_response(true);
 
-    let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
-    {
-        let mut encoder = BinEncoder::new(&mut vec_bytes);
-        query.emit(&mut encoder).unwrap();
+        let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut vec_bytes);
+            query.emit(&mut encoder).unwrap();
 
-        let query_class_slice = encoder.slice_of(QCLASS_OFFSET, QCLASS_OFFSET + 2);
-        assert_eq!(query_class_slice, &[0x80, 0x01]);
+            let query_class_slice = encoder.slice_of(QCLASS_OFFSET, QCLASS_OFFSET + 2);
+            assert_eq!(query_class_slice, &[0x80, 0x01]);
+        }
+
+        let mut decoder = BinDecoder::new(&vec_bytes);
+
+        let got = Query::read(&mut decoder).unwrap();
+
+        assert_eq!(got.query_class, DNSClass::IN);
+        assert!(got.mdns_unicast_response);
     }
-
-    let mut decoder = BinDecoder::new(&vec_bytes);
-
-    let got = Query::read(&mut decoder).unwrap();
-
-    assert_eq!(got.query_class(), DNSClass::IN);
-    assert!(got.mdns_unicast_response());
 }

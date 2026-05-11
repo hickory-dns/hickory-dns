@@ -497,10 +497,10 @@ impl TryFrom<&[u8]> for CERT {
 impl BinEncodable for CERT {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
-        encoder.emit_u16(self.cert_type.into())?;
-        encoder.emit_u16(self.key_tag)?;
-        encoder.emit_u8(self.algorithm.into())?;
-        encoder.emit_vec(&self.cert_data)?;
+        u16::from(self.cert_type).emit(&mut encoder)?;
+        self.key_tag.emit(&mut encoder)?;
+        u8::from(self.algorithm).emit(&mut encoder)?;
+        encoder.emit_slice(&self.cert_data)?;
 
         Ok(())
     }

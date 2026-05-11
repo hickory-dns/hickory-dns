@@ -313,7 +313,7 @@ impl From<u16> for RecordType {
 
 impl BinEncodable for RecordType {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16((*self).into())
+        u16::from(*self).emit(encoder)
     }
 }
 

@@ -75,7 +75,7 @@ async fn test_lookup_hosts() {
         Name::from_str("www.example.com.").unwrap(),
         RecordType::AAAA,
         Lookup::new_with_max_ttl(
-            Query::query(
+            Query::new(
                 Name::from_str("www.example.com.").unwrap(),
                 RecordType::AAAA,
             ),
@@ -174,7 +174,7 @@ async fn test_lookup_ipv4_like_fall_through() {
 #[tokio::test]
 async fn test_mock_lookup() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let v4_record = v4_record(
         Name::from_str("www.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 215, 14),
@@ -197,7 +197,7 @@ async fn test_mock_lookup() {
 #[tokio::test]
 async fn test_cname_lookup() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -224,7 +224,7 @@ async fn test_cname_lookup() {
 #[tokio::test]
 async fn test_cname_lookup_preserve() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -259,7 +259,7 @@ async fn test_cname_lookup_preserve() {
 #[tokio::test]
 async fn test_chained_cname_lookup() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -293,7 +293,7 @@ async fn test_chained_cname_lookup() {
 #[tokio::test]
 async fn test_chained_cname_lookup_preserve() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -335,7 +335,7 @@ async fn test_chained_cname_lookup_preserve() {
 #[tokio::test]
 async fn test_max_chained_lookup_depth() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record1 = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("cname2.example.com.").unwrap(),
@@ -433,7 +433,7 @@ async fn test_max_chained_lookup_depth() {
 #[tokio::test]
 async fn test_forward_soa() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
+    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::NS);
     let soa_record = soa_record(
         Name::from_str("www.example.com").unwrap(),
         Name::from_str("ns1.example.com").unwrap(),
@@ -470,7 +470,7 @@ async fn test_forward_soa() {
 #[tokio::test]
 async fn test_forward_ns() {
     subscribe();
-    let resp_query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
+    let resp_query = Query::new(Name::from_str("example.com.").unwrap(), RecordType::A);
     let ns1 = ns_record(Name::default(), Name::from_str("ns1.example.com").unwrap());
     let message = message(resp_query.clone(), vec![], vec![ns1], vec![]);
 

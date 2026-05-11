@@ -11,7 +11,7 @@
 #[cfg(feature = "__dnssec")]
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use core::{convert::TryInto, fmt};
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -267,17 +267,20 @@ impl TSIG {
 
         key_name.emit(&mut encoder)?;
         DNSClass::ANY.emit(&mut encoder)?;
-        encoder.emit_u32(0)?; // TTL
+        0u32.emit(&mut encoder)?; // TTL
         self.algorithm.emit(&mut encoder)?;
-        encoder.emit_u16((self.time >> 32) as u16)?;
-        encoder.emit_u32(self.time as u32)?;
-        encoder.emit_u16(self.fudge)?;
-        encoder.emit_u16(match self.error {
+        ((self.time >> 32) as u16).emit(&mut encoder)?;
+        (self.time as u32).emit(&mut encoder)?;
+        self.fudge.emit(&mut encoder)?;
+
+        match self.error {
             None => 0,
             Some(err) => u16::from(err),
-        })?;
-        encoder.emit_u16(self.other.len() as u16)?;
-        encoder.emit_vec(&self.other)?;
+        }
+        .emit(&mut encoder)?;
+
+        (self.other.len() as u16).emit(&mut encoder)?;
+        encoder.emit_slice(&self.other)?;
         Ok(())
     }
 
@@ -318,29 +321,43 @@ impl BinEncodable for TSIG {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         self.algorithm.emit(&mut encoder)?;
-        encoder.emit_u16(
-            (self.time >> 32)
-                .try_into()
-                .map_err(|_| ProtoError::from("invalid time, overflow 48 bit counter in TSIG"))?,
-        )?;
-        encoder.emit_u32(self.time as u32)?; // this cast is supposed to truncate
-        encoder.emit_u16(self.fudge)?;
-        encoder.emit_u16(
-            self.mac
-                .len()
-                .try_into()
-                .map_err(|_| ProtoError::from("invalid mac, longer than 65535 B in TSIG"))?,
-        )?;
-        encoder.emit_vec(&self.mac)?;
-        encoder.emit_u16(self.oid)?;
-        encoder.emit_u16(match self.error {
+
+        match u16::try_from(self.time >> 32) {
+            Ok(high) => high.emit(&mut encoder)?,
+            Err(_) => {
+                return Err(ProtoError::from(
+                    "invalid time, overflow 48 bit counter in TSIG",
+                ));
+            }
+        }
+
+        (self.time as u32).emit(&mut encoder)?; // this cast is supposed to truncate
+        self.fudge.emit(&mut encoder)?;
+
+        match u16::try_from(self.mac.len()) {
+            Ok(mac_len) => mac_len.emit(&mut encoder)?,
+            Err(_) => return Err(ProtoError::from("invalid mac, longer than 65535 B in TSIG")),
+        }
+
+        encoder.emit_slice(&self.mac)?;
+        self.oid.emit(&mut encoder)?;
+
+        match self.error {
             None => 0,
             Some(err) => u16::from(err),
-        })?;
-        encoder.emit_u16(self.other.len().try_into().map_err(|_| {
-            ProtoError::from("invalid other_buffer, longer than 65535 B in TSIG")
-        })?)?;
-        encoder.emit_vec(&self.other)?;
+        }
+        .emit(&mut encoder)?;
+
+        match u16::try_from(self.other.len()) {
+            Ok(other_len) => other_len.emit(&mut encoder)?,
+            Err(_) => {
+                return Err(ProtoError::from(
+                    "invalid other_buffer, longer than 65535 B in TSIG",
+                ));
+            }
+        }
+
+        encoder.emit_slice(&self.other)?;
         Ok(())
     }
 }
@@ -744,17 +761,27 @@ pub fn signed_bitmessage_to_buf(
 
     // Advance past answer and authority records together.
     let answer_authority_count = (counts.answers + counts.authorities) as usize;
-    let (_, _, sig) = Message::read_records(&mut decoder, answer_authority_count, false)?;
+    let (_, _, sig) = Message::read_records(
+        &mut decoder,
+        answer_authority_count,
+        false,
+        metadata.op_code,
+    )?;
     debug_assert!(sig.is_none());
 
     // Advance past additional records, up to the final TSIG record.
-    let (_, _, sig) = Message::read_records(&mut decoder, counts.additionals as usize, true)?;
+    let (_, _, sig) = Message::read_records(
+        &mut decoder,
+        counts.additionals as usize,
+        true,
+        metadata.op_code,
+    )?;
     debug_assert!(sig.is_none());
     // Note the position of the decoder ahead of the final additional data TSIG record.
     let end_data = message.len() - decoder.len();
 
     // Read the TSIG signature record.
-    let (_, _, sig) = Message::read_records(&mut decoder, 1, true)?;
+    let (_, _, sig) = Message::read_records(&mut decoder, 1, true, metadata.op_code)?;
     let Some(tsig_rr) = sig else {
         return Err(ProtoError::from("TSIG signature record not found"));
     };
@@ -768,24 +795,24 @@ pub fn signed_bitmessage_to_buf(
 
     // Prepend the previous hash if provided.
     if let Some(previous_hash) = previous_hash {
-        encoder.emit_u16(previous_hash.len() as u16)?;
-        encoder.emit_vec(previous_hash)?;
+        (previous_hash.len() as u16).emit(&mut encoder)?;
+        encoder.emit_slice(previous_hash)?;
     }
 
     // Emit the header we modified to remove the TSIG additional record.
     Header { metadata, counts }.emit(&mut encoder)?;
 
     // Emit all the message data between the header and the TSIG record.
-    encoder.emit_vec(&message[start_data..end_data])?;
+    encoder.emit_slice(&message[start_data..end_data])?;
 
     if first_message {
         // Emit the TSIG pseudo-record when this is the first message.
         tsig.emit_tsig_for_mac(&mut encoder, &tsig_rr.name)?;
     } else {
         // Emit only time and fudge data for later messages.
-        encoder.emit_u16((tsig.time >> 32) as u16)?;
-        encoder.emit_u32(tsig.time as u32)?;
-        encoder.emit_u16(tsig.fudge)?;
+        ((tsig.time >> 32) as u16).emit(&mut encoder)?;
+        (tsig.time as u32).emit(&mut encoder)?;
+        tsig.fudge.emit(&mut encoder)?;
     }
 
     Ok((buf, tsig_rr))

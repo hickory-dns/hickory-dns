@@ -1,4 +1,4 @@
-/// Tests related to the authoritative server implementation DoT support.
+//! Tests related to the authoritative server implementation DoT support.
 use std::time::Duration;
 
 use dns_test::client::{Client, DigSettings};

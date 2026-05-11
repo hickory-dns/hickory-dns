@@ -68,6 +68,10 @@ impl SignSettings {
         }
     }
 
+    /// Signs the zone with RSASHA256 and NSEC3. Includes support for NSEC3 opt-out.
+    ///
+    /// Since `ldns-signzone` does not properly handle the NSEC3 opt-out flag, this configuration
+    /// uses `dnssec-signzone` instead.
     pub fn rsasha256_nsec3_optout() -> Self {
         Self {
             algorithm: Algorithm::RSASHA256,
@@ -107,6 +111,26 @@ impl SignSettings {
             inception: None,
             nsec: Nsec::default(),
             implementation: Implementation::default(),
+        }
+    }
+
+    /// Signs the zone with ECDSAP256SHA256 and NSEC3. Includes support for NSEC3 opt-out.
+    ///
+    /// Since `ldns-signzone` does not properly handle the NSEC3 opt-out flag, this configuration
+    /// uses `dnssec-signzone` instead.
+    pub fn ecdsap256sha256_nsec3_optout() -> Self {
+        Self {
+            algorithm: Algorithm::ECDSAP256SHA256,
+            zsk_bits: None,
+            ksk_bits: None,
+            expiration: None,
+            inception: None,
+            nsec: Nsec::_3 {
+                iterations: 0,
+                salt: None,
+                opt_out: true,
+            },
+            implementation: Implementation::Bindutils,
         }
     }
 
@@ -396,11 +420,11 @@ impl<'a> Signer<'a> {
                     opt_out,
                 } = &self.settings.nsec
                 {
-                    args.push("-3".to_string());
-
                     if *iterations > 0 {
                         args.push(format!("-H {iterations}"));
                     }
+
+                    args.push("-3".to_string());
 
                     if let Some(salt) = salt {
                         args.push(salt.to_string());

@@ -84,10 +84,10 @@ impl TBS {
         let mut encoder = BinEncoder::new(&mut buf);
         // Encode records using DNSSEC canonical form. This affects how names inside RDATA are
         // encoded.
-        encoder.set_canonical_form(true);
+        encoder.canonical_form = true;
         // Disable name compression. Encoding of other fields may switch to use lowercase names
         // as well.
-        encoder.set_name_encoding(NameEncoding::Uncompressed);
+        encoder.name_encoding = NameEncoding::Uncompressed;
 
         //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
         //
@@ -116,7 +116,7 @@ impl TBS {
             dns_class.emit(&mut encoder)?;
             //
             //                OrigTTL is the value from the RRSIG Original TTL field
-            encoder.emit_u32(input.original_ttl)?;
+            input.original_ttl.emit(&mut encoder)?;
             //
             //                RDATA length
             let rdata_length_place = encoder.place::<u16>()?;

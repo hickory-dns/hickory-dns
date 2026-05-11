@@ -62,12 +62,12 @@ impl Hosts {
             return None;
         }
 
-        let mut name = query.name().clone();
+        let mut name = query.name.clone();
         name.set_fqdn(true);
-        match query.query_type() {
+        match query.query_type {
             RecordType::A | RecordType::AAAA => {
                 let val = self.by_name.get(&name)?;
-                return match query.query_type() {
+                return match query.query_type {
                     RecordType::A => val.a.clone(),
                     RecordType::AAAA => val.aaaa.clone(),
                     _ => None,
@@ -120,11 +120,11 @@ impl Hosts {
         let new_lookup = {
             let old_lookup = match record_type {
                 RecordType::A => lookup_type.a.get_or_insert_with(|| {
-                    let query = Query::query(name.clone(), record_type);
+                    let query = Query::new(name.clone(), record_type);
                     Lookup::new_with_max_ttl(query, [])
                 }),
                 RecordType::AAAA => lookup_type.aaaa.get_or_insert_with(|| {
-                    let query = Query::query(name.clone(), record_type);
+                    let query = Query::new(name.clone(), record_type);
                     Lookup::new_with_max_ttl(query, [])
                 }),
                 _ => {
@@ -198,12 +198,12 @@ impl Hosts {
                 let record = Record::from_rdata(name.clone(), MAX_TTL, addr.clone());
                 match addr {
                     RData::A(..) => {
-                        let query = Query::query(name.clone(), RecordType::A);
+                        let query = Query::new(name.clone(), RecordType::A);
                         let lookup = Lookup::new_with_max_ttl(query, [record]);
                         self.insert(name.clone(), RecordType::A, lookup);
                     }
                     RData::AAAA(..) => {
-                        let query = Query::query(name.clone(), RecordType::AAAA);
+                        let query = Query::new(name.clone(), RecordType::AAAA);
                         let lookup = Lookup::new_with_max_ttl(query, [record]);
                         self.insert(name.clone(), RecordType::AAAA, lookup);
                     }
@@ -254,7 +254,7 @@ mod tests {
         let name = Name::from_str("localhost.").unwrap();
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::A))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(
@@ -266,7 +266,7 @@ mod tests {
 
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::AAAA))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::AAAA))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(
@@ -280,7 +280,7 @@ mod tests {
         name.set_fqdn(true);
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::A))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(
@@ -294,7 +294,7 @@ mod tests {
         name.set_fqdn(true);
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::A))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(
@@ -308,7 +308,7 @@ mod tests {
         name.set_fqdn(true);
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::A))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(
@@ -322,7 +322,7 @@ mod tests {
         name.set_fqdn(true);
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::A))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(
@@ -334,7 +334,7 @@ mod tests {
 
         let name = Name::from_str("111.1.0.10.in-addr.arpa.").unwrap();
         let mut answers = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::PTR))
+            .lookup_static_host(&Query::new(name.clone(), RecordType::PTR))
             .unwrap()
             .answers()
             .to_vec();
@@ -364,7 +364,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             hosts
-                .lookup_static_host(&Query::query(name.clone(), RecordType::PTR))
+                .lookup_static_host(&Query::new(name.clone(), RecordType::PTR))
                 .unwrap()
                 .answers(),
             &[Record::from_rdata(

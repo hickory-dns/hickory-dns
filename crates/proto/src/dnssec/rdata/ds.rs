@@ -280,10 +280,10 @@ impl DS {
 
 impl BinEncodable for DS {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u16(self.key_tag())?;
+        self.key_tag().emit(encoder)?;
         self.algorithm().emit(encoder)?;
-        encoder.emit(self.digest_type().into())?;
-        encoder.emit_vec(self.digest())?;
+        u8::from(self.digest_type()).emit(encoder)?;
+        encoder.emit_slice(self.digest())?;
 
         Ok(())
     }

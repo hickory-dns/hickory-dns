@@ -78,7 +78,7 @@ impl fmt::Debug for RecordTypeSet {
 impl BinEncodable for RecordTypeSet {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         if let Some(encoded_bytes) = &self.original_encoding {
-            return encoder.emit_vec(encoded_bytes);
+            return encoder.emit_slice(encoded_bytes);
         }
 
         let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
@@ -104,11 +104,11 @@ impl BinEncodable for RecordTypeSet {
 
         // output bitmaps
         for (window, bitmap) in hash {
-            encoder.emit(window)?;
+            window.emit(encoder)?;
             // the hashset should never be larger that 255 based on above logic.
-            encoder.emit(bitmap.len() as u8)?;
+            (bitmap.len() as u8).emit(encoder)?;
             for bits in bitmap {
-                encoder.emit(bits)?;
+                bits.emit(encoder)?;
             }
         }
 

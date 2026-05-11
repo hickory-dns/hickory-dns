@@ -12,7 +12,7 @@ fn no_soa() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("empty_response", "both"),
+        &Implementation::test_server("empty_response", Vec::new(), "both"),
         FQDN::TEST_TLD,
         &network,
     )?;

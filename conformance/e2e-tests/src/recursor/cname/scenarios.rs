@@ -1,22 +1,22 @@
-/// These scenarios use a single test network with the following records:
-///
-/// example.testing:
-///  www.example.testing IN CNAME www2.example2.testing.
-///  www3.example.testing IN CNAME www4.example2.testing.
-///  www5.example.testing IN CNAME www6.example2.testing.
-///  www7.example.testing IN CNAME www8.example2.testing.
-///  www9.example.testing IN CNAME www10.example2.testing.
-///  www11.example.testing IN CNAME www12.example2.testing.
-///  www13.example.testing IN A 192.0.2.1
-///
-/// example2.testing:
-///  www2.example2.testing IN CNAME www3.example.testing.
-///  www4.example2.testing IN CNAME www5.example.testing.
-///  www6.example2.testing IN CNAME www7.example.testing.
-///  www8.example2.testing IN CNAME www9.example.testing.
-///  www10.example2.testing IN CNAME www11.example.testing.
-///  www12.example2.testing IN CNAME www13.example.testing.
-///
+//! These scenarios use a single test network with the following records:
+//!
+//! example.testing:
+//!  www.example.testing IN CNAME www2.example2.testing.
+//!  www3.example.testing IN CNAME www4.example2.testing.
+//!  www5.example.testing IN CNAME www6.example2.testing.
+//!  www7.example.testing IN CNAME www8.example2.testing.
+//!  www9.example.testing IN CNAME www10.example2.testing.
+//!  www11.example.testing IN CNAME www12.example2.testing.
+//!  www13.example.testing IN A 192.0.2.1
+//!
+//! example2.testing:
+//!  www2.example2.testing IN CNAME www3.example.testing.
+//!  www4.example2.testing IN CNAME www5.example.testing.
+//!  www6.example2.testing IN CNAME www7.example.testing.
+//!  www8.example2.testing IN CNAME www9.example.testing.
+//!  www10.example2.testing IN CNAME www11.example.testing.
+//!  www12.example2.testing IN CNAME www13.example.testing.
+//!
 use std::net::Ipv4Addr;
 use std::thread;
 use std::time::Duration;
@@ -175,7 +175,7 @@ fn cname_lookup_limit_test() -> Result<(), Error> {
 
     let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
     let leaf_ns = NameServer::new(
-        &Implementation::test_server("cname_loop", "both"),
+        &Implementation::test_server("cname_loop", Vec::new(), "both"),
         FQDN::TEST_TLD,
         &network,
     )?;

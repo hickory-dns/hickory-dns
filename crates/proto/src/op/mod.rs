@@ -37,6 +37,9 @@ pub use lower_query::LowerQuery;
 mod message;
 pub use message::{EmitAndCount, Message, emit_message_parts};
 
+mod message_request;
+pub use message_request::{MessageRequest, Queries, QueriesEmitAndCount};
+
 mod op_code;
 pub use op_code::OpCode;
 
@@ -50,7 +53,7 @@ mod serial_message;
 pub use serial_message::SerialMessage;
 
 pub mod update_message;
-pub use update_message::UpdateMessage;
+pub use update_message::{UpdateMessage, UpdateRequest};
 
 /// Default retry interval floor.  This value is somewhat arbitrary, but is based on
 /// observed, real-world latencies and offers the chance to send three queries in a

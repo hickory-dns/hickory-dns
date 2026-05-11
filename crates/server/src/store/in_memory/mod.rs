@@ -466,10 +466,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
+        let request_info = request.request_info();
         debug!("searching InMemoryZoneHandler for: {}", request_info.query);
 
         let lookup_name = request_info.query.name();
@@ -516,11 +513,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         Result<ZoneTransfer, LookupError>,
         Option<TSigResponseContext>,
     )> {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return Some((Err(e), None)),
-        };
-
+        let request_info = request.request_info();
         if request_info.query.query_type() == RecordType::AXFR {
             // TODO: support more advanced AXFR options
             if !matches!(self.axfr_policy, AxfrPolicy::AllowAll) {
@@ -651,7 +644,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         self.nx_proof_kind.as_ref()
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "in-memory"
     }

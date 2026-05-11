@@ -25,15 +25,17 @@ use tracing::{debug, error, info, warn};
 #[cfg(feature = "metrics")]
 use crate::metrics::PersistentStoreMetrics;
 #[cfg(feature = "__dnssec")]
-use crate::proto::rr::{
-    TSigner,
-    rdata::tsig::{TSIG, TsigAlgorithm, TsigError},
-};
-#[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
-    proto::dnssec::{DnsSecResult, DnssecSigner},
-    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo, UpdateRequest},
+    proto::{
+        dnssec::{DnsSecResult, DnssecSigner},
+        op::UpdateRequest,
+        rr::{
+            TSigner,
+            rdata::tsig::{TSIG, TsigAlgorithm, TsigError},
+        },
+    },
+    zone_handler::{DnssecZoneHandler, Nsec3QueryInfo},
 };
 use crate::{
     net::runtime::{RuntimeProvider, TokioRuntimeProvider},
@@ -1093,11 +1095,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = match request.request_info() {
-            Ok(info) => info,
-            Err(e) => return (LookupControlFlow::Break(Err(e)), None),
-        };
-
+        let request_info = request.request_info();
         if request_info.query.query_type() == RecordType::AXFR {
             return (
                 LookupControlFlow::Break(Err(LookupError::NetError(
@@ -1166,7 +1164,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
         self.in_memory.nx_proof_kind()
     }
 
-    #[cfg(feature = "metrics")]
     fn metrics_label(&self) -> &'static str {
         "sqlite"
     }

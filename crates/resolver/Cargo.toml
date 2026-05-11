@@ -37,7 +37,7 @@ __https = ["__tls"]
 __quic = ["dep:quinn", "__tls"]
 __h3 = ["__quic"]
 
-webpki-roots = ["dep:webpki-roots", "hickory-net/webpki-roots"]
+webpki-roots = ["hickory-net/webpki-roots"]
 rustls-platform-verifier = ["hickory-net/rustls-platform-verifier"]
 
 dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-net/dnssec-aws-lc-rs", "__dnssec"]
@@ -83,7 +83,6 @@ tokio-rustls = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
 hickory-net = { workspace = true }
 hickory-proto = { workspace = true, features = ["access-control"] }
-webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { workspace = true, optional = true }

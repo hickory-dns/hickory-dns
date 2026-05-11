@@ -282,16 +282,7 @@ impl Catalog {
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
 
-        let Ok(request_info) = update.request_info() else {
-            warn!("invalid update request, zone count must be one");
-            return send_error_response(
-                update,
-                ResponseCode::FormErr,
-                response_edns,
-                response_handle,
-            )
-            .await;
-        };
+        let request_info = update.request_info();
         let ztype = request_info.query.query_type();
 
         if ztype != RecordType::SOA {
@@ -413,16 +404,7 @@ impl Catalog {
         now: u64,
         response_handle: R,
     ) -> ResponseInfo {
-        let Ok(request_info) = request.request_info() else {
-            // Wrong number of queries
-            return send_error_response(
-                request,
-                ResponseCode::FormErr,
-                response_edns,
-                response_handle,
-            )
-            .await;
-        };
+        let request_info = request.request_info();
         let handlers = self.find(request_info.query.name());
 
         let Some(handlers) = handlers else {
@@ -1206,11 +1188,11 @@ async fn build_forwarded_response(
         // the future to reduce the number of network transactions that a CD=1 query needs.
         match &mut answers {
             Answer::Normal(answers) => match DnssecSummary::from_records(answers.iter()) {
-                DnssecSummary::Secure => {
-                    if request_meta.authentic_data || lookup_options.dnssec_ok {
-                        trace!("setting ad header");
-                        response_meta.authentic_data = true;
-                    }
+                DnssecSummary::Secure
+                    if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
+                {
+                    trace!("setting ad header");
+                    response_meta.authentic_data = true;
                 }
                 DnssecSummary::Bogus if !request_meta.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
@@ -1220,11 +1202,11 @@ async fn build_forwarded_response(
                 _ => {}
             },
             Answer::NoRecords(soa) => match DnssecSummary::from_records(authorities.iter()) {
-                DnssecSummary::Secure => {
-                    if request_meta.authentic_data || lookup_options.dnssec_ok {
-                        trace!("setting ad header");
-                        response_meta.authentic_data = true;
-                    }
+                DnssecSummary::Secure
+                    if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
+                {
+                    trace!("setting ad header");
+                    response_meta.authentic_data = true;
                 }
                 DnssecSummary::Bogus if !request_meta.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
@@ -1275,7 +1257,7 @@ mod tests {
     #[tokio::test]
     async fn test_build_forwarded_response_preserves_sections() {
         // Create a DNS message with records in all three sections
-        let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
+        let query = Query::new(Name::from_str("example.com.").unwrap(), RecordType::A);
 
         // Create a Lookup from the query
         let mut lookup =
@@ -1309,7 +1291,7 @@ mod tests {
         // Build the forwarded response
         let mut request_meta = Metadata::new(1234, MessageType::Query, OpCode::Query);
         request_meta.recursion_desired = true;
-        let query_lower = LowerQuery::query(query);
+        let query_lower = LowerQuery::from(query);
 
         let message = build_forwarded_response(
             Ok(auth_lookup),
@@ -1367,7 +1349,7 @@ mod tests {
         );
 
         let metadata = Metadata::new(0, MessageType::Query, OpCode::Query);
-        let query = LowerQuery::from(Query::query(
+        let query = LowerQuery::from(Query::new(
             Name::from_str("www.sub.example.com.").unwrap(),
             RecordType::A,
         ));

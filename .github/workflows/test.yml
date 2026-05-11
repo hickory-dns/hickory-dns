@@ -11,11 +11,6 @@ on:
     # paths-ignore:
     #   - "conformance/**"
   pull_request:
-    branches:
-      - main
-      - release/**
-    # paths-ignore:
-    #   - "conformance/**"
   merge_group:
   schedule:
     - cron: "0 3 * * 4"

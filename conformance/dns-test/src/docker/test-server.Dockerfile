@@ -3,6 +3,7 @@ ENV CARGO_INCREMENTAL=0
 ENV CARGO_PROFILE_DEV_DEBUG=0
 ENV CARGO_PROFILE_DEV_STRIP=true
 RUN cargo install cargo-chef --version 0.1.71 --profile dev
+WORKDIR /usr/src/hickory
 
 # `dns-test` will invoke `docker build` from a temporary directory that contains
 # a clone of the hickory repository. `./src` here refers to that clone; not to
@@ -10,12 +11,10 @@ RUN cargo install cargo-chef --version 0.1.71 --profile dev
 
 FROM chef AS planner
 COPY ./src /usr/src/hickory
-WORKDIR /usr/src/hickory/conformance
 RUN cargo chef prepare
 
 FROM chef AS builder
-COPY --from=planner /usr/src/hickory /usr/src/hickory
-WORKDIR /usr/src/hickory/conformance
+COPY --from=planner /usr/src/hickory/recipe.json /usr/src/hickory/recipe.json
 RUN cargo chef cook -p test-server
 COPY ./src /usr/src/hickory
 RUN cargo build -p test-server
@@ -26,5 +25,5 @@ RUN apt-get update && \
     ldnsutils \
     bind9-utils \
     tshark
-COPY --from=builder /usr/src/hickory/conformance/target/debug/test-server /usr/bin/test-server
+COPY --from=builder /usr/src/hickory/target/debug/test-server /usr/bin/test-server
 ENV RUST_LOG=debug

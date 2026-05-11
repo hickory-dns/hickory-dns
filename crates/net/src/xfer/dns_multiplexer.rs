@@ -471,7 +471,7 @@ mod test {
         let mut request = Message::query();
         request.metadata.recursion_desired = true;
         request.add_query({
-            let mut q = Query::query(name.clone(), RecordType::A);
+            let mut q = Query::new(name.clone(), RecordType::A);
             q.set_query_class(DNSClass::IN);
             q
         });
@@ -494,7 +494,7 @@ mod test {
         let mut msg = Message::query();
         msg.metadata.recursion_desired = true;
         msg.add_query({
-            let mut query = Query::query(name, RecordType::AXFR);
+            let mut query = Query::new(name, RecordType::AXFR);
             query.set_query_class(DNSClass::IN);
             query
         });

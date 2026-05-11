@@ -8,7 +8,7 @@
 //! Basic protocol message for DNS
 
 use alloc::{boxed::Box, fmt, vec::Vec};
-use core::{iter, mem, ops::Deref};
+use core::{mem, ops::Deref};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ use crate::rr::{TSigVerifier, TSigner};
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, Query, ResponseCode},
-    rr::{RData, Record, RecordType, rdata::TSIG},
+    rr::{RData, Record, RecordData, RecordType, rdata::TSIG},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
@@ -196,7 +196,7 @@ impl Message {
             return self;
         }
 
-        let Some(query_type) = self.queries.first().map(|q| q.query_type()) else {
+        let Some(query_type) = self.queries.first().map(|q| q.query_type) else {
             return self; // No query, return unchanged
         };
 
@@ -420,6 +420,7 @@ impl Message {
         decoder: &mut BinDecoder<'_>,
         count: usize,
         is_additional: bool,
+        op: OpCode,
     ) -> Result<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>), DecodeError> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
@@ -427,6 +428,12 @@ impl Message {
 
         for _ in 0..count {
             let record = Record::read(decoder)?;
+            if op != OpCode::Update
+                && record.record_type() != RecordType::OPT
+                && record.data.is_update()
+            {
+                return Err(DecodeError::InvalidEmptyRecord);
+            }
 
             // There must be no additional records after a TSIG/SIG(0) record.
             if sig.is_some() {
@@ -552,7 +559,7 @@ pub trait EmitAndCount {
 
 impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
-        encoder.emit_all(self)
+        encoder.emit_iter(self)
     }
 }
 
@@ -591,7 +598,7 @@ where
         // need to commit the error code
         edns.set_rcode_high(metadata.response_code.high());
 
-        let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(&edns))))?;
+        let count = count_was_truncated(encoder.emit_iter([&Record::from(&edns)]))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
     } else if metadata.response_code.high() > 0 {
@@ -605,7 +612,7 @@ where
     //  then the TSIG record should not be encoded and the edns record (if it exists) is
     //  already part of the additionals section.
     let count = match signature {
-        Some(rec) => count_was_truncated(encoder.emit_all(iter::once(rec)))?,
+        Some(rec) => count_was_truncated(encoder.emit_iter([rec]))?,
         None => (0, false),
     };
     additional_count.0 += count.0;
@@ -672,10 +679,16 @@ impl<'r> BinDecodable<'r> for Message {
             queries.push(Query::read(decoder)?);
         }
 
-        let (answers, _, _) = Self::read_records(decoder, counts.answers as usize, false)?;
-        let (authorities, _, _) = Self::read_records(decoder, counts.authorities as usize, false)?;
+        let (answers, _, _) =
+            Self::read_records(decoder, counts.answers as usize, false, metadata.op_code)?;
+        let (authorities, _, _) = Self::read_records(
+            decoder,
+            counts.authorities as usize,
+            false,
+            metadata.op_code,
+        )?;
         let (additionals, edns, signature) =
-            Self::read_records(decoder, counts.additionals as usize, true)?;
+            Self::read_records(decoder, counts.additionals as usize, true, metadata.op_code)?;
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
@@ -774,7 +787,7 @@ mod tests {
         message.metadata.recursion_desired = true;
         message.metadata.recursion_available = true;
         message.metadata.response_code = ResponseCode::ServFail;
-        message.add_query(Query::new());
+        message.add_query(Query::root());
 
         test_emit_and_read(message);
     }
@@ -905,14 +918,6 @@ mod tests {
         ];
 
         Message::from_vec(CRASHING_MESSAGE).expect("failed to parse message");
-    }
-
-    #[test]
-    fn prior_to_pointer() {
-        const MESSAGE: &[u8] = include_bytes!("../../tests/test-data/fuzz-prior-to-pointer.rdata");
-        let message = Message::from_bytes(MESSAGE).expect("failed to parse message");
-        let encoded = message.to_bytes().unwrap();
-        Message::from_bytes(&encoded).expect("failed to parse encoded message");
     }
 
     #[test]
@@ -1235,11 +1240,12 @@ mod tests {
     ) -> ProtoResult<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>)> {
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
-        encoder.emit_all(records.iter())?;
+        encoder.emit_iter(records.iter())?;
         Ok(Message::read_records(
             &mut BinDecoder::new(&bytes),
             records.len(),
             is_additional,
+            OpCode::Query,
         )?)
     }
 

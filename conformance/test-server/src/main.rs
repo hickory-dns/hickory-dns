@@ -1,12 +1,19 @@
-use std::net::SocketAddr;
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 #[cfg(test)]
 use anyhow::Context;
 use anyhow::Result;
-use clap::Parser;
+use async_trait::async_trait;
+use clap::{Parser, Subcommand, ValueEnum};
 use futures::{StreamExt, future};
 use hickory_net::{DnsStreamHandle, runtime::iocompat::AsyncIoTokioAsStd, tcp::TcpStream};
-use hickory_proto::op::{Message, SerialMessage};
+use hickory_proto::{
+    op::{Message, SerialMessage},
+    rr::{Name, RecordType},
+};
 use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
@@ -16,30 +23,37 @@ mod zone_file;
 async fn main() -> Result<()> {
     let args = Args::parse();
     let transport = args.transport;
-    let handler = match &args.handler[..] {
-        "bailiwick" => handlers::bailiwick_handler,
-        "base" => handlers::base_handler,
-        "bad_case" => handlers::bad_case_handler,
-        "bad_txid" => handlers::bad_txid_handler,
-        "cname_loop" => handlers::cname_loop_handler,
-        "empty_response" => handlers::empty_response_handler,
-        "nsec3_nocover" => handlers::nsec3_nocover_handler,
-        "parent_ns_in_authority" => handlers::parent_ns_in_authority_handler,
-        "packet_loss" => handlers::packet_loss_handler,
-        "truncated_response" => handlers::truncated_response_handler,
-        "qr_not_response" => handlers::qr_not_response_handler,
-        "qr_not_response_force_tcp" => handlers::qr_not_response_force_tcp_handler,
-        _ => {
-            return Err(anyhow::Error::msg("unknown handler"));
-        }
+    let handler: Arc<dyn Handler> = match args.handler {
+        HandlerArg::Bailiwick => Arc::new(handlers::bailiwick_handler),
+        HandlerArg::Base => Arc::new(handlers::base_handler),
+        HandlerArg::BadCase => Arc::new(handlers::bad_case_handler),
+        HandlerArg::BadTxid => Arc::new(handlers::bad_txid_handler),
+        HandlerArg::CnameLoop => Arc::new(handlers::cname_loop_handler),
+        HandlerArg::EmptyResponse => Arc::new(handlers::empty_response_handler),
+        HandlerArg::Nsec3Nocover => Arc::new(handlers::nsec3_nocover_handler),
+        HandlerArg::ParentNsInAuthority => Arc::new(handlers::parent_ns_in_authority_handler),
+        HandlerArg::PacketLoss => Arc::new(handlers::packet_loss_handler),
+        HandlerArg::TruncatedResponse => Arc::new(handlers::truncated_response_handler),
+        HandlerArg::QrNotResponse => Arc::new(handlers::qr_not_response_handler),
+        HandlerArg::QrNotResponseForceTcp => Arc::new(handlers::qr_not_response_force_tcp_handler),
+        HandlerArg::DropRrset {
+            ip_address,
+            name,
+            record_type,
+        } => Arc::new(handlers::DropRrsetHandler::new(
+            ip_address,
+            name,
+            record_type,
+        )),
     };
 
     let mut handles = vec![];
-    if transport == "tcp" || transport == "both" {
+    if transport == TransportArg::Tcp || transport == TransportArg::Both {
         let tcp = TcpServer::new(([0, 0, 0, 0], args.port).into()).await?;
+        let handler = handler.clone();
         handles.push(tokio::task::spawn(async move { tcp.run(handler).await }));
     }
-    if transport == "udp" || transport == "both" {
+    if transport == TransportArg::Udp || transport == TransportArg::Both {
         let udp = UdpServer::new(([0, 0, 0, 0], args.port).into()).await?;
         handles.push(tokio::task::spawn(async move { udp.run(handler).await }));
     }
@@ -53,12 +67,41 @@ async fn main() -> Result<()> {
 #[derive(Parser)]
 #[clap(name = "Message responder test DNS server")]
 struct Args {
-    #[clap(default_value = "base", long = "handler")]
-    handler: String,
     #[clap(default_value = "53", long = "port")]
     port: u16,
     #[clap(default_value = "both", long = "transport")]
-    transport: String,
+    transport: TransportArg,
+    #[clap(subcommand)]
+    handler: HandlerArg,
+}
+
+#[derive(Clone, PartialEq, Eq, ValueEnum)]
+enum TransportArg {
+    Tcp,
+    Udp,
+    Both,
+}
+
+#[derive(Clone, Subcommand)]
+#[clap(rename_all = "snake_case")]
+enum HandlerArg {
+    Bailiwick,
+    Base,
+    BadCase,
+    BadTxid,
+    CnameLoop,
+    EmptyResponse,
+    Nsec3Nocover,
+    ParentNsInAuthority,
+    PacketLoss,
+    TruncatedResponse,
+    QrNotResponse,
+    QrNotResponseForceTcp,
+    DropRrset {
+        ip_address: IpAddr,
+        name: Name,
+        record_type: RecordType,
+    },
 }
 
 struct UdpServer {
@@ -72,7 +115,7 @@ impl UdpServer {
         })
     }
 
-    async fn run(self, handler: HandlerFn) -> Result<()> {
+    async fn run(self, handler: Arc<dyn Handler>) -> Result<()> {
         loop {
             let mut read_buf = [0u8; 4096];
             let (len, to) = match self.udp.recv_from(&mut read_buf).await {
@@ -88,7 +131,7 @@ impl UdpServer {
                 Message::from_vec(&read_buf),
             );
 
-            match handler(&read_buf[0..len], Transport::Udp) {
+            match handler.handle(&read_buf[0..len], Transport::Udp).await {
                 Ok(Some(resp)) => {
                     println!(
                         "handler response to udp/{to}: {:?}",
@@ -127,9 +170,10 @@ impl TcpServer {
         })
     }
 
-    async fn run(self, handler: HandlerFn) -> Result<()> {
+    async fn run(self, handler: Arc<dyn Handler>) -> Result<()> {
         loop {
             let (stream, peer) = self.tcp.accept().await?;
+            let handler = handler.clone();
             tokio::task::spawn(async move {
                 let (mut stream, mut sender) =
                     TcpStream::from_stream(AsyncIoTokioAsStd(stream), peer);
@@ -140,7 +184,7 @@ impl TcpServer {
                         Message::from_vec(msg.bytes())
                     );
 
-                    let resp = match handler(msg.bytes(), Transport::Tcp) {
+                    let resp = match handler.handle(msg.bytes(), Transport::Tcp).await {
                         Ok(Some(resp)) => resp,
                         Ok(None) => {
                             println!("no response returned from handler for request from {peer}");
@@ -181,13 +225,27 @@ enum Transport {
     Udp,
 }
 
-type HandlerFn = fn(&[u8], Transport) -> Result<Option<Vec<u8>>>;
+#[async_trait]
+trait Handler: Send + Sync {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>>;
+}
+
+#[async_trait]
+impl<T> Handler for T
+where
+    T: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static,
+{
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+        self(bytes, transport)
+    }
+}
 
 #[cfg(test)]
 mod test {
     use std::{
         net::{Ipv4Addr, Ipv6Addr, SocketAddr},
         str::FromStr,
+        sync::Arc,
     };
 
     use anyhow::Result;
@@ -225,7 +283,7 @@ mod test {
     async fn multiple_tcp_msg() -> Result<()> {
         let tcp = super::TcpServer::new((Ipv4Addr::LOCALHOST, 0).into()).await?;
         let tcp_peer = tcp.addr()?;
-        let _handle = tokio::task::spawn(tcp.run(base_handler));
+        let _handle = tokio::task::spawn(tcp.run(Arc::new(base_handler)));
 
         let (future, sender) =
             TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
@@ -263,7 +321,7 @@ mod test {
             Transport::Tcp => {
                 let tcp = super::TcpServer::new(socket).await?;
                 let tcp_peer = tcp.addr()?;
-                let _handle = tokio::task::spawn(tcp.run(base_handler));
+                let _handle = tokio::task::spawn(tcp.run(Arc::new(base_handler)));
                 let (future, sender) =
                     TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
                 let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
@@ -273,7 +331,7 @@ mod test {
             Transport::Udp => {
                 let udp = super::UdpServer::new(socket).await?;
                 let udp_peer = udp.addr()?;
-                let _handle = tokio::task::spawn(udp.run(base_handler));
+                let _handle = tokio::task::spawn(udp.run(Arc::new(base_handler)));
                 let conn = UdpClientStream::builder(udp_peer, TokioRuntimeProvider::new()).build();
                 let (client, bg) = Client::from_sender(conn);
                 let _handle = tokio::task::spawn(bg);

@@ -8,6 +8,7 @@
 use alloc::vec::Vec;
 use core::{
     marker::PhantomData,
+    mem,
     ops::{Deref, DerefMut},
 };
 
@@ -93,14 +94,16 @@ mod private {
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
-    offset: usize,
+    pub(crate) offset: usize,
     buffer: private::MaximalBuf<'a>,
     /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
     name_pointers: Vec<(usize, Vec<u8>)>,
     /// Whether the encoder should use the DNSSEC canonical form for RDATA.
-    canonical_form: bool,
+    pub canonical_form: bool,
     /// How names should be encoded.
-    name_encoding: NameEncoding,
+    pub name_encoding: NameEncoding,
+    /// Number of names encoded with compression enabled.
+    pub(crate) compressed_name_count: usize,
 }
 
 impl<'a> BinEncoder<'a> {
@@ -131,6 +134,7 @@ impl<'a> BinEncoder<'a> {
             name_pointers: Vec::new(),
             canonical_form: false,
             name_encoding: NameEncoding::Compressed,
+            compressed_name_count: 0,
         }
     }
 
@@ -159,47 +163,13 @@ impl<'a> BinEncoder<'a> {
         self.buffer.buffer().is_empty()
     }
 
-    /// Returns the current offset into the buffer
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
-
-    /// sets the current offset to the new offset
-    pub fn set_offset(&mut self, offset: usize) {
-        self.offset = offset;
-    }
-
-    /// If set to true, then records will be written into the buffer in DNSSEC canonical form
-    pub fn set_canonical_form(&mut self, canonical_form: bool) {
-        self.canonical_form = canonical_form;
-    }
-
-    /// Returns true if the encoder is writing in DNSSEC canonical form
-    pub fn is_canonical_form(&self) -> bool {
-        self.canonical_form
-    }
-
-    /// Select how names are encoded
-    pub fn set_name_encoding(&mut self, name_encoding: NameEncoding) {
-        self.name_encoding = name_encoding;
-    }
-
-    /// Returns the current name encoding mode
-    pub fn name_encoding(&self) -> NameEncoding {
-        self.name_encoding
-    }
-
     /// Returns a guard type that uses a different name encoding mode.
     pub fn with_name_encoding<'e>(
         &'e mut self,
         name_encoding: NameEncoding,
     ) -> ModalEncoder<'a, 'e> {
-        let previous_name_encoding = self.name_encoding();
-
-        self.set_name_encoding(name_encoding);
-
         ModalEncoder {
-            previous_name_encoding,
+            previous_name_encoding: mem::replace(&mut self.name_encoding, name_encoding),
             inner: self,
         }
     }
@@ -215,16 +185,16 @@ impl<'a> BinEncoder<'a> {
         &'e mut self,
         rdata_encoding: RDataEncoding,
     ) -> ModalEncoder<'a, 'e> {
-        let previous_name_encoding = self.name_encoding();
+        let previous_name_encoding = self.name_encoding;
 
-        match (rdata_encoding, self.is_canonical_form()) {
+        match (rdata_encoding, self.canonical_form) {
             (RDataEncoding::StandardRecord, true) | (RDataEncoding::Canonical, true) => {
-                self.set_name_encoding(NameEncoding::UncompressedLowercase)
+                self.name_encoding = NameEncoding::UncompressedLowercase
             }
             (RDataEncoding::StandardRecord, false) => {}
             (RDataEncoding::Canonical, false)
             | (RDataEncoding::Other, true)
-            | (RDataEncoding::Other, false) => self.set_name_encoding(NameEncoding::Uncompressed),
+            | (RDataEncoding::Other, false) => self.name_encoding = NameEncoding::Uncompressed,
         }
 
         ModalEncoder {
@@ -267,7 +237,7 @@ impl<'a> BinEncoder<'a> {
         assert!(start <= (u16::MAX as usize));
         assert!(end <= (u16::MAX as usize));
         assert!(start <= end);
-        if self.offset < 0x3FFF_usize {
+        if self.offset < 0x3FFF_usize && self.name_pointers.len() < COMPRESSION_CANDIDATE_LIMIT {
             self.name_pointers
                 .push((start, self.slice_of(start, end).to_vec())); // the next char will be at the len() location
         }
@@ -285,13 +255,6 @@ impl<'a> BinEncoder<'a> {
         }
 
         None
-    }
-
-    /// Emit one byte into the buffer
-    pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
-        self.buffer.write(self.offset, &[b])?;
-        self.offset += 1;
-        Ok(())
     }
 
     /// matches description from above.
@@ -315,79 +278,30 @@ impl<'a> BinEncoder<'a> {
             });
         }
 
-        self.emit_character_data_unrestricted(char_data)
-    }
-
-    /// Emit character data of unrestricted length
-    ///
-    /// Although character strings are typically restricted to being no longer than 255 characters,
-    /// some modern standards allow longer strings to be encoded.
-    pub fn emit_character_data_unrestricted<S: AsRef<[u8]>>(&mut self, data: S) -> ProtoResult<()> {
         // first the length is written
-        let data = data.as_ref();
-        self.emit(data.len() as u8)?;
-        self.write_slice(data)
+        (char_bytes.len() as u8).emit(self)?;
+        self.emit_slice(char_bytes)
     }
 
-    /// Emit one byte into the buffer
-    pub fn emit_u8(&mut self, data: u8) -> ProtoResult<()> {
-        self.emit(data)
-    }
-
-    /// Writes a u16 in network byte order to the buffer
-    pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
-        self.write_slice(&data.to_be_bytes())
-    }
-
-    /// Writes an i32 in network byte order to the buffer
-    pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
-        self.write_slice(&data.to_be_bytes())
-    }
-
-    /// Writes an u32 in network byte order to the buffer
-    pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
-        self.write_slice(&data.to_be_bytes())
-    }
-
-    fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
+    /// Writes the byte slice to the stream
+    pub fn emit_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
         self.buffer.write(self.offset, data)?;
         self.offset += data.len();
         Ok(())
     }
 
-    /// Writes the byte slice to the stream
-    pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
-        self.write_slice(data)
-    }
-
-    /// Emits all the elements of an Iterator to the encoder
-    pub fn emit_all<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
-        &mut self,
-        mut iter: I,
-    ) -> ProtoResult<usize> {
-        self.emit_iter(&mut iter)
-    }
-
-    // TODO: dedup with above emit_all
-    /// Emits all the elements of an Iterator to the encoder
-    pub fn emit_all_refs<'r, 'e, I, E>(&mut self, iter: I) -> ProtoResult<usize>
-    where
-        'e: 'r,
-        I: Iterator<Item = &'r &'e E>,
-        E: 'r + 'e + BinEncodable,
-    {
-        let mut iter = iter.cloned();
-        self.emit_iter(&mut iter)
-    }
-
     /// emits all items in the iterator, return the number emitted
-    pub fn emit_iter<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
+    pub fn emit_iter<'e>(
         &mut self,
-        iter: &mut I,
+        iter: impl IntoIterator<Item = &'e (impl BinEncodable + 'e)>,
     ) -> ProtoResult<usize> {
         let mut count = 0;
         for i in iter {
-            let rollback = self.set_rollback();
+            let rollback = Rollback {
+                offset: self.offset,
+                pointers: self.name_pointers.len(),
+            };
+
             if let Err(e) = i.emit(self) {
                 return Err(match &e {
                     ProtoError::MaxBufferSizeExceeded(_) => {
@@ -423,37 +337,14 @@ impl<'a> BinEncoder<'a> {
     pub fn len_since_place<T: EncodedSize>(&self, place: &Place<T>) -> usize {
         (self.offset - place.start_index) - T::LEN
     }
-
-    /// write back to a previously captured location
-    pub fn emit_at<T: EncodedSize>(&mut self, place: Place<T>, data: T) -> ProtoResult<()> {
-        // preserve current index
-        let current_index = self.offset;
-
-        // reset the current index back to place before writing
-        //   this is an assert because it's programming error for it to be wrong.
-        assert!(place.start_index < current_index);
-        self.offset = place.start_index;
-
-        // emit the data to be written at this place
-        let emit_result = data.emit(self);
-
-        // double check that the current number of bytes were written
-        //   this is an assert because it's programming error for it to be wrong.
-        assert!((self.offset - place.start_index) == T::LEN);
-
-        // reset to original location
-        self.offset = current_index;
-
-        emit_result
-    }
-
-    fn set_rollback(&self) -> Rollback {
-        Rollback {
-            offset: self.offset(),
-            pointers: self.name_pointers.len(),
-        }
-    }
 }
+
+/// Maximum number of label pointers we will store for later use in name compression.
+///
+/// This is chosen to be a power of two, so that we use the full capacity of the backing vector.
+/// With the current limits, name compression searches make up a small portion of the time it takes
+/// to encode pathologically large messages.
+const COMPRESSION_CANDIDATE_LIMIT: usize = 64;
 
 /// Selects how names should be encoded.
 #[derive(Clone, Copy)]
@@ -518,7 +409,7 @@ impl DerefMut for ModalEncoder<'_, '_> {
 
 impl Drop for ModalEncoder<'_, '_> {
     fn drop(&mut self) {
-        self.inner.set_name_encoding(self.previous_name_encoding);
+        self.inner.name_encoding = self.previous_name_encoding;
     }
 }
 
@@ -545,7 +436,25 @@ pub struct Place<T: EncodedSize> {
 impl<T: EncodedSize> Place<T> {
     /// Replaces the data at this place with the given data
     pub fn replace(self, encoder: &mut BinEncoder<'_>, data: T) -> ProtoResult<()> {
-        encoder.emit_at(self, data)
+        // preserve current index
+        let current_index = encoder.offset;
+
+        // reset the current index back to place before writing
+        //   this is an assert because it's programming error for it to be wrong.
+        assert!(self.start_index < current_index);
+        encoder.offset = self.start_index;
+
+        // emit the data to be written at this place
+        let emit_result = data.emit(encoder);
+
+        // double check that the current number of bytes were written
+        //   this is an assert because it's programming error for it to be wrong.
+        assert!((encoder.offset - self.start_index) == T::LEN);
+
+        // reset to original location
+        encoder.offset = current_index;
+
+        emit_result
     }
 }
 
@@ -558,7 +467,7 @@ pub(crate) struct Rollback {
 impl Rollback {
     pub(crate) fn rollback(self, encoder: &mut BinEncoder<'_>) {
         let Self { offset, pointers } = self;
-        encoder.set_offset(offset);
+        encoder.offset = offset;
         encoder.name_pointers.truncate(pointers);
     }
 }
@@ -569,10 +478,7 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
-    use crate::{
-        op::Message,
-        serialize::binary::{BinDecodable, BinDecoder},
-    };
+    use crate::{op::Message, serialize::binary::BinDecoder};
     #[cfg(any(feature = "std", feature = "no-std-rand"))]
     use crate::{
         op::Query,
@@ -614,10 +520,10 @@ mod tests {
             let place = encoder.place::<u16>().unwrap();
             assert_eq!(encoder.len_since_place(&place), 0);
 
-            encoder.emit(42_u8).expect("failed 0");
+            42u8.emit(&mut encoder).expect("failed 0");
             assert_eq!(encoder.len_since_place(&place), 1);
 
-            encoder.emit(48_u8).expect("failed 1");
+            48u8.emit(&mut encoder).expect("failed 1");
             assert_eq!(encoder.len_since_place(&place), 2);
 
             place
@@ -640,12 +546,12 @@ mod tests {
         let mut encoder = BinEncoder::new(&mut buf);
 
         encoder.set_max_size(5);
-        encoder.emit(0).expect("failed to write");
-        encoder.emit(1).expect("failed to write");
-        encoder.emit(2).expect("failed to write");
-        encoder.emit(3).expect("failed to write");
-        encoder.emit(4).expect("failed to write");
-        let error = encoder.emit(5).unwrap_err();
+        0u8.emit(&mut encoder).expect("failed to write");
+        1u8.emit(&mut encoder).expect("failed to write");
+        2u8.emit(&mut encoder).expect("failed to write");
+        3u8.emit(&mut encoder).expect("failed to write");
+        4u8.emit(&mut encoder).expect("failed to write");
+        let error = 5u8.emit(&mut encoder).unwrap_err();
 
         match error {
             ProtoError::MaxBufferSizeExceeded(_) => (),
@@ -657,9 +563,8 @@ mod tests {
     fn test_max_size_0() {
         let mut buf = vec![];
         let mut encoder = BinEncoder::new(&mut buf);
-
         encoder.set_max_size(0);
-        let error = encoder.emit(0).unwrap_err();
+        let error = 0u8.emit(&mut encoder).unwrap_err();
 
         match error {
             ProtoError::MaxBufferSizeExceeded(_) => (),
@@ -688,7 +593,7 @@ mod tests {
     #[test]
     fn test_target_compression() {
         let mut msg = Message::query();
-        msg.add_query(Query::query(
+        msg.add_query(Query::new(
             Name::from_str("www.google.com.").unwrap(),
             RecordType::A,
         ))
@@ -724,12 +629,5 @@ mod tests {
         assert_eq!(bytes.len(), 130);
         // check re-serializing
         assert!(Message::from_vec(&bytes).is_ok());
-    }
-
-    #[test]
-    fn test_fuzzed() {
-        const MESSAGE: &[u8] = include_bytes!("../../../tests/test-data/fuzz-long.rdata");
-        let msg = Message::from_bytes(MESSAGE).unwrap();
-        msg.to_bytes().unwrap();
     }
 }

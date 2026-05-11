@@ -1144,13 +1144,14 @@ enum ParseState {
 impl BinEncodable for Name {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let name;
-        let name_ref = if matches!(encoder.name_encoding(), NameEncoding::UncompressedLowercase) {
+        let name_ref = if matches!(encoder.name_encoding, NameEncoding::UncompressedLowercase) {
             name = self.to_lowercase();
             &name
         } else {
             self
         };
-        let compression = matches!(encoder.name_encoding(), NameEncoding::Compressed);
+        let compression = matches!(encoder.name_encoding, NameEncoding::Compressed)
+            && encoder.compressed_name_count < COMPRESSED_NAME_LIMIT;
 
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
         // lookup the label in the BinEncoder
@@ -1166,38 +1167,45 @@ impl BinEncodable for Name {
                 return Err(DecodeError::LabelBytesTooLong(label.len()).into());
             }
 
-            labels_written.push(encoder.offset());
+            labels_written.push(encoder.offset);
             encoder.emit_character_data(label)?;
         }
-        let last_index = encoder.offset();
+        let last_index = encoder.offset;
         // now search for other labels already stored matching from the beginning label, strip then to the end
         //   if it's not found, then store this as a new label
-        for label_idx in &labels_written {
-            match encoder.get_label_pointer(*label_idx, last_index) {
-                // if writing canonical and already found, continue
-                Some(_) if !compression => continue,
-                Some(loc) if compression && loc & 0xC000 == 0 => {
-                    // reset back to the beginning of this label, and then write the pointer...
-                    encoder.set_offset(*label_idx);
-                    encoder.trim();
+        if compression {
+            encoder.compressed_name_count += 1;
+            for label_idx in &labels_written {
+                match encoder.get_label_pointer(*label_idx, last_index) {
+                    Some(loc) if loc & 0xC000 == 0 => {
+                        // reset back to the beginning of this label, and then write the pointer...
+                        encoder.offset = *label_idx;
+                        encoder.trim();
 
-                    // write out the pointer marker
-                    //  or'd with the location which is less than 2^14
-                    encoder.emit_u16(0xC000u16 | loc)?;
+                        // write out the pointer marker
+                        //  or'd with the location which is less than 2^14
+                        (0xC000u16 | loc).emit(encoder)?;
 
-                    // we found a pointer don't write more, break
-                    return Ok(());
+                        // we found a pointer don't write more, break
+                        return Ok(());
+                    }
+                    _ => {
+                        // no existing label exists, store this new one.
+                        encoder.store_label_pointer(*label_idx, last_index);
+                    }
                 }
-                _ => {
-                    // no existing label exists, store this new one.
-                    encoder.store_label_pointer(*label_idx, last_index);
-                }
+            }
+        } else {
+            // Compression is disabled for either this name or the entire message. Just attempt to
+            // store the label pointers, in case they'll be used by an eligible RData type later.
+            for label_idx in &labels_written {
+                encoder.store_label_pointer(*label_idx, last_index);
             }
         }
 
         // if we're getting here, then we didn't write out a pointer and are ending the name
         // the end of the list of names
-        encoder.emit(0)?;
+        0u8.emit(encoder)?;
 
         // the entire name needs to be less than 256.
         let length = encoder.len() - buf_len;
@@ -1208,6 +1216,12 @@ impl BinEncodable for Name {
         Ok(())
     }
 }
+
+/// Maximum number of names for which name compression will be attempted per message.
+///
+/// This limit matches that from Unbound, see
+/// <https://nlnetlabs.nl/downloads/unbound/patch_CVE-2024-8508.diff>.
+const COMPRESSED_NAME_LIMIT: usize = 120;
 
 impl<'r> BinDecodable<'r> for Name {
     /// parses the chain of labels

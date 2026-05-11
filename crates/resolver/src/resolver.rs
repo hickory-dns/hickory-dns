@@ -205,7 +205,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             if self.context.options.ndots > 4 {
                 finally_ip_addr = Some(record);
             } else {
-                let query = Query::query(name, ip_addr.record_type());
+                let query = Query::new(name, ip_addr.record_type());
                 let lookup = Lookup::new_with_max_ttl(query, [record]);
                 return Ok(lookup.into());
             }
@@ -215,7 +215,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             (Ok(name), _) => name,
             (Err(_), Some(ip_addr)) => {
                 // it was a valid IP, return that...
-                let query = Query::query(ip_addr.name.clone(), ip_addr.record_type());
+                let query = Query::new(ip_addr.name.clone(), ip_addr.record_type());
                 let lookup = Lookup::new_with_max_ttl(query, [ip_addr.clone()]);
                 return Ok(lookup.into());
             }
@@ -249,7 +249,7 @@ impl<R: ConnectionProvider> Resolver<R> {
         };
 
         for name in self.build_names(name) {
-            let query = Query::query(name, record_type);
+            let query = Query::new(name, record_type);
             self.client_cache.clear_cache_query(&query);
         }
     }
@@ -640,7 +640,7 @@ where
 
         let query = match name {
             Ok(name) => {
-                let query = Query::query(name, record_type);
+                let query = Query::new(name, record_type);
 
                 if let Some(lookup) = hosts.lookup_static_host(&query) {
                     future::ok(lookup).boxed()
@@ -693,7 +693,7 @@ where
                     // for that next name and continue looping.
                     self.query = self
                         .client_cache
-                        .lookup(Query::query(name, record_type), options)
+                        .lookup(Query::new(name, record_type), options)
                         .boxed();
                     // Continue looping with the new query. It will be polled
                     // on the next iteration of the loop.
@@ -1539,7 +1539,7 @@ mod tests {
             panic!("wrong error received");
         };
 
-        assert_eq!(*no_records.query, Query::query(Name::root(), RecordType::A));
+        assert_eq!(*no_records.query, Query::new(Name::root(), RecordType::A));
         assert_eq!(no_records.negative_ttl, None);
     }
 
@@ -1561,7 +1561,7 @@ mod tests {
 
     fn v4_message() -> Result<DnsResponse, NetError> {
         let mut message = Message::query();
-        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_query(Query::new(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,

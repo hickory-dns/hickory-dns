@@ -137,13 +137,13 @@ impl DnsResponse {
     /// Does the response contain any records matching the query name and type?
     pub fn contains_answer(&self) -> bool {
         for q in &self.queries {
-            let found = match q.query_type() {
-                RecordType::ANY => self.all_sections().any(|r| &r.name == q.name()),
+            let found = match q.query_type {
+                RecordType::ANY => self.all_sections().any(|r| r.name == q.name),
                 RecordType::SOA => {
                     // for SOA name must be part of the SOA zone
                     self.all_sections()
                         .filter(|r| r.record_type().is_soa())
-                        .any(|r| r.name.zone_of(q.name()))
+                        .any(|r| r.name.zone_of(&q.name))
                 }
                 q_type => {
                     if !self.answers.is_empty() {
@@ -151,7 +151,7 @@ impl DnsResponse {
                     } else {
                         self.all_sections()
                             .filter(|r| r.record_type() == q_type)
-                            .any(|r| &r.name == q.name())
+                            .any(|r| r.name == q.name)
                     }
                 }
             };
@@ -254,7 +254,7 @@ mod tests {
     fn test_contains_answer() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NXDomain;
-        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_query(Query::new(Name::root(), RecordType::A));
         message.add_answer(Record::from_rdata(
             Name::root(),
             88640,
@@ -270,7 +270,7 @@ mod tests {
     fn contains_soa() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::query(an_example(), RecordType::SOA));
+        message.add_query(Query::new(an_example(), RecordType::SOA));
         message.add_authority(soa());
 
         let response = DnsResponse::from_message(message.into_response()).unwrap();
@@ -282,7 +282,7 @@ mod tests {
     fn contains_any() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::query(xx(), RecordType::ANY));
+        message.add_query(Query::new(xx(), RecordType::ANY));
         message.add_authority(ns1_record());
         message.add_additional(ns1_a());
 

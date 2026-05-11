@@ -323,9 +323,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 // * For other query types, if the queried name is provably Insecure
                 if let Err(err) = self
                     .find_ds_records(
-                        match query.query_type() {
-                            RecordType::DS => query.name().base_name(),
-                            _ => query.name().clone(),
+                        match query.query_type {
+                            RecordType::DS => query.name.base_name(),
+                            _ => query.name.clone(),
                         },
                         options,
                     )
@@ -346,7 +346,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         };
 
         if !nsec_proof.is_secure() {
-            debug!("returning Nsec error for {} {nsec_proof}", query.name());
+            debug!("returning Nsec error for {} {nsec_proof}", query.name);
             // TODO change this to remove the NSECs, like we do for the others?
             return Err(NetError::from(DnsError::Nsec {
                 query: Box::new(query.clone()),
@@ -720,7 +720,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             }
 
             // Make an un-verified request for the NS RRset at this ancestor name.
-            let query = Query::query(ancestor.clone(), RecordType::NS);
+            let query = Query::new(ancestor.clone(), RecordType::NS);
             let result = self
                 .handle
                 .lookup(query.clone(), options)
@@ -757,7 +757,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         options: DnsRequestOptions,
     ) -> Result<Vec<Record<DS>>, ProofError> {
         match self
-            .lookup(Query::query(zone.clone(), RecordType::DS), options)
+            .lookup(Query::new(zone.clone(), RecordType::DS), options)
             .first_answer()
             .await
         {
@@ -927,7 +927,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .filter_map(|(i, rrsig)| {
                 let rrsig = rrsig.try_borrow::<RRSIG>()?;
                 let query =
-                    Query::query(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
+                    Query::new(rrsig.data().input().signer_name.clone(), RecordType::DNSKEY);
 
                 if i > MAX_RRSIGS_PER_RRSET {
                     warn!("too many ({i}) RRSIGs for rrset {rrset:?}; skipping");
@@ -936,14 +936,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
                 // TODO: Should this sig.signer_name should be confirmed to be in the same zone as the rrsigs and rrset?
                 // Break verification cycle
-                if query.name() == original_query.name()
-                    && query.query_type() == original_query.query_type()
+                if query.name == original_query.name
+                    && query.query_type == original_query.query_type
                 {
                     warn!(
-                        query_name = %query.name(),
-                        query_type = %query.query_type(),
-                        original_query_name = %original_query.name(),
-                        original_query_type = %original_query.query_type(),
+                        query_name = %query.name,
+                        query_type = %query.query_type,
+                        original_query_name = %original_query.name,
+                        original_query_type = %original_query.query_type,
                         "stopping verification cycle in verify_default_rrset",
                     );
                     return None;
@@ -1519,9 +1519,9 @@ impl<'a> RrsetVerificationContext<'a> {
     // cause cache misses.
     fn key(&self) -> ValidationCacheKey {
         let mut hasher = DefaultHasher::new();
-        self.query.name().hash(&mut hasher);
-        self.query.query_class().hash(&mut hasher);
-        self.query.query_type().hash(&mut hasher);
+        self.query.name.hash(&mut hasher);
+        self.query.query_class.hash(&mut hasher);
+        self.query.query_type.hash(&mut hasher);
         self.rrset.name().hash(&mut hasher);
         self.rrset.dns_class().hash(&mut hasher);
         self.rrset.record_type().hash(&mut hasher);
@@ -1611,20 +1611,20 @@ fn verify_nsec(
     // we'll use that as the starting value for next_closest_encloser, otherwise, fall back to
     // the parent of the query name.
     let mut next_closest_encloser = if let Some(soa_name) = soa_name {
-        if !soa_name.zone_of(query.name()) {
+        if !soa_name.zone_of(&query.name) {
             return nsec1_yield(Proof::Bogus, "SOA record is for the wrong zone");
         }
         soa_name.clone()
     } else {
-        query.name().base_name()
+        query.name.base_name()
     };
 
     let have_answer = !answers.is_empty();
 
     // For a no data response with a directly matching NSEC record, we just need to verify the NSEC
     // type set does not contain the query type or CNAME.
-    if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| query.name() == *name) {
-        return if nsec_data.type_set().contains(query.query_type())
+    if let Some((_, nsec_data)) = nsecs.iter().find(|(name, _)| &query.name == *name) {
+        return if nsec_data.type_set().contains(query.query_type)
             || nsec_data.type_set().contains(RecordType::CNAME)
         {
             nsec1_yield(Proof::Bogus, "direct match, record type should be present")
@@ -1639,7 +1639,7 @@ fn verify_nsec(
     }
 
     let Some((covering_nsec_name, covering_nsec_data)) =
-        find_nsec_covering_record(soa_name, query.name(), nsecs)
+        find_nsec_covering_record(soa_name, &query.name, nsecs)
     else {
         return nsec1_yield(
             Proof::Bogus,
@@ -1653,7 +1653,7 @@ fn verify_nsec(
     for seed_name in [covering_nsec_name, covering_nsec_data.next_domain_name()] {
         let mut candidate_name = seed_name.clone();
         while candidate_name.num_labels() > next_closest_encloser.num_labels() {
-            if candidate_name.zone_of(query.name()) {
+            if candidate_name.zone_of(&query.name) {
                 next_closest_encloser = candidate_name;
                 break;
             }
@@ -1696,14 +1696,14 @@ fn verify_nsec(
                 };
 
                 let rrsig_labels = rrsig.input().num_labels;
-                if rrsig_labels >= r.name.num_labels() || rrsig_labels >= query.name().num_labels() {
+                if rrsig_labels >= r.name.num_labels() || rrsig_labels >= query.name.num_labels() {
                     debug!(name = ?r.name, labels = ?r.name.num_labels(), rrsig_labels, "ignoring RRSIG for wildcard base name rrsig_labels >= labels");
                     return None;
                 }
 
                 let trimmed_name = r.name.trim_to(rrsig_labels as usize);
-                if !trimmed_name.zone_of(query.name()) {
-                    debug!(name = ?r.name, query_name = ?query.name(), "ignoring RRSIG for wildcard base name: RRSIG wildcard labels not a parent of query name");
+                if !trimmed_name.zone_of(&query.name) {
+                    debug!(name = ?r.name, query_name = ?query.name, "ignoring RRSIG for wildcard base name: RRSIG wildcard labels not a parent of query name");
                     return None;
                 }
 
@@ -1714,7 +1714,7 @@ fn verify_nsec(
         // For no data responses, we have to recover the base name from a wildcard NSEC record as there are no answer RRSIGs present.
         nsecs
             .iter()
-            .filter(|(name, _)| name.is_wildcard() && name.base_name().zone_of(query.name()))
+            .filter(|(name, _)| name.is_wildcard() && name.base_name().zone_of(&query.name))
             .min_by_key(|(name, _)| name.num_labels())
             .map(|(name, _)| (*name).clone())
     };
@@ -1730,13 +1730,8 @@ fn verify_nsec(
         Some((_, _))
             if response_code == ResponseCode::NoError
                 && have_answer
-                && no_closer_matches(
-                    query.name(),
-                    soa_name,
-                    nsecs,
-                    wildcard_base_name.as_ref(),
-                )
-                && find_nsec_covering_record(soa_name, query.name(), nsecs).is_some() =>
+                && no_closer_matches(&query.name, soa_name, nsecs, wildcard_base_name.as_ref())
+                && find_nsec_covering_record(soa_name, &query.name, nsecs).is_some() =>
         {
             nsec1_yield(
                 Proof::Secure,
@@ -1749,9 +1744,9 @@ fn verify_nsec(
             && response_code == ResponseCode::NoError
             && nsecs.iter().any(|(name, nsec_data)| {
                 name == &&wildcard_name
-                    && !nsec_data.type_set().contains(query.query_type())
+                    && !nsec_data.type_set().contains(query.query_type)
                     && !nsec_data.type_set().contains(RecordType::CNAME)
-                    && no_closer_matches(query.name(), soa_name, nsecs, wildcard_base_name.as_ref())
+                    && no_closer_matches(&query.name, soa_name, nsecs, wildcard_base_name.as_ref())
             }) =>
         {
             nsec1_yield(Proof::Secure, "no direct match, covering wildcard present")
@@ -1839,7 +1834,7 @@ pub(super) fn proof_log_yield(
 ) -> Proof {
     debug!(
         "{nsec_type} proof for {name}, returning {proof}: {msg}",
-        name = query.name()
+        name = query.name
     );
     proof
 }
@@ -1973,7 +1968,7 @@ mod test {
         // Based on RFC 4035 B.2 - Name Error
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ml.example.")?, A),
+                &Query::new(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -2000,7 +1995,7 @@ mod test {
         // Single NSEC that proves the record does not exist, and no covering wildcard exists.
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.example.")?, A),
+                &Query::new(Name::from_ascii("a.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -2021,7 +2016,7 @@ mod test {
         subscribe();
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ml.example.")?, A),
+                &Query::new(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -2049,7 +2044,7 @@ mod test {
         // Test without proving wildcard non-existence.
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ml.example.")?, A),
+                &Query::new(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -2067,7 +2062,7 @@ mod test {
         // Invalid SOA
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ml.example.")?, A),
+                &Query::new(Name::from_ascii("ml.example.")?, A),
                 Some(&Name::from_ascii("example2.")?),
                 ResponseCode::NXDomain,
                 &[],
@@ -2102,7 +2097,7 @@ mod test {
         // Based on RFC 4035 B.3 - No Data Error
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2121,7 +2116,7 @@ mod test {
         // Record type at the SOA does not exist.
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("example.")?, MX),
+                &Query::new(Name::from_ascii("example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2147,7 +2142,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2164,7 +2159,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2182,7 +2177,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("ns1.example.")?, MX),
+                &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2236,7 +2231,7 @@ mod test {
         // Based on RFC 4035 B.6 - Wildcard Expansion
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
                 &answers,
@@ -2255,7 +2250,7 @@ mod test {
         // This response could not have been synthesized from the query name (z.example can't be expanded from *.w.example
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("z.example.")?, MX),
+                &Query::new(Name::from_ascii("z.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &answers,
@@ -2316,7 +2311,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
                 &answers,
@@ -2333,7 +2328,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, MX),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
                 None,
                 ResponseCode::NoError,
                 &answers,
@@ -2352,7 +2347,7 @@ mod test {
         // Based on RFC 4035 B.7 - Wildcard No Data Error
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2375,7 +2370,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("zzzzzz.hickory-dns.testing.")?, TXT),
+                &Query::new(Name::from_ascii("zzzzzz.hickory-dns.testing.")?, TXT),
                 Some(&Name::from_ascii("hickory-dns.testing.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2411,7 +2406,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2433,7 +2428,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("a.z.w.example.")?, AAAA),
+                &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
                 &[],
@@ -2455,7 +2450,7 @@ mod test {
 
         assert_eq!(
             verify_nsec(
-                &Query::query(Name::from_ascii("r.hickory-dns.testing.")?, TXT),
+                &Query::new(Name::from_ascii("r.hickory-dns.testing.")?, TXT),
                 Some(&Name::from_ascii("hickory-dns.testing.")?),
                 ResponseCode::NoError,
                 &[],

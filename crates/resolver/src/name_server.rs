@@ -208,17 +208,22 @@ impl<P: ConnectionProvider> NameServer<P> {
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), NetError> {
-        let mut connections = self.connections.lock().await;
-        connections.retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
-        if let Some(conn) = policy.select_connection(
-            self.config.ip,
-            &*cx.transport_state().await,
-            &cx.opportunistic_encryption,
-            &connections,
-        ) {
-            return Ok((conn.handle.clone(), conn.meta.clone(), conn.protocol));
+        // Check for an existing usable connection (short lock)
+        {
+            let mut connections = self.connections.lock().await;
+            connections
+                .retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
+            if let Some(conn) = policy.select_connection(
+                self.config.ip,
+                &*cx.transport_state().await,
+                &cx.opportunistic_encryption,
+                &connections,
+            ) {
+                return Ok((conn.handle.clone(), conn.meta.clone(), conn.protocol));
+            }
         }
 
+        // Select connection config and update transport state (no lock)
         debug!(config = ?self.config, "connecting");
         let config = policy
             .select_connection_config(
@@ -238,6 +243,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             self.consider_probe_encrypted_transport(&policy, cx).await;
         }
 
+        // Establish connection
         let handle = Box::pin(self.connection_provider.new_connection(
             self.config.ip,
             config,
@@ -251,10 +257,10 @@ impl<P: ConnectionProvider> NameServer<P> {
                 .complete_connection(self.config.ip, protocol);
         }
 
-        // establish a new connection
+        // Store the new connection (with lock)
         let state = ConnectionState::new(handle.clone(), protocol);
         let meta = state.meta.clone();
-        connections.push(state);
+        self.connections.lock().await.push(state);
         Ok((handle, meta, protocol))
     }
 
@@ -291,7 +297,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         self.server_srtt.record(winner_rtt + CANCEL_PENALTY);
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "tokio"))]
     pub(crate) fn test_record_failure(&self) {
         self.server_srtt.record_failure();
     }
@@ -466,7 +472,7 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
 
         match conn
             .send(DnsRequest::from_query(
-                Query::query(Name::root(), RecordType::NS),
+                Query::new(Name::root(), RecordType::NS),
                 DnsRequestOptions::default(),
             ))
             .first_answer()
@@ -913,7 +919,7 @@ mod tests {
         let response = name_server
             .send(
                 DnsRequest::from_query(
-                    Query::query(name.clone(), RecordType::A),
+                    Query::new(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 ),
                 ConnectionPolicy::default(),
@@ -947,7 +953,7 @@ mod tests {
             name_server
                 .send(
                     DnsRequest::from_query(
-                        Query::query(name.clone(), RecordType::A),
+                        Query::new(name.clone(), RecordType::A),
                         DnsRequestOptions::default(),
                     ),
                     ConnectionPolicy::default(),
@@ -1007,17 +1013,14 @@ mod tests {
         let ns = Arc::new(NameServer::new([], config, &cx.options, provider));
         let response = ns
             .send(
-                DnsRequest::from_query(
-                    Query::query(name.clone(), RecordType::NULL),
-                    request_options,
-                ),
+                DnsRequest::from_query(Query::new(name.clone(), RecordType::NULL), request_options),
                 ConnectionPolicy::default(),
                 &cx,
             )
             .await
             .unwrap();
 
-        let response_query_name = response.queries.first().unwrap().name();
+        let response_query_name = &response.queries.first().unwrap().name;
         assert!(response_query_name.eq_case(&name));
     }
 
@@ -1930,7 +1933,7 @@ mod opportunistic_enc_tests {
         provider: &MockProvider,
     ) -> Result<(), NetError> {
         let name_server = NameServer::new(
-            [].into_iter(),
+            [],
             NameServerConfig::opportunistic_encryption(ns_ip),
             &ResolverOpts::default(),
             provider.clone(),
@@ -1984,7 +1987,7 @@ mod resolver_metrics_tests {
                 let _ = name_server
                     .send(
                         DnsRequest::from_query(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default(),
                         ),
                         ConnectionPolicy::default(),
@@ -2029,7 +2032,7 @@ mod resolver_metrics_tests {
                 let _ = name_server
                     .send(
                         DnsRequest::from_query(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default(),
                         ),
                         ConnectionPolicy::default(),
@@ -2078,7 +2081,7 @@ mod resolver_metrics_tests {
                 let _ = name_server
                     .send(
                         DnsRequest::from_query(
-                            Query::query(name.clone(), RecordType::A),
+                            Query::new(name.clone(), RecordType::A),
                             DnsRequestOptions::default(),
                         ),
                         ConnectionPolicy::default(),

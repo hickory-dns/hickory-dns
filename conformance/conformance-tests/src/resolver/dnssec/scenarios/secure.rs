@@ -127,7 +127,7 @@ fn caches_answer() -> Result<(), Error> {
     let resolver_addr = resolver.ipv4_addr();
 
     let client = Client::new(resolver.network())?;
-    let settings = *DigSettings::default().recurse().authentic_data();
+    let settings = *DigSettings::default().recurse().authentic_data().retries(0);
 
     let mut tshark = None;
     for i in 0..2 {

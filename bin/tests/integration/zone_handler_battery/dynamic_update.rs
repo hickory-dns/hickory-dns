@@ -13,7 +13,9 @@ use hickory_net::{
     xfer::Protocol,
 };
 use hickory_proto::{
-    op::{Message, MessageType, Metadata, OpCode, Query, ResponseCode, update_message},
+    op::{
+        Message, MessageRequest, MessageType, Metadata, OpCode, Query, ResponseCode, update_message,
+    },
     rr::{
         DNSClass, Name, RData, Record, RecordSet, RecordType, TSigner,
         rdata::{A as A4, AAAA, tsig::TsigAlgorithm},
@@ -23,7 +25,7 @@ use hickory_proto::{
 use hickory_server::{
     server::Request,
     store::sqlite::SqliteZoneHandler,
-    zone_handler::{LookupError, LookupOptions, MessageRequest, ZoneHandler},
+    zone_handler::{LookupError, LookupOptions, ZoneHandler},
 };
 
 const TEST_HEADER: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
@@ -60,7 +62,7 @@ pub fn test_create(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name, RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name, RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -110,7 +112,7 @@ pub fn test_create_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("create failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -163,7 +165,7 @@ pub fn test_append(mut handler: impl ZoneHandler, keys: &[TSigner]) {
 
         // verify record contents
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -253,7 +255,7 @@ pub fn test_append_multi(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("append failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -320,7 +322,7 @@ pub fn test_compare_and_swap(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("compare_and_swap failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -398,7 +400,7 @@ pub fn test_compare_and_swap_multi(mut handler: impl ZoneHandler, keys: &[TSigne
         assert!(update_zone_handler(message, key, &mut handler).expect("compare_and_swap failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -483,7 +485,7 @@ pub fn test_delete_by_rdata(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -557,7 +559,7 @@ pub fn test_delete_by_rdata_multi(mut handler: impl ZoneHandler, keys: &[TSigner
         assert!(update_zone_handler(message, key, &mut handler).expect("delete_by_rdata failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -618,7 +620,7 @@ pub fn test_delete_rrset(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("delete_rrset failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )
@@ -677,7 +679,7 @@ pub fn test_delete_all(mut handler: impl ZoneHandler, keys: &[TSigner]) {
         assert!(update_zone_handler(message, key, &mut handler).expect("delete_all failed"));
 
         let request = Request::from_message(
-            MessageRequest::mock(*TEST_HEADER, Query::query(name.clone(), RecordType::A)),
+            MessageRequest::mock(*TEST_HEADER, Query::new(name.clone(), RecordType::A)),
             SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
             Protocol::Udp,
         )

@@ -14,7 +14,7 @@ use hickory_net::runtime::{Time, TokioRuntimeProvider, TokioTime};
 use hickory_net::xfer::Protocol;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::{Edns, LowerQuery, Message};
-use hickory_proto::op::{MessageType, Metadata, OpCode, Query, ResponseCode};
+use hickory_proto::op::{MessageRequest, MessageType, Metadata, OpCode, Query, ResponseCode};
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::TSigner;
 #[cfg(feature = "__dnssec")]
@@ -32,9 +32,7 @@ use hickory_server::store::in_memory::InMemoryZoneHandler;
 use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
 #[cfg(feature = "__dnssec")]
 use hickory_server::zone_handler::MessageResponseBuilder;
-use hickory_server::zone_handler::{
-    AxfrPolicy, LookupError, LookupOptions, MessageRequest, ZoneHandler, ZoneType,
-};
+use hickory_server::zone_handler::{AxfrPolicy, LookupError, LookupOptions, ZoneHandler, ZoneType};
 use test_support::subscribe;
 
 const TEST_METADATA: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
@@ -58,7 +56,7 @@ async fn test_search() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut query = Query::new();
+    let mut query = Query::root();
     query.set_name(origin.into());
     let request = Request::from_message(
         MessageRequest::mock(*TEST_METADATA, query),
@@ -89,7 +87,7 @@ async fn test_search_www() {
     let example = create_example();
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
-    let mut query = Query::new();
+    let mut query = Query::root();
     query.set_name(www_name);
     let request = Request::from_message(
         MessageRequest::mock(*TEST_METADATA, query),
@@ -252,7 +250,7 @@ async fn test_authorize_update() {
 
     let mut message = Message::query();
     message.metadata.op_code = OpCode::Update;
-    message.add_query(Query::default());
+    message.add_query(Query::root());
 
     let bytes = message.to_bytes().unwrap();
     let request =
@@ -527,7 +525,7 @@ async fn test_update() {
 
     let message_request = MessageRequest::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
-        Query::query(origin_name, RecordType::AXFR),
+        Query::new(origin_name, RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -799,7 +797,7 @@ async fn test_update_tsig_valid() {
     let origin_name = Name::from_str("example.com.").unwrap();
     let message_request = MessageRequest::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
-        Query::query(origin_name, RecordType::AXFR),
+        Query::new(origin_name, RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -1106,7 +1104,7 @@ fn test_tsig_signer(key_name: Name) -> TSigner {
 
 #[cfg(feature = "__dnssec")]
 fn test_update_message(name: Name) -> Message {
-    let mut q = Query::default();
+    let mut q = Query::root();
     q.set_name(name.clone());
     q.set_query_class(DNSClass::IN);
     q.set_query_type(RecordType::SOA);
@@ -1130,7 +1128,7 @@ async fn test_zone_signing() {
 
     let message_request = MessageRequest::mock(
         Metadata::new(0, MessageType::Query, OpCode::Query),
-        Query::query(handler.origin().clone().into(), RecordType::AXFR),
+        Query::new(handler.origin().clone().into(), RecordType::AXFR),
     );
     let request = Request::from_message(
         message_request,
@@ -1392,7 +1390,7 @@ async fn test_axfr_allow_all() {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_METADATA,
-            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+            Query::new(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
@@ -1423,7 +1421,7 @@ async fn test_axfr_deny_all() {
     let request = Request::from_message(
         MessageRequest::mock(
             *TEST_METADATA,
-            Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
+            Query::new(Name::from_str("example.com.").unwrap(), RecordType::AXFR),
         ),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
         Protocol::Udp,
@@ -1454,7 +1452,7 @@ async fn test_axfr_deny_unsigned() {
     let mut handler = create_example();
     handler.set_axfr_policy(AxfrPolicy::AllowSigned);
 
-    let query = LowerQuery::from(Query::query(
+    let query = LowerQuery::from(Query::new(
         Name::from_str("example.com.").unwrap(),
         RecordType::AXFR,
     ));
@@ -1493,7 +1491,7 @@ async fn test_axfr_allow_tsig_signed() {
     handler.set_axfr_policy(AxfrPolicy::AllowSigned);
     handler.set_tsig_signers(vec![signer.clone()]);
 
-    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::AXFR);
+    let query = Query::new(Name::from_str("example.com.").unwrap(), RecordType::AXFR);
     let mut message = Message::query();
     message.add_query(query);
 

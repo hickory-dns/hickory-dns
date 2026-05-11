@@ -430,10 +430,10 @@ impl TLSA {
 
 impl BinEncodable for TLSA {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_u8(self.cert_usage.into())?;
-        encoder.emit_u8(self.selector.into())?;
-        encoder.emit_u8(self.matching.into())?;
-        encoder.emit_vec(&self.cert_data)?;
+        u8::from(self.cert_usage).emit(encoder)?;
+        u8::from(self.selector).emit(encoder)?;
+        u8::from(self.matching).emit(encoder)?;
+        encoder.emit_slice(&self.cert_data)?;
         Ok(())
     }
 }

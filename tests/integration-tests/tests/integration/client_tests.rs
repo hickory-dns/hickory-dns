@@ -129,7 +129,7 @@ async fn test_query(mut client: Client<TokioRuntimeProvider>) {
             .queries
             .first()
             .expect("expected query")
-            .name()
+            .name
             .eq_case(&name)
     );
 
@@ -156,7 +156,7 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
     let mut msg = Message::query();
     msg.metadata.recursion_desired = true;
     msg.add_query({
-        let mut query = Query::query(name.clone(), RecordType::A);
+        let mut query = Query::new(name.clone(), RecordType::A);
         query.set_query_class(DNSClass::IN);
         query
     });
@@ -177,7 +177,7 @@ async fn test_query_edns(client: Client<TokioRuntimeProvider>) {
             .queries
             .first()
             .expect("expected query")
-            .name()
+            .name
             .eq_case(&name)
     );
 

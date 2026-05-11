@@ -11,13 +11,11 @@ use bytes::Bytes;
 use futures_util::lock::Mutex;
 use rustls::server::ResolvesServerCert;
 use tokio::{net, task::JoinSet};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, reap_tasks,
-    request_handler::RequestHandler,
-    response_handler::{ResponseHandler, encode_fallback_servfail_response},
-    sanitize_src_address,
+    ResponseInfo, ServerContext, reap_tasks, request_handler::RequestHandler,
+    response_handler::ResponseHandler, sanitize_src_address,
 };
 use crate::{
     net::{
@@ -25,7 +23,7 @@ use crate::{
         quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
         xfer::Protocol,
     },
-    proto::{rr::Record, serialize::binary::BinEncoder},
+    proto::rr::Record,
     zone_handler::MessageResponse,
 };
 
@@ -160,16 +158,7 @@ impl ResponseHandler for QuicResponseHandle {
     ) -> Result<ResponseInfo, NetError> {
         // The id should always be 0 in DoQ
         response.metadata_mut().id = 0;
-
-        let id = response.metadata().id;
-        let mut bytes = Vec::with_capacity(512);
-        let info = {
-            let mut encoder = BinEncoder::new(&mut bytes);
-            response.destructive_emit(&mut encoder).or_else(|error| {
-                error!(%error, "error encoding message");
-                encode_fallback_servfail_response(id, &mut bytes)
-            })?
-        };
+        let (info, bytes) = response.encode(Protocol::Quic)?;
         let bytes = Bytes::from(bytes);
 
         debug!("sending quic response: {}", bytes.len());
