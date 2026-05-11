@@ -104,7 +104,7 @@ fmt:
     cargo ws exec cargo fmt -- --check
     cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-# Audit all depenedencies
+# Audit all dependencies
 audit: init-audit (check '--all-features')
     cargo audit --deny warnings
     cargo audit --file fuzz/Cargo.lock --deny warnings
