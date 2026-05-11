@@ -717,6 +717,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
             }
 
+            if config_group.is_empty() {
+                debug!(?zone, "no glue found for any nameservers for zone");
+                return Err(RecursorError::from(
+                    "no glue found for any nameservers for zone",
+                ));
+            }
+
             let servers = {
                 let mut cache = self.connection_cache.lock();
                 config_group

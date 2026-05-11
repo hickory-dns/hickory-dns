@@ -1083,6 +1083,115 @@ enabled = {}
     }
 }
 
+/// Regression test: when all glueless NS hostname lookups fail (e.g. transient
+/// network issue), the resolver must not cache the resulting empty NameServerPool.
+/// Previously, the empty pool was cached for the full NS TTL (up to 24 hours),
+/// causing SERVFAIL for every subsequent query under that zone.
+/// See: RFC 9520 section 3 — resolution failures must not be cached > 5 minutes.
+#[tokio::test]
+async fn empty_ns_pool_not_cached_on_glueless_failure() -> Result<(), NetError> {
+    subscribe();
+
+    let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    // Glueless: NS hostname is in a different zone (otherdomain.testing.)
+    let off_domain_zone = Name::from_ascii("otherdomain.testing.")?;
+    let off_domain_ns = Name::from_ascii("ns.otherdomain.testing.")?;
+    let off_domain_ip = IpAddr::V4(Ipv4Addr::new(10, 0, 5, 1));
+
+    let responses = vec![
+        // Root -> TLD delegation (with glue)
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        // TLD -> leaf zone delegation, glueless NS in otherdomain.testing.
+        MockRecord::ns(TLD_IP, &leaf_zone, &off_domain_ns),
+        // TLD -> otherdomain.testing. delegation (with glue)
+        MockRecord::ns(TLD_IP, &off_domain_zone, &off_domain_ns),
+        MockRecord::a(TLD_IP, &off_domain_ns, off_domain_ip)
+            .with_query_name(&off_domain_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        // otherdomain.testing. SOA for NS query that has no zone cut
+        MockRecord::soa(
+            off_domain_ip,
+            &off_domain_ns,
+            &off_domain_zone,
+            &off_domain_ns,
+        )
+        .with_query_name(&off_domain_ns)
+        .with_query_type(RecordType::NS),
+        // otherdomain.testing. authoritative: ns.otherdomain.testing. A record
+        MockRecord::a(off_domain_ip, &off_domain_ns, LEAF_IP),
+        // Leaf zone authoritative answer
+        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
+    ];
+
+    // Use a counter to make the first A lookup for ns.otherdomain.testing. fail
+    let counter = Arc::new(AtomicU8::new(0));
+    let off_domain_ns_clone = off_domain_ns.clone();
+
+    let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+        move |destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+            if destination == off_domain_ip
+                && msg.queries[0].name == off_domain_ns_clone
+                && msg.queries[0].query_type == RecordType::A
+            {
+                let count = counter.fetch_add(1, Ordering::Relaxed);
+                if count == 0 {
+                    // First attempt: simulate transient failure
+                    msg.answers.clear();
+                    msg.metadata.response_code = ResponseCode::ServFail;
+                }
+                // Second+ attempts: return the real response
+            }
+        },
+    ));
+
+    let provider = MockProvider::new(handler);
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ..RecursorOptions::default()
+        },
+        provider,
+    )?;
+
+    let now = Instant::now();
+
+    // First query: glueless NS hostname lookup fails -> should error
+    let result = recursor
+        .resolve(Query::query(query_name.clone(), RecordType::A), now, false)
+        .await;
+    assert!(
+        result.is_err(),
+        "first query should fail due to NS hostname lookup failure"
+    );
+
+    // Second query: NS hostname lookup now succeeds -> should succeed.
+    // This verifies that the empty pool was NOT cached from the first failure.
+    // Advance past the RFC 9520 failure cache TTL so the cached SERVFAIL expires.
+    let result = recursor
+        .resolve(
+            Query::query(query_name.clone(), RecordType::A),
+            now + Duration::from_secs(2),
+            false,
+        )
+        .await;
+    assert!(
+        result.is_ok(),
+        "second query should succeed because empty pool was not cached: {result:?}"
+    );
+
+    Ok(())
+}
+
 mod ghost_domain;
 
 const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
