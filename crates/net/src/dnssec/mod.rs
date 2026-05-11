@@ -131,27 +131,27 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         self
     }
 
-    /// Set custom negative response validation cache TTL range
+    /// Set custom invalid response validation cache TTL range
     ///
     /// # Arguments
-    /// * `ttl` - A range of permissible TTL values for negative responses.
+    /// * `ttl` - A range of permissible TTL values for DNSSEC validation failures (bogus/invalid responses).
     ///
     /// Validation cache TTLs are based on the Rrset TTL value, but will be clamped to
-    /// this value, if specified, for negative responses.
-    pub fn negative_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
-        self.validation_cache.negative_ttl = Some(ttl);
+    /// this value, if specified, for responses that fail DNSSEC validation.
+    pub fn invalid_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
+        self.validation_cache.invalid_ttl = Some(ttl);
         self
     }
 
-    /// Set custom positive response validation cache TTL range
+    /// Set custom valid response validation cache TTL range
     ///
     /// # Arguments
-    /// * `ttl` - A range of permissible TTL values for positive responses.
+    /// * `ttl` - A range of permissible TTL values for DNSSEC validation successes (valid responses).
     ///
     /// Validation cache TTLs are based on the Rrset TTL value, but will be clamped to
-    /// this value, if specified, for positive responses.
-    pub fn positive_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
-        self.validation_cache.positive_ttl = Some(ttl);
+    /// this value, if specified, for responses that pass DNSSEC validation.
+    pub fn valid_validation_ttl(mut self, ttl: RangeInclusive<Duration>) -> Self {
+        self.validation_cache.valid_ttl = Some(ttl);
         self
     }
 
@@ -1429,16 +1429,16 @@ struct RrsetProof {
 #[allow(clippy::type_complexity)]
 struct ValidationCache {
     inner: Arc<Mutex<LruCache<ValidationCacheKey, (Instant, Result<RrsetProof, ProofError>)>>>,
-    negative_ttl: Option<RangeInclusive<Duration>>,
-    positive_ttl: Option<RangeInclusive<Duration>>,
+    invalid_ttl: Option<RangeInclusive<Duration>>,
+    valid_ttl: Option<RangeInclusive<Duration>>,
 }
 
 impl ValidationCache {
     fn new(capacity: usize) -> Self {
         Self {
             inner: Arc::new(Mutex::new(LruCache::new(capacity))),
-            negative_ttl: None,
-            positive_ttl: None,
+            invalid_ttl: None,
+            valid_ttl: None,
         }
     }
 
@@ -1480,11 +1480,11 @@ impl ValidationCache {
 
         let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
         if proof.is_err() {
-            if let Some(negative_bounds) = self.negative_ttl.clone() {
-                (min, max) = negative_bounds.into_inner();
+            if let Some(invalid_bounds) = self.invalid_ttl.clone() {
+                (min, max) = invalid_bounds.into_inner();
             }
-        } else if let Some(positive_bounds) = self.positive_ttl.clone() {
-            (min, max) = positive_bounds.into_inner();
+        } else if let Some(valid_bounds) = self.valid_ttl.clone() {
+            (min, max) = valid_bounds.into_inner();
         }
 
         let Some(record) = cx.rrset.record() else {
