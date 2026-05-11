@@ -186,7 +186,7 @@ impl std::ops::Deref for ResponseInfo {
     }
 }
 
-/// Trait for handling incoming requests, and providing a message response.
+/// Trait for handling incoming requests and sending the response through a response handle.
 #[async_trait::async_trait]
 pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
@@ -199,7 +199,7 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
         &self,
         request: &Request,
         response_handle: R,
-    ) -> ResponseInfo;
+    );
 }
 
 #[cfg(test)]

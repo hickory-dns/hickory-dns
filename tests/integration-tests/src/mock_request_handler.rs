@@ -9,7 +9,7 @@ use hickory_proto::{
     rr::{LowerName, Name, RecordType},
 };
 use hickory_server::{
-    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
+    server::{Request, RequestHandler, ResponseHandler},
     zone_handler::MessageResponseBuilder,
 };
 use tracing::error;
@@ -47,44 +47,38 @@ impl RequestHandler for MockHandler {
         &self,
         request: &Request,
         mut response_handle: R,
-    ) -> ResponseInfo {
+    ) {
         let request_info = request.request_info().unwrap();
         if request_info.query.name() == &self.query_name
             && request_info.query.query_type() == self.query_type
         {
-            send_response(response_handle, request, &self.response).await
+            send_response(response_handle, request, &self.response).await;
         } else if request_info.query.name() == &self.dnskey_name
             && request_info.query.query_type() == RecordType::DNSKEY
         {
-            send_response(response_handle, request, &self.dnskey_response).await
+            send_response(response_handle, request, &self.dnskey_response).await;
         } else {
             error!(query = ?request_info.query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
-            let mut response_meta = Metadata::response_from_request(&request.metadata);
-            response_meta.response_code = ResponseCode::ServFail;
+            let response_meta = Metadata::response_from_request(&request.metadata);
             let result = response_handle
                 .send_response(response_builder.build_no_records(response_meta))
                 .await;
             if let Err(e) = result {
                 error!(error = %e, "error responding to request");
             }
-            ResponseInfo::from(Header {
-                metadata: response_meta,
-                counts: HeaderCounts::default(),
-            })
         }
     }
 }
 
 /// Helper for implementation of `RequestHandler`.
 ///
-/// Turns a `DnsResponse` into a `MessageResponse`, performs error handling, and produces a
-/// `ResponseInfo`.
+/// Turns a `DnsResponse` into a `MessageResponse`, performs error handling, and sends it.
 async fn send_response(
     mut response_handle: impl ResponseHandler,
     request: &Request,
     response: &DnsResponse,
-) -> ResponseInfo {
+) {
     let mut response_meta = response.metadata;
     response_meta.id = request.metadata.id;
 
@@ -100,22 +94,8 @@ async fn send_response(
         &response.additionals,
     );
 
-    let result = response_handle.send_response(message_response).await;
-    match result {
-        Ok(info) => info,
-        Err(e) => {
-            error!(error = %e, "error responding to request");
-            let mut metadata = Metadata::new(
-                request.metadata.id,
-                MessageType::Response,
-                request.metadata.op_code,
-            );
-            metadata.response_code = ResponseCode::ServFail;
-            ResponseInfo::from(Header {
-                metadata,
-                counts: HeaderCounts::default(),
-            })
-        }
+    if let Err(e) = response_handle.send_response(message_response).await {
+        error!(error = %e, "error responding to request");
     }
 }
 
