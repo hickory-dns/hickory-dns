@@ -37,40 +37,6 @@ use crate::{
 pub type TlsClientStream<S> =
     TcpClientStream<AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>>>;
 
-/// Create a new [`DnsExchange`] wrapped around a multiplexed [`TlsClientStream`]
-///
-/// # Arguments
-///
-/// * `remote_addr` - Address of the remote nameserver
-/// * `server_name` - TLS server name for certificate validation
-/// * `config` - TLS client configuration
-/// * `timeout` - Timeout for requests
-/// * `connect_timeout` - Timeout for the TCP connect step
-/// * `max_active_requests` - Optional limit on concurrent in-flight requests.
-///   If `None`, uses the default (32).
-/// * `provider` - Runtime provider for spawning background tasks
-pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
-    remote_addr: SocketAddr,
-    server_name: ServerName<'static>,
-    config: ClientConfig,
-    timeout: Duration,
-    connect_timeout: Duration,
-    max_active_requests: Option<usize>,
-    provider: P,
-) -> Result<DnsExchange<P>, NetError> {
-    tls_exchange_with_bind_addr(
-        remote_addr,
-        None,
-        server_name,
-        config,
-        timeout,
-        connect_timeout,
-        max_active_requests,
-        provider,
-    )
-    .await
-}
-
 /// Create a new [`DnsExchange`] wrapped around a multiplexed [`TlsClientStream`],
 /// optionally binding the underlying TCP socket to a local address.
 ///
@@ -86,7 +52,7 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
 ///   If `None`, uses the default (32).
 /// * `provider` - Runtime provider for spawning background tasks
 #[allow(clippy::too_many_arguments)]
-pub async fn tls_exchange_with_bind_addr<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
+pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     remote_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     server_name: ServerName<'static>,
