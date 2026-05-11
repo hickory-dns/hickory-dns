@@ -1180,7 +1180,7 @@ fn verify_rrsig_with_keys(
 /// Expansion, RFC 5155 B.3 - Referral to an Opt-Out Unsigned Zone, and B.4 - Wildcard Expansion.
 fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
     for record in &verified_message.authorities {
-        if record.record_type() == RecordType::SOA {
+        if record.record_type() == RecordType::SOA && record.proof == Proof::Secure {
             return Some(&record.name);
         }
     }
@@ -1684,7 +1684,7 @@ fn verify_nsec(
     }
 
     let Some((covering_nsec_name, covering_nsec_data)) =
-        find_nsec_covering_record(soa_name, query.name(), nsecs)
+        find_nsec_covering_record(query.name(), nsecs)
     else {
         return nsec1_yield(
             Proof::Bogus,
@@ -1779,7 +1779,7 @@ fn verify_nsec(
             .map(|(name, _)| (*name).clone())
     };
 
-    match find_nsec_covering_record(soa_name, &wildcard_name, nsecs) {
+    match find_nsec_covering_record(&wildcard_name, nsecs) {
         // For NXDomain responses, we've already proved the record does not exist. Now we just need to prove
         // the wildcard name is covered.
         Some((_, _)) if response_code == ResponseCode::NXDomain && !have_answer => {
@@ -1796,7 +1796,7 @@ fn verify_nsec(
                     nsecs,
                     wildcard_base_name.as_ref(),
                 )
-                && find_nsec_covering_record(soa_name, query.name(), nsecs).is_some() =>
+                && find_nsec_covering_record(query.name(), nsecs).is_some() =>
         {
             nsec1_yield(
                 Proof::Secure,
@@ -1865,7 +1865,7 @@ fn no_closer_matches(
             return false;
         };
 
-        if find_nsec_covering_record(soa, &wildcard, nsecs).is_none() {
+        if find_nsec_covering_record(&wildcard, nsecs).is_none() {
             debug!(%wildcard, %name, ?nsecs, "covering record does not exist for name");
             return false;
         }
@@ -1877,8 +1877,11 @@ fn no_closer_matches(
 }
 
 /// Find the NSEC record covering `test_name`, if any.
+///
+/// A zone-wrap NSEC (the last record in the zone) is detected by checking
+/// that `next_domain_name <= nsec_name`, which is an intrinsic property of
+/// the NSEC chain and does not depend on the SOA owner name.
 fn find_nsec_covering_record<'a>(
-    soa_name: Option<&Name>,
     test_name: &Name,
     nsecs: &[(&'a Name, &'a NSEC)],
 ) -> Option<(&'a Name, &'a NSEC)> {
@@ -1890,9 +1893,9 @@ fn find_nsec_covering_record<'a>(
         }
 
         let next_domain_name = nsec_data.next_domain_name();
-
         test_name > nsec_name
-            && (test_name < next_domain_name || Some(next_domain_name) == soa_name)
+            && (test_name < next_domain_name
+                || next_domain_name <= nsec_name && next_domain_name.zone_of(test_name))
     })
 }
 
@@ -1935,7 +1938,7 @@ const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
 mod test {
     use std::time::{Duration, Instant};
 
-    use super::{no_closer_matches, verify_nsec};
+    use super::{find_nsec_covering_record, no_closer_matches, verify_nsec};
     use crate::{
         dnssec::{
             DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
@@ -2901,5 +2904,108 @@ mod test {
             lifetime <= Duration::from_secs(60 * 5),
             "Bogus validation cached for {lifetime:?}, must be <= 5m",
         );
+    }
+
+    /// Zone-wrap NSEC detection uses the intrinsic `next <= owner` property
+    /// instead of relying on the SOA owner name.
+    #[test]
+    fn find_nsec_covering_record_zone_wrap() -> Result<(), ProtoError> {
+        // A zone-wrap NSEC: last record in the zone points back to the zone apex.
+        // `record.example. NSEC example.` covers everything > record.example.
+        let nsec_name = Name::from_ascii("record.example.")?;
+        let nsec_data = rdataNSEC::new(Name::from_ascii("example.")?, [A, NSEC, RRSIG]);
+        let nsecs = [(&nsec_name, &nsec_data)];
+
+        // A name canonically after the NSEC owner should be covered by the wrap.
+        let covered = Name::from_ascii("zzzz.example.")?;
+        assert!(find_nsec_covering_record(&covered, &nsecs).is_some());
+
+        // A name canonically before the NSEC owner should NOT be covered.
+        let not_covered = Name::from_ascii("aaa.example.")?;
+        assert!(find_nsec_covering_record(&not_covered, &nsecs).is_none());
+
+        Ok(())
+    }
+
+    /// Confirm that a wraparound NSEC record from a different zone won't be accepted as a covering
+    /// NSEC record.
+    #[test]
+    fn find_nsec_covering_record_unrelated_zone() -> Result<(), ProtoError> {
+        subscribe();
+        // A zone-wrap NSEC record from a different zone.
+        let nsecs = [(
+            &Name::from_ascii("record.aaaaaa.")?,
+            &rdataNSEC::new(Name::from_ascii("aaaaaa.")?, [A, NSEC, RRSIG]),
+        )];
+
+        // This should fail to find a covering record since the the NSEC record and the target name
+        // are in different zones.
+        assert_eq!(
+            find_nsec_covering_record(&Name::from_ascii("zzzz.example.")?, &nsecs),
+            None
+        );
+
+        Ok(())
+    }
+
+    /// Regression test for forged-SOA NXDOMAIN attack.
+    ///
+    /// An attacker harvests a legitimate signed NSEC `a.zone. -> b.zone.` and
+    /// forges an unsigned SOA with owner `b.zone.` (the NSEC's next field).
+    /// The old code would treat the gap NSEC as the zone-wrap record because
+    /// `next == soa_name`, accepting the forged denial. The fix detects wrap
+    /// via `next <= owner` which is false for `b > a`, so the NSEC does NOT
+    /// cover the target and the proof must be Bogus.
+    #[test]
+    fn forged_soa_nxdomain_attack() -> Result<(), ProtoError> {
+        subscribe();
+
+        // Attacker-replayed NSEC: a.zone.test. -> b.zone.test.
+        // This is NOT a zone-wrap NSEC because b > a.
+        let nsec_name = Name::from_ascii("a.zone.test.")?;
+        let nsec_data = rdataNSEC::new(Name::from_ascii("b.zone.test.")?, [A, NSEC, RRSIG]);
+        let nsecs = [(&nsec_name, &nsec_data)];
+
+        // Target: target.zone.test. (canonically > b.zone.test.)
+        // The forged SOA has owner b.zone.test., so old code would match.
+        // With the fix, this NSEC does not cover the target.
+        let target = Name::from_ascii("target.zone.test.")?;
+        assert!(find_nsec_covering_record(&target, &nsecs).is_none());
+
+        // Full verify_nsec must also reject the forged denial.
+        // The attacker's forged SOA at b.zone.test. is not Proof::Secure,
+        // so find_soa_name won't return it. Even passing the forged SOA name
+        // directly, the proof should be Bogus.
+        assert_eq!(
+            verify_nsec(
+                &Query::query(Name::from_ascii("target.zone.test.")?, A),
+                Some(&Name::from_ascii("b.zone.test.")?),
+                ResponseCode::NXDomain,
+                &[],
+                &[(&nsec_name, &nsec_data)],
+            ),
+            Proof::Bogus
+        );
+
+        Ok(())
+    }
+
+    /// Ensure that the forged-SOA attack also fails for wildcard coverage.
+    #[test]
+    fn forged_soa_wildcard_attack() -> Result<(), ProtoError> {
+        subscribe();
+
+        // The attacker uses the same NSEC a.zone.test. -> b.zone.test. and
+        // a forged SOA at b.zone.test. to try to prove wildcard non-existence.
+        let nsec_name = Name::from_ascii("a.zone.test.")?;
+        let nsec_data = rdataNSEC::new(Name::from_ascii("b.zone.test.")?, [A, NSEC, RRSIG]);
+        let nsecs = [(&nsec_name, &nsec_data)];
+
+        // *.zone.test. is canonically > b.zone.test. so the old code would
+        // have treated the NSEC as covering it via the forged SOA match.
+        let wildcard = Name::from_ascii("*.zone.test.")?;
+        assert!(find_nsec_covering_record(&wildcard, &nsecs).is_none());
+
+        Ok(())
     }
 }
