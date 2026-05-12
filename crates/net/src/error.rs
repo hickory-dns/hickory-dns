@@ -263,78 +263,91 @@ impl DnsError {
         debug!("response: {}", *response);
 
         match response.response_code {
-                Refused => Err(Self::ResponseCode(Refused)),
-                code @ ServFail
-                | code @ FormErr
-                | code @ NotImp
-                | code @ YXDomain
-                | code @ YXRRSet
-                | code @ NXRRSet
-                | code @ NotAuth
-                | code @ NotZone
-                | code @ BADVERS
-                | code @ BADSIG
-                | code @ BADKEY
-                | code @ BADTIME
-                | code @ BADMODE
-                | code @ BADNAME
-                | code @ BADALG
-                | code @ BADTRUNC
-                | code @ BADCOOKIE => Err(Self::ResponseCode(code)),
-                // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
-                code @ NXDomain |
-                // No answers are available, CNAME referrals are not failures
-                code @ NoError
-                if !response.contains_answer() && !response.truncation => {
-                    let soa = response.soa().as_ref().map(RecordRef::to_owned);
+            Refused => Err(Self::ResponseCode(Refused)),
+            code @ ServFail
+            | code @ FormErr
+            | code @ NotImp
+            | code @ YXDomain
+            | code @ YXRRSet
+            | code @ NXRRSet
+            | code @ NotAuth
+            | code @ NotZone
+            | code @ BADVERS
+            | code @ BADSIG
+            | code @ BADKEY
+            | code @ BADTIME
+            | code @ BADMODE
+            | code @ BADNAME
+            | code @ BADALG
+            | code @ BADTRUNC
+            | code @ BADCOOKIE => Err(Self::ResponseCode(code)),
+            // Handle name error and no data responses. Some NXDOMAIN responses contain CNAME
+            // referrals, that will not be an error. In the no data case, no answers are available,
+            // CNAME referrals are not failures.
+            code @ NXDomain | code @ NoError
+                if !response.contains_answer() && !response.truncation =>
+            {
+                let soa = response.soa().as_ref().map(RecordRef::to_owned);
 
-                    // Collect any referral nameservers and associated glue records
-                    let mut referral_name_servers = vec![];
-                    for ns in response.authorities.iter().filter(|ns| ns.record_type() == RecordType::NS) {
-                        let glue = response
-                            .additionals
-                            .iter()
-                            .filter_map(|record| {
-                                if let RData::NS(ns_data) = &ns.data {
-                                    if record.name == **ns_data && matches!(&record.data, RData::A(_) | RData::AAAA(_)) {
-                                        return Some(Record::to_owned(record));
-                                    }
+                // Collect any referral nameservers and associated glue records
+                let mut referral_name_servers = vec![];
+                let iter = response
+                    .authorities
+                    .iter()
+                    .filter(|ns| ns.record_type() == RecordType::NS);
+                for ns in iter {
+                    let glue = response
+                        .additionals
+                        .iter()
+                        .filter_map(|record| {
+                            if let RData::NS(ns_data) = &ns.data {
+                                if record.name == **ns_data
+                                    && matches!(&record.data, RData::A(_) | RData::AAAA(_))
+                                {
+                                    return Some(Record::to_owned(record));
                                 }
+                            }
 
-                                None
-                            })
-                            .collect::<Vec<Record>>();
-                        referral_name_servers.push(ForwardNSData { ns: Record::to_owned(ns), glue: glue.into() })
-                    }
-
-                    let option_ns = if !referral_name_servers.is_empty() {
-                        Some(referral_name_servers.into())
-                    } else {
-                        None
-                    };
-
-                    let authorities = if !response.authorities.is_empty() {
-                        Some(response.authorities.to_owned().into())
-                    } else {
-                        None
-                    };
-
-                    let negative_ttl = response.negative_ttl();
-                    let query = response.into_message().queries.drain(..).next().unwrap_or_else(Query::root);
-
-                    Err(Self::NoRecordsFound(NoRecords {
-                        query: Box::new(query),
-                        soa: soa.map(Box::new),
-                        ns: option_ns,
-                        negative_ttl,
-                        response_code: code,
-                        authorities,
-                    }))
+                            None
+                        })
+                        .collect::<Vec<Record>>();
+                    referral_name_servers.push(ForwardNSData {
+                        ns: Record::to_owned(ns),
+                        glue: glue.into(),
+                    })
                 }
-                NXDomain
-                | NoError
-                | Unknown(_) => Ok(response),
+
+                let option_ns = if !referral_name_servers.is_empty() {
+                    Some(referral_name_servers.into())
+                } else {
+                    None
+                };
+
+                let authorities = if !response.authorities.is_empty() {
+                    Some(response.authorities.to_owned().into())
+                } else {
+                    None
+                };
+
+                let negative_ttl = response.negative_ttl();
+                let query = response
+                    .into_message()
+                    .queries
+                    .drain(..)
+                    .next()
+                    .unwrap_or_else(Query::root);
+
+                Err(Self::NoRecordsFound(NoRecords {
+                    query: Box::new(query),
+                    soa: soa.map(Box::new),
+                    ns: option_ns,
+                    negative_ttl,
+                    response_code: code,
+                    authorities,
+                }))
             }
+            NXDomain | NoError | Unknown(_) => Ok(response),
+        }
     }
 }
 
