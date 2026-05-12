@@ -469,13 +469,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 && response.authorities.is_empty()
                 && authorities_len != 0)
         {
-            return Err(RecursorError::Negative(AuthorityData::new(
-                Box::new(query),
-                None,
-                false,
-                true,
-                None,
-            )));
+            return Err(RecursorError::Negative(AuthorityData {
+                query: Box::new(query),
+                soa: None,
+                no_records_found: false,
+                nx_domain: true,
+                authorities: None,
+            }));
         }
 
         let message = response.into_message();
