@@ -200,7 +200,7 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
         &self,
         request: &Request,
         response_handle: R,
-    ) -> ResponseInfo;
+    );
 }
 
 #[cfg(test)]
