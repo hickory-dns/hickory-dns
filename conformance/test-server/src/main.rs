@@ -23,26 +23,7 @@ mod zone_file;
 async fn main() -> Result<()> {
     let args = Args::parse();
     let transport = args.transport;
-    let handler: &dyn Handler = match args.handler {
-        HandlerArg::Bailiwick => &handlers::bailiwick_handler,
-        HandlerArg::Base => &handlers::base_handler,
-        HandlerArg::BadCase => &handlers::bad_case_handler,
-        HandlerArg::BadTxid => &handlers::bad_txid_handler,
-        HandlerArg::CnameLoop => &handlers::cname_loop_handler,
-        HandlerArg::EmptyResponse => &handlers::empty_response_handler,
-        HandlerArg::Nsec3Nocover => &handlers::nsec3_nocover_handler,
-        HandlerArg::ParentNsInAuthority => &handlers::parent_ns_in_authority_handler,
-        HandlerArg::PacketLoss => &handlers::packet_loss_handler,
-        HandlerArg::TruncatedResponse => &handlers::truncated_response_handler,
-        HandlerArg::QrNotResponse => &handlers::qr_not_response_handler,
-        HandlerArg::QrNotResponseForceTcp => &handlers::qr_not_response_force_tcp_handler,
-        HandlerArg::DropRrset {
-            ip_address,
-            name,
-            record_type,
-        } => DROP_HANDLER
-            .get_or_init(|| handlers::DropRrsetHandler::new(ip_address, name, record_type)),
-    };
+    let handler = args.handler.into_handler();
 
     let mut handles = vec![];
     if transport == TransportArg::Tcp || transport == TransportArg::Both {
@@ -59,8 +40,6 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
-static DROP_HANDLER: OnceLock<handlers::DropRrsetHandler> = OnceLock::new();
 
 #[derive(Parser)]
 #[clap(name = "Message responder test DNS server")]
@@ -101,6 +80,33 @@ enum HandlerArg {
         record_type: RecordType,
     },
 }
+
+impl HandlerArg {
+    fn into_handler(self) -> &'static dyn Handler {
+        match self {
+            Self::Bailiwick => &handlers::bailiwick_handler,
+            Self::Base => &handlers::base_handler,
+            Self::BadCase => &handlers::bad_case_handler,
+            Self::BadTxid => &handlers::bad_txid_handler,
+            Self::CnameLoop => &handlers::cname_loop_handler,
+            Self::EmptyResponse => &handlers::empty_response_handler,
+            Self::Nsec3Nocover => &handlers::nsec3_nocover_handler,
+            Self::ParentNsInAuthority => &handlers::parent_ns_in_authority_handler,
+            Self::PacketLoss => &handlers::packet_loss_handler,
+            Self::TruncatedResponse => &handlers::truncated_response_handler,
+            Self::QrNotResponse => &handlers::qr_not_response_handler,
+            Self::QrNotResponseForceTcp => &handlers::qr_not_response_force_tcp_handler,
+            Self::DropRrset {
+                ip_address,
+                name,
+                record_type,
+            } => DROP_HANDLER
+                .get_or_init(|| handlers::DropRrsetHandler::new(ip_address, name, record_type)),
+        }
+    }
+}
+
+static DROP_HANDLER: OnceLock<handlers::DropRrsetHandler> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,
