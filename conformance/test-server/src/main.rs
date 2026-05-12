@@ -28,11 +28,11 @@ async fn main() -> Result<()> {
     let mut handles = vec![];
     if transport == TransportArg::Tcp || transport == TransportArg::Both {
         let tcp = TcpServer::new(([0, 0, 0, 0], args.port).into()).await?;
-        handles.push(tokio::task::spawn(async move { tcp.run(handler).await }));
+        handles.push(tokio::spawn(async move { tcp.run(handler).await }));
     }
     if transport == TransportArg::Udp || transport == TransportArg::Both {
         let udp = UdpServer::new(([0, 0, 0, 0], args.port).into()).await?;
-        handles.push(tokio::task::spawn(async move { udp.run(handler).await }));
+        handles.push(tokio::spawn(async move { udp.run(handler).await }));
     }
 
     println!("TEST SERVER STARTED");
@@ -177,7 +177,7 @@ impl TcpServer {
     async fn run(self, handler: &'static dyn Handler) -> Result<()> {
         loop {
             let (stream, peer) = self.tcp.accept().await?;
-            tokio::task::spawn(async move {
+            tokio::spawn(async move {
                 let (mut stream, mut sender) =
                     TcpStream::from_stream(AsyncIoTokioAsStd(stream), peer);
 
@@ -285,13 +285,13 @@ mod test {
     async fn multiple_tcp_msg() -> Result<()> {
         let tcp = super::TcpServer::new((Ipv4Addr::LOCALHOST, 0).into()).await?;
         let tcp_peer = tcp.addr()?;
-        let _handle = tokio::task::spawn(tcp.run(&base_handler));
+        let _handle = tokio::spawn(tcp.run(&base_handler));
 
         let (future, sender) =
             TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
 
         let (mut client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
-        let _handle = tokio::task::spawn(bg);
+        let _handle = tokio::spawn(bg);
 
         let query = client.query(
             Name::from_str("foo.example.com.").unwrap(),
@@ -323,20 +323,20 @@ mod test {
             Transport::Tcp => {
                 let tcp = super::TcpServer::new(socket).await?;
                 let tcp_peer = tcp.addr()?;
-                let _handle = tokio::task::spawn(tcp.run(&base_handler));
+                let _handle = tokio::spawn(tcp.run(&base_handler));
                 let (future, sender) =
                     TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
                 let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
-                let _handle = tokio::task::spawn(bg);
+                let _handle = tokio::spawn(bg);
                 client
             }
             Transport::Udp => {
                 let udp = super::UdpServer::new(socket).await?;
                 let udp_peer = udp.addr()?;
-                let _handle = tokio::task::spawn(udp.run(&base_handler));
+                let _handle = tokio::spawn(udp.run(&base_handler));
                 let conn = UdpClientStream::builder(udp_peer, TokioRuntimeProvider::new()).build();
                 let (client, bg) = Client::from_sender(conn);
-                let _handle = tokio::task::spawn(bg);
+                let _handle = tokio::spawn(bg);
                 client
             }
         };
