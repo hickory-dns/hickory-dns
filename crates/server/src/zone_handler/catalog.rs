@@ -66,7 +66,7 @@ impl RequestHandler for Catalog {
         &self,
         request: &Request,
         response_handle: R,
-    ) -> ResponseInfo {
+    ) {
         trace!("request: {:?}", request);
 
         let mut resp_edns: Edns;
@@ -88,13 +88,14 @@ impl RequestHandler for Catalog {
                     our_version,
                     req_edns.version()
                 );
-                return send_error_response(
+                send_error_response(
                     request,
                     ResponseCode::BADVERS,
                     Some(&resp_edns),
                     response_handle,
                 )
                 .await;
+                return;
             }
 
             // RFC 5001 "DNS Name Server Identifier (NSID) Option" handling.
@@ -133,12 +134,12 @@ impl RequestHandler for Catalog {
                 OpCode::Query => {
                     debug!("query received: {}", request.metadata.id);
                     self.lookup(request, response_edns, now, response_handle)
-                        .await
+                        .await;
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.metadata.id);
                     self.update(request, response_edns, now, response_handle)
-                        .await
+                        .await;
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
@@ -148,7 +149,7 @@ impl RequestHandler for Catalog {
                         response_edns,
                         response_handle,
                     )
-                    .await
+                    .await;
                 }
             },
             MessageType::Response => {
@@ -162,7 +163,7 @@ impl RequestHandler for Catalog {
                     response_edns,
                     response_handle,
                 )
-                .await
+                .await;
             }
         }
     }

@@ -47,16 +47,16 @@ impl RequestHandler for MockHandler {
         &self,
         request: &Request,
         mut response_handle: R,
-    ) -> ResponseInfo {
+    ) {
         let request_info = request.request_info();
         if request_info.query.name() == &self.query_name
             && request_info.query.query_type() == self.query_type
         {
-            send_response(response_handle, request, &self.response).await
+            send_response(response_handle, request, &self.response).await;
         } else if request_info.query.name() == &self.dnskey_name
             && request_info.query.query_type() == RecordType::DNSKEY
         {
-            send_response(response_handle, request, &self.dnskey_response).await
+            send_response(response_handle, request, &self.dnskey_response).await;
         } else {
             error!(query = ?request_info.query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
@@ -68,10 +68,6 @@ impl RequestHandler for MockHandler {
             if let Err(e) = result {
                 error!(error = %e, "error responding to request");
             }
-            ResponseInfo::from(Header {
-                metadata: response_meta,
-                counts: HeaderCounts::default(),
-            })
         }
     }
 }
