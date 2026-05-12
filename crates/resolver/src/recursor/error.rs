@@ -101,7 +101,7 @@ impl RecursorError {
     pub fn is_no_records_found(&self) -> bool {
         match self {
             Self::Net(net) => net.is_no_records_found(),
-            Self::Negative(fwd) => fwd.is_no_records_found(),
+            Self::Negative(fwd) => fwd.no_records_found,
             _ => false,
         }
     }
@@ -110,7 +110,7 @@ impl RecursorError {
     pub fn is_nx_domain(&self) -> bool {
         match self {
             Self::Net(net) => net.is_nx_domain(),
-            Self::Negative(fwd) => fwd.is_nx_domain(),
+            Self::Negative(fwd) => fwd.nx_domain,
             _ => false,
         }
     }
@@ -133,13 +133,13 @@ impl From<NetError> for RecursorError {
         if let Some(ns) = no_records.ns {
             Self::ForwardNS(ns)
         } else {
-            Self::Negative(AuthorityData::new(
-                no_records.query,
-                no_records.soa,
-                true,
-                matches!(no_records.response_code, ResponseCode::NXDomain),
-                no_records.authorities,
-            ))
+            Self::Negative(AuthorityData {
+                query: no_records.query,
+                soa: no_records.soa,
+                no_records_found: true,
+                nx_domain: matches!(no_records.response_code, ResponseCode::NXDomain),
+                authorities: no_records.authorities,
+            })
         }
     }
 }
@@ -199,45 +199,16 @@ pub struct AuthorityData {
     /// SOA
     pub soa: Option<Box<Record<SOA>>>,
     /// No records found?
-    no_records_found: bool,
+    pub no_records_found: bool,
     /// IS nx domain?
-    nx_domain: bool,
+    pub nx_domain: bool,
     /// Authority records
     pub authorities: Option<Arc<[Record]>>,
 }
 
-impl AuthorityData {
-    /// Construct a new AuthorityData
-    pub fn new(
-        query: Box<Query>,
-        soa: Option<Box<Record<SOA>>>,
-        no_records_found: bool,
-        nx_domain: bool,
-        authorities: Option<Arc<[Record]>>,
-    ) -> Self {
-        Self {
-            query,
-            soa,
-            no_records_found,
-            nx_domain,
-            authorities,
-        }
-    }
-
-    /// are there records?
-    pub fn is_no_records_found(&self) -> bool {
-        self.no_records_found
-    }
-
-    /// is this nxdomain?
-    pub fn is_nx_domain(&self) -> bool {
-        self.nx_domain
-    }
-}
-
 impl From<AuthorityData> for NoRecords {
     fn from(data: AuthorityData) -> Self {
-        let response_code = match data.is_nx_domain() {
+        let response_code = match data.nx_domain {
             true => ResponseCode::NXDomain,
             false => ResponseCode::NoError,
         };
