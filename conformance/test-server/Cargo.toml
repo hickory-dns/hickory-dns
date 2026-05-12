@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-base64 = { workspace = true }
 clap = { workspace = true, features = ["derive", "std"] }
 data-encoding = { workspace = true }
 futures = { workspace = true, default-features = false }
