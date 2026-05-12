@@ -286,8 +286,6 @@ impl DnsError {
                 // No answers are available, CNAME referrals are not failures
                 code @ NoError
                 if !response.contains_answer() && !response.truncation => {
-                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                    // let valid_until = if response.authoritative() { now + response.negative_ttl() };
                     let soa = response.soa().as_ref().map(RecordRef::to_owned);
 
                     // Collect any referral nameservers and associated glue records
