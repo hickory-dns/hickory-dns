@@ -1,7 +1,6 @@
 use std::{fs, path::Path};
 
-use base64::prelude::*;
-use data_encoding::{BASE32_DNSSEC, HEXUPPER};
+use data_encoding::{BASE32_DNSSEC, BASE64, HEXUPPER};
 use hickory_proto::{
     dnssec::{
         Algorithm, Nsec3HashAlgorithm, PublicKeyBuf,
@@ -85,7 +84,7 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
             "RRSIG" => {
                 let date_format = format_description!("[year][month][day][hour][minute][second]");
                 let sig_base64 = tokens[12..].join("");
-                let sig_bytes = &BASE64_STANDARD
+                let sig_bytes = &BASE64
                     .decode(sig_base64.as_bytes())
                     .map_err(|e| format!("RRSIG signature decode error: {e:?}"))?;
 
@@ -194,7 +193,7 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
             }
             "DNSKEY" => {
                 let key_base64 = tokens[7..].join("");
-                let key_bytes = &BASE64_STANDARD.decode(key_base64.as_bytes()).map_err(|e| {
+                let key_bytes = &BASE64.decode(key_base64.as_bytes()).map_err(|e| {
                     format!("DNSKEY base64 key decode error: {e:?} for {key_base64}")
                 })?;
 

@@ -92,7 +92,6 @@ criterion = { version = "0.8.2", features = ["async_tokio"] }
 
 # others
 anyhow = "1"
-base64 = "0.22"
 bitflags = "2.4.1"
 bytes = "1"
 cfg-if = "1"
