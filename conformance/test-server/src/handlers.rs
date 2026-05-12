@@ -646,7 +646,7 @@ pub(crate) struct DropRrsetHandler {
 }
 
 impl DropRrsetHandler {
-    pub(crate) fn new(ip_address: IpAddr, name: Name, record_type: RecordType) -> Self {
+    pub(crate) const fn new(ip_address: IpAddr, name: Name, record_type: RecordType) -> Self {
         Self {
             ip_address,
             name,
