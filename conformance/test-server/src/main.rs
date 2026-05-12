@@ -17,6 +17,12 @@ use hickory_proto::{
 use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
+use handlers::{
+    DropRrsetHandler, bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
+    cname_loop_handler, empty_response_handler, nsec3_nocover_handler, packet_loss_handler,
+    parent_ns_in_authority_handler, qr_not_response_force_tcp_handler, qr_not_response_handler,
+    truncated_response_handler,
+};
 mod zone_file;
 
 #[tokio::main]
@@ -84,29 +90,28 @@ enum HandlerArg {
 impl HandlerArg {
     fn into_handler(self) -> &'static dyn Handler {
         match self {
-            Self::Bailiwick => &handlers::bailiwick_handler,
-            Self::Base => &handlers::base_handler,
-            Self::BadCase => &handlers::bad_case_handler,
-            Self::BadTxid => &handlers::bad_txid_handler,
-            Self::CnameLoop => &handlers::cname_loop_handler,
-            Self::EmptyResponse => &handlers::empty_response_handler,
-            Self::Nsec3Nocover => &handlers::nsec3_nocover_handler,
-            Self::ParentNsInAuthority => &handlers::parent_ns_in_authority_handler,
-            Self::PacketLoss => &handlers::packet_loss_handler,
-            Self::TruncatedResponse => &handlers::truncated_response_handler,
-            Self::QrNotResponse => &handlers::qr_not_response_handler,
-            Self::QrNotResponseForceTcp => &handlers::qr_not_response_force_tcp_handler,
+            Self::Bailiwick => &bailiwick_handler,
+            Self::Base => &base_handler,
+            Self::BadCase => &bad_case_handler,
+            Self::BadTxid => &bad_txid_handler,
+            Self::CnameLoop => &cname_loop_handler,
+            Self::EmptyResponse => &empty_response_handler,
+            Self::Nsec3Nocover => &nsec3_nocover_handler,
+            Self::ParentNsInAuthority => &parent_ns_in_authority_handler,
+            Self::PacketLoss => &packet_loss_handler,
+            Self::TruncatedResponse => &truncated_response_handler,
+            Self::QrNotResponse => &qr_not_response_handler,
+            Self::QrNotResponseForceTcp => &qr_not_response_force_tcp_handler,
             Self::DropRrset {
                 ip_address,
                 name,
                 record_type,
-            } => DROP_HANDLER
-                .get_or_init(|| handlers::DropRrsetHandler::new(ip_address, name, record_type)),
+            } => DROP_HANDLER.get_or_init(|| DropRrsetHandler::new(ip_address, name, record_type)),
         }
     }
 }
 
-static DROP_HANDLER: OnceLock<handlers::DropRrsetHandler> = OnceLock::new();
+static DROP_HANDLER: OnceLock<DropRrsetHandler> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,
@@ -259,7 +264,7 @@ mod test {
     };
     use hickory_proto::rr::{DNSClass, RData, RecordType, domain::Name, rdata};
 
-    use crate::{Transport, handlers::base_handler};
+    use crate::{Transport, base_handler};
 
     #[tokio::test]
     async fn tcp_msg() -> Result<()> {
