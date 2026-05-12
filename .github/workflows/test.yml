@@ -296,3 +296,30 @@ jobs:
 
       - name: Test android implementation
         run: just cross-test ${{ matrix.target }} hickory-resolver
+
+  minimal-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      # Install stable second so that it is the default toolchain.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: extractions/setup-just@v4
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-workspaces@${{ env.CARGO_WS_VERSION }}
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack@0.6.44
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-minimal-versions@0.1.37
+
+      - name: cargo-minimal-versions
+        run: just minimal-versions

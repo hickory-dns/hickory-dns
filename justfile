@@ -104,7 +104,7 @@ fmt:
     cargo ws exec cargo fmt -- --check
     cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-# Audit all depenedencies
+# Audit all dependencies
 audit: init-audit (check '--all-features')
     cargo audit --deny warnings
     cargo audit --file fuzz/Cargo.lock --deny warnings
@@ -322,3 +322,9 @@ init: init-cargo-workspaces init-audit
 # Run the server with example config, for manual testing purposes
 run-example:
     @cargo {{MSRV}} run --bin hickory-dns --locked -- -d -c {{TEST_DATA}}/test_configs/example.toml -z {{TEST_DATA}}/test_configs -p 2053
+
+# Check build with minimal versions of dependencies
+minimal-versions:
+    cargo ws exec "--ignore={hickory-integration,test-support,test-server}" cargo minimal-versions check --direct
+    cargo ws exec "--ignore={hickory-integration,test-support,test-server}" cargo minimal-versions check --direct --all-features
+    cargo ws exec "--ignore={hickory-integration,test-support,test-server}" cargo minimal-versions check --direct --no-default-features
