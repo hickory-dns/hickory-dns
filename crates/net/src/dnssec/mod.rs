@@ -17,7 +17,7 @@ use core::{
     time::Duration,
 };
 use std::{
-    collections::{HashMap, HashSet, hash_map::DefaultHasher},
+    collections::{HashMap, hash_map::DefaultHasher},
     sync::Arc,
     time::Instant,
 };
@@ -40,7 +40,9 @@ use crate::{
         op::{
             DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode,
         },
-        rr::{Name, RData, Record, RecordRef, RecordSet, RecordSetParts, RecordType, SerialNumber},
+        rr::{
+            LowerName, Name, RData, Record, RecordRef, RecordSet, RecordType, RrKey, SerialNumber,
+        },
     },
     runtime::{RuntimeProvider, Time},
     xfer::{FirstAnswer, dns_handle::DnsHandle},
@@ -358,66 +360,68 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         Ok(message)
     }
 
-    /// This pulls all answers returned in a Message response and returns a future which will
-    ///  validate all of them.
+    /// Validates signatures over record sets.
     async fn verify_rrsets(
         &self,
         query: &Query,
-        records: Vec<Record>,
+        mut records: Vec<Record>,
         options: DnsRequestOptions,
         current_time: u32,
     ) -> Vec<Record> {
-        let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
+        let mut rrsets = HashMap::<RrKey, Rrset<'_>>::new();
 
-        for rrset in records
-            .iter()
-            .filter(|rr| {
-                rr.record_type() != RecordType::RRSIG &&
-                // if we are at a depth greater than 1, we are only interested in proving evaluation chains
-                //   this means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
-                //   this protects against looping over things like NS records and DNSKEYs in responses.
-                // TODO: is there a cleaner way to prevent cycles in the evaluations?
-                (self.request_depth <= 1 || matches!(
-                    rr.record_type(),
-                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
-                ))
-            })
-            .map(|rr| (rr.name.clone(), rr.record_type()))
-        {
-            rrset_types.insert(rrset);
+        for record in records.iter_mut() {
+            let (is_rrsig, record_type) =
+                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &record.data {
+                    (true, rrsig.input().type_covered)
+                } else {
+                    (false, record.record_type())
+                };
+
+            // If we are at a depth greater than 1, we are only interested in proving evaluation chains.
+            // This means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
+            // This protects against looping over things like NS records and DNSKEYs in responses.
+            // TODO: is there a cleaner way to prevent cycles in the evaluations?
+            if self.request_depth > 1
+                && !matches!(
+                    record_type,
+                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3
+                )
+            {
+                continue;
+            }
+
+            let name = LowerName::new(&record.name);
+            let key = RrKey::new(name, record_type);
+            let entry = rrsets.entry(key);
+            let rrset = entry.or_default();
+            let vec = if is_rrsig {
+                &mut rrset.signatures
+            } else {
+                &mut rrset.records
+            };
+            vec.push(record);
         }
 
-        // there were no records to verify
-        if rrset_types.is_empty() {
+        // There were no records to verify.
+        if rrsets.is_empty() {
             return records;
         }
 
-        // Records for return, eventually, all records will be returned in here
-        let mut return_records = Vec::with_capacity(records.len());
+        for (key, rrset) in rrsets.iter_mut() {
+            let name = &key.name;
+            let record_type = key.record_type;
+            let rrset_records = &mut rrset.records;
+            let rrsigs = &mut rrset.signatures;
 
-        // Removing the RRSIGs from the original records, the rest of the records will be mutable to remove those evaluated
-        //    and the remainder after all evalutions will be returned.
-        let (mut rrsigs, mut records) = records
-            .into_iter()
-            .partition::<Vec<_>, _>(|r| r.record_type().is_rrsig());
-
-        for (name, record_type) in rrset_types {
-            // collect all the rrsets to verify
-            let current_rrset;
-            (current_rrset, records) = records
-                .into_iter()
-                .partition::<Vec<_>, _>(|rr| rr.record_type() == record_type && rr.name == name);
-
-            let current_rrsigs;
-            (current_rrsigs, rrsigs) = rrsigs.into_iter().partition::<Vec<_>, _>(|rr| {
-                rr.try_borrow::<RRSIG>()
-                    .map(|rr| rr.name() == &name && rr.data().input().type_covered == record_type)
-                    .unwrap_or_default()
-            });
-
-            let mut rrset = RecordSet::new(name.clone(), record_type, 0);
-            rrset.set_records(current_rrset);
-            rrset.set_rrsigs(current_rrsigs);
+            let mut rrset = RecordSet::new(name.into(), record_type, 0);
+            rrset.set_records(
+                rrset_records
+                    .iter()
+                    .map(|record| (*record).clone())
+                    .collect(),
+            );
+            rrset.set_rrsigs(rrsigs.iter().map(|record| (*record).clone()).collect());
 
             // TODO: support non-IN classes?
             debug!(
@@ -489,45 +493,27 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 rrsig_index: rrsig_idx,
             } = proof;
 
-            let RecordSetParts {
-                records: current_rrset,
-                rrsigs: current_rrsigs,
-                ..
-            } = rrset.into_parts();
-
-            for mut record in current_rrset {
+            for record in rrset_records {
                 record.proof = proof;
                 if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
                     record.ttl = ttl;
                 }
-
-                return_records.push(record);
             }
 
             // only mark the RRSIG used for the proof
-            let mut current_rrsigs = current_rrsigs;
             if let Some(rrsig_idx) = rrsig_idx {
-                if let Some(rrsig) = current_rrsigs.get_mut(rrsig_idx) {
+                if let Some(rrsig) = rrsigs.get_mut(rrsig_idx) {
                     rrsig.proof = proof;
                     if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
                         rrsig.ttl = ttl;
                     }
                 } else {
-                    warn!(
-                        "bad rrsig index {rrsig_idx} rrsigs.len = {}",
-                        current_rrsigs.len()
-                    );
+                    warn!("bad rrsig index {rrsig_idx} rrsigs.len = {}", rrsigs.len());
                 }
             }
-
-            // push all the RRSIGs back to the return
-            return_records.extend(current_rrsigs);
         }
 
-        // Add back all the RRSIGs and any records that were not verified
-        return_records.extend(rrsigs);
-        return_records.extend(records);
-        return_records
+        records
     }
 
     /// DNSKEY-specific verification
@@ -1504,6 +1490,13 @@ impl ValidationCache {
             ),
         );
     }
+}
+
+/// Represents an RRset as a collection of mutable references to [`Record`]s.
+#[derive(Default)]
+struct Rrset<'a> {
+    records: Vec<&'a mut Record>,
+    signatures: Vec<&'a mut Record>,
 }
 
 struct RrsetVerificationContext<'a> {
