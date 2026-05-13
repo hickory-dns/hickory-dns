@@ -317,23 +317,14 @@ impl DnsError {
                     })
                 }
 
-                let option_ns = if !referral_name_servers.is_empty() {
-                    Some(referral_name_servers.into())
-                } else {
-                    None
-                };
+                let option_ns =
+                    (!referral_name_servers.is_empty()).then(|| Arc::from(referral_name_servers));
 
-                let answers = if !response.answers.is_empty() {
-                    Some(response.answers.to_owned().into())
-                } else {
-                    None
-                };
+                let answers =
+                    (!response.answers.is_empty()).then(|| Arc::from(response.answers.as_slice()));
 
-                let authorities = if !response.authorities.is_empty() {
-                    Some(response.authorities.to_owned().into())
-                } else {
-                    None
-                };
+                let authorities = (!response.authorities.is_empty())
+                    .then(|| Arc::from(response.authorities.as_slice()));
 
                 let negative_ttl = response.negative_ttl();
                 let query = response
