@@ -29,7 +29,7 @@ use crate::{
     proto::{
         op::{Edns, LowerQuery, Message, MessageType, Metadata, OpCode, ResponseCode},
         rr::{
-            LowerName, RecordSet, RecordType,
+            LowerName, Record, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
     },
@@ -1063,13 +1063,16 @@ async fn build_forwarded_response(
         return message;
     }
 
-    enum Answer {
-        Normal(AuthLookup),
-        NoRecords(AuthLookup),
+    #[derive(Default)]
+    struct ResponseParts {
+        answers: AuthLookup,
+        soa: Option<Record>,
+        authorities: AuthLookup,
+        additionals: AuthLookup,
     }
 
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
-    let (mut answers, authorities, additionals) = match response {
+    let mut rsp = match response {
         #[cfg(feature = "resolver")]
         Ok(AuthLookup::Resolved(lookup)) => {
             // Extract each section from the Lookup to preserve section structure
@@ -1080,13 +1083,17 @@ async fn build_forwarded_response(
             let additionals =
                 AuthLookup::answers(LookupRecords::Section(lookup.additionals().to_vec()), None);
 
-            (Answer::Normal(answers), authorities, additionals)
+            ResponseParts {
+                answers,
+                soa: None,
+                authorities,
+                additionals,
+            }
         }
-        Ok(l) => (
-            Answer::Normal(l),
-            AuthLookup::default(),
-            AuthLookup::default(),
-        ),
+        Ok(answers) => ResponseParts {
+            answers,
+            ..ResponseParts::default()
+        },
         Err(e) if e.is_no_records_found() || e.is_nx_domain() => {
             debug!(error = ?e, "error resolving");
 
@@ -1125,20 +1132,17 @@ async fn build_forwarded_response(
 
             if let Some(soa) = e.into_soa() {
                 let soa = soa.into_record_of_rdata();
-                let record_set = Arc::new(RecordSet::from(soa));
-                let records = LookupRecords::new(LookupOptions::default(), record_set);
 
-                (
-                    Answer::NoRecords(AuthLookup::answers(records, None)),
+                ResponseParts {
+                    soa: Some(soa),
                     authorities,
-                    AuthLookup::default(),
-                )
+                    ..ResponseParts::default()
+                }
             } else {
-                (
-                    Answer::Normal(AuthLookup::default()),
+                ResponseParts {
                     authorities,
-                    AuthLookup::default(),
-                )
+                    ..ResponseParts::default()
+                }
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
@@ -1151,30 +1155,19 @@ async fn build_forwarded_response(
 
             if let Some(soa) = response.soa() {
                 let soa = soa.to_owned().into_record_of_rdata();
-                let record_set = Arc::new(RecordSet::from(soa));
-                let records = LookupRecords::new(LookupOptions::default(), record_set);
 
-                (
-                    Answer::NoRecords(AuthLookup::answers(records, None)),
-                    AuthLookup::default(),
-                    AuthLookup::default(),
-                )
+                ResponseParts {
+                    soa: Some(soa),
+                    ..ResponseParts::default()
+                }
             } else {
-                (
-                    Answer::Normal(AuthLookup::default()),
-                    AuthLookup::default(),
-                    AuthLookup::default(),
-                )
+                ResponseParts::default()
             }
         }
         Err(e) => {
             response_meta.response_code = ResponseCode::ServFail;
             debug!(error = ?e, "error resolving");
-            (
-                Answer::Normal(AuthLookup::default()),
-                AuthLookup::default(),
-                AuthLookup::default(),
-            )
+            ResponseParts::default()
         }
     };
 
@@ -1205,8 +1198,8 @@ async fn build_forwarded_response(
         //
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
-        match &mut answers {
-            Answer::Normal(answers) => match DnssecSummary::from_records(answers.iter()) {
+        if rsp.soa.is_none() {
+            match DnssecSummary::from_records(rsp.answers.iter()) {
                 DnssecSummary::Secure
                     if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
                 {
@@ -1216,11 +1209,12 @@ async fn build_forwarded_response(
                 DnssecSummary::Bogus if !request_meta.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
                     // do not return Bogus records when CD=0
-                    *answers = AuthLookup::default();
+                    rsp.answers = AuthLookup::default();
                 }
                 _ => {}
-            },
-            Answer::NoRecords(soa) => match DnssecSummary::from_records(authorities.iter()) {
+            }
+        } else {
+            match DnssecSummary::from_records(rsp.authorities.iter()) {
                 DnssecSummary::Secure
                     if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
                 {
@@ -1230,26 +1224,22 @@ async fn build_forwarded_response(
                 DnssecSummary::Bogus if !request_meta.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
                     // do not return Bogus records when CD=0
-                    *soa = AuthLookup::default();
                     trace!("clearing SOA record from response");
+                    rsp.soa = None;
                 }
                 _ => {}
-            },
+            }
         }
     }
 
     message.metadata = response_meta;
 
-    match answers {
-        Answer::Normal(answers) => {
-            message.answers.extend(answers.iter().cloned());
-        }
-        Answer::NoRecords(soa) => {
-            message.authorities.extend(soa.iter().cloned());
-        }
+    message.answers.extend(rsp.answers.iter().cloned());
+    if let Some(soa) = rsp.soa {
+        message.authorities.push(soa);
     }
-    message.authorities.extend(authorities.iter().cloned());
-    message.additionals.extend(additionals.iter().cloned());
+    message.authorities.extend(rsp.authorities.iter().cloned());
+    message.additionals.extend(rsp.additionals.iter().cloned());
 
     // Strip DNSSEC records from all applicable sections based on the DNSSEC OK setting.
     message.maybe_strip_dnssec_records(lookup_options.dnssec_ok)
@@ -1265,7 +1255,7 @@ mod tests {
     use crate::proto::{
         op::{MessageType, OpCode, Query},
         rr::{
-            Name, RData, Record, RecordType,
+            Name, RData, Record, RecordSet, RecordType,
             rdata::{A, SOA},
         },
     };
