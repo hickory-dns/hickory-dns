@@ -15,9 +15,10 @@ use std::task::{Context, Poll};
 
 use futures_util::{
     FutureExt, Stream,
-    future::{self, BoxFuture},
+    future::BoxFuture,
     lock::Mutex as AsyncMutex,
 };
+use once_cell::sync::Lazy;
 use tracing::debug;
 
 #[cfg(feature = "__tls")]
@@ -55,6 +56,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a string which parses to a domain name, failure to parse will return an error
+        #[inline]
         pub async fn $p(&self, query: impl IntoName) -> Result<Lookup, NetError> {
             self.inner_lookup(query.into_name()?, $r, self.request_options())
                 .await
@@ -94,10 +96,14 @@ impl TokioResolver {
 #[derive(Clone)]
 pub struct Resolver<P: ConnectionProvider> {
     domain: Option<Name>,
-    search: Vec<Name>,
+    // Arc<[Name]> instead of Vec<Name>: Resolver::clone becomes a pointer increment
+    // rather than a deep copy of the entire search list.
+    search: Arc<[Name]>,
     context: Arc<PoolContext>,
     client_cache: CachingClient<LookupEither<P>>,
     hosts: Arc<Hosts>,
+    // Precomputed once at build time; options are immutable after construction.
+    request_opts: DnsRequestOptions,
 }
 
 impl<R: ConnectionProvider> Resolver<R> {
@@ -170,6 +176,25 @@ impl<R: ConnectionProvider> Resolver<R> {
     where
         L: From<Lookup> + Send + Sync + 'static,
     {
+        // Fast path: no search expansion will occur — either the name is already
+        // fully qualified, or there is no domain/search list to expand against.
+        // In both cases we normalise to FQDN, bypass build_names and LookupFuture
+        // entirely, and avoid their Vec + BoxFuture allocations.
+        // This is the dominant production path (names ending with '.').
+        if name.is_fqdn() || (self.search.is_empty() && self.domain.is_none()) {
+            let mut fqdn = name;
+            if !fqdn.is_fqdn() {
+                fqdn.set_fqdn(true);
+            }
+            let query = Query::new(fqdn, record_type);
+            let lookup = if let Some(hit) = self.hosts.lookup_static_host(&query) {
+                hit
+            } else {
+                self.client_cache.clone().lookup(query, options).await?
+            };
+            return Ok(L::from(lookup));
+        }
+
         let names = self.build_names(name);
         LookupFuture::lookup_with_hosts(
             names,
@@ -189,49 +214,35 @@ impl<R: ConnectionProvider> Resolver<R> {
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub async fn lookup_ip(&self, host: impl IntoName) -> Result<LookupIp, NetError> {
-        let mut finally_ip_addr = None;
         let maybe_ip = host.to_ip().map(RData::from);
         let maybe_name = host.into_name().map_err(NetError::from);
 
-        // if host is a ip address, return directly.
+        // If host is an IP address, return it directly — no DNS lookup needed
+        // regardless of ndots. Search-list expansion on an IP literal is always
+        // semantically meaningless (e.g. 198.51.100.35.example.com is not a
+        // valid resolution of an IP address). Both ndots branches are now unified.
         if let Some(ip_addr) = maybe_ip {
-            let name = maybe_name.clone().unwrap_or_default();
-            let record = Record::from_rdata(name.clone(), MAX_TTL, ip_addr.clone());
-
-            // if ndots are greater than 4, then we can't assume the name is an IpAddr
-            //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
-            //   but `:` is not a valid DNS character, so technically this will fail parsing.
-            //   TODO: should we always do search before returning this?
-            if self.context.options.ndots > 4 {
-                finally_ip_addr = Some(record);
-            } else {
-                let query = Query::new(name, ip_addr.record_type());
-                let lookup = Lookup::new_with_max_ttl(query, [record]);
-                return Ok(lookup.into());
-            }
+            // Fall back to Name::default() when the IP string failed name-parsing
+            // (e.g. bare IPv6 addresses that contain ':').
+            let name = maybe_name.as_ref().ok().cloned().unwrap_or_default();
+            let record_type = ip_addr.record_type();
+            let record = Record::from_rdata(name, MAX_TTL, ip_addr);
+            let query = Query::new(record.name.clone(), record_type);
+            let lookup = Lookup::new_with_max_ttl(query, [record]);
+            return Ok(lookup.into());
         }
 
-        let name = match (maybe_name, finally_ip_addr.as_ref()) {
-            (Ok(name), _) => name,
-            (Err(_), Some(ip_addr)) => {
-                // it was a valid IP, return that...
-                let query = Query::new(ip_addr.name.clone(), ip_addr.record_type());
-                let lookup = Lookup::new_with_max_ttl(query, [ip_addr.clone()]);
-                return Ok(lookup.into());
-            }
-            (Err(err), None) => return Err(err),
-        };
-
+        // Not an IP address — proceed with DNS name resolution.
+        let name = maybe_name?;
         let names = self.build_names(name);
-        let hosts = self.hosts.clone();
 
         LookupIpFuture::lookup(
             names,
             self.context.options.ip_strategy,
             self.client_cache.clone(),
             self.request_options(),
-            hosts,
-            finally_ip_addr.map(|r| r.data),
+            self.hosts.clone(),
+            None,  // no pre-resolved IP addr (always None after early return above)
         )
         .await
     }
@@ -248,6 +259,17 @@ impl<R: ConnectionProvider> Resolver<R> {
             return;
         };
 
+        // Fast path: mirrors inner_lookup — if no search expansion is possible,
+        // normalise to FQDN, clear the single cache key, and return early.
+        if name.is_fqdn() || (self.search.is_empty() && self.domain.is_none()) {
+            let mut fqdn = name;
+            if !fqdn.is_fqdn() {
+                fqdn.set_fqdn(true);
+            }
+            self.client_cache.clear_cache_query(&Query::new(fqdn, record_type));
+            return;
+        }
+
         for name in self.build_names(name) {
             let query = Query::new(name, record_type);
             self.client_cache.clear_cache_query(&query);
@@ -256,44 +278,36 @@ impl<R: ConnectionProvider> Resolver<R> {
 
     fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
-        if name.is_fqdn()
-            || ONION.zone_of(&name)
-                && name
-                    .trim_to(2)
-                    .iter()
-                    .next()
-                    .map(|name| name.len() == 56) // size of onion v3 address
-                    .unwrap_or(false)
-        {
+        if name.is_fqdn() || Self::is_onion_v3(&name) {
             // if already fully qualified, or if onion address, don't assume it might be a
             // sub-domain
             vec![name]
         } else {
             // Otherwise we have to build the search list
             // Note: the vec is built in reverse order of precedence, for stack semantics
-            let mut names =
-                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.search.len());
+            // +1 FQDN (either prepended or appended), +1 DOMAIN, +search entries.
+            // Previous capacity was 2+search.len() which could be short by 1 in the
+            // raw_name_first=true branch. Use 3 to avoid any reallocation.
+            // Maximum entries: 1 FQDN + search.len() domain-appended names + 1 domain.
+            let mut names = Vec::<Name>::with_capacity(self.search.len() + 2);
 
             // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
             let raw_name_first: bool =
                 name.num_labels() as usize > self.context.options.ndots || name.is_localhost();
 
-            // if not meeting ndots, we always do the raw name in the final lookup
+            // Hoist fqdn construction — used in both branches, built exactly once.
+            let mut fqdn_name = name.clone();
+            fqdn_name.set_fqdn(true);
+
             if !raw_name_first {
-                let mut fqdn = name.clone();
-                fqdn.set_fqdn(true);
-                names.push(fqdn);
+                names.push(fqdn_name.clone());
             }
 
             for search in self.search.iter().rev() {
                 let name_search = name.clone().append_domain(search);
 
                 match name_search {
-                    Ok(name_search) => {
-                        if !names.contains(&name_search) {
-                            names.push(name_search);
-                        }
-                    }
+                    Ok(name_search) => names.push(name_search),
                     Err(e) => debug!(
                         "Not adding {} to {} for search due to error: {}",
                         search, name, e
@@ -305,11 +319,7 @@ impl<R: ConnectionProvider> Resolver<R> {
                 let name_search = name.clone().append_domain(domain);
 
                 match name_search {
-                    Ok(name_search) => {
-                        if !names.contains(&name_search) {
-                            names.push(name_search);
-                        }
-                    }
+                    Ok(name_search) => names.push(name_search),
                     Err(e) => debug!(
                         "Not adding {} to {} for search due to error: {}",
                         domain, name, e
@@ -317,16 +327,67 @@ impl<R: ConnectionProvider> Resolver<R> {
                 }
             }
 
-            // this is the direct name lookup
+            // Consume the pre-built fqdn_name — no extra clone or set_fqdn needed.
             if raw_name_first {
-                // adding the name as though it's an FQDN for lookup
-                let mut fqdn = name.clone();
-                fqdn.set_fqdn(true);
-                names.push(fqdn);
+                names.push(fqdn_name);
+            }
+
+            // Remove any duplicates that arise when `domain` matches one of the
+            // `search` entries. Only runs when both `domain` and at least one
+            // `search` entry are set — the only configuration where duplicates
+            // are possible.
+            //
+            // Search lists are capped at 6 entries (RFC 1535), so a u16 bitmask
+            // tracks which indices are already present, giving O(n) with zero
+            // allocation and no Vec::remove memmove.
+            if self.domain.is_some() && !self.search.is_empty() {
+                let mut seen: u32 = 0;
+                let mut out = 0usize;
+                for i in 0..names.len() {
+                    // Check whether an identical name appeared earlier.
+                    let already_seen = names[..i]
+                        .iter()
+                        .enumerate()
+                        .any(|(j, n)| seen & (1u32 << j) != 0 && n == &names[i]);
+                    if !already_seen {
+                        seen |= 1u32 << i;
+                        if out != i {
+                            names.swap(out, i);
+                        }
+                        out += 1;
+                    }
+                }
+                names.truncate(out);
             }
 
             names
         }
+    }
+
+    /// Returns true if `name` is a valid Tor v3 .onion address.
+    ///
+    /// Avoids the expensive `ONION.zone_of()` call for non-.onion names by first
+    /// checking whether the last label is literally `"onion"`. The vast majority
+    /// of lookups short-circuit here at zero cost.
+    #[inline]
+    fn is_onion_v3(name: &Name) -> bool {
+        // Quick rejection: last label must be exactly b"onion" (case-insensitive).
+        if !name.iter().last().map(|l| l.eq_ignore_ascii_case(b"onion")).unwrap_or(false) {
+            return false;
+        }
+        // Full check: must be within the .onion zone and the host label must be
+        // 56 bytes (Tor v3 base32-encoded public key).
+        //
+        // rev().nth(1) skips the trailing "onion" label and peeks at the SLD
+        // (second-to-last label = the v3 public key) with zero allocation,
+        // replacing the previous trim_to(2) which constructed a new Name.
+        ONION.zone_of(name)
+            && name
+                .iter()
+                .rev()
+                .nth(1)
+                .map(|label| label.len() == 56)
+                .unwrap_or(false)
     }
 
     lookup_fn!(reverse_lookup, RecordType::PTR);
@@ -348,16 +409,21 @@ impl<R: ConnectionProvider> Resolver<R> {
 
     /// Per request options based on the ResolverOpts
     pub(crate) fn request_options(&self) -> DnsRequestOptions {
+        self.request_opts
+    }
+
+    /// Build request options from resolver opts (called once at construction).
+    fn build_request_options(options: &ResolverOpts) -> DnsRequestOptions {
         let mut request_opts = DnsRequestOptions::default();
-        request_opts.recursion_desired = self.context.options.recursion_desired;
-        request_opts.use_edns = self.context.options.edns0;
-        request_opts.edns_payload_len = self.context.options.edns_payload_len;
-        request_opts.case_randomization = self.context.options.case_randomization;
+        request_opts.recursion_desired = options.recursion_desired;
+        request_opts.use_edns = options.edns0;
+        request_opts.edns_payload_len = options.edns_payload_len;
+        request_opts.case_randomization = options.case_randomization;
 
         // Set DNSSEC OK bit when DNSSEC validation is enabled
         #[cfg(feature = "__dnssec")]
         {
-            request_opts.edns_set_dnssec_ok = self.context.options.validate;
+            request_opts.edns_set_dnssec_ok = options.validate;
         }
 
         request_opts
@@ -367,11 +433,26 @@ impl<R: ConnectionProvider> Resolver<R> {
     pub fn options(&self) -> &ResolverOpts {
         &self.context.options
     }
+
+    /// Returns a reference to the resolver options without cloning.
+    ///
+    /// Prefer this over [`options()`][Self::options] in hot paths to avoid
+    /// any future regression if the return type is ever changed to an owned
+    /// value. Currently both return a reference; this method makes the
+    /// borrow intent explicit at the call site.
+    #[inline]
+    pub fn options_ref(&self) -> &ResolverOpts {
+        &self.context.options
+    }
 }
 
 impl<P: ConnectionProvider> fmt::Debug for Resolver<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Resolver").finish()
+        f.debug_struct("Resolver")
+            .field("domain", &self.domain)
+            .field("search_count", &self.search.len())
+            .field("cache_size", &self.context.options.cache_size)
+            .finish_non_exhaustive()
     }
 }
 
@@ -387,6 +468,7 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = P::RuntimeProvider;
 
+    #[inline]
     fn is_verifying_dnssec(&self) -> bool {
         match self {
             Self::Retry(c) => c.is_verifying_dnssec(),
@@ -395,6 +477,7 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
         }
     }
 
+    #[inline]
     fn send(&self, request: DnsRequest) -> Self::Response {
         match self {
             Self::Retry(c) => c.send(request),
@@ -543,7 +626,8 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
 
         #[cfg(feature = "__dnssec")]
         let either = if context.options.validate {
-            let trust_anchor = trust_anchor.unwrap_or_else(|| Arc::new(TrustAnchors::default()));
+            let trust_anchor = trust_anchor
+                .unwrap_or_else(|| Arc::clone(&DEFAULT_TRUST_ANCHOR));
 
             LookupEither::Secure(
                 DnssecDnsHandle::with_trust_anchor(client, trust_anchor)
@@ -554,6 +638,12 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         };
         #[cfg(not(feature = "__dnssec"))]
         let either = LookupEither::Retry(client);
+
+        if context.options.cache_size == 0 {
+            tracing::warn!(
+                "cache_size is 0 — response caching is disabled; all DNS lookups will hit the network. Set ResolverOpts::cache_size to a non-zero value to enable caching."
+            );
+        }
 
         let cache = ResponseCache::new(
             context.options.cache_size,
@@ -567,13 +657,46 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             ResolveHosts::Never => Hosts::default(),
         });
 
+        let request_opts = Resolver::<P>::build_request_options(&context.options);
+
         Ok(Resolver {
             domain,
-            search,
+            search: search.into(),  // Vec<Name> → Arc<[Name]>, one allocation, then free clones
             context,
             client_cache,
             hosts,
+            request_opts,
         })
+    }
+}
+
+// Shared empty hosts instance — avoids a heap allocation on every plain `lookup()` call.
+static EMPTY_HOSTS: Lazy<Arc<Hosts>> = Lazy::new(|| Arc::new(Hosts::default()));
+
+// Default DNSSEC trust anchors — built from embedded root data once, then shared.
+#[cfg(feature = "__dnssec")]
+static DEFAULT_TRUST_ANCHOR: Lazy<Arc<TrustAnchors>> =
+    Lazy::new(|| Arc::new(TrustAnchors::default()));
+
+/// Internal state for [`LookupFuture`] — avoids a per-retry `Box` allocation
+/// by separating "a live future to poll" from "an immediately-available value".
+///
+/// The type parameter from `LookupFuture<C>` is not needed here because
+/// `BoxFuture` is already type-erased; `QueryState` is not generic.
+enum QueryState {
+    /// A network/cache future is in progress; poll it.
+    Running(BoxFuture<'static, Result<Lookup, NetError>>),
+    /// An immediately-ready result (hosts-file hit or name-parse error).
+    /// Wrapped in `Option` so the value can be taken out without cloning.
+    Ready(Option<Result<Lookup, NetError>>),
+}
+
+impl QueryState {
+    fn from_future(f: BoxFuture<'static, Result<Lookup, NetError>>) -> Self {
+        Self::Running(f)
+    }
+    fn ready(val: Result<Lookup, NetError>) -> Self {
+        Self::Ready(Some(val))
     }
 }
 
@@ -587,7 +710,9 @@ where
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    query: BoxFuture<'static, Result<Lookup, NetError>>,
+    /// Per-attempt query state. Using an enum avoids boxing a `Ready` value
+    /// (hosts-file hits) and makes future substitution on retry explicit.
+    query: QueryState,
 }
 
 impl<C> LookupFuture<C>
@@ -613,7 +738,7 @@ where
             record_type,
             options,
             client_cache,
-            Arc::new(Hosts::default()),
+            Arc::clone(&EMPTY_HOSTS),  // §5: reuse shared empty hosts; no heap alloc
         )
     }
 
@@ -643,12 +768,14 @@ where
                 let query = Query::new(name, record_type);
 
                 if let Some(lookup) = hosts.lookup_static_host(&query) {
-                    future::ok(lookup).boxed()
+                    // Hosts-file hit: no heap allocation — store directly as Ready.
+                    QueryState::ready(Ok(lookup))
                 } else {
-                    client_cache.lookup(query, options).boxed()
+                    // Network/cache lookup: one Box allocation for this attempt.
+                    QueryState::from_future(client_cache.lookup(query, options).boxed())
                 }
             }
-            Err(err) => future::err(err).boxed(),
+            Err(err) => QueryState::ready(Err(err)),
         };
 
         Self {
@@ -669,45 +796,48 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            // Try polling the underlying DNS query.
-            let query = self.query.as_mut().poll_unpin(cx);
-
-            // Determine whether or not we will attempt to retry the query.
-            let should_retry = match &query {
-                // If the query is NotReady, yield immediately.
-                Poll::Pending => return Poll::Pending,
-                // If the query returned a successful lookup, we will attempt
-                // to retry if the lookup is empty. Otherwise, we will return
-                // that lookup.
-                Poll::Ready(Ok(lookup)) => lookup.answers().is_empty(),
-                // If the query failed, we will attempt to retry.
-                Poll::Ready(Err(_)) => true,
+            // Resolve the current query state into a Poll result.
+            let result = match &mut self.query {
+                QueryState::Running(fut) => {
+                    // Poll the live future. Pending → yield immediately.
+                    match fut.as_mut().poll_unpin(cx) {
+                        Poll::Pending => return Poll::Pending,
+                        Poll::Ready(val) => val,
+                    }
+                }
+                QueryState::Ready(slot) => {
+                    // Immediately-ready value (hosts hit or name-parse error).
+                    // Take the value out so we can move it.
+                    slot.take().expect("QueryState::Ready polled after completion")
+                }
             };
 
-            if should_retry {
-                if let Some(name) = self.names.pop() {
-                    let record_type = self.record_type;
-                    let options = self.options;
-
-                    // If there's another name left to try, build a new query
-                    // for that next name and continue looping.
-                    self.query = self
-                        .client_cache
-                        .lookup(Query::new(name, record_type), options)
-                        .boxed();
-                    // Continue looping with the new query. It will be polled
-                    // on the next iteration of the loop.
-                    continue;
+            // Dispatch on the resolved result:
+            //   Ok with answers  → success, return immediately (no retry)
+            //   Ok empty         → treat as miss, retry next name
+            //   Err              → treat as miss, retry next name
+            if let Ok(ref lookup) = result {
+                if !lookup.answers().is_empty() {
+                    return Poll::Ready(result);
                 }
             }
-            // If we didn't have to retry the query, or we weren't able to
-            // retry because we've exhausted the names to search, return the
-            // current query.
-            return query;
-            // If we skipped retrying the  query, this will return the
-            // successful lookup, otherwise, if the retry failed, this will
-            // return the last  query result --- either an empty lookup or the
-            // last error we saw.
+
+            // Retry with the next name candidate if one is available.
+            if let Some(name) = self.names.pop() {
+                let record_type = self.record_type;
+                let options = self.options;
+                // Replace the state with a new Running future.
+                // One Box allocation per name attempt — not per poll cycle.
+                self.query = QueryState::from_future(
+                    self.client_cache
+                        .lookup(Query::new(name, record_type), options)
+                        .boxed(),
+                );
+                continue;
+            }
+
+            // No more names to try — surface the last result (empty lookup or error).
+            return Poll::Ready(result);
         }
     }
 }
@@ -1553,6 +1683,10 @@ mod tests {
         type Runtime = TokioRuntimeProvider;
 
         fn send(&self, _: DnsRequest) -> Self::Response {
+            // SAFETY: std::sync::Mutex is intentional here — the lock is acquired
+            // and released within a single synchronous expression, never held across
+            // an await point. Do not replace with futures_util::lock::Mutex, which
+            // would introduce a hold-across-await hazard in tests.
             Box::pin(once(future::ready(
                 self.messages.lock().unwrap().pop().unwrap_or_else(empty),
             )))
