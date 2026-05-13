@@ -31,7 +31,7 @@ use hickory_net::tls::{default_provider, tls_client_connect_with_bind_addr};
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
-use hickory_proto::rr::rdata::{A, OPT};
+use hickory_proto::rr::rdata::{A, EdnsOptions};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_server::Server;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
@@ -407,12 +407,12 @@ async fn edns_multiple_opt_rr() {
     message.add_additional(Record::from_rdata(
         Name::root(),
         0,
-        RData::OPT(OPT::new(vec![])),
+        RData::OPT(EdnsOptions::new(vec![])),
     ));
     message.add_additional(Record::from_rdata(
         Name::root(),
         0,
-        RData::OPT(OPT::new(vec![])),
+        RData::OPT(EdnsOptions::new(vec![])),
     ));
     let message_bytes = message.to_vec().unwrap();
 

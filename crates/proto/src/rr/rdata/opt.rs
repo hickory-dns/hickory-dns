@@ -168,14 +168,14 @@ use crate::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Default, Debug, Clone, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone)]
 #[non_exhaustive]
-pub struct OPT {
+pub struct EdnsOptions {
     /// List of code and record type tuples
     pub options: Vec<(EdnsCode, EdnsOption)>,
 }
 
-impl OPT {
+impl EdnsOptions {
     /// Creates a new OPT record data.
     ///
     /// # Arguments
@@ -215,7 +215,7 @@ impl OPT {
     }
 }
 
-impl PartialEq for OPT {
+impl PartialEq for EdnsOptions {
     fn eq(&self, other: &Self) -> bool {
         let matching_elements_count = self
             .options
@@ -227,9 +227,9 @@ impl PartialEq for OPT {
     }
 }
 
-impl Eq for OPT {}
+impl Eq for EdnsOptions {}
 
-impl Hash for OPT {
+impl Hash for EdnsOptions {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut sorted = self.options.clone();
         sorted.sort();
@@ -237,19 +237,19 @@ impl Hash for OPT {
     }
 }
 
-impl AsMut<Vec<(EdnsCode, EdnsOption)>> for OPT {
+impl AsMut<Vec<(EdnsCode, EdnsOption)>> for EdnsOptions {
     fn as_mut(&mut self) -> &mut Vec<(EdnsCode, EdnsOption)> {
         &mut self.options
     }
 }
 
-impl AsRef<[(EdnsCode, EdnsOption)]> for OPT {
+impl AsRef<[(EdnsCode, EdnsOption)]> for EdnsOptions {
     fn as_ref(&self) -> &[(EdnsCode, EdnsOption)] {
         &self.options
     }
 }
 
-impl BinEncodable for OPT {
+impl BinEncodable for EdnsOptions {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         for (edns_code, edns_option) in self.as_ref().iter() {
@@ -261,7 +261,7 @@ impl BinEncodable for OPT {
     }
 }
 
-impl<'r> RecordDataDecodable<'r> for OPT {
+impl<'r> RecordDataDecodable<'r> for EdnsOptions {
     fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
         let mut state: OptReadState = OptReadState::ReadCode;
         let mut options: Vec<(EdnsCode, EdnsOption)> = Vec::new();
@@ -337,7 +337,7 @@ impl<'r> RecordDataDecodable<'r> for OPT {
     }
 }
 
-impl RecordData for OPT {
+impl RecordData for EdnsOptions {
     fn try_borrow(data: &RData) -> Option<&Self> {
         match data {
             RData::OPT(csync) => Some(csync),
@@ -354,7 +354,7 @@ impl RecordData for OPT {
     }
 }
 
-impl fmt::Display for OPT {
+impl fmt::Display for EdnsOptions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         fmt::Debug::fmt(self, f)
     }
@@ -859,7 +859,7 @@ mod tests {
     #[test]
     #[cfg(feature = "__dnssec")]
     fn test() {
-        let mut rdata = OPT::default();
+        let mut rdata = EdnsOptions::default();
         rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
         let mut bytes = Vec::new();
@@ -872,7 +872,7 @@ mod tests {
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = OPT::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = EdnsOptions::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -884,7 +884,7 @@ mod tests {
         ];
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
-        let read_rdata = OPT::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = EdnsOptions::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
         assert!(
             read_rdata.is_ok(),
             "error decoding: {:?}",
@@ -903,7 +903,7 @@ mod tests {
             ),
             (EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![])),
         ];
-        let options = OPT::new(options);
+        let options = EdnsOptions::new(options);
         assert_eq!(opt, options);
     }
 
@@ -915,7 +915,7 @@ mod tests {
         ];
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
-        let read_rdata = OPT::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = EdnsOptions::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
         assert!(
             read_rdata.is_ok(),
             "error decoding: {:?}",
@@ -939,7 +939,7 @@ mod tests {
                 ),
             ),
         ];
-        let options = OPT::new(options);
+        let options = EdnsOptions::new(options);
         assert_eq!(opt, options);
     }
 
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     fn test_eq_and_hash() {
-        let options_1 = OPT::new(vec![
+        let options_1 = EdnsOptions::new(vec![
             (
                 EdnsCode::Unknown(15u16),
                 EdnsOption::Unknown(15u16, vec![0x00, 0x06]),
@@ -999,7 +999,7 @@ mod tests {
             ),
         ]);
 
-        let options_2 = OPT::new(vec![
+        let options_2 = EdnsOptions::new(vec![
             (
                 EdnsCode::Unknown(15u16),
                 EdnsOption::Unknown(
@@ -1017,7 +1017,7 @@ mod tests {
         ]);
 
         // Leading byte changed in the vec
-        let options_3 = OPT::new(vec![
+        let options_3 = EdnsOptions::new(vec![
             (
                 EdnsCode::Unknown(15u16),
                 EdnsOption::Unknown(

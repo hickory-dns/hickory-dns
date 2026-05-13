@@ -25,7 +25,7 @@ use crate::rr::{TSigVerifier, TSigner};
 use crate::{
     error::{ProtoError, ProtoResult},
     op::{Edns, Header, HeaderCounts, MessageType, Metadata, OpCode, Query, ResponseCode},
-    rr::{RData, Record, RecordData, RecordType, rdata::TSIG},
+    rr::{RData, Record, RecordData, RecordType, rdata::TSIG, record::RecordKind},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
@@ -368,15 +368,20 @@ impl Message {
     ///
     /// the max payload value as it's defined in the EDNS OPT pseudo-RR.
     pub fn max_payload(&self) -> u16 {
-        let max_size = self.edns.as_ref().map_or(512, Edns::max_payload);
-        if max_size < 512 { 512 } else { max_size }
+        match self.edns.as_ref() {
+            Some(edns) => Ord::max(512, edns.udp_payload_size),
+            None => 512,
+        }
     }
 
     /// # Return value
     ///
     /// the version as defined in the EDNS record
     pub fn version(&self) -> u8 {
-        self.edns.as_ref().map_or(0, Edns::version)
+        match self.edns.as_ref() {
+            Some(edns) => edns.version,
+            None => 0,
+        }
     }
 
     /// # Return value
@@ -427,7 +432,20 @@ impl Message {
         let mut sig = None;
 
         for _ in 0..count {
-            let record = Record::read(decoder)?;
+            let record = match RecordKind::read(decoder)? {
+                RecordKind::Record(record) => record,
+                RecordKind::Opt(_) if !is_additional => {
+                    return Err(DecodeError::RecordNotInAdditionalSection(RecordType::OPT));
+                }
+                RecordKind::Opt(new) => match edns.is_some() {
+                    true => return Err(DecodeError::DuplicateEdns),
+                    false => {
+                        edns = Some(new);
+                        continue;
+                    }
+                },
+            };
+
             if op != OpCode::Update
                 && record.record_type() != RecordType::OPT
                 && record.data.is_update()
@@ -473,12 +491,6 @@ impl Message {
                             })
                             .unwrap(/* match arm ensures correct type */),
                     ))
-                }
-                RData::Update0(RecordType::OPT) | RData::OPT(_) => {
-                    if edns.is_some() {
-                        return Err(DecodeError::DuplicateEdns);
-                    }
-                    edns = Some((&record).into());
                 }
                 _ => {
                     records.push(record);
@@ -596,11 +608,15 @@ where
 
     if let Some(mut edns) = edns.cloned() {
         // need to commit the error code
-        edns.set_rcode_high(metadata.response_code.high());
+        edns.extended_rcode = metadata.response_code.high();
 
-        let count = count_was_truncated(encoder.emit_iter([&Record::from(&edns)]))?;
-        additional_count.0 += count.0;
-        additional_count.1 |= count.1;
+        let result = 0u8
+            .emit(encoder) // Name::root
+            .and_then(|_| RecordType::OPT.emit(encoder))
+            .and_then(|_| edns.emit(encoder));
+        let (count, truncated) = count_was_truncated(result.map(|()| 1))?;
+        additional_count.0 += count;
+        additional_count.1 |= truncated;
     } else if metadata.response_code.high() > 0 {
         warn!(
             "response code: {} for request: {} requires EDNS but none available",
@@ -692,8 +708,7 @@ impl<'r> BinDecodable<'r> for Message {
 
         // need to grab error code from EDNS (which might have a higher value)
         if let Some(edns) = &edns {
-            let high_response_code = edns.rcode_high();
-            metadata.merge_response_code(high_response_code);
+            metadata.merge_response_code(edns.extended_rcode);
         }
 
         Ok(Self {
@@ -756,7 +771,7 @@ mod tests {
 
     use crate::rr::rdata::A;
     #[cfg(feature = "std")]
-    use crate::rr::rdata::OPT;
+    use crate::rr::rdata::EdnsOptions;
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
     #[cfg(feature = "__dnssec")]
@@ -953,7 +968,7 @@ mod tests {
             Record::from_rdata(
                 Name::new(),
                 0,
-                RData::OPT(OPT::new(vec![(
+                RData::OPT(EdnsOptions::new(vec![(
                     EdnsCode::Subnet,
                     EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
                 )])),
@@ -1000,7 +1015,7 @@ mod tests {
             Record::from_rdata(
                 Name::new(),
                 0,
-                RData::OPT(OPT::new(vec![(
+                RData::OPT(EdnsOptions::new(vec![(
                     EdnsCode::Subnet,
                     EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
                 )])),
@@ -1026,7 +1041,7 @@ mod tests {
         let opt_record = Record::from_rdata(
             Name::new(),
             0,
-            RData::OPT(OPT::new(vec![(
+            RData::OPT(EdnsOptions::new(vec![(
                 EdnsCode::Subnet,
                 EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
             )])),
@@ -1053,7 +1068,7 @@ mod tests {
         let opt_record = Record::from_rdata(
             Name::new(),
             0,
-            RData::OPT(OPT::new(vec![(
+            RData::OPT(EdnsOptions::new(vec![(
                 EdnsCode::Subnet,
                 EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
             )])),
@@ -1082,7 +1097,7 @@ mod tests {
         let opt_record = Record::from_rdata(
             Name::new(),
             0,
-            RData::OPT(OPT::new(vec![(
+            RData::OPT(EdnsOptions::new(vec![(
                 EdnsCode::Subnet,
                 EdnsOption::Subnet(ClientSubnet::new(IpAddr::from([127, 0, 0, 1]), 0, 24)),
             )])),

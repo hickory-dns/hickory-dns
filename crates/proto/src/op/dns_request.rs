@@ -12,7 +12,7 @@ use core::ops::{Deref, DerefMut};
 use core::time::Duration;
 
 #[cfg(feature = "std")]
-use super::{DEFAULT_RETRY_FLOOR, Edns};
+use super::DEFAULT_RETRY_FLOOR;
 use super::{Message, Query, edns::DEFAULT_MAX_PAYLOAD_LEN};
 
 /// A set of options for expressing options to how requests should be treated
@@ -92,11 +92,9 @@ impl DnsRequest {
         message.metadata.recursion_desired = options.recursion_desired;
 
         if options.use_edns {
-            message
-                .edns
-                .get_or_insert_with(Edns::new)
-                .set_max_payload(options.edns_payload_len)
-                .set_dnssec_ok(options.edns_set_dnssec_ok);
+            let edns = message.edns.get_or_insert_default();
+            edns.udp_payload_size = options.edns_payload_len;
+            edns.flags.dnssec_ok = options.edns_set_dnssec_ok;
         }
 
         Self::new(message, options).with_original_query(original_query)

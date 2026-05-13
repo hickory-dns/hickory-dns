@@ -37,9 +37,7 @@ use crate::{
             Proof, TrustAnchors, Verifier,
             rdata::{DNSKEY, DNSSECRData, DS, NSEC, RRSIG},
         },
-        op::{
-            DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode,
-        },
+        op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{Name, RData, Record, RecordRef, RecordSet, RecordSetParts, RecordType, SerialNumber},
     },
     runtime::{RuntimeProvider, Time},
@@ -1052,7 +1050,7 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         };
 
         let handle = self.clone_with_context();
-        request.edns.get_or_insert_with(Edns::new).enable_dnssec();
+        request.edns.get_or_insert_default().enable_dnssec();
 
         request.metadata.authentic_data = true;
         request.metadata.checking_disabled = false;

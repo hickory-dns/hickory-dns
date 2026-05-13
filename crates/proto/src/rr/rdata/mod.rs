@@ -44,7 +44,7 @@ pub use self::name::{ANAME, CNAME, NS, PTR};
 pub use self::naptr::NAPTR;
 pub use self::null::NULL;
 pub use self::openpgpkey::OPENPGPKEY;
-pub use self::opt::OPT;
+pub use self::opt::EdnsOptions;
 pub use self::smimea::SMIMEA;
 pub use self::soa::SOA;
 pub use self::srv::SRV;

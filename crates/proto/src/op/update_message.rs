@@ -9,14 +9,13 @@
 
 use core::fmt::Debug;
 
-use super::{lower_query::LowerQuery, message_request::MessageRequest};
 #[cfg(any(feature = "std", feature = "no-std-rand"))]
 use crate::{
-    op::{Edns, OpCode, edns::DEFAULT_MAX_PAYLOAD_LEN},
+    op::{Edns, OpCode},
     rr::{DNSClass, Name, RData, RecordSet, RecordType, rdata::SOA},
 };
 use crate::{
-    op::{Message, Query},
+    op::{LowerQuery, Message, MessageRequest, Query},
     rr::{Record, rdata::TSIG},
 };
 
@@ -190,11 +189,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
 
     // Extended dns
     if use_edns {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns.get_or_insert_default();
     }
 
     message
@@ -261,11 +256,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
 
     // Extended dns
     if use_edns {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns = Some(Edns::default());
     }
 
     message
@@ -353,11 +344,7 @@ pub fn compare_and_swap(
 
     // Extended dns
     if use_edns {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns = Some(Edns::default());
     }
 
     message
@@ -411,11 +398,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
 
     // Extended dns
     if use_edns {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns = Some(Edns::default());
     }
 
     message
@@ -470,11 +453,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 
     // Extended dns
     if use_edns {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns = Some(Edns::default());
     }
 
     message
@@ -538,11 +517,7 @@ pub fn delete_all(
 
     // Extended dns
     if use_edns {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns = Some(Edns::default());
     }
 
     message
@@ -583,11 +558,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
 
     // Extended dns
     {
-        message
-            .edns
-            .get_or_insert_with(Edns::new)
-            .set_max_payload(DEFAULT_MAX_PAYLOAD_LEN)
-            .set_version(0);
+        message.edns = Some(Edns::default());
     }
 
     message

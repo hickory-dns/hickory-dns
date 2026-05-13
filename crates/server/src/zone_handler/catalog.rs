@@ -73,20 +73,19 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         let response_edns = if let Some(req_edns) = request.edns.as_ref() {
-            resp_edns = Edns::new();
+            resp_edns = Edns::default();
 
             // check our version against the request
             // TODO: what version are we?
             let our_version = 0;
-            resp_edns.set_dnssec_ok(true);
-            resp_edns.set_max_payload(req_edns.max_payload().max(512));
-            resp_edns.set_version(our_version);
+            resp_edns.flags.dnssec_ok = true;
+            resp_edns.udp_payload_size = Ord::max(512, req_edns.udp_payload_size);
+            resp_edns.version = our_version;
 
-            if req_edns.version() > our_version {
+            if req_edns.version > our_version {
                 warn!(
                     "request edns version greater than {}: {}",
-                    our_version,
-                    req_edns.version()
+                    our_version, req_edns.version
                 );
                 send_error_response(
                     request,
@@ -108,9 +107,7 @@ impl RequestHandler for Catalog {
                     if !request_option.is_empty() {
                         warn!("ignoring non-empty EDNS NSID request payload")
                     }
-                    resp_edns
-                        .options_mut()
-                        .insert(EdnsOption::NSID(payload.clone()));
+                    resp_edns.options.insert(EdnsOption::NSID(payload.clone()));
                 }
                 // NSID was requested, but we don't have a payload configured.
                 (Some(_), None) => {
@@ -743,7 +740,7 @@ async fn send_error_response(
     if response_code.high() != 0 {
         if let Some(edns) = response_edns {
             new_edns = edns.clone();
-            new_edns.set_rcode_high(response_code.high());
+            new_edns.extended_rcode = response_code.high();
             response_edns = Some(&new_edns);
         }
     }

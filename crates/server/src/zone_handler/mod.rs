@@ -530,7 +530,7 @@ impl LookupOptions {
         let mut new = Self::default();
         #[cfg(feature = "__dnssec")]
         if let Some(edns) = edns {
-            new.dnssec_ok = edns.flags().dnssec_ok;
+            new.dnssec_ok = edns.flags.dnssec_ok;
         }
         new
     }

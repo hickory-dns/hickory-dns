@@ -719,10 +719,10 @@ fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
     query.set_name(origin.into());
     query.set_query_type(RecordType::A);
 
-    let mut question_edns = Edns::new();
+    let mut question_edns = Edns::default();
     if request_nsid {
         question_edns
-            .options_mut()
+            .options
             .insert(EdnsOption::NSID(NSIDPayload::new([]).unwrap()));
     }
 
@@ -1035,7 +1035,7 @@ mod dnssec {
     async fn run_query(catalog: &Catalog, query: Query) -> Message {
         let mut question = Message::query();
         question.add_query(query);
-        question.edns.get_or_insert_with(Edns::new).enable_dnssec();
+        question.edns.get_or_insert_default().enable_dnssec();
 
         let question_bytes = question.to_bytes().unwrap();
         let question_req =

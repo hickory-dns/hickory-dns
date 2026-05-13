@@ -25,8 +25,8 @@ use crate::{
     rr::{
         Name, RecordData, RecordDataDecodable,
         rdata::{
-            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY,
-            OPT, PTR, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA, TSIG, TXT,
+            A, AAAA, ANAME, CAA, CERT, CNAME, CSYNC, EdnsOptions, HINFO, HTTPS, MX, NAPTR, NS,
+            NULL, OPENPGPKEY, PTR, SMIMEA, SOA, SRV, SSHFP, SVCB, TLSA, TSIG, TXT,
         },
         record_type::RecordType,
     },
@@ -474,7 +474,7 @@ pub enum RData {
     ///        /                                                               /
     ///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
     /// ```
-    OPT(OPT),
+    OPT(EdnsOptions),
 
     /// ```text
     /// 3.3.12. PTR RDATA format
@@ -968,7 +968,7 @@ impl RData {
             }
             RecordType::OPT => {
                 trace!("reading OPT");
-                OPT::read_data(decoder, length).map(Self::OPT)
+                EdnsOptions::read_data(decoder, length).map(Self::OPT)
             }
             RecordType::PTR => {
                 trace!("reading PTR");

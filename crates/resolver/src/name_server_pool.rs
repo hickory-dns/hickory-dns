@@ -933,7 +933,7 @@ impl CacheKey {
         let dnssec_ok;
         let client_subnet;
         if let Some(edns) = &request.edns {
-            dnssec_ok = edns.flags().dnssec_ok;
+            dnssec_ok = edns.flags.dnssec_ok;
             if let Some(EdnsOption::Subnet(subnet)) = edns.option(EdnsCode::Subnet) {
                 client_subnet = Some(*subnet);
             } else {
