@@ -433,35 +433,35 @@ impl LookupError {
     }
 
     /// Return answer records
-    pub fn answers(&self) -> Option<Arc<[Record]>> {
+    pub fn answers(&self) -> Option<&Arc<[Record]>> {
         match self {
             Self::NetError(NetError::Dns(DnsError::NoRecordsFound(NoRecords {
                 answers, ..
-            }))) => answers.clone(),
+            }))) => answers.as_ref(),
             #[cfg(feature = "recursor")]
-            Self::RecursiveError(RecursorError::Negative(fwd)) => fwd.answers.clone(),
+            Self::RecursiveError(RecursorError::Negative(fwd)) => fwd.answers.as_ref(),
             #[cfg(feature = "recursor")]
             Self::RecursiveError(RecursorError::Net(NetError::Dns(DnsError::NoRecordsFound(
                 NoRecords { answers, .. },
-            )))) => answers.clone(),
+            )))) => answers.as_ref(),
             _ => None,
         }
     }
 
     /// Return authority records
-    pub fn authorities(&self) -> Option<Arc<[Record]>> {
+    pub fn authorities(&self) -> Option<&Arc<[Record]>> {
         match self {
             Self::NetError(NetError::Dns(DnsError::NoRecordsFound(NoRecords {
                 authorities,
                 ..
-            }))) => authorities.clone(),
+            }))) => authorities.as_ref(),
             Self::NetError(_) => None,
             #[cfg(feature = "recursor")]
-            Self::RecursiveError(RecursorError::Negative(fwd)) => fwd.authorities.clone(),
+            Self::RecursiveError(RecursorError::Negative(fwd)) => fwd.authorities.as_ref(),
             #[cfg(feature = "recursor")]
             Self::RecursiveError(RecursorError::Net(NetError::Dns(DnsError::NoRecordsFound(
                 NoRecords { authorities, .. },
-            )))) => authorities.clone(),
+            )))) => authorities.as_ref(),
             _ => None,
         }
     }
