@@ -360,16 +360,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         Ok(message)
     }
 
-    /// Validates signatures over record sets.
-    async fn verify_rrsets(
-        &self,
-        query: &Query,
-        mut records: Vec<Record>,
-        options: DnsRequestOptions,
-        current_time: u32,
-    ) -> Vec<Record> {
+    /// Constructs a `HashMap` of RRsets from a list of records.
+    ///
+    /// If this is a nested verification for the trust chain of signing keys, we will skip most
+    /// record types.
+    fn split_rrsets<'a>(&self, records: &'a mut [Record]) -> HashMap<RrKey, Rrset<'a>> {
         let mut rrsets = HashMap::<RrKey, Rrset<'_>>::new();
-
         for record in records.iter_mut() {
             let (is_rrsig, record_type) =
                 if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &record.data {
@@ -402,6 +398,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             };
             vec.push(record);
         }
+        rrsets
+    }
+
+    /// Validates signatures over record sets.
+    async fn verify_rrsets(
+        &self,
+        query: &Query,
+        mut records: Vec<Record>,
+        options: DnsRequestOptions,
+        current_time: u32,
+    ) -> Vec<Record> {
+        let mut rrsets = self.split_rrsets(&mut records);
 
         // There were no records to verify.
         if rrsets.is_empty() {
