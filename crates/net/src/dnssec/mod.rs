@@ -203,37 +203,36 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             self.trust_anchor.len(),
         );
 
-        // use the same current time value for all rrsig + rrset pairs.
+        // Use the same current time value for all rrsig + rrset pairs.
         let current_time = <H::Runtime as RuntimeProvider>::Timer::current_time() as u32;
 
-        // group the record sets by name and type
-        //  each rrset type needs to validated independently
-        let answers = mem::take(&mut message.answers);
-        let authorities = mem::take(&mut message.authorities);
-        let additionals = mem::take(&mut message.additionals);
+        // Group the record sets by name and type.
+        // Each rrset type needs to validated independently.
+        let Message {
+            answers,
+            authorities,
+            additionals,
+            ..
+        } = &mut *message;
+        let answers = RrsetMap::new(answers);
+        let authorities = RrsetMap::new(authorities);
+        let additionals = RrsetMap::new(additionals);
 
-        let answers = self
-            .verify_rrsets(&query, answers, options, current_time)
+        self.verify_rrsets(&query, answers, options, current_time)
             .await;
-        let authorities = self
-            .verify_rrsets(&query, authorities, options, current_time)
+        self.verify_rrsets(&query, authorities, options, current_time)
             .await;
-        let additionals = self
-            .verify_rrsets(&query, additionals, options, current_time)
+        self.verify_rrsets(&query, additionals, options, current_time)
             .await;
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|rr| match &rr.data {
+        let must_validate_nsec = message.answers.iter().any(|rr| match &rr.data {
             RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
                 rrsig.input().num_labels < rr.name.num_labels()
             }
             _ => false,
         });
-
-        message.insert_answers(answers);
-        message.insert_authorities(authorities);
-        message.insert_additionals(additionals);
 
         if !message.authorities.is_empty()
             && message
@@ -365,32 +364,31 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_rrsets(
         &self,
         query: &Query,
-        mut records: Vec<Record>,
+        mut rrsets: RrsetMap<'_>,
         options: DnsRequestOptions,
         current_time: u32,
-    ) -> Vec<Record> {
-        let mut rrsets = RrsetMap::new(&mut records);
-        if self.request_depth > 1 {
-            // If we are at a depth greater than 1, we are only interested in proving evaluation chains.
-            // This means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
-            // This protects against looping over things like NS records and DNSKEYs in responses.
-            // TODO: is there a cleaner way to prevent cycles in the evaluations?
-            rrsets.retain(|key, _| {
-                matches!(
-                    key.record_type,
-                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3
-                )
-            });
-        }
-
+    ) {
         // There were no records to verify.
         if rrsets.is_empty() {
-            return records;
+            return;
         }
 
         for (key, rrset) in rrsets.iter_mut() {
             let name = &key.name;
             let record_type = key.record_type;
+
+            if self.request_depth > 1
+                && !matches!(
+                    key.record_type,
+                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3
+                )
+            {
+                // If we are at a depth greater than 1, we are only interested in proving evaluation chains.
+                // This means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
+                // This protects against looping over things like NS records and DNSKEYs in responses.
+                // TODO: is there a cleaner way to prevent cycles in the evaluations?
+                continue;
+            }
 
             // TODO: support non-IN classes?
             debug!(
@@ -485,8 +483,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
             }
         }
-
-        records
     }
 
     /// DNSKEY-specific verification
