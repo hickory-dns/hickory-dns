@@ -897,49 +897,47 @@ async fn build_forwarded_response(
             };
 
             // Collect all of the authority records, except the SOA
-            let authorities = if let Some(authorities) = e.authorities() {
-                let authorities = authorities
-                    .iter()
-                    .filter_map(|record| {
-                        // if we have another record (probably a dnssec record) that
-                        // matches the query name, but wasn't included in the answers
-                        // section, change the NXDomain response to NoError
-                        if record.name == **query.name() {
-                            debug!(
-                                query_name = %query.name(),
-                                ?record,
-                                "changing response code from NXDomain to NoError due to other record",
-                            );
-                            response_meta.response_code = ResponseCode::NoError;
-                        }
+            let authorities = match e.authorities() {
+                Some(authorities) => {
+                    let authorities = authorities
+                        .iter()
+                        .filter_map(|record| {
+                            // if we have another record (probably a dnssec record) that
+                            // matches the query name, but wasn't included in the answers
+                            // section, change the NXDomain response to NoError
+                            if record.name == **query.name() {
+                                debug!(
+                                    query_name = %query.name(),
+                                    ?record,
+                                    "changing response code from NXDomain to NoError due to other record",
+                                );
+                                response_meta.response_code = ResponseCode::NoError;
+                            }
 
-                        match record.record_type() {
-                            RecordType::SOA => None,
-                            _ => Some(record.clone()),
-                        }
-                    })
-                    .collect();
+                            match record.record_type() {
+                                RecordType::SOA => None,
+                                _ => Some(record.clone()),
+                            }
+                        })
+                        .collect();
 
-                AuthLookup::answers(LookupRecords::Section(authorities), None)
-            } else {
-                AuthLookup::default()
+                    AuthLookup::answers(LookupRecords::Section(authorities), None)
+                }
+                None => AuthLookup::default(),
             };
 
-            if let Some(soa) = e.into_soa() {
-                let soa = soa.into_record_of_rdata();
-
-                ResponseParts {
+            match e.into_soa() {
+                Some(soa) => ResponseParts {
                     answers,
-                    soa: Some(soa),
+                    soa: Some(soa.into_record_of_rdata()),
                     authorities,
                     ..ResponseParts::default()
-                }
-            } else {
-                ResponseParts {
+                },
+                None => ResponseParts {
                     answers,
                     authorities,
                     ..ResponseParts::default()
-                }
+                },
             }
         }
         #[cfg(all(feature = "__dnssec", feature = "recursor"))]
@@ -950,19 +948,16 @@ async fn build_forwarded_response(
         )))) if proof.is_insecure() => {
             response_meta.response_code = response.response_code;
 
-            if let Some(soa) = response.soa() {
-                let soa = soa.to_owned().into_record_of_rdata();
-
-                ResponseParts {
-                    soa: Some(soa),
+            match response.soa() {
+                Some(soa) => ResponseParts {
+                    soa: Some(soa.to_owned().into_record_of_rdata()),
                     nsec_proof: Some(proof),
                     ..ResponseParts::default()
-                }
-            } else {
-                ResponseParts {
+                },
+                None => ResponseParts {
                     nsec_proof: Some(proof),
                     ..ResponseParts::default()
-                }
+                },
             }
         }
         #[cfg(feature = "__dnssec")]
