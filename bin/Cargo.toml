@@ -52,8 +52,6 @@ dnssec-aws-lc-rs = ["hickory-server/dnssec-aws-lc-rs", "dep:rustls-pki-types", "
 dnssec-ring = ["hickory-server/dnssec-ring", "dep:rustls-pki-types", "__dnssec"]
 __dnssec = []
 
-jemalloc-profiling = ["jemalloc", "tikv-jemallocator/profiling"]
-jemalloc = ["dep:tikv-jemallocator"]
 webpki-roots = ["hickory-server/webpki-roots"]
 rustls-platform-verifier = ["hickory-server/rustls-platform-verifier"]
 
@@ -66,6 +64,7 @@ path = "src/hickory-dns.rs"
 # - `suggestions` for advanced help with error in cli
 # - `derive` for clap derive api
 # - `help` to generate --help
+mimalloc = { workspace = true }
 cfg-if.workspace = true
 clap = { workspace = true, default-features = false, features = ["cargo", "derive", "help", "std", "suggestions"] }
 futures-util = { workspace = true, default-features = false, features = ["std"] }
@@ -98,9 +97,6 @@ hostname.workspace = true
 metrics = { workspace = true, optional = true }
 metrics-exporter-prometheus = { workspace = true, optional = true }
 metrics-process = { workspace = true, optional = true }
-
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
