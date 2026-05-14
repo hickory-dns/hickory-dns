@@ -768,3 +768,103 @@ fn foreign_class_record_rejected() -> Result<(), Error> {
 
     Ok(())
 }
+
+/// Cyclic glueless referral short-circuited by per-request in-flight zone set.
+///
+/// Two attacker zones each serve a glueless referral pointing at NS hostnames
+/// in the peer zone. Resolving the trap name forces the recursor to descend
+/// into the peer zone to resolve those NS hostnames, where it encounters the
+/// mirror referral pointing back at the original zone, making a cycle.
+///
+/// Topology:
+///   azone.testing.:  cyc.azone.testing. NS RRset -> nsN.cyc.bzone.testing.
+///   bzone.testing.:  cyc.bzone.testing. NS RRset -> nsN.cyc.azone.testing.
+///
+/// The in-flight zone set in `RequestLimits` rejects re-entry into a zone
+/// that is already on the current request's resolution stack, short-circuiting
+/// the cycle before it can compound. The assertion targets this specific
+/// mitigation by matching the cycle-detection log message and verifying the
+/// per-request query budget did not engage.
+#[test]
+#[ignore]
+fn cyclic_glueless_referral_short_circuited() -> Result<(), Error> {
+    // Width must equal MAX_GLUELESS_FOLLOW: smaller widths let the cycle terminate via
+    // ns_recursion_limit alone.
+    const W: usize = 5;
+
+    let azone = FQDN("azone.testing.")?;
+    let bzone = FQDN("bzone.testing.")?;
+    let a_cut = FQDN("cyc.azone.testing.")?;
+    let b_cut = FQDN("cyc.bzone.testing.")?;
+    let trap_fqdn = FQDN("target.cyc.azone.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(&Implementation::test_peer(), FQDN::TEST_TLD, &network)?;
+    let mut azone_ns = NameServer::new(&Implementation::test_peer(), azone.clone(), &network)?;
+    let mut bzone_ns = NameServer::new(&Implementation::test_peer(), bzone.clone(), &network)?;
+
+    root_ns.referral(
+        FQDN::TEST_TLD,
+        FQDN("primary.tld-server.testing.")?,
+        tld_ns.ipv4_addr(),
+    );
+    tld_ns.referral(
+        azone.clone(),
+        FQDN("ns.azone.testing.")?,
+        azone_ns.ipv4_addr(),
+    );
+    tld_ns.referral(
+        bzone.clone(),
+        FQDN("ns.bzone.testing.")?,
+        bzone_ns.ipv4_addr(),
+    );
+
+    for i in 1..=W {
+        azone_ns.add(Record::ns(
+            a_cut.clone(),
+            FQDN(format!("ns{i}.cyc.bzone.testing."))?,
+        ));
+        bzone_ns.add(Record::ns(
+            b_cut.clone(),
+            FQDN(format!("ns{i}.cyc.azone.testing."))?,
+        ));
+    }
+
+    let resolver = Resolver::new(&network, root_ns.root_hint())
+        .start_with_subject(&Implementation::hickory())?;
+
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _azone_ns = azone_ns.start()?;
+    let _bzone_ns = bzone_ns.start()?;
+
+    let res = Client::new(resolver.network())?.dig(
+        *DigSettings::default().recurse().timeout(30),
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &trap_fqdn,
+    );
+
+    match res {
+        Ok(res) => assert!(
+            res.status.is_servfail(),
+            "expected SERVFAIL, got {:?}",
+            res.status
+        ),
+        Err(e) => panic!("dig error {e:?} resolver logs: {}", resolver.logs()?),
+    }
+
+    let logs = resolver.logs()?;
+    assert!(
+        logs.contains("refusing to re-enter zone already on resolution stack"),
+        "expected cycle-detection log line; resolver logs:\n{logs}"
+    );
+    assert!(
+        !logs.contains("per-request query budget exceeded"),
+        "in-flight zone set should have short-circuited the cycle before the per-request budget engaged; resolver logs:\n{logs}"
+    );
+
+    Ok(())
+}
