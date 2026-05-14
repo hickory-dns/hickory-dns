@@ -916,18 +916,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     self.lookup(query.clone(), options)
                         .first_answer()
                         .map(move |result| match result {
-                            Ok(message) => Ok(verify_rrsig_with_keys(
-                                message,
-                                &rrsig,
-                                key,
-                                rrset,
-                                current_time,
-                            )
-                            .map(|(proof, adjusted_ttl)| RrsetProof {
-                                proof,
-                                adjusted_ttl,
-                                rrsig_index: Some(i),
-                            })),
+                            Ok(message) => {
+                                let verdict_opt = verify_rrsig_with_keys(
+                                    message,
+                                    &rrsig,
+                                    key,
+                                    rrset,
+                                    current_time,
+                                );
+                                Ok(verdict_opt.map(|(proof, adjusted_ttl)| RrsetProof {
+                                    proof,
+                                    adjusted_ttl,
+                                    rrsig_index: Some(i),
+                                }))
+                            }
                             Err(net) => Err(ProofError::new(
                                 Proof::Bogus,
                                 ProofErrorKind::Net { query, net },
