@@ -295,6 +295,7 @@ impl DnsServer {
             http_endpoint,
             deny_networks,
             allow_networks,
+            allow_networks_strict,
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
         } = config;
@@ -337,7 +338,12 @@ impl DnsServer {
 
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
+        let mut server = Server::with_access_strict(
+            catalog,
+            deny_networks,
+            allow_networks,
+            allow_networks_strict,
+        );
 
         let mut listen_addrs = listen_addrs_ipv4
             .into_iter()
