@@ -503,6 +503,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         for i in 1..=num_labels {
             let zone = query_name.trim_to(i as usize);
+            let _in_flight = limits.try_enter_zone(&zone).inspect_err(|_| {
+                debug!(
+                    ?zone,
+                    "refusing to re-enter zone already on resolution stack"
+                );
+            })?;
             if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
                 match ns.ttl_expired() {
                     true => debug!(?zone, "cached name server pool expired"),
@@ -838,6 +844,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 pub(crate) struct RequestLimits {
     req_query_count: AtomicU8,
     cname_limit: AtomicU8,
+    in_flight_zones: Mutex<HashSet<Name>>,
 }
 
 impl RequestLimits {
@@ -845,6 +852,7 @@ impl RequestLimits {
         Self {
             req_query_count: AtomicU8::new(0),
             cname_limit: AtomicU8::new(0),
+            in_flight_zones: Mutex::new(HashSet::new()),
         }
     }
 
@@ -860,6 +868,29 @@ impl RequestLimits {
             return Err(RecursorError::QueryBudgetExceeded);
         }
         Ok(())
+    }
+
+    fn try_enter_zone<'a>(&'a self, zone: &Name) -> Result<InFlightZone<'a>, RecursorError> {
+        if !self.in_flight_zones.lock().insert(zone.clone()) {
+            return Err(RecursorError::from(format!(
+                "zone {zone} is already on the resolution stack"
+            )));
+        }
+        Ok(InFlightZone {
+            limits: self,
+            zone: zone.clone(),
+        })
+    }
+}
+
+struct InFlightZone<'a> {
+    limits: &'a RequestLimits,
+    zone: Name,
+}
+
+impl Drop for InFlightZone<'_> {
+    fn drop(&mut self) {
+        self.limits.in_flight_zones.lock().remove(&self.zone);
     }
 }
 

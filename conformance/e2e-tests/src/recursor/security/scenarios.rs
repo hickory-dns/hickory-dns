@@ -786,7 +786,6 @@ fn foreign_class_record_rejected() -> Result<(), Error> {
 /// mitigation by matching the cycle-detection log message and verifying the
 /// per-request query budget did not engage.
 #[test]
-#[ignore]
 fn cyclic_glueless_referral_short_circuited() -> Result<(), Error> {
     // Width must equal MAX_GLUELESS_FOLLOW: smaller widths let the cycle terminate via
     // ns_recursion_limit alone.
