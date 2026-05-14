@@ -18,6 +18,7 @@ use core::{
 };
 use std::{
     collections::{HashMap, hash_map::DefaultHasher},
+    ops::{Deref, DerefMut},
     sync::Arc,
     time::Instant,
 };
@@ -368,7 +369,19 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         options: DnsRequestOptions,
         current_time: u32,
     ) -> Vec<Record> {
-        let mut rrsets = self.split_rrsets(&mut records);
+        let mut rrsets = RrsetMap::new(&mut records);
+        if self.request_depth > 1 {
+            // If we are at a depth greater than 1, we are only interested in proving evaluation chains.
+            // This means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
+            // This protects against looping over things like NS records and DNSKEYs in responses.
+            // TODO: is there a cleaner way to prevent cycles in the evaluations?
+            rrsets.retain(|key, _| {
+                matches!(
+                    key.record_type,
+                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3
+                )
+            });
+        }
 
         // There were no records to verify.
         if rrsets.is_empty() {
@@ -474,47 +487,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
 
         records
-    }
-
-    /// Constructs a `HashMap` of RRsets from a list of records.
-    ///
-    /// If this is a nested verification for the trust chain of signing keys, we will skip most
-    /// record types.
-    fn split_rrsets<'a>(&self, records: &'a mut [Record]) -> HashMap<RrKey, Rrset<'a>> {
-        let mut rrsets = HashMap::<RrKey, Rrset<'_>>::new();
-        for record in records.iter_mut() {
-            let (is_rrsig, record_type) =
-                if let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &record.data {
-                    (true, rrsig.input().type_covered)
-                } else {
-                    (false, record.record_type())
-                };
-
-            // If we are at a depth greater than 1, we are only interested in proving evaluation chains.
-            // This means that only DNSKEY, DS, NSEC, and NSEC3 are interesting at that point.
-            // This protects against looping over things like NS records and DNSKEYs in responses.
-            // TODO: is there a cleaner way to prevent cycles in the evaluations?
-            if self.request_depth > 1
-                && !matches!(
-                    record_type,
-                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3
-                )
-            {
-                continue;
-            }
-
-            let name = LowerName::new(&record.name);
-            let key = RrKey::new(name, record_type);
-            let entry = rrsets.entry(key);
-            let rrset = entry.or_default();
-            let vec = if is_rrsig {
-                &mut rrset.signatures
-            } else {
-                &mut rrset.records
-            };
-            vec.push(record);
-        }
-        rrsets
     }
 
     /// DNSKEY-specific verification
@@ -1528,6 +1500,46 @@ impl ValidationCache {
                 proof.clone(),
             ),
         );
+    }
+}
+
+/// A collection of RRsets, with mutable access to the underlying records.
+struct RrsetMap<'a>(HashMap<RrKey, Rrset<'a>>);
+
+impl<'a> RrsetMap<'a> {
+    /// Splits records into RRsets.
+    fn new(records: &'a mut [Record]) -> Self {
+        let mut map = HashMap::<RrKey, Rrset<'_>>::new();
+        for record in records.iter_mut() {
+            let (is_rrsig, record_type) = match &record.data {
+                RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => (true, rrsig.input().type_covered),
+                _ => (false, record.record_type()),
+            };
+
+            let rrset = map
+                .entry(RrKey::new(LowerName::new(&record.name), record_type))
+                .or_default();
+            match is_rrsig {
+                true => &mut rrset.signatures,
+                false => &mut rrset.records,
+            }
+            .push(record);
+        }
+        Self(map)
+    }
+}
+
+impl<'a> Deref for RrsetMap<'a> {
+    type Target = HashMap<RrKey, Rrset<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for RrsetMap<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
