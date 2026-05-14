@@ -3,7 +3,6 @@ use std::{
     sync::OnceLock,
 };
 
-#[cfg(test)]
 use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -13,6 +12,7 @@ use hickory_net::{DnsStreamHandle, runtime::iocompat::AsyncIoTokioAsStd, tcp::Tc
 use hickory_proto::{
     op::{Message, SerialMessage},
     rr::{Name, RecordType},
+    serialize::binary::{BinEncodable, BinEncoder},
 };
 use tokio::net::{TcpListener, UdpSocket};
 
@@ -93,18 +93,20 @@ enum HandlerArg {
 impl HandlerArg {
     fn into_handler(self) -> &'static dyn Handler {
         match self {
-            Self::Bailiwick => &bailiwick_handler,
-            Self::Base => &base_handler,
-            Self::BadCase => &bad_case_handler,
-            Self::BadTxid => &bad_txid_handler,
-            Self::CnameLoop => &cname_loop_handler,
-            Self::EmptyResponse => &empty_response_handler,
-            Self::Nsec3Nocover => &nsec3_nocover_handler,
-            Self::ParentNsInAuthority => &parent_ns_in_authority_handler,
-            Self::PacketLoss => &packet_loss_handler,
-            Self::TruncatedResponse => &truncated_response_handler,
-            Self::QrNotResponse => &qr_not_response_handler,
-            Self::QrNotResponseForceTcp => &qr_not_response_force_tcp_handler,
+            Self::Bailiwick => &(bailiwick_handler as HandlerMessageFnPtr),
+            Self::Base => &(base_handler as HandlerMessageFnPtr),
+            Self::BadCase => &(bad_case_handler as HandlerMessageFnPtr),
+            Self::BadTxid => &(bad_txid_handler as HandlerMessageFnPtr),
+            Self::CnameLoop => &(cname_loop_handler as HandlerMessageFnPtr),
+            Self::EmptyResponse => &(empty_response_handler as HandlerMessageFnPtr),
+            Self::Nsec3Nocover => &(nsec3_nocover_handler as HandlerMessageFnPtr),
+            Self::ParentNsInAuthority => &(parent_ns_in_authority_handler as HandlerMessageFnPtr),
+            Self::PacketLoss => &(packet_loss_handler as HandlerBytesFnPtr),
+            Self::TruncatedResponse => &(truncated_response_handler as HandlerMessageFnPtr),
+            Self::QrNotResponse => &(qr_not_response_handler as HandlerMessageFnPtr),
+            Self::QrNotResponseForceTcp => {
+                &(qr_not_response_force_tcp_handler as HandlerMessageFnPtr)
+            }
             Self::DropRrset {
                 ip_address,
                 name,
@@ -233,7 +235,7 @@ impl TcpServer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Transport {
     Tcp,
     Udp,
@@ -244,14 +246,57 @@ trait Handler: Send + Sync {
     async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>>;
 }
 
+/// Synchronous handler function that operates on byte arrays.
+type HandlerBytesFnPtr = fn(&[u8], Transport) -> Result<Option<Vec<u8>>>;
+
+/// Implementation for function pointers using raw byte arrays.
+///
+/// This allows for maximal flexibility, including improperly encoded messages, direct control over
+/// the truncation flag, and failing to respond to queries. Asynchronous operations are not
+/// supported, so this cannot be used to proxy requests to another server.
 #[async_trait]
-impl<T> Handler for T
-where
-    T: (Fn(&[u8], Transport) -> Result<Option<Vec<u8>>>) + Send + Sync + 'static,
-{
+impl Handler for HandlerBytesFnPtr {
     async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
         self(bytes, transport)
     }
+}
+
+/// Synchronous handler function that operates on messages.
+type HandlerMessageFnPtr = fn(Message, Transport) -> Result<Message>;
+
+/// Implementation for function pointers using [`Message`] structs.
+///
+/// This handles common message decoding and encoding before and after calling the function,
+/// including setting the truncation flag when necessary.
+#[async_trait]
+impl Handler for HandlerMessageFnPtr {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+        let request = Message::from_vec(bytes)?;
+        let max_message_size = max_message_size(&request, transport);
+        let response_msg = self(request, transport)?;
+        Ok(Some(encode_response(&response_msg, max_message_size)?))
+    }
+}
+
+/// Chooses the maximum message size based on the EDNS(0) OPT pseudo-record and the transport
+/// protocol.
+fn max_message_size(message: &Message, transport: Transport) -> u16 {
+    match (transport, &message.edns) {
+        (Transport::Tcp, _) => u16::MAX,
+        (Transport::Udp, Some(edns)) => edns.max_payload(),
+        (Transport::Udp, None) => 512,
+    }
+}
+
+/// Serialize a message, with the given size limit.
+fn encode_response(message: &Message, max_message_size: u16) -> Result<Vec<u8>> {
+    let mut buffer = Vec::with_capacity(max_message_size as usize);
+    let mut encoder = BinEncoder::new(&mut buffer);
+    encoder.set_max_size(max_message_size);
+    message
+        .emit(&mut encoder)
+        .context("could not serialize Message")?;
+    Ok(buffer)
 }
 
 #[cfg(test)]
@@ -270,7 +315,7 @@ mod test {
     };
     use hickory_proto::rr::{DNSClass, RData, RecordType, domain::Name, rdata};
 
-    use crate::{Transport, base_handler};
+    use crate::{HandlerArg, Transport};
 
     #[tokio::test]
     async fn tcp_msg() -> Result<()> {
@@ -296,7 +341,7 @@ mod test {
     async fn multiple_tcp_msg() -> Result<()> {
         let tcp = super::TcpServer::new((Ipv4Addr::LOCALHOST, 0).into()).await?;
         let tcp_peer = tcp.addr()?;
-        let _handle = tokio::spawn(tcp.run(&base_handler));
+        let _handle = tokio::spawn(tcp.run(HandlerArg::Base.into_handler()));
 
         let (future, sender) =
             TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
@@ -334,7 +379,7 @@ mod test {
             Transport::Tcp => {
                 let tcp = super::TcpServer::new(socket).await?;
                 let tcp_peer = tcp.addr()?;
-                let _handle = tokio::spawn(tcp.run(&base_handler));
+                let _handle = tokio::spawn(tcp.run(HandlerArg::Base.into_handler()));
                 let (future, sender) =
                     TcpClientStream::new(tcp_peer, None, None, TokioRuntimeProvider::new());
                 let (client, bg) = Client::<TokioRuntimeProvider>::new(future.await?, sender);
@@ -344,7 +389,7 @@ mod test {
             Transport::Udp => {
                 let udp = super::UdpServer::new(socket).await?;
                 let udp_peer = udp.addr()?;
-                let _handle = tokio::spawn(udp.run(&base_handler));
+                let _handle = tokio::spawn(udp.run(HandlerArg::Base.into_handler()));
                 let conn = UdpClientStream::builder(udp_peer, TokioRuntimeProvider::new()).build();
                 let (client, bg) = Client::from_sender(conn);
                 let _handle = tokio::spawn(bg);
