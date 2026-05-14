@@ -111,7 +111,7 @@ fn parent_ns_in_authority_does_not_prevent_resolution() -> Result<(), Error> {
 ///  example2.testing IN NS example.testing.
 ///
 /// Querying for any host in example.testing should cause the recursor to return no answer and the
-/// recursor log should contain a NoConnections error.
+/// recursor log should contain an error message about this cycle.
 #[test]
 fn recursive_delegation() -> Result<(), Error> {
     let target_fqdn = FQDN("www.example.testing.")?;
@@ -177,7 +177,7 @@ fn recursive_delegation() -> Result<(), Error> {
         resolver
             .logs()
             .unwrap()
-            .contains("recursion depth exceeded for")
+            .contains("refusing to re-enter zone already on resolution stack")
     );
 
     Ok(())
