@@ -40,7 +40,7 @@ pub use rr_key::RrKey;
 mod rr_set;
 #[cfg(feature = "__dnssec")]
 pub use rr_set::RecordsAndRrsigsIter;
-pub use rr_set::{RecordSet, RecordSetParts, RrsetRecords};
+pub use rr_set::{RecordSet, RrsetRecords};
 
 pub(crate) mod serial_number;
 pub use serial_number::SerialNumber;
