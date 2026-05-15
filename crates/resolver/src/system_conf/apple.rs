@@ -10,6 +10,7 @@ use system_configuration::{
     },
     dynamic_store::SCDynamicStoreBuilder,
 };
+use tracing::warn;
 
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 
@@ -33,9 +34,18 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
 
     let mut nameservers = Vec::with_capacity(nameservers_cf.len() as usize);
     for n in &*nameservers_cf {
-        let addr = IpAddr::from_str(&Cow::from(&*n))
-            .map_err(|e| format!("failed to parse nameserver address: {e}"))?;
-
+        let s = Cow::from(&*n);
+        let addr = match IpAddr::from_str(&s) {
+            Ok(addr) => addr,
+            Err(e) => {
+                warn!(
+                    nameserver = %s,
+                    error = %e,
+                    "ignoring unparseable nameserver"
+                );
+                continue;
+            }
+        };
         nameservers.push(NameServerConfig::udp_and_tcp(addr));
     }
 
