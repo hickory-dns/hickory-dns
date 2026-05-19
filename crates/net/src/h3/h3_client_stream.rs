@@ -11,6 +11,7 @@ use core::net::SocketAddr;
 use core::pin::Pin;
 use core::str::FromStr;
 use core::task::{Context, Poll};
+use core::time::Duration;
 use std::sync::Arc;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -20,6 +21,7 @@ use h3_quinn::OpenStreams;
 use http::header::{self, CONTENT_LENGTH};
 use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
+use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
@@ -44,6 +46,7 @@ pub struct H3ClientStream {
     context: Arc<RequestContext>,
     shutdown_tx: mpsc::Sender<()>,
     is_shutdown: bool,
+    request_timeout: Option<Duration>,
 }
 
 impl H3ClientStream {
@@ -55,6 +58,7 @@ impl H3ClientStream {
             bind_addr: None,
             set_headers: None,
             disable_grease: false,
+            request_timeout: None,
         }
     }
 
@@ -243,11 +247,21 @@ impl DnsRequestSender for H3ClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(Self::inner_send(
+        let send_fut = Self::inner_send(
             self.send_request.clone(),
             Bytes::from(bytes),
             self.context.clone(),
-        ))
+        );
+
+        let Some(request_timeout) = self.request_timeout else {
+            return Box::pin(send_fut).into();
+        };
+
+        Box::pin(async move {
+            timeout(request_timeout, send_fut)
+                .await
+                .map_err(|_| NetError::Timeout)?
+        })
         .into()
     }
 
@@ -297,6 +311,7 @@ pub struct H3ClientStreamBuilder {
     bind_addr: Option<SocketAddr>,
     set_headers: Option<Arc<dyn SetHeaders>>,
     disable_grease: bool,
+    request_timeout: Option<Duration>,
 }
 
 impl H3ClientStreamBuilder {
@@ -320,6 +335,15 @@ impl H3ClientStreamBuilder {
     /// Sets whether to disable GREASE
     pub fn disable_grease(mut self, disable_grease: bool) -> Self {
         self.disable_grease = disable_grease;
+        self
+    }
+
+    /// Set the per-request timeout applied to each DNS send over the H3 connection.
+    ///
+    /// When set, each call to [`DnsRequestSender::send_message`] will be cancelled with
+    /// [`NetError::Timeout`] if no response arrives within this duration.
+    pub fn request_timeout(mut self, timeout: Duration) -> Self {
+        self.request_timeout = Some(timeout);
         self
     }
 
@@ -463,6 +487,7 @@ impl H3ClientStreamBuilder {
             }),
             shutdown_tx,
             is_shutdown: false,
+            request_timeout: self.request_timeout,
         })
     }
 }

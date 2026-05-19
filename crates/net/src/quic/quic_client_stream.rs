@@ -11,6 +11,7 @@ use core::{
     net::SocketAddr,
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
 use std::io;
 use std::sync::Arc;
@@ -41,6 +42,7 @@ pub struct QuicClientStream {
     server_name: Arc<str>,
     name_server: SocketAddr,
     is_shutdown: bool,
+    request_timeout: Option<Duration>,
 }
 
 impl Display for QuicClientStream {
@@ -167,7 +169,18 @@ impl DnsRequestSender for QuicClientStream {
             panic!("can not send messages after stream is shutdown")
         }
 
-        Box::pin(Self::inner_send(self.quic_connection.clone(), request)).into()
+        let send_fut = Self::inner_send(self.quic_connection.clone(), request);
+
+        let Some(request_timeout) = self.request_timeout else {
+            return Box::pin(send_fut).into();
+        };
+
+        Box::pin(async move {
+            timeout(request_timeout, send_fut)
+                .await
+                .map_err(|_| NetError::Timeout)?
+        })
+        .into()
     }
 
     fn shutdown(&mut self) {
@@ -199,6 +212,7 @@ pub struct QuicClientStreamBuilder {
     crypto_config: Option<rustls::ClientConfig>,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
+    request_timeout: Option<Duration>,
 }
 
 impl QuicClientStreamBuilder {
@@ -211,6 +225,15 @@ impl QuicClientStreamBuilder {
     /// Sets the address to connect from.
     pub fn bind_addr(mut self, bind_addr: SocketAddr) -> Self {
         self.bind_addr = Some(bind_addr);
+        self
+    }
+
+    /// Set the per-request timeout applied to each DNS send over the QUIC connection.
+    ///
+    /// When set, each call to [`DnsRequestSender::send_message`] will be cancelled with
+    /// [`NetError::Timeout`] if no response arrives within this duration.
+    pub fn request_timeout(mut self, timeout: Duration) -> Self {
+        self.request_timeout = Some(timeout);
         self
     }
 
@@ -321,6 +344,7 @@ impl QuicClientStreamBuilder {
             server_name,
             name_server,
             is_shutdown: false,
+            request_timeout: self.request_timeout,
         })
     }
 }
@@ -377,6 +401,7 @@ impl Default for QuicClientStreamBuilder {
             crypto_config: None,
             transport_config: Arc::new(transport_config),
             bind_addr: None,
+            request_timeout: None,
         }
     }
 }
