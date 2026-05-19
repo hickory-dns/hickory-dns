@@ -337,6 +337,64 @@ async fn test_catalog_nx_soa() {
 }
 
 #[tokio::test]
+#[allow(clippy::unreadable_literal)]
+async fn test_catalog_soa_query_for_nx_name() {
+    subscribe();
+
+    let example = create_example();
+    let origin = example.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin, vec![Arc::new(example)]);
+
+    let mut question = Message::query();
+
+    let mut query = Query::root();
+    query.set_name(Name::parse("nx.example.com.", None).unwrap());
+    query.set_query_type(RecordType::SOA);
+
+    question.add_query(query);
+
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+
+    assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(result.metadata.message_type, MessageType::Response);
+    assert!(result.metadata.authoritative);
+    assert!(result.answers.is_empty());
+
+    let authorities = result.authorities;
+
+    assert_eq!(authorities.len(), 1);
+    assert_eq!(authorities.first().unwrap().record_type(), RecordType::SOA);
+    assert_eq!(
+        authorities.first().unwrap().data,
+        RData::SOA(SOA::new(
+            Name::parse("sns.dns.icann.org.", None).unwrap(),
+            Name::parse("noc.dns.icann.org.", None).unwrap(),
+            2015082403,
+            7200,
+            3600,
+            1209600,
+            3600,
+        ))
+    );
+}
+
+#[tokio::test]
 async fn test_non_authoritive_nx_refused() {
     subscribe();
 
