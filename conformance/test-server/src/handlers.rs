@@ -1,4 +1,4 @@
-use crate::{Handler, Transport, zone_file};
+use crate::{Handler, Transport, encode_response, max_message_size, zone_file};
 use anyhow::{Context, Error, Result, anyhow};
 use async_trait::async_trait;
 use data_encoding::BASE32_DNSSEC;
@@ -25,8 +25,8 @@ use std::{
 };
 
 /// This handler generates a valid A-record response to any query
-pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn base_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
 
     msg.metadata.recursion_desired = false;
@@ -34,15 +34,13 @@ pub(crate) fn base_handler(bytes: &[u8], _transport: Transport) -> Result<Option
         name,
         1,
         RData::A(rdata::A([192, 0, 2, 1].into())),
-    ))
-    .to_vec()
-    .map(Some)
-    .with_context(|| "base handler: could not serialize Message")
+    ));
+    Ok(msg)
 }
 
 /// This handler responds to any messages with an incorrect transaction (query) id.
-pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn bad_txid_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
 
     msg.metadata.id = if msg.metadata.id == 65535 {
@@ -56,42 +54,30 @@ pub(crate) fn bad_txid_handler(bytes: &[u8], _transport: Transport) -> Result<Op
         name,
         1,
         RData::A(rdata::A([192, 0, 2, 1].into())),
-    ))
-    .to_vec()
-    .map(Some)
-    .with_context(|| "bad txid handler: could not serialize Message")
+    ));
+    Ok(msg)
 }
 
 /// This handler responds to any messages with an empty message (no response records)
-pub(crate) fn empty_response_handler(
-    bytes: &[u8],
-    _transport: Transport,
-) -> Result<Option<Vec<u8>>> {
-    Message::from_vec(bytes)?
-        .into_response()
-        .to_vec()
-        .map(Some)
-        .with_context(|| "empty response handler: could not serialize Message")
+pub(crate) fn empty_response_handler(request: Message, _transport: Transport) -> Result<Message> {
+    Ok(request.into_response())
 }
 
 /// This handler responds to UDP requests with the truncation bit set.  If the test server is
 /// configured to listen via TCP and a request is received over a TCP channel, the truncation bit
 /// is not set.
 pub(crate) fn truncated_response_handler(
-    bytes: &[u8],
+    request: Message,
     transport: Transport,
-) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
 
     if name != Name::from_ascii("example.testing.").unwrap()
         && msg.queries[0].query_type != RecordType::TXT
     {
         msg.metadata.response_code = ResponseCode::NXDomain;
-        return msg
-            .to_vec()
-            .map(Some)
-            .with_context(|| "truncated response handler: could not serialize Message");
+        return Ok(msg);
     }
 
     let (protocol_str, counter_str) = match transport {
@@ -121,15 +107,15 @@ pub(crate) fn truncated_response_handler(
         name,
         86400,
         RData::TXT(rdata::TXT::new(vec![protocol_str, counter_str])),
-    ))
-    .to_vec()
-    .map(Some)
-    .with_context(|| "truncated response handler: could not serialize Message")
+    ));
+    Ok(msg)
 }
 
 /// This handler simulates packet loss by not responding to the first query it receives
-pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn packet_loss_handler(bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+    let request = Message::from_vec(bytes)?;
+    let max_message_size = max_message_size(&request, transport);
+    let mut msg = request.into_response();
     let query = msg.queries[0].clone();
     let name = query.name.clone();
     let q_type = query.query_type;
@@ -150,14 +136,12 @@ pub(crate) fn packet_loss_handler(bytes: &[u8], _transport: Transport) -> Result
         msg.metadata.response_code = ResponseCode::NXDomain;
     }
 
-    msg.to_vec()
-        .map(Some)
-        .with_context(|| "packet loss handler: could not serialize Message")
+    Ok(Some(encode_response(&msg, max_message_size)?))
 }
 
 /// This handler does not preserve the case of query names in responses.
-pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn bad_case_handler(request: Message, transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
     let mut queries = msg.queries;
 
     // This doesn't use Name::randomize_case_labels since that doesn't guarantee
@@ -185,23 +169,21 @@ pub(crate) fn bad_case_handler(bytes: &[u8], transport: Transport) -> Result<Opt
             Transport::Tcp => [192, 0, 2, 2].into(),
             Transport::Udp => [192, 0, 2, 1].into(),
         })),
-    ))
-    .to_vec()
-    .map(Some)
-    .with_context(|| "bad case handler: could not serialize Message")
+    ));
+    Ok(msg)
 }
 
 /// This handler generates a large number of lengthy CNAME records to resolve
-pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn cname_loop_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
 
     let Some(host) = name.iter().next() else {
-        return Ok(None);
+        return Err(anyhow!("did not expect QNAME to be the root"));
     };
 
     let Ok(host_str) = std::str::from_utf8(host) else {
-        return Ok(None);
+        return Err(anyhow!("invalid UTF-8 in QNAME"));
     };
 
     let round = host_str
@@ -231,9 +213,7 @@ pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<
 
     msg.metadata.authoritative = true;
     msg.metadata.recursion_desired = false;
-    msg.to_vec()
-        .map(Some)
-        .with_context(|| "cname loop handler: could not serialize Message")
+    Ok(msg)
 }
 
 /// This handler is for testing that NSEC3 coverage validation. It should respond to queries in the
@@ -243,11 +223,8 @@ pub(crate) fn cname_loop_handler(bytes: &[u8], _transport: Transport) -> Result<
 ///  * A query for subdomain-0.hickory-dns.testing. - Return correct A + RRSIG RRset.
 ///  * A query for validnx.hickory-dns.testing. - Return NXDOMAIN + valid NSEC3/RRSIG RRSet.
 ///  * A query for any other name - Return NXDOMAIN + invalid (non-covering) NSEC3/RRSIG RRset.
-pub(crate) fn nsec3_nocover_handler(
-    bytes: &[u8],
-    _transport: Transport,
-) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn nsec3_nocover_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
     let query_name = msg.queries[0].name.clone();
     let query_type = msg.queries[0].query_type;
 
@@ -258,11 +235,7 @@ pub(crate) fn nsec3_nocover_handler(
     let records = zone_file::parse_zone_file(Path::new(
         &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
     ))
-    .map_err(|e| {
-        Error::msg(format!(
-            "nsec3_nocover handler: unable to load zone file: {e:?}"
-        ))
-    })?;
+    .map_err(|message| anyhow!("nsec3_nocover handler: unable to load zone file: {message}"))?;
 
     match query_type {
         RecordType::DNSKEY | RecordType::SOA => {
@@ -464,17 +437,15 @@ pub(crate) fn nsec3_nocover_handler(
     msg.metadata.recursion_available = true;
     msg.metadata.authoritative = true;
     msg.metadata.authentic_data = true;
-    msg.to_vec()
-        .map(Some)
-        .with_context(|| "nsec3 no cover handler: could not serialize Message")
+    Ok(msg)
 }
 
 /// This handler generates a response with a an out-of-bailiwick record included.  There are two
 /// variations: a CNAME test that returns an out of bailiwick response for that is part of a CNAME
 /// chain, and a default case that returns a superfluous out of bailiwick record along with a
 /// responsive A record.
-pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn bailiwick_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
 
     if name == Name::from_ascii("cname.example.testing.")? {
@@ -502,9 +473,7 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
     }
 
     msg.metadata.recursion_desired = false;
-    msg.to_vec()
-        .map(Some)
-        .with_context(|| "base handler: could not serialize Message")
+    Ok(msg)
 }
 
 /// This handler simulates an authoritative server that includes parent NS records
@@ -522,10 +491,10 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
 /// `example.testing.`), both records pass the bailiwick filter and resolution
 /// succeeds.
 pub(crate) fn parent_ns_in_authority_handler(
-    bytes: &[u8],
+    request: Message,
     _transport: Transport,
-) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
     let q_type = msg.queries[0].query_type;
 
@@ -580,18 +549,13 @@ pub(crate) fn parent_ns_in_authority_handler(
         msg.metadata.response_code = ResponseCode::NXDomain;
     }
 
-    msg.to_vec()
-        .map(Some)
-        .with_context(|| "parent_ns_in_authority handler: could not serialize Message")
+    Ok(msg)
 }
 
 /// This handler generates a response with QR=0 (Query type instead of Response type).
 /// Such responses should be rejected by resolvers as invalid.
-pub(crate) fn qr_not_response_handler(
-    bytes: &[u8],
-    _transport: Transport,
-) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+pub(crate) fn qr_not_response_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request; // skip into_response()
     let name = msg.queries[0].name.clone();
 
     msg.metadata.message_type = MessageType::Query;
@@ -600,28 +564,24 @@ pub(crate) fn qr_not_response_handler(
         name,
         1,
         RData::A(rdata::A([192, 0, 2, 1].into())),
-    ))
-    .to_vec()
-    .map(Some)
-    .with_context(|| "qr_not_response handler: could not serialize Message")
+    ));
+
+    Ok(msg)
 }
 
 /// This handler forces TCP by returning truncated on UDP, then returns QR=0 on TCP.
 /// Used to test QR validation over TCP connections.
 pub(crate) fn qr_not_response_force_tcp_handler(
-    bytes: &[u8],
+    request: Message,
     transport: Transport,
-) -> Result<Option<Vec<u8>>> {
-    let mut msg = Message::from_vec(bytes)?.into_response();
+) -> Result<Message> {
+    let mut msg = request.into_response();
     let name = msg.queries[0].name.clone();
 
     match transport {
         Transport::Udp => {
             msg.metadata.truncation = true;
             msg.metadata.authoritative = true;
-            msg.to_vec()
-                .map(Some)
-                .with_context(|| "qr_not_response_force_tcp handler: could not serialize Message")
         }
         Transport::Tcp => {
             msg.metadata.message_type = MessageType::Query;
@@ -630,12 +590,10 @@ pub(crate) fn qr_not_response_force_tcp_handler(
                 name,
                 1,
                 RData::A(rdata::A([192, 0, 2, 1].into())),
-            ))
-            .to_vec()
-            .map(Some)
-            .with_context(|| "qr_not_response_force_tcp handler: could not serialize Message")
+            ));
         }
     }
+    Ok(msg)
 }
 
 /// This handler proxies requests to another server, and drops a specific record set from responses.
@@ -657,7 +615,7 @@ impl DropRrsetHandler {
 
 #[async_trait]
 impl Handler for DropRrsetHandler {
-    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
         let (future, sender) = TcpClientStream::new(
             (self.ip_address, 53).into(),
             None,
@@ -668,6 +626,7 @@ impl Handler for DropRrsetHandler {
         tokio::task::spawn(bg);
 
         let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+        let max_message_size = max_message_size(&query_message, transport);
         let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
         let id = query_request.id;
 
@@ -701,9 +660,7 @@ impl Handler for DropRrsetHandler {
         }
 
         response.metadata.id = id;
-        Ok(Some(
-            response.to_vec().context("error serializing response")?,
-        ))
+        Ok(Some(encode_response(&response, max_message_size)?))
     }
 }
 
@@ -721,7 +678,7 @@ impl BogusNoDataInsteadOfCname {
 
 #[async_trait]
 impl Handler for BogusNoDataInsteadOfCname {
-    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
         let (future, sender) = TcpClientStream::new(
             (self.ip_address, 53).into(),
             None,
@@ -732,6 +689,7 @@ impl Handler for BogusNoDataInsteadOfCname {
         tokio::task::spawn(bg);
 
         let query_message = Message::from_vec(bytes).context("erorr parsing query into message")?;
+        let max_message_size = max_message_size(&query_message, transport);
         let query_request = DnsRequest::new(query_message, DnsRequestOptions::default());
         let id = query_request.id;
 
@@ -799,9 +757,7 @@ impl Handler for BogusNoDataInsteadOfCname {
         };
 
         response.metadata.id = id;
-        Ok(Some(
-            response.to_vec().context("error serializing response")?,
-        ))
+        Ok(Some(encode_response(&response, max_message_size)?))
     }
 }
 
