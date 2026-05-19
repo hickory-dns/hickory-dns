@@ -474,16 +474,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 
         // perform the actual lookup
         match record_type {
-            RecordType::SOA => (
-                self.lookup(
-                    self.origin(),
-                    record_type,
-                    Some(&request_info),
-                    lookup_options,
-                )
-                .await,
-                None,
-            ),
             RecordType::AXFR => (
                 LookupControlFlow::Break(Err(LookupError::NetError(
                     "AXFR must be handled with ZoneHandler::zone_transfer()".into(),
