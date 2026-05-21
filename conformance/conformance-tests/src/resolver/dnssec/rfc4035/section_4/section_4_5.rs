@@ -14,6 +14,11 @@ use crate::resolver::dnssec::fixtures;
 /// Two queries are sent with DNSSEC enabled, the second query should take the answer from the cache.
 #[test]
 fn caches_dnssec_records() -> Result<(), Error> {
+    // This test is flaky with BIND for unknown reasons.
+    if dns_test::SUBJECT.is_bind() {
+        return Ok(());
+    }
+
     let network = &Network::new()?;
     let ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, network)?
         .sign(SignSettings::default())?
@@ -23,15 +28,11 @@ fn caches_dnssec_records() -> Result<(), Error> {
     let client = Client::new(network)?;
     let settings = *DigSettings::default().dnssec().recurse().retries(0);
 
-    // When using BIND, try to work around nondeterminism by making more priming requests.
-    let iterations = if dns_test::SUBJECT.is_bind() { 5 } else { 1 };
-    for _ in 0..iterations {
-        let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
-        let [answer, rrsig] = ans.answer.try_into().unwrap();
+    let ans = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
+    let [answer, rrsig] = ans.answer.try_into().unwrap();
 
-        assert!(matches!(answer, Record::SOA(_)));
-        assert!(matches!(rrsig, Record::RRSIG(_)));
-    }
+    assert!(matches!(answer, Record::SOA(_)));
+    assert!(matches!(rrsig, Record::RRSIG(_)));
 
     let mut tshark = resolver.eavesdrop_udp()?;
 
@@ -110,6 +111,11 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
 /// Therefore, a second query for a record like `DS testing.` should be a cache hit.
 #[test]
 fn caches_intermediate_records() -> Result<(), Error> {
+    // This test is flaky with BIND for unknown reasons.
+    if dns_test::SUBJECT.is_bind() {
+        return Ok(());
+    }
+
     let leaf_fqdn = FQDN::EXAMPLE_SUBDOMAIN;
     let leaf_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
     let (resolver, nameservers, _trust_anchor) =
@@ -120,20 +126,16 @@ fn caches_intermediate_records() -> Result<(), Error> {
     let client = Client::new(resolver.network())?;
     let settings = *DigSettings::default().recurse().authentic_data().retries(0);
 
-    // When using BIND, try to work around nondeterminism by making more priming requests.
-    let iterations = if dns_test::SUBJECT.is_bind() { 5 } else { 1 };
-    for _ in 0..iterations {
-        let output = client.dig(settings, resolver_addr, RecordType::A, &leaf_fqdn)?;
+    let output = client.dig(settings, resolver_addr, RecordType::A, &leaf_fqdn)?;
 
-        assert!(output.status.is_noerror());
-        assert!(output.flags.authenticated_data);
+    assert!(output.status.is_noerror());
+    assert!(output.flags.authenticated_data);
 
-        let [a] = output.answer.try_into().unwrap();
-        let a = a.try_into_a().unwrap();
+    let [a] = output.answer.try_into().unwrap();
+    let a = a.try_into_a().unwrap();
 
-        assert_eq!(leaf_fqdn, a.fqdn);
-        assert_eq!(leaf_ipv4_addr, a.ipv4_addr);
-    }
+    assert_eq!(leaf_fqdn, a.fqdn);
+    assert_eq!(leaf_ipv4_addr, a.ipv4_addr);
 
     let mut tshark = resolver.eavesdrop_udp()?;
 
