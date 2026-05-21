@@ -299,9 +299,10 @@ impl PublicKey for Rsa<'_> {
         let alg = match self.algorithm {
             Algorithm::RSASHA256 => &signature::RSA_PKCS1_1024_8192_SHA256_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA512 => &signature::RSA_PKCS1_1024_8192_SHA512_FOR_LEGACY_USE_ONLY,
-            Algorithm::RSASHA1 => &signature::RSA_PKCS1_1024_8192_SHA1_FOR_LEGACY_USE_ONLY,
-            Algorithm::RSASHA1NSEC3SHA1 => {
-                return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into());
+            // RFC 5155 §2: algorithm 7 uses the same RSA/SHA-1 signature scheme as algorithm 5;
+            // the distinct identifier only signals NSEC3 capability of the signer.
+            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => {
+                &signature::RSA_PKCS1_1024_8192_SHA1_FOR_LEGACY_USE_ONLY
             }
             _ => unreachable!("non-RSA algorithm passed to RSA verify()"),
         };
@@ -558,5 +559,32 @@ mod tests {
         let key_der = PrivateKeyDer::from_pem_slice(KEY).unwrap();
         assert!(matches!(key_der, PrivateKeyDer::Pkcs1(_)));
         signing_key_from_der(&key_der, Algorithm::RSASHA256).unwrap();
+    }
+
+    /// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3690.
+    ///
+    /// Per RFC 5155 §2, DNSSEC algorithm 7 (RSASHA1NSEC3SHA1) uses the same RSA/SHA-1
+    /// signature scheme as algorithm 5 (RSASHA1); the distinct identifier only signals
+    /// that the signer understands NSEC3. `Algorithm::is_supported()` advertises both,
+    /// so `Rsa::verify` must accept them on equal footing instead of rejecting alg 7.
+    #[test]
+    #[allow(deprecated)]
+    fn test_rsasha1_nsec3sha1_uses_same_crypto_as_rsasha1() {
+        const KEY: &[u8] = include_bytes!("../../tests/test-data/rsa-2048-private-key-1.pk8");
+        let signing =
+            RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(KEY), Algorithm::RSASHA256)
+                .unwrap();
+        let key_bytes = signing.to_public_key().unwrap().into_inner();
+
+        // Both algorithms must take the same code path. A garbage signature must
+        // produce a verifier failure, not an algorithm-dispatch failure.
+        for algorithm in [Algorithm::RSASHA1, Algorithm::RSASHA1NSEC3SHA1] {
+            let key = Rsa::from_public_bytes(&key_bytes, algorithm).unwrap();
+            let err = key.verify(b"message", b"bogus signature").unwrap_err();
+            assert!(
+                matches!(err, ProtoError::Crypto("RSA signature verification failed")),
+                "unexpected error for {algorithm:?}: {err:?}",
+            );
+        }
     }
 }
