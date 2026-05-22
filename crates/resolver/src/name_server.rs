@@ -24,10 +24,10 @@ use parking_lot::Mutex as SyncMutex;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
-#[cfg(feature = "metrics")]
-use crate::metrics::ResolverMetrics;
 #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
 use crate::metrics::opportunistic_encryption::ProbeMetrics;
+#[cfg(feature = "metrics")]
+use crate::metrics::{NameServerAddr, ResolverMetrics};
 use crate::{
     config::{
         ConnectionConfig, NameServerConfig, OpportunisticEncryption, ResolverOpts,
@@ -84,6 +84,16 @@ impl<P: ConnectionProvider> NameServer<P> {
             connections.sort_by_key(|ns| ns.protocol != Protocol::Udp);
         }
 
+        #[cfg(feature = "metrics")]
+        let resolver_metrics = {
+            let addr = if options.enable_per_name_server_metrics {
+                NameServerAddr::Individual(config.ip)
+            } else {
+                NameServerAddr::Aggregated
+            };
+            ResolverMetrics::new(addr)
+        };
+
         Self {
             config,
             connections: AsyncMutex::new(connections),
@@ -91,7 +101,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             opportunistic_probe_metrics: ProbeMetrics::default(),
             #[cfg(feature = "metrics")]
-            resolver_metrics: ResolverMetrics::default(),
+            resolver_metrics,
             connection_provider,
         }
     }
@@ -103,9 +113,40 @@ impl<P: ConnectionProvider> NameServer<P> {
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<DnsResponse, NetError> {
-        let (handle, meta, protocol) = self.connected_mut_client(policy, cx).await?;
+        let (handle, meta, protocol) = match self.connected_mut_client(policy, cx).await {
+            Ok(v) => v,
+            Err((err, protocol)) => {
+                debug!(config = ?self.config, ?protocol, %err, "failed to establish connection to name server");
+                #[cfg(feature = "metrics")]
+                if let Some(protocol) = protocol {
+                    self.resolver_metrics
+                        .increment_query_result(&protocol, Err(&err));
+                }
+                return Err(err);
+            }
+        };
+
+        let res = self.send_inner(handle, meta, protocol, request, cx).await;
+        #[cfg(feature = "metrics")]
+        self.resolver_metrics
+            .increment_query_result(&protocol, res.as_ref().map(|_| ()));
+
+        res.inspect_err(|e| {
+            debug!(config = ?self.config, ?protocol, %e, "query to name server failed");
+        })
+    }
+
+    async fn send_inner(
+        &self,
+        handle: P::Conn,
+        meta: Arc<ConnectionMeta>,
+        protocol: Protocol,
+        request: DnsRequest,
+        cx: &Arc<PoolContext>,
+    ) -> Result<DnsResponse, NetError> {
         #[cfg(feature = "metrics")]
         self.resolver_metrics.increment_outgoing_query(&protocol);
+
         let now = Instant::now();
         let response = handle.send(request).first_answer().await;
         let rtt = now.elapsed();
@@ -207,7 +248,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
-    ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), NetError> {
+    ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), (NetError, Option<Protocol>)> {
         // Check for an existing usable connection (short lock)
         {
             let mut connections = self.connections.lock().await;
@@ -232,7 +273,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 &cx.opportunistic_encryption,
                 &self.config.connections,
             )
-            .ok_or(NetError::NoConnections)?;
+            .ok_or((NetError::NoConnections, None))?;
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
@@ -244,12 +285,14 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
 
         // Establish connection
-        let handle = Box::pin(self.connection_provider.new_connection(
-            self.config.ip,
-            config,
-            cx,
-        )?)
-        .await?;
+        let handle_fut = self
+            .connection_provider
+            .new_connection(self.config.ip, config, cx)
+            .map_err(|e| (e, Some(protocol)))?;
+
+        let handle = Box::pin(handle_fut)
+            .await
+            .map_err(|e| (e, Some(protocol)))?;
 
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
             cx.transport_state()
@@ -1699,7 +1742,7 @@ mod opportunistic_enc_tests {
     }
 
     fn mock_connection(protocol: Protocol) -> ConnectionState<MockProvider> {
-        ConnectionState::new(MockClientHandle, protocol)
+        ConnectionState::new(MockClientHandle::default(), protocol)
     }
 
     #[cfg(feature = "metrics")]
@@ -1943,6 +1986,7 @@ mod opportunistic_enc_tests {
             .connected_mut_client(ConnectionPolicy::default(), &cx)
             .await
             .map(|_| ())
+            .map_err(|(e, _)| e)
     }
 }
 
@@ -1959,6 +2003,7 @@ mod resolver_metrics_tests {
     use super::*;
     use crate::connection_provider::TlsConfig;
     use crate::metrics::OUTGOING_QUERIES_TOTAL;
+    use crate::proto::rr::{RData, Record};
 
     #[test]
     fn test_outgoing_query_protocol_metrics_udp() {
@@ -1973,7 +2018,10 @@ mod resolver_metrics_tests {
                 .unwrap();
 
             runtime.block_on(async {
-                let options = ResolverOpts::default();
+                let options = ResolverOpts {
+                    enable_per_name_server_metrics: true,
+                    ..ResolverOpts::default()
+                };
                 let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
                 let name_server = Arc::new(NameServer::new(
                     [],
@@ -2098,6 +2146,286 @@ mod resolver_metrics_tests {
         let protocol = vec![Label::new("protocol", "tls")];
         assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, protocol, 1);
     }
+
+    #[test]
+    fn test_name_server_query_success_metrics() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts {
+                    enable_per_name_server_metrics: true,
+                    ..ResolverOpts::default()
+                };
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let record = Record::from_rdata(
+                    name.clone(),
+                    300,
+                    RData::A(Ipv4Addr::new(127, 0, 0, 1).into()),
+                );
+                let mock_provider = MockProvider {
+                    answers: Some(vec![record]),
+                    ..MockProvider::default()
+                };
+                let name_server = Arc::new(NameServer::new([], config, &options, mock_provider));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::new(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        use crate::metrics::NAME_SERVER_QUERY_RESPONSES;
+        let labels = vec![
+            Label::new("addr", "8.8.8.8"),
+            Label::new("protocol", "udp"),
+            Label::new("status", "success"),
+        ];
+        assert_counter_eq(&map, NAME_SERVER_QUERY_RESPONSES, labels, 1);
+    }
+
+    #[test]
+    fn test_name_server_query_connection_failure_metrics() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts {
+                    enable_per_name_server_metrics: true,
+                    ..ResolverOpts::default()
+                };
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let mock_provider = MockProvider {
+                    runtime: mock_provider::MockSyncRuntimeProvider,
+                    new_connection_calls: Arc::new(SyncMutex::new(Vec::new())),
+                    new_connection_error: Some(NetError::Io(Arc::new(std::io::Error::new(
+                        std::io::ErrorKind::ConnectionRefused,
+                        "connection refused",
+                    )))),
+                    response_code: None,
+                    answers: None,
+                };
+                let name_server = Arc::new(NameServer::new([], config, &options, mock_provider));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::new(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        use crate::metrics::NAME_SERVER_QUERY_RESPONSES;
+        let labels = vec![
+            Label::new("addr", "8.8.8.8"),
+            Label::new("protocol", "udp"),
+            Label::new("status", "io_connection_refused"),
+        ];
+        assert_counter_eq(&map, NAME_SERVER_QUERY_RESPONSES, labels, 1);
+    }
+
+    #[test]
+    fn test_name_server_query_response_code_failure_metrics() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts {
+                    enable_per_name_server_metrics: true,
+                    ..ResolverOpts::default()
+                };
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let mock_provider = MockProvider {
+                    runtime: mock_provider::MockSyncRuntimeProvider,
+                    new_connection_calls: Arc::new(SyncMutex::new(Vec::new())),
+                    new_connection_error: None,
+                    response_code: Some(ResponseCode::ServFail),
+                    answers: None,
+                };
+                let name_server = Arc::new(NameServer::new([], config, &options, mock_provider));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::new(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        use crate::metrics::NAME_SERVER_QUERY_RESPONSES;
+        let labels = vec![
+            Label::new("addr", "8.8.8.8"),
+            Label::new("protocol", "udp"),
+            Label::new("status", "dns_response_code_servfail"),
+        ];
+        assert_counter_eq(&map, NAME_SERVER_QUERY_RESPONSES, labels, 1);
+    }
+
+    #[cfg(feature = "metrics")]
+    #[test]
+    fn test_name_server_query_no_records_success_metrics() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts {
+                    enable_per_name_server_metrics: true,
+                    ..ResolverOpts::default()
+                };
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+
+                let mock_provider = MockProvider {
+                    runtime: mock_provider::MockSyncRuntimeProvider,
+                    new_connection_calls: Arc::new(SyncMutex::new(Vec::new())),
+                    new_connection_error: None,
+                    response_code: Some(ResponseCode::NXDomain),
+                    answers: Some(vec![]),
+                };
+                let name_server = Arc::new(NameServer::new([], config, &options, mock_provider));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::new(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        use crate::metrics::NAME_SERVER_QUERY_RESPONSES;
+        let labels = vec![
+            Label::new("addr", "8.8.8.8"),
+            Label::new("protocol", "udp"),
+            Label::new("status", "dns_no_records"),
+        ];
+        assert_counter_eq(&map, NAME_SERVER_QUERY_RESPONSES, labels, 1);
+    }
+
+    #[cfg(feature = "metrics")]
+    #[test]
+    fn test_name_server_query_metrics_aggregation() {
+        subscribe();
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        with_local_recorder(&recorder, || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                let options = ResolverOpts {
+                    enable_per_name_server_metrics: false,
+                    ..Default::default()
+                };
+                let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                let name = Name::parse("www.example.com.", None).unwrap();
+                let record = Record::from_rdata(
+                    name.clone(),
+                    300,
+                    RData::A(Ipv4Addr::new(127, 0, 0, 1).into()),
+                );
+                let mock_provider = MockProvider {
+                    answers: Some(vec![record]),
+                    ..MockProvider::default()
+                };
+                let name_server = Arc::new(NameServer::new([], config, &options, mock_provider));
+
+                let cx = Arc::new(PoolContext::new(options, TlsConfig::new().unwrap()));
+                let _ = name_server
+                    .send(
+                        DnsRequest::from_query(
+                            Query::new(name.clone(), RecordType::A),
+                            DnsRequestOptions::default(),
+                        ),
+                        ConnectionPolicy::default(),
+                        &cx,
+                    )
+                    .await;
+            });
+        });
+
+        #[allow(clippy::mutable_key_type)]
+        let map = snapshotter.snapshot().into_hashmap();
+
+        use crate::metrics::NAME_SERVER_QUERY_RESPONSES;
+        let labels = vec![
+            Label::new("addr", "aggregate"),
+            Label::new("protocol", "udp"),
+            Label::new("status", "success"),
+        ];
+        assert_counter_eq(&map, NAME_SERVER_QUERY_RESPONSES, labels, 1);
+    }
 }
 
 #[cfg(all(test, any(feature = "metrics", feature = "__tls")))]
@@ -2109,6 +2437,7 @@ mod mock_provider {
 
     use futures_util::stream::once;
     use futures_util::{Stream, future};
+    use hickory_proto::rr::Record;
     use tokio::net::UdpSocket;
 
     use super::*;
@@ -2128,6 +2457,8 @@ mod mock_provider {
         pub(super) runtime: MockSyncRuntimeProvider,
         pub(super) new_connection_calls: Arc<SyncMutex<Vec<(IpAddr, ProtocolConfig)>>>,
         pub(super) new_connection_error: Option<NetError>,
+        pub(super) response_code: Option<ResponseCode>,
+        pub(super) answers: Option<Vec<Record>>,
     }
 
     impl MockProvider {
@@ -2153,7 +2484,10 @@ mod mock_provider {
 
             Ok(Box::pin(future::ready(match &self.new_connection_error {
                 Some(err) => Err(err.clone()),
-                None => Ok(MockClientHandle),
+                None => Ok(MockClientHandle {
+                    response_code: self.response_code.unwrap_or(ResponseCode::NoError),
+                    answers: self.answers.clone(),
+                }),
             })))
         }
 
@@ -2168,16 +2502,29 @@ mod mock_provider {
                 runtime: MockSyncRuntimeProvider,
                 new_connection_calls: Arc::new(SyncMutex::new(Vec::new())),
                 new_connection_error: None,
+                response_code: None,
+                answers: None,
             }
         }
     }
 
     /// `MockClientHandle` is a `DnsHandle` that uses a synchronous runtime provider.
     ///
-    /// It's `send` method always returns a `NoError` response when polled, simulating a
-    /// successful DNS request exchange.
-    #[derive(Clone, Default)]
-    pub(super) struct MockClientHandle;
+    /// Its `send` method returns a response with the configured response code and answers.
+    #[derive(Clone)]
+    pub(super) struct MockClientHandle {
+        pub(super) response_code: ResponseCode,
+        pub(super) answers: Option<Vec<Record>>,
+    }
+
+    impl Default for MockClientHandle {
+        fn default() -> Self {
+            Self {
+                response_code: ResponseCode::NoError,
+                answers: None,
+            }
+        }
+    }
 
     impl DnsHandle for MockClientHandle {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
@@ -2185,8 +2532,15 @@ mod mock_provider {
 
         fn send(&self, request: DnsRequest) -> Self::Response {
             let mut response = Message::response(request.id, request.op_code);
-            response.metadata.response_code = ResponseCode::NoError;
+            response.metadata.response_code = self.response_code;
             response.add_queries(request.queries.clone());
+
+            if let Some(records) = &self.answers {
+                for record in records {
+                    response.add_answer(record.clone());
+                }
+            }
+
             Box::pin(once(future::ready(Ok(
                 DnsResponse::from_message(response).unwrap()
             ))))

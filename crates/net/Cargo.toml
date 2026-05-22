@@ -46,6 +46,8 @@ default = ["tokio"]
 
 serde = ["dep:serde", "url/serde"]
 
+metrics = []
+
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/all"]
 

@@ -616,6 +616,17 @@ pub struct ResolverOpts {
         serde(default = "default_connect_timeout", with = "duration")
     )]
     pub connect_timeout: Duration,
+    /// Report the IP and port of the name server for query result metrics.
+    ///
+    /// When `false`, metrics are aggregated under a static "aggregate" address label to avoid
+    /// cardinality blowup. For this reason, you might want to leave this disabled when querying a
+    /// large or unbounded set of DNS servers.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_enable_per_name_server_metrics")
+    )]
+    #[cfg(feature = "metrics")]
+    pub enable_per_name_server_metrics: bool,
 }
 
 impl ResolverOpts {
@@ -666,6 +677,8 @@ impl Default for ResolverOpts {
             deny_answers: vec![],
             edns_payload_len: default_edns_payload_len(),
             connect_timeout: default_connect_timeout(),
+            #[cfg(feature = "metrics")]
+            enable_per_name_server_metrics: default_enable_per_name_server_metrics(),
         }
     }
 }
@@ -708,6 +721,11 @@ fn default_recursion_desired() -> bool {
 
 fn default_edns_payload_len() -> u16 {
     DEFAULT_MAX_PAYLOAD_LEN
+}
+
+#[cfg(feature = "metrics")]
+fn default_enable_per_name_server_metrics() -> bool {
+    false
 }
 
 /// The lookup ip strategy
@@ -1158,5 +1176,10 @@ mod tests {
         assert_eq!(code.case_randomization, json.case_randomization);
         assert_eq!(code.trust_anchor, json.trust_anchor);
         assert_eq!(code.connect_timeout, json.connect_timeout);
+        #[cfg(feature = "metrics")]
+        assert_eq!(
+            code.enable_per_name_server_metrics,
+            json.enable_per_name_server_metrics
+        );
     }
 }
