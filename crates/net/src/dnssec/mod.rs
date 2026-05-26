@@ -214,31 +214,36 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             additionals,
             ..
         } = &mut *message;
-        let answers = RrsetMap::new(answers);
-        let authorities = RrsetMap::new(authorities);
-        let additionals = RrsetMap::new(additionals);
+        let mut answers = RrsetMap::new(answers);
+        let mut authorities = RrsetMap::new(authorities);
+        let mut additionals = RrsetMap::new(additionals);
 
-        self.verify_rrsets(&query, answers, options, current_time)
+        self.verify_rrsets(&query, &mut answers, options, current_time)
             .await;
-        self.verify_rrsets(&query, authorities, options, current_time)
+        self.verify_rrsets(&query, &mut authorities, options, current_time)
             .await;
-        self.verify_rrsets(&query, additionals, options, current_time)
+        self.verify_rrsets(&query, &mut additionals, options, current_time)
             .await;
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = message.answers.iter().any(|rr| match &rr.data {
-            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
-                rrsig.input().num_labels < rr.name.num_labels()
-            }
-            _ => false,
+        let must_validate_nsec = answers.iter().any(|(_, rrset)| {
+            rrset.signatures.iter().any(|rr| match &rr.data {
+                RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                    rrsig.input().num_labels < rr.name.num_labels()
+                }
+                _ => false,
+            })
         });
 
-        if !message.authorities.is_empty()
-            && message
-                .authorities
-                .iter()
-                .all(|x| x.proof == Proof::Insecure)
+        if !authorities.is_empty()
+            && authorities.iter().all(|(_, rrset)| {
+                rrset
+                    .records
+                    .iter()
+                    .chain(rrset.signatures.iter())
+                    .all(|x| x.proof == Proof::Insecure)
+            })
         {
             return Ok(message);
         }
@@ -364,7 +369,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     async fn verify_rrsets(
         &self,
         query: &Query,
-        mut rrsets: RrsetMap<'_>,
+        rrsets: &mut RrsetMap<'_>,
         options: DnsRequestOptions,
         current_time: u32,
     ) {
