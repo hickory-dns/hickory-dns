@@ -214,35 +214,35 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             additionals,
             ..
         } = &mut *message;
-        let mut answers = RrsetMap::new(answers);
-        let mut authorities = RrsetMap::new(authorities);
-        let mut additionals = RrsetMap::new(additionals);
+        let answers = RrsetMap::new(answers);
+        let authorities = RrsetMap::new(authorities);
+        let additionals = RrsetMap::new(additionals);
 
-        self.verify_rrsets(&query, &mut answers, options, current_time)
+        let answers = self
+            .verify_rrsets(&query, answers, options, current_time)
             .await;
-        self.verify_rrsets(&query, &mut authorities, options, current_time)
+        let authorities = self
+            .verify_rrsets(&query, authorities, options, current_time)
             .await;
-        self.verify_rrsets(&query, &mut additionals, options, current_time)
+        self.verify_rrsets(&query, additionals, options, current_time)
             .await;
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|(_, rrset)| {
-            rrset.signatures.iter().any(|rr| match &rr.data {
-                RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
-                    rrsig.input().num_labels < rr.name.num_labels()
-                }
-                _ => false,
-            })
+        let must_validate_nsec = answers.iter().any(|(_, rrset)| match rrset.outcome {
+            RrsigVerificationOutcome::Secure { owner, rrsig } => {
+                rrsig.input().num_labels < owner.num_labels()
+            }
+            // If the zone is insecure, we don't need to finish validation of wildcard expansion. If
+            // the RRset's signature is bogus, we likewise don't need to further check the wildcard
+            // expansion proof.
+            RrsigVerificationOutcome::Insecure | RrsigVerificationOutcome::Bogus => false,
         });
 
         if !authorities.is_empty()
             && authorities.iter().all(|(_, rrset)| {
-                rrset
-                    .records
-                    .iter()
-                    .chain(rrset.signatures.iter())
-                    .all(|x| x.proof == Proof::Insecure)
+                rrset.records.iter().all(|x| x.proof == Proof::Insecure)
+                    && rrset.signatures.iter().all(|x| x.proof == Proof::Insecure)
             })
         {
             return Ok(message);
@@ -366,19 +366,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     }
 
     /// Validates signatures over record sets.
-    async fn verify_rrsets(
+    async fn verify_rrsets<'a>(
         &self,
         query: &Query,
-        rrsets: &mut RrsetMap<'_>,
+        rrsets: RrsetMap<'a>,
         options: DnsRequestOptions,
         current_time: u32,
-    ) {
+    ) -> VerifiedRrsetMap<'a> {
         // There were no records to verify.
         if rrsets.is_empty() {
-            return;
+            return VerifiedRrsetMap(HashMap::new());
         }
 
-        for (key, rrset) in rrsets.iter_mut() {
+        let mut map = HashMap::with_capacity(rrsets.len());
+        for (key, mut rrset) in rrsets.0.into_iter() {
             let name = &key.name;
             let record_type = key.record_type;
 
@@ -404,13 +405,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // verify this rrset
             let context = RrsetVerificationContext {
                 query,
-                key,
-                rrset: &*rrset,
+                key: &key,
+                rrset: &rrset,
                 options,
                 current_time,
             };
-            let key = context.key();
-            let proof = match self.validation_cache.get(&key, &context) {
+            let cache_key = context.key();
+            let proof = match self.validation_cache.get(&cache_key, &context) {
                 Some(cached) => cached,
                 None => {
                     // Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
@@ -430,7 +431,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                             debug!("not caching DNSSEC validation with ProofErrorKind::Net")
                         }
                         _ => {
-                            self.validation_cache.insert(proof.clone(), key, &context);
+                            self.validation_cache
+                                .insert(proof.clone(), cache_key, &context);
                         }
                     }
 
@@ -487,7 +489,44 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     );
                 }
             }
+
+            // Change from mutable references to immutable references. (This should be cheap due to
+            // specialization and optimization)
+            let signatures: Vec<&Record> = rrset
+                .signatures
+                .into_iter()
+                .map(|record| &*record)
+                .collect();
+            // Combine the `Proof` from the signature verification with the RRSIG record, if it was
+            // successful.
+            let outcome = match (proof, rrsig_idx) {
+                (Proof::Secure, Some(rrsig_idx)) => match signatures.get(rrsig_idx) {
+                    Some(record) => match &record.data {
+                        RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
+                            RrsigVerificationOutcome::Secure {
+                                owner: &record.name,
+                                rrsig,
+                            }
+                        }
+                        _ => RrsigVerificationOutcome::Bogus,
+                    },
+                    None => RrsigVerificationOutcome::Bogus,
+                },
+                (Proof::Insecure, _) => RrsigVerificationOutcome::Insecure,
+                (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, None) => {
+                    RrsigVerificationOutcome::Bogus
+                }
+            };
+            map.insert(
+                key,
+                VerifiedRrset {
+                    records: rrset.records,
+                    signatures,
+                    outcome,
+                },
+            );
         }
+        VerifiedRrsetMap(map)
     }
 
     /// DNSKEY-specific verification
@@ -1551,6 +1590,37 @@ impl<'a> DerefMut for RrsetMap<'a> {
 struct Rrset<'a> {
     records: Vec<&'a mut Record>,
     signatures: Vec<&'a mut Record>,
+}
+
+/// A collection of RRsets that have had their signatures verified.
+struct VerifiedRrsetMap<'a>(HashMap<RrKey, VerifiedRrset<'a>>);
+
+impl<'a> Deref for VerifiedRrsetMap<'a> {
+    type Target = HashMap<RrKey, VerifiedRrset<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for VerifiedRrsetMap<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// An RRset, along with the results of signature verification.
+struct VerifiedRrset<'a> {
+    records: Vec<&'a mut Record>,
+    signatures: Vec<&'a Record>,
+    outcome: RrsigVerificationOutcome<'a>,
+}
+
+/// Signature verification result for an RRset.
+enum RrsigVerificationOutcome<'a> {
+    Secure { owner: &'a Name, rrsig: &'a RRSIG },
+    Insecure,
+    Bogus,
 }
 
 struct RrsetVerificationContext<'a> {
