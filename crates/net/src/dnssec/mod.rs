@@ -40,7 +40,10 @@ use crate::{
         op::{
             DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query, ResponseCode,
         },
-        rr::{Name, RData, Record, RecordRef, RecordSet, RecordSetParts, RecordType, SerialNumber},
+        rr::{
+            LowerName, Name, RData, Record, RecordRef, RecordSet, RecordSetParts, RecordType,
+            SerialNumber,
+        },
     },
     runtime::{RuntimeProvider, Time},
     xfer::{FirstAnswer, dns_handle::DnsHandle},
@@ -597,16 +600,17 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             Vec::<(Proof, Option<u32>, Option<usize>)>::with_capacity(rrset.records_count());
         dnskey_proofs.resize(rrset.records_count(), (Proof::Bogus, None, None));
 
-        // check if the DNSKEYs are in the root store
+        // Check if the DNSKEYs are in the trust anchors.
         for (r, proof) in rrset.records(false).zip(dnskey_proofs.iter_mut()) {
             let Some(dnskey) = r.try_borrow::<DNSKEY>() else {
                 continue;
             };
 
-            proof.0 = self.is_dnskey_in_root_store(&dnskey);
+            proof.0 = self.is_dnskey_in_root_store(&dnskey, &rrset.name().into());
         }
 
-        // if not all of the DNSKEYs are in the root store, then we need to look for DS records to verify
+        // If not all DNSKEYs are trust anchors, and this isn't the root DNSKEY RRset, then we
+        // should look for DS records to possibly verify more keys.
         let ds_records =
             if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !rrset.name().is_root() {
                 // Need to get DS records for each DNSKEY.
@@ -863,12 +867,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// # Returns
     ///
     /// Proof::Secure if registered in the root store, Proof::Bogus if not
-    fn is_dnskey_in_root_store(&self, rr: &RecordRef<'_, DNSKEY>) -> Proof {
+    fn is_dnskey_in_root_store(&self, rr: &RecordRef<'_, DNSKEY>, name: &LowerName) -> Proof {
         let dns_key = rr.data();
         let pub_key = dns_key.public_key();
 
         // Checks to see if the key is valid against the registered root certificates
-        if self.trust_anchor.contains(pub_key) {
+        if self.trust_anchor.contains_with_name(pub_key, name) {
             debug!(
                 "validated dnskey with trust_anchor: {}, {dns_key}",
                 rr.name(),
