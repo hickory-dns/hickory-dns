@@ -21,6 +21,7 @@ use core::str::FromStr;
 use std::{fs, path::Path};
 
 use crate::dnssec::PublicKey;
+use crate::rr::LowerName;
 use crate::serialize::txt::ParseError;
 use crate::serialize::txt::trust_anchor::{self, Entry};
 
@@ -33,13 +34,12 @@ const ROOT_ANCHOR_2024: &[u8] = include_bytes!("roots/38696.rsa");
 /// The root set of trust anchors for validating DNSSEC, anything in this set will be trusted
 #[derive(Clone)]
 pub struct TrustAnchors {
-    // TODO: these should also store some information, or more specifically, metadata from the signed
-    //  public certificate.
-    pkeys: Vec<PublicKeyBuf>,
+    root_public_keys: Vec<PublicKeyBuf>,
+    other_public_keys: Vec<(LowerName, PublicKeyBuf)>,
 }
 
 impl TrustAnchors {
-    /// loads a trust anchor from a file of DNSKEY records
+    /// Loads a trust anchor from a file of DNSKEY records.
     pub fn from_file(path: &Path) -> Result<Self, ParseError> {
         Self::from_str(&fs::read_to_string(path)?)
     }
@@ -48,42 +48,96 @@ impl TrustAnchors {
     ///
     /// If you want to use the default root anchors, use `TrustAnchor::default()`.
     pub fn empty() -> Self {
-        Self { pkeys: vec![] }
+        Self {
+            root_public_keys: vec![],
+            other_public_keys: vec![],
+        }
     }
 
-    /// determines if the key is in the trust anchor set
+    /// Determines if the key is in the trust anchor set.
+    ///
+    /// This only handles keys for the root zone. See [`Self::contains_with_name()`] for keys at
+    /// other names.
     pub fn contains<P: PublicKey + ?Sized>(&self, other_key: &P) -> bool {
-        self.pkeys.iter().any(|k| {
+        self.root_public_keys.iter().any(|k| {
             other_key.public_bytes() == k.public_bytes() && other_key.algorithm() == k.algorithm()
         })
     }
 
-    /// inserts the trust_anchor to the trusted chain
+    /// Inserts a public key as a trust anchor.
+    ///
+    /// This only handles keys for the root zone. See [`Self::insert_with_name()`] for keys at
+    /// other names.
     pub fn insert<P: PublicKey + ?Sized>(&mut self, public_key: &P) -> bool {
         if self.contains(public_key) {
             return false;
         }
 
-        self.pkeys.push(PublicKeyBuf::new(
+        self.root_public_keys.push(PublicKeyBuf::new(
             public_key.public_bytes().to_vec(),
             public_key.algorithm(),
         ));
         true
     }
 
-    /// get the trust anchor at the specified index
+    /// Determines if the key is trusted for a specific name.
+    pub fn contains_with_name<P: PublicKey + ?Sized>(
+        &self,
+        public_key: &P,
+        name: &LowerName,
+    ) -> bool {
+        if name.is_root() {
+            return self.contains(public_key);
+        }
+        self.other_public_keys
+            .iter()
+            .any(|(trust_anchor_name, trust_anchor_public_key)| {
+                trust_anchor_name == name
+                    && trust_anchor_public_key.public_bytes() == public_key.public_bytes()
+                    && trust_anchor_public_key.algorithm() == public_key.algorithm()
+            })
+    }
+
+    /// Inserts a trusted public key for a specific name.
+    pub fn insert_with_name<P: PublicKey + ?Sized>(
+        &mut self,
+        public_key: &P,
+        name: LowerName,
+    ) -> bool {
+        if name.is_root() {
+            return self.insert(public_key);
+        }
+
+        if self.contains_with_name(public_key, &name) {
+            return false;
+        }
+
+        self.other_public_keys.push((
+            name,
+            PublicKeyBuf::new(public_key.public_bytes().to_vec(), public_key.algorithm()),
+        ));
+        true
+    }
+
+    /// Get the trust anchor at the specified index.
+    ///
+    /// This only retrieves trust anchors for the root zone.
     pub fn get(&self, idx: usize) -> Option<&PublicKeyBuf> {
-        self.pkeys.get(idx)
+        self.root_public_keys.get(idx)
     }
 
-    /// number of keys in trust_anchor
+    /// Number of keys.
+    ///
+    /// This only counts trust anchors for the root zone.
     pub fn len(&self) -> usize {
-        self.pkeys.len()
+        self.root_public_keys.len()
     }
 
-    /// returns true if there are no keys in the trust_anchor
+    /// Returns true if there are no keys.
+    ///
+    /// This only counts trust anchors for the root zone.
     pub fn is_empty(&self) -> bool {
-        self.pkeys.is_empty()
+        self.root_public_keys.is_empty()
     }
 }
 
@@ -94,28 +148,35 @@ impl FromStr for TrustAnchors {
         let parser = trust_anchor::Parser::new(input);
         let entries = parser.parse()?;
 
-        let mut pkeys = Vec::new();
+        let mut root_public_keys = Vec::new();
+        let mut other_public_keys = Vec::new();
         for entry in entries {
             let Entry::DNSKEY(record) = entry;
             let dnskey = record.data();
             let key = dnskey.key()?;
-            pkeys.push(PublicKeyBuf::new(
-                key.public_bytes().to_vec(),
-                dnskey.algorithm(),
-            ));
+            let public_key_buf = PublicKeyBuf::new(key.public_bytes().to_vec(), dnskey.algorithm());
+            if record.name().is_root() {
+                root_public_keys.push(public_key_buf);
+            } else {
+                other_public_keys.push((record.name().into(), public_key_buf));
+            }
         }
 
-        Ok(Self { pkeys })
+        Ok(Self {
+            root_public_keys,
+            other_public_keys,
+        })
     }
 }
 
 impl Default for TrustAnchors {
     fn default() -> Self {
         Self {
-            pkeys: vec![
+            root_public_keys: vec![
                 PublicKeyBuf::new(ROOT_ANCHOR_2018.to_owned(), Algorithm::RSASHA256),
                 PublicKeyBuf::new(ROOT_ANCHOR_2024.to_owned(), Algorithm::RSASHA256),
             ],
+            other_public_keys: vec![],
         }
     }
 }

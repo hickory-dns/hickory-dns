@@ -227,7 +227,7 @@ where
             .expect("could not convert keypair to public_key");
 
         let mut trust_anchor = TrustAnchors::empty();
-        trust_anchor.insert(&public_key);
+        trust_anchor.insert_with_name(&public_key, handler.origin().clone());
 
         Arc::new(trust_anchor)
     };

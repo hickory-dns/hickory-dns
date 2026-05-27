@@ -323,6 +323,79 @@ fn bogus_zone_plus_trust_anchor_dnskey() -> Result<(), Error> {
     Ok(())
 }
 
+/// Copy the public key from a root zone DNSKEY record, and put it in another DNSKEY record at a
+/// different name.
+///
+/// This DNSKEY RRset should be rejected as bogus, since it lacks any signatures. This is a
+/// regression test for previous behavior of comparing DNSKEY public keys to trust anchors without
+/// looking at the DNSKEY record's name.
+#[test]
+fn trust_anchor_dnskey_wrong_name() -> Result<(), Error> {
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+
+    root_ns.referral_nameserver(&tld_ns);
+    tld_ns.referral_nameserver(&leaf_ns);
+
+    // Fake DS record. This ensures the delegation is treated as a secure delegation.
+    tld_ns.add(DS {
+        zone: FQDN::TEST_DOMAIN,
+        ttl: 86400,
+        key_tag: u16::MAX,
+        algorithm: 8,
+        digest_type: 2,
+        digest: "0".repeat(64),
+    });
+    let tld_ns = tld_ns.sign(SignSettings::default())?;
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(SignSettings::default())?;
+
+    leaf_ns.add(DNSKEY {
+        zone: FQDN::TEST_DOMAIN,
+        ttl: 86400,
+        rdata: root_ns.key_signing_key().rdata.clone(),
+    });
+    leaf_ns.add(root_ns.a());
+    leaf_ns.add(tld_ns.a());
+
+    let trust_anchor = root_ns.trust_anchor();
+    let root_hint = root_ns.root_hint();
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let mut resolver = Resolver::new(&network, root_hint);
+    if dns_test::SUBJECT.is_unbound() {
+        resolver.extended_dns_errors();
+    }
+    let resolver = resolver.trust_anchor(&trust_anchor).start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::DNSKEY,
+        &FQDN::TEST_DOMAIN,
+    )?;
+
+    assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
+    assert!(!output.flags.authenticated_data, "{output:?}");
+
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(
+            output.ede.iter().eq(&[ExtendedDnsError::DnssecBogus]),
+            "{output:?}"
+        );
+    }
+
+    Ok(())
+}
+
 #[test]
 fn bogus_zone_plus_ds_covered_dnskey() -> Result<(), Error> {
     let network = Network::new()?;
@@ -483,7 +556,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         algorithm: 8,
         digest_type: 2,
         key_tag: 0,
-        digest: "0000000000000000000000000000000000000000000000000000000000000000".to_owned(),
+        digest: "0".repeat(64),
     });
 
     let tld_ns = tld_ns.sign(sign_settings.clone())?;
