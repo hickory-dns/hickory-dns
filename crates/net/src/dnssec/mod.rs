@@ -515,16 +515,17 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let mut dnskey_proofs: Vec<(Proof, Option<u32>, Option<usize>)> =
             vec![(Proof::Bogus, None, None); rrset.records.len()];
 
-        // check if the DNSKEYs are in the root store
+        // Check if the DNSKEYs are in the trust anchors.
         for (r, proof) in rrset.records.iter().zip(dnskey_proofs.iter_mut()) {
             let Some(dnskey) = r.try_borrow::<DNSKEY>() else {
                 continue;
             };
 
-            proof.0 = self.is_dnskey_in_root_store(&dnskey);
+            proof.0 = self.is_dnskey_in_root_store(&dnskey, &key.name);
         }
 
-        // if not all of the DNSKEYs are in the root store, then we need to look for DS records to verify
+        // If not all DNSKEYs are trust anchors, and this isn't the root DNSKEY RRset, then we
+        // should look for DS records to possibly verify more keys.
         let ds_records = if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !key.name.is_root() {
             // Need to get DS records for each DNSKEY.
             // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
@@ -781,12 +782,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// # Returns
     ///
     /// Proof::Secure if registered in the root store, Proof::Bogus if not
-    fn is_dnskey_in_root_store(&self, rr: &RecordRef<'_, DNSKEY>) -> Proof {
+    fn is_dnskey_in_root_store(&self, rr: &RecordRef<'_, DNSKEY>, name: &LowerName) -> Proof {
         let dns_key = rr.data();
         let pub_key = dns_key.public_key();
 
         // Checks to see if the key is valid against the registered root certificates
-        if self.trust_anchor.contains(pub_key) {
+        if self.trust_anchor.contains_with_name(pub_key, name) {
             debug!(
                 "validated dnskey with trust_anchor: {}, {dns_key}",
                 rr.name(),
