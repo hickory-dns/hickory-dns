@@ -44,7 +44,9 @@ async fn name_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("a.c.x.w.example.", None).unwrap();
     let query_type = RecordType::A;
@@ -95,7 +97,9 @@ async fn no_data_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("ns1.example.", None).unwrap();
     let query_type = RecordType::MX;
@@ -127,7 +131,9 @@ async fn no_data_error_empty_non_terminal() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("y.w.example.", None).unwrap();
     let query_type = RecordType::A;
@@ -160,7 +166,9 @@ async fn referral_opt_out_unsigned() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("mc.c.example.", None).unwrap();
     let query_type = RecordType::MX;
@@ -208,7 +216,9 @@ async fn wildcard_expansion() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("a.z.w.example.", None).unwrap();
     let query_type = RecordType::MX;
@@ -241,7 +251,9 @@ async fn wildcard_no_data_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("a.z.w.example.", None).unwrap();
     let query_type = RecordType::AAAA;
@@ -293,7 +305,9 @@ async fn ds_child_zone_no_data_error() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("example.", None).unwrap();
     let query_type = RecordType::DS;
@@ -340,7 +354,9 @@ async fn validation_loop_test() {
 
     let (key, public_key) = generate_key();
     let catalog = example_zone_catalog(key);
-    let (mut client, _honest_server) = setup_dnssec_client_server(catalog, &public_key).await;
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
     let query_name = Name::parse("a.c.x.w.example.", None).unwrap();
     let query_type = RecordType::A;
@@ -399,7 +415,8 @@ async fn test_exclude_nsec3(
         modified_response,
         dnskey_response.clone(),
     );
-    let (mut client, _mock_server) = setup_dnssec_client_server(mock, dnskey.public_key()).await;
+    let (mut client, _mock_server) =
+        setup_dnssec_client_server(mock, dnskey.public_key(), zone.into()).await;
 
     let error = client
         .query(query_name.clone(), DNSClass::IN, query_type)

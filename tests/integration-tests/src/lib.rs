@@ -35,7 +35,10 @@ use hickory_net::{
     udp::UdpClientStream,
 };
 #[cfg(feature = "__dnssec")]
-use hickory_proto::dnssec::{PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey};
+use hickory_proto::{
+    dnssec::{PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey},
+    rr::LowerName,
+};
 use hickory_proto::{
     op::{DnsResponse, Message, SerialMessage},
     rr::Record,
@@ -257,6 +260,7 @@ pub fn generate_key() -> (Box<dyn SigningKey>, PublicKeyBuf) {
 pub async fn setup_dnssec_client_server<H>(
     handler: H,
     public_key: &PublicKeyBuf,
+    trust_anchor_name: LowerName,
 ) -> (DnssecClient, Server<H>)
 where
     H: RequestHandler,
@@ -269,7 +273,7 @@ where
 
     // Client setup
     let mut trust_anchor = TrustAnchors::empty();
-    trust_anchor.insert(public_key);
+    trust_anchor.insert_with_name(public_key, trust_anchor_name);
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
     let (client, bg) = Client::from_sender(stream);
     let client = DnssecClient::from_client(client, Arc::new(trust_anchor));
