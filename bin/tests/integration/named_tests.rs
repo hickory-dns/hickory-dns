@@ -353,6 +353,25 @@ async fn test_deny_networks_toml_startup() {
     query_a_refused(&mut client).await;
 }
 
+/// Test that the server starts successfully when a zone uses the SQLite store with
+/// `journal_path = ":memory:"`.
+#[cfg(feature = "sqlite")]
+#[tokio::test]
+async fn test_sqlite_memory_journal_startup() {
+    subscribe();
+    let provider = TokioRuntimeProvider::new();
+    let server = TestServer::start("example_sqlite_memory.toml");
+    let tcp_port = server.ports.get_v4(Protocol::Tcp);
+
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, tcp_port.expect("no tcp_port")));
+    let (future, sender) = TcpClientStream::new(addr, None, None, provider.clone());
+    let stream = future.await.expect("failed to create tcp stream");
+    let (mut client, bg) = Client::<TokioRuntimeProvider>::new(stream, sender);
+    tokio::spawn(bg);
+
+    query_a(&mut client).await;
+}
+
 #[tokio::test]
 async fn test_deny_allow_networks_toml_startup() {
     subscribe();

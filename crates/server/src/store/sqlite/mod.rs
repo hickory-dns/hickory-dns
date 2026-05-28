@@ -127,12 +127,17 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
         // to be compatible with previous versions, the extension might be zone, not jrnl
         let zone_path = rooted(&config.zone_path, root_dir);
 
-        let journal_path =
-            if config.journal_path.starts_with(":") || config.journal_path.starts_with("file:") {
-                config.journal_path.clone()
-            } else {
-                rooted(&config.journal_path, root_dir)
-            };
+        // Use string comparison (not Path::starts_with which does component matching)
+        // to detect SQLite special filenames like `:memory:` and URI filenames like `file:`.
+        let journal_path = if config
+            .journal_path
+            .to_str()
+            .is_some_and(|s| s.starts_with(':') || s.starts_with("file:"))
+        {
+            config.journal_path.clone()
+        } else {
+            rooted(&config.journal_path, root_dir)
+        };
 
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
         let mut handler = if journal_path.exists() {

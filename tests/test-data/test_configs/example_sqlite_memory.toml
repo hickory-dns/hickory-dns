@@ -1,0 +1,36 @@
+## Test configuration for the SQLite zone store using an in-memory journal.
+
+[[zones]]
+zone = "localhost"
+zone_type = "Primary"
+file = "default/localhost.zone"
+
+[[zones]]
+zone = "0.0.127.in-addr.arpa"
+zone_type = "Primary"
+file = "default/127.0.0.1.zone"
+
+[[zones]]
+zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+zone_type = "Primary"
+file = "default/ipv6_1.zone"
+
+[[zones]]
+zone = "255.in-addr.arpa"
+zone_type = "Primary"
+file = "default/255.zone"
+
+[[zones]]
+zone = "0.in-addr.arpa"
+zone_type = "Primary"
+file = "default/0.zone"
+
+[[zones]]
+zone = "example.com"
+zone_type = "Primary"
+
+[zones.stores]
+type = "sqlite"
+zone_path = "example.com.zone"
+journal_path = ":memory:"
+allow_update = false
