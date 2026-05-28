@@ -314,14 +314,74 @@ impl InnerInMemory {
         }
     }
 
+    /// Chase a CNAME chain to its terminal record (RFC 1034 §3.6.2).
+    ///
+    /// Starting from a CNAME answer, follows the canonical name until a
+    /// non-CNAME record matching `query_type` is found, the target is
+    /// out-of-zone, a loop is detected, or the chain exceeds
+    /// `MAX_CNAME_DEPTH`.
+    ///
+    /// Returns the chain of CNAME record sets followed during the chase.
+    /// The terminal (non-CNAME) record, if found, is the last element.
+    pub(super) fn chase_cnames(
+        &self,
+        name: &LowerName,
+        first_cname: Arc<RecordSet>,
+        query_type: RecordType,
+        lookup_options: LookupOptions,
+    ) -> Vec<Arc<RecordSet>> {
+        /// Safety bound on chain depth to prevent excessive work on
+        /// pathological zones.  Cycle detection also terminates loops.
+        const MAX_CNAME_DEPTH: usize = 8;
+
+        let mut chain = vec![first_cname];
+        let mut seen = HashSet::new();
+        seen.insert(name.clone());
+
+        loop {
+            if chain.len() >= MAX_CNAME_DEPTH {
+                break;
+            }
+
+            // Extract the canonical name from the last record in the chain.
+            // Unwrap safety: `chain` is initialized to be non-empty, and is only appended to.
+            let Some(cname_rdata) = chain.last().unwrap().records_without_rrsigs().next() else {
+                break;
+            };
+            let RData::CNAME(cname) = &cname_rdata.data else {
+                // Last record is the terminal (non-CNAME) — we're done.
+                break;
+            };
+            let next_name = LowerName::from(&cname.0);
+
+            if !seen.insert(next_name.clone()) {
+                break; // loop detected
+            }
+
+            match self.inner_lookup(&next_name, query_type, lookup_options) {
+                // Intermediate CNAME — keep chasing.
+                Some(rr_set) if rr_set.record_type() == RecordType::CNAME => chain.push(rr_set),
+                // Terminal record (A, AAAA, MX, etc.).
+                Some(rr_set) => {
+                    chain.push(rr_set);
+                    break;
+                }
+                // Target not in this zone.
+                None => break,
+            }
+        }
+
+        chain
+    }
+
     /// Search for additional records to include in the response
     ///
     /// # Arguments
     ///
     /// * original_name - the original name that was being looked up
     /// * original_query_type - original type in the request query
-    /// * next_name - the name from the CNAME, ANAME, MX, etc. record that is being searched
-    /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the beginning of the chain
+    /// * next_name - the name from the ANAME, MX, NS, or SRV record that is being searched
+    /// * search_type - the root search type, ANAME, MX, i.e. the beginning of the chain
     /// * lookup_options - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///   algorithms, etc.)
     pub(super) fn additional_search(
@@ -334,7 +394,7 @@ impl InnerInMemory {
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
-        // if it's a CNAME or other forwarding record, we'll be adding additional records based on the query_type
+        // if it's an ANAME or other forwarding record, we'll be adding additional records based on the query_type
         let mut query_types_arr = [original_query_type; 2];
         let query_types: &[RecordType] = match original_query_type {
             RecordType::ANAME | RecordType::NS | RecordType::MX | RecordType::SRV => {
@@ -369,13 +429,23 @@ impl InnerInMemory {
                     continue;
                 };
 
-                // assuming no crazy long chains...
                 if !additionals.contains(&additional) {
                     additionals.push(additional.clone());
                 }
 
-                next_name =
-                    maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
+                // Follow CNAME chains within additional processing
+                // (e.g. ANAME → CNAME → A).
+                next_name = if additional.record_type() == RecordType::CNAME {
+                    additional
+                        .records_without_rrsigs()
+                        .next()
+                        .and_then(|r| match &r.data {
+                            RData::CNAME(cname) => Some(LowerName::from(&cname.0)),
+                            _ => None,
+                        })
+                } else {
+                    maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name)
+                };
             }
         }
 
