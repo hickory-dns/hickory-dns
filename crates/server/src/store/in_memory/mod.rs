@@ -353,7 +353,27 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 
         let answer = inner.inner_lookup(name, query_type, lookup_options);
 
-        // evaluate any cnames for additional inclusion
+        // CNAME chasing: when the answer is a CNAME and the query was for a
+        // different type, restart the lookup at the canonical name and collect
+        // the full chain into the ANSWER section (RFC 1034 §3.6.2).
+        let (answer, cname_chain) = match answer {
+            Some(a) if a.record_type() == RecordType::CNAME && query_type != RecordType::CNAME => {
+                let chain = inner.chase_cnames(name, a, query_type, lookup_options);
+                // The terminal record drives additional section processing.
+                // If the chain ends in a non-CNAME record, use it; otherwise
+                // there is no terminal record to process.
+                let terminal = chain
+                    .last()
+                    .filter(|rr| rr.record_type() != RecordType::CNAME)
+                    .cloned();
+                (terminal, Some(chain))
+            }
+            _ => (answer, None),
+        };
+
+        // Evaluate additional section records for the answer (ANAME, MX,
+        // SRV, NS).  For CNAME-chased queries this processes the terminal
+        // record; for direct answers it processes the original answer.
         let additionals_root_chain_type: Option<(_, _)> = answer
             .as_ref()
             .and_then(|a| maybe_next_name(a, query_type))
@@ -435,9 +455,11 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         //   generally return NoError and no results when other types exist at the same name. bah.
         // TODO: can we get rid of this?
         use LookupControlFlow::*;
-        let answers = match answer {
-            Some(rr_set) => LookupRecords::new(lookup_options, rr_set),
-            None => {
+        let answers = match (cname_chain, answer) {
+            // CNAME chase produced a chain — use it as the answer.
+            (Some(chain), _) => LookupRecords::many(lookup_options, chain),
+            (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
+            (None, None) => {
                 return Continue(Err(
                     if inner
                         .records
@@ -679,18 +701,15 @@ fn maybe_next_name(
         | (t @ RecordType::ANAME, RecordType::AAAA)
         | (t @ RecordType::ANAME, RecordType::ANAME) => t,
         (t @ RecordType::NS, RecordType::NS) => t,
-        // CNAME will continue to additional processing for any query type
-        (t @ RecordType::CNAME, _) => t,
         (t @ RecordType::MX, RecordType::MX) => t,
         (t @ RecordType::SRV, RecordType::SRV) => t,
-        // other additional collectors can be added here can be added here
+        // other additional collectors can be added here
         _ => return None,
     };
 
     let name = match (&record_set.records_without_rrsigs().next()?.data, t) {
         (RData::ANAME(name), RecordType::ANAME) => name,
         (RData::NS(ns), RecordType::NS) => &ns.0,
-        (RData::CNAME(name), RecordType::CNAME) => name,
         (RData::MX(mx), RecordType::MX) => &mx.exchange,
         (RData::SRV(srv), RecordType::SRV) => &srv.target,
         _ => return None,
