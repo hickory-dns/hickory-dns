@@ -102,24 +102,24 @@ async fn test_cname_loop() {
         .unwrap();
 
     let records = lookup.iter().collect::<Vec<_>>();
-    assert_eq!(records.len(), 1);
+    // bar -> foo (self-referencing): both CNAMEs in the answer section
+    assert_eq!(records.len(), 2);
     let record = records[0];
     assert_eq!(record.name, Name::from_str("bar.example.com.").unwrap());
     assert_eq!(
         record.data,
         RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
     );
-
-    let additionals = lookup
-        .additionals()
-        .expect("Should be additional records")
-        .collect::<Vec<_>>();
-    assert_eq!(additionals.len(), 1);
-    let record = additionals[0];
+    let record = records[1];
     assert_eq!(record.name, Name::from_str("foo.example.com.").unwrap());
     assert_eq!(
         record.data,
         RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap()))
+    );
+
+    assert!(
+        lookup.additionals().is_none(),
+        "Should be no additional records."
     );
 
     let lookup = auth
@@ -133,29 +133,29 @@ async fn test_cname_loop() {
         .unwrap();
 
     let records = lookup.iter().collect::<Vec<_>>();
-    assert_eq!(records.len(), 1);
+    // baz -> boz -> biz -> baz (loop): full chain in the answer section
+    assert_eq!(records.len(), 3);
     let record = records[0];
     assert_eq!(record.name, Name::from_str("baz.example.com.").unwrap());
     assert_eq!(
         record.data,
         RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap()))
     );
-
-    let additionals = lookup
-        .additionals()
-        .expect("Should be additional records")
-        .collect::<Vec<_>>();
-    assert_eq!(additionals.len(), 2);
-    let record = additionals[0];
+    let record = records[1];
     assert_eq!(record.name, Name::from_str("boz.example.com.").unwrap());
     assert_eq!(
         record.data,
         RData::CNAME(CNAME(Name::from_str("biz.example.com.").unwrap()))
     );
-    let record = additionals[1];
+    let record = records[2];
     assert_eq!(record.name, Name::from_str("biz.example.com.").unwrap());
     assert_eq!(
         record.data,
         RData::CNAME(CNAME(Name::from_str("baz.example.com.").unwrap()))
+    );
+
+    assert!(
+        lookup.additionals().is_none(),
+        "Should be no additional records."
     );
 }

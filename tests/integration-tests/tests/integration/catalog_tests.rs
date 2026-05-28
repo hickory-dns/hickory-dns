@@ -779,20 +779,16 @@ async fn test_cname_additionals() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let answers = result.answers;
-    assert_eq!(answers.len(), 1);
-    assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
+    assert_eq!(answers.len(), 2);
+    assert_eq!(answers[0].record_type(), RecordType::CNAME);
     assert_eq!(
-        answers.first().unwrap().data,
+        answers[0].data,
         RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
+    assert_eq!(answers[1].record_type(), RecordType::A);
+    assert_eq!(answers[1].data, RData::A(A::new(93, 184, 215, 14)));
 
-    let additionals = result.additionals;
-    assert!(!additionals.is_empty());
-    assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
-    assert_eq!(
-        additionals.first().unwrap().data,
-        RData::A(A::new(93, 184, 215, 14))
-    );
+    assert!(result.additionals.is_empty());
 }
 
 #[tokio::test]
@@ -833,32 +829,22 @@ async fn test_multiple_cname_additionals() {
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
 
     let answers = result.answers;
-    assert_eq!(answers.len(), 1);
-    assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
+    // alias2 -> alias -> www: full CNAME chain + terminal A in ANSWER
+    assert_eq!(answers.len(), 3);
+    assert_eq!(answers[0].record_type(), RecordType::CNAME);
     assert_eq!(
-        answers.first().unwrap().data,
+        answers[0].data,
         RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap()))
     );
-
-    // we should have the intermediate record
-    let additionals = result.additionals;
-    assert!(!additionals.is_empty());
+    assert_eq!(answers[1].record_type(), RecordType::CNAME);
     assert_eq!(
-        additionals.first().unwrap().record_type(),
-        RecordType::CNAME
-    );
-    assert_eq!(
-        additionals.first().unwrap().data,
+        answers[1].data,
         RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
+    assert_eq!(answers[2].record_type(), RecordType::A);
+    assert_eq!(answers[2].data, RData::A(A::new(93, 184, 215, 14)));
 
-    // final record should be the actual
-    assert!(!additionals.is_empty());
-    assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
-    assert_eq!(
-        additionals.last().unwrap().data,
-        RData::A(A::new(93, 184, 215, 14))
-    );
+    assert!(result.additionals.is_empty());
 }
 
 #[tokio::test]
