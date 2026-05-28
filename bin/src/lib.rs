@@ -737,6 +737,7 @@ fn build_udp_socket(
         s
     };
 
+    sock.set_reuse_address(true)?;
     sock.set_nonblocking(true)?;
 
     #[cfg(unix)]
