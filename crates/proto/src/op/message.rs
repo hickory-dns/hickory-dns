@@ -81,7 +81,7 @@ pub struct Message {
     pub queries: Vec<Query>,
     /// Records which directly answer the query
     pub answers: Vec<Record>,
-    /// Records with describe other authoritative servers
+    /// Records which describe other authoritative servers
     ///
     /// May optionally carry the SOA record for the authoritative data in the answer section.
     pub authorities: Vec<Record>,
