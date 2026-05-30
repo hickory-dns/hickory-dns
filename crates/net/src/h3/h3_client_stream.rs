@@ -46,6 +46,7 @@ pub struct H3ClientStream {
     context: Arc<RequestContext>,
     shutdown_tx: mpsc::Sender<()>,
     is_shutdown: bool,
+    request_timeout: Option<Duration>,
 }
 
 impl H3ClientStream {
@@ -58,6 +59,7 @@ impl H3ClientStream {
             set_headers: None,
             disable_grease: false,
             connect_timeout: CONNECT_TIMEOUT,
+            request_timeout: None,
         }
     }
 
@@ -246,11 +248,21 @@ impl DnsRequestSender for H3ClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(Self::inner_send(
+        let send_fut = Self::inner_send(
             self.send_request.clone(),
             Bytes::from(bytes),
             self.context.clone(),
-        ))
+        );
+
+        let Some(request_timeout) = self.request_timeout else {
+            return Box::pin(send_fut).into();
+        };
+
+        Box::pin(async move {
+            timeout(request_timeout, send_fut)
+                .await
+                .map_err(|_| NetError::Timeout)?
+        })
         .into()
     }
 
@@ -301,6 +313,7 @@ pub struct H3ClientStreamBuilder {
     set_headers: Option<Arc<dyn SetHeaders>>,
     disable_grease: bool,
     connect_timeout: Duration,
+    request_timeout: Option<Duration>,
 }
 
 impl H3ClientStreamBuilder {
@@ -332,6 +345,15 @@ impl H3ClientStreamBuilder {
     /// This controls the QUIC connect and the HTTP/3 handshake timeouts.
     pub fn connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = timeout;
+        self
+    }
+
+    /// Set the per-request timeout applied to each DNS send over the H3 connection.
+    ///
+    /// When set, each call to [`DnsRequestSender::send_message`] will be cancelled with
+    /// [`NetError::Timeout`] if no response arrives within this duration.
+    pub fn request_timeout(mut self, timeout: Duration) -> Self {
+        self.request_timeout = Some(timeout);
         self
     }
 
@@ -484,6 +506,7 @@ impl H3ClientStreamBuilder {
             }),
             shutdown_tx,
             is_shutdown: false,
+            request_timeout: self.request_timeout,
         })
     }
 }
