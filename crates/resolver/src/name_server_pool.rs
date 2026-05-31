@@ -1005,9 +1005,7 @@ mod tests {
         config1.trust_negative_responses = false;
         let config2 = NameServerConfig::udp(IpAddr::from([8, 8, 8, 8]));
 
-        let mut resolver_config = ResolverConfig::default();
-        resolver_config.add_name_server(config1);
-        resolver_config.add_name_server(config2);
+        let resolver_config = ResolverConfig::from_name_servers(vec![config1, config2]);
 
         let io_loop = Runtime::new().unwrap();
         let pool = NameServerPool::from_config(

@@ -143,6 +143,13 @@ impl ResolverConfig {
         }
     }
 
+    /// Create a ResolverConfig from a list of name server configurations.
+    ///
+    /// No base domain for relative names will be set, and no additional search domains will be set.
+    pub fn from_name_servers(name_servers: Vec<NameServerConfig>) -> Self {
+        Self::from_parts(None, vec![], name_servers)
+    }
+
     /// Take the `domain`, `search`, and `name_servers` from the config.
     pub fn into_parts(self) -> (Option<Name>, Vec<Name>, Vec<NameServerConfig>) {
         (self.domain, self.search, self.name_servers)
