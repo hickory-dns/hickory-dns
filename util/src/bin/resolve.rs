@@ -291,7 +291,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
-    let mut config = sys_config.unwrap_or_default();
+    let mut config = sys_config.unwrap_or_else(|| ResolverConfig::from_name_servers(vec![]));
 
     for ns in name_servers.iter() {
         config.add_name_server(ns.clone());

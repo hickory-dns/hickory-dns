@@ -46,7 +46,7 @@ use crate::proto::rr::Name;
 
 /// Configuration for the upstream nameservers to use for resolution
 #[non_exhaustive]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
     /// Base search domain
