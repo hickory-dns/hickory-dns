@@ -44,7 +44,11 @@ use crate::proto::access_control::{AccessControlSet, AccessControlSetBuilder};
 use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
 use crate::proto::rr::Name;
 
-/// Configuration for the upstream nameservers to use for resolution
+/// Configuration for the upstream nameservers to use for resolution.
+///
+/// The `Default` implementation of this struct will be removed in a future version. Use
+/// [`Self::from_name_servers()`] instead. Note that a `ResolverConfig` with no name servers will
+/// produce a nonfunctional resolver.
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
