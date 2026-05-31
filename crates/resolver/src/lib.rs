@@ -101,12 +101,12 @@
 //! # use tokio::runtime::Runtime;
 //! # use hickory_resolver::Resolver;
 //! # use hickory_resolver::net::runtime::TokioRuntimeProvider;
-//! # use hickory_resolver::config::ResolverConfig;
+//! # use hickory_resolver::config::{ResolverConfig, GOOGLE};
 //! #
 //! # let mut io_loop = Runtime::new().unwrap();
 //! #
 //! # let resolver = Resolver::builder_with_config(
-//! #     ResolverConfig::default(),
+//! #     ResolverConfig::udp_and_tcp(&GOOGLE),
 //! #     TokioRuntimeProvider::default()
 //! # ).build().unwrap();
 //! # io_loop.block_on(async {
