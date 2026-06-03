@@ -379,6 +379,97 @@ fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
     Ok(())
 }
 
+#[test]
+#[ignore = "hickory does not do out-of-bailiwick filtering on negative responses"]
+fn nxdomain_out_of_bailiwick_rejection_authority_section() -> Result<(), Error> {
+    let target_fqdn = FQDN("nxdomain-1.example.testing.")?;
+    let target_out_of_bailiwick = FQDN("host.invalid.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bailiwick", Vec::new(), "udp"),
+        FQDN::TEST_TLD.push_label("example"),
+        &network,
+    )?;
+
+    root_ns.referral(
+        leaf_ns.zone().clone(),
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    let root_hint = root_ns.root_hint();
+    let resolver =
+        Resolver::new(&network, root_hint).start_with_subject(&Implementation::hickory())?;
+    let client = Client::new(&network)?;
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let settings = *DigSettings::default().recurse();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn)?;
+
+    assert_eq!(output.status, DigStatus::NXDOMAIN);
+    assert!(
+        output.authority.iter().any(|record| record.is_soa()),
+        "{output:?}"
+    );
+    assert!(
+        output
+            .authority
+            .iter()
+            .all(|record| record.name() != &target_out_of_bailiwick),
+        "{output:?}"
+    );
+
+    let logs = resolver.logs()?;
+    assert!(logs.contains("dropping out of bailiwick record record=host.invalid.testing."));
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "hickory does not do out-of-bailiwick filtering on negative responses"]
+fn nxdomain_out_of_bailiwick_rejection_soa() -> Result<(), Error> {
+    let target_fqdn = FQDN("nxdomain-2.example.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("bailiwick", Vec::new(), "udp"),
+        FQDN::TEST_TLD.push_label("example"),
+        &network,
+    )?;
+
+    root_ns.referral(
+        leaf_ns.zone().clone(),
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    let root_hint = root_ns.root_hint();
+    let resolver =
+        Resolver::new(&network, root_hint).start_with_subject(&Implementation::hickory())?;
+    let client = Client::new(&network)?;
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let settings = *DigSettings::default().recurse();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &target_fqdn)?;
+
+    assert_eq!(output.status, DigStatus::NXDOMAIN);
+    assert!(output.authority.is_empty(), "{output:?}");
+
+    let logs = resolver.logs()?;
+    assert!(logs.contains("dropping out of bailiwick SOA record record=host.invalid.testing."));
+
+    Ok(())
+}
+
 /// Verify that Hickory rejects responses with QR=0 (Query type) over UDP
 #[test]
 fn qr_validation_test_udp() -> Result<(), Error> {
