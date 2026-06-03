@@ -514,6 +514,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         trace!(num_labels, %query_name, "looking for zones");
 
         let mut nameserver_pool = self.roots.clone().with_zone(Name::root());
+        let mut zone = Name::root();
 
         for i in 1..=num_labels {
             let candidate_zone = query_name.trim_to(i as usize);
@@ -545,8 +546,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             depth += 1;
             RecursorError::recursion_exceeded(self.ns_recursion_limit, depth, &candidate_zone)?;
 
-            let parent_zone = candidate_zone.base_name();
-
             let query = Query::query(candidate_zone.clone(), RecordType::NS);
 
             // Query for nameserver records via the pool for the parent zone.
@@ -559,7 +558,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 None => {
                     self.lookup(
                         query,
-                        parent_zone,
+                        zone.clone(),
                         nameserver_pool.clone(),
                         request_time,
                         limits,
@@ -710,12 +709,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             nameserver_pool = NameServerPool::from_nameservers(servers, self.pool_context.clone())
                 .with_ttl(ns_pool_ttl)
                 .with_zone(candidate_zone.clone());
+            zone = candidate_zone.clone();
 
             // store in cache for future usage
-            debug!(?candidate_zone, "found nameservers for {candidate_zone}");
+            debug!(?zone, "found nameservers for {zone}");
             self.name_server_cache
                 .lock()
-                .insert(candidate_zone.clone(), nameserver_pool.clone());
+                .insert(zone.clone(), nameserver_pool.clone());
         }
 
         #[cfg(feature = "metrics")]
