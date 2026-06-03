@@ -1,5 +1,5 @@
 use crate::{Handler, Transport, zone_file};
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Error, Result, anyhow};
 use async_trait::async_trait;
 use data_encoding::BASE32_DNSSEC;
 use hickory_net::{
@@ -601,10 +601,12 @@ pub(crate) fn nsec3_apex_nodata_handler(
         .with_context(|| "nsec3 apex nodata handler: could not serialize Message")
 }
 
-/// This handler generates a response with an out-of-bailiwick record included.  There are two
-/// variations: a CNAME test that returns an out of bailiwick response for that is part of a CNAME
-/// chain, and a default case that returns a superfluous out of bailiwick record along with a
-/// responsive A record.
+/// This handler generates a response with an out-of-bailiwick record included.
+///
+/// There are four variations: a baseline case that returns a superfluous out of bailiwick record
+/// along with a responsive A record, a CNAME test that returns an out of bailiwick response that is
+/// part of a CNAME chain, and two negative response cases that include an out of bailiwick record
+/// in the authority section.
 pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
     let mut msg = Message::from_vec(bytes)?.into_response();
     let name = msg.queries[0].name().clone();
@@ -620,7 +622,7 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
             86400,
             RData::A(rdata::A([192, 0, 2, 1].into())),
         ));
-    } else {
+    } else if name == Name::from_ascii("example-123.valid.testing.")? {
         msg.add_answer(Record::from_rdata(
             name,
             1,
@@ -631,6 +633,43 @@ pub(crate) fn bailiwick_handler(bytes: &[u8], _transport: Transport) -> Result<O
             86400,
             RData::A(rdata::A([192, 0, 2, 2].into())),
         ));
+    } else if name == Name::from_ascii("nxdomain-1.example.testing.")? {
+        msg.metadata.response_code = ResponseCode::NXDomain;
+        msg.add_authority(Record::from_rdata(
+            Name::from_ascii("example.testing.")?,
+            86400,
+            RData::SOA(rdata::SOA::new(
+                Name::from_ascii("primary.tld-server.testing.")?,
+                Name::from_ascii("root.example.testing.")?,
+                1,
+                7200,
+                3600,
+                1209600,
+                86400,
+            )),
+        ));
+        msg.add_authority(Record::from_rdata(
+            Name::from_ascii("host.invalid.testing.")?,
+            86400,
+            RData::A(rdata::A([192, 0, 5, 7].into())),
+        ));
+    } else if name == Name::from_ascii("nxdomain-2.example.testing.")? {
+        msg.metadata.response_code = ResponseCode::NXDomain;
+        msg.add_authority(Record::from_rdata(
+            Name::from_ascii("host.invalid.testing.")?,
+            86400,
+            RData::SOA(rdata::SOA::new(
+                Name::from_ascii("primary.tld-server.testing.")?,
+                Name::from_ascii("root.host.invalid.testing.")?,
+                1,
+                7200,
+                3600,
+                1209600,
+                86400,
+            )),
+        ));
+    } else {
+        return Err(anyhow!("unexpected QNAME: {name}"));
     }
 
     msg.metadata.recursion_desired = false;
