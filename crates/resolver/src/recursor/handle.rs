@@ -269,7 +269,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let response = match cached_response {
             Some(result) => result?,
             None => {
-                self.lookup(query.clone(), zone.clone(), ns, request_time, limits)
+                self.lookup(query.clone(), &zone.clone(), ns, request_time, limits)
                     .await?
             }
         };
@@ -419,7 +419,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     async fn lookup(
         &self,
         query: Query,
-        zone: Name,
+        zone: &Name,
         ns: NameServerPool<P>,
         now: Instant,
         limits: &RequestLimits,
@@ -454,7 +454,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         };
 
         let answer_filter = |record: &Record| {
-            if !is_subzone(&zone, &record.name) {
+            if !is_subzone(zone, &record.name) {
                 debug!(
                     %record, %zone,
                     "dropping out of bailiwick record",
@@ -556,14 +556,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
                 Some(Err(e)) => Err(e.into()),
                 None => {
-                    self.lookup(
-                        query,
-                        zone.clone(),
-                        nameserver_pool.clone(),
-                        request_time,
-                        limits,
-                    )
-                    .await
+                    self.lookup(query, &zone, nameserver_pool.clone(), request_time, limits)
+                        .await
                 }
             };
 
