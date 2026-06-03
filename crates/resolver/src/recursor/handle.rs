@@ -28,7 +28,7 @@ use crate::{
     connection_provider::{ConnectionProvider, TlsConfig},
     name_server::NameServer,
     name_server_pool::{NameServerPool, NameServerTransportState, PoolContext},
-    net::DnsHandle,
+    net::{DnsError, DnsHandle, NetError, NoRecords},
     proto::{
         access_control::{AccessControlSet, AccessControlSetBuilder},
         op::{DnsRequestOptions, Message, Query},
@@ -431,29 +431,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         #[cfg(feature = "metrics")]
         self.metrics.outgoing_query_counter.increment(1);
 
-        // TODO: we are only expecting one response
-        // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
-        let mut response = match response.next().await {
-            Some(Ok(r)) => r,
-            Some(Err(error)) => {
-                warn!(?query, %error, "lookup error");
-                // Ghost domain attack mitigation: see below
-                let query_type_is_ns = query.query_type == RecordType::NS;
-                self.response_cache.upsert_clamped_ttl(
-                    query,
-                    Err(error.clone()),
-                    now,
-                    query_type_is_ns,
-                );
-                return Err(RecursorError::from(error));
-            }
-            None => {
-                warn!("no response to lookup for {query}");
-                return Err("no response to lookup".into());
-            }
-        };
-
-        let answer_filter = |record: &Record| {
+        let bailiwick_filter = |record: &Record| {
             if !is_subzone(zone, &record.name) {
                 debug!(
                     %record, %zone,
@@ -465,12 +443,71 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             true
         };
 
+        // TODO: we are only expecting one response
+        // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
+        let mut response = match response.next().await {
+            Some(Ok(r)) => r,
+            Some(Err(mut error)) => {
+                warn!(?query, %error, "lookup error");
+
+                // Do bailiwick filtering on records embedded in the error, if applicable.
+                match &mut error {
+                    NetError::Dns(DnsError::NoRecordsFound(NoRecords {
+                        soa, authorities, ..
+                    })) => {
+                        if let Some(record) = soa {
+                            // We can't reuse bailiwick_filter here because this field has type
+                            // Record<SOA>, not Record<RData>.
+                            if !is_subzone(zone, &record.name) {
+                                debug!(
+                                    %record, %zone,
+                                    "dropping out of bailiwick SOA record",
+                                );
+                                *soa = None;
+                            }
+                        }
+                        if let Some(authorities) = authorities {
+                            if !authorities.iter().all(bailiwick_filter) {
+                                *authorities = authorities
+                                    .iter()
+                                    .filter(|record| bailiwick_filter(record))
+                                    .cloned()
+                                    .collect();
+                            }
+                        }
+                    }
+                    #[cfg(feature = "__dnssec")]
+                    NetError::Dns(DnsError::Nsec { response, .. }) => {
+                        response.answers.retain(bailiwick_filter);
+                        response.authorities.retain(bailiwick_filter);
+                        response.additionals.retain(bailiwick_filter);
+                    }
+                    _ => {}
+                }
+
+                // Ghost domain attack mitigation: see below
+                let query_type_is_ns = query.query_type == RecordType::NS;
+                self.response_cache.upsert_clamped_ttl(
+                    query,
+                    Err(error.clone()),
+                    now,
+                    query_type_is_ns,
+                );
+
+                return Err(RecursorError::from(error));
+            }
+            None => {
+                warn!("no response to lookup for {query}");
+                return Err("no response to lookup".into());
+            }
+        };
+
         let answers_len = response.answers.len();
         let authorities_len = response.authorities.len();
 
-        response.additionals.retain(answer_filter);
-        response.answers.retain(answer_filter);
-        response.authorities.retain(answer_filter);
+        response.answers.retain(bailiwick_filter);
+        response.authorities.retain(bailiwick_filter);
+        response.additionals.retain(bailiwick_filter);
 
         // If we stripped all of the answers out, or if we stripped all of the authorities
         // out and there are no answers, return an NXDomain response.
