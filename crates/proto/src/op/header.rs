@@ -9,7 +9,11 @@
 
 #[cfg(test)]
 use alloc::vec::Vec;
-use core::{convert::From, fmt, ops::Deref};
+use core::{
+    convert::From,
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -166,6 +170,12 @@ impl Deref for Header {
 
     fn deref(&self) -> &Self::Target {
         &self.metadata
+    }
+}
+
+impl DerefMut for Header {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.metadata
     }
 }
 
