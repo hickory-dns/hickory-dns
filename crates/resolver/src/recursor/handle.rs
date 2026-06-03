@@ -516,31 +516,38 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut nameserver_pool = self.roots.clone().with_zone(Name::root());
 
         for i in 1..=num_labels {
-            let zone = query_name.trim_to(i as usize);
-            let _in_flight = limits.try_enter_zone(&zone).inspect_err(|_| {
+            let candidate_zone = query_name.trim_to(i as usize);
+            let _in_flight = limits.try_enter_zone(&candidate_zone).inspect_err(|_| {
                 debug!(
-                    ?zone,
+                    ?candidate_zone,
                     "refusing to re-enter zone already on resolution stack"
                 );
             })?;
-            if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
+            if let Some(ns) = self.name_server_cache.lock().get_mut(&candidate_zone) {
                 match ns.ttl_expired() {
-                    true => debug!(?zone, "cached name server pool expired"),
+                    true => debug!(?candidate_zone, "cached name server pool expired"),
                     false => {
-                        debug!(?zone, "already have cached name server pool for zone");
+                        debug!(
+                            ?candidate_zone,
+                            "already have cached name server pool for zone"
+                        );
                         nameserver_pool = ns.clone();
                         continue;
                     }
                 }
             };
 
-            trace!(depth, ?zone, "ns_pool_for_name: depth {depth} for {zone}");
+            trace!(
+                depth,
+                ?candidate_zone,
+                "ns_pool_for_name: depth {depth} for {candidate_zone}"
+            );
             depth += 1;
-            RecursorError::recursion_exceeded(self.ns_recursion_limit, depth, &zone)?;
+            RecursorError::recursion_exceeded(self.ns_recursion_limit, depth, &candidate_zone)?;
 
-            let parent_zone = zone.base_name();
+            let parent_zone = candidate_zone.base_name();
 
-            let query = Query::new(zone.clone(), RecordType::NS);
+            let query = Query::new(candidate_zone.clone(), RecordType::NS);
 
             // Query for nameserver records via the pool for the parent zone.
             let lookup_res = match self.response_cache.get(&query, request_time) {
@@ -573,23 +580,21 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
                 // encounter them again.
                 Err(e) if e.is_timeout() => return Err(e),
-                // The name `zone` is not a zone cut. Return the same pool of name servers again, but do
-                // not cache it. If this was recursively called by `ns_pool_for_name()`, the outer call
-                // will try again with one more label added to the iterative query name.
+                // The name `candidate_zone` is not a zone cut. Try again with one more label added
+                // to the iterative query name.
                 Err(_) => {
-                    trace!(?zone, "no zone cut at zone");
+                    trace!(?candidate_zone, "no zone cut at name");
                     continue;
                 }
             };
 
-            let any_ns = response
-                .all_sections()
-                .any(|record| record.record_type() == RecordType::NS && record.name == zone);
+            let any_ns = response.all_sections().any(|record| {
+                record.record_type() == RecordType::NS && record.name == candidate_zone
+            });
             if !any_ns {
-                // Not a zone cut, but there is a CNAME or other record at this name. Return the
-                // same pool of name servers as above in the error case, to try again with a
-                // longer name.
-                trace!(?zone, "no zone cut at zone");
+                // Not a zone cut, but there is a CNAME or other record at this name. Try again with
+                // a longer name.
+                trace!(?candidate_zone, "no zone cut at name");
                 continue;
             }
 
@@ -614,10 +619,10 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     continue;
                 };
 
-                if !is_subzone(&zone.base_name(), &zns.name) {
+                if !is_subzone(&candidate_zone.base_name(), &zns.name) {
                     debug!(
                         name = ?zns.name,
-                        parent = ?zone.base_name(),
+                        parent = ?candidate_zone.base_name(),
                         "dropping out of bailiwick record",
                     );
                     continue;
@@ -657,12 +662,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // For child child name servers, we can use the existing pool, but we *must* use lookup
             // to avoid infinite recursion.
             if config_group.is_empty() && !need_ips_for_names.is_empty() {
-                debug!(?zone, "need glue for zone");
+                debug!(?candidate_zone, "need glue for zone");
 
                 let ttl;
                 (ttl, depth) = self
                     .append_ips_from_lookup(
-                        &zone,
+                        &candidate_zone,
                         depth,
                         request_time,
                         nameserver_pool.clone(),
@@ -704,13 +709,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
             nameserver_pool = NameServerPool::from_nameservers(servers, self.pool_context.clone())
                 .with_ttl(ns_pool_ttl)
-                .with_zone(zone.clone());
+                .with_zone(candidate_zone.clone());
 
             // store in cache for future usage
-            debug!(?zone, "found nameservers for {zone}");
+            debug!(?candidate_zone, "found nameservers for {candidate_zone}");
             self.name_server_cache
                 .lock()
-                .insert(zone.clone(), nameserver_pool.clone());
+                .insert(candidate_zone.clone(), nameserver_pool.clone());
         }
 
         #[cfg(feature = "metrics")]
