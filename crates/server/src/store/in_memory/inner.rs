@@ -365,15 +365,17 @@ impl InnerInMemory {
                 let additional = self.inner_lookup(&search, *query_type, lookup_options);
                 names.insert(search);
 
-                if let Some(additional) = additional {
-                    // assuming no crazy long chains...
-                    if !additionals.contains(&additional) {
-                        additionals.push(additional.clone());
-                    }
+                let Some(additional) = additional else {
+                    continue;
+                };
 
-                    next_name =
-                        maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
+                // assuming no crazy long chains...
+                if !additionals.contains(&additional) {
+                    additionals.push(additional.clone());
                 }
+
+                next_name =
+                    maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
             }
         }
 
