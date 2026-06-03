@@ -103,7 +103,11 @@ impl<P: ConnectionProvider> NameServer<P> {
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<DnsResponse, NetError> {
-        let (handle, meta, protocol) = self.connected_mut_client(policy, cx).await?;
+        let ConnectedClient {
+            handle,
+            meta,
+            protocol,
+        } = self.connected_mut_client(policy, cx).await?;
         #[cfg(feature = "metrics")]
         self.resolver_metrics.increment_outgoing_query(&protocol);
         let now = Instant::now();
@@ -207,7 +211,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         &self,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
-    ) -> Result<(P::Conn, Arc<ConnectionMeta>, Protocol), NetError> {
+    ) -> Result<ConnectedClient<P>, NetError> {
         // Check for an existing usable connection (short lock)
         {
             let mut connections = self.connections.lock().await;
@@ -219,7 +223,11 @@ impl<P: ConnectionProvider> NameServer<P> {
                 &cx.opportunistic_encryption,
                 &connections,
             ) {
-                return Ok((conn.handle.clone(), conn.meta.clone(), conn.protocol));
+                return Ok(ConnectedClient {
+                    handle: conn.handle.clone(),
+                    meta: conn.meta.clone(),
+                    protocol: conn.protocol,
+                });
             }
         }
 
@@ -261,7 +269,11 @@ impl<P: ConnectionProvider> NameServer<P> {
         let state = ConnectionState::new(handle.clone(), protocol);
         let meta = state.meta.clone();
         self.connections.lock().await.push(state);
-        Ok((handle, meta, protocol))
+        Ok(ConnectedClient {
+            handle,
+            meta,
+            protocol,
+        })
     }
 
     pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
@@ -504,6 +516,13 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
             metrics.record_probe_duration(proto, start.elapsed());
         }
     }
+}
+
+/// A connection selected by [`NameServer::connected_mut_client`] for sending a request.
+struct ConnectedClient<P: ConnectionProvider> {
+    handle: P::Conn,
+    meta: Arc<ConnectionMeta>,
+    protocol: Protocol,
 }
 
 struct ConnectionState<P: ConnectionProvider> {
