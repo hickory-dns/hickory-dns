@@ -74,25 +74,13 @@ impl H3ClientStream {
         debug!("request: {:#?}", request);
 
         // Send the request
-        let mut stream = h3
-            .send_request(request)
-            .await
-            .map_err(|err| NetError::from(format!("h3 send_request error: {err}")))?;
+        let mut stream = h3.send_request(request).await?;
 
-        stream
-            .send_data(message)
-            .await
-            .map_err(|e| NetError::from(format!("h3 send_data error: {e}")))?;
+        stream.send_data(message).await?;
 
-        stream
-            .finish()
-            .await
-            .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
+        stream.finish().await?;
 
-        let response = stream
-            .recv_response()
-            .await
-            .map_err(|err| NetError::from(format!("h3 recv_response error: {err}")))?;
+        let response = stream.recv_response().await?;
 
         debug!("got response: {:#?}", response);
 
