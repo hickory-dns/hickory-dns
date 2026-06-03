@@ -380,7 +380,6 @@ fn cname_out_of_bailiwick_rejection() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory does not do out-of-bailiwick filtering on negative responses"]
 fn nxdomain_out_of_bailiwick_rejection_authority_section() -> Result<(), Error> {
     let target_fqdn = FQDN("nxdomain-1.example.testing.")?;
     let target_out_of_bailiwick = FQDN("host.invalid.testing.")?;
@@ -431,7 +430,6 @@ fn nxdomain_out_of_bailiwick_rejection_authority_section() -> Result<(), Error> 
 }
 
 #[test]
-#[ignore = "hickory does not do out-of-bailiwick filtering on negative responses"]
 fn nxdomain_out_of_bailiwick_rejection_soa() -> Result<(), Error> {
     let target_fqdn = FQDN("nxdomain-2.example.testing.")?;
 
