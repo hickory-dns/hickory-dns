@@ -10,7 +10,7 @@
 #![cfg(feature = "blocklist")]
 
 use std::{
-    collections::HashMap,
+    collections::HashSet,
     fs::File,
     io::{self, Read},
     net::{Ipv4Addr, Ipv6Addr},
@@ -65,7 +65,7 @@ use crate::{
 /// to drop queries pre-emptively, as in the first example.
 pub struct BlocklistZoneHandler {
     origin: LowerName,
-    blocklist: HashMap<LowerName, bool>,
+    blocklist: HashSet<LowerName>,
     wildcard_match: bool,
     min_wildcard_depth: u8,
     sinkhole_ipv4: Ipv4Addr,
@@ -89,7 +89,7 @@ impl BlocklistZoneHandler {
 
         let mut handler = Self {
             origin: origin.into(),
-            blocklist: HashMap::new(),
+            blocklist: HashSet::new(),
             wildcard_match: config.wildcard_match,
             min_wildcard_depth: config.min_wildcard_depth,
             sinkhole_ipv4: config.sinkhole_ipv4.unwrap_or(Ipv4Addr::UNSPECIFIED),
@@ -132,10 +132,7 @@ impl BlocklistZoneHandler {
         }
 
         #[cfg(feature = "metrics")]
-        handler
-            .metrics
-            .entries
-            .set(handler.blocklist.keys().len() as f64);
+        handler.metrics.entries.set(handler.blocklist.len() as f64);
 
         Ok(handler)
     }
@@ -248,8 +245,7 @@ impl BlocklistZoneHandler {
 
             name.set_fqdn(true);
             let lower_name = LowerName::from(name);
-            // The boolean value is not significant; only the key is used.
-            self.blocklist.insert(lower_name, true);
+            self.blocklist.insert(lower_name);
         }
 
         Ok(())
@@ -287,7 +283,7 @@ impl BlocklistZoneHandler {
 
         match_list
             .iter()
-            .any(|entry| self.blocklist.contains_key(entry))
+            .any(|entry| self.blocklist.contains(entry))
     }
 
     /// Generate a BlocklistLookup to return on a blocklist match.  This will return a lookup with
