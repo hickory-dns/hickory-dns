@@ -239,16 +239,17 @@ impl BlocklistZoneHandler {
                 None => entry,
             };
 
-            let Ok(mut name) = LowerName::from_str(name) else {
-                warn!("unable to derive LowerName for blocklist entry '{name}'; skipping entry");
+            let Ok(mut name) = Name::from_str(name) else {
+                warn!("unable to parse Name for blocklist entry '{name}'; skipping entry");
                 continue;
             };
 
             trace!("inserting blocklist entry {name}");
 
-            // The boolean value is not significant; only the key is used.
             name.set_fqdn(true);
-            self.blocklist.insert(name, true);
+            let lower_name = LowerName::from(name);
+            // The boolean value is not significant; only the key is used.
+            self.blocklist.insert(lower_name, true);
         }
 
         Ok(())
