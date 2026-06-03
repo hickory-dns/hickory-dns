@@ -168,6 +168,36 @@ impl NetError {
         matches!(self, Self::Dns(DnsError::NoRecordsFound { .. }))
     }
 
+    /// Returns true for a transport-level connection error: the connection was
+    /// closed, reset, or refused, as opposed to a timeout or a server-side (DNS)
+    /// error.
+    pub fn is_connection_closed(&self) -> bool {
+        match self {
+            #[cfg(feature = "__https")]
+            Self::H2(err) => {
+                err.is_io() || err.is_go_away() || err.reason() == Some(h2::Reason::REFUSED_STREAM)
+            }
+            #[cfg(feature = "__h3")]
+            Self::H3(err) => err.is_h3_no_error(),
+            Self::Io(err) => matches!(
+                err.kind(),
+                io::ErrorKind::ConnectionReset
+                    | io::ErrorKind::ConnectionAborted
+                    | io::ErrorKind::BrokenPipe
+                    | io::ErrorKind::NotConnected
+                    | io::ErrorKind::UnexpectedEof
+            ),
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnection(err) => matches!(
+                err,
+                quinn::ConnectionError::ConnectionClosed(_)
+                    | quinn::ConnectionError::ApplicationClosed(_)
+                    | quinn::ConnectionError::Reset
+            ),
+            _ => false,
+        }
+    }
+
     /// Returns the SOA record, if the error contains one
     #[inline]
     pub fn into_soa(self) -> Option<Box<Record<SOA>>> {
@@ -382,4 +412,52 @@ pub struct ForwardNSData {
     pub ns: Record,
     /// Any glue records associated with the referant NS record.
     pub glue: Arc<[Record]>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_connection_closed_io_kinds() {
+        for kind in [
+            io::ErrorKind::ConnectionReset,
+            io::ErrorKind::ConnectionAborted,
+            io::ErrorKind::BrokenPipe,
+            io::ErrorKind::NotConnected,
+            io::ErrorKind::UnexpectedEof,
+        ] {
+            assert!(
+                NetError::from(io::Error::from(kind)).is_connection_closed(),
+                "{kind:?}"
+            );
+        }
+
+        assert!(
+            !NetError::from(io::Error::from(io::ErrorKind::PermissionDenied))
+                .is_connection_closed()
+        );
+        assert!(!NetError::Timeout.is_connection_closed());
+        assert!(!NetError::Message("server error").is_connection_closed());
+    }
+
+    #[cfg(feature = "__https")]
+    #[test]
+    fn is_connection_closed_h2() {
+        // REFUSED_STREAM: the server never processed the request, so it's safe to retry.
+        assert!(NetError::from(h2::Error::from(h2::Reason::REFUSED_STREAM)).is_connection_closed());
+        // A protocol error mid-exchange is not a clean connection-closed signal.
+        assert!(
+            !NetError::from(h2::Error::from(h2::Reason::INTERNAL_ERROR)).is_connection_closed()
+        );
+    }
+
+    #[cfg(feature = "__quic")]
+    #[test]
+    fn is_connection_closed_quic_excludes_timeout() {
+        assert!(NetError::QuinnConnection(quinn::ConnectionError::Reset).is_connection_closed());
+        assert!(
+            !NetError::QuinnConnection(quinn::ConnectionError::TimedOut).is_connection_closed()
+        );
+    }
 }
