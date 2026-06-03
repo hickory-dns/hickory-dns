@@ -313,13 +313,7 @@ async fn send(
     message: Bytes,
     cx: Arc<RequestContext>,
 ) -> Result<DnsResponse, NetError> {
-    let mut h2 = match h2.ready().await {
-        Ok(h2) => h2,
-        Err(err) => {
-            // TODO: make specific error
-            return Err(NetError::from(format!("h2 send_request error: {err}")));
-        }
-    };
+    let mut h2 = h2.ready().await?;
 
     // build up the http request
     let request = cx
@@ -329,17 +323,11 @@ async fn send(
     debug!("request: {:#?}", request);
 
     // Send the request
-    let (response_future, mut send_stream) = h2
-        .send_request(request, false)
-        .map_err(|err| NetError::from(format!("h2 send_request error: {err}")))?;
+    let (response_future, mut send_stream) = h2.send_request(request, false)?;
 
-    send_stream
-        .send_data(message, true)
-        .map_err(|e| NetError::from(format!("h2 send_data error: {e}")))?;
+    send_stream.send_data(message, true)?;
 
-    let mut response_stream = response_future
-        .await
-        .map_err(|err| NetError::from(format!("received a stream error: {err}")))?;
+    let mut response_stream = response_future.await?;
 
     debug!("got response: {:#?}", response_stream);
 

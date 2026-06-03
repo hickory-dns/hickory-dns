@@ -13,6 +13,7 @@ use core::{
     time::Duration,
 };
 use std::collections::{HashMap, hash_map::Entry};
+use std::io;
 
 use futures_channel::mpsc;
 use futures_util::{
@@ -340,7 +341,10 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
                 Poll::Ready(err) => {
                     let err = match err {
                         Some(Err(e)) => e,
-                        None => NetError::from("stream closed"),
+                        None => NetError::from(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "stream closed",
+                        )),
                         _ => unreachable!(),
                     };
 
