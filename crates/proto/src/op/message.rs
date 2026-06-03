@@ -8,7 +8,10 @@
 //! Basic protocol message for DNS
 
 use alloc::{boxed::Box, fmt, vec::Vec};
-use core::{mem, ops::Deref};
+use core::{
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -532,6 +535,12 @@ impl Deref for Message {
 
     fn deref(&self) -> &Self::Target {
         &self.metadata
+    }
+}
+
+impl DerefMut for Message {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.metadata
     }
 }
 
