@@ -92,7 +92,7 @@ criterion = { version = "0.8.2", features = ["async_tokio"] }
 
 # others
 anyhow = "1"
-bitflags = "2.4.1"
+bitflags = "2.12.1"
 bytes = "1"
 cfg-if = "1"
 clap = { version = "4.0", default-features = false }
