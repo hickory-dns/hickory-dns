@@ -682,6 +682,7 @@ pub enum ExtendedDnsError {
     DnssecBogus = 6,
     DnskeyMissing = 9,
     RrsigsMissing = 10,
+    NsecMissing = 12,
     Prohibited = 18,
     NoReachableAuthority = 22,
 }
@@ -697,6 +698,7 @@ impl FromStr for ExtendedDnsError {
             6 => Self::DnssecBogus,
             9 => Self::DnskeyMissing,
             10 => Self::RrsigsMissing,
+            12 => Self::NsecMissing,
             18 => Self::Prohibited,
             22 => Self::NoReachableAuthority,
             _ => todo!("EDE {code} has not yet been implemented"),
