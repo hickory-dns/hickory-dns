@@ -27,6 +27,7 @@ use crate::error::*;
 use crate::rr::dns_class::DNSClass;
 use crate::rr::domain::Name;
 use crate::rr::record_type::RecordType;
+use crate::rr::{Record, RecordData};
 use crate::serialize::binary::*;
 
 #[cfg(feature = "mdns")]
@@ -121,6 +122,14 @@ impl Query {
     pub fn set_mdns_unicast_response(&mut self, flag: bool) -> &mut Self {
         self.mdns_unicast_response = flag;
         self
+    }
+
+    /// Determines if a record is responsive to this
+    pub fn matches_record<T: RecordData>(&self, record: &Record<T>) -> bool {
+        self.name == record.name
+            && (self.query_type == record.record_type()
+                || record.record_type() == RecordType::CNAME)
+            && self.query_class == record.dns_class
     }
 }
 
