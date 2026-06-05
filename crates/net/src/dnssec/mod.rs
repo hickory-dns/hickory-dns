@@ -338,8 +338,13 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 Proof::Bogus
             }
             (false, false, false) => {
-                // Return Ok if there were no NSEC/NSEC3 records and no wildcard RRSIGs.
-                if !message.answers.is_empty() {
+                // Return Ok if this is a valid positive response with no NSEC/NSEC3 records and no
+                // wildcard RRSIGs.
+                if message.answers.iter().any(|record| {
+                    record.name == query.name
+                        && (record.record_type() == RecordType::CNAME
+                            || record.record_type() == query.query_type)
+                }) {
                     return Ok(message);
                 }
 
@@ -1661,7 +1666,11 @@ fn verify_nsec(
         query.name().base_name()
     };
 
-    let have_answer = !answers.is_empty();
+    let have_answer = answers.iter().any(|record| {
+        record.name == query.name
+            && (record.record_type() == RecordType::CNAME
+                || record.record_type() == query.query_type)
+    });
 
     // For a no data response with a directly matching NSEC record, we just need to verify the NSEC
     // type set does not contain the query type or CNAME.
