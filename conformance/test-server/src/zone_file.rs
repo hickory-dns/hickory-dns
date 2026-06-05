@@ -1,10 +1,10 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, str::FromStr};
 
 use data_encoding::{BASE32_DNSSEC, BASE64, HEXUPPER};
 use hickory_proto::{
     dnssec::{
         Algorithm, Nsec3HashAlgorithm, PublicKeyBuf,
-        rdata::{DNSKEY, DNSSECRData, NSEC3, NSEC3PARAM, RRSIG, SigInput},
+        rdata::{DNSKEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, SigInput},
     },
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
@@ -88,20 +88,9 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                     .decode(sig_base64.as_bytes())
                     .map_err(|e| format!("RRSIG signature decode error: {e:?}"))?;
 
-                let type_covered = match tokens[4] {
-                    "DNSKEY" => RecordType::DNSKEY,
-                    "NSEC3" => RecordType::NSEC3,
-                    "SOA" => RecordType::SOA,
-                    "A" => RecordType::A,
-                    "NS" => RecordType::NS,
-                    "NSEC3PARAM" => RecordType::NSEC3PARAM,
-                    _ => {
-                        return Err(format!(
-                            "RRSIG covered type error: unexpected type {}",
-                            tokens[4]
-                        ));
-                    }
-                };
+                let type_covered = RecordType::from_str(tokens[4]).map_err(|_| {
+                    format!("RRSIG covered type error: unexpected type {}", tokens[4])
+                })?;
 
                 let rrsig = RRSIG::from_sig(
                     SigInput {
@@ -144,19 +133,36 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                     RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
                 ));
             }
+            "NSEC" => {
+                let mut types = vec![];
+
+                for rtype in &tokens[5..] {
+                    types.push(
+                        RecordType::from_str(rtype)
+                            .map_err(|_| format!("NSEC unexpected covered type: {rtype}"))?,
+                    );
+                }
+
+                records.push(Record::from_rdata(
+                    Name::from_ascii(tokens[0]).map_err(|e| format!("NSEC name error: {e:?}"))?,
+                    tokens[1]
+                        .parse()
+                        .map_err(|e| format!("NSEC ttl error: {e:?}"))?,
+                    RData::DNSSEC(DNSSECRData::NSEC(NSEC::new(
+                        Name::from_ascii(tokens[4])
+                            .map_err(|e| format!("NSEC next domain name error: {e:?}"))?,
+                        types,
+                    ))),
+                ))
+            }
             "NSEC3" => {
                 let mut types = vec![];
 
                 for rtype in &tokens[9..] {
-                    match *rtype {
-                        "DNSKEY" => types.push(RecordType::DNSKEY),
-                        "RRSIG" => types.push(RecordType::RRSIG),
-                        "SOA" => types.push(RecordType::SOA),
-                        "A" => types.push(RecordType::A),
-                        "NS" => types.push(RecordType::NS),
-                        "NSEC3PARAM" => types.push(RecordType::NSEC3PARAM),
-                        _ => return Err(format!("NSEC3 unexpected covered type: {rtype}")),
-                    }
+                    types.push(
+                        RecordType::from_str(rtype)
+                            .map_err(|_| format!("NSEC3 unexpected covered type: {rtype}"))?,
+                    );
                 }
 
                 let salt = if tokens[7] == "-" {
