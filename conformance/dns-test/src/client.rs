@@ -467,6 +467,7 @@ impl<'a> DigSettings<'a> {
 #[derive(Debug)]
 pub struct DigOutput {
     pub ede: BTreeSet<ExtendedDnsError>,
+    pub ede_messages: Vec<(ExtendedDnsError, Option<String>)>,
     pub flags: DigFlags,
     pub status: DigStatus,
     pub answer: Vec<Record>,
@@ -515,6 +516,7 @@ impl FromStr for DigOutput {
         let mut authority = None;
         let mut additional = None;
         let mut ede = BTreeSet::new();
+        let mut ede_messages = Vec::new();
         let mut options = Vec::new();
         let mut opt = false;
         let mut must_be_zero = false;
@@ -572,6 +574,12 @@ impl FromStr for DigOutput {
                 let code = code.parse()?;
                 let inserted = ede.insert(code);
                 assert!(inserted, "unexpected: duplicate EDE {code:?}");
+
+                let message = unprefixed
+                    .split_once(": (")
+                    .and_then(|(_, s)| s.rsplit_once(')'))
+                    .map(|(s, _)| s.to_owned());
+                ede_messages.push((code, message));
             } else if line.starts_with(OPT_HEADER) {
                 opt = true;
             } else if let Some(unprefixed) = line.strip_prefix(EDNS_PREFIX) {
@@ -654,6 +662,7 @@ impl FromStr for DigOutput {
             authority: authority.unwrap_or_default(),
             additional: additional.unwrap_or_default(),
             ede,
+            ede_messages,
             flags: flags.ok_or_else(|| not_found(FLAGS_PREFIX))?,
             status: status.ok_or_else(|| not_found(STATUS_PREFIX))?,
             options,
