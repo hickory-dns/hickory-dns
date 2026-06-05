@@ -58,6 +58,7 @@ async fn main() -> Result<()> {
             record_type,
             count,
         )),
+        HandlerArg::WrongRrset => Arc::new(handlers::wrong_rrset_handler),
     };
 
     let mut handles = vec![];
@@ -123,6 +124,7 @@ enum HandlerArg {
         record_type: RecordType,
         count: u32,
     },
+    WrongRrset,
 }
 
 struct UdpServer {

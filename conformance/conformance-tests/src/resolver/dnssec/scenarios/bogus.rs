@@ -7,10 +7,10 @@ use std::{
 };
 
 use dns_test::{
-    Error, FQDN, Network, PEER, Resolver, TrustAnchor,
+    Error, FQDN, Implementation, Network, PEER, Resolver, TrustAnchor,
     client::{Client, DigOutput, DigSettings, DigStatus, ExtendedDnsError},
-    name_server::{Graph, NameServer, Sign},
-    record::{DNSKEY, DNSKEYRData, DS, NSEC, RRSIG, Record, RecordType},
+    name_server::{Graph, NameServer, Running, Sign},
+    record::{A, DNSKEY, DNSKEYRData, DS, NSEC, RRSIG, Record, RecordType},
     zone_file::{Nsec, SignSettings, Signer},
 };
 
@@ -824,4 +824,193 @@ fn invalid_nsec_wildcard_expanded_test(
     assert!(!output.flags.authenticated_data);
 
     Ok(())
+}
+
+/// This test uses an authoritative server that returns positive responses for the wrong RRset in
+/// response to specific queries.
+#[test]
+#[ignore = "hickory does not check the correct RRset is in the answer section"]
+fn wrong_rrset_nsec() -> Result<(), Error> {
+    // Use NSEC instead of NSEC3 to simplify manual assembly of negative responses.
+    let sign_settings = SignSettings::default().nsec(Nsec::_1);
+    let leaf_name = FQDN::TEST_TLD.push_label("leaf");
+
+    let (network, _nameservers, resolver) = setup_wrong_rrset(sign_settings)?;
+
+    let client = Client::new(&network)?;
+    let dig_settings = *DigSettings::default().recurse().dnssec().timeout(10);
+
+    // This will get a response containing "other.leaf.testing. A 192.168.5.5". Validation should
+    // fail because the record's name doesn't match the query name.
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &leaf_name.push_label("www"),
+    )?;
+    assert_eq!(response.status, DigStatus::SERVFAIL, "{response:?}");
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(
+            response.ede_messages.iter().any(|(ede, message)| {
+                *ede == ExtendedDnsError::RrsigsMissing
+                    && message.as_deref().is_some_and(|msg| {
+                        msg.contains("validation failure <www.leaf.testing. A IN>: no signatures")
+                    })
+            }),
+            "missing expected EDE message: {response:?}"
+        );
+    }
+
+    // This will get a response containing "www.leaf.testing. A 192.168.1.1". Validation should fail
+    // because the record's type doesn't match the query type.
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::AAAA,
+        &leaf_name.push_label("www"),
+    )?;
+    assert_eq!(response.status, DigStatus::SERVFAIL, "{response:?}");
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(
+            response.ede_messages.iter().any(|(ede, message)| {
+                *ede == ExtendedDnsError::RrsigsMissing
+                    && message.as_deref().is_some_and(|msg| {
+                        msg.contains(
+                            "validation failure <www.leaf.testing. AAAA IN>: no signatures",
+                        )
+                    })
+            }),
+            "missing expected EDE message: {response:?}"
+        );
+    }
+
+    // This response contains both the wrong RRset in the answer section, and an NSEC record in the
+    // authority section.
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &leaf_name.push_label("www2"),
+    )?;
+    assert_eq!(response.status, DigStatus::SERVFAIL, "{response:?}");
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(
+            response.ede_messages.iter().any(|(ede, message)| {
+                *ede == ExtendedDnsError::DnssecBogus
+                    && message.as_deref().is_some_and(|msg| {
+                        msg.contains(
+                            "validation failure <www2.leaf.testing. A IN>: nodata proof failed",
+                        )
+                    })
+            }),
+            "missing expected EDE message: {response:?}"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn wrong_rrset_nsec3() -> Result<(), Error> {
+    let sign_settings = SignSettings::default().nsec(Nsec::_3 {
+        iterations: 1,
+        opt_out: false,
+        salt: None,
+    });
+    let leaf_name = FQDN::TEST_TLD.push_label("leaf");
+
+    let (network, _nameservers, resolver) = setup_wrong_rrset(sign_settings)?;
+
+    let client = Client::new(&network)?;
+    let dig_settings = *DigSettings::default().recurse().dnssec().timeout(10);
+
+    // This response contains both the wrong RRset in the answer section, and an NSEC3 record in the
+    // authority section.
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &leaf_name.push_label("www2"),
+    )?;
+    assert_eq!(response.status, DigStatus::SERVFAIL, "{response:?}");
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(
+            response.ede_messages.iter().any(|(ede, message)| {
+                *ede == ExtendedDnsError::DnssecBogus
+                    && message.as_deref().is_some_and(|msg| {
+                        msg.contains(
+                            "validation failure <www2.leaf.testing. A IN>: nodata proof failed",
+                        )
+                    })
+            }),
+            "missing expected EDE message: {response:?}"
+        );
+    }
+
+    Ok(())
+}
+
+fn setup_wrong_rrset(
+    sign_settings: SignSettings,
+) -> Result<(Network, Vec<NameServer<Running>>, Resolver), Error> {
+    let network = Network::new()?;
+
+    let nameservers_ns =
+        NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?.sign(sign_settings.clone())?;
+
+    let leaf_name = FQDN::TEST_TLD.push_label("leaf");
+    let mut leaf_ns = NameServer::new(
+        &Implementation::test_server("wrong_rrset", Vec::new(), "both"),
+        leaf_name.clone(),
+        &network,
+    )?;
+    leaf_ns.add(A {
+        fqdn: leaf_name.push_label("www"),
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(192, 168, 1, 1),
+    });
+    leaf_ns.add(A {
+        fqdn: leaf_name.push_label("www2"),
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(192, 168, 2, 2),
+    });
+    leaf_ns.add(A {
+        fqdn: leaf_name.push_label("other"),
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(192, 168, 5, 5),
+    });
+    let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&nameservers_ns);
+    tld_ns.add(nameservers_ns.ds().ksk.clone());
+    tld_ns.referral_nameserver(&leaf_ns);
+    tld_ns.add(leaf_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings)?;
+
+    let root_hint = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let nameservers_ns = nameservers_ns.start()?;
+    let leaf_ns = leaf_ns.start()?;
+    let tld_ns = tld_ns.start()?;
+    let root_ns = root_ns.start()?;
+
+    let mut resolver_settings = Resolver::new(&network, root_hint);
+    resolver_settings.trust_anchor(&trust_anchor);
+    if dns_test::SUBJECT.is_unbound() {
+        resolver_settings.extended_dns_errors();
+    }
+    let resolver = resolver_settings.start()?;
+
+    Ok((
+        network,
+        vec![nameservers_ns, leaf_ns, tld_ns, root_ns],
+        resolver,
+    ))
 }
