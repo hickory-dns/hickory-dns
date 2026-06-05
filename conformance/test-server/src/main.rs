@@ -23,6 +23,7 @@ use handlers::{
     foreign_class_handler, nsec3_apex_nodata_handler, nsec3_nocover_handler,
     nxdomain_with_ns_authority_handler, packet_loss_handler, parent_ns_in_authority_handler,
     qr_not_response_force_tcp_handler, qr_not_response_handler, truncated_response_handler,
+    wrong_rrset_handler,
 };
 mod zone_file;
 
@@ -98,6 +99,7 @@ enum HandlerArg {
         record_type: RecordType,
         count: u32,
     },
+    WrongRrset,
 }
 
 impl HandlerArg {
@@ -136,6 +138,7 @@ impl HandlerArg {
                 count,
             } => SERVFAIL_HANDLER
                 .get_or_init(|| ServfailRrsetHandler::new(ip_address, name, record_type, count)),
+            Self::WrongRrset => &(wrong_rrset_handler as HandlerMessageFnPtr),
         }
     }
 }

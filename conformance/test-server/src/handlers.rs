@@ -1046,6 +1046,172 @@ async fn proxy_query(ip_address: IpAddr, query_message: Message) -> Result<DnsRe
     Ok(response)
 }
 
+/// This handler responds to specific queries with the wrong RRset.
+pub(crate) fn wrong_rrset_handler(request: Message, _transport: Transport) -> Result<Message> {
+    let mut msg = request.into_response();
+    let query_name = msg.queries[0].name.clone();
+    let query_type = msg.queries[0].query_type;
+
+    let origin_name = Name::from_ascii("leaf.testing.").unwrap();
+    let hashed_origin_name =
+        Name::from_ascii("58TK0VPG9OTNFP15LMGE6CVEVA91FJD1.leaf.testing.").unwrap();
+    let record_name = Name::from_ascii("www.leaf.testing.").unwrap();
+    let alternate_name = Name::from_ascii("www2.leaf.testing.").unwrap();
+    let substitute_name = Name::from_ascii("other.leaf.testing.").unwrap();
+    let nameserver_name = Name::from_ascii("primary1.leaf.testing.").unwrap();
+
+    let records = zone_file::parse_zone_file(Path::new(
+        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
+    ))
+    .map_err(|e| {
+        Error::msg(format!(
+            "wrong rrset handler: unable to load zone file: {e:?}"
+        ))
+    })?;
+
+    match query_type {
+        // Basic infrastructure: return correct responses, including signatures.
+        RecordType::DNSKEY | RecordType::SOA | RecordType::NS if query_name == origin_name => {
+            msg.add_answers(records.into_iter().filter(
+                |record| match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == query_type,
+                    None => record.record_type() == query_type,
+                },
+            ));
+        }
+
+        // Send an RRset with the wrong name.
+        RecordType::A if query_name == record_name => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != substitute_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                    None => record.record_type() == RecordType::A,
+                }
+            }));
+        }
+        // Send an RRset with the wrong type.
+        RecordType::AAAA if query_name == record_name => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != record_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                    None => record.record_type() == RecordType::A,
+                }
+            }));
+        }
+        // Send an RRset with the wrong name, and include an NSEC or NSEC3 record in the authority
+        // section.
+        RecordType::A if query_name == alternate_name => {
+            msg.add_answers(
+                records
+                    .iter()
+                    .filter(|record| {
+                        if record.name != substitute_name {
+                            return false;
+                        }
+                        match record.try_borrow::<RRSIG>() {
+                            Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                            None => record.record_type() == RecordType::A,
+                        }
+                    })
+                    .cloned(),
+            );
+            msg.add_authorities(records.into_iter().filter(|record| {
+                if record.name != origin_name && record.name != hashed_origin_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => {
+                        rrsig.data().input().type_covered == RecordType::NSEC
+                            || rrsig.data().input().type_covered == RecordType::NSEC3
+                    }
+                    None => {
+                        record.record_type() == RecordType::NSEC
+                            || record.record_type() == RecordType::NSEC3
+                    }
+                }
+            }));
+        }
+
+        // Handle possible glue hardening requests.
+        RecordType::A if query_name == nameserver_name => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != nameserver_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                    None => record.record_type() == RecordType::A,
+                }
+            }));
+        }
+        RecordType::AAAA if query_name == nameserver_name => {
+            msg.add_authorities(records.into_iter().filter(|record| {
+                if record.name == origin_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::SOA,
+                        None => record.record_type() == RecordType::SOA,
+                    }
+                } else if record.name == nameserver_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::NSEC,
+                        None => record.record_type() == RecordType::NSEC,
+                    }
+                } else {
+                    false
+                }
+            }));
+        }
+
+        // DS RRset nonexistence, or Hickory QNAME minimization queries, at child names.
+        RecordType::DS | RecordType::NS
+            if query_name == record_name || query_name == alternate_name =>
+        {
+            // Add all NSEC3 records, if any are present. This way we don't have to think about name hashes.
+            msg.add_authorities(
+                records
+                    .iter()
+                    .filter(|record| match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::NSEC3,
+                        None => record.record_type() == RecordType::NSEC3,
+                    })
+                    .cloned(),
+            );
+            msg.add_authorities(records.into_iter().filter(|record| {
+                if record.name == origin_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::SOA,
+                        None => record.record_type() == RecordType::SOA,
+                    }
+                } else if record.name == query_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::NSEC,
+                        None => record.record_type() == RecordType::NSEC,
+                    }
+                } else {
+                    false
+                }
+            }));
+        }
+
+        _ => {
+            return Err(anyhow!(
+                "wrong rrset handler: unexpected query: {}",
+                msg.queries[0]
+            ));
+        }
+    }
+
+    msg.metadata.authoritative = true;
+    msg.metadata.authentic_data = true;
+    Ok(msg)
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);
