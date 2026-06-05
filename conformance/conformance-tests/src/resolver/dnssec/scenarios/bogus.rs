@@ -829,7 +829,6 @@ fn invalid_nsec_wildcard_expanded_test(
 /// This test uses an authoritative server that returns positive responses for the wrong RRset in
 /// response to specific queries.
 #[test]
-#[ignore = "hickory does not check the correct RRset is in the answer section"]
 fn wrong_rrset_nsec() -> Result<(), Error> {
     // Use NSEC instead of NSEC3 to simplify manual assembly of negative responses.
     let sign_settings = SignSettings::default().nsec(Nsec::_1);
