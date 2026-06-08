@@ -379,7 +379,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
 
         let mut map = HashMap::with_capacity(rrsets.len());
-        for (key, mut rrset) in rrsets.0.into_iter() {
+        for (key, rrset) in rrsets.0.into_iter() {
             let name = &key.name;
             let record_type = key.record_type;
 
@@ -410,8 +410,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 options,
                 current_time,
             };
+
             let cache_key = context.key();
-            let proof = match self.validation_cache.get(&cache_key, &context) {
+            let result = match self.validation_cache.get(&cache_key, &context) {
                 Some(cached) => cached,
                 None => {
                     // Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
@@ -440,89 +441,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
             };
 
-            let proof = match proof {
-                Ok(proof) => {
-                    debug!("verified: {name} record_type: {record_type}");
-                    proof
-                }
-                Err(err) => {
-                    match err.kind() {
-                        ProofErrorKind::DsResponseInsecure { .. } => {
-                            debug!("verified insecure {name}/{record_type}")
-                        }
-                        kind => {
-                            debug!("failed to verify: {name} record_type: {record_type}: {kind}")
-                        }
-                    }
-                    RrsetProof {
-                        proof: err.proof,
-                        adjusted_ttl: None,
-                        rrsig_index: None,
-                    }
-                }
-            };
-
-            let RrsetProof {
-                proof,
-                adjusted_ttl,
-                rrsig_index: rrsig_idx,
-            } = proof;
-
-            for record in rrset.records.iter_mut() {
-                record.proof = proof;
-                if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                    record.ttl = ttl;
-                }
-            }
-
-            // only mark the RRSIG used for the proof
-            if let Some(rrsig_idx) = rrsig_idx {
-                if let Some(rrsig) = rrset.signatures.get_mut(rrsig_idx) {
-                    rrsig.proof = proof;
-                    if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
-                        rrsig.ttl = ttl;
-                    }
-                } else {
-                    warn!(
-                        "bad rrsig index {rrsig_idx} rrsigs.len = {}",
-                        rrset.signatures.len()
-                    );
-                }
-            }
-
-            // Change from mutable references to immutable references. (This should be cheap due to
-            // specialization and optimization)
-            let signatures: Vec<&Record> = rrset
-                .signatures
-                .into_iter()
-                .map(|record| &*record)
-                .collect();
-
-            // Combine the `Proof` from the signature verification with the RRSIG record, if it was
-            // successful.
-            let outcome = match (proof, rrsig_idx.and_then(|i| signatures.get(i))) {
-                (
-                    Proof::Secure,
-                    Some(Record {
-                        name,
-                        data: RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
-                        ..
-                    }),
-                ) => RrsigVerificationOutcome::Secure { owner: name, rrsig },
-                (Proof::Insecure, _) => RrsigVerificationOutcome::Insecure,
-                (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, _) => {
-                    RrsigVerificationOutcome::Bogus
-                }
-            };
-
-            map.insert(
-                key,
-                VerifiedRrset {
-                    records: rrset.records,
-                    signatures,
-                    outcome,
-                },
-            );
+            let verified = VerifiedRrset::update_rrset(result, name, record_type, rrset);
+            map.insert(key, verified);
         }
 
         VerifiedRrsetMap(map)
@@ -1613,6 +1533,97 @@ struct VerifiedRrset<'a> {
     records: Vec<&'a mut Record>,
     signatures: Vec<&'a Record>,
     outcome: RrsigVerificationOutcome<'a>,
+}
+
+impl<'a> VerifiedRrset<'a> {
+    /// Updates the RRset with verification results and produces a `VerifiedRrset`.
+    fn update_rrset(
+        result: Result<RrsetProof, ProofError>,
+        name: &LowerName,
+        record_type: RecordType,
+        mut rrset: Rrset<'a>,
+    ) -> Self {
+        let proof = match result {
+            Ok(proof) => {
+                debug!("verified: {name} record_type: {record_type}");
+                proof
+            }
+            Err(err) => {
+                match err.kind() {
+                    ProofErrorKind::DsResponseInsecure { .. } => {
+                        debug!("verified insecure {name}/{record_type}")
+                    }
+                    kind => {
+                        debug!("failed to verify: {name} record_type: {record_type}: {kind}")
+                    }
+                }
+                RrsetProof {
+                    proof: err.proof,
+                    adjusted_ttl: None,
+                    rrsig_index: None,
+                }
+            }
+        };
+
+        let RrsetProof {
+            proof,
+            adjusted_ttl,
+            rrsig_index: rrsig_idx,
+        } = proof;
+
+        for record in rrset.records.iter_mut() {
+            record.proof = proof;
+            if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                record.ttl = ttl;
+            }
+        }
+
+        // only mark the RRSIG used for the proof
+        if let Some(rrsig_idx) = rrsig_idx {
+            if let Some(rrsig) = rrset.signatures.get_mut(rrsig_idx) {
+                rrsig.proof = proof;
+                if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
+                    rrsig.ttl = ttl;
+                }
+            } else {
+                warn!(
+                    "bad rrsig index {rrsig_idx} rrsigs.len = {}",
+                    rrset.signatures.len()
+                );
+            }
+        }
+
+        // Change from mutable references to immutable references. (This should be cheap due to
+        // specialization and optimization)
+        let signatures: Vec<&Record> = rrset
+            .signatures
+            .into_iter()
+            .map(|record| &*record)
+            .collect();
+
+        // Combine the `Proof` from the signature verification with the RRSIG record, if it was
+        // successful.
+        let outcome = match (proof, rrsig_idx.and_then(|i| signatures.get(i))) {
+            (
+                Proof::Secure,
+                Some(Record {
+                    name,
+                    data: RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+                    ..
+                }),
+            ) => RrsigVerificationOutcome::Secure { owner: name, rrsig },
+            (Proof::Insecure, _) => RrsigVerificationOutcome::Insecure,
+            (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, _) => {
+                RrsigVerificationOutcome::Bogus
+            }
+        };
+
+        Self {
+            records: rrset.records,
+            signatures,
+            outcome,
+        }
+    }
 }
 
 /// Signature verification result for an RRset.
