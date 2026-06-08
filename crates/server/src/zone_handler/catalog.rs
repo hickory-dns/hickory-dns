@@ -1203,7 +1203,8 @@ async fn build_forwarded_response(
                 _ => {}
             }
         } else {
-            let dnssec_summary = summarize_proofs(rsp.authorities.iter(), rsp.nsec_proof);
+            let dnssec_summary =
+                summarize_proofs(rsp.soa.iter().chain(rsp.authorities.iter()), rsp.nsec_proof);
             match dnssec_summary {
                 DnssecSummary::Secure
                     if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
