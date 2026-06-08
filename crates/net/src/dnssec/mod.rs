@@ -497,26 +497,24 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 .into_iter()
                 .map(|record| &*record)
                 .collect();
+
             // Combine the `Proof` from the signature verification with the RRSIG record, if it was
             // successful.
-            let outcome = match (proof, rrsig_idx) {
-                (Proof::Secure, Some(rrsig_idx)) => match signatures.get(rrsig_idx) {
-                    Some(record) => match &record.data {
-                        RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) => {
-                            RrsigVerificationOutcome::Secure {
-                                owner: &record.name,
-                                rrsig,
-                            }
-                        }
-                        _ => RrsigVerificationOutcome::Bogus,
-                    },
-                    None => RrsigVerificationOutcome::Bogus,
-                },
+            let outcome = match (proof, rrsig_idx.and_then(|i| signatures.get(i))) {
+                (
+                    Proof::Secure,
+                    Some(Record {
+                        name,
+                        data: RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+                        ..
+                    }),
+                ) => RrsigVerificationOutcome::Secure { owner: name, rrsig },
                 (Proof::Insecure, _) => RrsigVerificationOutcome::Insecure,
-                (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, None) => {
+                (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, _) => {
                     RrsigVerificationOutcome::Bogus
                 }
             };
+
             map.insert(
                 key,
                 VerifiedRrset {
@@ -526,6 +524,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 },
             );
         }
+
         VerifiedRrsetMap(map)
     }
 
