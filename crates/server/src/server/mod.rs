@@ -977,11 +977,12 @@ fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
     }
 }
 
+/// Determine whether an error returned from `accept()` indicates the listener
+/// itself is no longer usable. `ConnectionAborted` (ECONNABORTED) is a transient
+/// per-connection error — the inbound connection was aborted before it could be
+/// accepted — so it is recoverable and the accept loop should continue.
 fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
-    matches!(
-        err.kind(),
-        io::ErrorKind::NotConnected | io::ErrorKind::ConnectionAborted
-    )
+    matches!(err.kind(), io::ErrorKind::NotConnected)
 }
 
 #[cfg(test)]
@@ -998,6 +999,16 @@ mod tests {
     use test_support::subscribe;
     use tokio::net::{TcpListener, UdpSocket};
     use tokio::time::timeout;
+
+    #[test]
+    fn econnaborted_is_recoverable() {
+        assert!(!is_unrecoverable_socket_error(&io::Error::from(
+            io::ErrorKind::ConnectionAborted
+        )));
+        assert!(is_unrecoverable_socket_error(&io::Error::from(
+            io::ErrorKind::NotConnected
+        )));
+    }
 
     #[tokio::test]
     async fn abort() {
