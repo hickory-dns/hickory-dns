@@ -1009,11 +1009,9 @@ fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
     }
 }
 
+/// Returns `true` if an `accept()` error means the listener itself is no longer usable.
 fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
-    matches!(
-        err.kind(),
-        io::ErrorKind::NotConnected | io::ErrorKind::ConnectionAborted
-    )
+    matches!(err.kind(), io::ErrorKind::NotConnected)
 }
 
 #[cfg(test)]
