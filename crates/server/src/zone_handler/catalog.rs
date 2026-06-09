@@ -18,7 +18,7 @@ use crate::metrics::CatalogMetrics;
 use crate::{
     dnssec::NxProofKind,
     proto::{
-        dnssec::{DnssecSummary, rdata::DNSSECRData},
+        dnssec::{DnssecSummary, Proof, rdata::DNSSECRData},
         rr::RData,
         serialize::binary::BinEncoder,
     },
@@ -1069,6 +1069,8 @@ async fn build_forwarded_response(
         soa: Option<Record>,
         authorities: AuthLookup,
         additionals: AuthLookup,
+        #[cfg(feature = "__dnssec")]
+        nsec_proof: Option<Proof>,
     }
 
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
@@ -1085,9 +1087,9 @@ async fn build_forwarded_response(
 
             ResponseParts {
                 answers,
-                soa: None,
                 authorities,
                 additionals,
+                ..ResponseParts::default()
             }
         }
         Ok(answers) => ResponseParts {
@@ -1158,10 +1160,14 @@ async fn build_forwarded_response(
 
                 ResponseParts {
                     soa: Some(soa),
+                    nsec_proof: Some(proof),
                     ..ResponseParts::default()
                 }
             } else {
-                ResponseParts::default()
+                ResponseParts {
+                    nsec_proof: Some(proof),
+                    ..ResponseParts::default()
+                }
             }
         }
         Err(e) => {
@@ -1199,7 +1205,7 @@ async fn build_forwarded_response(
         // we may want to interpret (B) as allowed ("MAY be skipped") as a form of optimization in
         // the future to reduce the number of network transactions that a CD=1 query needs.
         if rsp.soa.is_none() {
-            match DnssecSummary::from_records(rsp.answers.iter()) {
+            match summarize_proofs(rsp.answers.iter(), rsp.nsec_proof) {
                 DnssecSummary::Secure
                     if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
                 {
@@ -1214,7 +1220,8 @@ async fn build_forwarded_response(
                 _ => {}
             }
         } else {
-            match DnssecSummary::from_records(rsp.authorities.iter()) {
+            let dnssec_summary = summarize_proofs(rsp.authorities.iter(), rsp.nsec_proof);
+            match dnssec_summary {
                 DnssecSummary::Secure
                     if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
                 {
@@ -1243,6 +1250,32 @@ async fn build_forwarded_response(
 
     // Strip DNSSEC records from all applicable sections based on the DNSSEC OK setting.
     message.maybe_strip_dnssec_records(lookup_options.dnssec_ok)
+}
+
+/// Summarize proofs from individual records and an optional separate nonexistence proof result.
+#[cfg(feature = "__dnssec")]
+fn summarize_proofs<'a>(
+    records: impl Iterator<Item = &'a Record>,
+    nsec_proof: Option<Proof>,
+) -> DnssecSummary {
+    let mut dnssec_summary = DnssecSummary::from_records(records);
+    if let Some(proof) = nsec_proof {
+        dnssec_summary = update_dnssec_summary_with_proof(dnssec_summary, proof);
+    }
+    dnssec_summary
+}
+
+/// Combine a [`DnssecSummary`] with a [`Proof`].
+#[cfg(feature = "__dnssec")]
+fn update_dnssec_summary_with_proof(summary: DnssecSummary, proof: Proof) -> DnssecSummary {
+    match (summary, proof) {
+        (DnssecSummary::Secure, Proof::Secure) => DnssecSummary::Secure,
+        (DnssecSummary::Bogus, _) | (_, Proof::Bogus) => DnssecSummary::Bogus,
+        (
+            DnssecSummary::Secure | DnssecSummary::Insecure,
+            Proof::Secure | Proof::Insecure | Proof::Indeterminate,
+        ) => DnssecSummary::Insecure,
+    }
 }
 
 #[cfg(all(test, feature = "resolver"))]
