@@ -414,6 +414,18 @@ impl DnssecSummary {
             Self::Insecure
         }
     }
+
+    /// Combine this DNSSEC status with another [`Proof`] value.
+    pub fn update(self, proof: Proof) -> Self {
+        match (self, proof) {
+            (Self::Secure, Proof::Secure) => Self::Secure,
+            (Self::Bogus, _) | (_, Proof::Bogus) => Self::Bogus,
+            (
+                Self::Secure | Self::Insecure,
+                Proof::Secure | Proof::Insecure | Proof::Indeterminate,
+            ) => Self::Insecure,
+        }
+    }
 }
 
 #[cfg(all(feature = "dnssec-aws-lc-rs", not(feature = "dnssec-ring")))]
