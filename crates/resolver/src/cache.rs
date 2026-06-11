@@ -16,7 +16,7 @@ use crate::{
     net::{DnsError, NetError, NoRecords},
     proto::{
         op::{Message, Query},
-        rr::RecordType,
+        rr::{Name, RecordType},
     },
 };
 
@@ -155,6 +155,111 @@ impl ResponseCache {
     }
 }
 
+/// A cache for DNS delegations (referral responses).
+///
+/// Unlike `ResponseCache`, which is keyed by query `Query` (name and type),
+/// `DelegationCache` is keyed by the delegated zone `Name`.
+#[derive(Clone, Debug)]
+pub struct DelegationCache {
+    cache: Cache<Name, Entry>,
+    ttl_config: Arc<TtlConfig>,
+}
+
+impl DelegationCache {
+    /// Construct a new delegation cache.
+    pub fn new(capacity: u64, ttl_config: TtlConfig) -> Self {
+        Self {
+            cache: Cache::builder()
+                .max_capacity(capacity)
+                .expire_after(DelegationExpiry)
+                .build(),
+            ttl_config: Arc::new(ttl_config),
+        }
+    }
+
+    /// Insert a delegation response into the cache.
+    pub fn insert(&self, zone: Name, message: Message, now: Instant) {
+        let mut message = message;
+        // Clamp the positive TTLs of records in the message.
+        // We use RecordType::NS as the query type for TTL clamping.
+        let ttl = self.clamp_positive_ttls(RecordType::NS, &mut message);
+        let result = Ok(message);
+        let valid_until = now + ttl;
+        self.cache.insert(
+            zone,
+            Entry {
+                result: Arc::new(result),
+                original_time: now,
+                valid_until,
+            },
+        );
+    }
+
+    /// Try to retrieve a cached delegation response with the given zone name.
+    pub fn get(&self, zone: &Name, now: Instant) -> Option<Message> {
+        let entry = self.cache.get(zone)?;
+        if !entry.is_current(now) {
+            return None;
+        }
+        entry.updated_ttl(now).ok()
+    }
+
+    /// Clamp all record TTLs to `[positive_min_ttl, positive_max_ttl]` and return
+    /// the cache duration derived from the minimum TTL of records matching
+    /// `query_type` across all sections.
+    pub(crate) fn clamp_positive_ttls(
+        &self,
+        query_type: RecordType,
+        message: &mut Message,
+    ) -> Duration {
+        for record in message
+            .answers
+            .iter_mut()
+            .chain(message.authorities.iter_mut())
+            .chain(message.additionals.iter_mut())
+        {
+            let (min_secs, max_secs) = self
+                .ttl_config
+                .positive_ttl_bounds_secs(record.record_type());
+            record.ttl = record.ttl.clamp(min_secs, max_secs);
+        }
+
+        let (positive_min_ttl, positive_max_ttl) = self
+            .ttl_config
+            .positive_response_ttl_bounds(query_type)
+            .into_inner();
+
+        let min_ttl = message
+            .all_sections()
+            .filter(|r| r.record_type() == query_type)
+            .map(|r| Duration::from_secs(r.ttl.into()))
+            .min();
+
+        min_ttl
+            .unwrap_or(positive_min_ttl)
+            .clamp(positive_min_ttl, positive_max_ttl)
+    }
+
+    pub(crate) fn clear(&self) {
+        self.cache.invalidate_all();
+    }
+
+    pub(crate) fn clear_zone(&self, zone: &Name) {
+        self.cache.invalidate(zone);
+    }
+
+    /// Returns the approximate number of entries in the cache.
+    #[cfg(feature = "metrics")]
+    pub(crate) fn entry_count(&self) -> u64 {
+        #[cfg(test)]
+        {
+            self.cache.run_pending_tasks();
+        }
+
+        self.cache.entry_count()
+    }
+}
+
 /// An entry in the response cache.
 ///
 /// This contains the response itself (or an error), the time it was received, and the time at which
@@ -274,6 +379,29 @@ impl Expiry<Query, Entry> for EntryExpiry {
     fn expire_after_update(
         &self,
         _key: &Query,
+        value: &Entry,
+        updated_at: Instant,
+        _duration_until_expiry: Option<Duration>,
+    ) -> Option<Duration> {
+        Some(value.ttl(updated_at))
+    }
+}
+
+struct DelegationExpiry;
+
+impl Expiry<Name, Entry> for DelegationExpiry {
+    fn expire_after_create(
+        &self,
+        _key: &Name,
+        value: &Entry,
+        created_at: Instant,
+    ) -> Option<Duration> {
+        Some(value.ttl(created_at))
+    }
+
+    fn expire_after_update(
+        &self,
+        _key: &Name,
         value: &Entry,
         updated_at: Instant,
         _duration_until_expiry: Option<Duration>,

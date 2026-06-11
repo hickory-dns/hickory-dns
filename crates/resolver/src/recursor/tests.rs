@@ -880,7 +880,7 @@ mod metrics {
             assert_histogram_sample_count_eq(&map, CACHE_HIT_DURATION, vec![], 2, Unit::Seconds);
             assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
 
-            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 1);
             assert_gauge_eq(&map, NAME_SERVER_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, CONNECTION_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, IN_FLIGHT_QUERIES, vec![], 0);
@@ -903,7 +903,7 @@ mod metrics {
             assert_counter_eq(&map, INDETERMINATE_ANSWERS_TOTAL, vec![], 0);
 
             // Both the regular cache and validated cache should have entries.
-            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 1);
             assert_gauge_eq(&map, VALIDATED_RESPONSE_CACHE_SIZE, vec![], 1);
             assert_gauge_eq(&map, NAME_SERVER_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, CONNECTION_CACHE_SIZE, vec![], 2);
