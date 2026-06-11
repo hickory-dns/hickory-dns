@@ -218,8 +218,25 @@ impl<'a> Lexer<'a> {
                                 };
                             }
                         }
-                        // TODO: this next one can be removed, but will keep unescaping for quoted strings
-                        //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
+                        Some('\\') => {
+                            self.txt.next();
+                            // keep the escape intact (unescaping happens in Name::from_str) so \" is not interpreted as a delimiter.
+                            Self::push_to_str(&mut char_data, '\\')?;
+                            match self.peek() {
+                                // only %x21-7E permitted after a backslash, other octets must be escaped as \DDD instead (RFC 9460 appendix A `escaped`, RFC 4343 §2.1)
+                                Some(ch) if ch.is_ascii_graphic() => {
+                                    self.txt.next();
+                                    Self::push_to_str(&mut char_data, ch)?;
+                                }
+                                Some(ch) => return Err(LexerError::IllegalCharacter(ch)),
+                                None => return Err(LexerError::EOF),
+                            }
+                        }
+                        // a quoted section mid-token, e.g. the SvcParamValue in key65367="fizz, buzz" (RFC 9460 §2.1)
+                        Some('"') => {
+                            self.txt.next();
+                            self.state = State::CharDataQuote { is_list };
+                        }
                         Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
                             self.txt.next();
                             Self::push_to_str(&mut char_data, ch)?;
@@ -232,6 +249,35 @@ impl<'a> Lexer<'a> {
                                 .ok_or(LexerError::IllegalState("char_data is None"))
                                 .map(|s| Some(Token::CharData(s)));
                         }
+                    }
+                }
+                State::CharDataQuote { is_list } => {
+                    match ch {
+                        Some('"') => {
+                            self.txt.next();
+                            self.state = State::CharData { is_list };
+                            // we don't return a Token as this is supposed
+                            // to be a subset of the surrounding CharData.
+                        }
+                        Some('\\') => {
+                            self.txt.next();
+                            // keep the escape intact
+                            Self::push_to_str(&mut char_data, '\\')?;
+                            match self.peek() {
+                                // inside quotes the grammar also allows "\" WSP (RFC 9460 appendix A: ["\"] WSP)
+                                Some(ch) if ch.is_ascii_graphic() || ch == ' ' || ch == '\t' => {
+                                    self.txt.next();
+                                    Self::push_to_str(&mut char_data, ch)?;
+                                }
+                                Some(ch) => return Err(LexerError::IllegalCharacter(ch)),
+                                None => return Err(LexerError::UnclosedQuotedString),
+                            }
+                        }
+                        Some(ch) => {
+                            self.txt.next();
+                            Self::push_to_str(&mut char_data, ch)?;
+                        }
+                        None => return Err(LexerError::UnclosedQuotedString),
                     }
                 }
                 State::At => {
@@ -339,9 +385,10 @@ impl Iterator for CowChars<'_> {
 pub(crate) enum State {
     StartLine,
     RestOfLine,
-    Blank,                      // only if the first part of the line
-    List,                       // (..)
-    CharData { is_list: bool }, // [a-zA-Z, non-control utf8]+
+    Blank,                           // only if the first part of the line
+    List,                            // (..)
+    CharData { is_list: bool },      // [a-zA-Z, non-control utf8]+
+    CharDataQuote { is_list: bool }, // a ".*" section within a CharData token
     //  Name,              // CharData + '.' + CharData
     Comment { is_list: bool }, // ;.*
     At,                        // @

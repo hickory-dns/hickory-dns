@@ -178,7 +178,7 @@ impl SVCB {
     ///   strings.  Key names should contain 1-63 characters from the ranges
     ///   "a"-"z", "0"-"9", and "-".  In ABNF [RFC5234],
     ///
-    ///   alpha-lc      = %x61-7A   ;  a-z
+    ///   alpha-lc      = %x61-7A   ; a-z
     ///   SvcParamKey   = 1*63(alpha-lc / DIGIT / "-")
     ///   SvcParam      = SvcParamKey ["=" SvcParamValue]
     ///   SvcParamValue = char-string ; See Appendix A.
@@ -223,19 +223,14 @@ impl SVCB {
         // Loop over all of the service parameters
         let mut svc_params = Vec::new();
         for token in tokens {
-            // first need to split the key and (optional) value
             let mut key_value = token.splitn(2, '=');
+
             let key = key_value
                 .next()
                 .ok_or_else(|| ParseError::MissingToken("SVCB SvcbParams missing".to_string()))?;
 
-            // get the value, and remove any quotes
-            let mut value = key_value.next();
-            if let Some(value) = value.as_mut() {
-                if value.starts_with('"') && value.ends_with('"') {
-                    *value = &value[1..value.len() - 1];
-                }
-            }
+            let value = key_value.next();
+
             svc_params.push(into_svc_param(key, value)?);
         }
 
@@ -1373,7 +1368,7 @@ impl BinEncodable for Unknown {
 impl fmt::Display for Unknown {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         // TODO: this needs to be properly encoded
-        write!(f, "\"{}\",", String::from_utf8_lossy(&self.0))?;
+        write!(f, "\"{}\"", String::from_utf8_lossy(&self.0))?;
 
         Ok(())
     }
@@ -1561,6 +1556,7 @@ mod tests {
 
     #[track_caller]
     fn test_encode_decode(rdata: SVCB) {
+        // wire-format round-trip
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
         rdata.emit(&mut encoder).expect("failed to emit SVCB");
@@ -1570,6 +1566,10 @@ mod tests {
         let read_rdata = SVCB::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
             .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
+
+        // presentation-format round-trip
+        let parsed_rdata: SVCB = parse_record(&format!("example.com. 42 IN SVCB {rdata}"));
+        assert_eq!(rdata, parsed_rdata);
     }
 
     #[test]
@@ -1619,6 +1619,47 @@ mod tests {
                     SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::Alpn])),
                 ),
             ],
+        ));
+    }
+
+    /// [RFC 9460 §2.1, SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.1)
+    ///
+    /// ```text
+    /// 2.1.  Zone-File Presentation Format
+    ///
+    ///   alpha-lc      = %x61-7A   ; a-z
+    ///   SvcParamKey   = 1*63(alpha-lc / DIGIT / "-")
+    ///   SvcParam      = SvcParamKey ["=" SvcParamValue]
+    ///   SvcParamValue = char-string ; See Appendix A.
+    ///   value         = *OCTET ; Value before key-specific parsing
+    /// ```
+    ///
+    /// [RFC 9460 Appendix A, SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#appendix-A)
+    ///
+    /// ```text
+    /// Appendix A.  Decoding Text in Zone Files
+    ///
+    ///   ; non-special is VCHAR minus DQUOTE, ";", "(", ")", and "\".
+    ///   non-special = %x21 / %x23-27 / %x2A-3A / %x3C-5B / %x5D-7E
+    ///   ; non-digit is VCHAR minus DIGIT.
+    ///   non-digit   = %x21-2F / %x3A-7E
+    ///   ; dec-octet is a number 0-255 as a three-digit decimal number.
+    ///   dec-octet   = ( "0" / "1" ) 2DIGIT /
+    ///                 "2" ( ( %x30-34 DIGIT ) / ( "5" %x30-35 ) )
+    ///   escaped     = "\" ( non-digit / dec-octet )
+    ///   contiguous  = 1*( non-special / escaped )
+    ///   quoted      = DQUOTE *( contiguous / ( ["\"] WSP ) ) DQUOTE
+    ///   char-string = contiguous / quoted
+    /// ```
+    #[test]
+    fn test_encode_decode_svcb_value_with_space() {
+        test_encode_decode(SVCB::new(
+            1,
+            Name::from_utf8(".").unwrap(),
+            vec![(
+                SvcParamKey::Key(65367),
+                SvcParamValue::Unknown(Unknown(b"fizz, buzz".to_vec())),
+            )],
         ));
     }
 
