@@ -196,7 +196,7 @@ impl<'a> Lexer<'a> {
                         Some(ch @ ')') if !is_list => {
                             return Err(LexerError::IllegalCharacter(ch));
                         }
-                        Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
+                        Some(ch) if Self::ends_char_data(ch) => {
                             if is_list {
                                 char_data_vec
                                     .as_mut()
@@ -255,6 +255,13 @@ impl<'a> Lexer<'a> {
                     match ch {
                         Some('"') => {
                             self.txt.next();
+                            // a char-string is either contiguous or quoted, so nothing
+                            // may follow the closing quote (RFC 9460 appendix A: char-string = contiguous / quoted)
+                            if let Some(ch) = self.peek() {
+                                if !Self::ends_char_data(ch) {
+                                    return Err(LexerError::IllegalCharacter(ch));
+                                }
+                            }
                             self.state = State::CharData { is_list };
                             // we don't return a Token as this is supposed
                             // to be a subset of the surrounding CharData.
@@ -315,6 +322,10 @@ impl<'a> Lexer<'a> {
 
         s.push(ch);
         Ok(())
+    }
+
+    fn ends_char_data(ch: char) -> bool {
+        ch.is_whitespace() || ch == ')' || ch == ';'
     }
 
     fn escape_seq(&mut self) -> LexerResult<char> {
@@ -508,6 +519,22 @@ mod lex_test {
             Lexer::new("a\\077").next_token().unwrap().unwrap(),
             Token::CharData("a\\077".to_string())
         );
+    }
+
+    #[test]
+    fn quoted_char_data_must_end_the_token() {
+        // a quoted section can contain whitespace
+        assert_eq!(
+            Lexer::new(r#"key="fizz, buzz""#)
+                .next_token()
+                .unwrap()
+                .unwrap(),
+            Token::CharData("key=fizz, buzz".to_string())
+        );
+
+        // char-string = contiguous / quoted: nothing may follow the closing quote
+        assert!(Lexer::new(r#"foo="bar"baz"#).next_token().is_err());
+        assert!(Lexer::new(r#"foo="bar""baz""#).next_token().is_err());
     }
 
     #[test]
