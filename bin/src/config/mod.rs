@@ -160,6 +160,15 @@ pub(crate) struct Config {
     /// Networks allowed to access the server
     #[serde(default)]
     pub(crate) allow_networks: Vec<IpNet>,
+    /// When `true`, `allow_networks` acts as a firewall-style strict
+    /// allowlist: a non-empty allow list refuses any source IP not
+    /// explicitly listed for that family, regardless of the deny list.
+    /// When `false` (the default), the original carve-out semantics
+    /// apply — allow rules act as exceptions to the deny list and an
+    /// IP outside both is permitted whenever any deny entry exists.
+    /// See `crates/server/src/access.rs` for the full contract.
+    #[serde(default)]
+    pub(crate) allow_networks_strict: bool,
     /// UDP socket configuration options.
     #[serde(default)]
     pub(crate) udp_socket: UdpSocketConfig,
