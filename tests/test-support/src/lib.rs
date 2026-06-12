@@ -245,13 +245,17 @@ impl MockHandler for MockNetworkHandler {
     fn handle(&self, destination: IpAddr, protocol: Protocol, request: Message) -> Message {
         let Some(server_responses) = self.responses.get(&destination) else {
             error!(%destination, "unexpected destination IP address");
-            return Message::error_msg(request.id, request.op_code, ResponseCode::ServFail);
+            let mut msg = request.into_response();
+            msg.metadata.response_code = ResponseCode::ServFail;
+            return msg;
         };
         let query = &request.queries[0];
         info!(%destination, %query, "handling request");
         let Some(response) = server_responses.get(query) else {
             error!(%query, "unexpected query");
-            return Message::error_msg(request.id, request.op_code, ResponseCode::ServFail);
+            let mut msg = request.into_response();
+            msg.metadata.response_code = ResponseCode::ServFail;
+            return msg;
         };
         let mut response = response.clone();
         response.metadata.id = request.id;
