@@ -195,6 +195,24 @@ pub(super) async fn udp_client_stream_response_limit_test(
     .await;
 }
 
+pub(super) async fn udp_client_stream_empty_question_section_test(
+    server_addr: IpAddr,
+    provider: impl RuntimeProvider,
+) {
+    udp_client_stream_test_inner(
+        server_addr,
+        provider,
+        "udp_client_stream_empty_question_section_test",
+        1,
+        1,
+        // Send a response with an empty question section.
+        |_, message| message.queries.clear(),
+        // We expect to see a timeout after waiting for a response with a matching question section.
+        |response_res| matches!(response_res, Err(NetError::Timeout)),
+    )
+    .await;
+}
+
 async fn udp_client_stream_test_inner(
     server_addr: IpAddr,
     provider: impl RuntimeProvider,

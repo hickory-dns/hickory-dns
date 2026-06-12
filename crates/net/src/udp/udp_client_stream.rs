@@ -286,9 +286,10 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             let request_queries = &request_message.queries;
             let response_queries = &mut response.queries;
 
-            let question_matches = response_queries
-                .iter()
-                .all(|elem| request_queries.contains(elem));
+            let question_matches = request_queries.len() == response_queries.len()
+                && response_queries
+                    .iter()
+                    .all(|elem| request_queries.contains(elem));
             if self.case_randomization
                 && question_matches
                 && !response_queries.iter().all(|elem| {
@@ -493,8 +494,8 @@ mod tests {
         proto::op::ResponseCode,
         runtime::{TokioRuntimeProvider, TokioTime},
         udp::tests::{
-            udp_client_stream_bad_id_test, udp_client_stream_response_limit_test,
-            udp_client_stream_test,
+            udp_client_stream_bad_id_test, udp_client_stream_empty_question_section_test,
+            udp_client_stream_response_limit_test, udp_client_stream_test,
         },
     };
 
@@ -515,6 +516,16 @@ mod tests {
     async fn test_udp_client_stream_ipv4_resp_limit() {
         subscribe();
         udp_client_stream_response_limit_test(
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            TokioRuntimeProvider::new(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_udp_client_stream_ipv4_empty_question_section() {
+        subscribe();
+        udp_client_stream_empty_question_section_test(
             IpAddr::V4(Ipv4Addr::LOCALHOST),
             TokioRuntimeProvider::new(),
         )
@@ -546,6 +557,16 @@ mod tests {
         subscribe();
         udp_client_stream_response_limit_test(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            TokioRuntimeProvider::new(),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_udp_client_stream_ipv6_empty_question_section() {
+        subscribe();
+        udp_client_stream_empty_question_section_test(
+            IpAddr::V6(Ipv6Addr::LOCALHOST),
             TokioRuntimeProvider::new(),
         )
         .await;

@@ -485,10 +485,8 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
     let nxdomain_at_ent = Box::new(move |_, _, message: &mut Message| {
         if let Some(query) = message.queries.first() {
             if query.name == ent_name && query.query_type == RecordType::NS {
-                let mut error_message =
-                    Message::error_msg(message.id, message.op_code, ResponseCode::NXDomain);
-                error_message.add_authorities(message.authorities.drain(..));
-                *message = error_message;
+                message.metadata.response_code = ResponseCode::NXDomain;
+                message.answers.clear();
             }
         }
     });
