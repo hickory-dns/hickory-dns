@@ -130,7 +130,8 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             (ProtocolConfig::Https { server_name, path }, _) => {
                 let mut builder =
                     HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
-                        .connect_timeout(cx.options.connect_timeout);
+                        .connect_timeout(cx.options.connect_timeout)
+                        .request_timeout(cx.options.timeout);
                 if let Some(bind_addr) = config.bind_addr {
                     builder.bind_addr(bind_addr);
                 }
@@ -152,6 +153,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     QuicClientStream::builder()
                         .crypto_config(cx.tls.clone())
                         .connect_timeout(cx.options.connect_timeout)
+                        .request_timeout(cx.options.timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
@@ -179,6 +181,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                         .crypto_config(cx.tls.clone())
                         .disable_grease(*disable_grease)
                         .connect_timeout(cx.options.connect_timeout)
+                        .request_timeout(cx.options.timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
                             remote_addr,
