@@ -177,6 +177,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     self.metrics
                         .cache_size
                         .set(self.response_cache.entry_count() as f64);
+                    self.metrics
+                        .delegation_cache_size
+                        .set(self.delegation_cache.entry_count() as f64);
                 }
 
                 let response = self
@@ -199,6 +202,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     self.metrics
                         .cache_size
                         .set(self.response_cache.entry_count() as f64);
+                    self.metrics
+                        .delegation_cache_size
+                        .set(self.delegation_cache.entry_count() as f64);
                 }
                 return Ok(result);
             }
@@ -293,6 +299,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             self.metrics
                 .cache_size
                 .set(self.response_cache.entry_count() as f64);
+            self.metrics
+                .delegation_cache_size
+                .set(self.delegation_cache.entry_count() as f64);
         }
         Ok(response)
     }
@@ -529,17 +538,17 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let query = Query::query(zone.clone(), RecordType::NS);
 
             // Query for nameserver records via the pool for the parent zone.
-            let lookup_res = if let Some(message) = self.delegation_cache.get(&zone, request_time) {
-                debug!(?zone, "delegation cache hit");
-                Ok(message)
-            } else {
-                match self.response_cache.get(&query, request_time) {
-                    Some(Ok(response)) => {
-                        debug!(?response, "cached data");
-                        Ok(response)
-                    }
-                    Some(Err(e)) => Err(e.into()),
-                    None => {
+            let lookup_res = match self.response_cache.get(&query, request_time) {
+                Some(Ok(response)) => {
+                    debug!(?response, "cached data");
+                    Ok(response)
+                }
+                Some(Err(e)) => Err(e.into()),
+                None => {
+                    if let Some(message) = self.delegation_cache.get(&zone, request_time) {
+                        debug!(?zone, "delegation cache hit");
+                        Ok(message)
+                    } else {
                         self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
                             .await
                     }
