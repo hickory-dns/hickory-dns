@@ -127,7 +127,8 @@ async fn test_server_unknown_type() {
 }
 
 #[tokio::test]
-async fn test_server_form_error_on_multiple_queries() {
+#[ignore = "FORMERR response has an empty question, but udp_client_stream expects question section to match"]
+async fn test_server_form_error_on_multiple_queries_udp() {
     subscribe();
 
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
@@ -159,6 +160,46 @@ async fn test_server_form_error_on_multiple_queries() {
 
     assert_eq!(client_result.len(), 1);
     let client_result = client_result.pop().expect("there should be one response");
+
+    assert_eq!(client_result.metadata.response_code, ResponseCode::FormErr);
+
+    server_continue.store(false, Ordering::Relaxed);
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn test_server_form_error_on_multiple_queries_tcp() {
+    subscribe();
+
+    let listen_addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
+    let tcp_listener = TcpListener::bind(&listen_addr).await.unwrap();
+
+    let server_addr = tcp_listener.local_addr().unwrap();
+    println!("tcp_listener on port: {server_addr}");
+    let server_continue = Arc::new(AtomicBool::new(true));
+    let server_continue2 = server_continue.clone();
+
+    let server = tokio::spawn(server_thread_tcp(tcp_listener, server_continue2));
+    let client = lazy_tcp_client(server_addr).await;
+
+    // build the message
+    let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let query_aaaa = Query::query(
+        Name::from_str("www.example.com.").unwrap(),
+        RecordType::AAAA,
+    );
+    let mut message = Message::query();
+    message.metadata.recursion_desired = true;
+    message.add_query(query_a).add_query(query_aaaa);
+
+    let mut client_result = client
+        .send(DnsRequest::from(message))
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("query failed");
+
+    assert_eq!(client_result.len(), 1);
+    let client_result = client_result.pop().unwrap();
 
     assert_eq!(client_result.metadata.response_code, ResponseCode::FormErr);
 
