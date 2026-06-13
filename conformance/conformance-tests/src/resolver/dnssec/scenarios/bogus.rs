@@ -949,6 +949,39 @@ fn wrong_rrset_nsec3() -> Result<(), Error> {
     Ok(())
 }
 
+#[test]
+fn wrong_rrset_ds() -> Result<(), Error> {
+    let sign_settings = SignSettings::default().nsec(Nsec::_1);
+    let leaf_name = FQDN::TEST_TLD.push_label("leaf");
+    let child_name = leaf_name.push_label("child");
+
+    let (network, _nameservers, resolver) = setup_wrong_rrset(sign_settings)?;
+
+    let client = Client::new(&network)?;
+    let dig_settings = *DigSettings::default().recurse().dnssec().timeout(10);
+
+    // Requests for a referral will get no DNSSEC records, and requests for the DS record itself
+    // will get a different RRset.
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::SOA,
+        &child_name,
+    )?;
+    assert_eq!(response.status, DigStatus::SERVFAIL, "{response:?}");
+    if dns_test::SUBJECT.is_unbound() {
+        assert!(response.ede_messages.iter().any(|(ede, message)| {
+            *ede == ExtendedDnsError::NsecMissing
+                && message.as_deref().is_some_and(|msg| {
+                    msg.contains("no DNSSEC records")
+                        && msg.contains("for DS child.leaf.testing. while building chain of trust")
+                })
+        }));
+    }
+
+    Ok(())
+}
+
 fn setup_wrong_rrset(
     sign_settings: SignSettings,
 ) -> Result<(Network, Vec<NameServer<Running>>, Resolver), Error> {
@@ -958,6 +991,9 @@ fn setup_wrong_rrset(
         NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?.sign(sign_settings.clone())?;
 
     let leaf_name = FQDN::TEST_TLD.push_label("leaf");
+    let child_name = leaf_name.push_label("child");
+
+    let child_ns = NameServer::new(&PEER, child_name.clone(), &network)?;
     let mut leaf_ns = NameServer::new(
         &Implementation::test_server("wrong_rrset", Vec::new(), "both"),
         leaf_name.clone(),
@@ -977,6 +1013,15 @@ fn setup_wrong_rrset(
         fqdn: leaf_name.push_label("other"),
         ttl: 86400,
         ipv4_addr: Ipv4Addr::new(192, 168, 5, 5),
+    });
+    leaf_ns.referral_nameserver(&child_ns);
+    leaf_ns.add(DS {
+        zone: child_name,
+        ttl: 86400,
+        key_tag: u16::MAX,
+        algorithm: 8,
+        digest_type: 2,
+        digest: "0".repeat(64),
     });
     let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
 
@@ -999,6 +1044,7 @@ fn setup_wrong_rrset(
     let leaf_ns = leaf_ns.start()?;
     let tld_ns = tld_ns.start()?;
     let root_ns = root_ns.start()?;
+    let child_ns = child_ns.start()?;
 
     let mut resolver_settings = Resolver::new(&network, root_hint);
     resolver_settings.trust_anchor(&trust_anchor);
@@ -1009,7 +1055,7 @@ fn setup_wrong_rrset(
 
     Ok((
         network,
-        vec![nameservers_ns, leaf_ns, tld_ns, root_ns],
+        vec![nameservers_ns, leaf_ns, tld_ns, root_ns, child_ns],
         resolver,
     ))
 }
