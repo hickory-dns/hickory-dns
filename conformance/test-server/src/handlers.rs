@@ -1058,7 +1058,9 @@ pub(crate) fn wrong_rrset_handler(request: Message, _transport: Transport) -> Re
     let record_name = Name::from_ascii("www.leaf.testing.").unwrap();
     let alternate_name = Name::from_ascii("www2.leaf.testing.").unwrap();
     let substitute_name = Name::from_ascii("other.leaf.testing.").unwrap();
-    let nameserver_name = Name::from_ascii("primary1.leaf.testing.").unwrap();
+    let nameserver_1_name = Name::from_ascii("primary1.leaf.testing.").unwrap();
+    let nameserver_2_name = Name::from_ascii("primary2.leaf.testing.").unwrap();
+    let child_name = Name::from_ascii("child.leaf.testing.").unwrap();
 
     let records = zone_file::parse_zone_file(Path::new(
         &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
@@ -1138,10 +1140,10 @@ pub(crate) fn wrong_rrset_handler(request: Message, _transport: Transport) -> Re
             }));
         }
 
-        // Handle possible glue hardening requests.
-        RecordType::A if query_name == nameserver_name => {
+        // Send the wrong RRset in response to an DS query.
+        RecordType::DS if query_name == child_name => {
             msg.add_answers(records.into_iter().filter(|record| {
-                if record.name != nameserver_name {
+                if record.name != record_name {
                     return false;
                 }
                 match record.try_borrow::<RRSIG>() {
@@ -1150,14 +1152,79 @@ pub(crate) fn wrong_rrset_handler(request: Message, _transport: Transport) -> Re
                 }
             }));
         }
-        RecordType::AAAA if query_name == nameserver_name => {
+        // Send a referral response for other requests at the delegation point.
+        _ if query_name == child_name => {
+            let ns_records = records
+                .iter()
+                .filter(|record| {
+                    if record.name != child_name {
+                        return false;
+                    }
+                    record.record_type() == RecordType::NS
+                })
+                .collect::<Vec<_>>();
+            let nameserver_names = ns_records
+                .iter()
+                .map(|record| match &record.data {
+                    RData::NS(ns) => Ok(ns.0.clone()),
+                    _ => Err(anyhow!("unexpected record data: {}", record.data)),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            msg.add_authorities(ns_records.into_iter().cloned());
+            msg.add_additionals(records.into_iter().filter(|record| {
+                record.record_type() == RecordType::A
+                    && nameserver_names.iter().any(|name| name == &record.name)
+            }));
+        }
+
+        // Handle possible glue hardening requests.
+        RecordType::A if query_name == nameserver_1_name => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != nameserver_1_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                    None => record.record_type() == RecordType::A,
+                }
+            }));
+        }
+        RecordType::AAAA if query_name == nameserver_1_name => {
             msg.add_authorities(records.into_iter().filter(|record| {
                 if record.name == origin_name {
                     match record.try_borrow::<RRSIG>() {
                         Some(rrsig) => rrsig.data().input().type_covered == RecordType::SOA,
                         None => record.record_type() == RecordType::SOA,
                     }
-                } else if record.name == nameserver_name {
+                } else if record.name == nameserver_1_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::NSEC,
+                        None => record.record_type() == RecordType::NSEC,
+                    }
+                } else {
+                    false
+                }
+            }));
+        }
+        RecordType::A if query_name == nameserver_2_name => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != nameserver_2_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                    None => record.record_type() == RecordType::A,
+                }
+            }));
+        }
+        RecordType::AAAA if query_name == nameserver_2_name => {
+            msg.add_authorities(records.into_iter().filter(|record| {
+                if record.name == origin_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::SOA,
+                        None => record.record_type() == RecordType::SOA,
+                    }
+                } else if record.name == nameserver_2_name {
                     match record.try_borrow::<RRSIG>() {
                         Some(rrsig) => rrsig.data().input().type_covered == RecordType::NSEC,
                         None => record.record_type() == RecordType::NSEC,
