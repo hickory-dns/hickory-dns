@@ -3,8 +3,8 @@ use std::{fs, path::Path, str::FromStr};
 use data_encoding::{BASE32_DNSSEC, BASE64, HEXUPPER};
 use hickory_proto::{
     dnssec::{
-        Algorithm, Nsec3HashAlgorithm, PublicKeyBuf,
-        rdata::{DNSKEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG, SigInput},
+        Algorithm, DigestType, Nsec3HashAlgorithm, PublicKeyBuf,
+        rdata::{DNSKEY, DNSSECRData, DS, NSEC, NSEC3, NSEC3PARAM, RRSIG, SigInput},
     },
     rr::{RData, Record, RecordType, domain::Name, rdata},
 };
@@ -223,6 +223,30 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                     ))),
                 ));
             }
+            "DS" => records.push(Record::from_rdata(
+                Name::from_ascii(tokens[0]).map_err(|e| format!("DS name error: {e:?}"))?,
+                tokens[1]
+                    .parse()
+                    .map_err(|e| format!("DS ttl error: {e:?}"))?,
+                RData::DNSSEC(DNSSECRData::DS(DS::new(
+                    tokens[4]
+                        .parse()
+                        .map_err(|e| format!("DS key tag error: {e:?}"))?,
+                    Algorithm::from_u8(
+                        tokens[5]
+                            .parse()
+                            .map_err(|e| format!("DS algorithm error: {e:?}"))?,
+                    ),
+                    DigestType::from(
+                        tokens[6]
+                            .parse::<u8>()
+                            .map_err(|e| format!("DS digest type error: {e:?}"))?,
+                    ),
+                    HEXUPPER
+                        .decode(tokens[7].as_bytes())
+                        .map_err(|e| format!("DS digest error: {e:?}"))?,
+                ))),
+            )),
             "NSEC3PARAM" => {
                 records.push(Record::from_rdata(
                     Name::from_ascii(tokens[0])
