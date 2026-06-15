@@ -22,10 +22,10 @@ use handlers::{
     ForgedDelegationHandler, Nsec3WrongZoneHandler, ServfailRrsetHandler, bad_case_handler,
     bad_txid_handler, bailiwick_handler, base_handler,
     bogus_wildcard_expansion_nsec_same_name_condition_handler, cname_loop_handler,
-    empty_response_handler, foreign_class_handler, nsec3_apex_nodata_handler,
-    nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
-    parent_ns_in_authority_handler, qr_not_response_force_tcp_handler, qr_not_response_handler,
-    truncated_response_handler, wrong_rrset_handler,
+    ds_wrong_name_handler, empty_response_handler, foreign_class_handler,
+    nsec3_apex_nodata_handler, nsec3_nocover_handler, nxdomain_with_ns_authority_handler,
+    packet_loss_handler, parent_ns_in_authority_handler, qr_not_response_force_tcp_handler,
+    qr_not_response_handler, truncated_response_handler, wrong_rrset_handler,
 };
 mod zone_file;
 
@@ -120,6 +120,7 @@ enum HandlerArg {
         wildcard_name: Name,
         query_name: Name,
     },
+    DsWrongName,
 }
 
 impl HandlerArg {
@@ -183,6 +184,7 @@ impl HandlerArg {
             } => BOGUS_WILDCARD_EXPANSION_QNAME_EXISTS.get_or_init(|| {
                 BogusWildcardExpansionQnameExistsHandler::new(ip_address, wildcard_name, query_name)
             }),
+            Self::DsWrongName => &(ds_wrong_name_handler as HandlerMessageFnPtr),
         }
     }
 }
