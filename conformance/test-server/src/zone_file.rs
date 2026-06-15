@@ -1,7 +1,7 @@
 use std::{fs, path::Path, str::FromStr};
 
 use base64::prelude::*;
-use data_encoding::{BASE32_DNSSEC, HEXUPPER};
+use data_encoding::{BASE32_DNSSEC, HEXUPPER_PERMISSIVE};
 use hickory_proto::{
     dnssec::{
         Algorithm, DigestType, Nsec3HashAlgorithm, PublicKeyBuf,
@@ -169,7 +169,7 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                 let salt = if tokens[7] == "-" {
                     vec![]
                 } else {
-                    HEXUPPER
+                    HEXUPPER_PERMISSIVE
                         .decode(tokens[7].as_bytes())
                         .map_err(|e| format!("NSEC3 unable to decode salt: {e:?}"))?
                 };
@@ -231,7 +231,7 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                 let mut digest = Vec::new();
                 for token in &tokens[7..] {
                     digest.append(
-                        &mut HEXUPPER
+                        &mut HEXUPPER_PERMISSIVE
                             .decode(token.as_bytes())
                             .map_err(|e| format!("DS digest error: {e:?}"))?,
                     );
@@ -281,7 +281,11 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                             if tokens[7] == "-" {
                                 vec![]
                             } else {
-                                tokens[8].as_bytes().to_vec()
+                                HEXUPPER_PERMISSIVE
+                                    .decode(tokens[7].as_bytes())
+                                    .map_err(|e| {
+                                        format!("NSEC3PARAM unable to decode salt: {e:?}")
+                                    })?
                             },
                         )
                         .map_err(|e| format!("NSEC3PARAM error: {e}"))?,
