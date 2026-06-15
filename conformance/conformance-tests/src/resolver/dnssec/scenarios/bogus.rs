@@ -1130,3 +1130,84 @@ fn invalid_wildcard_expansion_bogus_nsec_same_name() -> Result<(), Error> {
 
     Ok(())
 }
+
+/// This test is a regression test for a failure to check that the names of DS and DNSKEY records
+/// match.
+///
+/// In this scenario, a network attacker produces their own keypair, signs their own version of the
+/// victim's zone using that key, and produces a crafted DS record. The crafted DS records uses the
+/// victim zone's name in the digest value, but uses the attacker zone's name as the owner of the DS
+/// record. This DS record is included in the DS RRset for a zone the attacker controls, and served
+/// by the parent zone. When a resolver requests the DS RRset for the victim zone, the attacker
+/// substitutes a response containing both the victim zone's DS RRset and the DS RRset for its own
+/// zone, with the parent zone's signatures over each RRset as well. The missing check for name
+/// equality between DS and DNSKEY records means that the extra DS record with the wrong name will
+/// be used to trust the attacker's DNSKEY RRset, and thus enable the attacker to get subsequent
+/// forged responses validated.
+#[test]
+#[ignore = "hickory does not check DS and DNSKEY record names are equal"]
+fn ds_wrong_name() -> Result<(), Error> {
+    let network = Network::new()?;
+    let sign_settings = SignSettings::default();
+
+    let victim_zone = FQDN::TEST_DOMAIN;
+    let attacker_zone = FQDN::TEST_TLD.push_label("attacker");
+
+    // Generate the victim's keypair. We will only use their DS record, since all other queries will
+    // be intercepted before reaching their honest nameserver.
+    let victim_honest_ns = NameServer::new(&PEER, victim_zone.clone(), &network)?;
+    let victim_honest_ns = victim_honest_ns.sign(sign_settings.clone())?;
+    let victim_honest_ds = victim_honest_ns.ds().ksk.clone();
+    drop(victim_honest_ns);
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let mut tld_ns = NameServer::new(
+        &Implementation::test_server("ds_wrong_name", vec![], "both"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
+    let mut victim_dishonest_ns = NameServer::new(&PEER, victim_zone.clone(), &network)?;
+
+    root_ns.referral_nameserver(&tld_ns);
+    tld_ns.referral_nameserver(&victim_dishonest_ns);
+
+    victim_dishonest_ns.add(A {
+        fqdn: victim_zone.clone(),
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(192, 168, 1, 1),
+    });
+    let victim_dishonest_ns = victim_dishonest_ns.sign(sign_settings.clone())?;
+    let victim_dishonest_ds = victim_dishonest_ns.ds().ksk.clone();
+
+    // Attacker adds their crafted DS record for their own zone.
+    let crafted_ds = DS {
+        zone: attacker_zone.clone(),
+        ..victim_dishonest_ds
+    };
+    tld_ns.add(crafted_ds);
+    // Victim DS record is in the parent zone as well.
+    tld_ns.add(victim_honest_ds);
+
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings.clone())?;
+    let trust_anchor = root_ns.trust_anchor();
+    let root_hint = root_ns.root_hint();
+
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _victim_dishonest_ns = victim_dishonest_ns.start()?;
+
+    let mut resolver = Resolver::new(&network, root_hint);
+    if dns_test::SUBJECT.is_unbound() {
+        resolver.extended_dns_errors();
+    }
+    let resolver = resolver.trust_anchor(&trust_anchor).start()?;
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &victim_zone)?;
+    assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
+
+    Ok(())
+}

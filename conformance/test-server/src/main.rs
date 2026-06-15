@@ -91,6 +91,7 @@ async fn main() -> Result<()> {
             wildcard_name,
             query_name,
         )),
+        HandlerArg::DsWrongName => Arc::new(handlers::ds_wrong_name_handler),
     };
 
     let mut handles = vec![];
@@ -175,6 +176,7 @@ enum HandlerArg {
         wildcard_name: Name,
         query_name: Name,
     },
+    DsWrongName,
 }
 
 struct UdpServer {

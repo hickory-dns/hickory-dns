@@ -1598,6 +1598,115 @@ impl Handler for BogusWildcardExpansionQnameExistsHandler {
     }
 }
 
+pub(crate) fn ds_wrong_name_handler(
+    bytes: &[u8],
+    _transport: Transport,
+) -> Result<Option<Vec<u8>>, Error> {
+    let mut msg = Message::from_vec(bytes)?.into_response();
+    let query = msg.queries.first().unwrap();
+    let query_name = query.name.clone();
+    let query_type = query.query_type;
+
+    let records = zone_file::parse_zone_file(Path::new(
+        &env::var("ZONE_FILE").unwrap_or_else(|_| "/etc/zones/main.zone".to_string()),
+    ))
+    .map_err(|message| anyhow!("ds wrong name handler: unable to load zone file: {message}"))?;
+
+    let tld_name = Name::from_ascii("testing.")?;
+    let victim_name = Name::from_ascii("hickory-dns.testing.")?;
+    let attacker_name = Name::from_ascii("attacker.testing.")?;
+    let nameserver_names = [
+        Name::from_ascii("primary1.hickory-dns.testing.")?,
+        Name::from_ascii("primary2.hickory-dns.testing.")?,
+        Name::from_ascii("primary3.hickory-dns.testing.")?,
+    ];
+
+    msg.metadata.authoritative = true;
+    msg.metadata.authentic_data = true;
+
+    match query_type {
+        // Send two DS RRsets in response to a DS query.
+        RecordType::DS if query_name == victim_name => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != victim_name && record.name != attacker_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::DS,
+                    None => record.record_type() == RecordType::DS,
+                }
+            }));
+        }
+
+        // Referral response for other queries at the same name.
+        _ if query_name == victim_name => {
+            let ns_records = records
+                .iter()
+                .filter(|record| {
+                    record.name == victim_name && record.record_type() == RecordType::NS
+                })
+                .collect::<Vec<_>>();
+            let nameserver_names = ns_records
+                .iter()
+                .map(|record| match &record.data {
+                    RData::NS(ns) => Ok(ns.0.clone()),
+                    _ => Err(anyhow!("unexpected record data: {}", record.data)),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            msg.add_authorities(ns_records.into_iter().cloned());
+            msg.add_additionals(records.into_iter().filter(|record| {
+                record.record_type() == RecordType::A
+                    && nameserver_names.iter().any(|name| name == &record.name)
+            }));
+            msg.metadata.authoritative = false;
+        }
+
+        // Respond to queries for essential zone records.
+        RecordType::DNSKEY | RecordType::SOA | RecordType::NS if query_name == tld_name => {
+            msg.add_answers(records.into_iter().filter(
+                |record| match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == query_type,
+                    None => record.record_type() == query_type,
+                },
+            ));
+        }
+
+        // Handle possible glue hardening requests.
+        RecordType::A if nameserver_names.contains(&query_name) => {
+            msg.add_answers(records.into_iter().filter(|record| {
+                if record.name != query_name {
+                    return false;
+                }
+                match record.try_borrow::<RRSIG>() {
+                    Some(rrsig) => rrsig.data().input().type_covered == RecordType::A,
+                    None => record.record_type() == RecordType::A,
+                }
+            }));
+        }
+        RecordType::AAAA if nameserver_names.contains(&query_name) => {
+            msg.add_authorities(records.into_iter().filter(|record| {
+                if record.name == tld_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::SOA,
+                        None => record.record_type() == RecordType::SOA,
+                    }
+                } else if record.name == query_name {
+                    match record.try_borrow::<RRSIG>() {
+                        Some(rrsig) => rrsig.data().input().type_covered == RecordType::NSEC3,
+                        None => record.record_type() == RecordType::NSEC3,
+                    }
+                } else {
+                    false
+                }
+            }));
+        }
+
+        _ => return Err(anyhow!("ds wrong name handler: unexpected query: {query}")),
+    }
+
+    Ok(Some(msg.to_vec().context("could not serialize Message")?))
+}
+
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static TRUNCATED_UDP_COUNTER: AtomicU8 = AtomicU8::new(0);
 static PACKET_LOSS_MARKER: AtomicBool = AtomicBool::new(false);
