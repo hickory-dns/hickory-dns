@@ -1226,6 +1226,17 @@ fn verify_dnskey(
             continue;
         }
 
+        if &ds_record.name != dnskey_record.name() {
+            trace!(
+                "skipping DS record due to name mismatch, expected name {}: ({}, {})",
+                dnskey_record.name(),
+                ds_record.name,
+                ds_record.data
+            );
+
+            continue;
+        }
+
         // Count the number of DS records with the same algorithm and key tag as this DNSKEY.
         // Ignore remaining DS records if there are too many key tag collisions. Doing so before
         // checking hashes or signatures protects us from KeyTrap denial of service attacks.
