@@ -1145,7 +1145,6 @@ fn invalid_wildcard_expansion_bogus_nsec_same_name() -> Result<(), Error> {
 /// be used to trust the attacker's DNSKEY RRset, and thus enable the attacker to get subsequent
 /// forged responses validated.
 #[test]
-#[ignore = "hickory does not check DS and DNSKEY record names are equal"]
 fn ds_wrong_name() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default();
