@@ -324,7 +324,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         // Return early if there aren't any CNAME in the response.
         let has_cname = response
-            .all_sections()
+            .answers
+            .iter()
             .any(|rec| matches!(rec.data, CNAME(_)));
         if !has_cname {
             return Ok(response);
@@ -335,7 +336,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let mut cname_chain = vec![];
 
-        for rec in response.all_sections() {
+        for rec in response.answers.iter() {
             let CNAME(name) = &rec.data else {
                 continue;
             };
