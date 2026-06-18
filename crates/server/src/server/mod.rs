@@ -353,13 +353,13 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_h3_listener(
         &mut self,
         socket: net::UdpSocket,
-        // TODO: need to set a timeout between requests.
-        _timeout: Duration,
+        timeout: Duration,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         self.join_set.spawn(h3_handler::handle_h3(
             socket,
+            timeout,
             server_cert_resolver,
             dns_hostname,
             self.context.clone(),
@@ -388,13 +388,13 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_h3_listener_with_tls_config(
         &mut self,
         socket: net::UdpSocket,
-        // TODO: need to set a timeout between requests.
-        _timeout: Duration,
+        timeout: Duration,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
         self.join_set.spawn(h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
+            timeout,
             dns_hostname,
             self.context.clone(),
         ));
