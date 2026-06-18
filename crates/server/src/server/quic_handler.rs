@@ -58,8 +58,9 @@ pub(super) async fn handle_quic_with_server(
             },
         };
 
-        // verify that the src address is safe for responses
-        // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+        // Verify that the source address is safe for responses. We're also relying on the quinn
+        // library to actually validate responses before we get here, but this check is still worth
+        // doing.
         if let Err(error) = sanitize_src_address(src_addr) {
             warn!(
                 %error, %src_addr,
