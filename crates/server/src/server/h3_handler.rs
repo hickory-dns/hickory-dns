@@ -95,7 +95,8 @@ pub(super) async fn handle_h3_with_server(
             debug!("starting h3 stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...
-            let result = h3_handler(connection, src_addr, dns_hostname, cx).await;
+            let result =
+                h3_handler(connection, src_addr, handshake_timeout, dns_hostname, cx).await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "h3 stream processing failed")
@@ -111,6 +112,7 @@ pub(super) async fn handle_h3_with_server(
 pub(crate) async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
+    h3_timeout: Duration,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -119,8 +121,14 @@ pub(crate) async fn h3_handler(
 
     // Accept all inbound requests sent over the connection.
     loop {
-        let Some(accept_option) = cx.shutdown.run_until_cancelled(connection.accept()).await else {
+        let future = cx
+            .shutdown
+            .run_until_cancelled(timeout(h3_timeout, connection.accept()));
+        let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
+        };
+        let Ok(accept_option) = timeout_result else {
+            break; // Timeout elapsed while waiting for a request.
         };
         let Some(result) = accept_option else {
             break; // The connection is closed.
