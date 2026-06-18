@@ -5,14 +5,14 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, sync::Arc, task::Context};
+use std::{net::SocketAddr, sync::Arc, task::Context, time::Duration};
 
 use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
+use tokio::{net, task::JoinSet, time::timeout};
 use tracing::{debug, warn};
 
 use super::{
@@ -35,6 +35,7 @@ use crate::{
 
 pub(super) async fn handle_h3(
     socket: net::UdpSocket,
+    timeout: Duration,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -42,6 +43,7 @@ pub(super) async fn handle_h3(
     debug!("registered h3: {:?}", socket);
     handle_h3_with_server(
         H3Server::with_socket(socket, server_cert_resolver)?,
+        timeout,
         dns_hostname,
         cx,
     )
@@ -50,6 +52,7 @@ pub(super) async fn handle_h3(
 
 pub(super) async fn handle_h3_with_server(
     mut server: H3Server,
+    handshake_timeout: Duration,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -57,8 +60,15 @@ pub(super) async fn handle_h3_with_server(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(server.accept()).await else {
+        let future = cx
+            .shutdown
+            .run_until_cancelled(timeout(handshake_timeout, server.accept()));
+        let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
+        };
+        let Ok(result) = timeout_result else {
+            warn!("h3 timeout expired during handshake");
+            continue;
         };
         let (connection, src_addr) = match result {
             Ok(Some((connection, src_addr))) => (connection, src_addr),
