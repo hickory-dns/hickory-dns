@@ -38,7 +38,6 @@ use crate::{
 /// handle h2 using the default TLS server config.
 pub(super) async fn handle_h2(
     listener: TcpListener,
-    // TODO: need to set a timeout between requests.
     handshake_timeout: Duration,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
@@ -62,7 +61,6 @@ pub(super) async fn handle_h2(
 /// handle h2 using a specific TlsAcceptor.
 pub(super) async fn handle_h2_with_acceptor(
     listener: TcpListener,
-    // TODO: need to set a timeout between requests.
     handshake_timeout: Duration,
     tls_acceptor: TlsAcceptor,
     dns_hostname: Option<String>,
@@ -123,7 +121,15 @@ pub(super) async fn handle_h2_with_acceptor(
             };
             debug!("accepted HTTPS request from: {src_addr}");
 
-            h2_handler(tls_stream, src_addr, dns_hostname, http_endpoint, cx).await;
+            h2_handler(
+                tls_stream,
+                src_addr,
+                handshake_timeout,
+                dns_hostname,
+                http_endpoint,
+                cx,
+            )
+            .await;
         });
 
         reap_tasks(&mut inner_join_set);
@@ -139,6 +145,7 @@ pub(super) async fn handle_h2_with_acceptor(
 pub(crate) async fn h2_handler(
     io: impl AsyncRead + AsyncWrite + Unpin,
     src_addr: SocketAddr,
+    h2_timeout: Duration,
     dns_hostname: Option<Arc<str>>,
     http_endpoint: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -158,8 +165,14 @@ pub(crate) async fn h2_handler(
     // Accept all inbound HTTP/2.0 streams sent over the
     // connection.
     loop {
-        let Some(accept_option) = cx.shutdown.run_until_cancelled(h2.accept()).await else {
+        let future = cx
+            .shutdown
+            .run_until_cancelled(timeout(h2_timeout, h2.accept()));
+        let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
+        };
+        let Ok(accept_option) = timeout_result else {
+            break; // Timeout elapsed while waiting for a request.
         };
         let Some(result) = accept_option else {
             break; // The connection is closed.
