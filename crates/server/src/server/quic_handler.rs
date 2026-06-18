@@ -5,12 +5,12 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use futures_util::lock::Mutex;
 use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
+use tokio::{net, task::JoinSet, time::timeout};
 use tracing::{debug, warn};
 
 use super::{
@@ -29,21 +29,35 @@ use crate::{
 
 pub(super) async fn handle_quic(
     socket: net::UdpSocket,
+    timeout: Duration,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?socket, "registered quic");
-    handle_quic_with_server(QuicServer::with_socket(socket, server_cert_resolver)?, cx).await
+    handle_quic_with_server(
+        QuicServer::with_socket(socket, server_cert_resolver)?,
+        timeout,
+        cx,
+    )
+    .await
 }
 
 pub(super) async fn handle_quic_with_server(
     mut server: QuicServer,
+    handshake_timeout: Duration,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(accept_result) = cx.shutdown.run_until_cancelled(server.next()).await else {
+        let future = cx
+            .shutdown
+            .run_until_cancelled(timeout(handshake_timeout, server.next()));
+        let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
+        };
+        let Ok(accept_result) = timeout_result else {
+            warn!("quic timeout expired during handshake");
+            continue;
         };
         let (streams, src_addr) = match accept_result {
             Ok(Some((streams, src_addr))) => (streams, src_addr),

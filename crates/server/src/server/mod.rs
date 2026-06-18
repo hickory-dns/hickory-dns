@@ -288,13 +288,16 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_quic_listener(
         &mut self,
         socket: net::UdpSocket,
-        // TODO: need to set a timeout between requests.
-        _timeout: Duration,
+        timeout: Duration,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
         let cx = self.context.clone();
-        self.join_set
-            .spawn(quic_handler::handle_quic(socket, server_cert_resolver, cx));
+        self.join_set.spawn(quic_handler::handle_quic(
+            socket,
+            timeout,
+            server_cert_resolver,
+            cx,
+        ));
         Ok(())
     }
 
@@ -320,14 +323,14 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_quic_listener_and_tls_config(
         &mut self,
         socket: net::UdpSocket,
-        // TODO: need to set a timeout between requests.
-        _timeout: Duration,
+        timeout: Duration,
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
         let cx = self.context.clone();
 
         self.join_set.spawn(quic_handler::handle_quic_with_server(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
+            timeout,
             cx,
         ));
         Ok(())
