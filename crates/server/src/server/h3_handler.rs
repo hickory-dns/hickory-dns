@@ -141,11 +141,14 @@ pub(crate) async fn h3_handler(
             }
         };
 
-        let request = fetch_body(
+        let fetch_future = fetch_body(
             BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
             None,
-        )
-        .await?;
+        );
+        let Ok(request_res) = timeout(h3_timeout, fetch_future).await else {
+            break; //Timeout while reading request.
+        };
+        let request = request_res?;
 
         debug!(
             "Received bytes {} from {src_addr} {request:?}",
