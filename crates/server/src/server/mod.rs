@@ -210,7 +210,6 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_https_listener(
         &mut self,
         listener: net::TcpListener,
-        // TODO: need to set a timeout between requests.
         handshake_timeout: Duration,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
@@ -250,7 +249,6 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_https_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
-        // TODO: need to set a timeout between requests.
         handshake_timeout: Duration,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
