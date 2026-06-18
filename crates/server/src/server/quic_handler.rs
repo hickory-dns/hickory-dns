@@ -84,7 +84,7 @@ pub(super) async fn handle_quic_with_server(
             debug!("starting quic stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...
-            let result = quic_handler(streams, src_addr, cx).await;
+            let result = quic_handler(streams, src_addr, handshake_timeout, cx).await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "quic stream processing failed")
@@ -100,6 +100,7 @@ pub(super) async fn handle_quic_with_server(
 pub(crate) async fn quic_handler(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
+    quic_timeout: Duration,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     // TODO: we should make this configurable
@@ -107,8 +108,14 @@ pub(crate) async fn quic_handler(
 
     // Accept all inbound quic streams sent over the connection.
     loop {
-        let Some(stream_option) = cx.shutdown.run_until_cancelled(quic_streams.next()).await else {
+        let future = cx
+            .shutdown
+            .run_until_cancelled(timeout(quic_timeout, quic_streams.next()));
+        let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
+        };
+        let Ok(stream_option) = timeout_result else {
+            break; // Timeout elapsed while waiting for a request.
         };
         let Some(result) = stream_option else {
             break;
