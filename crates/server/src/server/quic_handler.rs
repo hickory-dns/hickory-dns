@@ -128,7 +128,10 @@ pub(crate) async fn quic_handler(
             }
         };
 
-        let request = request_stream.receive_bytes().await?;
+        let Ok(request_res) = timeout(quic_timeout, request_stream.receive_bytes()).await else {
+            break; // Timeout while reading body.
+        };
+        let request = request_res?;
 
         debug!(
             "Received bytes {} from {src_addr} {request:?}",
