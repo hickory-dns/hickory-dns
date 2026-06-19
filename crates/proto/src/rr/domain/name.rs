@@ -1230,18 +1230,17 @@ impl<'r> BinDecodable<'r> for Name {
     /// This will consume the portions of the `Vec` which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut name = Self::default();
-        read_inner(decoder, &mut name, None)?;
+        read_inner(decoder, &mut name)?;
         Ok(name)
     }
 }
 
-fn read_inner(
-    decoder: &mut BinDecoder<'_>,
-    name: &mut Name,
-    max_idx: Option<usize>,
-) -> Result<(), DecodeError> {
+fn read_inner(decoder: &mut BinDecoder<'_>, name: &mut Name) -> Result<(), DecodeError> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
-    let name_start = decoder.index();
+    let mut ptr_max_idx = None;
+    let mut decoder_tmp;
+    let mut decoder = &mut *decoder;
+    let mut name_start = decoder.index();
 
     // assume all chars are utf-8. We're doing byte-by-byte operations, no endianness issues...
     // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
@@ -1249,8 +1248,8 @@ fn read_inner(
     // label: 03FF & slice = length; slice.next(length) = label
     // root: 0000
     loop {
-        // this protects against overlapping labels
-        if let Some(max_idx) = max_idx {
+        // this protects against overlapping labels when chasing pointers
+        if let Some(max_idx) = ptr_max_idx {
             if decoder.index() >= max_idx {
                 return Err(DecodeError::LabelOverlapsWithOther {
                     label: name_start,
@@ -1340,11 +1339,12 @@ fn read_inner(
                         ptr: e,
                     })?;
 
-                let mut pointer = decoder.clone(location);
-                read_inner(&mut pointer, name, Some(name_start))?;
-
-                // Pointers always finish the name, break like Root.
-                break;
+                // chase the pointer
+                ptr_max_idx = Some(name_start);
+                decoder_tmp = decoder.clone(location);
+                decoder = &mut decoder_tmp;
+                name_start = decoder.index();
+                LabelParseState::LabelLengthOrPointer
             }
             LabelParseState::Root => {
                 // need to pop() the 0 off the stack...
