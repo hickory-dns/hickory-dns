@@ -1224,10 +1224,9 @@ impl BinEncodable for Name {
 const COMPRESSED_NAME_LIMIT: usize = 120;
 
 impl<'r> BinDecodable<'r> for Name {
-    /// parses the chain of labels
-    ///  this has a max of 255 octets, with each label being less than 63.
-    ///  all names will be stored lowercase internally.
-    /// This will consume the portions of the `Vec` which it is reading...
+    /// Parses a domain name.
+    ///
+    /// The maximum length of a name is 255 octets, and the maximum length of each label is 63.
     fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut name = Self::default();
         read_inner(decoder, &mut name)?;
