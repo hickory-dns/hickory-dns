@@ -57,20 +57,16 @@ pub(super) async fn handle_h3_with_server(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let shutdown = cx.shutdown.clone();
-        let (streams, src_addr) = tokio::select! {
-            result = server.accept() => match result {
-                Ok(Some(c)) => c,
-                Ok(None) => continue,
-                Err(error) => {
-                    debug!(%error, "error receiving h3 connection");
-                    continue;
-                }
-            },
-            _ = shutdown.cancelled() => {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            },
+        let Some(result) = cx.shutdown.run_until_cancelled(server.accept()).await else {
+            break; // A graceful shutdown was initiated. Break out of the loop.
+        };
+        let (connection, src_addr) = match result {
+            Ok(Some((connection, src_addr))) => (connection, src_addr),
+            Ok(None) => break, // Connection is closed.
+            Err(error) => {
+                debug!(%error, "error receiving h3 connection");
+                continue;
+            }
         };
 
         // verify that the src address is safe for responses
@@ -89,7 +85,7 @@ pub(super) async fn handle_h3_with_server(
             debug!("starting h3 stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...
-            let result = h3_handler(streams, src_addr, dns_hostname, cx).await;
+            let result = h3_handler(connection, src_addr, dns_hostname, cx).await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "h3 stream processing failed")
@@ -113,21 +109,18 @@ pub(crate) async fn h3_handler(
 
     // Accept all inbound requests sent over the connection.
     loop {
-        let (_, mut stream) = tokio::select! {
-            result = connection.accept() => match result {
-                Some(Ok(next_request)) => next_request,
-                Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
-                    return Err(err);
-                }
-                None => {
-                    break;
-                }
-            },
-            _ = cx.shutdown.cancelled() => {
-                // A graceful shutdown was initiated.
-                break;
-            },
+        let Some(accept_option) = cx.shutdown.run_until_cancelled(connection.accept()).await else {
+            break; // A graceful shutdown was initiated.
+        };
+        let Some(result) = accept_option else {
+            break; // The connection is closed.
+        };
+        let mut stream = match result {
+            Ok((_request, request_stream)) => request_stream,
+            Err(error) => {
+                warn!("error accepting request {}: {}", src_addr, error);
+                return Err(error);
+            }
         };
 
         let request = fetch_body(

@@ -42,20 +42,16 @@ pub(super) async fn handle_quic_with_server(
 ) -> Result<(), NetError> {
     let mut inner_join_set = JoinSet::new();
     loop {
-        let shutdown = cx.shutdown.clone();
-        let (streams, src_addr) = tokio::select! {
-            result = server.next() => match result {
-                Ok(Some(c)) => c,
-                Ok(None) => continue,
-                Err(error) => {
-                    debug!(%error, "error receiving quic connection");
-                    continue;
-                }
-            },
-            _ = shutdown.cancelled() => {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            },
+        let Some(accept_result) = cx.shutdown.run_until_cancelled(server.next()).await else {
+            break; // A graceful shutdown was initiated. Break out of the loop.
+        };
+        let (streams, src_addr) = match accept_result {
+            Ok(Some((streams, src_addr))) => (streams, src_addr),
+            Ok(None) => break, // Connection is closed.
+            Err(error) => {
+                debug!(%error, "error receiving quic connection");
+                continue;
+            }
         };
 
         // Verify that the source address is safe for responses. We're also relying on the quinn
@@ -97,21 +93,18 @@ pub(crate) async fn quic_handler(
 
     // Accept all inbound quic streams sent over the connection.
     loop {
-        let mut request_stream = tokio::select! {
-            result = quic_streams.next() => match result {
-                Some(Ok(next_request)) => next_request,
-                Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
-                    return Err(err);
-                }
-                None => {
-                    break;
-                }
-            },
-            _ = cx.shutdown.cancelled() => {
-                // A graceful shutdown was initiated.
-                break;
-            },
+        let Some(stream_option) = cx.shutdown.run_until_cancelled(quic_streams.next()).await else {
+            break; // A graceful shutdown was initiated.
+        };
+        let Some(result) = stream_option else {
+            break;
+        };
+        let mut request_stream = match result {
+            Ok(next_request) => next_request,
+            Err(err) => {
+                warn!("error accepting request {}: {}", src_addr, err);
+                return Err(err);
+            }
         };
 
         let request = request_stream.receive_bytes().await?;

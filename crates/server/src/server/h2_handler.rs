@@ -158,21 +158,18 @@ pub(crate) async fn h2_handler(
     // Accept all inbound HTTP/2.0 streams sent over the
     // connection.
     loop {
-        let (request, respond) = tokio::select! {
-            result = h2.accept() => match result {
-                Some(Ok(next_request)) => next_request,
-                Some(Err(err)) => {
-                    warn!("error accepting request {}: {}", src_addr, err);
-                        return;
-                }
-                None => {
-                    return;
-                }
-            },
-            _ = cx.shutdown.cancelled() => {
-                // A graceful shutdown was initiated.
-                return
-            },
+        let Some(accept_option) = cx.shutdown.run_until_cancelled(h2.accept()).await else {
+            break; // A graceful shutdown was initiated.
+        };
+        let Some(result) = accept_option else {
+            break; // The connection is closed.
+        };
+        let (request, respond) = match result {
+            Ok(pair) => pair,
+            Err(error) => {
+                warn!("error accepting request {}: {}", src_addr, error);
+                break;
+            }
         };
 
         debug!("Received request: {:#?}", request);
