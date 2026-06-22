@@ -23,6 +23,7 @@ use hickory_proto::dnssec::TrustAnchors;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
+use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption, NSIDPayload};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::{Record, TSigner};
@@ -92,6 +93,7 @@ async fn test_client() -> Client<TokioRuntimeProvider> {
     let handler = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
+    catalog.set_nsid(Some(NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap()));
 
     let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let stream = future.await.expect("failed to connect");
@@ -169,6 +171,8 @@ async fn test_query_edns_response(client: Client<TokioRuntimeProvider>) {
     });
 
     edns.set_max_payload(1232).set_version(0);
+    edns.options_mut()
+        .insert(EdnsOption::NSID(NSIDPayload::new([]).unwrap()));
     msg.edns = Some(edns);
 
     let response = client
@@ -202,6 +206,12 @@ async fn test_query_edns_response(client: Client<TokioRuntimeProvider>) {
     let edns = response.edns.as_ref().expect("expected EDNS response");
     assert_eq!(edns.version(), 0);
     assert_eq!(edns.max_payload(), 1232);
+    assert_eq!(
+        edns.option(EdnsCode::NSID),
+        Some(&EdnsOption::NSID(
+            NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap()
+        ))
+    );
 }
 
 #[tokio::test]
