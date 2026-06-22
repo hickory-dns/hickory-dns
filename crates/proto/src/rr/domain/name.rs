@@ -1664,6 +1664,31 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
+    fn test_long_pointer_chain_small_stack() {
+        // Build a buffer of the form: [0x00, ptr->0, ptr->prev, ptr->prev, ...]
+        let mut bytes = vec![0x00, 0xC0, 0x00];
+        let mut last_ptr_offset: u16 = 1;
+        for _ in 1..8000 {
+            last_ptr_offset = bytes.len() as u16 - 2;
+            bytes.extend(&u16::to_be_bytes(0xC000 | last_ptr_offset));
+        }
+
+        // Formerly a stack overflow
+        let name = std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || {
+                let mut decoder = BinDecoder::new(&bytes).clone(last_ptr_offset);
+                Name::read(&mut decoder).unwrap()
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+
+        assert_eq!(name, Name::root());
+    }
+
+    #[test]
     fn test_bin_overlap_enforced() {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         let n: u8 = 31;
