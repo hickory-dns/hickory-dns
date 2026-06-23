@@ -205,9 +205,7 @@ impl BinEncodable for CSYNC {
 }
 
 impl<'r> RecordDataDecodable<'r> for CSYNC {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let start_idx = decoder.index();
-
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let soa_serial = decoder.read_u32()?.unverified();
 
         let flags: u16 = decoder
@@ -218,21 +216,7 @@ impl<'r> RecordDataDecodable<'r> for CSYNC {
         let immediate: bool = flags & 0b0000_0001 == 0b0000_0001;
         let soa_minimum: bool = flags & 0b0000_0010 == 0b0000_0010;
         let reserved_flags = flags & 0b1111_1111_1111_1100;
-
-        let offset = u16::try_from(decoder.index() - start_idx).map_err(|_| {
-            DecodeError::IncorrectRDataLengthRead {
-                read: decoder.index() - start_idx,
-                len: u16::MAX as usize,
-            }
-        })?;
-        let bit_map_len =
-            length
-                .checked_sub(offset)
-                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                    read: offset as usize,
-                    len: len as usize,
-                })?;
-        let type_bit_maps = RecordTypeSet::read_data(decoder, bit_map_len)?;
+        let type_bit_maps = RecordTypeSet::read_data(decoder)?;
 
         Ok(Self {
             soa_serial,
@@ -304,8 +288,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = CSYNC::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = CSYNC::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 

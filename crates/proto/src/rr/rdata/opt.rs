@@ -22,7 +22,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
     },
 };
 
@@ -262,14 +262,12 @@ impl BinEncodable for OPT {
 }
 
 impl<'r> RecordDataDecodable<'r> for OPT {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let mut state: OptReadState = OptReadState::ReadCode;
         let mut options: Vec<(EdnsCode, EdnsOption)> = Vec::new();
-        let start_idx = decoder.index();
 
-        // There is no unsafe direct use of the rdata length after this point
-        let rdata_length = length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
-        while rdata_length > decoder.index() - start_idx {
+        let rdata_length = decoder.len();
+        while !decoder.is_empty() {
             match state {
                 OptReadState::ReadCode => {
                     state = OptReadState::Code {
@@ -871,8 +869,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = OPT::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = OPT::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -884,7 +881,7 @@ mod tests {
         ];
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
-        let read_rdata = OPT::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = OPT::read_data(&mut decoder);
         assert!(
             read_rdata.is_ok(),
             "error decoding: {:?}",
@@ -915,7 +912,7 @@ mod tests {
         ];
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
-        let read_rdata = OPT::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = OPT::read_data(&mut decoder);
         assert!(
             read_rdata.is_ok(),
             "error decoding: {:?}",

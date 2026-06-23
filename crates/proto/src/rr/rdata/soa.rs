@@ -368,7 +368,7 @@ mod tests {
     #[cfg(feature = "std")]
     use std::println;
 
-    use crate::{rr::RecordDataDecodable, serialize::binary::Restrict};
+    use crate::rr::RecordDataDecodable;
 
     use super::*;
 
@@ -390,13 +390,12 @@ mod tests {
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
-        let len = bytes.len() as u16;
 
         #[cfg(feature = "std")]
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = SOA::read_data(&mut decoder, Restrict::new(len)).expect("Decoding error");
+        let read_rdata = SOA::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 

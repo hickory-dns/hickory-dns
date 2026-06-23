@@ -11,7 +11,7 @@ use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::{
-        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
+        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
         txt::ParseError,
     },
 };
@@ -80,8 +80,8 @@ impl BinEncodable for SMIMEA {
 
 impl RecordDataDecodable<'_> for SMIMEA {
     #[inline]
-    fn read_data(decoder: &mut BinDecoder<'_>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        TLSA::read_data(decoder, length).map(Self)
+    fn read_data(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
+        TLSA::read_data(decoder).map(Self)
     }
 }
 

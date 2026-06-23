@@ -144,6 +144,30 @@ impl<'a> BinDecoder<'a> {
         Ok(Restrict::new(read))
     }
 
+    /// Reads a [BinDecoder] out of the buffer, without allocating, and advances past it
+    ///
+    /// # Arguments
+    ///
+    /// * `length` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The [BinDecoder] of the specified length, otherwise an error
+    pub fn split_off(&mut self, length: usize) -> Result<Self, DecodeError> {
+        let Some((read, remaining)) = self.remaining.split_at_checked(length) else {
+            return Err(DecodeError::InsufficientBytes);
+        };
+
+        let decoder = Self {
+            buffer: &self.buffer[..self.index() + length],
+            remaining: read,
+        };
+
+        self.remaining = remaining;
+
+        Ok(decoder)
+    }
+
     /// Reads a slice from a previous index to the current
     pub fn slice_from(&self, index: usize) -> Result<&'a [u8], DecodeError> {
         if index > self.index() {
