@@ -31,7 +31,7 @@ use crate::{
         record_type::RecordType,
     },
     serialize::{
-        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
         txt::{Lexer, ParseError, Token},
     },
 };
@@ -891,53 +891,54 @@ impl RData {
         }
     }
 
-    /// Read data from the decoder
-    pub fn read(
-        decoder: &mut BinDecoder<'_>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> Result<Self, DecodeError> {
+    /// Read data from the decoder.
+    ///
+    /// The provided `decoder` should be clamped to the expected length of the data, because some
+    /// [RData] variants will otherwise consume all bytes in the stream. You may use
+    /// [BinDecoder::split_off] to obtain an owned decoder of the desired length.
+    pub fn read(mut decoder: BinDecoder<'_>, record_type: RecordType) -> Result<Self, DecodeError> {
         let start_idx = decoder.index();
+        let length = decoder.len();
 
         let result = match record_type {
             RecordType::A => {
                 trace!("reading A");
-                A::read(decoder).map(Self::A)
+                A::read(&mut decoder).map(Self::A)
             }
             RecordType::AAAA => {
                 trace!("reading AAAA");
-                AAAA::read(decoder).map(Self::AAAA)
+                AAAA::read(&mut decoder).map(Self::AAAA)
             }
             RecordType::ANAME => {
                 trace!("reading ANAME");
-                ANAME::read(decoder).map(Self::ANAME)
+                ANAME::read(&mut decoder).map(Self::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(DecodeError::UnknownRecordTypeValue(rt.into()));
             }
             RecordType::CAA => {
                 trace!("reading CAA");
-                CAA::read_data(decoder, length).map(Self::CAA)
+                CAA::read_data(&mut decoder).map(Self::CAA)
             }
             RecordType::CERT => {
                 trace!("reading CERT");
-                CERT::read_data(decoder, length).map(Self::CERT)
+                CERT::read_data(&mut decoder).map(Self::CERT)
             }
             RecordType::CNAME => {
                 trace!("reading CNAME");
-                CNAME::read(decoder).map(Self::CNAME)
+                CNAME::read(&mut decoder).map(Self::CNAME)
             }
             RecordType::CSYNC => {
                 trace!("reading CSYNC");
-                CSYNC::read_data(decoder, length).map(Self::CSYNC)
+                CSYNC::read_data(&mut decoder).map(Self::CSYNC)
             }
             RecordType::HINFO => {
                 trace!("reading HINFO");
-                HINFO::read_data(decoder, length).map(Self::HINFO)
+                HINFO::read_data(&mut decoder).map(Self::HINFO)
             }
             RecordType::HTTPS => {
                 trace!("reading HTTPS");
-                HTTPS::read_data(decoder, length).map(Self::HTTPS)
+                HTTPS::read_data(&mut decoder).map(Self::HTTPS)
             }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
@@ -948,84 +949,79 @@ impl RData {
             }
             RecordType::MX => {
                 trace!("reading MX");
-                MX::read_data(decoder, length).map(Self::MX)
+                MX::read_data(&mut decoder).map(Self::MX)
             }
             RecordType::NAPTR => {
                 trace!("reading NAPTR");
-                NAPTR::read_data(decoder, length).map(Self::NAPTR)
+                NAPTR::read_data(&mut decoder).map(Self::NAPTR)
             }
             RecordType::NULL => {
                 trace!("reading NULL");
-                NULL::read_data(decoder, length).map(Self::NULL)
+                NULL::read_data(&mut decoder).map(Self::NULL)
             }
             RecordType::NS => {
                 trace!("reading NS");
-                NS::read(decoder).map(Self::NS)
+                NS::read(&mut decoder).map(Self::NS)
             }
             RecordType::OPENPGPKEY => {
                 trace!("reading OPENPGPKEY");
-                OPENPGPKEY::read_data(decoder, length).map(Self::OPENPGPKEY)
+                OPENPGPKEY::read_data(&mut decoder).map(Self::OPENPGPKEY)
             }
             RecordType::OPT => {
                 trace!("reading OPT");
-                OPT::read_data(decoder, length).map(Self::OPT)
+                OPT::read_data(&mut decoder).map(Self::OPT)
             }
             RecordType::PTR => {
                 trace!("reading PTR");
-                PTR::read(decoder).map(Self::PTR)
+                PTR::read(&mut decoder).map(Self::PTR)
             }
             RecordType::SMIMEA => {
                 trace!("reading SMIMEA");
-                SMIMEA::read_data(decoder, length).map(Self::SMIMEA)
+                SMIMEA::read_data(&mut decoder).map(Self::SMIMEA)
             }
             RecordType::SOA => {
                 trace!("reading SOA");
-                SOA::read_data(decoder, length).map(Self::SOA)
+                SOA::read_data(&mut decoder).map(Self::SOA)
             }
             RecordType::SRV => {
                 trace!("reading SRV");
-                SRV::read_data(decoder, length).map(Self::SRV)
+                SRV::read_data(&mut decoder).map(Self::SRV)
             }
             RecordType::SSHFP => {
                 trace!("reading SSHFP");
-                SSHFP::read_data(decoder, length).map(Self::SSHFP)
+                SSHFP::read_data(&mut decoder).map(Self::SSHFP)
             }
             RecordType::SVCB => {
                 trace!("reading SVCB");
-                SVCB::read_data(decoder, length).map(Self::SVCB)
+                SVCB::read_data(&mut decoder).map(Self::SVCB)
             }
             RecordType::TLSA => {
                 trace!("reading TLSA");
-                TLSA::read_data(decoder, length).map(Self::TLSA)
+                TLSA::read_data(&mut decoder).map(Self::TLSA)
             }
             RecordType::TSIG => {
                 trace!("reading TSIG");
-                TSIG::read_data(decoder, length).map(Self::TSIG)
+                TSIG::read_data(&mut decoder).map(Self::TSIG)
             }
             RecordType::TXT => {
                 trace!("reading TXT");
-                TXT::read_data(decoder, length).map(Self::TXT)
+                TXT::read_data(&mut decoder).map(Self::TXT)
             }
             #[cfg(feature = "__dnssec")]
-            r if r.is_dnssec() => DNSSECRData::read(decoder, record_type, length).map(Self::DNSSEC),
+            r if r.is_dnssec() => DNSSECRData::read(&mut decoder, record_type).map(Self::DNSSEC),
             record_type => {
                 trace!("reading Unknown record: {}", record_type);
-                NULL::read_data(decoder, length).map(|rdata| Self::Unknown {
+                NULL::read_data(&mut decoder).map(|rdata| Self::Unknown {
                     code: record_type,
                     rdata,
                 })
             }
         };
 
-        // we should have read rdata_length, but we did not
         let read = decoder.index() - start_idx;
-        length
-            .map(|u| u as usize)
-            .verify_unwrap(|rdata_length| read == *rdata_length)
-            .map_err(|rdata_length| DecodeError::IncorrectRDataLengthRead {
-                read,
-                len: rdata_length,
-            })?;
+        if !decoder.is_empty() {
+            return Err(DecodeError::IncorrectRDataLengthRead { read, len: length });
+        }
 
         result
     }
@@ -1513,16 +1509,10 @@ mod tests {
         for (_test_pass, (expect, binary)) in get_data().into_iter().enumerate() {
             #[cfg(feature = "std")]
             println!("test {_test_pass}: {binary:?}");
-            let length = binary.len() as u16; // pre exclusive borrow
-            let mut decoder = BinDecoder::new(&binary);
+            let decoder = BinDecoder::new(&binary);
 
             assert_eq!(
-                RData::read(
-                    &mut decoder,
-                    record_type_from_rdata(&expect),
-                    Restrict::new(length)
-                )
-                .unwrap(),
+                RData::read(decoder, record_type_from_rdata(&expect)).unwrap(),
                 expect
             );
         }

@@ -20,9 +20,7 @@ use crate::rr::rdata::A;
 use crate::{
     error::ProtoResult,
     rr::{Name, RData, RecordData, RecordType, dns_class::DNSClass},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
-    },
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 #[cfg(feature = "mdns")]
@@ -351,9 +349,8 @@ impl<'r> BinDecodable<'r> for Record<RData> {
             // RDATA           a variable length string of octets that describes the
             //                resource.  The format of this information varies
             //                according to the TYPE and CLASS of the resource record.
-            // Adding restrict to the rdata length because it's used for many calculations later
-            //  and must be validated before hand
-            RData::read(decoder, record_type, Restrict::new(rd_length))?
+            let decoder = decoder.split_off(rd_length as usize)?;
+            RData::read(decoder, record_type)?
         };
 
         Ok(Self {

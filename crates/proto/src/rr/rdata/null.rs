@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -67,8 +67,8 @@ impl BinEncodable for NULL {
 }
 
 impl<'r> RecordDataDecodable<'r> for NULL {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let rdata_length = length.map(|u| u as usize).unverified(/*any u16 is valid*/);
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        let rdata_length = decoder.len();
         if rdata_length > 0 {
             let anything = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
             Ok(Self::with(anything))
@@ -123,8 +123,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = NULL::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = NULL::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

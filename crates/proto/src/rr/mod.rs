@@ -9,7 +9,7 @@
 
 use core::fmt::{Debug, Display};
 
-use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, DecodeError, Restrict};
+use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, DecodeError};
 
 pub(crate) mod dns_class;
 pub use dns_class::DNSClass;
@@ -72,20 +72,17 @@ pub trait RecordData: Clone + Sized + PartialEq + Eq + Display + Debug + BinEnco
 pub(crate) trait RecordDataDecodable<'r>: Sized {
     /// Read the RecordData from the data stream.
     ///
-    /// * `decoder` - data stream from which the RData will be read
-    /// * `record_type` - specifies the RecordType that has already been read from the stream
-    /// * `length` - the data length that should be read from the stream for this RecordData
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError>;
+    /// The provided `decoder` should be clamped to the expected length of the data, because some
+    /// [RData] variants will otherwise consume all bytes in the stream. You may use
+    /// [BinDecoder::split_off] to obtain a decoder of the desired length.
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError>;
 }
 
 impl<'r, T> RecordDataDecodable<'r> for T
 where
     T: 'r + BinDecodable<'r> + Sized,
 {
-    fn read_data(
-        decoder: &mut BinDecoder<'r>,
-        _length: Restrict<u16>,
-    ) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         T::read(decoder)
     }
 }
