@@ -43,18 +43,23 @@ tls-aws-lc-rs = [
 ]
 https-aws-lc-rs = [
     "hickory-resolver/https-aws-lc-rs",
+    "hickory-server/https-aws-lc-rs",
     "tls-aws-lc-rs",
     "__https",
 ]
 quic-aws-lc-rs = [
     "hickory-net/quic-aws-lc-rs",
     "hickory-resolver/quic-aws-lc-rs",
+    "hickory-server/quic-aws-lc-rs",
     "tls-aws-lc-rs",
+    "__quic",
 ]
 h3-aws-lc-rs = [
     "hickory-net/h3-aws-lc-rs",
     "hickory-resolver/h3-aws-lc-rs",
+    "hickory-server/h3-aws-lc-rs",
     "quic-aws-lc-rs",
+    "__h3",
 ]
 
 tls-ring = [
@@ -65,25 +70,33 @@ tls-ring = [
 ]
 https-ring = [
     "hickory-resolver/https-ring",
+    "hickory-server/https-ring",
     "tls-ring",
     "__https",
 ]
 quic-ring = [
     "hickory-net/quic-ring",
     "hickory-resolver/quic-ring",
+    "hickory-server/quic-ring",
     "tls-ring",
+    "__quic",
 ]
 h3-ring = [
     "hickory-net/h3-ring",
     "hickory-resolver/h3-ring",
+    "hickory-server/h3-ring",
     "quic-ring",
+    "__h3",
 ]
 
 __tls = ["dep:rustls"]
 __https = ["dep:rustls", "dep:webpki-roots"]
+__h3 = []
+__quic = []
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 metrics = ["hickory-server/metrics"]
+dnstap = ["dep:hickory-dnstap"]
 
 [dependencies]
 async-trait.workspace = true
@@ -99,6 +112,7 @@ hickory-proto = { workspace = true, features = ["testing", "std"] }
 hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }
+hickory-dnstap = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -107,7 +121,7 @@ futures = { workspace = true, features = ["thread-pool"] }
 pretty_assertions = "1"
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
