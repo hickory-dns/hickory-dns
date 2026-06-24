@@ -789,8 +789,8 @@ mod metrics {
     };
     use crate::metrics::recursor::{
         CACHE_HIT_DURATION, CACHE_HIT_TOTAL, CACHE_MISS_DURATION, CACHE_MISS_TOTAL,
-        CONNECTION_CACHE_SIZE, IN_FLIGHT_QUERIES, NAME_SERVER_CACHE_SIZE, OUTGOING_QUERIES_TOTAL,
-        RESPONSE_CACHE_SIZE,
+        CONNECTION_CACHE_SIZE, DELEGATION_CACHE_SIZE, IN_FLIGHT_QUERIES, NAME_SERVER_CACHE_SIZE,
+        OUTGOING_QUERIES_TOTAL, RESPONSE_CACHE_SIZE,
     };
     #[cfg(feature = "__dnssec")]
     use crate::recursor::DnssecConfig;
@@ -876,7 +876,8 @@ mod metrics {
             assert_histogram_sample_count_eq(&map, CACHE_HIT_DURATION, vec![], 2, Unit::Seconds);
             assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
 
-            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 1);
+            assert_gauge_eq(&map, DELEGATION_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, NAME_SERVER_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, CONNECTION_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, IN_FLIGHT_QUERIES, vec![], 0);
@@ -899,8 +900,9 @@ mod metrics {
             assert_counter_eq(&map, INDETERMINATE_ANSWERS_TOTAL, vec![], 0);
 
             // Both the regular cache and validated cache should have entries.
-            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 3);
+            assert_gauge_eq(&map, RESPONSE_CACHE_SIZE, vec![], 1);
             assert_gauge_eq(&map, VALIDATED_RESPONSE_CACHE_SIZE, vec![], 1);
+            assert_gauge_eq(&map, DELEGATION_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, NAME_SERVER_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, CONNECTION_CACHE_SIZE, vec![], 2);
             assert_gauge_eq(&map, IN_FLIGHT_QUERIES, vec![], 0);

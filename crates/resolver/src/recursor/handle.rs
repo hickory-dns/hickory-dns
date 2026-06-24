@@ -20,7 +20,7 @@ use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::rdata::DNSSECRData;
 use crate::{
-    cache::{ResponseCache, TtlConfig},
+    cache::{ResponseCache, DelegationCache, TtlConfig},
     config::{NameServerConfig, OpportunisticEncryption, ResolverOpts},
     connection_provider::{ConnectionProvider, TlsConfig},
     name_server::NameServer,
@@ -43,6 +43,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     roots: NameServerPool<P>,
     name_server_cache: Arc<Mutex<LruCache<Name, NameServerPool<P>>>>,
     response_cache: ResponseCache,
+    delegation_cache: DelegationCache,
     #[cfg(feature = "metrics")]
     pub(super) metrics: RecursorMetrics,
     recursion_limit: u8,
@@ -124,6 +125,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let name_server_cache = Arc::new(Mutex::new(LruCache::new(ns_cache_size)));
         let response_cache = ResponseCache::new(response_cache_size, cache_policy.clone());
+        let delegation_cache = DelegationCache::new(response_cache_size, cache_policy.clone());
 
         // DnsRequestOptions to use with outbound requests made by the recursor.
         let mut request_options = DnsRequestOptions::default();
@@ -138,6 +140,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             roots,
             name_server_cache,
             response_cache,
+            delegation_cache,
             #[cfg(feature = "metrics")]
             metrics: RecursorMetrics::new(),
             recursion_limit,
@@ -174,6 +177,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     self.metrics
                         .cache_size
                         .set(self.response_cache.entry_count() as f64);
+                    self.metrics
+                        .delegation_cache_size
+                        .set(self.delegation_cache.entry_count() as f64);
                 }
 
                 let response = self
@@ -196,6 +202,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     self.metrics
                         .cache_size
                         .set(self.response_cache.entry_count() as f64);
+                    self.metrics
+                        .delegation_cache_size
+                        .set(self.delegation_cache.entry_count() as f64);
                 }
                 return Ok(result);
             }
@@ -290,6 +299,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             self.metrics
                 .cache_size
                 .set(self.response_cache.entry_count() as f64);
+            self.metrics
+                .delegation_cache_size
+                .set(self.delegation_cache.entry_count() as f64);
         }
         Ok(response)
     }
@@ -479,7 +491,14 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         let message = response.into_message();
-        self.response_cache.insert(query, Ok(message.clone()), now);
+        if query.query_type() == RecordType::NS
+            && message.answers.is_empty()
+            && message.authorities.iter().any(|r| r.record_type() == RecordType::NS && r.name == *query.name())
+        {
+            self.delegation_cache.insert(query.name().clone(), message.clone(), now);
+        } else {
+            self.response_cache.insert(query, Ok(message.clone()), now);
+        }
         Ok(message)
     }
 
@@ -526,8 +545,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 }
                 Some(Err(e)) => Err(e.into()),
                 None => {
-                    self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
-                        .await
+                    if let Some(message) = self.delegation_cache.get(&zone, request_time) {
+                        debug!(?zone, "delegation cache hit");
+                        Ok(message)
+                    } else {
+                        self.lookup(query, parent_zone, nameserver_pool.clone(), request_time)
+                            .await
+                    }
                 }
             };
 
