@@ -517,8 +517,7 @@ impl<'r> RecordDataDecodable<'r> for CERT {
         let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let algorithm = Algorithm::read(decoder)?;
 
-        let cert_len = decoder.len();
-        let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
+        let cert_data = decoder.read_vec_to_end().unverified(/*will fail in usage if invalid*/);
 
         Ok(Self {
             cert_type,

@@ -167,8 +167,7 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
         let mut state = BitMapReadState::Window;
 
         // loop through all the bytes in the bitmap
-        let bit_map_len = decoder.len();
-        let bytes = decoder.read_vec(bit_map_len)?.unverified();
+        let bytes = decoder.read_vec_to_end().unverified();
         for current_byte in bytes.iter() {
             state = match state {
                 BitMapReadState::Window => BitMapReadState::Len {

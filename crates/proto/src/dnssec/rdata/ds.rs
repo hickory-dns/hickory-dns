@@ -293,9 +293,8 @@ impl<'r> RecordDataDecodable<'r> for DS {
         let digest_type =
             DigestType::from(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/));
 
-        let left = decoder.len();
         let digest =
-            decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);
+            decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::new(key_tag, algorithm, digest_type, digest))
     }

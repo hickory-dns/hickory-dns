@@ -68,12 +68,11 @@ impl BinEncodable for NULL {
 
 impl<'r> RecordDataDecodable<'r> for NULL {
     fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let rdata_length = decoder.len();
-        if rdata_length > 0 {
-            let anything = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
-            Ok(Self::with(anything))
-        } else {
+        if decoder.is_empty() {
             Ok(Self::new())
+        } else {
+            let anything = decoder.read_vec_to_end().unverified(/*any byte array is good*/);
+            Ok(Self::with(anything))
         }
     }
 }

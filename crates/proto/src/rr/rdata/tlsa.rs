@@ -458,8 +458,7 @@ impl RecordDataDecodable<'_> for TLSA {
         let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
 
         // the remaining data is for the cert
-        let cert_len = decoder.len();
-        let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
+        let cert_data = decoder.read_vec_to_end().unverified(/*will fail in usage if invalid*/);
 
         Ok(Self {
             cert_usage,

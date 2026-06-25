@@ -283,10 +283,9 @@ impl<'r> RecordDataDecodable<'r> for SIG {
         };
 
         // read the signature, this will vary by key size
-        let sig_len = decoder.len();
         let sig = decoder
-        .read_vec(sig_len)?
-        .unverified(/*will fail in usage if invalid*/);
+            .read_vec_to_end()
+            .unverified(/*will fail in usage if invalid*/);
         Ok(Self { input, sig })
     }
 }

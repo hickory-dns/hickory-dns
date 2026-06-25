@@ -1176,8 +1176,7 @@ impl<'r> BinDecodable<'r> for EchConfigList {
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
     fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let data =
-            decoder.read_vec(decoder.len())?.unverified(/*up to consumer to validate this data*/);
+        let data = decoder.read_vec_to_end().unverified(/*up to consumer to validate this data*/);
 
         Ok(Self(data))
     }

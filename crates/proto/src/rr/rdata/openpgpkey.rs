@@ -82,9 +82,8 @@ impl BinEncodable for OPENPGPKEY {
 
 impl<'r> RecordDataDecodable<'r> for OPENPGPKEY {
     fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let length = decoder.len();
         let public_key =
-            decoder.read_vec(length)?.unverified(/*we do not enforce a specific format*/);
+            decoder.read_vec_to_end().unverified(/*we do not enforce a specific format*/);
         Ok(Self::new(public_key))
     }
 }

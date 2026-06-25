@@ -426,10 +426,8 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
 
         let algorithm: Algorithm = Algorithm::read(decoder)?;
 
-        // the public key is the left-over bytes
-        let key_len = decoder.len();
         let public_key =
-            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+            decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::with_flags(
             flags,
