@@ -358,11 +358,9 @@ impl<'r> RecordDataDecodable<'r> for KEY {
 
         let algorithm: Algorithm = Algorithm::read(decoder)?;
 
-        // the public key is the left-over bytes minus 4 for the first fields
         // TODO: decode the key here?
-        let key_len = decoder.len();
-        let public_key: Vec<u8> =
-            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+        let public_key =
+            decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::new(
             key_trust, key_usage, signatory, protocol, algorithm, public_key,

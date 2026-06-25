@@ -119,9 +119,8 @@ impl<'r> RecordDataDecodable<'r> for CDS {
         let digest_type =
             DigestType::from(decoder.read_u8()?.unverified(/* DigestType is verified as safe */));
 
-        let left = decoder.len();
         let digest =
-            decoder.read_vec(left)?.unverified(/* this is only compared with other digests */);
+            decoder.read_vec_to_end().unverified(/* this is only compared with other digests */);
 
         Ok(Self::new(key_tag, algorithm, digest_type, digest))
     }

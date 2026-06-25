@@ -287,8 +287,7 @@ impl<'r> RecordDataDecodable<'r> for SSHFP {
     fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let algorithm = decoder.read_u8()?.unverified().into();
         let fingerprint_type = decoder.read_u8()?.unverified().into();
-        let fingerprint_len = decoder.len();
-        let fingerprint = decoder.read_vec(fingerprint_len)?.unverified();
+        let fingerprint = decoder.read_vec_to_end().unverified();
         Ok(SSHFP::new(algorithm, fingerprint_type, fingerprint))
     }
 }

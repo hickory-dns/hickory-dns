@@ -126,6 +126,13 @@ impl<'a> BinDecoder<'a> {
         self.read_slice(len).map(|s| s.map(ToOwned::to_owned))
     }
 
+    /// Reads a `Vec<u8>` out of the remaining bytes in the buffer
+    pub fn read_vec_to_end(&mut self) -> Restrict<Vec<u8>> {
+        let vec = self.remaining.to_owned();
+        self.remaining = &[];
+        Restrict::new(vec)
+    }
+
     /// Reads a slice out of the buffer, without allocating
     ///
     /// # Arguments

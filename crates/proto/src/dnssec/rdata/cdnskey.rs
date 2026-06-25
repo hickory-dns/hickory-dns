@@ -157,10 +157,8 @@ impl<'r> RecordDataDecodable<'r> for CDNSKEY {
             _ => Some(Algorithm::from_u8(algorithm_value)),
         };
 
-        // The public key is the remaining bytes
-        let key_len = decoder.len();
         let public_key = decoder
-            .read_vec(key_len)?
+            .read_vec_to_end()
             .unverified(/* signature verification will fail if the public key is invalid */);
 
         Ok(Self::with_flags(flags, algorithm, public_key))

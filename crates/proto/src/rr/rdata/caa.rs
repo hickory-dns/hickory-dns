@@ -699,8 +699,7 @@ impl<'r> RecordDataDecodable<'r> for CAA {
         let tag_len = decoder.read_u8()?;
         let tag = read_tag(decoder, tag_len)?;
 
-        let value_len = decoder.len();
-        let value = decoder.read_vec(value_len)?.unverified(/* stored as uninterpreted data */);
+        let value = decoder.read_vec_to_end().unverified(/* stored as uninterpreted data */);
 
         Ok(CAA {
             issuer_critical,
