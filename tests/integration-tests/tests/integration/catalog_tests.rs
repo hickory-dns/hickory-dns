@@ -822,8 +822,9 @@ async fn test_do_bit_not_reflected_when_not_requested() {
 }
 
 // The DO bit should be reflected in the response when the client
-// set it in the request
+// set it in the request and DNSSEC is enabled
 #[tokio::test]
+#[cfg(feature = "__dnssec")]
 async fn test_do_bit_reflected_when_requested() {
     subscribe();
 
