@@ -87,9 +87,26 @@ impl<T: RequestHandler> Server<T> {
         denied_networks: impl IntoIterator<Item = IpNet>,
         allowed_networks: impl IntoIterator<Item = IpNet>,
     ) -> Self {
+        Self::with_access_strict(handler, denied_networks, allowed_networks, false)
+    }
+
+    /// Creates a new ServerFuture with the specified Handler, denied/allowed networks,
+    /// and strict-allowlist semantics on the access controller.
+    ///
+    /// When `strict_allow` is `true`, a non-empty allow list refuses any source IP
+    /// not explicitly listed regardless of the deny list (firewall-style). When
+    /// `false`, the controller preserves the default carve-out semantics that
+    /// `with_access` has always shipped.
+    pub fn with_access_strict(
+        handler: T,
+        denied_networks: impl IntoIterator<Item = IpNet>,
+        allowed_networks: impl IntoIterator<Item = IpNet>,
+        strict_allow: bool,
+    ) -> Self {
         let mut access = AccessControl::default();
         access.insert_deny(denied_networks);
         access.insert_allow(allowed_networks);
+        access.set_strict_allow(strict_allow);
 
         Self {
             context: Arc::new(ServerContext {
