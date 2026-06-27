@@ -166,7 +166,6 @@ fn no_data_error() -> Result<(), Error> {
 
 /// Based on RFC 4035 section B.6.
 #[test]
-#[ignore = "hickory recursor does not include NSEC record proving wildcard expansion"]
 fn wildcard_expansion() -> Result<(), Error> {
     let network = Network::new()?;
     let leaf_ns = build_zone(&network)?;
