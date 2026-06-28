@@ -142,6 +142,11 @@ pub(crate) struct Config {
     /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
     /// is root, we will attempt to change to this group (or to nobody if no group is specified here.)
     pub group: Option<String>,
+    /// Whether to drop privileges on startup. Defaults to true.
+    /// Set to false in container/namespace environments where
+    /// /etc/passwd is not available.
+    #[serde(default = "default_drop_privileges")]
+    pub(crate) drop_privileges: bool,
     /// List of configurations for zones
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_with_file")]
@@ -240,6 +245,10 @@ impl Default for TcpSocketConfig {
             response_buffer_size: default_tcp_response_buffer_size(),
         }
     }
+}
+
+fn default_drop_privileges() -> bool {
+    true
 }
 
 fn default_tcp_listen_backlog() -> i32 {
