@@ -289,6 +289,7 @@ impl DnsServer {
             user,
             group,
             zones,
+            drop_privileges,
             #[cfg(feature = "__tls")]
             tls_cert,
             #[cfg(feature = "__https")]
@@ -415,12 +416,14 @@ impl DnsServer {
 
         // Drop privileges on Unix systems if running as root.
         #[cfg(target_family = "unix")]
-        check_drop_privs(
-            user.as_deref().unwrap_or(DEFAULT_USER),
-            group.as_deref().unwrap_or(DEFAULT_GROUP),
-        )?;
+        if drop_privileges {
+            check_drop_privs(
+                user.as_deref().unwrap_or(DEFAULT_USER),
+                group.as_deref().unwrap_or(DEFAULT_GROUP),
+            )?;
+        }
         #[cfg(not(target_family = "unix"))]
-        if user.is_some() || group.is_some() {
+        if drop_privileges && (user.is_some() || group.is_some()) {
             return Err("dropping privileges is only supported on Unix systems".to_string());
         }
 
