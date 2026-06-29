@@ -482,21 +482,27 @@ mod tests {
 
     use core::{
         net::{IpAddr, Ipv4Addr, Ipv6Addr},
+        str::FromStr,
         sync::atomic::{AtomicU8, Ordering},
     };
     use std::io;
 
+    use tokio::{net::UdpSocket, select, spawn, sync::oneshot, time::sleep};
+
     use test_support::subscribe;
-    use tokio::time::sleep;
 
     use super::*;
     use crate::{
-        proto::op::ResponseCode,
+        proto::{
+            op::{DnsRequestOptions, Query, ResponseCode},
+            rr::{Name, RData, Record, RecordType, rdata::NULL},
+        },
         runtime::{TokioRuntimeProvider, TokioTime},
         udp::tests::{
             udp_client_stream_bad_id_test, udp_client_stream_empty_question_section_test,
             udp_client_stream_response_limit_test, udp_client_stream_test,
         },
+        xfer::FirstAnswer,
     };
 
     #[tokio::test]
@@ -667,5 +673,81 @@ mod tests {
             sleep(self.delay).await;
             Ok(self.response.clone())
         }
+    }
+
+    /// This tests one DoS variant of the TuDoor attack.
+    ///
+    /// <https://lixiang521.com/publication/oakland24/sp24spring-tudoor-li.pdf>
+    #[tokio::test]
+    #[ignore]
+    async fn test_ignore_invalid_message() {
+        subscribe();
+
+        let provider = TokioRuntimeProvider::new();
+
+        // Set up server.
+        let server_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let server_addr = server_socket.local_addr().unwrap();
+        let (shutdown_sender, mut shutdown_receiver) = oneshot::channel();
+        let server_handle = spawn(async move {
+            loop {
+                let mut buffer = [0u8; 4096];
+                let result = select! {
+                    result = server_socket.recv_from(&mut buffer) => result,
+                    _ = &mut shutdown_receiver => break,
+                };
+                let (len, addr) = result.unwrap();
+
+                let request = Message::from_vec(&buffer[..len]).unwrap();
+
+                // Attacker sends datagrams with invalid DNS packets first.
+                for id in [
+                    request.id ^ 1,
+                    request.id ^ 2,
+                    request.id ^ 4,
+                    request.id ^ 8,
+                ] {
+                    server_socket
+                        .send_to(&id.to_be_bytes(), addr)
+                        .await
+                        .unwrap();
+                }
+
+                // Name server sends honest response next.
+                let query_name = request.queries[0].name.clone();
+                let mut message = request.into_response();
+                message.add_answer(Record::from_rdata(
+                    query_name,
+                    0,
+                    RData::NULL(NULL::with(b"DEADBEEF".to_vec())),
+                ));
+                let bytes = message.to_vec().unwrap();
+                server_socket.send_to(&bytes, addr).await.unwrap();
+            }
+        });
+
+        // Set up client.
+        let mut stream = UdpClientStream::builder(server_addr, provider)
+            .with_timeout(Some(Duration::from_millis(500)))
+            .build();
+
+        let mut query_message = Message::query();
+        query_message.add_query(Query::new(
+            Name::from_str("dead.beef.").unwrap(),
+            RecordType::NULL,
+        ));
+        let response_stream =
+            stream.send_message(DnsRequest::new(query_message, DnsRequestOptions::default()));
+        let response = response_stream
+            .first_answer()
+            .await
+            .expect("failed to read response in the presence of spoofed invalid messages");
+        let RData::NULL(rdata) = &response.answers[0].data else {
+            panic!("unexpected record type: {response:?}");
+        };
+        assert_eq!(rdata.anything, b"DEADBEEF");
+
+        shutdown_sender.send(()).unwrap();
+        server_handle.await.unwrap();
     }
 }
