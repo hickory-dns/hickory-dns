@@ -445,11 +445,10 @@ impl Protocol {
             Self::H3 => true,
         }
     }
-}
 
-impl Display for Protocol {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
+    /// The string name of the protocol.
+    pub fn as_str(&self) -> &'static str {
+        match self {
             Self::Udp => "udp",
             Self::Tcp => "tcp",
             #[cfg(feature = "__tls")]
@@ -459,8 +458,14 @@ impl Display for Protocol {
             #[cfg(feature = "__quic")]
             Self::Quic => "quic",
             #[cfg(feature = "__h3")]
-            Self::H3 => "h3",
-        })
+            Self::H3 => "http3",
+        }
+    }
+}
+
+impl Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 

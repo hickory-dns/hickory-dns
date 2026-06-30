@@ -7,21 +7,37 @@
 
 //! Metrics related to resolver and recursive resolver operations
 
+use std::net::IpAddr;
+
 use metrics::{
-    Counter, Gauge, Histogram, Unit, counter, describe_counter, describe_gauge, describe_histogram,
-    gauge, histogram,
+    Counter, Gauge, Histogram, SharedString, Unit, counter, describe_counter, describe_gauge,
+    describe_histogram, gauge, histogram,
 };
 
+use hickory_net::NetError;
 use hickory_net::xfer::Protocol;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct ResolverMetrics {
     outgoing_queries: ProtocolMetrics,
+    name_server_metrics: NameServerMetrics,
 }
 
 impl ResolverMetrics {
+    pub(crate) fn new(addr: NameServerAddr) -> Self {
+        Self {
+            outgoing_queries: ProtocolMetrics::default(),
+            name_server_metrics: NameServerMetrics::new(addr),
+        }
+    }
+
     pub(crate) fn increment_outgoing_query(&self, proto: &Protocol) {
         self.outgoing_queries.increment(proto);
+    }
+
+    pub(crate) fn increment_query_result(&self, proto: &Protocol, result: Result<(), &NetError>) {
+        self.name_server_metrics
+            .increment_query_result(proto, result);
     }
 }
 
@@ -67,17 +83,66 @@ impl Default for ProtocolMetrics {
 
         let key = "protocol";
         Self {
-            udp: counter!(OUTGOING_QUERIES_TOTAL, key => "udp"),
-            tcp: counter!(OUTGOING_QUERIES_TOTAL, key => "tcp"),
+            udp: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Udp.as_str()),
+            tcp: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Tcp.as_str()),
             #[cfg(feature = "__tls")]
-            tls: counter!(OUTGOING_QUERIES_TOTAL, key => "tls"),
+            tls: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Tls.as_str()),
             #[cfg(feature = "__https")]
-            https: counter!(OUTGOING_QUERIES_TOTAL, key => "https"),
+            https: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Https.as_str()),
             #[cfg(feature = "__quic")]
-            quic: counter!(OUTGOING_QUERIES_TOTAL, key => "quic"),
+            quic: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Quic.as_str()),
             #[cfg(feature = "__h3")]
-            h3: counter!(OUTGOING_QUERIES_TOTAL, key => "http3"),
+            h3: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::H3.as_str()),
         }
+    }
+}
+
+#[derive(Clone)]
+struct NameServerMetrics {
+    addr: SharedString,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) enum NameServerAddr {
+    /// Track queries individually per nameserver IP address.
+    Individual(IpAddr),
+    /// Aggregate query metrics across all nameservers.
+    Aggregated,
+}
+
+impl NameServerMetrics {
+    fn new(addr: NameServerAddr) -> Self {
+        describe_counter!(
+            NAME_SERVER_QUERY_RESPONSES,
+            Unit::Count,
+            "Number of query responses by name server, protocol, and status"
+        );
+
+        Self {
+            addr: match addr {
+                NameServerAddr::Individual(ip) => {
+                    // Using an Arc lets us avoid an allocation in increment_query_result when cloning
+                    // the address string.
+                    SharedString::from_shared(ip.to_string().into())
+                }
+                NameServerAddr::Aggregated => "aggregate".into(),
+            },
+        }
+    }
+
+    pub(crate) fn increment_query_result(&self, proto: &Protocol, result: Result<(), &NetError>) {
+        let status = match result {
+            Ok(()) => "success",
+            Err(err) => err.as_metrics_label(),
+        };
+
+        counter!(
+            NAME_SERVER_QUERY_RESPONSES,
+            "addr" => self.addr.clone(),
+            "protocol" => proto.as_str(),
+            "status" => status
+        )
+        .increment(1);
     }
 }
 
@@ -146,6 +211,9 @@ pub const CACHE_MISS_DURATION: &str = "hickory_resolver_cache_miss_duration_seco
 
 /// Number of entries in the resolver response cache.
 pub const RESPONSE_CACHE_SIZE: &str = "hickory_resolver_response_cache_size";
+
+/// Number of queries responses by name server, protocol, and status.
+pub const NAME_SERVER_QUERY_RESPONSES: &str = "hickory_resolver_name_server_query_responses_total";
 
 /// Metrics for the optional recursive resolver feature
 #[cfg(feature = "recursor")]

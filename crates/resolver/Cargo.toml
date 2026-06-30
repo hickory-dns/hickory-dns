@@ -53,7 +53,7 @@ toml = ["dep:toml"]
 
 tokio = ["dep:tokio", "tokio/rt", "hickory-net/tokio"]
 
-metrics = ["dep:metrics"]
+metrics = ["dep:metrics", "hickory-net/metrics"]
 
 [dependencies]
 async-recursion = { workspace = true, optional = true }
