@@ -67,16 +67,16 @@ impl Default for ProtocolMetrics {
 
         let key = "protocol";
         Self {
-            udp: counter!(OUTGOING_QUERIES_TOTAL, key => "udp"),
-            tcp: counter!(OUTGOING_QUERIES_TOTAL, key => "tcp"),
+            udp: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Udp.as_str()),
+            tcp: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Tcp.as_str()),
             #[cfg(feature = "__tls")]
-            tls: counter!(OUTGOING_QUERIES_TOTAL, key => "tls"),
+            tls: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Tls.as_str()),
             #[cfg(feature = "__https")]
-            https: counter!(OUTGOING_QUERIES_TOTAL, key => "https"),
+            https: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Https.as_str()),
             #[cfg(feature = "__quic")]
-            quic: counter!(OUTGOING_QUERIES_TOTAL, key => "quic"),
+            quic: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::Quic.as_str()),
             #[cfg(feature = "__h3")]
-            h3: counter!(OUTGOING_QUERIES_TOTAL, key => "http3"),
+            h3: counter!(OUTGOING_QUERIES_TOTAL, key => Protocol::H3.as_str()),
         }
     }
 }
