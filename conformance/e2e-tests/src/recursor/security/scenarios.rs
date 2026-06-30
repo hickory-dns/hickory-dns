@@ -57,7 +57,12 @@ fn tx_id_validation_test() -> Result<(), Error> {
         Err(e) => panic!("error {e:?} resolver logs: {}", resolver.logs().unwrap()),
     }
 
-    assert!(resolver.logs().unwrap().contains("expected message id:"));
+    assert!(
+        resolver
+            .logs()
+            .unwrap()
+            .contains("ignoring response with wrong message id")
+    );
 
     Ok(())
 }
