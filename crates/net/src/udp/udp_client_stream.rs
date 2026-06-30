@@ -216,8 +216,9 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
         );
         let mut recv_buf = vec![0; self.recv_buf_size];
 
-        // Try to process up to 3 responses
-        for _ in 0..3 {
+        // Wait until we receive a response to our query. Note that outer layers are responsible for
+        // retries and timeouts.
+        loop {
             let (len, src) = socket.recv_from(&mut recv_buf).await?;
 
             // Copy the slice of read bytes.
@@ -227,7 +228,13 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             // compare expected src to received packet
             let request_target = msg.addr();
 
-            // Comparing the IP and Port directly as internal information about the link is stored with the IpAddr, see https://github.com/hickory-dns/hickory-dns/issues/2081
+            // We need to check the source port and the message ID before doing anything else,
+            // including fallible message parsing. These two checks are our first screens against
+            // spoofed requests, accounting for about 32 bits of entropy. Any code path that would
+            // break out of the receive loop earlier would allow for a low-effort DoS attack.
+            //
+            // Compare the IP and port directly, as internal information about the link may be
+            // stored in the SocketAddr. See https://github.com/hickory-dns/hickory-dns/issues/2081.
             if src.ip().to_canonical() != request_target.ip().to_canonical()
                 || src.port() != request_target.port()
             {
@@ -243,19 +250,27 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
                 continue;
             }
 
-            let mut response = DnsResponse::from_buffer(response_buffer)?;
+            // Parse the message ID.
+            let Some(id_bytes) = response_buffer.first_chunk::<2>() else {
+                warn!(length = response_buffer.len(), "ignoring short message");
+                continue;
+            };
+            let response_id = u16::from_be_bytes(*id_bytes);
 
             // Validate the message id in the response matches the value chosen for the query.
-            if msg_id != response.id {
+            if msg_id != response_id {
                 // on wrong id, attempted poison?
                 warn!(
-                    "expected message id: {} got: {}, dropped",
-                    msg_id, response.id
+                    expected_id = msg_id,
+                    received_id = response_id,
+                    "ignoring response with wrong message id",
                 );
 
                 // await an answer with the correct message id
                 continue;
             }
+
+            let mut response = DnsResponse::from_buffer(response_buffer)?;
 
             // Validate the returned query name.
             //
@@ -328,8 +343,6 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             }
             return Ok(response);
         }
-
-        Err(NetError::from("udp receive attempts exceeded"))
     }
 }
 
@@ -500,7 +513,7 @@ mod tests {
         runtime::{TokioRuntimeProvider, TokioTime},
         udp::tests::{
             udp_client_stream_bad_id_test, udp_client_stream_empty_question_section_test,
-            udp_client_stream_response_limit_test, udp_client_stream_test,
+            udp_client_stream_test,
         },
         xfer::FirstAnswer,
     };
@@ -516,16 +529,6 @@ mod tests {
         subscribe();
         udp_client_stream_bad_id_test(IpAddr::V4(Ipv4Addr::LOCALHOST), TokioRuntimeProvider::new())
             .await;
-    }
-
-    #[tokio::test]
-    async fn test_udp_client_stream_ipv4_resp_limit() {
-        subscribe();
-        udp_client_stream_response_limit_test(
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            TokioRuntimeProvider::new(),
-        )
-        .await;
     }
 
     #[tokio::test]
@@ -552,16 +555,6 @@ mod tests {
     async fn test_udp_client_stream_ipv6_bad_id() {
         subscribe();
         udp_client_stream_bad_id_test(
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            TokioRuntimeProvider::new(),
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_udp_client_stream_ipv6_resp_limit() {
-        subscribe();
-        udp_client_stream_response_limit_test(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             TokioRuntimeProvider::new(),
         )
@@ -679,7 +672,6 @@ mod tests {
     ///
     /// <https://lixiang521.com/publication/oakland24/sp24spring-tudoor-li.pdf>
     #[tokio::test]
-    #[ignore]
     async fn test_ignore_invalid_message() {
         subscribe();
 
