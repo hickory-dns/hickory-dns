@@ -21,10 +21,7 @@ use crate::{
     error::ProtoResult,
     rr::{Name, RecordData, RecordDataDecodable, RecordType, record_data::RData},
     serialize::{
-        binary::{
-            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
-            Restrict, RestrictedMath,
-        },
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding},
         txt::ParseError,
     },
 };
@@ -407,7 +404,7 @@ impl BinEncodable for DNSKEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for DNSKEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
         let _protocol: u8 = decoder
@@ -429,16 +426,8 @@ impl<'r> RecordDataDecodable<'r> for DNSKEY {
 
         let algorithm: Algorithm = Algorithm::read(decoder)?;
 
-        // the public key is the left-over bytes minus 4 for the first fields
-        //   this sub is safe, as the first 4 fields must have been in the rdata, otherwise there would have been
-        //   an earlier return.
-        let key_len = length
-        .map(|u| u as usize)
-        .checked_sub(4)
-        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 4, len })?
-        .unverified(/*used only as length safely*/);
         let public_key =
-            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+            decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::with_flags(
             flags,
@@ -570,7 +559,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = DNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = DNSKEY::read_data(&mut decoder);
         let read_rdata = read_rdata.expect("error decoding");
 
         assert_eq!(rdata, read_rdata);
@@ -597,8 +586,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder = BinDecoder::new(bytes);
-        let read_rdata = DNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("error decoding");
+        let read_rdata = DNSKEY::read_data(&mut decoder).expect("error decoding");
 
         assert_eq!(rdata, read_rdata);
     }

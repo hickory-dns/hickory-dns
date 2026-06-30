@@ -117,7 +117,7 @@ impl BinEncodable for RecordTypeSet {
 }
 
 impl RecordDataDecodable<'_> for RecordTypeSet {
-    fn read_data(decoder: &mut BinDecoder<'_>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
         // 3.2.1.  Type Bit Maps Encoding
         //
         //  The encoding of the Type Bit Maps field is the same as that used by
@@ -167,8 +167,7 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
         let mut state = BitMapReadState::Window;
 
         // loop through all the bytes in the bitmap
-        let bit_map_len = length.unverified();
-        let bytes = decoder.read_vec(bit_map_len as usize)?.unverified();
+        let bytes = decoder.read_vec_to_end().unverified();
         for current_byte in bytes.iter() {
             state = match state {
                 BitMapReadState::Window => BitMapReadState::Len {
@@ -277,9 +276,7 @@ mod tests {
         let bytes = encoder.into_bytes();
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_bit_map =
-            RecordTypeSet::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_bit_map = RecordTypeSet::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(types, read_bit_map);
     }
 }

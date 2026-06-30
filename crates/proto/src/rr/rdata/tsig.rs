@@ -30,7 +30,7 @@ use crate::{
     },
     serialize::binary::{
         BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding,
-        RDataEncoding, Restrict, RestrictedMath,
+        RDataEncoding,
     },
 };
 
@@ -386,11 +386,13 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
     ///  /                                                               /
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let end_idx = length.map(|rdl| rdl as usize)
-        .checked_add(decoder.index())
-        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: decoder.index(), len })? // no legal message is long enough to trigger that
-        .unverified(/*used only as length safely*/);
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        let end_idx = decoder.len().checked_add(decoder.index()).ok_or_else(||
+            // no legal message is long enough to trigger this
+            DecodeError::IncorrectRDataLengthRead {
+                read: decoder.index(),
+                len: decoder.index(),
+            })?;
 
         let algorithm = TsigAlgorithm::read(decoder)?;
         let time_high = decoder.read_u16()?.unverified(/*valid as any u16*/) as u64;
@@ -852,8 +854,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = TSIG::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("failed to read back");
+        let read_rdata = TSIG::read_data(&mut decoder).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

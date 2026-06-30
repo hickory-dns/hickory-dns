@@ -126,6 +126,13 @@ impl<'a> BinDecoder<'a> {
         self.read_slice(len).map(|s| s.map(ToOwned::to_owned))
     }
 
+    /// Reads a `Vec<u8>` out of the remaining bytes in the buffer
+    pub fn read_vec_to_end(&mut self) -> Restrict<Vec<u8>> {
+        let vec = self.remaining.to_owned();
+        self.remaining = &[];
+        Restrict::new(vec)
+    }
+
     /// Reads a slice out of the buffer, without allocating
     ///
     /// # Arguments
@@ -142,6 +149,30 @@ impl<'a> BinDecoder<'a> {
         let (read, remaining) = self.remaining.split_at(len);
         self.remaining = remaining;
         Ok(Restrict::new(read))
+    }
+
+    /// Reads a [BinDecoder] out of the buffer, without allocating, and advances past it
+    ///
+    /// # Arguments
+    ///
+    /// * `length` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The [BinDecoder] of the specified length, otherwise an error
+    pub fn split_off(&mut self, length: usize) -> Result<Self, DecodeError> {
+        let Some((read, remaining)) = self.remaining.split_at_checked(length) else {
+            return Err(DecodeError::InsufficientBytes);
+        };
+
+        let decoder = Self {
+            buffer: &self.buffer[..self.index() + length],
+            remaining: read,
+        };
+
+        self.remaining = remaining;
+
+        Ok(decoder)
     }
 
     /// Reads a slice from a previous index to the current

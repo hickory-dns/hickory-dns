@@ -19,8 +19,7 @@ use crate::{
     error::{ProtoError, ProtoResult},
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordSet, RecordType, SerialNumber},
     serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding, Restrict,
-        RestrictedMath,
+        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
     },
 };
 
@@ -257,9 +256,7 @@ impl BinEncodable for SIG {
 }
 
 impl<'r> RecordDataDecodable<'r> for SIG {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let start_idx = decoder.index();
-
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // TODO should we verify here? or elsewhere...
         let type_covered = RecordType::read(decoder)?;
         let algorithm = Algorithm::read(decoder)?;
@@ -285,15 +282,10 @@ impl<'r> RecordDataDecodable<'r> for SIG {
             signer_name,
         };
 
-        // read the signature, this will vary buy key size
-        let sig_len = length
-        .map(|u| u as usize)
-        .checked_sub(decoder.index() - start_idx)
-        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: decoder.index() - start_idx, len })?
-        .unverified(/*used only as length safely*/);
+        // read the signature, this will vary by key size
         let sig = decoder
-        .read_vec(sig_len)?
-        .unverified(/*will fail in usage if invalid*/);
+            .read_vec_to_end()
+            .unverified(/*will fail in usage if invalid*/);
         Ok(Self { input, sig })
     }
 }
@@ -477,8 +469,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = SIG::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = SIG::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

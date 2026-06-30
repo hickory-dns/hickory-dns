@@ -17,9 +17,7 @@ use crate::{
     dnssec::{Algorithm, PublicKeyBuf},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{
-        BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
-    },
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 use super::DNSSECRData;
@@ -144,7 +142,7 @@ impl BinEncodable for CDNSKEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for CDNSKEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let flags = decoder.read_u16()?.unverified(/* used as a bitfield, this is safe */);
 
         // protocol is defined to only be '3' right now
@@ -159,16 +157,8 @@ impl<'r> RecordDataDecodable<'r> for CDNSKEY {
             _ => Some(Algorithm::from_u8(algorithm_value)),
         };
 
-        // The public key is the remaining bytes, excluding the first four bytes for the above
-        // fields. This subtraction is safe, as the first three fields must have been in the RDATA,
-        // otherwise there would have been an earlier return.
-        let key_len = length
-            .map(|u| u as usize)
-            .checked_sub(4)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 4, len })?
-            .unverified(/* used only as length safely */);
         let public_key = decoder
-            .read_vec(key_len)?
+            .read_vec_to_end()
             .unverified(/* signature verification will fail if the public key is invalid */);
 
         Ok(Self::with_flags(flags, algorithm, public_key))
@@ -214,7 +204,7 @@ mod tests {
     use crate::{
         dnssec::Algorithm,
         rr::RecordDataDecodable,
-        serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+        serialize::binary::{BinDecoder, BinEncodable, BinEncoder},
     };
 
     use super::CDNSKEY;
@@ -237,8 +227,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder = BinDecoder::new(bytes);
-        let read_rdata = CDNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("error decoding");
+        let read_rdata = CDNSKEY::read_data(&mut decoder).expect("error decoding");
 
         assert_eq!(rdata, read_rdata);
     }
@@ -255,8 +244,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder = BinDecoder::new(bytes);
-        let read_rdata = CDNSKEY::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("error decoding");
+        let read_rdata = CDNSKEY::read_data(&mut decoder).expect("error decoding");
 
         assert_eq!(rdata, read_rdata);
     }

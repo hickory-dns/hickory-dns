@@ -29,10 +29,7 @@ use crate::{
         rdata::{A, AAAA},
     },
     serialize::{
-        binary::{
-            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
-            Restrict, RestrictedMath,
-        },
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
         txt::{Lexer, ParseError, Token},
     },
 };
@@ -1179,8 +1176,7 @@ impl<'r> BinDecodable<'r> for EchConfigList {
     /// Base 64 is used here to simplify integration with TLS server software.
     /// To enable simpler parsing, this SvcParam MUST NOT contain escape sequences.
     fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let data =
-            decoder.read_vec(decoder.len())?.unverified(/*up to consumer to validate this data*/);
+        let data = decoder.read_vec_to_end().unverified(/*up to consumer to validate this data*/);
 
         Ok(Self(data))
     }
@@ -1423,27 +1419,14 @@ impl RecordDataDecodable<'_> for SVCB {
     ///   If any RRs are malformed, the client MUST reject the entire RRSet and
     ///   fall back to non-SVCB connection establishment.
     /// ```
-    fn read_data(
-        decoder: &mut BinDecoder<'_>,
-        rdata_length: Restrict<u16>,
-    ) -> Result<Self, DecodeError> {
-        let start_index = decoder.index();
-
+    fn read_data(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
         let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
         let target_name = Name::read(decoder)?;
 
-        let mut remainder_len = rdata_length
-            .map(|len| len as usize)
-            .checked_sub(decoder.index() - start_index)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                read: decoder.index() - start_index,
-                len,
-            })?
-            .unverified(); // valid len
         let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
 
         // must have at least 4 bytes left for the key and the length
-        while remainder_len >= 4 {
+        while decoder.len() >= 4 {
             // a 2 octet field containing the SvcParamKey as an integer in
             //      network byte order.  (See Section 14.3.2 for the defined values.)
             let key = SvcParamKey::read(decoder)?;
@@ -1460,14 +1443,6 @@ impl RecordDataDecodable<'_> for SVCB {
             }
 
             svc_params.push((key, value));
-            remainder_len = rdata_length
-                .map(|len| len as usize)
-                .checked_sub(decoder.index() - start_index)
-                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                    read: decoder.index() - start_index,
-                    len,
-                })?
-                .unverified(); // valid len
         }
 
         Ok(Self {
@@ -1567,8 +1542,7 @@ mod tests {
         let bytes = encoder.into_bytes();
 
         let mut decoder = BinDecoder::new(bytes);
-        let read_rdata = SVCB::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("failed to read back");
+        let read_rdata = SVCB::read_data(&mut decoder).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -1663,11 +1637,7 @@ mod tests {
         svcb.emit(&mut encoder).unwrap();
 
         let mut decoder = BinDecoder::new(&buf);
-        let decoded = SVCB::read_data(
-            &mut decoder,
-            Restrict::new(u16::try_from(buf.len()).unwrap()),
-        )
-        .unwrap();
+        let decoded = SVCB::read_data(&mut decoder).unwrap();
 
         assert_eq!(svcb, decoded);
     }

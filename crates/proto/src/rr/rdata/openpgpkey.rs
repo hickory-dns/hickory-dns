@@ -16,7 +16,7 @@ use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::{
-        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict},
+        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
         txt::ParseError,
     },
 };
@@ -81,10 +81,9 @@ impl BinEncodable for OPENPGPKEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for OPENPGPKEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let rdata_length = length.map(usize::from).unverified();
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let public_key =
-            decoder.read_vec(rdata_length)?.unverified(/*we do not enforce a specific format*/);
+            decoder.read_vec_to_end().unverified(/*we do not enforce a specific format*/);
         Ok(Self::new(public_key))
     }
 }

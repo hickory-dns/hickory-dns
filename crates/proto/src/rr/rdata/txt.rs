@@ -106,17 +106,10 @@ impl BinEncodable for TXT {
 }
 
 impl RecordDataDecodable<'_> for TXT {
-    fn read_data(
-        decoder: &mut BinDecoder<'_>,
-        rdata_length: Restrict<u16>,
-    ) -> Result<Self, DecodeError> {
-        let data_len = decoder.len();
+    fn read_data(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
         let mut strings = Vec::with_capacity(1);
 
-        // no unsafe usage of rdata length after this point
-        let rdata_length =
-            rdata_length.map(|u| u as usize).unverified(/*used as a higher bound, safely*/);
-        while data_len - decoder.len() < rdata_length {
+        while !decoder.is_empty() {
             let string = decoder.read_character_data()?.unverified(/*any data should be validate in TXT usage*/);
             strings.push(string.to_vec().into_boxed_slice());
         }
@@ -198,8 +191,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = TXT::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = TXT::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -217,8 +209,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = TXT::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = TXT::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

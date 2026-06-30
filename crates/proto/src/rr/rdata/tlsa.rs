@@ -18,7 +18,7 @@ use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::{
-        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath},
+        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
         txt::ParseError,
     },
 };
@@ -452,21 +452,13 @@ impl RecordDataDecodable<'_> for TLSA {
     ///    /                                                               /
     ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
-    fn read_data(
-        decoder: &mut BinDecoder<'_>,
-        rdata_length: Restrict<u16>,
-    ) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'_>) -> Result<Self, DecodeError> {
         let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
         let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
         let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
 
         // the remaining data is for the cert
-        let cert_len = rdata_length
-        .map(|u| u as usize)
-        .checked_sub(3)
-        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 3, len })?
-        .unverified(/*used purely as length safely*/);
-        let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
+        let cert_data = decoder.read_vec_to_end().unverified(/*will fail in usage if invalid*/);
 
         Ok(Self {
             cert_usage,
@@ -629,8 +621,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = TLSA::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("failed to read back");
+        let read_rdata = TLSA::read_data(&mut decoder).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

@@ -690,26 +690,16 @@ impl<'r> RecordDataDecodable<'r> for CAA {
     /// The length of the Value field is specified implicitly as the
     /// remaining length of the enclosing RDATA section.
     /// ```
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let flags = decoder.read_u8()?.unverified(/*used as bitfield*/);
 
         let issuer_critical = (flags & 0b1000_0000) != 0;
         let reserved_flags = flags & 0b0111_1111;
 
         let tag_len = decoder.read_u8()?;
-        let value_len = length
-            .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
-            .checked_sub(2)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                read: len as usize,
-                len: u16::from(tag_len.unverified(/*safe usage here*/)) as usize + 2,
-            })?
-            .unverified(/* used only as length safely */);
-
         let tag = read_tag(decoder, tag_len)?;
 
-        let value =
-            decoder.read_vec(value_len as usize)?.unverified(/* stored as uninterpreted data */);
+        let value = decoder.read_vec_to_end().unverified(/* stored as uninterpreted data */);
 
         Ok(CAA {
             issuer_critical,
@@ -881,8 +871,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = CAA::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("failed to read back");
+        let read_rdata = CAA::read_data(&mut decoder).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -1086,7 +1075,7 @@ mod tests {
         ];
 
         let mut decoder = BinDecoder::new(MESSAGE);
-        let caa = CAA::read_data(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap();
+        let caa = CAA::read_data(&mut decoder).unwrap();
         assert!(!caa.issuer_critical);
         assert_eq!(caa.tag, "issue");
         match (caa.value_as_issue(), caa.value_as_iodef()) {
@@ -1099,20 +1088,12 @@ mod tests {
     #[test]
     fn test_name_non_ascii_character_escaped_dots_roundtrip() {
         const MESSAGE: &[u8] = b"\x00\x05issue\xe5\x85\x9edomain\\.\\.name";
-        let caa = CAA::read_data(
-            &mut BinDecoder::new(MESSAGE),
-            Restrict::new(u16::try_from(MESSAGE.len()).unwrap()),
-        )
-        .unwrap();
+        let caa = CAA::read_data(&mut BinDecoder::new(MESSAGE)).unwrap();
 
         let mut encoded = Vec::new();
         caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();
 
-        let caa_round_trip = CAA::read_data(
-            &mut BinDecoder::new(&encoded),
-            Restrict::new(u16::try_from(encoded.len()).unwrap()),
-        )
-        .unwrap();
+        let caa_round_trip = CAA::read_data(&mut BinDecoder::new(&encoded)).unwrap();
 
         assert_eq!(caa, caa_round_trip);
     }
@@ -1122,11 +1103,7 @@ mod tests {
         let mut original = *b"\x00\x05issueexample.com";
         for flags in 0..=u8::MAX {
             original[0] = flags;
-            let caa = CAA::read_data(
-                &mut BinDecoder::new(&original),
-                Restrict::new(u16::try_from(original.len()).unwrap()),
-            )
-            .unwrap();
+            let caa = CAA::read_data(&mut BinDecoder::new(&original)).unwrap();
 
             let mut encoded = Vec::new();
             caa.emit(&mut BinEncoder::new(&mut encoded)).unwrap();

@@ -792,6 +792,79 @@ fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
     Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap()
 }
 
+// The DO bit should not be reflected in the response if the client did
+// not set it in the request
+#[tokio::test]
+async fn test_do_bit_not_reflected_when_not_requested() {
+    subscribe();
+
+    let mem_handler = create_test();
+    let origin = mem_handler.origin().clone();
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
+
+    let mut question_edns = Edns::new();
+    question_edns.set_dnssec_ok(false);
+    let request = test_edns_request(origin, question_edns);
+
+    let response_handler = TestResponseHandler::new();
+    let _ = catalog
+        .handle_request::<_, TokioTime>(&request, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+
+    let edns = response.edns.as_ref().expect("missing response EDNS");
+    assert!(
+        !edns.flags().dnssec_ok,
+        "server reflected the DO bit even though the client did not request it"
+    );
+}
+
+// The DO bit should be reflected in the response when the client
+// set it in the request and DNSSEC is enabled
+#[tokio::test]
+#[cfg(feature = "__dnssec")]
+async fn test_do_bit_reflected_when_requested() {
+    subscribe();
+
+    let mem_handler = create_test();
+    let origin = mem_handler.origin().clone();
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
+
+    let mut question_edns = Edns::new();
+    question_edns.set_dnssec_ok(true);
+    let request = test_edns_request(origin, question_edns);
+
+    let response_handler = TestResponseHandler::new();
+    let _ = catalog
+        .handle_request::<_, TokioTime>(&request, response_handler.clone())
+        .await;
+    let response = response_handler.into_message().await;
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+
+    let edns = response.edns.as_ref().expect("missing response EDNS");
+    assert!(
+        edns.flags().dnssec_ok,
+        "server lacks the DO bit even though the client requested it"
+    );
+}
+
+/// Build an `A` query for `origin` carrying the given EDNS options.
+fn test_edns_request(origin: LowerName, edns: Edns) -> Request {
+    let mut query = Query::root();
+    query.set_name(origin.into());
+    query.set_query_type(RecordType::A);
+
+    let mut question = Message::query();
+    question.add_query(query);
+    question.set_edns(edns);
+
+    let question_bytes = question.to_bytes().unwrap();
+    Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap()
+}
+
 // TODO: add this test
 // #[test]
 // fn test_truncated_returns_records() {

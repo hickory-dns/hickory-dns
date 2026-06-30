@@ -22,10 +22,7 @@ use crate::{
     error::ProtoResult,
     rr::{Name, RData, RecordData, RecordDataDecodable, RecordType},
     serialize::{
-        binary::{
-            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict,
-            RestrictedMath,
-        },
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
         txt::ParseError,
     },
 };
@@ -290,22 +287,14 @@ impl BinEncodable for DS {
 }
 
 impl<'r> RecordDataDecodable<'r> for DS {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let start_idx = decoder.index();
-
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
         let algorithm: Algorithm = Algorithm::read(decoder)?;
         let digest_type =
             DigestType::from(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/));
 
-        let bytes_read = decoder.index() - start_idx;
-        let left: usize = length
-        .map(|u| u as usize)
-        .checked_sub(bytes_read)
-        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: bytes_read, len })?
-        .unverified(/*used only as length safely*/);
         let digest =
-            decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);
+            decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::new(key_tag, algorithm, digest_type, digest))
     }
@@ -478,8 +467,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = DS::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = DS::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 

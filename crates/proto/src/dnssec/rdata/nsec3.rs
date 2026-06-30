@@ -300,9 +300,7 @@ impl BinEncodable for NSEC3 {
 }
 
 impl<'r> RecordDataDecodable<'r> for NSEC3 {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let start_idx = decoder.index();
-
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let hash_algorithm = Nsec3HashAlgorithm::try_from(
             decoder.read_u8()?.unverified(/*Algorithm verified as safe*/),
         )?;
@@ -316,19 +314,11 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
 
         // read the salt
         let salt_len = decoder.read_u8()?.map(|u| u as usize);
-        let salt_len_max = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                read: decoder.index() - start_idx,
-                len,
-            })?;
+        let salt_len_max = decoder.len();
         let salt_len = salt_len
-            .verify_unwrap(|salt_len| {
-                *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/)
-            })
+            .verify_unwrap(|salt_len| *salt_len <= salt_len_max)
             .map_err(|salt_len| DecodeError::IncorrectRDataLengthRead {
-                read: salt_len_max.unverified(/*safe in error context*/),
+                read: salt_len_max,
                 len: salt_len,
             })?;
         let salt: Vec<u8> =
@@ -336,39 +326,18 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
 
         // read the hashed_owner_name
         let hash_len = decoder.read_u8()?.map(|u| u as usize);
-        let hash_len_max = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                read: decoder.index() - start_idx,
-                len,
-            })?;
+        let hash_len_max = decoder.len();
         let hash_len = hash_len
-            .verify_unwrap(|hash_len| {
-                *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/)
-            })
+            .verify_unwrap(|hash_len| *hash_len <= hash_len_max)
             .map_err(|hash_len| DecodeError::IncorrectRDataLengthRead {
-                read: hash_len_max.unverified(/*safe in error context*/),
+                read: hash_len_max,
                 len: hash_len,
             })?;
         let next_hashed_owner_name: Vec<u8> =
             decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 
         // read the bitmap
-        let offset = u16::try_from(decoder.index() - start_idx).map_err(|_| {
-            DecodeError::IncorrectRDataLengthRead {
-                read: decoder.index() - start_idx,
-                len: u16::MAX as usize,
-            }
-        })?;
-        let bit_map_len =
-            length
-                .checked_sub(offset)
-                .map_err(|len| DecodeError::IncorrectRDataLengthRead {
-                    read: offset as usize,
-                    len: len as usize,
-                })?;
-        let record_types = RecordTypeSet::read_data(decoder, bit_map_len)?;
+        let record_types = RecordTypeSet::read_data(decoder)?;
 
         Ok(Self::with_record_type_set(
             hash_algorithm,
@@ -534,8 +503,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = NSEC3::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = NSEC3::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -578,8 +546,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = NSEC3::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = NSEC3::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata_wo, read_rdata);
     }
 }

@@ -21,7 +21,7 @@ use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::{
-        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath},
+        binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
         txt::ParseError,
     },
 };
@@ -284,15 +284,10 @@ impl BinEncodable for SSHFP {
 }
 
 impl<'r> RecordDataDecodable<'r> for SSHFP {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let algorithm = decoder.read_u8()?.unverified().into();
         let fingerprint_type = decoder.read_u8()?.unverified().into();
-        let fingerprint_len = length
-            .map(|l| l as usize)
-            .checked_sub(2)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 2, len })?
-            .unverified();
-        let fingerprint = decoder.read_vec(fingerprint_len)?.unverified();
+        let fingerprint = decoder.read_vec_to_end().unverified();
         Ok(SSHFP::new(algorithm, fingerprint_type, fingerprint))
     }
 }
@@ -387,8 +382,7 @@ mod tests {
         assert_eq!(bytes, &result);
 
         let mut decoder = BinDecoder::new(result);
-        let read_rdata = SSHFP::read_data(&mut decoder, Restrict::new(result.len() as u16))
-            .expect("failed to read SSHFP");
+        let read_rdata = SSHFP::read_data(&mut decoder).expect("failed to read SSHFP");
         assert_eq!(read_rdata, rdata)
     }
 

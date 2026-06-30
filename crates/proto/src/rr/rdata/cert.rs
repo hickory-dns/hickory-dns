@@ -18,10 +18,7 @@ use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
     serialize::{
-        binary::{
-            BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding,
-            Restrict, RestrictedMath,
-        },
+        binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
         txt::ParseError,
     },
 };
@@ -489,8 +486,7 @@ impl TryFrom<&[u8]> for CERT {
 
     fn try_from(cert_record: &[u8]) -> Result<Self, Self::Error> {
         let mut decoder = BinDecoder::new(cert_record);
-        let length = Restrict::new(cert_record.len() as u16); // You can use the full length here
-        Self::read_data(&mut decoder, length) // Reuse the read_data method for parsing
+        Self::read_data(&mut decoder) // Reuse the read_data method for parsing
     }
 }
 
@@ -507,9 +503,8 @@ impl BinEncodable for CERT {
 }
 
 impl<'r> RecordDataDecodable<'r> for CERT {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let rdata_length = length.map(|u| u as usize).unverified(/*used only as length safely*/);
-
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        let rdata_length = decoder.len();
         if rdata_length <= 5 {
             return Err(DecodeError::IncorrectRDataLengthRead {
                 read: rdata_length,
@@ -517,20 +512,12 @@ impl<'r> RecordDataDecodable<'r> for CERT {
             });
         }
 
-        let start_idx = decoder.index();
-
         // let cert_type = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let cert_type = CertType::read(decoder)?;
         let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let algorithm = Algorithm::read(decoder)?;
 
-        let cert_len = length
-            .map(|u| u as usize)
-            .checked_sub(decoder.index() - start_idx)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: decoder.index() - start_idx, len })?
-            .unverified(/*used only as length safely*/);
-
-        let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
+        let cert_data = decoder.read_vec_to_end().unverified(/*will fail in usage if invalid*/);
 
         Ok(Self {
             cert_type,

@@ -78,7 +78,8 @@ impl RequestHandler for Catalog {
             // check our version against the request
             // TODO: what version are we?
             let our_version = 0;
-            resp_edns.set_dnssec_ok(true);
+            #[cfg(feature = "__dnssec")]
+            resp_edns.set_dnssec_ok(req_edns.flags().dnssec_ok);
             resp_edns.set_max_payload(req_edns.max_payload().max(512));
             resp_edns.set_version(our_version);
 

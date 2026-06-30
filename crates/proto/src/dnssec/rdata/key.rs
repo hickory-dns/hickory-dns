@@ -19,9 +19,7 @@ use crate::{
     dnssec::{Algorithm, PublicKey, Verifier, crypto::decode_public_key},
     error::ProtoResult,
     rr::{RecordData, RecordDataDecodable, RecordType, record_data::RData},
-    serialize::binary::{
-        BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
-    },
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3), Domain Name System Security Extensions, March 1999
@@ -330,7 +328,7 @@ impl BinEncodable for KEY {
 }
 
 impl<'r> RecordDataDecodable<'r> for KEY {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
         //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
         //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
@@ -360,15 +358,9 @@ impl<'r> RecordDataDecodable<'r> for KEY {
 
         let algorithm: Algorithm = Algorithm::read(decoder)?;
 
-        // the public key is the left-over bytes minus 4 for the first fields
         // TODO: decode the key here?
-        let key_len = length
-        .map(|u| u as usize)
-        .checked_sub(4)
-        .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: 4, len })?
-        .unverified(/*used only as length safely*/);
-        let public_key: Vec<u8> =
-            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+        let public_key =
+            decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
         Ok(Self::new(
             key_trust, key_usage, signatory, protocol, algorithm, public_key,
@@ -860,8 +852,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = KEY::read_data(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata = KEY::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
         // assert!(rdata
         //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),

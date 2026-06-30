@@ -17,9 +17,7 @@ use crate::{
     dnssec::{Algorithm, DigestType},
     error::ProtoResult,
     rr::{RData, RecordData, RecordDataDecodable, RecordType},
-    serialize::binary::{
-        BinDecoder, BinEncodable, BinEncoder, DecodeError, Restrict, RestrictedMath,
-    },
+    serialize::binary::{BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
 
 use super::DNSSECRData;
@@ -109,9 +107,7 @@ impl BinEncodable for CDS {
 }
 
 impl<'r> RecordDataDecodable<'r> for CDS {
-    fn read_data(decoder: &mut BinDecoder<'r>, length: Restrict<u16>) -> Result<Self, DecodeError> {
-        let start_idx = decoder.index();
-
+    fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         let key_tag = decoder.read_u16()?.unverified(/* any u16 is a valid key_tag */);
 
         let algorithm_value = decoder.read_u8()?.unverified(/* no further validation required */);
@@ -123,14 +119,8 @@ impl<'r> RecordDataDecodable<'r> for CDS {
         let digest_type =
             DigestType::from(decoder.read_u8()?.unverified(/* DigestType is verified as safe */));
 
-        let bytes_read = decoder.index() - start_idx;
-        let left = length
-            .map(|u| u as usize)
-            .checked_sub(bytes_read)
-            .map_err(|len| DecodeError::IncorrectRDataLengthRead { read: bytes_read, len })?
-            .unverified(/* used only as length safely */);
         let digest =
-            decoder.read_vec(left)?.unverified(/* this is only compared with other digests */);
+            decoder.read_vec_to_end().unverified(/* this is only compared with other digests */);
 
         Ok(Self::new(key_tag, algorithm, digest_type, digest))
     }
@@ -176,7 +166,7 @@ mod tests {
     use crate::{
         dnssec::{Algorithm, DigestType},
         rr::RecordDataDecodable,
-        serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict},
+        serialize::binary::{BinDecoder, BinEncodable, BinEncoder},
     };
 
     use super::CDS;
@@ -198,8 +188,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder = BinDecoder::new(bytes);
-        let read_rdata = CDS::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("error decoding");
+        let read_rdata = CDS::read_data(&mut decoder).expect("error decoding");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -215,8 +204,7 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder = BinDecoder::new(bytes);
-        let read_rdata = CDS::read_data(&mut decoder, Restrict::new(bytes.len() as u16))
-            .expect("error decoding");
+        let read_rdata = CDS::read_data(&mut decoder).expect("error decoding");
         assert_eq!(rdata, read_rdata);
     }
 }
