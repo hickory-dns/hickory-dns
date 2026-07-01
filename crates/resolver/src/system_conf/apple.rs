@@ -35,7 +35,14 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
     let mut nameservers = Vec::with_capacity(nameservers_cf.len() as usize);
     for n in &*nameservers_cf {
         let s = Cow::from(&*n);
-        let addr = match IpAddr::from_str(&s) {
+        // macOS reports link-local nameservers with a zone id (e.g. `fe80::1%en0`),
+        // which `IpAddr::from_str` cannot parse. Strip the zone and keep the base
+        // address, matching the `resolv.conf` path (see `resolv_conf::ScopedIp`).
+        let stripped = match s.split_once('%') {
+            Some((addr, _zone)) => addr,
+            None => &*s,
+        };
+        let addr = match IpAddr::from_str(stripped) {
             Ok(addr) => addr,
             Err(e) => {
                 warn!(
