@@ -254,14 +254,18 @@ pub fn test_cname_alias(handler: impl ZoneHandler) {
         .0
         .unwrap();
 
-    let additionals = lookup.additionals().expect("no additionals in response");
+    // CNAME chasing should place both the CNAME and the target A record in the
+    // answer section, with no additionals.
+    assert!(
+        lookup.additionals().is_none(),
+        "CNAME chase should not produce additionals"
+    );
 
-    // for cname lookups, we have a cname returned in the answer, the catalog will perform additional lookups
-    let cname = lookup
-        .into_iter()
+    let mut answers = lookup.into_iter();
+
+    let cname = answers
         .next()
         .expect("CNAME record not found in zone handler");
-
     match &cname.data {
         RData::CNAME(cname) => {
             assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0)
@@ -269,8 +273,7 @@ pub fn test_cname_alias(handler: impl ZoneHandler) {
         _ => panic!("wrong rdata type returned"),
     }
 
-    // assert the A record is in the additionals section
-    let a = additionals.into_iter().next().expect("A record not found");
+    let a = answers.next().expect("A record not found in answer");
     match a.data {
         RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), a),
         _ => panic!("wrong rdata type returned"),
@@ -295,14 +298,19 @@ pub fn test_cname_chain(handler: impl ZoneHandler) {
         .0
         .unwrap();
 
-    let additionals = lookup.additionals().expect("no additionals in response");
+    // CNAME chasing should place the full chain in the answer section, with no
+    // additionals.
+    assert!(
+        lookup.additionals().is_none(),
+        "CNAME chase should not produce additionals"
+    );
 
-    // for cname lookups, we have a cname returned in the answer, the catalog will perform additional lookups
-    let cname = lookup
-        .into_iter()
+    let mut answers = lookup.into_iter();
+
+    // first CNAME: alias-chain -> alias
+    let cname = answers
         .next()
         .expect("CNAME record not found in zone handler");
-
     match &cname.data {
         RData::CNAME(cname) => {
             assert_eq!(Name::from_str("alias.example.com.").unwrap(), cname.0);
@@ -310,10 +318,8 @@ pub fn test_cname_chain(handler: impl ZoneHandler) {
         _ => panic!("wrong rdata type returned"),
     }
 
-    // assert the A record is in the additionals section
-    let mut additionals = additionals.into_iter();
-
-    let cname = additionals.next().expect("CNAME record not found");
+    // second CNAME: alias -> www
+    let cname = answers.next().expect("second CNAME record not found");
     match &cname.data {
         RData::CNAME(cname) => {
             assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
@@ -321,7 +327,8 @@ pub fn test_cname_chain(handler: impl ZoneHandler) {
         _ => panic!("wrong rdata type returned"),
     }
 
-    let a = additionals.next().expect("A record not found");
+    // terminal A record
+    let a = answers.next().expect("A record not found");
     match a.data {
         RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), a),
         _ => panic!("wrong rdata type returned"),
@@ -715,14 +722,17 @@ pub fn test_wildcard_chain(handler: impl ZoneHandler) {
         .0
         .expect("lookup of www.wildcard.example.com. failed");
 
-    // the name should match the lookup, not the A records
-    let additionals = lookup.additionals().expect("no additionals");
+    // CNAME chasing puts the full chain in the answer section
+    assert!(
+        lookup.additionals().is_none(),
+        "CNAME chase should not produce additionals"
+    );
 
-    let record = lookup
-        .into_iter()
+    let mut answers = lookup.into_iter();
+
+    let record = answers
         .next()
         .expect("CNAME record not found in zone handler");
-
     match &record.data {
         RData::CNAME(cname) => {
             assert_eq!(Name::from_str("www.example.com.").unwrap(), cname.0);
@@ -730,8 +740,7 @@ pub fn test_wildcard_chain(handler: impl ZoneHandler) {
         _ => panic!("wrong rdata type returned"),
     }
 
-    let mut additionals = additionals.into_iter();
-    let a = additionals.next().expect("A record not found");
+    let a = answers.next().expect("A record not found in answer");
     match a.data {
         RData::A(a) => assert_eq!(A4::new(127, 0, 0, 1), a),
         _ => panic!("wrong rdata type returned"),
