@@ -14,7 +14,10 @@ use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, trace, warn};
 
-use super::{DnssecPolicy, RecursorError, RecursorOptions, error::AuthorityData, is_subzone};
+use super::{
+    DnssecPolicy, QnameMinimization, RecursorError, RecursorOptions, error::AuthorityData,
+    is_subzone,
+};
 #[cfg(feature = "metrics")]
 use crate::metrics::recursor::RecursorMetrics;
 #[cfg(feature = "__dnssec")]
@@ -53,6 +56,7 @@ pub(crate) struct RecursorDnsHandle<P: ConnectionProvider> {
     connection_cache: Arc<Mutex<LruCache<IpAddr, Arc<NameServer<P>>>>>,
     request_options: DnsRequestOptions,
     ttl_config: TtlConfig,
+    qname_minimization: QnameMinimization,
 }
 
 impl<P: ConnectionProvider> RecursorDnsHandle<P> {
@@ -85,6 +89,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             case_randomization,
             opportunistic_encryption,
             edns_payload_len,
+            qname_minimization,
         } = options;
 
         let avoid_local_udp_ports = Arc::new(avoid_local_udp_ports);
@@ -151,6 +156,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             connection_cache: Arc::new(Mutex::new(LruCache::new(ns_cache_size))),
             request_options,
             ttl_config: cache_policy.clone(),
+            qname_minimization,
         })
     }
 
@@ -534,7 +540,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             let response = match lookup_res {
                 Ok(response) => response,
                 // Short-circuit on NXDOMAIN, per RFC 8020.
-                Err(e) if e.is_nx_domain() => return Err(e),
+                // RFC 9156 also describe a relaxed mode where RFC 8020 is not enforced.
+                Err(e)
+                    if e.is_nx_domain() && self.qname_minimization == QnameMinimization::Strict =>
+                {
+                    return Err(e);
+                }
                 // Short-circuit on timeouts. Requesting a longer name from the same pool would likely
                 // encounter them again.
                 Err(e) if e.is_timeout() => return Err(e),
