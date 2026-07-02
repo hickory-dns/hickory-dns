@@ -188,6 +188,7 @@ pub use hosts::Hosts;
 pub mod lookup;
 pub mod lookup_ip;
 mod name_server;
+pub use name_server::ConnectionPolicy;
 pub use name_server::NameServer;
 mod name_server_pool;
 #[cfg(all(feature = "toml", any(feature = "__tls", feature = "__quic")))]
