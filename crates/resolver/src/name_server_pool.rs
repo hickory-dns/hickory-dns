@@ -276,8 +276,9 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
         }
 
-        // Spread the leading servers across distinct providers so a single
-        // provider outage doesn't consume the entire parallel batch.
+        // Spread the leading servers across distinct providers and address
+        // families so a single provider outage or a broken path for one IP
+        // family doesn't consume the entire parallel batch.
         if self.cx.options.num_concurrent_reqs > 1 {
             diversify_batch(&mut servers, self.cx.options.num_concurrent_reqs);
         }
@@ -455,24 +456,37 @@ pub(crate) fn sort_servers_by_query_statistics<P: ConnectionProvider>(
     servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
 }
 
-/// Reorders the first `count` entries of `servers` so they come from distinct
-/// providers where possible, preserving the existing order otherwise.
+/// Reorders the first `count` entries of `servers` so they span distinct
+/// providers and address families where possible, preserving the existing
+/// order otherwise.
 ///
-/// For each leading slot, the next server whose provider (identified by TLS
-/// server name) is not already among the preceding servers is rotated forward.
-/// Servers without a server name (plain UDP/TCP) never conflict. The rest of
-/// the list is left untouched.
+/// For each leading slot, the next server that introduces both a provider
+/// (identified by TLS server name) and an address family not already among the
+/// preceding servers is rotated forward; failing that, one with a new provider,
+/// then one with a new address family. Servers without a server name (plain
+/// UDP/TCP) never conflict on provider. The rest of the list is left untouched.
 fn diversify_batch<P: ConnectionProvider>(servers: &mut [Arc<NameServer<P>>], count: usize) {
     for slot in 1..count.min(servers.len()) {
         let (picked, rest) = servers.split_at(slot);
-        let Some(found) = rest.iter().position(|server| {
+        let new_provider = |server: &Arc<NameServer<P>>| {
             server.provider().is_none_or(|name| {
                 !picked.iter().any(|seen| {
                     seen.provider()
                         .is_some_and(|other| other.eq_ignore_ascii_case(name))
                 })
             })
-        }) else {
+        };
+        let new_family = |server: &Arc<NameServer<P>>| {
+            !picked
+                .iter()
+                .any(|seen| seen.ip().is_ipv6() == server.ip().is_ipv6())
+        };
+        let Some(found) = rest
+            .iter()
+            .position(|server| new_provider(server) && new_family(server))
+            .or_else(|| rest.iter().position(new_provider))
+            .or_else(|| rest.iter().position(new_family))
+        else {
             break;
         };
         servers[slot..=slot + found].rotate_right(1);
@@ -1049,6 +1063,33 @@ mod tests {
         assert_eq!(
             servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
             [a1, b1, a2]
+        );
+    }
+
+    /// Servers sharing an address family are pushed apart so the parallel batch
+    /// spans both IPv4 and IPv6 when possible.
+    #[test]
+    fn diversify_across_ip_families() {
+        subscribe();
+
+        let v4a = IpAddr::from([10, 0, 0, 1]);
+        let v4b = IpAddr::from([10, 0, 0, 2]);
+        let v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [v4a, v4b, v6]
+            .map(|ip| {
+                Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::udp(ip),
+                    &ResolverOpts::default(),
+                    provider.clone(),
+                ))
+            })
+            .to_vec();
+        diversify_batch(&mut servers, 2);
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [v4a, v6, v4b]
         );
     }
 
