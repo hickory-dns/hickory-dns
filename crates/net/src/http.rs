@@ -8,7 +8,6 @@
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
 use core::str::FromStr;
-use std::fmt::Debug;
 use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
@@ -161,14 +160,14 @@ pub fn verify<T>(
 }
 
 /// Fetch the body of the request from the stream
-pub(crate) async fn fetch_body(
-    mut request_stream: impl Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
+pub(crate) async fn fetch_body<E: Into<NetError>>(
+    mut stream: impl Stream<Item = Result<Bytes, E>> + Unpin,
     length: Option<usize>,
 ) -> Result<BytesMut, NetError> {
     let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4_096));
 
     loop {
-        match request_stream.next().await {
+        match stream.next().await {
             Some(Ok(mut frame)) => bytes.extend_from_slice(&frame.split_off(0)),
             Some(Err(err)) => return Err(err.into()),
             None => match length {
