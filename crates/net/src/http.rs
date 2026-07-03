@@ -10,7 +10,7 @@
 use core::str::FromStr;
 use std::sync::Arc;
 
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use futures_util::{Stream, StreamExt};
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, uri};
@@ -160,17 +160,17 @@ pub fn verify<T>(
 }
 
 /// Fetch the body of the request from the stream
-pub(crate) async fn fetch_body<E: Into<NetError>>(
-    mut stream: impl Stream<Item = Result<Bytes, E>> + Unpin,
+pub async fn fetch_body<E: Into<NetError>>(
+    mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
     length: Option<usize>,
 ) -> Result<BytesMut, NetError> {
     let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4_096));
 
     loop {
         match stream.next().await {
-            Some(Ok(mut frame)) => match bytes.len() + frame.len() > MAX_REQUEST_SIZE {
+            Some(Ok(frame)) => match bytes.len() + frame.remaining() > MAX_REQUEST_SIZE {
                 true => return Err(NetError::RequestTooLarge),
-                false => bytes.extend_from_slice(&frame.split_off(0)),
+                false => bytes.put(frame),
             },
             Some(Err(err)) => return Err(err.into()),
             None => match length {
