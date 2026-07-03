@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::{Buf, Bytes, BytesMut};
-use futures_util::stream::{Stream, StreamExt};
+use futures_util::stream::Stream;
 use h2::client::SendRequest;
 use http::header::{self, CONTENT_LENGTH};
 use http::{Method, Request};
@@ -29,7 +29,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version};
+use crate::http::{RequestContext, SetHeaders, Version, message_from_post};
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -437,43 +437,6 @@ where
         Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),
         Method::POST => message_from_post(request.into_body(), content_length).await,
         _ => Err(format!("bad method: {}", request.method()).into()),
-    }
-}
-
-/// Deserialize the message from a POST message
-pub(crate) async fn message_from_post<R>(
-    mut request_stream: R,
-    length: Option<usize>,
-) -> Result<BytesMut, NetError>
-where
-    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
-{
-    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4_096));
-
-    loop {
-        match request_stream.next().await {
-            Some(Ok(mut frame)) => bytes.extend_from_slice(&frame.split_off(0)),
-            Some(Err(err)) => return Err(err.into()),
-            None => {
-                return if let Some(length) = length {
-                    // wait until we have all the bytes
-                    if bytes.len() == length {
-                        Ok(bytes)
-                    } else {
-                        Err("not all bytes received".into())
-                    }
-                } else {
-                    Ok(bytes)
-                };
-            }
-        };
-
-        if let Some(length) = length {
-            // wait until we have all the bytes
-            if bytes.len() == length {
-                return Ok(bytes);
-            }
-        }
     }
 }
 
