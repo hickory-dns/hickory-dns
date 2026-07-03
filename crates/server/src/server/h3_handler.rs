@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, task::Context};
 
 use bytes::{Buf, Bytes};
 use futures_util::lock::Mutex;
@@ -22,8 +22,11 @@ use super::{
 use crate::{
     net::{
         NetError,
-        h3::h3_server::{H3Connection, H3Server},
-        http::{self, Version},
+        h3::{
+            BodyStream,
+            h3_server::{H3Connection, H3Server},
+        },
+        http::{self, Version, fetch_body},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -127,14 +130,11 @@ pub(crate) async fn h3_handler(
             },
         };
 
-        let request = match stream
-            .recv_data()
-            .await
-            .map_err(|e| NetError::from(format!("h3 stream receive data failed: {e}")))?
-        {
-            Some(mut request) => request.copy_to_bytes(request.remaining()),
-            None => continue,
-        };
+        let request = fetch_body(
+            BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
+            None,
+        )
+        .await?;
 
         debug!(
             "Received bytes {} from {src_addr} {request:?}",
@@ -145,7 +145,7 @@ pub(crate) async fn h3_handler(
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
         tokio::spawn(async move {
-            cx.handle_request(request, src_addr, Protocol::H3, responder)
+            cx.handle_request(request.freeze(), src_addr, Protocol::H3, responder)
                 .await
         });
 
