@@ -29,7 +29,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version, message_from_post};
+use crate::http::{RequestContext, SetHeaders, Version, fetch_body};
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -449,7 +449,7 @@ where
 
     match *request.method() {
         Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),
-        Method::POST => message_from_post(request.into_body(), content_length).await,
+        Method::POST => fetch_body(request.into_body(), content_length).await,
         _ => Err(format!("bad method: {}", request.method()).into()),
     }
 }
