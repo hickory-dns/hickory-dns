@@ -342,38 +342,8 @@ async fn send(
         .transpose()
         .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
 
-    // TODO: what is a good max here?
-    // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-    // just a little protection from malicious actors.
-    let mut response_bytes =
-        BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
-
-    while let Some(partial_bytes) = response_stream.body_mut().data().await {
-        let partial_bytes =
-            partial_bytes.map_err(|e| NetError::from(format!("bad http request: {e}")))?;
-
-        debug!("got bytes: {}", partial_bytes.len());
-        response_bytes.extend(partial_bytes);
-
-        // assert the length
-        if let Some(content_length) = content_length {
-            if response_bytes.len() >= content_length {
-                break;
-            }
-        }
-    }
-
-    // assert the length
-    if let Some(content_length) = content_length {
-        if response_bytes.len() != content_length {
-            // TODO: make explicit error type
-            return Err(NetError::from(format!(
-                "expected byte length: {}, got: {}",
-                content_length,
-                response_bytes.len()
-            )));
-        }
-    }
+    // read the response body
+    let response_bytes = fetch_body(response_stream.body_mut(), content_length).await?;
 
     // Was it a successful request?
     if !response_stream.status().is_success() {
