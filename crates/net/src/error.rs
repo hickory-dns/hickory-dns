@@ -82,6 +82,11 @@ pub enum NetError {
     #[error("io error: {0}")]
     Io(Arc<io::Error>),
 
+    /// A request was too large
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("request too large")]
+    RequestTooLarge,
+
     /// A request timed out
     #[error("request timed out")]
     Timeout,
@@ -273,6 +278,8 @@ impl NetError {
                     _ => "io_unknown",
                 }
             }
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::RequestTooLarge => "request_too_large",
             Self::Timeout => "timeout",
             #[cfg(feature = "__quic")]
             Self::QuinnConnect(_) => "quic_connect",
