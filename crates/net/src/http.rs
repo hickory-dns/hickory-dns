@@ -8,8 +8,11 @@
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
 use core::str::FromStr;
+use std::fmt::Debug;
 use std::sync::Arc;
 
+use bytes::{Bytes, BytesMut};
+use futures_util::{Stream, StreamExt};
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, uri};
 use tracing::debug;
@@ -155,6 +158,40 @@ pub fn verify<T>(
     );
 
     Ok(())
+}
+
+/// Deserialize the message from a POST message
+pub(crate) async fn message_from_post(
+    mut request_stream: impl Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
+    length: Option<usize>,
+) -> Result<BytesMut, NetError> {
+    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4_096));
+
+    loop {
+        match request_stream.next().await {
+            Some(Ok(mut frame)) => bytes.extend_from_slice(&frame.split_off(0)),
+            Some(Err(err)) => return Err(err.into()),
+            None => {
+                return if let Some(length) = length {
+                    // wait until we have all the bytes
+                    if bytes.len() == length {
+                        Ok(bytes)
+                    } else {
+                        Err("not all bytes received".into())
+                    }
+                } else {
+                    Ok(bytes)
+                };
+            }
+        };
+
+        if let Some(length) = length {
+            // wait until we have all the bytes
+            if bytes.len() == length {
+                return Ok(bytes);
+            }
+        }
+    }
 }
 
 /// Create a new Response for an http dns-message request
