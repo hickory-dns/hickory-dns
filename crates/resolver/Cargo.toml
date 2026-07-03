@@ -47,7 +47,17 @@ __dnssec = []
 recursor = ["dep:async-recursion", "dep:lru-cache"]
 
 serde = ["dep:serde", "hickory-proto/serde"]
-system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
+
+system-config = [
+  "dep:ipconfig",
+  "dep:system-configuration",
+  "dep:jni",
+  "dep:ndk-context",
+]
+
+system-config-resolv-conf = [
+  "system-config",
+]
 
 toml = ["dep:toml"]
 
@@ -72,7 +82,7 @@ quinn = { workspace = true, optional = true, features = [
     "runtime-tokio",
 ] }
 rand.workspace = true
-resolv-conf = { workspace = true, optional = true, features = ["system"] }
+resolv-conf = { workspace = true }
 rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 smallvec.workspace = true
@@ -138,4 +148,11 @@ workspace = true
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
 max_combination_size = 2
-denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]
+denylist = [
+  "__tls",
+  "__https",
+  "__quic",
+  "__h3",
+  "__dnssec",
+  "system-config-resolv-conf",
+]
