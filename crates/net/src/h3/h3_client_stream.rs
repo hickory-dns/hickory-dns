@@ -67,21 +67,15 @@ impl H3ClientStream {
         cx: Arc<RequestContext>,
     ) -> Result<DnsResponse, NetError> {
         // build up the http request
-        let request = cx
-            .build(message.remaining())
-            .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
-
+        let request = cx.build(message.remaining())?;
         debug!("request: {:#?}", request);
 
         // Send the request
         let mut stream = h3.send_request(request).await?;
-
         stream.send_data(message).await?;
-
         stream.finish().await?;
 
         let response = stream.recv_response().await?;
-
         debug!("got response: {:#?}", response);
 
         // get the length of packet
