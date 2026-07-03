@@ -171,18 +171,11 @@ pub(crate) async fn fetch_body(
         match request_stream.next().await {
             Some(Ok(mut frame)) => bytes.extend_from_slice(&frame.split_off(0)),
             Some(Err(err)) => return Err(err.into()),
-            None => {
-                return if let Some(length) = length {
-                    // wait until we have all the bytes
-                    if bytes.len() == length {
-                        Ok(bytes)
-                    } else {
-                        Err("not all bytes received".into())
-                    }
-                } else {
-                    Ok(bytes)
-                };
-            }
+            None => match length {
+                Some(length) if bytes.len() == length => return Ok(bytes),
+                Some(_) => return Err("not all bytes received".into()),
+                None => return Ok(bytes),
+            },
         };
 
         if let Some(length) = length {
