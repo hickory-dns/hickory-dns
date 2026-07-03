@@ -89,6 +89,11 @@ pub enum NetError {
     #[error("JNI error: {0}")]
     Jni(Arc<dyn Error + Send + Sync>),
 
+    /// A request was too large
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("request too large")]
+    RequestTooLarge,
+
     /// A request timed out
     #[error("request timed out")]
     Timeout,
@@ -282,6 +287,8 @@ impl NetError {
             }
             #[cfg(target_os = "android")]
             Self::Jni(_) => "jni",
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::RequestTooLarge => "request_too_large",
             Self::Timeout => "timeout",
             #[cfg(feature = "__quic")]
             Self::QuinnConnect(_) => "quic_connect",
