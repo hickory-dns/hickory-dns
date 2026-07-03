@@ -14,7 +14,7 @@ use core::task::{Context, Poll};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, Bytes};
 use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
@@ -24,8 +24,9 @@ use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
+use super::{ALPN_H3, BodyStream};
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version};
+use crate::http::{RequestContext, SetHeaders, Version, fetch_body};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
@@ -33,8 +34,6 @@ use crate::runtime::{RuntimeProvider, Spawn};
 use crate::tls::client_config;
 use crate::udp::UdpSocket;
 use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
-
-use super::ALPN_H3;
 
 /// A DNS client connection for DNS-over-HTTP/3
 #[derive(Clone)]
@@ -95,41 +94,13 @@ impl H3ClientStream {
             .transpose()
             .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
 
-        // TODO: what is a good max here?
-        // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-        // just a little protection from malicious actors.
-        let mut response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4_096));
-
-        while let Some(partial_bytes) = stream
-            .recv_data()
-            .await
-            .map_err(|e| NetError::from(format!("h3 recv_data error: {e}")))?
-        {
-            debug!("got bytes: {}", partial_bytes.remaining());
-            response_bytes.put(partial_bytes);
-
-            // assert the length
-            if let Some(content_length) = content_length {
-                if response_bytes.len() >= content_length {
-                    break;
-                }
-            }
-        }
-
-        // assert the length
-        if let Some(content_length) = content_length {
-            if response_bytes.len() != content_length {
-                // TODO: make explicit error type
-                return Err(NetError::from(format!(
-                    "expected byte length: {}, got: {}",
-                    content_length,
-                    response_bytes.len()
-                )));
-            }
-        }
-
         // Was it a successful request?
+        let response_bytes = fetch_body(
+            BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
+            content_length,
+        )
+        .await?;
+
         if !response.status().is_success() {
             let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
@@ -139,30 +110,27 @@ impl H3ClientStream {
                 response.status(),
                 error_string
             )));
-        } else {
-            // verify content type
-            {
-                // in the case that the ContentType is not specified, we assume it's the standard DNS format
-                let content_type = response
-                    .headers()
-                    .get(header::CONTENT_TYPE)
-                    .map(|h| {
-                        h.to_str().map_err(|err| {
-                            // TODO: make explicit error type
-                            NetError::from(format!("ContentType header not a string: {err}"))
-                        })
-                    })
-                    .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
+        }
 
-                if content_type != crate::http::MIME_APPLICATION_DNS {
-                    return Err(NetError::from(format!(
-                        "ContentType unsupported (must be '{}'): '{}'",
-                        crate::http::MIME_APPLICATION_DNS,
-                        content_type
-                    )));
-                }
-            }
-        };
+        // in the case that the ContentType is not specified, we assume it's the standard DNS format
+        let content_type = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .map(|h| {
+                h.to_str().map_err(|err| {
+                    // TODO: make explicit error type
+                    NetError::from(format!("ContentType header not a string: {err}"))
+                })
+            })
+            .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
+
+        if content_type != crate::http::MIME_APPLICATION_DNS {
+            return Err(NetError::from(format!(
+                "ContentType unsupported (must be '{}'): '{}'",
+                crate::http::MIME_APPLICATION_DNS,
+                content_type
+            )));
+        }
 
         // and finally convert the bytes into a DNS message
         DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
