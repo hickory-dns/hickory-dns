@@ -160,8 +160,8 @@ pub fn verify<T>(
     Ok(())
 }
 
-/// Deserialize the message from a POST message
-pub(crate) async fn message_from_post(
+/// Fetch the body of the request from the stream
+pub(crate) async fn fetch_body(
     mut request_stream: impl Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
     length: Option<usize>,
 ) -> Result<BytesMut, NetError> {
