@@ -168,7 +168,10 @@ pub(crate) async fn fetch_body<E: Into<NetError>>(
 
     loop {
         match stream.next().await {
-            Some(Ok(mut frame)) => bytes.extend_from_slice(&frame.split_off(0)),
+            Some(Ok(mut frame)) => match bytes.len() + frame.len() > MAX_REQUEST_SIZE {
+                true => return Err(NetError::RequestTooLarge),
+                false => bytes.extend_from_slice(&frame.split_off(0)),
+            },
             Some(Err(err)) => return Err(err.into()),
             None => match length {
                 Some(length) if bytes.len() == length => return Ok(bytes),
@@ -185,6 +188,8 @@ pub(crate) async fn fetch_body<E: Into<NetError>>(
         }
     }
 }
+
+const MAX_REQUEST_SIZE: usize = u16::MAX as usize;
 
 /// Create a new Response for an http dns-message request
 ///
@@ -261,6 +266,8 @@ pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
 
 #[cfg(test)]
 mod tests {
+    use bytes::Bytes;
+    use futures_util::stream;
     use http::{
         HeaderMap,
         header::{HeaderName, HeaderValue},
@@ -352,5 +359,64 @@ mod tests {
             }
             Ok(())
         }
+    }
+
+    #[tokio::test]
+    async fn fetch_body_accumulates_chunks() {
+        let mut body = chunks(&[512, 512, 200]);
+        let bytes = fetch_body(&mut body, None).await.unwrap();
+        assert_eq!(bytes.len(), 1224);
+    }
+
+    #[tokio::test]
+    async fn fetch_body_stops_at_content_length() {
+        // more data arrives than we were told to expect; we should stop once satisfied
+        let mut body = chunks(&[512, 512]);
+        let bytes = fetch_body(&mut body, Some(512)).await.unwrap();
+        assert_eq!(bytes.len(), 512);
+    }
+
+    #[tokio::test]
+    async fn fetch_body_short_body_errors() {
+        let mut body = chunks(&[512]);
+        assert!(fetch_body(&mut body, Some(1024)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn fetch_body_single_oversized_chunk() {
+        // a single chunk exceeding the limit is rejected without being buffered
+        let mut body = chunks(&[MAX_REQUEST_SIZE + 1]);
+        assert!(matches!(
+            fetch_body(&mut body, None).await,
+            Err(NetError::RequestTooLarge)
+        ));
+    }
+
+    #[tokio::test]
+    async fn fetch_body_accumulated_oversize_rejected() {
+        // no single chunk is too large, but together they exceed the limit
+        let half = MAX_REQUEST_SIZE / 2 + 1;
+        let mut body = chunks(&[half, half]);
+        assert!(matches!(
+            fetch_body(&mut body, None).await,
+            Err(NetError::RequestTooLarge)
+        ));
+    }
+
+    #[tokio::test]
+    async fn fetch_body_at_limit_ok() {
+        // a body exactly at the limit is still accepted
+        let mut body = chunks(&[MAX_REQUEST_SIZE]);
+        let bytes = fetch_body(&mut body, None).await.unwrap();
+        assert_eq!(bytes.len(), MAX_REQUEST_SIZE);
+    }
+
+    fn chunks(lengths: &[usize]) -> impl Stream<Item = Result<Bytes, NetError>> + Unpin {
+        stream::iter(
+            lengths
+                .iter()
+                .map(|&len| Ok(Bytes::from(vec![0u8; len])))
+                .collect::<Vec<_>>(),
+        )
     }
 }
