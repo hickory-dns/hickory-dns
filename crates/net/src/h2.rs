@@ -302,15 +302,12 @@ async fn send(
     let mut h2 = h2.ready().await?;
 
     // build up the http request
-    let request = cx
-        .build(message.remaining())
-        .map_err(|err| NetError::from(format!("bad http request: {err}")))?;
+    let request = cx.build(message.remaining())?;
 
     debug!("request: {:#?}", request);
 
     // Send the request
     let (response_future, mut send_stream) = h2.send_request(request, false)?;
-
     send_stream.send_data(message, true)?;
 
     let mut response_stream = response_future.await?;
