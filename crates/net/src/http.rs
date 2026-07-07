@@ -165,7 +165,6 @@ pub async fn fetch_body<E: Into<NetError>>(
     length: Option<usize>,
 ) -> Result<BytesMut, NetError> {
     let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4_096));
-
     loop {
         match stream.next().await {
             Some(Ok(frame)) => match bytes.len() + frame.remaining() > MAX_REQUEST_SIZE {
@@ -175,17 +174,10 @@ pub async fn fetch_body<E: Into<NetError>>(
             Some(Err(err)) => return Err(err.into()),
             None => match length {
                 Some(length) if bytes.len() == length => return Ok(bytes),
-                Some(_) => return Err("not all bytes received".into()),
+                Some(_) => return Err("body size does not match expected content-length".into()),
                 None => return Ok(bytes),
             },
         };
-
-        if let Some(length) = length {
-            // wait until we have all the bytes
-            if bytes.len() == length {
-                return Ok(bytes);
-            }
-        }
     }
 }
 
@@ -370,10 +362,8 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_body_stops_at_content_length() {
-        // more data arrives than we were told to expect; we should stop once satisfied
         let mut body = chunks(&[512, 512]);
-        let bytes = fetch_body(&mut body, Some(512)).await.unwrap();
-        assert_eq!(bytes.len(), 512);
+        assert!(fetch_body(&mut body, Some(512)).await.is_err());
     }
 
     #[tokio::test]
