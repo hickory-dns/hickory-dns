@@ -1945,7 +1945,10 @@ const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
 
 #[cfg(test)]
 mod test {
-    use std::time::{Duration, Instant};
+    use std::{
+        net::Ipv4Addr,
+        time::{Duration, Instant},
+    };
 
     use super::{find_nsec_covering_record, no_closer_matches, verify_nsec};
     use crate::{
@@ -3016,5 +3019,110 @@ mod test {
         assert!(find_nsec_covering_record(&wildcard, &nsecs).is_none());
 
         Ok(())
+    }
+
+    /// Regression test for GHSA-896p-wpw8-vf4r.
+    ///
+    /// This scenario involves a parent zone with a wildcard record, a child zone with a wildcard
+    /// record, and a network attacker that combines records retrieved from both name servers. The
+    /// response claims to be a wildcard expansion of the parent zone's wildcard record, for a query
+    /// that should instead have its response expanded from the child zone's wildcard record. It
+    /// includes the NSEC record from the parent that is at the delegation point to the child zone.
+    /// The issue was that the verifier accepted this NSEC record as a purported proof the child
+    /// zone's wildcard record doesn't exist, though it can't prove anything about names directly
+    /// descended from the delegation point.
+    ///
+    /// Parent zone:
+    ///
+    /// ```text
+    /// com. SOA ...
+    /// com. NS ...
+    /// com. NSEC *.com. NS SOA RRSIG NSEC
+    /// com. RRSIG SOA ...
+    /// com. RRSIG NS ...
+    /// com. RRSIG NSEC ...
+    /// *.com. A 192.0.2.1
+    /// *.com. NSEC example.com. A RRSIG NSEC
+    /// *.com. RRSIG A ...
+    /// *.com. RRSIG NSEC ...
+    /// example.com. NS ...
+    /// example.com. DS ...
+    /// example.com. NSEC foobar.com. NS DS RRSIG NSEC
+    /// example.com. RRSIG DS ...
+    /// example.com. RRSIG NSEC ...
+    /// foobar.com. NS ...
+    /// foobar.com. NSEC com. NS RRSIG NSEC
+    /// foobar.com. RRSIG NSEC ...
+    /// ```
+    ///
+    /// Child zone:
+    ///
+    /// ```text
+    /// example.com. SOA ...
+    /// example.com. NS ...
+    /// example.com. NSEC *.example.com. NS SOA RRSIG NSEC
+    /// example.com. RRSIG SOA ...
+    /// example.com. RRSIG NSEC ...
+    /// *.example.com. A 192.0.2.2
+    /// *.example.com. NSEC example.com. A RRSIG NSEC
+    /// *.example.com. RRSIG A ...
+    /// *.example.com. RRSIG NSEC ...
+    /// ```
+    #[test]
+    fn nsec_invalid_wildcard_expansion_parent_nsec_record() -> Result<(), ProtoError> {
+        subscribe();
+
+        let parent_zone = Name::parse("com.", None)?;
+        let child_zone = Name::parse("example.com.", None)?;
+        let qname = Name::parse("www.example.com.", None)?;
+        let query = Query::query(qname.clone(), A);
+        let answers = [
+            mark_secure(Record::from_rdata(
+                qname.clone(),
+                0,
+                RData::A(Ipv4Addr::new(192, 0, 2, 1).into()),
+            )),
+            mark_secure(Record::from_rdata(
+                qname.clone(),
+                0,
+                RData::DNSSEC(DNSSECRData::RRSIG(rdataRRSIG::from_sig(
+                    SigInput {
+                        type_covered: A,
+                        algorithm: Algorithm::ECDSAP256SHA256,
+                        num_labels: 1, // expanded from *.com.
+                        original_ttl: 0,
+                        sig_expiration: 0.into(),
+                        sig_inception: 0.into(),
+                        key_tag: 0,
+                        signer_name: parent_zone.clone(),
+                    },
+                    Vec::new(),
+                ))),
+            )),
+        ];
+        // Both of these NSEC records are taken from the parent zone.
+        let nsecs = [
+            // Matching record for com.
+            (
+                &parent_zone,
+                &rdataNSEC::new(Name::parse("*.com.", None)?, [NS, SOA, RRSIG, NSEC]),
+            ),
+            // Bogus proof of nonexistence of *.example.com.
+            (
+                &child_zone,
+                &rdataNSEC::new(Name::parse("foobar.com.", None)?, [NS, DS, RRSIG, NSEC]),
+            ),
+        ];
+
+        let result = verify_nsec(&query, None, ResponseCode::NoError, &answers, &nsecs);
+        assert_eq!(result, Proof::Bogus);
+
+        Ok(())
+    }
+
+    /// Set the proof on a record to Secure and return it.
+    fn mark_secure(mut record: Record) -> Record {
+        record.proof = Proof::Secure;
+        record
     }
 }
