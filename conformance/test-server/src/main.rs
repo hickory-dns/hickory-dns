@@ -59,6 +59,13 @@ async fn main() -> Result<()> {
             count,
         )),
         HandlerArg::WrongRrset => Arc::new(handlers::wrong_rrset_handler),
+        HandlerArg::ForgedDelegation {
+            ip_address,
+            zone,
+            nameserver,
+        } => Arc::new(handlers::ForgedDelegationHandler::new(
+            ip_address, zone, nameserver,
+        )),
     };
 
     let mut handles = vec![];
@@ -125,6 +132,11 @@ enum HandlerArg {
         count: u32,
     },
     WrongRrset,
+    ForgedDelegation {
+        ip_address: IpAddr,
+        zone: Name,
+        nameserver: Name,
+    },
 }
 
 struct UdpServer {
