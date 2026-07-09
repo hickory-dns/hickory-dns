@@ -181,8 +181,8 @@ impl fmt::Display for HINFO {
         write!(
             f,
             "{cpu} {os}",
-            cpu = &String::from_utf8_lossy(&self.cpu),
-            os = &String::from_utf8_lossy(&self.os)
+            cpu = String::from_utf8_lossy(&self.cpu),
+            os = String::from_utf8_lossy(&self.os)
         )?;
         Ok(())
     }

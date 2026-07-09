@@ -581,9 +581,9 @@ impl fmt::Display for CERT {
             f,
             "{cert_type} {key_tag} {algorithm} {cert_data}",
             cert_type = self.cert_type,
-            key_tag = &self.key_tag,
+            key_tag = self.key_tag,
             algorithm = self.algorithm,
-            cert_data = &cert_data
+            cert_data = cert_data
         )?;
 
         Ok(())

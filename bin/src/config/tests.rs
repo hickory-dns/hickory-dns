@@ -288,29 +288,26 @@ impl Iterator for TableMutator<'_> {
                     self.nested_array_mutator = None;
                 }
             }
-            if let Some(key) = self.key_iter.next() {
-                if key == "protocol" || key == "dnssec_policy" {
-                    // Skip the `protocol` key; apparently `deny_unknown_fields` does not work
-                    // on enum variants, so we just skip it here.
-                    // https://github.com/serde-rs/serde/issues/2294
-                    continue;
-                }
+            let key = self.key_iter.next()?;
+            if key == "protocol" || key == "dnssec_policy" {
+                // Skip the `protocol` key; apparently `deny_unknown_fields` does not work
+                // on enum variants, so we just skip it here.
+                // https://github.com/serde-rs/serde/issues/2294
+                continue;
+            }
 
-                match self.original.get(key).unwrap() {
-                    Value::String(_)
-                    | Value::Integer(_)
-                    | Value::Float(_)
-                    | Value::Boolean(_)
-                    | Value::Datetime(_) => {}
-                    Value::Array(array) => {
-                        self.nested_array_mutator = Some((key, Box::new(ArrayMutator::new(array))));
-                    }
-                    Value::Table(table) => {
-                        self.nested_table_mutator = Some((key, Box::new(TableMutator::new(table))));
-                    }
+            match self.original.get(key).unwrap() {
+                Value::String(_)
+                | Value::Integer(_)
+                | Value::Float(_)
+                | Value::Boolean(_)
+                | Value::Datetime(_) => {}
+                Value::Array(array) => {
+                    self.nested_array_mutator = Some((key, Box::new(ArrayMutator::new(array))));
                 }
-            } else {
-                return None;
+                Value::Table(table) => {
+                    self.nested_table_mutator = Some((key, Box::new(TableMutator::new(table))));
+                }
             }
         }
     }
@@ -359,24 +356,19 @@ impl Iterator for ArrayMutator<'_> {
                     self.nested_array_mutator = None;
                 }
             }
-            if let Some(index) = self.index_iter.next() {
-                match self.original.get(index).unwrap() {
-                    Value::String(_)
-                    | Value::Integer(_)
-                    | Value::Float(_)
-                    | Value::Boolean(_)
-                    | Value::Datetime(_) => {}
-                    Value::Array(array) => {
-                        self.nested_array_mutator =
-                            Some((index, Box::new(ArrayMutator::new(array))));
-                    }
-                    Value::Table(table) => {
-                        self.nested_table_mutator =
-                            Some((index, Box::new(TableMutator::new(table))));
-                    }
+            let index = self.index_iter.next()?;
+            match self.original.get(index).unwrap() {
+                Value::String(_)
+                | Value::Integer(_)
+                | Value::Float(_)
+                | Value::Boolean(_)
+                | Value::Datetime(_) => {}
+                Value::Array(array) => {
+                    self.nested_array_mutator = Some((index, Box::new(ArrayMutator::new(array))));
                 }
-            } else {
-                return None;
+                Value::Table(table) => {
+                    self.nested_table_mutator = Some((index, Box::new(TableMutator::new(table))));
+                }
             }
         }
     }

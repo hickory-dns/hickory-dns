@@ -136,9 +136,10 @@ impl SSHFP {
                 .ok_or_else(|| missing_field::<ParseError>("fingerprint"))?
                 .as_bytes(),
         )?;
-        Some(Self::new(algorithm, fingerprint_type, fingerprint))
-            .filter(|_| tokens.next().is_none())
-            .ok_or(ParseError::Message("too many fields for SSHFP"))
+        if tokens.next().is_some() {
+            return Err(ParseError::Message("too many fields for SSHFP"));
+        }
+        Ok(Self::new(algorithm, fingerprint_type, fingerprint))
     }
 }
 

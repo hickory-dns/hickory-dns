@@ -434,7 +434,7 @@ mod tests {
         let header = Header::read(&mut decoder).unwrap();
         let msg = MessageRequest::read(&mut decoder, header).unwrap();
 
-        eprintln!("query: {:?}", &*msg.queries);
+        eprintln!("query: {:?}", *msg.queries);
 
         MessageResponseBuilder::new(&msg.queries, None)
             .build_no_records(Metadata::response_from_request(&msg.metadata))

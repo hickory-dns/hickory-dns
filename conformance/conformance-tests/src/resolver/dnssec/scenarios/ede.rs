@@ -174,7 +174,7 @@ fn fixture(
         assert!(
             output.ede.iter().eq([&expected]),
             "output: {:?}, expected: {expected:?}",
-            &output.ede
+            output.ede
         );
     }
 
