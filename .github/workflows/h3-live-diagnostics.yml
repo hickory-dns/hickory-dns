@@ -90,19 +90,24 @@ jobs:
 
           while [ "${attempt}" -le "${REPETITIONS}" ]; do
             log="h3-live-logs/${RUNNER_OS}-attempt-${attempt}.log"
-            echo "attempt ${attempt}/${REPETITIONS}: ${log}"
+            echo "attempt ${attempt}/${REPETITIONS}: start (${log})"
 
-            cargo test \
+            if cargo test \
               --locked \
               -p hickory-net \
               --features h3-ring,webpki-roots \
               h3::h3_client_stream \
               -- --nocapture \
-              2>&1 | tee "${log}"
-
-            status=${PIPESTATUS[0]}
-            if [ "${status}" -ne 0 ]; then
+              >"${log}" 2>&1; then
+              grep -E "test result:" "${log}" | tail -n 1 || true
+              echo "attempt ${attempt}/${REPETITIONS}: ok"
+            else
+              status=$?
               failed=1
+              echo "::error::attempt ${attempt}/${REPETITIONS} failed with status ${status}; full output is in ${log}"
+              grep -E "test result:|failures:|h3 connect failed|panicked at" "${log}" || true
+              echo "last 200 log lines from ${log}:"
+              tail -n 200 "${log}" || true
             fi
 
             attempt=$((attempt + 1))
