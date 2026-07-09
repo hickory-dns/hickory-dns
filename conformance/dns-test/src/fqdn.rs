@@ -93,6 +93,29 @@ impl FQDN {
         }
     }
 
+    /// Returns true if this domain name is an ancestor of another domain name.
+    ///
+    /// This returns true if all the labels of this name appear in the other name, starting on the right side.
+    pub fn is_ancestor_of(&self, other: &Self) -> bool {
+        // Skip empty substrings to avoid special cases related to the root name.
+        let mut self_labels = self.inner.rsplit('.').filter(|label| !label.is_empty());
+        let mut other_labels = other.inner.rsplit('.').filter(|label| !label.is_empty());
+        loop {
+            match (self_labels.next(), other_labels.next()) {
+                // Labels are equal, check next label.
+                (Some(self_label), Some(other_label)) if self_label == other_label => continue,
+                // Labels are not equal.
+                (Some(_), Some(_)) => return false,
+                // Names are equal.
+                (None, None) => return true,
+                // Other name is a descendant.
+                (None, Some(_)) => return true,
+                // The other name is an ancestor, not self.
+                (Some(_), None) => return false,
+            }
+        }
+    }
+
     pub fn num_labels(&self) -> usize {
         self.inner
             .split('.')
@@ -151,6 +174,23 @@ mod tests {
 
         let parent = fqdn.parent();
         assert!(parent.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn ancestor() -> Result<(), Error> {
+        assert!(!FQDN("abcd.")?.is_ancestor_of(&FQDN("cd.")?));
+        assert!(!FQDN("cd.")?.is_ancestor_of(&FQDN("abcd.")?));
+
+        assert!(FQDN("com.")?.is_ancestor_of(&FQDN("com.")?));
+        assert!(FQDN(".")?.is_ancestor_of(&FQDN("com.")?));
+        assert!(!FQDN("com.")?.is_ancestor_of(&FQDN(".")?));
+
+        assert!(!FQDN("a.b.c.d.")?.is_ancestor_of(&FQDN("b.c.d.")?));
+        assert!(FQDN("b.c.d.")?.is_ancestor_of(&FQDN("a.b.c.d.")?));
+        assert!(!FQDN("a.b.c.d.")?.is_ancestor_of(&FQDN("z.b.c.d.")?));
+        assert!(!FQDN("www.a.b.c.d.")?.is_ancestor_of(&FQDN("www.z.b.c.d.")?));
 
         Ok(())
     }
