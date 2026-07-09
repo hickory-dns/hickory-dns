@@ -734,7 +734,7 @@ impl fmt::Display for CAA {
             f,
             "{flags} {tag} \"{value}\"",
             flags = self.flags(),
-            tag = &self.tag,
+            tag = self.tag,
             value = String::from_utf8_lossy(&self.value)
         )
     }
