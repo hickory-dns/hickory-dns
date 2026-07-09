@@ -20,6 +20,20 @@ on:
         required: true
         default: "3"
         type: string
+      test_scope:
+        description: H3 tests to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - google
+          - cloudflare
+      rust_log:
+        description: RUST_LOG filter for H3 diagnostics
+        required: true
+        default: "info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=debug,quinn_udp=debug"
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform || 'linux' }}
@@ -35,8 +49,9 @@ jobs:
         os: ${{ fromJSON(inputs.platform == 'both' && '["ubuntu-latest","windows-latest"]' || inputs.platform == 'windows' && '["windows-latest"]' || '["ubuntu-latest"]') }}
     env:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=debug,quinn_udp=debug"
+      RUST_LOG: ${{ inputs.rust_log || 'info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=debug,quinn_udp=debug' }}
       REPETITIONS: ${{ inputs.repetitions || '3' }}
+      TEST_SCOPE: ${{ inputs.test_scope || 'all' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -88,23 +103,61 @@ jobs:
           failed=0
           attempt=1
 
+          case "${TEST_SCOPE}" in
+            all)
+              TEST_FILTERS=(h3::h3_client_stream)
+              ;;
+            google)
+              TEST_FILTERS=(
+                h3::h3_client_stream::tests::test_h3_google
+                h3::h3_client_stream::tests::test_h3_client_stream_clonable
+              )
+              ;;
+            cloudflare)
+              TEST_FILTERS=(h3::h3_client_stream::tests::test_h3_cloudflare)
+              ;;
+            *)
+              echo "::error::unknown TEST_SCOPE: ${TEST_SCOPE}"
+              exit 2
+              ;;
+          esac
+
+          echo "test scope: ${TEST_SCOPE}"
+          printf "test filters:"
+          printf " %s" "${TEST_FILTERS[@]}"
+          printf "\n"
+
           while [ "${attempt}" -le "${REPETITIONS}" ]; do
             log="h3-live-logs/${RUNNER_OS}-attempt-${attempt}.log"
             echo "attempt ${attempt}/${REPETITIONS}: start (${log})"
+            : >"${log}"
+            attempt_failed=0
 
-            if cargo test \
-              --locked \
-              -p hickory-net \
-              --features h3-ring,webpki-roots \
-              h3::h3_client_stream \
-              -- --nocapture \
-              >"${log}" 2>&1; then
-              grep -E "test result:" "${log}" | tail -n 1 || true
+            for test_filter in "${TEST_FILTERS[@]}"; do
+              echo "filter: ${test_filter}" >>"${log}"
+              echo "rust_log: ${RUST_LOG}" >>"${log}"
+
+              if cargo test \
+                --quiet \
+                --locked \
+                -p hickory-net \
+                --features h3-ring,webpki-roots \
+                "${test_filter}" \
+                -- --nocapture \
+                >>"${log}" 2>&1; then
+                :
+              else
+                status=$?
+                attempt_failed=${status}
+              fi
+            done
+
+            grep -E "test result:" "${log}" || true
+            if [ "${attempt_failed}" -eq 0 ]; then
               echo "attempt ${attempt}/${REPETITIONS}: ok"
             else
-              status=$?
               failed=1
-              echo "::error::attempt ${attempt}/${REPETITIONS} failed with status ${status}; full output is in ${log}"
+              echo "::error::attempt ${attempt}/${REPETITIONS} failed with status ${attempt_failed}; full output is in ${log}"
               grep -E "test result:|failures:|h3 connect failed|panicked at" "${log}" || true
               echo "last 200 log lines from ${log}:"
               tail -n 200 "${log}" || true
