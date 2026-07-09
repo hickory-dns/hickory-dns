@@ -68,9 +68,10 @@ impl OPENPGPKEY {
             "OPENPGPKEY public key field is missing",
         ))?;
         let public_key = data_encoding::BASE64.decode(encoded_public_key.as_bytes())?;
-        Some(Self::new(public_key))
-            .filter(|_| tokens.next().is_none())
-            .ok_or(ParseError::Message("too many fields for OPENPGPKEY"))
+        if tokens.next().is_some() {
+            return Err(ParseError::Message("too many fields for OPENPGPKEY"));
+        }
+        Ok(Self::new(public_key))
     }
 }
 

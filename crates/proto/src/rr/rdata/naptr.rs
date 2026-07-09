@@ -325,9 +325,9 @@ impl fmt::Display for NAPTR {
             "{order} {pref} \"{flags}\" \"{service}\" \"{regexp}\" {replace}",
             order = self.order,
             pref = self.preference,
-            flags = &String::from_utf8_lossy(&self.flags),
-            service = &String::from_utf8_lossy(&self.services),
-            regexp = &String::from_utf8_lossy(&self.regexp),
+            flags = String::from_utf8_lossy(&self.flags),
+            service = String::from_utf8_lossy(&self.services),
+            regexp = String::from_utf8_lossy(&self.regexp),
             replace = self.replacement
         )
     }

@@ -93,8 +93,8 @@ fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
         };
         println!("Parsed message: {message:?}");
         println!("Record type: {}", original_rr.r#type);
-        println!("Original:   {:02x?}", &original_rr.rdata);
-        println!("Re-encoded: {:02x?}", &reencoded_rr.rdata);
+        println!("Original:   {:02x?}", original_rr.rdata);
+        println!("Re-encoded: {:02x?}", reencoded_rr.rdata);
         panic!("record RDATA was not preserved when decoding and re-encoding: {error_message}");
     }
 }

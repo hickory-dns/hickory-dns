@@ -266,8 +266,8 @@ impl fmt::Display for CSYNC {
         write!(
             f,
             "{soa_serial} {flags}",
-            soa_serial = &self.soa_serial,
-            flags = &self.flags(),
+            soa_serial = self.soa_serial,
+            flags = self.flags(),
         )?;
 
         for ty in self.type_bit_maps.iter() {
