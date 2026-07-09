@@ -18,12 +18,12 @@ use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
 use handlers::{
-    BogusNoDataInsteadOfCname, DropRrsetHandler, ServfailRrsetHandler, bad_case_handler,
-    bad_txid_handler, bailiwick_handler, base_handler, cname_loop_handler, empty_response_handler,
-    foreign_class_handler, nsec3_apex_nodata_handler, nsec3_nocover_handler,
-    nxdomain_with_ns_authority_handler, packet_loss_handler, parent_ns_in_authority_handler,
-    qr_not_response_force_tcp_handler, qr_not_response_handler, truncated_response_handler,
-    wrong_rrset_handler,
+    BogusNoDataInsteadOfCname, DropRrsetHandler, ForgedDelegationHandler, ServfailRrsetHandler,
+    bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler, cname_loop_handler,
+    empty_response_handler, foreign_class_handler, nsec3_apex_nodata_handler,
+    nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
+    parent_ns_in_authority_handler, qr_not_response_force_tcp_handler, qr_not_response_handler,
+    truncated_response_handler, wrong_rrset_handler,
 };
 mod zone_file;
 
@@ -100,6 +100,11 @@ enum HandlerArg {
         count: u32,
     },
     WrongRrset,
+    ForgedDelegation {
+        ip_address: IpAddr,
+        zone: Name,
+        nameserver: Name,
+    },
 }
 
 impl HandlerArg {
@@ -139,6 +144,12 @@ impl HandlerArg {
             } => SERVFAIL_HANDLER
                 .get_or_init(|| ServfailRrsetHandler::new(ip_address, name, record_type, count)),
             Self::WrongRrset => &(wrong_rrset_handler as HandlerMessageFnPtr),
+            Self::ForgedDelegation {
+                ip_address,
+                zone,
+                nameserver,
+            } => FORGED_DELEGATION_HANDLER
+                .get_or_init(|| ForgedDelegationHandler::new(ip_address, zone, nameserver)),
         }
     }
 }
@@ -146,6 +157,7 @@ impl HandlerArg {
 static DROP_HANDLER: OnceLock<DropRrsetHandler> = OnceLock::new();
 static BOGUS_NO_DATA_CNAME_HANDLER: OnceLock<BogusNoDataInsteadOfCname> = OnceLock::new();
 static SERVFAIL_HANDLER: OnceLock<ServfailRrsetHandler> = OnceLock::new();
+static FORGED_DELEGATION_HANDLER: OnceLock<ForgedDelegationHandler> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,
