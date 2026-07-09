@@ -35,7 +35,7 @@ jobs:
         os: ${{ fromJSON(inputs.platform == 'both' && '["ubuntu-latest","windows-latest"]' || inputs.platform == 'windows' && '["windows-latest"]' || '["ubuntu-latest"]') }}
     env:
       RUST_BACKTRACE: "1"
-      RUST_LOG: "trace"
+      RUST_LOG: "info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=debug,quinn_udp=debug"
       REPETITIONS: ${{ inputs.repetitions || '3' }}
     steps:
       - uses: actions/checkout@v7
