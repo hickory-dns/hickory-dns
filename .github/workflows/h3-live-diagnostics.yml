@@ -1,0 +1,118 @@
+name: h3-live-diagnostics
+
+on:
+  push:
+    branches:
+      - 'h3-live-diagnostics/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to run
+        required: true
+        default: linux
+        type: choice
+        options:
+          - linux
+          - windows
+          - both
+      repetitions:
+        description: Number of times to repeat the H3 test group
+        required: true
+        default: "3"
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform || 'linux' }}
+  cancel-in-progress: true
+
+jobs:
+  h3-live:
+    name: h3 live (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.platform == 'both' && '["ubuntu-latest","windows-latest"]' || inputs.platform == 'windows' && '["windows-latest"]' || '["ubuntu-latest"]') }}
+    env:
+      RUST_BACKTRACE: "1"
+      RUST_LOG: "trace"
+      REPETITIONS: ${{ inputs.repetitions || '3' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Network diagnostics (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -x
+          if command -v ip >/dev/null 2>&1; then
+            ip addr
+            ip route
+          else
+            echo "ip command is not installed"
+          fi
+          if command -v getent >/dev/null 2>&1; then
+            getent hosts dns.google || true
+          else
+            echo "getent command is not installed"
+          fi
+          if command -v ping >/dev/null 2>&1; then
+            ping -c 1 -W 1 8.8.8.8 || true
+          else
+            echo "ping command is not installed"
+          fi
+
+      - name: Network diagnostics (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ipconfig /all
+          route print
+          Resolve-DnsName dns.google -ErrorAction Continue
+          Test-NetConnection dns.google -Port 443
+
+      - name: Run H3 client stream tests
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          mkdir -p h3-live-logs
+          failed=0
+          attempt=1
+
+          while [ "${attempt}" -le "${REPETITIONS}" ]; do
+            log="h3-live-logs/${RUNNER_OS}-attempt-${attempt}.log"
+            echo "attempt ${attempt}/${REPETITIONS}: ${log}"
+
+            cargo test \
+              --locked \
+              -p hickory-net \
+              --features h3-ring,webpki-roots \
+              h3::h3_client_stream \
+              -- --nocapture \
+              2>&1 | tee "${log}"
+
+            status=${PIPESTATUS[0]}
+            if [ "${status}" -ne 0 ]; then
+              failed=1
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          exit "${failed}"
+
+      - name: Upload H3 logs
+        if: always() && !env.ACT
+        uses: actions/upload-artifact@v4
+        with:
+          name: h3-live-${{ runner.os }}-${{ github.run_attempt }}
+          path: h3-live-logs/
