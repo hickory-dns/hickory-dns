@@ -14,7 +14,11 @@ use hickory_proto::{
         rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, MessageType, ResponseCode},
-    rr::{DNSClass, RData, Record, RecordType, domain::Name, rdata},
+    rr::{
+        DNSClass, RData, Record, RecordType,
+        domain::Name,
+        rdata::{self, NS},
+    },
 };
 use std::{
     env,
@@ -1134,6 +1138,70 @@ pub(crate) fn wrong_rrset_handler(bytes: &[u8], _transport: Transport) -> Result
     Ok(Some(msg.to_vec().with_context(
         || "wrong rrset handler: could not serialize Message",
     )?))
+}
+
+/// A proxying handler that turns queries for a selected name into possibly-bogus referrals.
+///
+/// This will reset the AA flag and RCODE, while adding a forged NS record to the authority section.
+/// It is intended to be used on queries that would otherwise return a signed NODATA or NXDOMAIN
+/// response, so that we can test what happens when those DNSSEC records are repurposed in a spoofed
+/// response. It is intended to target the checks described in RFC 6840 section 4.4.
+pub(crate) struct ForgedDelegationHandler {
+    ip_address: IpAddr,
+    zone: Name,
+    nameserver: Name,
+}
+
+impl ForgedDelegationHandler {
+    pub(crate) fn new(ip_address: IpAddr, zone: Name, nameserver: Name) -> Self {
+        Self {
+            ip_address,
+            zone,
+            nameserver,
+        }
+    }
+}
+
+#[async_trait]
+impl Handler for ForgedDelegationHandler {
+    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+        let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+
+        let query = query_message.queries.first();
+        let is_ds_query =
+            query.is_some_and(|q| q.query_type == RecordType::DS && self.zone == q.name);
+        let is_descendant = query.is_some_and(|q| self.zone.zone_of(&q.name));
+
+        let mut response = proxy_query(self.ip_address, query_message).await?;
+
+        if is_ds_query {
+            if response.metadata.response_code == ResponseCode::NXDomain {
+                response.metadata.response_code = ResponseCode::NoError;
+            }
+        } else if is_descendant {
+            response.metadata.authoritative = false;
+            if response.metadata.response_code == ResponseCode::NXDomain {
+                response.metadata.response_code = ResponseCode::NoError;
+            }
+            response.authorities.insert(
+                0,
+                Record::from_rdata(
+                    self.zone.clone(),
+                    3600,
+                    RData::NS(NS(self.nameserver.clone())),
+                ),
+            );
+            // BIND expects that if NS and SOA records are both present, they should have the same
+            // name. Remove the SOA record when we transform a response into a referral.
+            response
+                .authorities
+                .retain(|record| record.record_type() != RecordType::SOA);
+        }
+
+        Ok(Some(
+            response.to_vec().context("error serializing response")?,
+        ))
+    }
 }
 
 static TRUNCATED_TCP_COUNTER: AtomicU8 = AtomicU8::new(0);
