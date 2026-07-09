@@ -213,9 +213,14 @@ impl NameServerBuilder {
         };
         let mut zone_file = ZoneFile::new(soa);
 
-        zone_file.add(Record::ns(zone, nameserver.clone()));
-        // BIND requires that `nameserver` has an A record
-        zone_file.add(Record::a(nameserver.clone(), container.ipv4_addr()));
+        zone_file.add(Record::ns(zone.clone(), nameserver.clone()));
+        if zone.is_ancestor_of(&nameserver) {
+            // If the nameserver identified by a NS record is in-zone, BIND requires that an A (or
+            // AAAA) record be included. On the other hand, if the nameserver is out-of-zone, its
+            // address records cannot be included in the zone file, since it would be "out of zone
+            // data".
+            zone_file.add(Record::a(nameserver.clone(), container.ipv4_addr()));
+        }
 
         Ok(NameServer {
             container,
