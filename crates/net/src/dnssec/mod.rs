@@ -1682,6 +1682,15 @@ fn verify_nsec(
             // RFC 6840 §4.1: a parent-side NSEC at the cut only authenticates the
             // absence of DS at that owner; it cannot deny other types there.
             nsec1_yield(Proof::Bogus, "direct match is an ancestor-delegation NSEC")
+        } else if query.query_type == RecordType::DS
+            && nsec_data.type_set().contains(RecordType::SOA)
+        {
+            // RFC 4035 §5.2: "A security-aware resolver MUST use the parent NSEC RR when attempting
+            // to prove that a DS RRset does not exist."
+            nsec1_yield(
+                Proof::Bogus,
+                "direct match for DS query is an NSEC record from the child side of the zone cut",
+            )
         } else if response_code == ResponseCode::NoError && !have_answer {
             nsec1_yield(Proof::Secure, "direct match")
         } else {
