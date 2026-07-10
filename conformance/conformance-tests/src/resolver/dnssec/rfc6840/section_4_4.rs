@@ -45,7 +45,6 @@ fn forged_delegation_over_nxdomain_nsec() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory does not check the NS flag when proving an insecure delegation"]
 fn forged_delegation_over_nodata_nsec() -> Result<(), Error> {
     let output = forged_delegation_test(
         FQDN("name-exists.testing.")?,
@@ -70,7 +69,6 @@ fn forged_delegation_over_nxdomain_nsec3() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory does not check the NS flag when proving an insecure delegation"]
 fn forged_delegation_over_nodata_nsec3() -> Result<(), Error> {
     let output = forged_delegation_test(
         FQDN("name-exists.testing.")?,

@@ -183,6 +183,42 @@ pub(super) fn verify_nsec3(
     }
 }
 
+/// Verifies whether these NSEC3 records prove that there is an insecure delegation at this name, or
+/// that there could be.
+///
+/// This returns true if either there is an NSEC3 record matching the zone name with the NS bit set,
+/// the SOA bit unset, and the DS bit unset, or if there is an opt-out NSEC3 record that covers the
+/// zone name.
+pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &NSEC3)]) -> bool {
+    let query = Query::query(zone.clone(), RecordType::DS);
+    let Ok(pairs) = convert_nsec3_pairs(&query, None, nsec3s) else {
+        return false;
+    };
+
+    let Ok(cx) = Context::new(&query, None, &pairs) else {
+        return false;
+    };
+
+    // Check for matching record.
+    let (hashed_zone_name, base32_hashed_zone_name) = cx.hash_and_label(zone);
+    if let Some(pair) = pairs
+        .iter()
+        .find(|pair| pair.base32_hashed_name == base32_hashed_zone_name)
+    {
+        let type_set = pair.nsec3_data.type_set();
+        return type_set.contains(RecordType::NS)
+            && !type_set.contains(RecordType::DS)
+            && !type_set.contains(RecordType::SOA);
+    }
+
+    // Check for covering record with opt-out flag set.
+    if let Some(pair) = find_covering_record(&pairs, &hashed_zone_name, &base32_hashed_zone_name) {
+        return pair.nsec3_data.opt_out();
+    }
+
+    false
+}
+
 /// Convert pairs of record names and NSEC3 RDATA to pairs of hashed record names and NSEC3 RDATA.
 fn convert_nsec3_pairs<'a>(
     query: &Query,
