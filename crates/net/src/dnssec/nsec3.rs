@@ -116,30 +116,10 @@ pub(super) fn verify_nsec3(
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty()); // checked in the caller
 
-    // For every NSEC3 record that in text form looks like:
-    // <base32-hash>.soa.name NSEC3 <data>
-    // we extract (<base32-hash>, <data>) pair from deeply nested structures
-    let mut pairs = Vec::with_capacity(nsec3s.len());
-    for (name, data) in nsec3s {
-        let Some((base32_hashed_name, base)) = split_first_label(name) else {
-            return nsec3_yield(Proof::Bogus, query, "record name format is invalid");
-        };
-
-        // If the SOA record is present, the base name of any NSEC3 records must match it.
-        if soa.is_some_and(|soa| &base != soa) {
-            return nsec3_yield(Proof::Bogus, query, "record name is not in the zone");
-        }
-
-        let Ok(base32_hashed_name) = Label::from_raw_bytes(base32_hashed_name) else {
-            return nsec3_yield(Proof::Bogus, query, "base32-hashed name is invalid");
-        };
-
-        pairs.push(Nsec3RecordPair {
-            base32_hashed_name,
-            nsec3_data: data,
-        });
-    }
-
+    let pairs = match convert_nsec3_pairs(query, soa, nsec3s) {
+        Ok(pairs) => pairs,
+        Err(proof) => return proof,
+    };
     debug_assert!(!pairs.is_empty()); // `nsec3s` was not empty, and we returned on any invalid values
 
     // RFC 5155 8.2 - all NSEC3 records share the same NSEC3 params
@@ -212,6 +192,18 @@ pub(super) fn verify_nsec3(
             format_args!("unsupported response code ({response_code})"),
         ),
     }
+}
+
+/// Convert pairs of record names and NSEC3 RDATA to pairs of hashed record names and NSEC3 RDATA.
+fn convert_nsec3_pairs<'a>(
+    query: &Query,
+    soa: Option<&Name>,
+    nsec3s: &'a [(&Name, &'a NSEC3)],
+) -> Result<Vec<Nsec3RecordPair<'a>>, Proof> {
+    nsec3s
+        .iter()
+        .map(|(name, data)| Nsec3RecordPair::new(name, data, query, soa))
+        .collect()
 }
 
 /// There is no such `query_name` in the zone and there's no wildcard that
@@ -717,6 +709,46 @@ fn nsec3_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
 struct Nsec3RecordPair<'a> {
     base32_hashed_name: Label,
     nsec3_data: &'a NSEC3,
+}
+
+impl<'a> Nsec3RecordPair<'a> {
+    /// Preprocesses an NSEC3 record and performs sanity checks.
+    fn new(
+        name: &'a Name,
+        rdata: &'a NSEC3,
+        query: &Query,
+        soa: Option<&Name>,
+    ) -> Result<Self, Proof> {
+        let Some((base32_hashed_name, base)) = split_first_label(name) else {
+            return Err(nsec3_yield(
+                Proof::Bogus,
+                query,
+                "record name format is invalid",
+            ));
+        };
+
+        // If the SOA record is present, the base name of any NSEC3 records must match it.
+        if soa.is_some_and(|soa| &base != soa) {
+            return Err(nsec3_yield(
+                Proof::Bogus,
+                query,
+                "record name is not in the zone",
+            ));
+        }
+
+        let Ok(base32_hashed_name) = Label::from_raw_bytes(base32_hashed_name) else {
+            return Err(nsec3_yield(
+                Proof::Bogus,
+                query,
+                "base32-hashed name is invalid",
+            ));
+        };
+
+        Ok(Nsec3RecordPair {
+            base32_hashed_name,
+            nsec3_data: rdata,
+        })
+    }
 }
 
 #[cfg(test)]
