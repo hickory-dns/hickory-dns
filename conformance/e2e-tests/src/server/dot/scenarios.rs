@@ -94,11 +94,15 @@ fn pdns_opportunistic_dot_success() -> Result<(), Error> {
         Duration::from_secs(10),
     )?;
 
-    // Partition the captured incoming queries based on their dest port.
+    // Partition the captured incoming queries based on their dest port. Filter out any priming
+    // queries for ". IN NS".
     let (dot_queries, udp_queries) = tshark
         .terminate()?
         .into_iter()
-        .filter(|c| matches!(c.direction, Direction::Incoming { .. }))
+        .filter(|c| {
+            matches!(c.direction, Direction::Incoming { .. })
+                && query_name_and_type(c) != ("<Root>", record_types::NS)
+        })
         .partition::<Vec<_>, _>(|m| m.dst_port == DOT_PORT);
 
     // We should have received 2 UDP queries:
@@ -177,6 +181,7 @@ const DOT_PORT: u16 = 853;
 /// on hickory-proto just for matching to expected.
 mod record_types {
     pub(super) const A: u16 = 1;
+    pub(super) const NS: u16 = 2;
     pub(super) const AAAA: u16 = 28;
     pub(super) const MX: u16 = 15;
 }
