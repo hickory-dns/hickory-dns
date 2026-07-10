@@ -325,6 +325,16 @@ fn validate_nodata_response(
             // RFC 6840 §4.1: a parent-side NSEC3 at the cut only authenticates
             // the absence of DS at that owner, it cannot deny other types there.
             return cx.proof(Proof::Bogus, "direct match is an ancestor-delegation NSEC3");
+        } else if query_type == RecordType::DS
+            && query_record.nsec3_data.type_set().contains(RecordType::SOA)
+        {
+            // RFC 5155 §8.9: "The validator MUST also ensure that the NSEC3 RR is from the correct
+            // (i.e., parent) zone. This is done by ensuring that the SOA bit is not set in the Type
+            // Bit Maps field of this NSEC3 RR."
+            return cx.proof(
+                Proof::Bogus,
+                "direct match for DS query is an NSEC3 record from the child side of the zone cut",
+            );
         } else {
             return cx.proof(
                 Proof::Secure,
