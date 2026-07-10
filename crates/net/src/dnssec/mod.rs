@@ -53,7 +53,7 @@ mod error;
 pub use error::{ProofError, ProofErrorKind};
 
 mod nsec3;
-use nsec3::verify_nsec3;
+use nsec3::{verify_nsec3, verify_nsec3_insecure_delegation};
 
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
@@ -843,13 +843,82 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .iter()
                     .any(|r| r.record_type() == RecordType::DS)
                 {
+                    // Per RFC 6840 section 4.4, beyond checking the proof of nonexistence of a DS
+                    // record at this name, we also need to check for proof that there is an NS
+                    // record, or could be an NS record, at this name.
+
+                    // Case 1: Matching NSEC record exists that proves NS is present and DS is not
+                    // present. This is definitively an insecure delegation.
+                    if response.authorities.iter().any(|record| {
+                        let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
+                            return false;
+                        };
+                        record.name == zone
+                            && nsec.type_set().contains(RecordType::NS)
+                            && !nsec.type_set().contains(RecordType::DS)
+                            && !nsec.type_set().contains(RecordType::SOA)
+                    }) {
+                        debug!(
+                            %zone,
+                            "marking zone as insecure based on secure NSEC proof",
+                        );
+                        return Err(ProofError::new(
+                            Proof::Insecure,
+                            ProofErrorKind::DsResponseInsecure { name: zone },
+                        ));
+                    }
+
+                    // Gather NSEC3 records.
+                    let nsec3s = response
+                        .authorities
+                        .iter()
+                        .filter_map(|record| {
+                            let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &record.data else {
+                                return None;
+                            };
+                            Some((&record.name, nsec3))
+                        })
+                        .collect::<Vec<_>>();
+
+                    // Case 2: Matching NSEC3 record exists that proves NS is present and DS is not
+                    // present. This is definitively an insecure delegation.
+                    //
+                    // Case 3: There is an NSEC3 record that covers the name and has the opt-out bit
+                    // set. There could be an insecure delegation at this name, but there is no way
+                    // to know for certain due to the use of the opt-out flag.
+                    if !nsec3s.is_empty() && verify_nsec3_insecure_delegation(&zone, &nsec3s) {
+                        debug!(
+                            %zone,
+                            "marking zone as insecure based on secure NSEC3 proof",
+                        );
+                        return Err(ProofError::new(
+                            Proof::Insecure,
+                            ProofErrorKind::DsResponseInsecure { name: zone },
+                        ));
+                    }
+
+                    // Case 4: There is an insecure delegation further up the tree.
+                    if response
+                        .all_sections()
+                        .any(|r| r.proof == Proof::Insecure && zone.zone_of(&r.name))
+                    {
+                        debug!(
+                            %zone,
+                            "marking zone as insecure based on insecure parent zone",
+                        );
+                        return Err(ProofError::new(
+                            Proof::Insecure,
+                            ProofErrorKind::DsResponseInsecure { name: zone },
+                        ));
+                    }
+
                     debug!(
                         %zone,
-                        "marking zone as insecure based on secure NSEC/NSEC3 proof or insecure parent zone",
+                        "could not prove insecure delegation",
                     );
                     return Err(ProofError::new(
-                        Proof::Insecure,
-                        ProofErrorKind::DsResponseInsecure { name: zone },
+                        Proof::Bogus,
+                        ProofErrorKind::DsRecordShouldExist { name: zone },
                     ));
                 }
             }
