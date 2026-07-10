@@ -299,6 +299,13 @@ async fn wildcard_no_data_error() {
 }
 
 /// Based on RFC 5155 section B.6.
+///
+/// > A "no data" response for a QTYPE=DS query that was mistakenly sent to a name server for the
+/// > child zone.
+///
+/// It seems that this section is primarily present to describe how authoritative name servers
+/// should respond to queries when they are sent to the wrong server. No statement is made about
+/// how validating resolvers or validating forwarders should treat such a response.
 #[tokio::test]
 async fn ds_child_zone_no_data_error() {
     subscribe();
@@ -309,27 +316,16 @@ async fn ds_child_zone_no_data_error() {
     let (mut client, _honest_server) =
         setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
+    // Check that this query fails validation, since it was sent to the wrong zone.
     let query_name = Name::parse("example.", None).unwrap();
     let query_type = RecordType::DS;
-    let response = client
+    client
         .query(query_name.clone(), DNSClass::IN, query_type)
         .await
-        .unwrap();
-    print_response(&response);
-    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
-    assert!(response.answers.is_empty());
+        .unwrap_err();
 
-    let dnskey_response = fetch_dnskey(&mut client).await;
-
-    // Matches query.
-    test_exclude_nsec3(
-        &query_name,
-        query_type,
-        &response,
-        &dnskey_response,
-        "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom",
-    )
-    .await;
+    // Since the above query fails, there's nothing further we can test, so we skip excluding NSEC3
+    // records.
 }
 
 /// Regression test.  Given a response with missing NSEC3 records, Hickory would re-query the

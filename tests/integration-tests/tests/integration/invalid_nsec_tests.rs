@@ -209,6 +209,15 @@ async fn wildcard_no_data_error() {
 }
 
 /// Based on RFC 4035 section B.8.
+///
+/// > A "no data" response for a QTYPE=DS query that was mistakenly sent to a name server for the
+/// > child zone.
+///
+/// It seems that this section is primarily present to describe how authoritative name servers
+/// should respond to queries when they are sent to the wrong server. Section C.8 reiterates that
+/// the query was sent to the wrong server, and the NSEC records reflect this fact through the SOA
+/// bit. No statement is made about how validating resolvers or validating forwarders should treat
+/// such a response.
 #[tokio::test]
 async fn ds_child_zone_no_data_error() {
     subscribe();
@@ -219,32 +228,16 @@ async fn ds_child_zone_no_data_error() {
     let (mut client, _honest_server) =
         setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
 
+    // Check that this query fails validation, since it was sent to the wrong zone.
     let query_name = Name::parse("example.", None).unwrap();
     let query_type = RecordType::DS;
-    let response = client
+    client
         .query(query_name.clone(), DNSClass::IN, query_type)
         .await
-        .unwrap();
-    print_response(&response);
-    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+        .unwrap_err();
 
-    let nsec_count = response
-        .all_sections()
-        .filter(|record| record.record_type() == RecordType::NSEC)
-        .count();
-    assert_eq!(nsec_count, 1);
-
-    let dnskey_response = fetch_dnskey(&mut client).await;
-
-    // Proves the requested RR type does not exist.
-    test_exclude_nsec(
-        &query_name,
-        query_type,
-        &response,
-        &dnskey_response,
-        Name::parse("example.", None).unwrap(),
-    )
-    .await;
+    // Since the above query fails, there's nothing further we can test, so we skip excluding NSEC
+    // records.
 }
 
 /// Modifies a response to remove a specific NSEC record, and confirms that the validating client
