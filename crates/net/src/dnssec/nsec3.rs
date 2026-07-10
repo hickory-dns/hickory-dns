@@ -122,48 +122,37 @@ pub(super) fn verify_nsec3(
     };
     debug_assert!(!pairs.is_empty()); // `nsec3s` was not empty, and we returned on any invalid values
 
-    // RFC 5155 8.2 - all NSEC3 records share the same NSEC3 params
-    let first = &pairs[0];
-    let hash_algorithm = first.nsec3_data.hash_algorithm();
-    let salt = first.nsec3_data.salt();
-    let iterations = first.nsec3_data.iterations();
-    if pairs.iter().any(|r| {
-        r.nsec3_data.hash_algorithm() != hash_algorithm
-            || r.nsec3_data.salt() != salt
-            || r.nsec3_data.iterations() != iterations
-    }) {
-        return nsec3_yield(Proof::Bogus, query, "parameter mismatch");
-    }
+    let cx = match Context::new(query, soa, &pairs) {
+        Ok(cx) => cx,
+        Err(proof) => return proof,
+    };
 
     // Protect against high iteration counts by returning Proof::Bogus (triggering a SERVFAIL
     // response) if iterations > than the hard limit, or an insecure response if iterations > the
     // soft limit.
     //
     // [RFC 9276 3.2](https://www.rfc-editor.org/rfc/rfc9276.html#name-recommendation-for-validati).
-    if iterations > nsec3_hard_iteration_limit {
+    if cx.iterations > nsec3_hard_iteration_limit {
         return nsec3_yield(
             Proof::Bogus,
             query,
-            format_args!("iteration count {iterations} is over {nsec3_hard_iteration_limit}"),
+            format_args!(
+                "iteration count {iterations} is over {nsec3_hard_iteration_limit}",
+                iterations = cx.iterations
+            ),
         );
-    } else if iterations > nsec3_soft_iteration_limit {
+    } else if cx.iterations > nsec3_soft_iteration_limit {
         return nsec3_yield(
             Proof::Insecure,
             query,
-            format_args!("iteration count {iterations} is over {nsec3_soft_iteration_limit}"),
+            format_args!(
+                "iteration count {iterations} is over {nsec3_soft_iteration_limit}",
+                iterations = cx.iterations
+            ),
         );
     }
 
     // Basic sanity checks are done.
-    let cx = Context {
-        query,
-        soa,
-        nsec3s: &pairs,
-        hash_algorithm,
-        salt,
-        iterations,
-    };
-
     // From here on 4 big situations are possible:
     // 1. No such name, and no servicing wildcard
     // 2. Name exists but there's no record of this type
@@ -475,6 +464,34 @@ struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
+    /// Checks for consistent NSEC3 parameters, and constructs a verification context.
+    fn new(
+        query: &'a Query,
+        soa: Option<&'a Name>,
+        nsec3s: &'a [Nsec3RecordPair<'a>],
+    ) -> Result<Self, Proof> {
+        // RFC 5155 8.2 - all NSEC3 records share the same NSEC3 params
+        let first = &nsec3s[0];
+        let hash_algorithm = first.nsec3_data.hash_algorithm();
+        let salt = first.nsec3_data.salt();
+        let iterations = first.nsec3_data.iterations();
+        if nsec3s.iter().any(|r| {
+            r.nsec3_data.hash_algorithm() != hash_algorithm
+                || r.nsec3_data.salt() != salt
+                || r.nsec3_data.iterations() != iterations
+        }) {
+            return Err(nsec3_yield(Proof::Bogus, query, "parameter mismatch"));
+        }
+        Ok(Self {
+            query,
+            soa,
+            nsec3s,
+            hash_algorithm,
+            salt,
+            iterations,
+        })
+    }
+
     /// Return a closest encloser proof and a proof of non-existence for the wildcard at the closest encloser.
     ///
     /// For example, if the closest encloser is `w.example.`, the wildcard at the closest encloser is `*.w.example`.
