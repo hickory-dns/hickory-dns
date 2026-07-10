@@ -1214,7 +1214,9 @@ SPECIFICATION: https://www.rfc-editor.org/rfc/rfc4035
     TEXT[!MUST]:       same class.
     TEXT[!MUST]:    o  The RRSIG RR's Signer's Name field MUST be the name of the zone
     TEXT[!MUST]:       that contains the RRset.
-    TEXT[!MUST]:    o  The RRSIG RR's Type Covered field MUST equal the RRset's type.
+    TEXT[!MUST]:    o
+    TEXT[!MUST,implementation]: The RRSIG RR's Type Covered field MUST equal the RRset's type
+    TEXT[!MUST]: .
     TEXT[!MUST]:    o  The number of labels in the RRset owner name MUST be greater than
     TEXT[!MUST]:       or equal to the value in the RRSIG RR's Labels field.
     TEXT[!MUST]:    o  The validator's notion of the current time MUST be less than or
