@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc5702#section-2.1"
+
+# RSA/SHA-256 DNSKEY Resource Records
+#
+#    RSA public keys for use with RSA/SHA-256 are stored in DNSKEY
+#    resource records (RRs) with the algorithm number 8.
+# 
+#    For interoperability, as in [RFC3110], the key size of RSA/SHA-256
+#    keys MUST NOT be less than 512 bits and MUST NOT be more than 4096
+#    bits.
+
+[[spec]]
+level = "MUST"
+quote = '''
+For interoperability, as in [RFC3110], the key size of RSA/SHA-256
+keys MUST NOT be less than 512 bits and MUST NOT be more than 4096
+bits.
+'''
+

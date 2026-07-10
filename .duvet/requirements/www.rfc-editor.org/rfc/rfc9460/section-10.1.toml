@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-10.1"
+
+# Structuring Zones for Flexibility
+#
+#    Each ServiceMode RRset can only serve a single scheme.  The scheme is
+#    indicated by the owner name and the RR type.  For the generic SVCB RR
+#    type, this means that each owner name can only be used for a single
+#    scheme.  The underscore prefixing requirement (Section 2.3) ensures
+#    that this is true for the initial query, but it is the responsibility
+#    of zone owners to choose names that satisfy this constraint when
+#    using aliases, including CNAME and AliasMode records.
+# 
+#    When using the generic SVCB RR type with aliasing, zone owners SHOULD
+#    choose alias target names that indicate the scheme in use (e.g.,
+#    "foosvc.example.net" for "foo" schemes).  This will help to avoid
+#    confusion when another scheme needs to be added to the configuration.
+#    When multiple port numbers are in use, it may be helpful to repeat
+#    the prefix labels in the alias target name (e.g.,
+#    "_1234._foo.svc.example.net").
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When using the generic SVCB RR type with aliasing, zone owners SHOULD
+choose alias target names that indicate the scheme in use (e.g.,
+"foosvc.example.net" for "foo" schemes).
+'''
+

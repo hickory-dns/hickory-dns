@@ -1,0 +1,43 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.2"
+
+# Including DNSKEY RRs in a Response
+#
+#    When responding to a query that has the DO bit set and that requests
+#    the SOA or NS RRs at the apex of a signed zone, a security-aware
+#    authoritative name server for that zone MAY return the zone apex
+#    DNSKEY RRset in the Additional section.  In this situation, the
+#    DNSKEY RRset and associated RRSIG RRs have lower priority than does
+#    any other information that would be placed in the additional section.
+#    The name server SHOULD NOT include the DNSKEY RRset unless there is
+#    enough space in the response message for both the DNSKEY RRset and
+#    its associated RRSIG RR(s).  If there is not enough space to include
+#    these DNSKEY and RRSIG RRs, the name server MUST omit them and MUST
+#    NOT set the TC bit solely because these RRs didn't fit (see Section
+#    3.1.1).
+
+[[spec]]
+level = "MAY"
+quote = '''
+When responding to a query that has the DO bit set and that requests
+the SOA or NS RRs at the apex of a signed zone, a security-aware
+authoritative name server for that zone MAY return the zone apex
+DNSKEY RRset in the Additional section.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The name server SHOULD NOT include the DNSKEY RRset unless there is
+enough space in the response message for both the DNSKEY RRset and
+its associated RRSIG RR(s).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is not enough space to include
+these DNSKEY and RRSIG RRs, the name server MUST omit them and MUST
+NOT set the TC bit solely because these RRs didn't fit (see Section
+3.1.1).
+'''
+

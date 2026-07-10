@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-8"
+
+# TCP Message Length Field
+#
+#    DNS clients and servers SHOULD pass the two-octet length field, and
+#    the message described by that length field, to the TCP layer at the
+#    same time (e.g., in a single "write" system call) to make it more
+#    likely that all the data will be transmitted in a single TCP segment.
+#    This is for reasons of both efficiency and to avoid problems due to
+#    some DNS server implementations behaving undesirably when reading
+#    data from the TCP layer (due to a lack of clarity in previous
+#    documents).  For example, some DNS server implementations might abort
+#    a TCP session if the first "read" from the TCP layer does not contain
+#    both the length field and the entire message.
+# 
+#    To clarify, DNS servers MUST NOT close a connection simply because
+#    the first "read" from the TCP layer does not contain the entire DNS
+#    message, and servers SHOULD apply the connection timeouts as
+#    specified in Section 6.2.3.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS clients and servers SHOULD pass the two-octet length field, and
+the message described by that length field, to the TCP layer at the
+same time (e.g., in a single "write" system call) to make it more
+likely that all the data will be transmitted in a single TCP segment.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To clarify, DNS servers MUST NOT close a connection simply because
+the first "read" from the TCP layer does not contain the entire DNS
+message, and servers SHOULD apply the connection timeouts as
+specified in Section 6.2.3.
+'''
+

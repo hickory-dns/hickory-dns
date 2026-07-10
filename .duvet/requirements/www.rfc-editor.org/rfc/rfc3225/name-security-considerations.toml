@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc3225#name-security-considerations"
+
+# Security Considerations
+#
+#    The absence of DNSSEC data in response to a query with the DO bit set
+#    MUST NOT be taken to mean no security information is available for
+#    that zone as the response may be forged or a non-forged response of
+#    an altered (DO bit cleared) query.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The absence of DNSSEC data in response to a query with the DO bit set
+MUST NOT be taken to mean no security information is available for
+that zone as the response may be forged or a non-forged response of
+an altered (DO bit cleared) query.
+'''
+

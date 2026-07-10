@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.3.4"
+
+# Alternative Error Codes
+#
+#    This specification describes specific error codes in Sections 4.3.1,
+#    4.3.2, and 4.3.3.  These error codes are meant to facilitate
+#    investigation of failures and other incidents.  New error codes may
+#    be defined in future versions of DoQ or registered as specified in
+#    Section 8.4.
+# 
+#    Because new error codes can be defined without negotiation, use of an
+#    error code in an unexpected context or receipt of an unknown error
+#    code MUST be treated as equivalent to DOQ_UNSPECIFIED_ERROR.
+# 
+#    Implementations MAY wish to test the support for the error code
+#    extension mechanism by using error codes not listed in this document,
+#    or they MAY use DOQ_ERROR_RESERVED.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Because new error codes can be defined without negotiation, use of an
+error code in an unexpected context or receipt of an unknown error
+code MUST be treated as equivalent to DOQ_UNSPECIFIED_ERROR.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementations MAY wish to test the support for the error code
+extension mechanism by using error codes not listed in this document,
+or they MAY use DOQ_ERROR_RESERVED.
+'''
+

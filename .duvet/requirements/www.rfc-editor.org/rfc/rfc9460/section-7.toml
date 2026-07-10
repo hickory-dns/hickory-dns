@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-7"
+
+# Initial SvcParamKeys
+#
+#    A few initial SvcParamKeys are defined here.  These keys are useful
+#    for the "https" scheme, and most are expected to be generally
+#    applicable to other schemes as well.
+# 
+#    Each new protocol mapping document MUST specify which keys are
+#    applicable and safe to use.  Protocol mappings MAY alter the
+#    interpretation of SvcParamKeys but MUST NOT alter their presentation
+#    or wire formats.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each new protocol mapping document MUST specify which keys are
+applicable and safe to use.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Protocol mappings MAY alter the
+interpretation of SvcParamKeys but MUST NOT alter their presentation
+or wire formats.
+'''
+

@@ -1,0 +1,131 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.4.2"
+
+# AliasMode
+#
+#    In AliasMode, the SVCB record aliases a service to a TargetName.
+#    SVCB RRsets SHOULD only have a single RR in AliasMode.  If multiple
+#    AliasMode RRs are present, clients or recursive resolvers SHOULD pick
+#    one at random.
+# 
+#    The primary purpose of AliasMode is to allow aliasing at the zone
+#    apex, where CNAME is not allowed (see, for example, [RFC1912],
+#    Section 2.4).  In AliasMode, the TargetName will be the name of a
+#    domain that resolves to SVCB, AAAA, and/or A records.  (See Section 6
+#    for aliasing of SVCB-compatible RR types.)  Unlike CNAME, AliasMode
+#    records do not affect the resolution of other RR types and apply only
+#    to a specific service, not an entire domain name.
+# 
+#    The AliasMode TargetName SHOULD NOT be equal to the owner name, as
+#    this would result in a loop.  In AliasMode, recipients MUST ignore
+#    any SvcParams that are present.  Zone-file parsers MAY emit a warning
+#    if an AliasMode record has SvcParams.  The use of SvcParams in
+#    AliasMode records is currently not defined, but a future
+#    specification could extend AliasMode records to include SvcParams.
+# 
+#    For example, the operator of "foo://example.com:8080" could point
+#    requests to a service operating at "foosvc.example.net" by
+#    publishing:
+# 
+#    _8080._foo.example.com. 3600 IN SVCB 0 foosvc.example.net.
+# 
+#    Using AliasMode maintains a separation of concerns: the owner of
+#    "foosvc.example.net" can add or remove ServiceMode SVCB records
+#    without requiring a corresponding change to "example.com".  Note that
+#    if "foosvc.example.net" promises to always publish a SVCB record,
+#    this AliasMode record can be replaced by a CNAME at the same owner
+#    name.
+# 
+#    AliasMode is especially useful for SVCB-compatible RR types that do
+#    not require an underscore prefix, such as the HTTPS RR type.  For
+#    example, the operator of "https://example.com" could point requests
+#    to a server at "svc.example.net" by publishing this record at the
+#    zone apex:
+# 
+#    example.com. 3600 IN HTTPS 0 svc.example.net.
+# 
+#    Note that the SVCB record's owner name MAY be the canonical name of a
+#    CNAME record, and the TargetName MAY be the owner of a CNAME record.
+#    Clients and recursive resolvers MUST follow CNAMEs as normal.
+# 
+#    To avoid unbounded alias chains, clients and recursive resolvers MUST
+#    impose a limit on the total number of SVCB aliases they will follow
+#    for each resolution request.  This limit MUST NOT be zero, i.e.,
+#    implementations MUST be able to follow at least one AliasMode record.
+#    The exact value of this limit is left to implementations.
+# 
+#    Zones that require following multiple AliasMode records could
+#    encounter compatibility and performance issues.
+# 
+#    As legacy clients will not know to use this record, service operators
+#    will likely need to retain fallback AAAA and A records alongside this
+#    SVCB record, although in a common case the target of the SVCB record
+#    might offer better performance, and therefore would be preferable for
+#    clients implementing this specification to use.
+# 
+#    AliasMode records only apply to queries for the specific RR type.
+#    For example, a SVCB record cannot alias to an HTTPS record or vice
+#    versa.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SVCB RRsets SHOULD only have a single RR in AliasMode.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If multiple
+AliasMode RRs are present, clients or recursive resolvers SHOULD pick
+one at random.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The AliasMode TargetName SHOULD NOT be equal to the owner name, as
+this would result in a loop.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In AliasMode, recipients MUST ignore
+any SvcParams that are present.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Zone-file parsers MAY emit a warning
+if an AliasMode record has SvcParams.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Note that the SVCB record's owner name MAY be the canonical name of a
+CNAME record, and the TargetName MAY be the owner of a CNAME record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients and recursive resolvers MUST follow CNAMEs as normal.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To avoid unbounded alias chains, clients and recursive resolvers MUST
+impose a limit on the total number of SVCB aliases they will follow
+for each resolution request.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This limit MUST NOT be zero, i.e.,
+implementations MUST be able to follow at least one AliasMode record.
+'''
+

@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-5.1"
+
+# Query Format
+#
+#    A Key Tag query consists of a standard DNS query of type NULL and of
+#    class IN [RFC1035].
+# 
+#    The first component of the query name is the string "_ta-" followed
+#    by a sorted, hyphen-separated list of hexadecimal-encoded Key Tag
+#    values.  The zone name corresponding to the trust anchor is appended
+#    to this first component.
+# 
+#    For example, a validating DNS resolver that has a single root zone
+#    trust anchor with Key Tag 17476 (decimal) would originate a query of
+#    the form QTYPE=NULL, QCLASS=IN, QNAME=_ta-4444.
+# 
+#    Hexadecimal values MUST be zero-padded to four hexadecimal digits.
+#    For example, if the Key Tag is 999 (decimal), it is represented in
+#    hexadecimal as 03e7.
+# 
+#    When representing multiple Key Tag values, they MUST be sorted in
+#    order from smallest to largest.  For example, a validating DNS
+#    resolver that has three trust anchors for the example.com zone with
+#    Key Tags 1589, 43547, 31406 (decimal) would originate a query of the
+#    form QTYPE=NULL, QCLASS=IN, QNAME=_ta-0635-7aae-aa1b.example.com.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Hexadecimal values MUST be zero-padded to four hexadecimal digits.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When representing multiple Key Tag values, they MUST be sorted in
+order from smallest to largest.
+'''
+

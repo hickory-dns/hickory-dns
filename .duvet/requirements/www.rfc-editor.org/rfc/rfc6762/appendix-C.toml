@@ -1,0 +1,119 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#appendix-C"
+
+# Design Rationale for Maximum Multicast DNS Name Length
+#
+#    Multicast DNS names may be up to 255 bytes long (in the on-the-wire
+#    message format), not counting the terminating zero byte at the end.
+# 
+#    "Domain Names - Implementation and Specification" [RFC1035] says:
+# 
+#       Various objects and parameters in the DNS have size limits.  They
+#       are listed below.  Some could be easily changed, others are more
+#       fundamental.
+# 
+#       labels          63 octets or less
+# 
+#       names           255 octets or less
+# 
+#       ...
+# 
+#       the total length of a domain name (i.e., label octets and label
+#       length octets) is restricted to 255 octets or less.
+# 
+#    This text does not state whether this 255-byte limit includes the
+#    terminating zero at the end of every name.
+# 
+#    Several factors lead us to conclude that the 255-byte limit does
+#    *not* include the terminating zero:
+# 
+#    o It is common in software engineering to have size limits that are a
+#      power of two, or a multiple of a power of two, for efficiency.  For
+#      example, an integer on a modern processor is typically 2, 4, or 8
+#      bytes, not 3 or 5 bytes.  The number 255 is not a power of two, nor
+#      is it to most people a particularly noteworthy number.  It is
+#      noteworthy to computer scientists for only one reason -- because it
+#      is exactly one *less* than a power of two.  When a size limit is
+#      exactly one less than a power of two, that suggests strongly that
+#      the one extra byte is being reserved for some specific reason -- in
+#      this case reserved, perhaps, to leave room for a terminating zero
+#      at the end.
+# 
+#    o In the case of DNS label lengths, the stated limit is 63 bytes.  As
+#      with the total name length, this limit is exactly one less than a
+#      power of two.  This label length limit also excludes the label
+#      length byte at the start of every label.  Including that extra
+#      byte, a 63-byte label takes 64 bytes of space in memory or in a DNS
+#      message.
+# 
+#    o It is common in software engineering for the semantic "length" of
+#      an object to be one less than the number of bytes it takes to store
+#      that object.  For example, in C, strlen("foo") is 3, but
+#      sizeof("foo") (which includes the terminating zero byte at the end)
+#      is 4.
+# 
+#    o The text describing the total length of a domain name mentions
+#      explicitly that label length and data octets are included, but does
+#      not mention the terminating zero at the end.  The zero byte at the
+#      end of a domain name is not a label length.  Indeed, the value zero
+#      is chosen as the terminating marker precisely because it is not a
+#      legal length byte value -- DNS prohibits empty labels.  For
+#      example, a name like "bad..name." is not a valid domain name
+#      because it contains a zero-length label in the middle, which cannot
+#      be expressed in a DNS message, because software parsing the message
+#      would misinterpret a zero label-length byte as being a zero "end of
+#      name" marker instead.
+# 
+#    Finally, "Clarifications to the DNS Specification" [RFC2181] offers
+#    additional confirmation that, in the context of DNS specifications,
+#    the stated "length" of a domain name does not include the terminating
+#    zero byte at the end.  That document refers to the root name, which
+#    is typically written as "." and is represented in a DNS message by a
+#    single lone zero byte (i.e., zero bytes of data plus a terminating
+#    zero), as the "zero length full name":
+# 
+#       The zero length full name is defined as representing the root of
+#       the DNS tree, and is typically written and displayed as ".".
+# 
+#    This wording supports the interpretation that, in a DNS context, when
+#    talking about lengths of names, the terminating zero byte at the end
+#    is not counted.  If the root name (".") is considered to be zero
+#    length, then to be consistent, the length (for example) of "org" has
+#    to be 4 and the length of "ietf.org" has to be 9, as shown below:
+# 
+#                                                   ------
+#                                                  | 0x00 |   length = 0
+#                                                   ------
+# 
+#                              ------------------   ------
+#                             | 0x03 | o | r | g | | 0x00 |   length = 4
+#                              ------------------   ------
+# 
+#       -----------------------------------------   ------
+#      | 0x04 | i | e | t | f | 0x03 | o | r | g | | 0x00 |   length = 9
+#       -----------------------------------------   ------
+# 
+#    This means that the maximum length of a domain name, as represented
+#    in a Multicast DNS message, up to but not including the final
+#    terminating zero, must not exceed 255 bytes.
+# 
+#    However, many Unicast DNS implementers have read these RFCs
+#    differently, and argue that the 255-byte limit does include the
+#    terminating zero, and that the "Clarifications to the DNS
+#    Specification" [RFC2181] statement that "." is the "zero length full
+#    name" was simply a mistake.
+# 
+#    Hence, implementers should be aware that other Unicast DNS
+#    implementations may limit the maximum domain name to 254 bytes plus a
+#    terminating zero, depending on how that implementer interpreted the
+#    DNS specifications.
+# 
+#    Compliant Multicast DNS implementations MUST support names up to 255
+#    bytes plus a terminating zero, i.e., 256 bytes total.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Compliant Multicast DNS implementations MUST support names up to 255
+bytes plus a terminating zero, i.e., 256 bytes total.
+'''
+

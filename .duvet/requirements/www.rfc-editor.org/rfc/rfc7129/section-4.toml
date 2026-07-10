@@ -1,0 +1,74 @@
+target = "https://www.rfc-editor.org/rfc/rfc7129#section-4"
+
+# Experimental and Deprecated Mechanisms: NO, NSEC2, and DNSNR
+#
+#    Long before NSEC was defined, the NO record was introduced.  It was
+#    the first record to use the idea of hashed owner names to fix the
+#    issue of zone walking that was present with the NXT record.  It also
+#    fixed the type bitmap issue of the NXT record, but not in a space-
+#    efficient way.  At that time (around 2000), zone walking was not
+#    considered important enough to warrant the new record.  People were
+#    also worried that DNSSEC deployment would be hindered by developing
+#    an alternate means of denial of existence.  Thus, the effort was
+#    shelved and NXT remained.
+# 
+#    When the new DNSSEC specification [RFC4034] was written, people were
+#    still not convinced that zone walking was a problem that should be
+#    solved.  So, NSEC saw the light and inherited the two issues from
+#    NXT.
+# 
+#    Several years after, NSEC2 was introduced as a way to solve the two
+#    issues of NSEC.  The NSEC2 document [DNSEXT-NSEC2] contains the
+#    following paragraph:
+# 
+#       This document proposes an alternate scheme which hides owner names
+#       while permitting authenticated denial of existence of non-existent
+#       names.  The scheme uses two new RR types: NSEC2 and EXIST.
+# 
+#    When an authenticated denial-of-existence scheme starts to talk about
+#    EXIST records, it is worth paying extra attention.  The EXIST record
+#    was defined as a record without RDATA that would be used to signal
+#    the presence of a domain name.  From [DNSEXT-NSEC2]:
+# 
+#       In order to prove the nonexistence of a record that might be
+#       covered by a wildcard, it is necessary to prove the existence of
+#       its closest encloser.  This record does that.  Its owner is the
+#       closest encloser.  It has no RDATA.  If there is another RR that
+#       proves the existence of the closest encloser, this SHOULD be used
+#       instead of an EXIST record.
+# 
+#    The introduction of this record led to questions about what wildcards
+#    actually mean (especially in the context of DNSSEC).  It is probably
+#    not a coincidence that "The Role of Wildcards in the Domain Name
+#    System" [RFC4592] was standardized before NSEC3 was.
+# 
+#    NSEC2 solved the zone-walking issue by hashing (with SHA1 and a salt)
+#    the "next owner name" in the record, thereby making it useless for
+#    zone walking.  But, it did not have Opt-Out.
+# 
+#    The DNSNR record was another attempt that used hashed names to foil
+#    zone walking, and it also introduced the concept of opting out
+# 
+#    (called "Authoritative Only Flag"), which limited the use of DNSNR in
+#    delegation-centric zones.
+# 
+#    All of these proposals didn't make it, but they did provide valuable
+#    insights.  To summarize:
+# 
+#    o  The NO record introduced hashing, but this idea lingered in the
+#       background for a long time;
+# 
+#    o  The NSEC2 record made it clear that wildcards were not completely
+#       understood;
+# 
+#    o  The DNSNR record used a new flag field in the RDATA to signal Opt-
+#       Out.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If there is another RR that
+proves the existence of the closest encloser, this SHOULD be used
+instead of an EXIST record.
+'''
+

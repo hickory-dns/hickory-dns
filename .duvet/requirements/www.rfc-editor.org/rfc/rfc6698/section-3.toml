@@ -1,0 +1,51 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-3"
+
+# Domain Names for TLSA Certificate Associations
+#
+#    Unless there is a protocol-specific specification that is different
+#    than this one, TLSA resource records are stored at a prefixed DNS
+#    domain name.  The prefix is prepared in the following manner:
+# 
+#    1.  The decimal representation of the port number on which a TLS-
+#        based service is assumed to exist is prepended with an underscore
+#        character ("_") to become the left-most label in the prepared
+#        domain name.  This number has no leading zeros.
+# 
+#    2.  The protocol name of the transport on which a TLS-based service
+#        is assumed to exist is prepended with an underscore character
+#        ("_") to become the second left-most label in the prepared domain
+#        name.  The transport names defined for this protocol are "tcp",
+#        "udp", and "sctp".
+# 
+#    3.  The base domain name is appended to the result of step 2 to
+#        complete the prepared domain name.  The base domain name is the
+#        fully qualified DNS domain name [RFC1035] of the TLS server, with
+#        the additional restriction that every label MUST meet the rules
+#        of [RFC0952].  The latter restriction means that, if the query is
+#        for an internationalized domain name, it MUST use the A-label
+#        form as defined in [RFC5890].
+# 
+#    For example, to request a TLSA resource record for an HTTP server
+#    running TLS on port 443 at "www.example.com",
+#    "_443._tcp.www.example.com" is used in the request.  To request a
+#    TLSA resource record for an SMTP server running the STARTTLS protocol
+#    on port 25 at "mail.example.com", "_25._tcp.mail.example.com" is
+#    used.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The base domain name is the
+fully qualified DNS domain name [RFC1035] of the TLS server, with
+the additional restriction that every label MUST meet the rules
+of [RFC0952].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The latter restriction means that, if the query is
+for an internationalized domain name, it MUST use the A-label
+form as defined in [RFC5890].
+'''
+

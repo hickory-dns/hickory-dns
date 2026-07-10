@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-3.3.1.1"
+
+# SIMPLE Scheme Inclusion/Exclusion Rules
+#
+#    When iterating over records in the zone, the following inclusion/
+#    exclusion rules apply:
+# 
+#    *  All records in the zone, including glue records, MUST be included
+#       unless excluded by a subsequent rule.
+# 
+#    *  Occluded data ([RFC5936], Section 3.5) MUST be included.
+# 
+#    *  If there are duplicate RRs with equal owner, class, type, and
+#       RDATA, only one instance is included ([RFC4034], Section 6.3) and
+#       the duplicates MUST be omitted.
+# 
+#    *  The placeholder apex ZONEMD RR(s) MUST NOT be included.
+# 
+#    *  If the zone is signed, DNSSEC RRs MUST be included, except:
+# 
+#    *  The RRSIG covering the apex ZONEMD RRset MUST NOT be included
+#       because the RRSIG will be updated after all digests have been
+#       calculated.
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  All records in the zone, including glue records, MUST be included
+unless excluded by a subsequent rule.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  Occluded data ([RFC5936], Section 3.5) MUST be included.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  If there are duplicate RRs with equal owner, class, type, and
+RDATA, only one instance is included ([RFC4034], Section 6.3) and
+the duplicates MUST be omitted.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The placeholder apex ZONEMD RR(s) MUST NOT be included.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  If the zone is signed, DNSSEC RRs MUST be included, except:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The RRSIG covering the apex ZONEMD RRset MUST NOT be included
+because the RRSIG will be updated after all digests have been
+calculated.
+'''
+

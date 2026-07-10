@@ -1,0 +1,102 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.3.2"
+
+# Reconstructing the Signed Data
+#
+#    Once the RRSIG RR has met the validity requirements described in
+#    Section 5.3.1, the validator has to reconstruct the original signed
+#    data.  The original signed data includes RRSIG RDATA (excluding the
+#    Signature field) and the canonical form of the RRset.  Aside from
+#    being ordered, the canonical form of the RRset might also differ from
+#    the received RRset due to DNS name compression, decremented TTLs, or
+#    wildcard expansion.  The validator should use the following to
+#    reconstruct the original signed data:
+# 
+#          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
+# 
+#             "|" denotes concatenation
+# 
+#             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
+#                with the Signature field excluded and the Signer's Name
+#                in canonical form.
+# 
+#             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
+# 
+#                name is calculated according to the function below
+# 
+#                class is the RRset's class
+# 
+#                type is the RRset type and all RRs in the class
+# 
+#                OrigTTL is the value from the RRSIG Original TTL field
+# 
+#                All names in the RDATA field are in canonical form
+# 
+#                The set of all RR(i) is sorted into canonical order.
+# 
+#             To calculate the name:
+#                let rrsig_labels = the value of the RRSIG Labels field
+# 
+#                let fqdn = RRset's fully qualified domain name in
+#                                canonical form
+# 
+#                let fqdn_labels = Label count of the fqdn above.
+# 
+#                if rrsig_labels = fqdn_labels,
+#                    name = fqdn
+# 
+#                if rrsig_labels < fqdn_labels,
+#                   name = "*." | the rightmost rrsig_label labels of the
+#                                 fqdn
+# 
+#                if rrsig_labels > fqdn_labels
+#                   the RRSIG RR did not pass the necessary validation
+#                   checks and MUST NOT be used to authenticate this
+#                   RRset.
+# 
+#    The canonical forms for names and RRsets are defined in [RFC4034].
+# 
+#    NSEC RRsets at a delegation boundary require special processing.
+#    There are two distinct NSEC RRsets associated with a signed delegated
+#    name.  One NSEC RRset resides in the parent zone, and specifies which
+#    RRsets are present at the parent zone.  The second NSEC RRset resides
+#    at the child zone and identifies which RRsets are present at the apex
+#    in the child zone.  The parent NSEC RRset and child NSEC RRset can
+#    always be distinguished as only a child NSEC RR will indicate that an
+#    SOA RRset exists at the name.  When reconstructing the original NSEC
+#    RRset for the delegation from the parent zone, the NSEC RRs MUST NOT
+#    be combined with NSEC RRs from the child zone.  When reconstructing
+#    the original NSEC RRset for the apex of the child zone, the NSEC RRs
+#    MUST NOT be combined with NSEC RRs from the parent zone.
+# 
+#    Note that each of the two NSEC RRsets at a delegation point has a
+#    corresponding RRSIG RR with an owner name matching the delegated
+#    name, and each of these RRSIG RRs is authoritative data associated
+#    with the same zone that contains the corresponding NSEC RRset.  If
+#    necessary, a resolver can tell these RRSIG RRs apart by checking the
+#    Signer's Name field.
+
+[[spec]]
+level = "MUST"
+quote = '''
+if rrsig_labels > fqdn_labels
+the RRSIG RR did not pass the necessary validation
+checks and MUST NOT be used to authenticate this
+RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When reconstructing the original NSEC
+RRset for the delegation from the parent zone, the NSEC RRs MUST NOT
+be combined with NSEC RRs from the child zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When reconstructing
+the original NSEC RRset for the apex of the child zone, the NSEC RRs
+MUST NOT be combined with NSEC RRs from the parent zone.
+'''
+

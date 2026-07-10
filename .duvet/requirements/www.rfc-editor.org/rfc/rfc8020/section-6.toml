@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc8020#section-6"
+
+# Implementation Considerations
+#
+#    This section is non-normative and is composed only of various things
+#    that may be useful for implementors.  A recursive resolver may
+#    implement its cache in many ways.  The most obvious one is a tree
+#    data structure, because it fits the data model of domain names.  But,
+#    in practice, other implementations are possible, as well as various
+#    optimizations (such as a tree, augmented by an index of some common
+#    domain names).
+# 
+#    If a resolver implements its cache as a tree (without any
+#    optimization), one way to follow the rules in Section 2 is as
+#    follows: when receiving the NXDOMAIN, prune the subtree of positive
+#    cache entries at that node or delete all individual cache entries for
+#    names below that node.  Then, when searching downward in its cache,
+#    this iterative caching DNS resolver will stop searching if it
+#    encounters a cached nonexistence.
+# 
+#    Some resolvers may have a cache that is NOT organized as a tree (but,
+#    for instance, as a dictionary); therefore, they have a reason to
+#    ignore the rules of Section 2.  So these rules use SHOULD and not
+#    MUST.
+
+[[spec]]
+level = "MUST"
+quote = '''
+So these rules use SHOULD and not
+MUST.
+'''
+

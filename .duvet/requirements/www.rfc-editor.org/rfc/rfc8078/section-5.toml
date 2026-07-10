@@ -1,0 +1,51 @@
+target = "https://www.rfc-editor.org/rfc/rfc8078#section-5"
+
+# Security Considerations
+#
+#    Turning off DNSSEC reduces the security of the domain and thus should
+#    only be done as a last resort in preventing DNSSEC validation errors
+#    due to mismatched DS and DNSKEY records.
+# 
+#    Users should keep in mind that re-establishing trust in delegation
+#    can be hard and takes time.  Before deciding to complete the rollover
+#    via an unsigned state, all other options should be considered first.
+# 
+#    A parent SHOULD ensure that when it is allowing a child to become
+#    securely delegated, it has a reasonable assurance that the CDS/
+#    CDNSKEY RRset used to bootstrap the security is visible from a
+#    geographically and topologically diverse view.  It SHOULD also ensure
+#    that the zone validates correctly if the parent publishes the DS
+#    record.  A parent zone might also consider sending an email to its
+#    contact addresses to give the child zone a warning that security will
+#    be enabled after a certain amount of wait time -- thus allowing a
+#    child administrator to cancel the request.
+# 
+#    This document describes a few possible acceptance criteria for the
+#    initial trust establishment.  Due to a large variety of legal
+#    frameworks surrounding parent domains (Top-Level Domain (TLDs) in
+#    particular), this document cannot give a definitive list of valid
+#    acceptance criteria.  Parental zones should look at the listed
+# 
+#    methods and pick the most secure method possible within their legal
+#    and technical scenario, possibly further securing the acceptance
+#    criteria, as long as the deployed method still enables a fully
+#    automated method for non-direct parties such as third-party DNS
+#    hosters.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A parent SHOULD ensure that when it is allowing a child to become
+securely delegated, it has a reasonable assurance that the CDS/
+CDNSKEY RRset used to bootstrap the security is visible from a
+geographically and topologically diverse view.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It SHOULD also ensure
+that the zone validates correctly if the parent publishes the DS
+record.
+'''
+

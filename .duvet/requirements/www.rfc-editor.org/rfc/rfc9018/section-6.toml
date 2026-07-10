@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-6"
+
+# Cookie Algorithms
+#
+#    [SipHash-2-4] is a pseudorandom function suitable as a Message
+#    Authentication Code.  It is REQUIRED that a compliant DNS server use
+#    SipHash-2-4 as a mandatory and default algorithm for DNS Cookies to
+#    ensure interoperability between the DNS Implementations.
+# 
+#    The construction method and pseudorandom function used in calculating
+#    and verifying the Server Cookies are determined by the initial
+#    version byte and by the length of the Server Cookie.  Additional
+#    pseudorandom or construction algorithms for Server Cookies might be
+#    added in the future.
+
+[[spec]]
+level = "MUST"
+quote = '''
+It is REQUIRED that a compliant DNS server use
+SipHash-2-4 as a mandatory and default algorithm for DNS Cookies to
+ensure interoperability between the DNS Implementations.
+'''
+

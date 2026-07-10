@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.10.1"
+
+# Recommendation
+#
+#    When the IP address of a name server that supposedly offers recursion
+#    is configured in a stub resolver using an interactive user interface,
+#    the resolver could send a test query to verify that the server indeed
+#    supports recursion (i.e., verify that the response has the RA bit set
+#    in the header).  The user could be notified immediately if the server
+#    is non-recursive.
+# 
+#    The stub resolver could also report an error, either through a user
+#    interface or in a log file, if the queried server does not support
+#    recursion.  Error reporting SHOULD be throttled to avoid a
+#    notification or log message for every response from a non-recursive
+#    server.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Error reporting SHOULD be throttled to avoid a
+notification or log message for every response from a non-recursive
+server.
+'''
+

@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.1.3"
+
+# Forwarding Resolvers
+#
+#    Forwarding Resolvers essentially appear to be Stub Resolvers to
+#    whatever Recursive Resolver is ultimately handling the query, but
+#    they look like a Recursive Resolver to their client.  A Forwarding
+#    Resolver using this option MUST prepare it as described in
+#    Section 7.1.1, "Recursive Resolvers".  In particular, a Forwarding
+#    Resolver that implements this protocol MUST honor SOURCE PREFIX-
+#    LENGTH restrictions indicated in the incoming query from its client.
+#    See also Section 7.5.
+# 
+#    Since the Recursive Resolver it contacts will treat the Forwarding
+#    Resolver like a Stub Resolver, the Recursive Resolver's policies
+#    regarding incoming ADDRESS information will apply in the same way.
+#    If the Forwarding Resolver receives a REFUSED response when it sends
+#    a query that includes a non-zero ADDRESS, it MUST retry with no
+#    ADDRESS.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Forwarding
+Resolver using this option MUST prepare it as described in
+Section 7.1.1, "Recursive Resolvers".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In particular, a Forwarding
+Resolver that implements this protocol MUST honor SOURCE PREFIX-
+LENGTH restrictions indicated in the incoming query from its client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the Forwarding Resolver receives a REFUSED response when it sends
+a query that includes a non-zero ADDRESS, it MUST retry with no
+ADDRESS.
+'''
+

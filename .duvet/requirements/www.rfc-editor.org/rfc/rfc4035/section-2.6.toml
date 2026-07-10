@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-2.6"
+
+# DNSSEC RR Types Appearing at Zone Cuts
+#
+#    DNSSEC introduced two new RR types that are unusual in that they can
+#    appear at the parental side of a zone cut.  At the parental side of a
+#    zone cut (that is, at a delegation point), NSEC RRs are REQUIRED at
+#    the owner name.  A DS RR could also be present if the zone being
+#    delegated is signed and seeks to have a chain of authentication to
+#    the parent zone.  This is an exception to the original DNS
+#    specification ([RFC1034]), which states that only NS RRsets could
+#    appear at the parental side of a zone cut.
+# 
+#    This specification updates the original DNS specification to allow
+#    NSEC and DS RR types at the parent side of a zone cut.  These RRsets
+#    are authoritative for the parent when they appear at the parent side
+#    of a zone cut.
+
+[[spec]]
+level = "MUST"
+quote = '''
+At the parental side of a
+zone cut (that is, at a delegation point), NSEC RRs are REQUIRED at
+the owner name.
+'''
+

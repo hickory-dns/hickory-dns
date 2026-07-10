@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-5"
+
+# Querying
+#
+#    There are two kinds of Multicast DNS queries: one-shot queries of the
+#    kind made by legacy DNS resolvers, and continuous, ongoing Multicast
+#    DNS queries made by fully compliant Multicast DNS queriers, which
+#    support asynchronous operations including DNS-Based Service Discovery
+#    [RFC6763].
+# 
+#    Except in the rare case of a Multicast DNS responder that is
+#    advertising only shared resource records and no unique records, a
+#    Multicast DNS responder MUST also implement a Multicast DNS querier
+#    so that it can first verify the uniqueness of those records before it
+#    begins answering queries for them.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Except in the rare case of a Multicast DNS responder that is
+advertising only shared resource records and no unique records, a
+Multicast DNS responder MUST also implement a Multicast DNS querier
+so that it can first verify the uniqueness of those records before it
+begins answering queries for them.
+'''
+

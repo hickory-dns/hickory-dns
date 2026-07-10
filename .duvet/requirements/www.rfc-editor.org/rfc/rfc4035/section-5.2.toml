@@ -1,0 +1,105 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.2"
+
+# Authenticating Referrals
+#
+#    Once the apex DNSKEY RRset for a signed parent zone has been
+#    authenticated, DS RRsets can be used to authenticate the delegation
+#    to a signed child zone.  A DS RR identifies a DNSKEY RR in the child
+#    zone's apex DNSKEY RRset and contains a cryptographic digest of the
+#    child zone's DNSKEY RR.  Use of a strong cryptographic digest
+#    algorithm ensures that it is computationally infeasible for an
+#    adversary to generate a DNSKEY RR that matches the digest.  Thus,
+#    authenticating the digest allows a resolver to authenticate the
+#    matching DNSKEY RR.  The resolver can then use this child DNSKEY RR
+#    to authenticate the entire child apex DNSKEY RRset.
+# 
+#    Given a DS RR for a delegation, the child zone's apex DNSKEY RRset
+#    can be authenticated if all of the following hold:
+# 
+#    o  The DS RR has been authenticated using some DNSKEY RR in the
+#       parent's apex DNSKEY RRset (see Section 5.3).
+# 
+#    o  The Algorithm and Key Tag in the DS RR match the Algorithm field
+#       and the key tag of a DNSKEY RR in the child zone's apex DNSKEY
+#       RRset, and, when the DNSKEY RR's owner name and RDATA are hashed
+#       using the digest algorithm specified in the DS RR's Digest Type
+#       field, the resulting digest value matches the Digest field of the
+#       DS RR.
+# 
+#    o  The matching DNSKEY RR in the child zone has the Zone Flag bit
+#       set, the corresponding private key has signed the child zone's
+#       apex DNSKEY RRset, and the resulting RRSIG RR authenticates the
+#       child zone's apex DNSKEY RRset.
+# 
+#    If the referral from the parent zone did not contain a DS RRset, the
+#    response should have included a signed NSEC RRset proving that no DS
+#    RRset exists for the delegated name (see Section 3.1.4).  A
+#    security-aware resolver MUST query the name servers for the parent
+#    zone for the DS RRset if the referral includes neither a DS RRset nor
+#    a NSEC RRset proving that the DS RRset does not exist (see Section
+#    4).
+# 
+#    If the validator authenticates an NSEC RRset that proves that no DS
+#    RRset is present for this zone, then there is no authentication path
+#    leading from the parent to the child.  If the resolver has an initial
+#    DNSKEY or DS RR that belongs to the child zone or to any delegation
+#    below the child zone, this initial DNSKEY or DS RR MAY be used to
+#    re-establish an authentication path.  If no such initial DNSKEY or DS
+#    RR exists, the validator cannot authenticate RRsets in or below the
+#    child zone.
+# 
+#    If the validator does not support any of the algorithms listed in an
+#    authenticated DS RRset, then the resolver has no supported
+#    authentication path leading from the parent to the child.  The
+#    resolver should treat this case as it would the case of an
+#    authenticated NSEC RRset proving that no DS RRset exists, as
+#    described above.
+# 
+#    Note that, for a signed delegation, there are two NSEC RRs associated
+#    with the delegated name.  One NSEC RR resides in the parent zone and
+#    can be used to prove whether a DS RRset exists for the delegated
+#    name.  The second NSEC RR resides in the child zone and identifies
+#    which RRsets are present at the apex of the child zone.  The parent
+#    NSEC RR and child NSEC RR can always be distinguished because the SOA
+#    bit will be set in the child NSEC RR and clear in the parent NSEC RR.
+#    A security-aware resolver MUST use the parent NSEC RR when attempting
+#    to prove that a DS RRset does not exist.
+# 
+#    If the resolver does not support any of the algorithms listed in an
+#    authenticated DS RRset, then the resolver will not be able to verify
+#    the authentication path to the child zone.  In this case, the
+#    resolver SHOULD treat the child zone as if it were unsigned.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A
+security-aware resolver MUST query the name servers for the parent
+zone for the DS RRset if the referral includes neither a DS RRset nor
+a NSEC RRset proving that the DS RRset does not exist (see Section
+4).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the resolver has an initial
+DNSKEY or DS RR that belongs to the child zone or to any delegation
+below the child zone, this initial DNSKEY or DS RR MAY be used to
+re-establish an authentication path.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver MUST use the parent NSEC RR when attempting
+to prove that a DS RRset does not exist.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this case, the
+resolver SHOULD treat the child zone as if it were unsigned.
+'''
+

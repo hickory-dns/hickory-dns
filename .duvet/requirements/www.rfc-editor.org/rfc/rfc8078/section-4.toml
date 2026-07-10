@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc8078#section-4"
+
+# DNSSEC Delete Algorithm
+#
+#    This document defines the previously reserved DNS Security Algorithm
+#    Number of value 0 in the context of CDS and CDNSKEY records to mean
+#    that the entire DS RRset at the parent must be removed.  The value 0
+#    remains reserved for the DS and DNSKEY records.
+# 
+#    No DNSSEC validator can treat algorithm 0 as a valid signature
+#    algorithm.  If a validator sees a DNSKEY or DS record with this
+#    algorithm value, it must treat it as unknown.  Accordingly, the zone
+#    is treated as unsigned unless there are other algorithms present.  In
+#    general, the value 0 should never be used in the context of DNSKEY
+#    and DS records.
+# 
+#    The CERT record [RFC4398] defines the value 0 similarly to mean the
+#    algorithm in the CERT record is not defined in DNSSEC.
+# 
+#    The contents of the CDS or CDNSKEY RRset MUST contain one RR and only
+#    contain the exact fields as shown below.
+# 
+#       CDS 0 0 0 0
+# 
+#       CDNSKEY 0 3 0 0
+# 
+#    The keying material payload is represented by a single 0.  This
+#    record is signed in the same way as regular CDS/CDNSKEY RRsets are
+#    signed.
+# 
+#    Strictly speaking, the CDS record could be "CDS X 0 X 0" as only the
+#    DNSKEY algorithm is what signals the DELETE operation, but for
+#    clarity, the "0 0 0 0" notation is mandated -- this is not a
+#    definition of DS digest algorithm 0.  The same argument applies to
+#    "CDNSKEY 0 3 0 0"; the value 3 in the second field is mandated by
+#    [RFC4034], Section 2.1.2.
+# 
+#    Once the parent has verified the CDS/CDNSKEY RRset and it has passed
+#    other acceptance tests, the parent MUST remove the DS RRset.  After
+#    waiting a sufficient amount of time -- depending on the parental TTLs
+#    -- the child can start the process of turning off DNSSEC.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The contents of the CDS or CDNSKEY RRset MUST contain one RR and only
+contain the exact fields as shown below.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once the parent has verified the CDS/CDNSKEY RRset and it has passed
+other acceptance tests, the parent MUST remove the DS RRset.
+'''
+

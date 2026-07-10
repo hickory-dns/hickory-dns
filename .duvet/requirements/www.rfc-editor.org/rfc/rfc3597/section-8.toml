@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc3597#section-8"
+
+# Additional Section Processing
+#
+#    Unknown RR types cause no additional section processing.  Future RR
+#    type specifications MAY specify type-specific additional section
+#    processing rules, but any such processing MUST be optional as it can
+#    only be performed by servers for which the RR type in case is known.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Future RR
+type specifications MAY specify type-specific additional section
+processing rules, but any such processing MUST be optional as it can
+only be performed by servers for which the RR type in case is known.
+'''
+

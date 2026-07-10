@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.5.1"
+
+# Connection Reuse
+#
+#    Historic implementations of DNS clients are known to open and close
+#    TCP connections for each DNS query.  To amortize connection setup
+#    costs, both clients and servers SHOULD support connection reuse by
+#    sending multiple queries and responses over a single persistent QUIC
+#    connection.
+# 
+#    In order to achieve performance on par with UDP, DNS clients SHOULD
+#    send their queries concurrently over the QUIC streams on a QUIC
+#    connection.  That is, when a DNS client sends multiple queries to a
+#    server over a QUIC connection, it SHOULD NOT wait for an outstanding
+#    reply before sending the next query.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To amortize connection setup
+costs, both clients and servers SHOULD support connection reuse by
+sending multiple queries and responses over a single persistent QUIC
+connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In order to achieve performance on par with UDP, DNS clients SHOULD
+send their queries concurrently over the QUIC streams on a QUIC
+connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+That is, when a DNS client sends multiple queries to a
+server over a QUIC connection, it SHOULD NOT wait for an outstanding
+reply before sending the next query.
+'''
+

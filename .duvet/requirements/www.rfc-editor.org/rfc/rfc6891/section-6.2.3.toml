@@ -1,0 +1,83 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.2.3"
+
+# Requestor's Payload Size
+#
+#    The requestor's UDP payload size (encoded in the RR CLASS field) is
+#    the number of octets of the largest UDP payload that can be
+#    reassembled and delivered in the requestor's network stack.  Note
+#    that path MTU, with or without fragmentation, could be smaller than
+#    this.
+# 
+#    Values lower than 512 MUST be treated as equal to 512.
+# 
+#    The requestor SHOULD place a value in this field that it can actually
+#    receive.  For example, if a requestor sits behind a firewall that
+#    will block fragmented IP packets, a requestor SHOULD NOT choose a
+#    value that will cause fragmentation.  Doing so will prevent large
+#    responses from being received and can cause fallback to occur.  This
+#    knowledge may be auto-detected by the implementation or provided by a
+#    human administrator.
+# 
+#    Note that a 512-octet UDP payload requires a 576-octet IP reassembly
+#    buffer.  Choosing between 1280 and 1410 bytes for IP (v4 or v6) over
+#    Ethernet would be reasonable.
+# 
+#    Where fragmentation is not a concern, use of bigger values SHOULD be
+#    considered by implementers.  Implementations SHOULD use their largest
+#    configured or implemented values as a starting point in an EDNS
+#    transaction in the absence of previous knowledge about the
+#    destination server.
+# 
+#    Choosing a very large value will guarantee fragmentation at the IP
+#    layer, and may prevent answers from being received due to loss of a
+#    single fragment or to misconfigured firewalls.
+# 
+#    The requestor's maximum payload size can change over time.  It MUST
+#    NOT be cached for use beyond the transaction in which it is
+#    advertised.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Values lower than 512 MUST be treated as equal to 512.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The requestor SHOULD place a value in this field that it can actually
+receive.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For example, if a requestor sits behind a firewall that
+will block fragmented IP packets, a requestor SHOULD NOT choose a
+value that will cause fragmentation.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Where fragmentation is not a concern, use of bigger values SHOULD be
+considered by implementers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD use their largest
+configured or implemented values as a starting point in an EDNS
+transaction in the absence of previous knowledge about the
+destination server.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It MUST
+NOT be cached for use beyond the transaction in which it is
+advertised.
+'''
+

@@ -1,0 +1,147 @@
+target = "https://www.rfc-editor.org/rfc/rfc6761#section-6.1"
+
+# Domain Name Reservation Considerations for Private Addresses
+#
+#    The private-address [RFC1918] reverse-mapping domains listed below,
+#    and any names falling within those domains, are Special-Use Domain
+#    Names:
+# 
+#      10.in-addr.arpa.      21.172.in-addr.arpa.  26.172.in-addr.arpa.
+#      16.172.in-addr.arpa.  22.172.in-addr.arpa.  27.172.in-addr.arpa.
+#      17.172.in-addr.arpa.  30.172.in-addr.arpa.  28.172.in-addr.arpa.
+#      18.172.in-addr.arpa.  23.172.in-addr.arpa.  29.172.in-addr.arpa.
+#      19.172.in-addr.arpa.  24.172.in-addr.arpa.  31.172.in-addr.arpa.
+#      20.172.in-addr.arpa.  25.172.in-addr.arpa.  168.192.in-addr.arpa.
+# 
+#    These domains, and any names falling within these domains, are
+#    special in the following ways:
+# 
+#    1.  Users are free to use these names as they would any other
+#        reverse-mapping names.  However, since there is no central
+#        authority responsible for use of private addresses, users SHOULD
+#        be aware that these names are likely to yield different results
+#        on different networks.
+# 
+#    2.  Application software SHOULD NOT recognize these names as special,
+#        and SHOULD use these names as they would other reverse-mapping
+#        names.
+# 
+#    3.  Name resolution APIs and libraries SHOULD NOT recognize these
+#        names as special and SHOULD NOT treat them differently.  Name
+#        resolution APIs SHOULD send queries for these names to their
+#        configured caching DNS server(s).
+# 
+#    4.  Caching DNS servers SHOULD recognize these names as special and
+#        SHOULD NOT, by default, attempt to look up NS records for them,
+#        or otherwise query authoritative DNS servers in an attempt to
+#        resolve these names.  Instead, caching DNS servers SHOULD, by
+#        default, generate immediate (positive or negative) responses for
+#        all such queries.  This is to avoid unnecessary load on the root
+#        name servers and other name servers.  Caching DNS servers SHOULD
+#        offer a configuration option (disabled by default) to enable
+#        upstream resolution of such names, for use in private networks
+#        where private-address reverse-mapping names are known to be
+#        handled by an authoritative DNS server in said private network.
+# 
+#    5.  Authoritative DNS servers SHOULD recognize these names as special
+#        and SHOULD, by default, generate immediate negative responses for
+#        all such queries, unless explicitly configured by the
+#        administrator to give positive answers for private-address
+#        reverse-mapping names.
+# 
+#    6.  DNS server operators SHOULD, if they are using private addresses,
+#        configure their authoritative DNS servers to act as authoritative
+#        for these names.
+# 
+#    7.  DNS Registries/Registrars MUST NOT grant requests to register any
+#        of these names in the normal way to any person or entity.  These
+#        names are reserved for use in private networks, and fall outside
+#        the set of names available for allocation by registries/
+#        registrars.  Attempting to allocate one of these names as if it
+#        were a normal DNS domain name will probably not work as desired,
+#        for reasons 4, 5 and 6 above.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+However, since there is no central
+authority responsible for use of private addresses, users SHOULD
+be aware that these names are likely to yield different results
+on different networks.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Application software SHOULD NOT recognize these names as special,
+and SHOULD use these names as they would other reverse-mapping
+names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs and libraries SHOULD NOT recognize these
+names as special and SHOULD NOT treat them differently.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name
+resolution APIs SHOULD send queries for these names to their
+configured caching DNS server(s).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD recognize these names as special and
+SHOULD NOT, by default, attempt to look up NS records for them,
+or otherwise query authoritative DNS servers in an attempt to
+resolve these names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Instead, caching DNS servers SHOULD, by
+default, generate immediate (positive or negative) responses for
+all such queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD
+offer a configuration option (disabled by default) to enable
+upstream resolution of such names, for use in private networks
+where private-address reverse-mapping names are known to be
+handled by an authoritative DNS server in said private network.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authoritative DNS servers SHOULD recognize these names as special
+and SHOULD, by default, generate immediate negative responses for
+all such queries, unless explicitly configured by the
+administrator to give positive answers for private-address
+reverse-mapping names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS server operators SHOULD, if they are using private addresses,
+configure their authoritative DNS servers to act as authoritative
+for these names.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Registries/Registrars MUST NOT grant requests to register any
+of these names in the normal way to any person or entity.
+'''
+

@@ -1,0 +1,97 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-5.2.3"
+
+# Challenge Response
+#
+#    Upon issuing a Setup Request, a client listens for a Setup Challenge
+#    (Section 5.2.2) retransmitting the Setup Request as necessary
+#    (Section 5.1).  After receiving a successful Setup Challenge, the
+#    client SHOULD send a Challenge Response to the server.  This
+#    Challenge Response is a DNS request with questions as in the Setup
+#    Request and Setup Challenge, and a single OPT pseudo-RR in the
+#    Additional section, with the LLQ OPTIONS corresponding to the LLQ
+#    OPTIONS contained in the Setup Challenge (i.e., echoing, for each LLQ
+#    OPTION, the random LLQ-ID and the granted LLQ-LEASE).  If the
+#    Challenge Response contains multiple questions, the first question
+#    MUST correspond to the first LLQ OPTION, etc.
+# 
+#    If the Setup Request for a particular LLQ fails with a STATIC error,
+#    the client MUST NOT poll the server for that LLQ.  The client SHOULD
+#    honor the resource record TTLs contained in the response.
+# 
+#    If a Setup Request fails with a SERV-FULL error, the client MAY retry
+#    the LLQ Setup Request (Section 5.2.1) after the time indicated in the
+#    LLQ-LEASE field.
+# 
+#    If the Setup Request fails with an error other than STATIC or
+#    SERV-FULL, or the server is determined not to support LLQ (i.e., the
+#    client receives a DNS response with a nonzero RCODE, or a DNS
+#    response containing no LLQ option), the client MAY poll the server
+#    periodically with standard DNS queries, inferring Add and Remove
+#    Events (see Section 6, "Event Responses") by comparing answers to
+#    these queries.  The client SHOULD NOT poll more than once every 15
+#    minutes for a given query.  The client MUST NOT poll if it receives a
+#    STATIC error code in the acknowledgment.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+After receiving a successful Setup Challenge, the
+client SHOULD send a Challenge Response to the server.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the
+Challenge Response contains multiple questions, the first question
+MUST correspond to the first LLQ OPTION, etc.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the Setup Request for a particular LLQ fails with a STATIC error,
+the client MUST NOT poll the server for that LLQ.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD
+honor the resource record TTLs contained in the response.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If a Setup Request fails with a SERV-FULL error, the client MAY retry
+the LLQ Setup Request (Section 5.2.1) after the time indicated in the
+LLQ-LEASE field.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the Setup Request fails with an error other than STATIC or
+SERV-FULL, or the server is determined not to support LLQ (i.e., the
+client receives a DNS response with a nonzero RCODE, or a DNS
+response containing no LLQ option), the client MAY poll the server
+periodically with standard DNS queries, inferring Add and Remove
+Events (see Section 6, "Event Responses") by comparing answers to
+these queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD NOT poll more than once every 15
+minutes for a given query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST NOT poll if it receives a
+STATIC error code in the acknowledgment.
+'''
+

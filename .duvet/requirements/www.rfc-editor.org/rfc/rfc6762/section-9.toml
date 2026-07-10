@@ -1,0 +1,117 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-9"
+
+# Conflict Resolution
+#
+#    A conflict occurs when a Multicast DNS responder has a unique record
+#    for which it is currently authoritative, and it receives a Multicast
+#    DNS response message containing a record with the same name, rrtype
+#    and rrclass, but inconsistent rdata.  What may be considered
+#    inconsistent is context sensitive, except that resource records with
+#    identical rdata are never considered inconsistent, even if they
+#    originate from different hosts.  This is to permit use of proxies and
+#    other fault-tolerance mechanisms that may cause more than one
+#    responder to be capable of issuing identical answers on the network.
+# 
+#    A common example of a resource record type that is intended to be
+#    unique, not shared between hosts, is the address record that maps a
+#    host's name to its IP address.  Should a host witness another host
+#    announce an address record with the same name but a different IP
+#    address, then that is considered inconsistent, and that address
+#    record is considered to be in conflict.
+# 
+#    Whenever a Multicast DNS responder receives any Multicast DNS
+#    response (solicited or otherwise) containing a conflicting resource
+#    record in any of the Resource Record Sections, the Multicast DNS
+#    responder MUST immediately reset its conflicted unique record to
+#    probing state, and go through the startup steps described above in
+# 
+#    Section 8, "Probing and Announcing on Startup".  The protocol used in
+#    the Probing phase will determine a winner and a loser, and the loser
+#    MUST cease using the name, and reconfigure.
+# 
+#    It is very important that any host receiving a resource record that
+#    conflicts with one of its own MUST take action as described above.
+#    In the case of two hosts using the same host name, where one has been
+#    configured to require a unique host name and the other has not, the
+#    one that has not been configured to require a unique host name will
+#    not perceive any conflict, and will not take any action.  By
+#    reverting to Probing state, the host that desires a unique host name
+#    will go through the necessary steps to ensure that a unique host name
+#    is obtained.
+# 
+#    The recommended course of action after probing and failing is as
+#    follows:
+# 
+#       1. Programmatically change the resource record name in an attempt
+#          to find a new name that is unique.  This could be done by
+#          adding some further identifying information (e.g., the model
+#          name of the hardware) if it is not already present in the name,
+#          or appending the digit "2" to the name, or incrementing a
+#          number at the end of the name if one is already present.
+# 
+#       2. Probe again, and repeat as necessary until a unique name is
+#          found.
+# 
+#       3. Once an available unique name has been determined, by probing
+#          without receiving any conflicting response, record this newly
+#          chosen name in persistent storage so that the device will use
+#          the same name the next time it is power-cycled.
+# 
+#       4. Display a message to the user or operator informing them of the
+#          name change.  For example:
+# 
+#             The name "Bob's Music" is in use by another music server on
+#             the network.  Your music collection has been renamed to
+#             "Bob's Music (2)".  If you want to change this name, use
+#             [describe appropriate menu item or preference dialog here].
+# 
+#          The details of how the user or operator is informed of the new
+#          name depends on context.  A desktop computer with a screen
+#          might put up a dialog box.  A headless server in the closet may
+#          write a message to a log file, or use whatever mechanism
+#          (email, SNMP trap, etc.) it uses to inform the administrator of
+#          error conditions.  On the other hand, a headless server in the
+#          closet may not inform the user at all -- if the user cares,
+# 
+#          they will notice the name has changed, and connect to the
+#          server in the usual way (e.g., via web browser) to configure a
+#          new name.
+# 
+#       5. After one minute of probing, if the Multicast DNS responder has
+#          been unable to find any unused name, it should log an error
+#          message to inform the user or operator of this fact.  This
+#          situation should never occur in normal operation.  The only
+#          situations that would cause this to happen would be either a
+#          deliberate denial-of-service attack, or some kind of very
+#          obscure hardware or software bug that acts like a deliberate
+#          denial-of-service attack.
+# 
+#    These considerations apply to address records (i.e., host names) and
+#    to all resource records where uniqueness (or maintenance of some
+#    other defined constraint) is desired.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Whenever a Multicast DNS responder receives any Multicast DNS
+response (solicited or otherwise) containing a conflicting resource
+record in any of the Resource Record Sections, the Multicast DNS
+responder MUST immediately reset its conflicted unique record to
+probing state, and go through the startup steps described above in
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The protocol used in
+the Probing phase will determine a winner and a loser, and the loser
+MUST cease using the name, and reconfigure.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It is very important that any host receiving a resource record that
+conflicts with one of its own MUST take action as described above.
+'''
+

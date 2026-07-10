@@ -1,0 +1,95 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.3.1"
+
+# Caching the Response
+#
+#    In the cache, all resource records in the Answer section MUST be tied
+#    to the network specified in the response.  The appropriate prefix
+#    length depends on the relationship between SOURCE PREFIX-LENGTH,
+#    SCOPE PREFIX-LENGTH, and the maximum cacheable prefix length
+#    configured for the cache.
+# 
+#    If SCOPE PREFIX-LENGTH is not longer than SOURCE PREFIX-LENGTH, store
+#    SCOPE PREFIX-LENGTH bits of ADDRESS, and then mark the response as
+#    valid for all addresses that fall within that range.
+# 
+#    Similarly, if SOURCE PREFIX-LENGTH is the maximum configured for the
+#    cache, store SOURCE PREFIX-LENGTH bits of ADDRESS, and then mark the
+#    response as valid for all addresses that fall within that range.
+# 
+#    If SOURCE PREFIX-LENGTH is shorter than the configured maximum and
+#    SCOPE PREFIX-LENGTH is longer than SOURCE PREFIX-LENGTH, store SOURCE
+#    PREFIX-LENGTH bits of ADDRESS, and then mark the response as valid
+#    only to answer client queries that specify exactly the same SOURCE
+#    PREFIX-LENGTH in their own ECS option.
+# 
+#    The handling of DNSSEC-related records in the Answer section was
+#    unspecified in the original draft version of this document and is
+#    inconsistently handled in existing implementations.  A Resource
+#    Record Signature (RRSIG) must obviously be tied to the RRset that it
+#    signs, but it is RECOMMENDED that all other DNSSEC records be scoped
+#    at /0.  See Section 9 for more information.
+# 
+#    Note that the Additional and Authority sections from a DNS response
+#    message are specifically excluded here.  Any records from these
+#    sections MUST NOT be tied to a network.  See Section 7.4 for more
+#    information.
+# 
+#    Records that are cached as /0 because of a query's SOURCE PREFIX-
+#    LENGTH of 0 MUST be distinguished from those that are cached as /0
+#    because of a response's SCOPE PREFIX-LENGTH of 0.  The former should
+#    only be used for other /0 queries that the Intermediate Resolver
+#    receives, but the latter is suitable as a response for all networks.
+# 
+#    Although omitting network-specific caching will significantly
+#    simplify an implementation, the resulting drop in cache hits is very
+#    likely to defeat most latency benefits provided by ECS.  Therefore,
+#    implementing full caching support as described in this section is
+#    strongly RECOMMENDED.
+# 
+#    Enabling support for ECS in an Intermediate Nameserver will
+#    significantly increase the size of the cache, reduce the number of
+#    results that can be served from cache, and increase the load on the
+#    server.  Implementing the mitigation techniques described in
+#    Section 11 is strongly recommended.  For cache size issues,
+#    implementers should consider data storage formats that allow the same
+#    answer data to be shared among multiple prefixes.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the cache, all resource records in the Answer section MUST be tied
+to the network specified in the response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A Resource
+Record Signature (RRSIG) must obviously be tied to the RRset that it
+signs, but it is RECOMMENDED that all other DNSSEC records be scoped
+at /0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any records from these
+sections MUST NOT be tied to a network.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Records that are cached as /0 because of a query's SOURCE PREFIX-
+LENGTH of 0 MUST be distinguished from those that are cached as /0
+because of a response's SCOPE PREFIX-LENGTH of 0.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore,
+implementing full caching support as described in this section is
+strongly RECOMMENDED.
+'''
+

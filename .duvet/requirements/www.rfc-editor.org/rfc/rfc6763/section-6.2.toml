@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6.2"
+
+# DNS-SD TXT Record Size
+#
+#    The total size of a typical DNS-SD TXT record is intended to be small
+#    -- 200 bytes or less.
+# 
+#    In cases where more data is justified (e.g., LPR printing [BJP]),
+#    keeping the total size under 400 bytes should allow it to fit in a
+#    single 512-byte DNS message [RFC1035].
+# 
+#    In extreme cases where even this is not enough, keeping the size of
+#    the TXT record under 1300 bytes should allow it to fit in a single
+#    1500-byte Ethernet packet.
+# 
+#    Using TXT records larger than 1300 bytes is NOT RECOMMENDED at this
+#    time.
+# 
+#    Note that some Ethernet hardware vendors offer chipsets with
+#    Multicast DNS [RFC6762] offload, so that computers can sleep and
+#    still be discoverable on the network.  Early versions of such
+#    chipsets were sometimes quite limited: for example, some were
+# 
+#    (unwisely) limited to handling TXT records no larger than 256 bytes
+#    (which meant that LPR printer services with larger TXT records did
+#    not work).  Developers should be aware of this real-world limitation,
+#    and should understand that even hardware which is otherwise perfectly
+#    capable may have low-power and sleep modes that are more limited.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Using TXT records larger than 1300 bytes is NOT RECOMMENDED at this
+time.
+'''
+

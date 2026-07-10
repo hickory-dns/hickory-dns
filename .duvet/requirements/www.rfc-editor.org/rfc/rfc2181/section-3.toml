@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc2181#section-3"
+
+# Terminology
+#
+#    This memo does not use the oft used expressions MUST, SHOULD, MAY, or
+#    their negative forms.  In some sections it may seem that a
+#    specification is worded mildly, and hence some may infer that the
+#    specification is optional.  That is not correct.  Anywhere that this
+#    memo suggests that some action should be carried out, or must be
+#    carried out, or that some behaviour is acceptable, or not, that is to
+#    be considered as a fundamental aspect of this specification,
+#    regardless of the specific words used.  If some behaviour or action
+#    is truly optional, that will be clearly specified by the text.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This memo does not use the oft used expressions MUST, SHOULD, MAY, or
+their negative forms.
+'''
+

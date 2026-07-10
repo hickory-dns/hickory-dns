@@ -1,0 +1,77 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-5"
+
+# Authorization
+#
+#    A zone administrator has the option to restrict AXFR access to a
+#    zone.  This was not envisioned in the original design of the DNS but
+#    has emerged as a requirement as the DNS has evolved.  Restrictions on
+#    AXFR could be for various reasons including a desire (or in some
+#    instances, having a legal requirement) to keep the bulk version of
+#    the zone concealed or to prevent the servers from handling the load
+# 
+#    incurred in serving AXFR.  It has been argued that these reasons are
+#    questionable, but this document, driven by the desire to leverage the
+#    interoperable practice that has evolved since RFC 1035, acknowledges
+#    the factual requirement to provide mechanisms to restrict AXFR.
+# 
+#    A DNS implementation SHOULD provide means to restrict AXFR sessions
+#    to specific clients.
+# 
+#    An implementation SHOULD allow access to be granted to Internet
+#    Protocol addresses and ranges, regardless of whether a source address
+#    could be spoofed.  Combining this with techniques such as Virtual
+#    Private Networks (VPNs) [RFC2764] or Virtual LANs has proven to be
+#    effective.
+# 
+#    A general-purpose implementation is RECOMMENDED to implement access
+#    controls based upon "Secret Key Transaction Authentication for DNS
+#    (TSIG)" [RFC2845] and/or "DNS Request and Transaction Signatures
+#    ( SIG(0)s )" [RFC2931].
+# 
+#    A general-purpose implementation SHOULD allow access to be open to
+#    all AXFR requests.  That is, an operator ought to be able to allow
+#    any AXFR query to be granted.
+# 
+#    A general-purpose implementation SHOULD NOT have a default policy for
+#    AXFR requests to be "open to all".  For example, a default could be
+#    to restrict transfers to addresses selected by the DNS
+#    administrator(s) for zones on the server.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A DNS implementation SHOULD provide means to restrict AXFR sessions
+to specific clients.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An implementation SHOULD allow access to be granted to Internet
+Protocol addresses and ranges, regardless of whether a source address
+could be spoofed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A general-purpose implementation is RECOMMENDED to implement access
+controls based upon "Secret Key Transaction Authentication for DNS
+(TSIG)" [RFC2845] and/or "DNS Request and Transaction Signatures
+( SIG(0)s )" [RFC2931].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A general-purpose implementation SHOULD allow access to be open to
+all AXFR requests.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A general-purpose implementation SHOULD NOT have a default policy for
+AXFR requests to be "open to all".
+'''
+

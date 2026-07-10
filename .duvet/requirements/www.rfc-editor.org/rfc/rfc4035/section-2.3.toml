@@ -1,0 +1,92 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-2.3"
+
+# Including NSEC RRs in a Zone
+#
+#    Each owner name in the zone that has authoritative data or a
+#    delegation point NS RRset MUST have an NSEC resource record.  The
+#    format of NSEC RRs and the process for constructing the NSEC RR for a
+#    given name is described in [RFC4034].
+# 
+#    The TTL value for any NSEC RR SHOULD be the same as the minimum TTL
+#    value field in the zone SOA RR.
+# 
+#    An NSEC record (and its associated RRSIG RRset) MUST NOT be the only
+#    RRset at any particular owner name.  That is, the signing process
+#    MUST NOT create NSEC or RRSIG RRs for owner name nodes that were not
+#    the owner name of any RRset before the zone was signed.  The main
+#    reasons for this are a desire for namespace consistency between
+#    signed and unsigned versions of the same zone and a desire to reduce
+#    the risk of response inconsistency in security oblivious recursive
+#    name servers.
+# 
+#    The type bitmap of every NSEC resource record in a signed zone MUST
+#    indicate the presence of both the NSEC record itself and its
+#    corresponding RRSIG record.
+# 
+#    The difference between the set of owner names that require RRSIG
+#    records and the set of owner names that require NSEC records is
+#    subtle and worth highlighting.  RRSIG records are present at the
+#    owner names of all authoritative RRsets.  NSEC records are present at
+#    the owner names of all names for which the signed zone is
+#    authoritative and also at the owner names of delegations from the
+# 
+#    signed zone to its children.  Neither NSEC nor RRSIG records are
+#    present (in the parent zone) at the owner names of glue address
+#    RRsets.  Note, however, that this distinction is for the most part
+#    visible only during the zone signing process, as NSEC RRsets are
+#    authoritative data and are therefore signed.  Thus, any owner name
+#    that has an NSEC RRset will have RRSIG RRs as well in the signed
+#    zone.
+# 
+#    The bitmap for the NSEC RR at a delegation point requires special
+#    attention.  Bits corresponding to the delegation NS RRset and any
+#    RRsets for which the parent zone has authoritative data MUST be set;
+#    bits corresponding to any non-NS RRset for which the parent is not
+#    authoritative MUST be clear.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each owner name in the zone that has authoritative data or a
+delegation point NS RRset MUST have an NSEC resource record.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The TTL value for any NSEC RR SHOULD be the same as the minimum TTL
+value field in the zone SOA RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An NSEC record (and its associated RRSIG RRset) MUST NOT be the only
+RRset at any particular owner name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+That is, the signing process
+MUST NOT create NSEC or RRSIG RRs for owner name nodes that were not
+the owner name of any RRset before the zone was signed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The type bitmap of every NSEC resource record in a signed zone MUST
+indicate the presence of both the NSEC record itself and its
+corresponding RRSIG record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Bits corresponding to the delegation NS RRset and any
+RRsets for which the parent zone has authoritative data MUST be set;
+bits corresponding to any non-NS RRset for which the parent is not
+authoritative MUST be clear.
+'''
+

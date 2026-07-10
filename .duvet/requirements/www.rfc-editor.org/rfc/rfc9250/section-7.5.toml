@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-7.5"
+
+# Traffic Analysis
+#
+#    Even though QUIC packets are encrypted, adversaries can gain
+#    information from observing packet lengths, in both queries and
+#    responses, as well as packet timing.  Many DNS requests are emitted
+#    by web browsers.  Loading a specific web page may require resolving
+#    dozens of DNS names.  If an application adopts a simple mapping of
+#    one query or response per packet, or "one QUIC STREAM frame per
+#    packet", then the succession of packet lengths may provide enough
+#    information to identify the requested site.
+# 
+#    Implementations SHOULD use the mechanisms defined in Section 5.4 to
+#    mitigate this attack.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD use the mechanisms defined in Section 5.4 to
+mitigate this attack.
+'''
+

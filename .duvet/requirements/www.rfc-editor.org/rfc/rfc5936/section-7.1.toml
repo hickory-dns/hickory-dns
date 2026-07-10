@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-7.1"
+
+# Server
+#
+#    An AXFR server has the luxury of being able to react to an AXFR
+#    client's abilities, with the exception of knowing whether the client
+#    can accept multiple resource records per AXFR response message.  The
+#    knowledge that a client is so restricted cannot be discovered; hence,
+#    it has to be set by configuration.
+# 
+#    An implementation of an AXFR server MAY permit configuring, on a per
+#    AXFR client basis, the necessity to revert to a single resource
+#    record per message; in that case, the default SHOULD be to use
+#    multiple records per message.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An implementation of an AXFR server MAY permit configuring, on a per
+AXFR client basis, the necessity to revert to a single resource
+record per message; in that case, the default SHOULD be to use
+multiple records per message.
+'''
+

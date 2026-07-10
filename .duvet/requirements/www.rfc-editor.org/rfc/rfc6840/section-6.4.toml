@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-6.4"
+
+# Errors in RFC 5155
+#
+#    An NSEC3 record that matches an Empty Non-Terminal effectively has no
+#    type associated with it.  This NSEC3 record has an empty type bit
+#    map.  Section 3.2.1 of [RFC5155] contains the statement:
+# 
+#       Blocks with no types present MUST NOT be included.
+# 
+#    However, the same section contains a regular expression:
+# 
+#       Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
+# 
+#    The plus sign in the regular expression indicates that there is one
+#    or more of the preceding element.  This means that there must be at
+#    least one window block.  If this window block has no types, it
+#    contradicts with the first statement.  Therefore, the correct text in
+#    Section 3.2.1 of [RFC5155] should be:
+# 
+#       Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )*
+
+[[spec]]
+level = "MUST"
+quote = '''
+Blocks with no types present MUST NOT be included.
+'''
+

@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.6"
+
+# Wildcard Answer Responses
+#
+#    If there is a wildcard match for QNAME and QTYPE, then, in addition
+#    to the expanded wildcard RRSet returned in the answer section of the
+#    response, proof that the wildcard match was valid must be returned.
+# 
+#    This proof is accomplished by proving that both QNAME does not exist
+#    and that the closest encloser of the QNAME and the immediate ancestor
+#    of the wildcard are the same (i.e., the correct wildcard matched).
+# 
+#    To this end, the NSEC3 RR that covers the "next closer" name of the
+#    immediate ancestor of the wildcard MUST be returned.  It is not
+#    necessary to return an NSEC3 RR that matches the closest encloser, as
+#    the existence of this closest encloser is proven by the presence of
+#    the expanded wildcard in the response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To this end, the NSEC3 RR that covers the "next closer" name of the
+immediate ancestor of the wildcard MUST be returned.
+'''
+

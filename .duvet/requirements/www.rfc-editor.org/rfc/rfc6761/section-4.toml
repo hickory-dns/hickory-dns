@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc6761#section-4"
+
+# Procedure
+#
+#    If it is determined that special handling of a name is required in
+#    order to implement some desired new functionality, then an IETF
+#    "Standards Action" or "IESG Approval" specification [RFC5226] MUST be
+#    published describing the new functionality.
+# 
+#    The specification MUST state how implementations determine that the
+#    special handling is required for any given name.  This is typically
+#    done by stating that any fully qualified domain name ending in a
+#    certain suffix (i.e., falling within a specified parent pseudo-
+#    domain) will receive the special behaviour.  In effect, this carves
+#    off a sub-tree of the DNS namespace in which the modified name
+#    treatment rules apply, analogous to how IP multicast [RFC1112] or IP
+#    link-local addresses [RFC3927] [RFC4862] carve off chunks of the IP
+#    address space in which their respective modified address treatment
+#    rules apply.
+# 
+#    The specification also MUST state, in each of the seven "Domain Name
+#    Reservation Considerations" categories below, what special treatment,
+#    if any, is to be applied.  If in all seven categories the answer is
+#    "none", then possibly no special treatment is required and requesting
+#    reservation of a Special-Use Domain Name may not be appropriate.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If it is determined that special handling of a name is required in
+order to implement some desired new functionality, then an IETF
+"Standards Action" or "IESG Approval" specification [RFC5226] MUST be
+published describing the new functionality.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The specification MUST state how implementations determine that the
+special handling is required for any given name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The specification also MUST state, in each of the seven "Domain Name
+Reservation Considerations" categories below, what special treatment,
+if any, is to be applied.
+'''
+

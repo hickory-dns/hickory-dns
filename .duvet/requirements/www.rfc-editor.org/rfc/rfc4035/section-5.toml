@@ -1,0 +1,95 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5"
+
+# Authenticating DNS Responses
+#
+#    To use DNSSEC RRs for authentication, a security-aware resolver
+#    requires configured knowledge of at least one authenticated DNSKEY or
+#    DS RR.  The process for obtaining and authenticating this initial
+#    trust anchor is achieved via some external mechanism.  For example, a
+#    resolver could use some off-line authenticated exchange to obtain a
+#    zone's DNSKEY RR or to obtain a DS RR that identifies and
+#    authenticates a zone's DNSKEY RR.  The remainder of this section
+#    assumes that the resolver has somehow obtained an initial set of
+#    trust anchors.
+# 
+#    An initial DNSKEY RR can be used to authenticate a zone's apex DNSKEY
+#    RRset.  To authenticate an apex DNSKEY RRset by using an initial key,
+#    the resolver MUST:
+# 
+#    1.  verify that the initial DNSKEY RR appears in the apex DNSKEY
+#        RRset, and that the DNSKEY RR has the Zone Key Flag (DNSKEY RDATA
+#        bit 7) set; and
+# 
+#    2.  verify that there is some RRSIG RR that covers the apex DNSKEY
+#        RRset, and that the combination of the RRSIG RR and the initial
+#        DNSKEY RR authenticates the DNSKEY RRset.  The process for using
+#        an RRSIG RR to authenticate an RRset is described in Section 5.3.
+# 
+#    Once the resolver has authenticated the apex DNSKEY RRset by using an
+#    initial DNSKEY RR, delegations from that zone can be authenticated by
+#    using DS RRs.  This allows a resolver to start from an initial key
+#    and use DS RRsets to proceed recursively down the DNS tree, obtaining
+#    other apex DNSKEY RRsets.  If the resolver were configured with a
+#    root DNSKEY RR, and if every delegation had a DS RR associated with
+#    it, then the resolver could obtain and validate any apex DNSKEY
+#    RRset.  The process of using DS RRs to authenticate referrals is
+#    described in Section 5.2.
+# 
+#    Section 5.3 shows how the resolver can use DNSKEY RRs in the apex
+#    DNSKEY RRset and RRSIG RRs from the zone to authenticate any other
+#    RRsets in the zone once the resolver has authenticated a zone's apex
+#    DNSKEY RRset.  Section 5.4 shows how the resolver can use
+#    authenticated NSEC RRsets from the zone to prove that an RRset is not
+#    present in the zone.
+# 
+#    When a resolver indicates support for DNSSEC (by setting the DO bit),
+#    a security-aware name server should attempt to provide the necessary
+#    DNSKEY, RRSIG, NSEC, and DS RRsets in a response (see Section 3).
+#    However, a security-aware resolver may still receive a response that
+#    lacks the appropriate DNSSEC RRs, whether due to configuration issues
+#    such as an upstream security-oblivious recursive name server that
+# 
+#    accidentally interferes with DNSSEC RRs or due to a deliberate attack
+#    in which an adversary forges a response, strips DNSSEC RRs from a
+#    response, or modifies a query so that DNSSEC RRs appear not to be
+#    requested.  The absence of DNSSEC data in a response MUST NOT by
+#    itself be taken as an indication that no authentication information
+#    exists.
+# 
+#    A resolver SHOULD expect authentication information from signed
+#    zones.  A resolver SHOULD believe that a zone is signed if the
+#    resolver has been configured with public key information for the
+#    zone, or if the zone's parent is signed and the delegation from the
+#    parent contains a DS RRset.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To authenticate an apex DNSKEY RRset by using an initial key,
+the resolver MUST:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The absence of DNSSEC data in a response MUST NOT by
+itself be taken as an indication that no authentication information
+exists.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A resolver SHOULD expect authentication information from signed
+zones.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A resolver SHOULD believe that a zone is signed if the
+resolver has been configured with public key information for the
+zone, or if the zone's parent is signed and the delegation from the
+parent contains a DS RRset.
+'''
+

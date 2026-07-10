@@ -1,0 +1,62 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-5.3"
+
+# Resource Record TTLs
+#
+#    The TTLs of resource records contained in answers to successful LLQs
+#    SHOULD be ignored by the client.  The client MAY cache LLQ answers
+#    until the client receives a gratuitous announcement (see Section 6,
+#    "Event Responses") indicating that the answer to the LLQ has changed.
+#    The client SHOULD NOT cache answers after the LLQs LLQ-LEASE expires
+#    without being refreshed (see Section 7, "LLQ Lease-Life Expiration").
+#    If an LLQ request fails, the client SHOULD NOT cache answers for a
+#    period longer than the client's polling interval.
+# 
+#    Note that resource records intended specifically to be transmitted
+#    via LLQs (e.g., DNS-based Service Discovery resource records) may
+#    have unusually short TTLs.  This is because it is assumed that the
+#    records may change frequently, and that a client's cache coherence
+#    will be maintained via the LLQ and gratuitous responses.  Short TTLs
+#    prevent stale information from residing in intermediate DNS recursive
+#    resolvers that are not LLQ aware.
+# 
+#    TTLs of resource records included in the Additional section of an LLQ
+#    response (which do not directly answer the LLQ) SHOULD be honored by
+#    the client.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The TTLs of resource records contained in answers to successful LLQs
+SHOULD be ignored by the client.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The client MAY cache LLQ answers
+until the client receives a gratuitous announcement (see Section 6,
+"Event Responses") indicating that the answer to the LLQ has changed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD NOT cache answers after the LLQs LLQ-LEASE expires
+without being refreshed (see Section 7, "LLQ Lease-Life Expiration").
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If an LLQ request fails, the client SHOULD NOT cache answers for a
+period longer than the client's polling interval.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+TTLs of resource records included in the Additional section of an LLQ
+response (which do not directly answer the LLQ) SHOULD be honored by
+the client.
+'''
+

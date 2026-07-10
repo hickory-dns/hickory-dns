@@ -1,0 +1,60 @@
+target = "https://www.rfc-editor.org/rfc/rfc5452#section-10"
+
+# Security Considerations
+#
+#    This document provides clarification of the DNS specification to
+#    decrease the probability that DNS responses can be successfully
+#    forged.  Recommendations found above should be considered
+#    complementary to possible cryptographical enhancements of the domain
+#    name system, which protect against a larger class of attacks.
+# 
+#    This document recommends the use of UDP source port number
+#    randomization to extend the effective DNS transaction ID beyond the
+#    available 16 bits.
+# 
+#    A resolver that does not implement the recommendations outlined above
+#    can easily be forced to accept spoofed responses, which in turn are
+#    passed on to client computers -- misdirecting (user) traffic to
+#    possibly malicious entities.
+# 
+#    This document directly impacts the security of the Domain Name
+#    System, implementers are urged to follow its recommendations.
+# 
+#    Most security considerations can be found in Sections 4 and 5, while
+#    proposed countermeasures are described in Section 9.
+# 
+#    For brevity's sake, in lieu of repeating the security considerations
+#    references, the reader is referred to these sections.
+# 
+#    Nothing in this document specifies specific algorithms for operators
+#    to use; it does specify algorithms implementations SHOULD or MUST
+#    support.
+# 
+#    It should be noted that the effects of source port randomization may
+#    be dramatically reduced by NAT devices that either serialize or limit
+#    in volume the UDP source ports used by the querying resolver.
+# 
+#    DNS recursive servers sitting behind at NAT or a statefull firewall
+#    may consume all available NAT translation entries/ports when
+#    operating under high query load.  Port randomization will cause
+#    translation entries to be consumed faster than with fixed query port.
+# 
+#    To avoid this, NAT boxes and statefull firewalls can/should purge
+#    outgoing DNS query translation entries 10-17 seconds after the last
+#    outgoing query on that mapping was sent.  [RFC4787]-compliant devices
+#    need to treat UDP messages with port 53 differently than most other
+#    UDP protocols.
+# 
+#    To minimize the potential that port/state exhaustion attacks can be
+#    staged from the outside, it is recommended that services that
+#    generate a number of DNS queries for each connection should be rate
+#    limited.  This applies in particular to email servers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Nothing in this document specifies specific algorithms for operators
+to use; it does specify algorithms implementations SHOULD or MUST
+support.
+'''
+

@@ -1,0 +1,75 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-4.3"
+
+# Triggers
+#
+#    Parental agents SHOULD trigger the procedure described in Section 4.2
+#    once one of the following conditions is fulfilled:
+# 
+#    *  The parental agent receives a new or updated NS RRset for a child;
+# 
+#    *  The parental agent receives a notification indicating that the
+#       child wishes to have its CDS/CDNSKEY RRset processed;
+# 
+#    *  The parental agent encounters a signaling record during a
+#       proactive, opportunistic scan (e.g., daily queries of signaling
+#       records for some or all of its delegations);
+# 
+#    *  The parental agent encounters a signaling record during an NSEC
+#       walk or when parsing a signaling zone (e.g., when made available
+#       via AXFR by the child DNS operator);
+# 
+#    *  Any other condition deemed appropriate by local policy.
+# 
+#    Timer-based trigger mechanisms (such as scans) exhibit undesirable
+#    properties with respect to processing delay and scaling; on-demand
+#    triggers (like notifications) are preferable.  Whenever possible,
+#    child DNS operators and parental agents are thus encouraged to use
+#    them, reducing both delays and the amount of scanning traffic.
+# 
+#    Most types of discovery (such as daily scans of delegations) are
+#    based directly on the delegation's NS RRset.  In this case, these NS
+#    names can be used as is by the bootstrapping algorithm (Section 4.2)
+#    for querying signaling records.
+# 
+#    Some discovery methods, however, do not imply reliable knowledge of
+#    the delegation's NS RRset.  For example, when discovering signaling
+#    names by performing an NSEC walk or zone transfer of a signaling
+#    zone, the parental agent MUST NOT assume that a nameserver under
+#    whose signaling domain a signaling record appears is actually
+#    authoritative for the corresponding child.
+# 
+#    Instead, whenever a list of "bootstrappable domains" is obtained by
+#    means other than directly from the parent, the parental agent MUST
+#    ascertain that the delegation actually contains the nameserver
+#    hostname seen during discovery, and ensure that signaling-record
+#    queries are only made against the proper set of nameservers as listed
+#    in the child's delegation from the parent.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Parental agents SHOULD trigger the procedure described in Section 4.2
+once one of the following conditions is fulfilled:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For example, when discovering signaling
+names by performing an NSEC walk or zone transfer of a signaling
+zone, the parental agent MUST NOT assume that a nameserver under
+whose signaling domain a signaling record appears is actually
+authoritative for the corresponding child.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Instead, whenever a list of "bootstrappable domains" is obtained by
+means other than directly from the parent, the parental agent MUST
+ascertain that the delegation actually contains the nameserver
+hostname seen during discovery, and ensure that signaling-record
+queries are only made against the proper set of nameservers as listed
+in the child's delegation from the parent.
+'''
+

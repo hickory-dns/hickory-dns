@@ -1,0 +1,85 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.5"
+
+# Session Resumption and 0-RTT
+#
+#    A client MAY take advantage of the session resumption and 0-RTT
+#    mechanisms supported by QUIC transport [RFC9000] and QUIC TLS
+#    [RFC9001] if the server supports them.  Clients SHOULD consider
+#    potential privacy issues associated with session resumption before
+#    deciding to use this mechanism and specifically evaluate the trade-
+#    offs presented in the various sections of this document.  The privacy
+#    issues are detailed in Sections 7.1 and 7.2, and the implementation
+#    considerations are discussed in Section 5.5.3.
+# 
+#    The 0-RTT mechanism MUST NOT be used to send DNS requests that are
+#    not "replayable" transactions.  In this specification, only
+#    transactions that have an OPCODE of QUERY or NOTIFY are considered
+#    replayable; therefore, other OPCODES MUST NOT be sent in 0-RTT data.
+#    See Appendix A for a detailed discussion of why NOTIFY is included
+#    here.
+# 
+#    Servers MAY support session resumption, and MAY do that with or
+#    without supporting 0-RTT, using the mechanisms described in
+#    Section 4.6.1 of [RFC9001].  Servers supporting 0-RTT MUST NOT
+#    immediately process non-replayable transactions received in 0-RTT
+#    data but instead MUST adopt one of the following behaviors:
+# 
+#    *  Queue the offending transaction and only process it after the QUIC
+#       handshake has been completed, as defined in Section 4.1.1 of
+#       [RFC9001].
+# 
+#    *  Reply to the offending transaction with a response code REFUSED
+#       and an Extended DNS Error Code (EDE) "Too Early" using the
+#       extended RCODE mechanisms defined in [RFC6891] and the extended
+#       DNS errors defined in [RFC8914]; see Section 8.3.
+# 
+#    *  Close the connection with the error code DOQ_PROTOCOL_ERROR.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A client MAY take advantage of the session resumption and 0-RTT
+mechanisms supported by QUIC transport [RFC9000] and QUIC TLS
+[RFC9001] if the server supports them.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD consider
+potential privacy issues associated with session resumption before
+deciding to use this mechanism and specifically evaluate the trade-
+offs presented in the various sections of this document.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The 0-RTT mechanism MUST NOT be used to send DNS requests that are
+not "replayable" transactions.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this specification, only
+transactions that have an OPCODE of QUERY or NOTIFY are considered
+replayable; therefore, other OPCODES MUST NOT be sent in 0-RTT data.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Servers MAY support session resumption, and MAY do that with or
+without supporting 0-RTT, using the mechanisms described in
+Section 4.6.1 of [RFC9001].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Servers supporting 0-RTT MUST NOT
+immediately process non-replayable transactions received in 0-RTT
+data but instead MUST adopt one of the following behaviors:
+'''
+

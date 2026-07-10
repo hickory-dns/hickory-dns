@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc4509#section-3"
+
+# Implementation Requirements
+#
+#    Implementations MUST support the use of the SHA-256 algorithm in DS
+#    RRs.  Validator implementations SHOULD ignore DS RRs containing SHA-1
+#    digests if DS RRs with SHA-256 digests are present in the DS RRset.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations MUST support the use of the SHA-256 algorithm in DS
+RRs.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Validator implementations SHOULD ignore DS RRs containing SHA-1
+digests if DS RRs with SHA-256 digests are present in the DS RRset.
+'''
+

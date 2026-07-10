@@ -1,0 +1,17 @@
+target = "https://www.rfc-editor.org/rfc/rfc5702#section-2.2"
+
+# RSA/SHA-512 DNSKEY Resource Records
+#
+#    RSA public keys for use with RSA/SHA-512 are stored in DNSKEY
+#    resource records (RRs) with the algorithm number 10.
+# 
+#    The key size of RSA/SHA-512 keys MUST NOT be less than 1024 bits and
+#    MUST NOT be more than 4096 bits.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The key size of RSA/SHA-512 keys MUST NOT be less than 1024 bits and
+MUST NOT be more than 4096 bits.
+'''
+

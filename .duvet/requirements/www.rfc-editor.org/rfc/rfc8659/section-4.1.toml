@@ -1,0 +1,130 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-4.1"
+
+# Syntax
+#
+#    A CAA RR contains a single Property consisting of a tag-value pair.
+#    An FQDN MAY have multiple CAA RRs associated with it, and a given
+#    Property Tag MAY be specified more than once across those RRs.
+# 
+#    The RDATA section for a CAA RR contains one Property.  A Property
+#    consists of the following:
+# 
+#    +0-1-2-3-4-5-6-7-|0-1-2-3-4-5-6-7-|
+#    | Flags          | Tag Length = n |
+#    +----------------|----------------+...+---------------+
+#    | Tag char 0     | Tag char 1     |...| Tag char n-1  |
+#    +----------------|----------------+...+---------------+
+#    +----------------|----------------+.....+----------------+
+#    | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
+#    +----------------|----------------+.....+----------------+
+# 
+#    Where n is the length specified in the Tag Length field and m is the
+#    number of remaining octets in the Value field.  They are related by
+#    (m = d - n - 2) where d is the length of the RDATA section.
+# 
+#    The fields are defined as follows:
+# 
+#    Flags:  One octet containing the following field:
+# 
+#       Bit 0, Issuer Critical Flag:  If the value is set to "1", the
+#          Property is critical.  A CA MUST NOT issue certificates for any
+#          FQDN if the Relevant RRset for that FQDN contains a CAA
+#          critical Property for an unknown or unsupported Property Tag.
+# 
+#    Note that according to the conventions set out in [RFC1035], bit 0 is
+#    the Most Significant Bit and bit 7 is the Least Significant Bit.
+#    Thus, according to those conventions, the Flags value 1 means that
+#    bit 7 is set, while a value of 128 means that bit 0 is set.
+# 
+#    All other bit positions are reserved for future use.
+# 
+#    To ensure compatibility with future extensions to CAA, DNS records
+#    compliant with this version of the CAA specification MUST clear (set
+#    to "0") all reserved flag bits.  Applications that interpret CAA
+#    records MUST ignore the value of all reserved flag bits.
+# 
+#    Tag Length:  A single octet containing an unsigned integer specifying
+#       the tag length in octets.  The tag length MUST be at least 1.
+# 
+#    Tag:  The Property identifier -- a sequence of ASCII characters.
+# 
+#    Tags MAY contain ASCII characters "a" through "z", "A" through "Z",
+#    and the numbers 0 through 9.  Tags MUST NOT contain any other
+#    characters.  Matching of tags is case insensitive.
+# 
+#    Tags submitted for registration by IANA MUST NOT contain any
+#    characters other than the (lowercase) ASCII characters "a" through
+#    "z" and the numbers 0 through 9.
+# 
+#    Value:  A sequence of octets representing the Property Value.
+#       Property Values are encoded as binary values and MAY employ
+#       sub-formats.
+# 
+#    The length of the Value field is specified implicitly as the
+#    remaining length of the enclosing RDATA section.
+
+[[spec]]
+level = "MAY"
+quote = '''
+An FQDN MAY have multiple CAA RRs associated with it, and a given
+Property Tag MAY be specified more than once across those RRs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A CA MUST NOT issue certificates for any
+FQDN if the Relevant RRset for that FQDN contains a CAA
+critical Property for an unknown or unsupported Property Tag.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To ensure compatibility with future extensions to CAA, DNS records
+compliant with this version of the CAA specification MUST clear (set
+to "0") all reserved flag bits.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Applications that interpret CAA
+records MUST ignore the value of all reserved flag bits.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The tag length MUST be at least 1.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Tags MAY contain ASCII characters "a" through "z", "A" through "Z",
+and the numbers 0 through 9.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Tags MUST NOT contain any other
+characters.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Tags submitted for registration by IANA MUST NOT contain any
+characters other than the (lowercase) ASCII characters "a" through
+"z" and the numbers 0 through 9.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Property Values are encoded as binary values and MAY employ
+sub-formats.
+'''
+

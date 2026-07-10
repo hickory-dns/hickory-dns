@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-21"
+
+# Security Considerations
+#
+#    The algorithm for detecting and resolving name conflicts is, by its
+#    very nature, an algorithm that assumes cooperating participants.  Its
+#    purpose is to allow a group of hosts to arrive at a mutually disjoint
+#    set of host names and other DNS resource record names, in the absence
+#    of any central authority to coordinate this or mediate disputes.  In
+#    the absence of any higher authority to resolve disputes, the only
+#    alternative is that the participants must work together cooperatively
+#    to arrive at a resolution.
+# 
+#    In an environment where the participants are mutually antagonistic
+#    and unwilling to cooperate, other mechanisms are appropriate, like
+#    manually configured DNS.
+# 
+#    In an environment where there is a group of cooperating participants,
+#    but clients cannot be sure that there are no antagonistic hosts on
+#    the same physical link, the cooperating participants need to use
+#    IPsec signatures and/or DNSSEC [RFC4033] signatures so that they can
+#    distinguish Multicast DNS messages from trusted participants (which
+#    they process as usual) from Multicast DNS messages from untrusted
+#    participants (which they silently discard).
+# 
+#    If DNS queries for *global* DNS names are sent to the mDNS multicast
+#    address (during network outages which disrupt communication with the
+#    greater Internet) it is *especially* important to use DNSSEC, because
+#    the user may have the impression that he or she is communicating with
+#    some authentic host, when in fact he or she is really communicating
+#    with some local host that is merely masquerading as that name.  This
+#    is less critical for names ending with ".local.", because the user
+#    should be aware that those names have only local significance and no
+#    global authority is implied.
+# 
+#    Most computer users neglect to type the trailing dot at the end of a
+#    fully qualified domain name, making it a relative domain name (e.g.,
+#    "www.example.com").  In the event of network outage, attempts to
+#    positively resolve the name as entered will fail, resulting in
+#    application of the search list, including ".local.", if present.  A
+#    malicious host could masquerade as "www.example.com." by answering
+#    the resulting Multicast DNS query for "www.example.com.local.".  To
+#    avoid this, a host MUST NOT append the search suffix ".local.", if
+#    present, to any relative (partially qualified) host name containing
+#    two or more labels.  Appending ".local." to single-label relative
+#    host names is acceptable, since the user should have no expectation
+#    that a single-label host name will resolve as is.  However, users who
+#    have both "example.com" and "local" in their search lists should be
+#    aware that if they type "www" into their web browser, it may not be
+#    immediately clear to them whether the page that appears is
+#    "www.example.com" or "www.local".
+# 
+#    Multicast DNS uses UDP port 5353.  On operating systems where only
+#    privileged processes are allowed to use ports below 1024, no such
+#    privilege is required to use port 5353.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To
+avoid this, a host MUST NOT append the search suffix ".local.", if
+present, to any relative (partially qualified) host name containing
+two or more labels.
+'''
+

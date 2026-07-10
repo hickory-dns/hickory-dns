@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc8080#section-8"
+
+# Security Considerations
+#
+#    The security considerations of [RFC8032] and [RFC7748] are inherited
+#    in the usage of Ed25519 and Ed448 in DNSSEC.
+# 
+#    Ed25519 is intended to operate at around the 128-bit security level
+#    and Ed448 at around the 224-bit security level.  A sufficiently large
+#    quantum computer would be able to break both.  Reasonable projections
+#    of the abilities of classical computers conclude that Ed25519 is
+# 
+#    perfectly safe.  Ed448 is provided for those applications with
+#    relaxed performance requirements and where there is a desire to hedge
+#    against analytical attacks on elliptic curves.
+# 
+#    These assessments could, of course, change in the future if new
+#    attacks that work better than the ones known today are found.
+# 
+#    A private key used for a DNSSEC zone MUST NOT be used for any other
+#    purpose than for that zone.  Otherwise, cross-protocol or cross-
+#    application attacks are possible.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A private key used for a DNSSEC zone MUST NOT be used for any other
+purpose than for that zone.
+'''
+

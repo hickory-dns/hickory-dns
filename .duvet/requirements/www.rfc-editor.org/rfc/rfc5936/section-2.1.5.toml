@@ -1,0 +1,82 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.1.5"
+
+# Additional Section
+#
+#    Currently, two kinds of resource records are defined that can appear
+#    in the Additional section of AXFR queries and responses: EDNS and DNS
+#    transaction security.  Future specifications defining RRs that can be
+#    carried in the Additional section of normal DNS transactions need to
+#    explicitly describe their use with AXFR, should that be desired.
+# 
+#    The client MAY include one OPT resource record [RFC2671].  If the
+#    server does not support EDNS0, the client MUST send this section
+#    without an OPT resource record if there is a retry.  However, the
+#    protocol does not define an explicit indication that the server does
+#    not support EDNS0; that needs to be inferred by the client.  Often,
+#    the server will return a FormErr(1) that might be related to the OPT
+#    resource record.  Note that, at the time of this writing, only the
+#    EXTENDED-RCODE field of the OPT RR is meaningful in the context of
+#    AXFR; future specifications of EDNS flags and/or EDNS options must
+#    describe their usage in the context of AXFR, if applicable.
+# 
+#    The client MAY include one transaction integrity and authentication
+#    resource record, currently a choice of TSIG [RFC2845] or SIG(0)
+#    [RFC2931].  If the server has indicated that it does not recognize
+#    the resource record, and that the error is indeed caused by the
+#    resource record, the client probably should not try again.  Removing
+#    the security data in the face of an obstacle ought to only be done
+#    with full awareness of the implication of doing so.
+# 
+#    In general, if an AXFR client is aware that an AXFR server does not
+#    support a particular mechanism, the client SHOULD NOT attempt to
+#    engage the server using the mechanism (or engage the server at all).
+#    A client could become aware of a server's abilities via a
+#    configuration setting or via some other (as yet) undefined means.
+# 
+#    The range of permissible resource records that MAY appear in the
+#    Additional section might change over time.  If either a change to an
+#    existing resource record (like the OPT RR for EDNS) is made or a new
+#    Additional section record is created, the new definitions ought to
+#    include a discussion on the applicability and impact upon AXFR.
+#    Future resource records residing in the Additional section might have
+#    an effect that is orthogonal to AXFR, and so can ride through the
+#    session as opaque data.  In this case, a "wise" implementation ought
+#    to be able to pass these records through without disruption.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The client MAY include one OPT resource record [RFC2671].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the
+server does not support EDNS0, the client MUST send this section
+without an OPT resource record if there is a retry.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The client MAY include one transaction integrity and authentication
+resource record, currently a choice of TSIG [RFC2845] or SIG(0)
+[RFC2931].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In general, if an AXFR client is aware that an AXFR server does not
+support a particular mechanism, the client SHOULD NOT attempt to
+engage the server using the mechanism (or engage the server at all).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The range of permissible resource records that MAY appear in the
+Additional section might change over time.
+'''
+

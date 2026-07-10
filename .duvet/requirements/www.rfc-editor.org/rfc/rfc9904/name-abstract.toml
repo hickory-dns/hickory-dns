@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#name-abstract"
+
+# Abstract
+#
+#    The DNSSEC protocol makes use of various cryptographic algorithms to
+#    provide authentication of DNS data and proof of nonexistence.  To
+#    ensure interoperability between DNS resolvers and DNS authoritative
+#    servers, it is necessary to specify both a set of algorithm
+#    implementation requirements and usage guidelines to ensure that there
+#    is at least one algorithm that all implementations support.  This
+#    document replaces and obsoletes RFC 8624 and moves the canonical
+#    source of algorithm implementation requirements and usage guidance
+#    for DNSSEC from RFC 8624 to the IANA DNSSEC algorithm registries.
+#    This is done to allow the list of requirements to be more easily
+#    updated and referenced.  Extensions to these registries can be made
+#    in future RFCs.  This document also updates RFC 9157 and incorporates
+#    the revised IANA DNSSEC considerations from that RFC.
+# 
+#    This document does not change the recommendation status (MUST, MAY,
+#    RECOMMENDED, etc.) of the algorithms listed in RFC 8624; that is the
+#    work of future documents.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This document does not change the recommendation status (MUST, MAY,
+RECOMMENDED, etc.) of the algorithms listed in RFC 8624; that is the
+work of future documents.
+'''
+

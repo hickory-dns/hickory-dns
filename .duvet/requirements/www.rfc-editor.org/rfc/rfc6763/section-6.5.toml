@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6.5"
+
+# Rules for Values in DNS-SD Key/Value Pairs
+#
+#    If there is an '=' in a DNS-SD TXT record string, then everything
+#    after the first '=' to the end of the string is the value.  The value
+#    can contain any eight-bit values including '='.  The value MUST NOT
+# 
+#    be enclosed in additional quotation marks or any similar punctuation;
+#    any quotation marks, or leading or trailing spaces, are part of the
+#    value.
+# 
+#    The value is opaque binary data.  Often the value for a particular
+#    attribute will be US-ASCII [RFC20] or UTF-8 [RFC3629] text, but it is
+#    legal for a value to be any binary data.
+# 
+#    Generic debugging tools should generally display all attribute values
+#    as a hex dump, with accompanying text alongside displaying the UTF-8
+#    interpretation of those bytes, except for attributes where the
+#    debugging tool has embedded knowledge that the value is some other
+#    kind of data.
+# 
+#    Authors defining DNS-SD profiles SHOULD NOT generically convert
+#    binary attribute data types into printable text using hexadecimal
+#    representation, Base-64 [RFC4648], or Unix-to-Unix (UU) encoding,
+#    merely for the sake of making the data appear to be printable text
+#    when seen in a generic debugging tool.  Doing this simply bloats the
+#    size of the TXT record, without actually making the data any more
+#    understandable to someone looking at it in a generic debugging tool.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The value MUST NOT
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authors defining DNS-SD profiles SHOULD NOT generically convert
+binary attribute data types into printable text using hexadecimal
+representation, Base-64 [RFC4648], or Unix-to-Unix (UU) encoding,
+merely for the sake of making the data appear to be printable text
+when seen in a generic debugging tool.
+'''
+

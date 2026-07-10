@@ -1,0 +1,63 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3"
+
+# Protocol Errors
+#
+#    Other error scenarios can occur due to malformed, incomplete, or
+#    unexpected messages during a transaction.  These include (but are not
+#    limited to):
+# 
+#    *  a client or server receives a message with a non-zero Message ID
+# 
+#    *  a client or server receives a STREAM FIN before receiving all the
+#       bytes for a message indicated in the 2-octet length field
+# 
+#    *  a client receives a STREAM FIN before receiving all the expected
+#       responses
+# 
+#    *  a server receives more than one query on a stream
+# 
+#    *  a client receives a different number of responses on a stream than
+#       expected (e.g., multiple responses to a query for an A record)
+# 
+#    *  a client receives a STOP_SENDING request
+# 
+#    *  the client or server does not indicate the expected STREAM FIN
+#       after sending requests or responses (see Section 4.2)
+# 
+#    *  an implementation receives a message containing the edns-tcp-
+#       keepalive EDNS(0) Option [RFC7828] (see Section 5.5.2)
+# 
+#    *  a client or a server attempts to open a unidirectional QUIC stream
+# 
+#    *  a server attempts to open a server-initiated bidirectional QUIC
+#       stream
+# 
+#    *  a server receives a "replayable" transaction in 0-RTT data (for
+#       servers not willing to handle this case, see Section 4.5)
+# 
+#    If a peer encounters such an error condition, it is considered a
+#    fatal error.  It SHOULD forcibly abort the connection using QUIC's
+#    CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
+#    DOQ_PROTOCOL_ERROR.  In some cases, it MAY instead silently abandon
+#    the connection, which uses fewer of the local resources but makes
+#    debugging at the offending node more difficult.
+# 
+#    It is noted that the restrictions on use of the above EDNS(0) option
+#    has implications for proxying messages from TCP/DoT/DoH over DoQ.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It SHOULD forcibly abort the connection using QUIC's
+CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
+DOQ_PROTOCOL_ERROR.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In some cases, it MAY instead silently abandon
+the connection, which uses fewer of the local resources but makes
+debugging at the offending node more difficult.
+'''
+

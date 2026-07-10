@@ -1,0 +1,107 @@
+target = "https://www.rfc-editor.org/rfc/rfc7686#section-2"
+
+# The ".onion" Special-Use Domain Name
+#
+#    These properties have the following effects upon parties using or
+#    processing .onion names (as per [RFC6761]):
+# 
+#    1.  Users: Human users are expected to recognize .onion names as
+#        having different security properties (see Section 1) and also as
+#        being only available through software that is aware of .onion
+#        names.
+# 
+#    2.  Application Software: Applications (including proxies) that
+#        implement the Tor protocol MUST recognize .onion names as special
+#        by either accessing them directly or using a proxy (e.g., SOCKS
+#        [RFC1928]) to do so.  Applications that do not implement the Tor
+#        protocol SHOULD generate an error upon the use of .onion and
+#        SHOULD NOT perform a DNS lookup.
+# 
+#    3.  Name Resolution APIs and Libraries: Resolvers MUST either respond
+#        to requests for .onion names by resolving them according to
+#        [tor-rendezvous] or by responding with NXDOMAIN [RFC1035].
+# 
+#    4.  Caching DNS Servers: Caching servers, where not explicitly
+#        adapted to interoperate with Tor, SHOULD NOT attempt to look up
+#        records for .onion names.  They MUST generate NXDOMAIN for all
+#        such queries.
+# 
+#    5.  Authoritative DNS Servers: Authoritative servers MUST respond to
+#        queries for .onion with NXDOMAIN.
+# 
+#    6.  DNS Server Operators: Operators MUST NOT configure an
+#        authoritative DNS server to answer queries for .onion.  If they
+#        do so, client software is likely to ignore any results (see
+#        above).
+# 
+#    7.  DNS Registries/Registrars: Registrars MUST NOT register .onion
+#        names; all such requests MUST be denied.
+# 
+#    Note that the restriction upon the registration of .onion names does
+#    not prohibit IANA from inserting a record into the root zone database
+#    to reserve the name.
+# 
+#    Likewise, it does not prevent non-DNS service providers (such as
+#    trust providers) from supporting .onion names in their applications.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Application Software: Applications (including proxies) that
+implement the Tor protocol MUST recognize .onion names as special
+by either accessing them directly or using a proxy (e.g., SOCKS
+[RFC1928]) to do so.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Applications that do not implement the Tor
+protocol SHOULD generate an error upon the use of .onion and
+SHOULD NOT perform a DNS lookup.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Name Resolution APIs and Libraries: Resolvers MUST either respond
+to requests for .onion names by resolving them according to
+[tor-rendezvous] or by responding with NXDOMAIN [RFC1035].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS Servers: Caching servers, where not explicitly
+adapted to interoperate with Tor, SHOULD NOT attempt to look up
+records for .onion names.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+They MUST generate NXDOMAIN for all
+such queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Authoritative DNS Servers: Authoritative servers MUST respond to
+queries for .onion with NXDOMAIN.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Server Operators: Operators MUST NOT configure an
+authoritative DNS server to answer queries for .onion.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Registries/Registrars: Registrars MUST NOT register .onion
+names; all such requests MUST be denied.
+'''
+

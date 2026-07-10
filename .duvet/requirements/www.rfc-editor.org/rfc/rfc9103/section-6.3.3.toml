@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6.3.3"
+
+# XFR Limits
+#
+#    The server MAY limit the number of concurrent IXFRs, AXFRs, or total
+#    XFR transfers in progress (or from a given secondary) to protect
+#    server resources.  Servers SHOULD return SERVFAIL if this limit is
+#    hit, since it is a transient error and a retry at a later time might
+#    succeed (there is no previous specification for this behavior).
+
+[[spec]]
+level = "MAY"
+quote = '''
+The server MAY limit the number of concurrent IXFRs, AXFRs, or total
+XFR transfers in progress (or from a given secondary) to protect
+server resources.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD return SERVFAIL if this limit is
+hit, since it is a transient error and a retry at a later time might
+succeed (there is no previous specification for this behavior).
+'''
+

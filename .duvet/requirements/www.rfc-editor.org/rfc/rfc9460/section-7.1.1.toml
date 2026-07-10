@@ -1,0 +1,73 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-7.1.1"
+
+# Representation
+#
+#    ALPNs are identified by their registered "Identification Sequence"
+#    (alpn-id), which is a sequence of 1-255 octets.
+# 
+#    alpn-id = 1*255OCTET
+# 
+#    For "alpn", the presentation value SHALL be a comma-separated list
+#    (Appendix A.1) of one or more alpn-ids.  Zone-file implementations
+#    MAY disallow the "," and "\" characters in ALPN IDs instead of
+#    implementing the value-list escaping procedure, relying on the opaque
+#    key format (e.g., key1=\002h2) in the event that these characters are
+#    needed.
+# 
+#    The wire-format value for "alpn" consists of at least one alpn-id
+#    prefixed by its length as a single octet, and these length-value
+#    pairs are concatenated to form the SvcParamValue.  These pairs MUST
+#    exactly fill the SvcParamValue; otherwise, the SvcParamValue is
+#    malformed.
+# 
+#    For "no-default-alpn", the presentation and wire-format values MUST
+#    be empty.  When "no-default-alpn" is specified in an RR, "alpn" must
+#    also be specified in order for the RR to be "self-consistent"
+#    (Section 2.4.3).
+# 
+#    Each scheme that uses this SvcParamKey defines a "default set" of
+#    ALPN IDs that are supported by nearly all clients and servers; this
+#    set MAY be empty.  To determine the SVCB ALPN set, the client starts
+#    with the list of alpn-ids from the "alpn" SvcParamKey, and it adds
+#    the default set unless the "no-default-alpn" SvcParamKey is present.
+
+[[spec]]
+level = "MUST"
+quote = '''
+For "alpn", the presentation value SHALL be a comma-separated list
+(Appendix A.1) of one or more alpn-ids.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Zone-file implementations
+MAY disallow the "," and "\" characters in ALPN IDs instead of
+implementing the value-list escaping procedure, relying on the opaque
+key format (e.g., key1=\002h2) in the event that these characters are
+needed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+These pairs MUST
+exactly fill the SvcParamValue; otherwise, the SvcParamValue is
+malformed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For "no-default-alpn", the presentation and wire-format values MUST
+be empty.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Each scheme that uses this SvcParamKey defines a "default set" of
+ALPN IDs that are supported by nearly all clients and servers; this
+set MAY be empty.
+'''
+

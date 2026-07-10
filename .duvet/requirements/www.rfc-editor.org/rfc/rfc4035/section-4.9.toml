@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.9"
+
+# Stub Resolvers
+#
+#    A security-aware stub resolver MUST support the DNSSEC RR types, at
+#    least to the extent of not mishandling responses just because they
+#    contain DNSSEC RRs.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware stub resolver MUST support the DNSSEC RR types, at
+least to the extent of not mishandling responses just because they
+contain DNSSEC RRs.
+'''
+

@@ -1,0 +1,51 @@
+target = "https://www.rfc-editor.org/rfc/rfc9077#section-3.4"
+
+# Updates to RFC 8198
+#
+#    [RFC8198], Section 5.4 ("Consideration on TTL") is completely
+#    replaced by the following text:
+# 
+#    |  The TTL value of negative information is especially important,
+#    |  because newly added domain names cannot be used while the negative
+#    |  information is effective.
+#    |  
+#    |  Section 5 of [RFC2308] suggests a maximum default negative cache
+#    |  TTL value of 3 hours (10800).  It is RECOMMENDED that validating
+#    |  resolvers limit the maximum effective TTL value of negative
+#    |  responses (NSEC/NSEC3 RRs) to this same value.
+#    |  
+#    |  A resolver that supports aggressive use of NSEC and NSEC3 MAY
+#    |  limit the TTL of NSEC and NSEC3 records to the lesser of the
+#    |  SOA.MINIMUM field and the TTL of the SOA in a response, if
+#    |  present.  It MAY also use a previously cached SOA for a zone to
+#    |  find these values.
+# 
+#    (The third paragraph of the original is removed, and the fourth
+#    paragraph is updated to allow resolvers to also take the lesser of
+#    the SOA TTL and SOA MINIMUM.)
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that validating
+|  resolvers limit the maximum effective TTL value of negative
+|  responses (NSEC/NSEC3 RRs) to this same value.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+|
+|  A resolver that supports aggressive use of NSEC and NSEC3 MAY
+|  limit the TTL of NSEC and NSEC3 records to the lesser of the
+|  SOA.MINIMUM field and the TTL of the SOA in a response, if
+|  present.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+It MAY also use a previously cached SOA for a zone to
+|  find these values.
+'''
+

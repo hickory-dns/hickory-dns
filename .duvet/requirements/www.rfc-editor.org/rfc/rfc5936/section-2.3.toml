@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.3"
+
+# TCP Connection Aborts
+#
+#    If an AXFR client sends a query on a TCP connection and the
+#    connection is closed at any point, the AXFR client MUST consider the
+#    AXFR session terminated.  The message ID MAY be used again on a new
+#    connection, even if the question and AXFR server are the same.
+# 
+#    Facing a dropped connection, a client SHOULD try to make some
+#    determination as to whether the connection closure was the result of
+#    network activity or due to a decision by the AXFR server.  This
+#    determination is not an exact science.  It is up to the AXFR client
+#    to react, but the implemented reaction SHOULD NOT be either an
+#    endless cycle of retries or an increasing (in frequency) retry rate.
+# 
+#    An AXFR server implementer should take into consideration the dilemma
+#    described above when a connection is closed with an outstanding query
+#    in the pipeline.  For this reason, a server ought to reserve this
+#    course of action for situations in which it believes beyond a doubt
+#    that the AXFR client is attempting abusive behavior.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an AXFR client sends a query on a TCP connection and the
+connection is closed at any point, the AXFR client MUST consider the
+AXFR session terminated.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The message ID MAY be used again on a new
+connection, even if the question and AXFR server are the same.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Facing a dropped connection, a client SHOULD try to make some
+determination as to whether the connection closure was the result of
+network activity or due to a decision by the AXFR server.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is up to the AXFR client
+to react, but the implemented reaction SHOULD NOT be either an
+endless cycle of retries or an increasing (in frequency) retry rate.
+'''
+

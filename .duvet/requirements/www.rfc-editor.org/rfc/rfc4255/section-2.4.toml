@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc4255#section-2.4"
+
+# Authentication
+#
+#    A public key verified using this method MUST NOT be trusted if the
+#    SSHFP resource record (RR) used for verification was not
+#    authenticated by a trusted SIG RR.
+# 
+#    Clients that do validate the DNSSEC signatures themselves SHOULD use
+#    standard DNSSEC validation procedures.
+# 
+#    Clients that do not validate the DNSSEC signatures themselves MUST
+#    use a secure transport (e.g., TSIG [9], SIG(0) [10], or IPsec [8])
+#    between themselves and the entity performing the signature
+#    validation.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A public key verified using this method MUST NOT be trusted if the
+SSHFP resource record (RR) used for verification was not
+authenticated by a trusted SIG RR.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients that do validate the DNSSEC signatures themselves SHOULD use
+standard DNSSEC validation procedures.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients that do not validate the DNSSEC signatures themselves MUST
+use a secure transport (e.g., TSIG [9], SIG(0) [10], or IPsec [8])
+between themselves and the entity performing the signature
+validation.
+'''
+

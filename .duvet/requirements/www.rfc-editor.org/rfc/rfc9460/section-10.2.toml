@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-10.2"
+
+# Structuring Zones for Performance
+#
+#    To avoid a delay for clients using a non-conforming recursive
+#    resolver, domain owners SHOULD minimize the use of AliasMode records
+#    and SHOULD choose TargetName according to a predictable convention
+#    that is known to the client, so that clients can issue A and/or AAAA
+#    queries for TargetName in advance (see Section 5).  Unless otherwise
+#    specified, the convention is to set TargetName to the service name
+#    for an initial ServiceMode record, or to "." if it is reached via an
+#    alias.
+# 
+#    $ORIGIN example.com. ; Origin
+#    foo                  3600 IN CNAME foosvc.example.net.
+#    _8080._foo.foo       3600 IN CNAME foosvc.example.net.
+#    bar                   300 IN AAAA 2001:db8::2
+#    _9090._bar.bar       3600 IN SVCB 1 bar key65444=...
+# 
+#    $ORIGIN example.net. ; Service provider zone
+#    foosvc               3600 IN SVCB 1 . key65333=...
+#    foosvc                300 IN AAAA 2001:db8::1
+# 
+#            Figure 1: "foo://foo.example.com:8080" Is Available at
+#       "foosvc.example.net", but "bar://bar.example.com:9090" Is Served
+#                                   Locally
+# 
+#    Domain owners SHOULD avoid using a TargetName that is below a DNAME,
+#    as this is likely unnecessary and makes responses slower and larger.
+#    Also, zone structures that require following more than eight aliases
+#    (counting both AliasMode and CNAME records) are NOT RECOMMENDED.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To avoid a delay for clients using a non-conforming recursive
+resolver, domain owners SHOULD minimize the use of AliasMode records
+and SHOULD choose TargetName according to a predictable convention
+that is known to the client, so that clients can issue A and/or AAAA
+queries for TargetName in advance (see Section 5).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Domain owners SHOULD avoid using a TargetName that is below a DNAME,
+as this is likely unnecessary and makes responses slower and larger.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Also, zone structures that require following more than eight aliases
+(counting both AliasMode and CNAME records) are NOT RECOMMENDED.
+'''
+

@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-8"
+
+# Security Considerations
+#
+#    DNAME redirects queries elsewhere, which may impact security based on
+#    policy and the security status of the zone with the DNAME and the
+#    redirection zone's security status.  For validating resolvers, the
+#    lowest security status of the links in the chain of CNAME and DNAME
+#    redirections is applied to the result.
+# 
+#    If a validating resolver accepts wildcarded DNAMEs, this creates
+#    security issues.  Since the processing of a wildcarded DNAME is non-
+#    deterministic and the CNAME that was substituted by the server has no
+#    signature, the resolver may choose a different result than what the
+#    server meant, and consequently end up at the wrong destination.  Use
+#    of wildcarded DNAMEs is discouraged in any case [RFC4592].
+# 
+#    A validating resolver MUST understand DNAME, according to [RFC4034].
+#    The examples in Section 5.3.4 illustrate this need.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A validating resolver MUST understand DNAME, according to [RFC4034].
+'''
+

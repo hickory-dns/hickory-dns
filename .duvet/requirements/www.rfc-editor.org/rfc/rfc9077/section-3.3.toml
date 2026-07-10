@@ -1,0 +1,76 @@
+target = "https://www.rfc-editor.org/rfc/rfc9077#section-3.3"
+
+# Updates to RFC 5155
+#
+#    [RFC5155] says:
+# 
+#    |  The NSEC3 RR SHOULD have the same TTL value as the SOA minimum TTL
+#    |  field.  This is in the spirit of negative caching [RFC2308].
+# 
+#    This is updated to say:
+# 
+#    |  The TTL of the NSEC3 RR that is returned MUST be the lesser of the
+#    |  MINIMUM field of the SOA record and the TTL of the SOA itself.
+#    |  This matches the definition of the TTL for negative responses in
+#    |  [RFC2308].  Because some signers incrementally update the NSEC3
+#    |  chain, a transient inconsistency between the observed and expected
+#    |  TTL MAY exist.
+# 
+#    Where [RFC5155] says:
+# 
+#    |  *  The TTL value for any NSEC3 RR SHOULD be the same as the
+#    |     minimum TTL value field in the zone SOA RR.
+# 
+#    This is updated to say:
+# 
+#    |  *  The TTL value for each NSEC3 RR MUST be the lesser of the
+#    |     MINIMUM field of the zone SOA RR and the TTL of the zone SOA RR
+#    |     itself.  Because some signers incrementally update the NSEC3
+#    |     chain, a transient inconsistency between the observed and
+#    |     expected TTL MAY exist.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  The NSEC3 RR SHOULD have the same TTL value as the SOA minimum TTL
+|  field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  The TTL of the NSEC3 RR that is returned MUST be the lesser of the
+|  MINIMUM field of the SOA record and the TTL of the SOA itself.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Because some signers incrementally update the NSEC3
+|  chain, a transient inconsistency between the observed and expected
+|  TTL MAY exist.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  *  The TTL value for any NSEC3 RR SHOULD be the same as the
+|     minimum TTL value field in the zone SOA RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  *  The TTL value for each NSEC3 RR MUST be the lesser of the
+|     MINIMUM field of the zone SOA RR and the TTL of the zone SOA RR
+|     itself.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Because some signers incrementally update the NSEC3
+|     chain, a transient inconsistency between the observed and
+|     expected TTL MAY exist.
+'''
+

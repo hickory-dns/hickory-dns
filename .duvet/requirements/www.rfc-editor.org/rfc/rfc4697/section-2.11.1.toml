@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.11.1"
+
+# Recommendation
+#
+#    This list is not conclusive, but reflects the changes that would
+#    produce the most impact in terms of reducing disproportionate query
+#    load among a zone's authoritative servers.  That is, these changes
+#    would help spread the query load evenly.
+# 
+#    o  Do not make assumptions based on NS RRSet order: all NS RRs SHOULD
+#       be treated equally.  (In the case of the "com" zone, for example,
+#       most of the root servers return the NS record for
+#       "a.gtld-servers.net" first in the authority section of referrals.
+#       Apparently as a result, this server receives disproportionately
+#       more traffic than the other twelve authoritative servers for
+#       "com".)
+# 
+#    o  Use all NS records in an RRSet.  (For example, we are aware of
+#       implementations that hard-coded information for a subset of the
+#       root servers.)
+# 
+#    o  Maintain state and favor the best-performing of a zone's
+#       authoritative servers.  A good definition of performance is
+#       response time.  Non-responsive servers can be penalized with an
+#       extremely high response time.
+# 
+#    o  Do not lock onto the best-performing of a zone's name servers.  An
+#       iterative resolver SHOULD periodically check the performance of
+#       all of a zone's name servers to adjust its determination of the
+#       best-performing one.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  Do not make assumptions based on NS RRSet order: all NS RRs SHOULD
+be treated equally.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An
+iterative resolver SHOULD periodically check the performance of
+all of a zone's name servers to adjust its determination of the
+best-performing one.
+'''
+

@@ -1,0 +1,95 @@
+target = "https://www.rfc-editor.org/rfc/rfc9520#section-3.2"
+
+# Caching
+#
+#    Resolvers MUST implement a cache for resolution failures.  The
+#    purpose of this cache is to eliminate repeated upstream queries that
+#    cannot be resolved.  When an incoming query matches a cached
+#    resolution failure, the resolver MUST NOT send any corresponding
+#    outgoing queries until after the cache entries expire.
+# 
+#    Implementation details for such a cache are not specified in this
+#    document.  The implementation might cache different resolution
+#    failure conditions differently.  For example, DNSSEC validation
+#    failures might be cached according to the queried name, class, and
+#    type, whereas unresponsive servers might be cached only according to
+#    the server's IP address.  Developers should document their
+#    implementation choices so that operators know what behaviors to
+#    expect when resolution failures are cached.
+# 
+#    Resolvers MUST cache resolution failures for at least 1 second.
+#    Resolvers MAY cache different types of resolution failures for
+#    different (i.e., longer) amounts of time.  Consistent with [RFC2308],
+#    resolution failures MUST NOT be cached for longer than 5 minutes.
+# 
+#    The minimum cache duration SHOULD be configurable by the operator.  A
+#    longer cache duration for resolution failures will reduce the
+#    processing burden from repeated queries but may also increase the
+#    time to recover from transitory issues.
+# 
+#    Resolvers SHOULD employ an exponential or linear backoff algorithm to
+#    increase the cache duration for persistent resolution failures.  For
+#    example, the initial time for negatively caching a resolution failure
+#    might be set to 5 seconds and increased after each retry that results
+#    in another resolution failure, up to a configurable maximum, not to
+#    exceed the 5-minute upper limit.
+# 
+#    Notwithstanding the above, resolvers SHOULD implement measures to
+#    mitigate resource exhaustion attacks on the failed resolution cache.
+#    That is, the resolver should limit the amount of memory and/or
+#    processing time devoted to this cache.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolvers MUST implement a cache for resolution failures.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When an incoming query matches a cached
+resolution failure, the resolver MUST NOT send any corresponding
+outgoing queries until after the cache entries expire.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolvers MUST cache resolution failures for at least 1 second.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Resolvers MAY cache different types of resolution failures for
+different (i.e., longer) amounts of time.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Consistent with [RFC2308],
+resolution failures MUST NOT be cached for longer than 5 minutes.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The minimum cache duration SHOULD be configurable by the operator.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Resolvers SHOULD employ an exponential or linear backoff algorithm to
+increase the cache duration for persistent resolution failures.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Notwithstanding the above, resolvers SHOULD implement measures to
+mitigate resource exhaustion attacks on the failed resolution cache.
+'''
+

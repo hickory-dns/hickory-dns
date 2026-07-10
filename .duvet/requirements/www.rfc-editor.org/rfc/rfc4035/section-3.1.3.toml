@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.3"
+
+# Including NSEC RRs in a Response
+#
+#    When responding to a query that has the DO bit set, a security-aware
+#    authoritative name server for a signed zone MUST include NSEC RRs in
+#    each of the following cases:
+# 
+#    No Data: The zone contains RRsets that exactly match <SNAME, SCLASS>
+#       but does not contain any RRsets that exactly match <SNAME, SCLASS,
+#       STYPE>.
+# 
+#    Name Error: The zone does not contain any RRsets that match <SNAME,
+#       SCLASS> either exactly or via wildcard name expansion.
+# 
+#    Wildcard Answer: The zone does not contain any RRsets that exactly
+#       match <SNAME, SCLASS> but does contain an RRset that matches
+#       <SNAME, SCLASS, STYPE> via wildcard name expansion.
+# 
+#    Wildcard No Data: The zone does not contain any RRsets that exactly
+#       match <SNAME, SCLASS> and does contain one or more RRsets that
+#       match <SNAME, SCLASS> via wildcard name expansion, but does not
+#       contain any RRsets that match <SNAME, SCLASS, STYPE> via wildcard
+#       name expansion.
+# 
+#    In each of these cases, the name server includes NSEC RRs in the
+#    response to prove that an exact match for <SNAME, SCLASS, STYPE> was
+#    not present in the zone and that the response that the name server is
+#    returning is correct given the data in the zone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When responding to a query that has the DO bit set, a security-aware
+authoritative name server for a signed zone MUST include NSEC RRs in
+each of the following cases:
+'''
+

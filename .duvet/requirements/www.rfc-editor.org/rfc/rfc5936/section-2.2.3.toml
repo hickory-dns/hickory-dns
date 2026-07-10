@@ -1,0 +1,13 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.2.3"
+
+# Answer Section
+#
+#    The Answer section MUST be populated with the zone contents.  See
+#    Section 3 below on encoding zone contents.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Answer section MUST be populated with the zone contents.
+'''
+

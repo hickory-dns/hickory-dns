@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-3.1"
+
+# Records to Include
+#
+#    In the Answer section of AXFR response messages, the resource records
+#    within a zone for the given serial number MUST appear.  The
+#    definition of what belongs in a zone is described in RFC 1034,
+# 
+#    Section 4.2, "How the database is divided into zones" (in particular
+#    Section 4.2.1, "Technical considerations"), and it has been clarified
+#    in Section 6 of RFC 2181.
+# 
+#    Zones for which it is impractical to list the entire zone for a
+#    serial number are not suitable for AXFR retrieval.  A typical (but
+#    not limiting) description of such a zone is a zone consisting of
+#    responses generated via other database lookups and/or computed based
+#    upon ever-changing data.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the Answer section of AXFR response messages, the resource records
+within a zone for the given serial number MUST appear.
+'''
+

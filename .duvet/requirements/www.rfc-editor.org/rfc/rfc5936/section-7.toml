@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-7"
+
+# Backwards Compatibility
+#
+#    Describing backwards compatibility is difficult because of the lack
+#    of specifics in the original definition.  In this section, some hints
+#    at building in backwards compatibility are given, mostly repeated
+#    from the relevant earlier sections.
+# 
+#    Backwards compatibility is not necessary, but the greater the extent
+#    of an implementation's compatibility, the greater its
+#    interoperability.  For turnkey implementations, this is not usually a
+#    concern.  For general-purpose implementations, this takes on varying
+#    levels of importance, depending on the implementer's desire to
+#    maintain interoperability.
+# 
+#    It is unfortunate that a need to fall back to older behavior cannot
+#    be discovered, and thus has to be noted in a configuration file.  An
+#    implementation SHOULD, in its documentation, encourage operators to
+#    periodically review AXFR clients and servers it has made notes about
+#    repeatedly, as old software gets updated from time to time.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An
+implementation SHOULD, in its documentation, encourage operators to
+periodically review AXFR clients and servers it has made notes about
+repeatedly, as old software gets updated from time to time.
+'''
+

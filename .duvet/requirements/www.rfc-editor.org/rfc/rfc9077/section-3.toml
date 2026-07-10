@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc9077#section-3"
+
+# NSEC and NSEC3 TTL Changes
+#
+#    [RFC4034], [RFC4035], and [RFC5155] use the SHOULD requirement level,
+#    but they were written prior to the publication of [RFC8198] when
+#    [RFC4035] still said:
+# 
+#    |  However, it seems prudent for resolvers to avoid blocking new
+#    |  authoritative data or synthesizing new data on their own.
+# 
+#    [RFC8198] updated that text to contain:
+# 
+#    |  ...DNSSEC-enabled validating resolvers SHOULD use wildcards and
+#    |  NSEC/NSEC3 resource records to generate positive and negative
+#    |  responses until the effective TTLs or signatures for those records
+#    |  expire.
+# 
+#    This means that the correctness of NSEC and NSEC3 records and their
+#    TTLs has become much more important.  Because of that, the updates in
+#    this document upgrade the requirement level to MUST.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+[RFC4034], [RFC4035], and [RFC5155] use the SHOULD requirement level,
+but they were written prior to the publication of [RFC8198] when
+[RFC4035] still said:
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  ...DNSSEC-enabled validating resolvers SHOULD use wildcards and
+|  NSEC/NSEC3 resource records to generate positive and negative
+|  responses until the effective TTLs or signatures for those records
+|  expire.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Because of that, the updates in
+this document upgrade the requirement level to MUST.
+'''
+

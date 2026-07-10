@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-3.2"
+
+# Signaling Names
+#
+#    To publish information about the child zone in an authenticated
+#    fashion, the child DNS operator MUST publish one or more signaling
+#    records at a signaling name under each signaling domain.
+# 
+#    Signaling records MUST be accompanied by RRSIG records created with
+#    the corresponding signaling zone's key(s).  The type and contents of
+#    these signaling records depend on the type of signal.
+# 
+#    The signaling name identifies the child and the signaling type.  It
+#    is identical to the child name (with the final root label removed),
+#    prefixed with a label containing the signaling type.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To publish information about the child zone in an authenticated
+fashion, the child DNS operator MUST publish one or more signaling
+records at a signaling name under each signaling domain.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Signaling records MUST be accompanied by RRSIG records created with
+the corresponding signaling zone's key(s).
+'''
+

@@ -1,0 +1,17 @@
+target = "https://www.rfc-editor.org/rfc/rfc4343#section-4"
+
+# Case on Input and Output
+#
+#    While ASCII label comparisons are case insensitive, [STD13] says case
+#    MUST be preserved on output and preserved when convenient on input.
+#    However, this means less than it would appear, since the preservation
+#    of case on output is NOT required when output is optimized by the use
+#    of indirect labels, as explained below.
+
+[[spec]]
+level = "MUST"
+quote = '''
+While ASCII label comparisons are case insensitive, [STD13] says case
+MUST be preserved on output and preserved when convenient on input.
+'''
+
