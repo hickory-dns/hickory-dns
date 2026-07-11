@@ -414,6 +414,7 @@ impl H3ClientStreamBuilder {
         server_name: Arc<str>,
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
+        let local_addr = endpoint.local_addr().ok();
         let quic_connection = match timeout(
             self.connect_timeout,
             connect_quic(
@@ -431,10 +432,10 @@ impl H3ClientStreamBuilder {
         .await
         {
             Ok(connection) => connection?,
-            Err(_) => {
+            Err(elapsed) => {
                 return Err(NetError::from(format!(
-                    "h3 QUIC connect timed out after {:?}: server={name_server}, server_name={server_name}",
-                    self.connect_timeout
+                    "h3 QUIC connect timed out after {:?}: server={name_server}, server_name={server_name}, local_addr={local_addr:?}, elapsed={elapsed}",
+                    self.connect_timeout,
                 )));
             }
         };

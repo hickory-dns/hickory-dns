@@ -32,7 +32,7 @@ on:
       rust_log:
         description: RUST_LOG filter for H3 diagnostics
         required: true
-        default: "info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=trace,quinn_udp=debug"
+        default: "info,hickory_net::h3=debug,hickory_net::quic=debug,h3=debug,quinn=debug,quinn_proto=trace,quinn_udp=debug"
         type: string
 
 concurrency:
@@ -49,7 +49,7 @@ jobs:
         os: ${{ fromJSON(inputs.platform == 'both' && '["ubuntu-latest","windows-latest"]' || inputs.platform == 'windows' && '["windows-latest"]' || '["ubuntu-latest"]') }}
     env:
       RUST_BACKTRACE: "1"
-      RUST_LOG: ${{ inputs.rust_log || 'info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=trace,quinn_udp=debug' }}
+      RUST_LOG: ${{ inputs.rust_log || 'info,hickory_net::h3=debug,hickory_net::quic=debug,h3=debug,quinn=debug,quinn_proto=trace,quinn_udp=debug' }}
       REPETITIONS: ${{ inputs.repetitions || '200' }}
       TEST_SCOPE: ${{ inputs.test_scope || 'cloudflare' }}
     steps:
