@@ -18,12 +18,12 @@ on:
       repetitions:
         description: Number of times to repeat the H3 test group
         required: true
-        default: "3"
+        default: "200"
         type: string
       test_scope:
         description: H3 tests to run
         required: true
-        default: all
+        default: cloudflare
         type: choice
         options:
           - all
@@ -32,7 +32,7 @@ on:
       rust_log:
         description: RUST_LOG filter for H3 diagnostics
         required: true
-        default: "info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=debug,quinn_udp=debug"
+        default: "info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=trace,quinn_udp=debug"
         type: string
 
 concurrency:
@@ -49,9 +49,9 @@ jobs:
         os: ${{ fromJSON(inputs.platform == 'both' && '["ubuntu-latest","windows-latest"]' || inputs.platform == 'windows' && '["windows-latest"]' || '["ubuntu-latest"]') }}
     env:
       RUST_BACKTRACE: "1"
-      RUST_LOG: ${{ inputs.rust_log || 'info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=debug,quinn_udp=debug' }}
-      REPETITIONS: ${{ inputs.repetitions || '3' }}
-      TEST_SCOPE: ${{ inputs.test_scope || 'all' }}
+      RUST_LOG: ${{ inputs.rust_log || 'info,hickory_net::h3=debug,h3=debug,quinn=debug,quinn_proto=trace,quinn_udp=debug' }}
+      REPETITIONS: ${{ inputs.repetitions || '200' }}
+      TEST_SCOPE: ${{ inputs.test_scope || 'cloudflare' }}
     steps:
       - uses: actions/checkout@v7
 

@@ -414,7 +414,7 @@ impl H3ClientStreamBuilder {
         server_name: Arc<str>,
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
-        let quic_connection = timeout(
+        let quic_connection = match timeout(
             self.connect_timeout,
             connect_quic(
                 name_server,
@@ -429,7 +429,15 @@ impl H3ClientStreamBuilder {
             ),
         )
         .await
-        .map_err(|_| NetError::Timeout)??;
+        {
+            Ok(connection) => connection?,
+            Err(_) => {
+                return Err(NetError::from(format!(
+                    "h3 QUIC connect timed out after {:?}: server={name_server}, server_name={server_name}",
+                    self.connect_timeout
+                )));
+            }
+        };
 
         let h3_connection = h3_quinn::Connection::new(quic_connection);
         let mut builder = h3::client::builder();
@@ -440,7 +448,12 @@ impl H3ClientStreamBuilder {
             Ok(Err(e)) => {
                 return Err(ProtoError::from(format!("h3 connection failed: {e}")).into());
             }
-            Err(_) => return Err(NetError::Timeout),
+            Err(_) => {
+                return Err(NetError::from(format!(
+                    "h3 HTTP/3 setup timed out after {:?}: server={name_server}, server_name={server_name}, path={path}",
+                    self.connect_timeout
+                )));
+            }
         };
 
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
